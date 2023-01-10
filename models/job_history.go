@@ -25,7 +25,7 @@ type JobHistory struct {
 	Details        types.JSONMap
 	Status         string
 	TimeStart      time.Time
-	TimeEnd        time.Time
+	TimeEnd        *time.Time
 	Errors         []string `gorm:"-"`
 }
 
@@ -36,7 +36,9 @@ func (h *JobHistory) Start() {
 }
 
 func (h *JobHistory) End() {
-	h.DurationMillis = time.Now().Sub(h.TimeStart).Milliseconds()
+	timeEnd := time.Now()
+	h.TimeEnd = &timeEnd
+	h.DurationMillis = timeEnd.Sub(h.TimeStart).Milliseconds()
 	h.Details = map[string]any{
 		"errors": h.Errors,
 	}
