@@ -7,11 +7,29 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+	"unsafe"
 
+	jsoniter "github.com/json-iterator/go"
+	jsontime "github.com/liamylian/jsontime/v2/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 )
+
+const PostgresTimestampFormat = "2006-01-02T15:04:05.999999"
+
+func init() {
+	jsontime.AddTimeFormatAlias("postgres_timestamp", PostgresTimestampFormat)
+	jsoniter.RegisterTypeDecoderFunc("time.Duration", func(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+		t, err := time.ParseDuration(iter.ReadString())
+		if err != nil {
+			iter.Error = err
+			return
+		}
+		*((*time.Duration)(ptr)) = t
+	})
+}
 
 // JSON defined JSON data type, need to implements driver.Valuer, sql.Scanner interface
 type JSON json.RawMessage
