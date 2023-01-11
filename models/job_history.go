@@ -29,13 +29,22 @@ type JobHistory struct {
 	Errors         []string `gorm:"-"`
 }
 
-func (h *JobHistory) Start() {
+func NewJobHistory(name, resourceType, resourceID string) *JobHistory {
+	return &JobHistory{
+		Name:         name,
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+	}
+}
+
+func (h *JobHistory) Start() *JobHistory {
 	h.TimeStart = time.Now()
 	h.Status = StatusRunning
 	h.Hostname, _ = os.Hostname()
+	return h
 }
 
-func (h *JobHistory) End() {
+func (h *JobHistory) End() *JobHistory {
 	timeEnd := time.Now()
 	h.TimeEnd = &timeEnd
 	h.DurationMillis = timeEnd.Sub(h.TimeStart).Milliseconds()
@@ -43,21 +52,18 @@ func (h *JobHistory) End() {
 		"errors": h.Errors,
 	}
 	h.Status = StatusFinished
+	return h
 }
 
-func (h *JobHistory) New(name, resourceType, resourceID string) {
-	h.Name = name
-	h.ResourceType = resourceType
-	h.ResourceID = resourceID
-}
-
-func (h *JobHistory) AddError(err string) {
+func (h *JobHistory) AddError(err string) *JobHistory {
 	h.ErrorCount += 1
 	if err != "" {
 		h.Errors = append(h.Errors, err)
 	}
+	return h
 }
 
-func (h *JobHistory) IncrSuccess() {
+func (h *JobHistory) IncrSuccess() *JobHistory {
 	h.SuccessCount += 1
+	return h
 }
