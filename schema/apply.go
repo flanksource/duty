@@ -26,19 +26,21 @@ type stateReadCloser struct {
 //go:embed *.hcl
 var schemas embed.FS
 
-var KRATOS_TABLES = []string{
-	"*.identities*", // exclude identities table
-	"*.identity",    // exclude identities table
-	"*.networks",
-	"*.courier*",
-	"*.schema_migration",
-	"*.selfservice*",
-	"*.sessions*",
-	"*.continuity_containers",
+func skipDropTables(changes []schema.Change) []schema.Change {
+	var filtered []schema.Change
+	for _, change := range changes {
+		switch change.(type) {
+		case *schema.DropTable:
+			logger.Debugf("Skipping drop table of %s", change.(*schema.DropTable).T.Name)
+		default:
+			filtered = append(filtered, change)
+		}
+	}
+	return filtered
 }
 
 func Apply(ctx context.Context, connection string) error {
-	from, err := dbReader(ctx, connection, KRATOS_TABLES)
+	from, err := dbReader(ctx, connection, []string{})
 	if err != nil {
 		return err
 	}
@@ -60,16 +62,22 @@ func Apply(ctx context.Context, connection string) error {
 		logger.Infof("No changes detected")
 		return nil
 	}
+
+	changes = skipDropTables(changes)
+
 	var plan *migrate.Plan
 	if plan, err = client.PlanChanges(ctx, "", changes); err != nil {
 		return err
-	} else {
-		logger.Tracef("Plan: %s", plan)
 	}
+
+	for _, change := range plan.Changes {
+		logger.Debugf(change.Cmd)
+	}
+
 	if err = client.ApplyChanges(ctx, changes); err != nil {
-		return fmt.Errorf("Applied %d changes and then failed: %v", len(plan.Changes), err)
+		return fmt.Errorf("Applied %d changes and then failed: %v", len(changes), err)
 	}
-	logger.Infof("Applied %d changes", len(plan.Changes))
+	logger.Infof("Applied %d changes", len(changes))
 	return nil
 }
 
