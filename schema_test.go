@@ -60,6 +60,9 @@ var _ = Describe("Schema", func() {
 		logger.Infof("Running migrations against %s", url)
 		err := migrate.Migrate(MustDB(), url)
 		Expect(err).ToNot(HaveOccurred())
+		// run again to ensure idempotency
+		err = migrate.Migrate(MustDB(), url)
+		Expect(err).ToNot(HaveOccurred())
 	})
 	It(" Gorm Can connect", func() {
 		gorm, err := NewGorm()
