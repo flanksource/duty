@@ -10,6 +10,10 @@ table "config_analysis" {
     null = false
     type = uuid
   }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
   column "analyzer" {
     null = false
     type = text
@@ -53,6 +57,13 @@ table "config_analysis" {
   foreign_key "config_analysis_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+
+  foreign_key "config_analysis_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
