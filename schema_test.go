@@ -79,7 +79,7 @@ var _ = Describe("DB", func() {
 		Expect(err).ToNot(HaveOccurred())
 		result, err := db.Exec("SELECT 1")
 		Expect(err).ToNot(HaveOccurred())
-		affected, err := result.RowsAffected()
+		affected, _ := result.RowsAffected()
 		Expect(affected).To(Equal(int64(1)))
 	})
 })
