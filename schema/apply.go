@@ -29,9 +29,9 @@ var schemas embed.FS
 func skipDropTables(changes []schema.Change) []schema.Change {
 	var filtered []schema.Change
 	for _, change := range changes {
-		switch change.(type) {
+		switch change := change.(type) {
 		case *schema.DropTable:
-			logger.Debugf("Skipping drop table of %s", change.(*schema.DropTable).T.Name)
+			logger.Debugf("Skipping drop table of %s", change.T.Name)
 		default:
 			filtered = append(filtered, change)
 		}
@@ -144,8 +144,7 @@ func dbReader(ctx context.Context, connection string, exclude []string) (*stateR
 	if err != nil {
 		return nil, err
 	}
-	var sr migrate.StateReader
-	sr = migrate.SchemaConn(c.Driver, c.URL.Schema, &schema.InspectOptions{Exclude: exclude})
+	sr := migrate.SchemaConn(c.Driver, c.URL.Schema, &schema.InspectOptions{Exclude: exclude})
 
 	return &stateReadCloser{
 		StateReader: sr,
