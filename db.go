@@ -19,8 +19,7 @@ import (
 var connectionString string
 var pool *pgxpool.Pool
 
-// creates a new Gorm DB connection using the global pgx connection pool, must be called after NewPgxPool
-func NewGorm() (*gorm.DB, error) {
+func DefaultGormConfig() *gorm.Config {
 	logConfig := glogger.Config{
 		SlowThreshold:             time.Second,   // Slow SQL threshold
 		LogLevel:                  glogger.Error, // Log level
@@ -34,20 +33,27 @@ func NewGorm() (*gorm.DB, error) {
 		logConfig.LogLevel = glogger.Info
 	}
 
+	return &gorm.Config{
+		FullSaveAssociations: true,
+		Logger: glogger.New(
+			log.New(os.Stderr, "\r\n", log.LstdFlags), // io writer
+			logConfig),
+	}
+}
+
+// creates a new Gorm DB connection using the global pgx connection pool, must be called after NewPgxPool
+func NewGorm(config *gorm.Config) (*gorm.DB, error) {
 	db, err := NewDB()
 	if err != nil {
 		return nil, err
 	}
 
-	return gorm.Open(gormpostgres.New(gormpostgres.Config{
-		Conn: db,
-	}), &gorm.Config{
-		FullSaveAssociations: true,
-		Logger: glogger.New(
-			log.New(os.Stderr, "\r\n", log.LstdFlags), // io writer
-			logConfig),
-	})
+	return gorm.Open(
+		gormpostgres.New(gormpostgres.Config{Conn: db}),
+		config,
+	)
 }
+
 func NewDB() (*sql.DB, error) {
 	return sql.Open("pgx", connectionString)
 }

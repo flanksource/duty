@@ -65,7 +65,7 @@ var _ = Describe("Schema", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 	It(" Gorm Can connect", func() {
-		gorm, err := NewGorm()
+		gorm, err := NewGorm(DefaultGormConfig())
 		Expect(err).ToNot(HaveOccurred())
 		var people int64
 		Expect(gorm.Table("people").Count(&people).Error).ToNot(HaveOccurred())
