@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -59,11 +60,16 @@ func NewDB() (*sql.DB, error) {
 }
 
 func NewPgxPool(connection string) (*pgxpool.Pool, error) {
-	connectionString = connection
-	logger.Errorf("Connecting to %s", connection)
+	pgUrl, err := url.Parse(connection)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof("Connecting to %s", pgUrl.Redacted())
 	if pool != nil {
 		return pool, nil
 	}
+	connectionString = connection
 	config, err := pgxpool.ParseConfig(connection)
 	if err != nil {
 		return nil, err
