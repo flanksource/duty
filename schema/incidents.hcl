@@ -525,7 +525,7 @@ table "responders" {
     null = true
     type = timestamp
   }
-  column "reoslved" {
+  column "resolved" {
     null = true
     type = timestamp
   }
