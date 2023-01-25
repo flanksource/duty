@@ -1,7 +1,3 @@
--- +goose Up
--- +goose StatementBegin
----
-
 -- Insert incident creations in incident_histories
 CREATE OR REPLACE FUNCTION insert_incident_created_in_incident_history()
 RETURNS TRIGGER AS $$
@@ -128,5 +124,3 @@ CREATE OR REPLACE TRIGGER hypothesis_status_to_incident_history
     FOR EACH ROW
     WHEN (OLD.status IS DISTINCT FROM NEW.status)
     EXECUTE PROCEDURE insert_hypothesis_status_update_in_incident_history();
-
--- +goose StatementEnd
