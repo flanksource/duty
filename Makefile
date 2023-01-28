@@ -10,6 +10,6 @@ lint:
 
 download-openapi-schemas:
 	# Canary Checker
-	curl https://raw.githubusercontent.com/flanksource/canary-checker/master/config/schemas/canary.schema.json -o schema/openapi/canary.schema.json
-	curl https://raw.githubusercontent.com/flanksource/canary-checker/master/config/schemas/component.schema.json -o schema/openapi/component.schema.json
-	curl https://raw.githubusercontent.com/flanksource/canary-checker/master/config/schemas/system.schema.json -o schema/openapi/system.schema.json
+	mkdir -p tmp
+	git clone --depth=1 git@github.com:flanksource/canary-checker.git tmp/canary-checker && cp tmp/canary-checker/config/schemas/* schema/openapi/
+	rm -rf tmp
