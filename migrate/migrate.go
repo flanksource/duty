@@ -6,21 +6,24 @@ import (
 	"sort"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
 	"github.com/pkg/errors"
 )
 
-func Migrate(Pool *sql.DB, connection string) error {
+func Migrate(connection string) error {
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
-	if Pool == nil {
-		return errors.New("pool is nil")
+	pool, err := duty.NewDB(connection)
+	if err != nil {
+		return err
 	}
+	defer pool.Close()
 
-	row := Pool.QueryRow("SELECT current_database();")
+	row := pool.QueryRow("SELECT current_database();")
 	var name string
 	if err := row.Scan(&name); err != nil {
 		return errors.Wrap(err, "failed to get current database")
@@ -32,7 +35,7 @@ func Migrate(Pool *sql.DB, connection string) error {
 		return err
 	}
 
-	if err := runScripts(Pool, funcs); err != nil {
+	if err := runScripts(pool, funcs); err != nil {
 		return err
 	}
 	logger.Debugf("Applying schema migrations")
@@ -45,7 +48,7 @@ func Migrate(Pool *sql.DB, connection string) error {
 		return err
 	}
 
-	if err := runScripts(Pool, views); err != nil {
+	if err := runScripts(pool, views); err != nil {
 		return err
 	}
 
