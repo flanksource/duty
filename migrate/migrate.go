@@ -6,22 +6,19 @@ import (
 	"sort"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
 	"github.com/pkg/errors"
 )
 
-func Migrate(connection string) error {
+func RunMigrations(pool *sql.DB, connection string) error {
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
-	pool, err := duty.NewDB(connection)
-	if err != nil {
-		return err
+	if pool == nil {
+		return errors.New("pool is nil")
 	}
-	defer pool.Close()
 
 	row := pool.QueryRow("SELECT current_database();")
 	var name string
@@ -55,7 +52,7 @@ func Migrate(connection string) error {
 	return nil
 }
 
-func runScripts(Pool *sql.DB, scripts map[string]string) error {
+func runScripts(pool *sql.DB, scripts map[string]string) error {
 	var filenames []string
 	for name := range scripts {
 		filenames = append(filenames, name)
@@ -63,7 +60,7 @@ func runScripts(Pool *sql.DB, scripts map[string]string) error {
 	sort.Strings(filenames)
 	for _, file := range filenames {
 		logger.Debugf("Running script %s", file)
-		if _, err := Pool.Exec(scripts[file]); err != nil {
+		if _, err := pool.Exec(scripts[file]); err != nil {
 			return errors.Wrapf(err, "failed to run script %s", file)
 		}
 	}
