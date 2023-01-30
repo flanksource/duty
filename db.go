@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/migrate"
 	"github.com/jackc/pgx/v4/log/logrusadapter"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
@@ -102,4 +103,13 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 
 	logger.Infof("Initialized DB: %s (%s)", config.ConnConfig.Host, size)
 	return pool, nil
+}
+
+func Migrate(connection string) error {
+	db, err := NewDB(connection)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return migrate.RunMigrations(db, connection)
 }
