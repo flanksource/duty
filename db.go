@@ -35,6 +35,9 @@ func DefaultGormConfig() *gorm.Config {
 
 	return &gorm.Config{
 		FullSaveAssociations: true,
+		NowFunc: func() time.Time {
+			return time.Now().UTC()
+		},
 		Logger: glogger.New(
 			log.New(os.Stderr, "\r\n", log.LstdFlags), // io writer
 			logConfig),
