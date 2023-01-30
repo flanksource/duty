@@ -6,7 +6,6 @@ import (
 
 	. "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/migrate"
 	_ "github.com/flanksource/duty/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,10 +17,11 @@ func TestSchema(t *testing.T) {
 }
 
 var postgres *EmbeddedPostgres
-var pgUrl string
+
+const pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
 
 func MustDB() *sql.DB {
-	db, err := NewDB()
+	db, err := NewDB(pgUrl)
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +32,6 @@ var _ = BeforeSuite(func() {
 	postgres = NewDatabase(DefaultConfig().
 		Database("test").
 		Port(9876))
-	pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
 	if err := postgres.Start(); err != nil {
 		Fail(err.Error())
 	}
@@ -43,7 +42,7 @@ var _ = BeforeSuite(func() {
 	if _, err := NewPgxPool(pgUrl); err != nil {
 		Fail(err.Error())
 	}
-	if _, err := NewDB(); err != nil {
+	if _, err := NewDB(pgUrl); err != nil {
 		Fail(err.Error())
 	}
 })
@@ -58,14 +57,14 @@ var _ = AfterSuite(func() {
 var _ = Describe("Schema", func() {
 	It("should be able to run migrations", func() {
 		logger.Infof("Running migrations against %s", pgUrl)
-		err := migrate.Migrate(MustDB(), pgUrl)
+		err := Migrate(pgUrl)
 		Expect(err).ToNot(HaveOccurred())
 		// run again to ensure idempotency
-		err = migrate.Migrate(MustDB(), pgUrl)
+		err = Migrate(pgUrl)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	It(" Gorm Can connect", func() {
-		gorm, err := NewGorm(DefaultGormConfig())
+		gorm, err := NewGorm(pgUrl, DefaultGormConfig())
 		Expect(err).ToNot(HaveOccurred())
 		var people int64
 		Expect(gorm.Table("people").Count(&people).Error).ToNot(HaveOccurred())
@@ -75,7 +74,7 @@ var _ = Describe("Schema", func() {
 
 var _ = Describe("DB", func() {
 	It("Can connect", func() {
-		db, err := NewDB()
+		db, err := NewDB(pgUrl)
 		Expect(err).ToNot(HaveOccurred())
 		result, err := db.Exec("SELECT 1")
 		Expect(err).ToNot(HaveOccurred())
