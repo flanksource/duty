@@ -17,7 +17,6 @@ import (
 	glogger "gorm.io/gorm/logger"
 )
 
-var connectionString string
 var pool *pgxpool.Pool
 
 func DefaultGormConfig() *gorm.Config {
@@ -43,8 +42,8 @@ func DefaultGormConfig() *gorm.Config {
 }
 
 // creates a new Gorm DB connection using the global pgx connection pool, must be called after NewPgxPool
-func NewGorm(config *gorm.Config) (*gorm.DB, error) {
-	db, err := NewDB()
+func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
+	db, err := NewDB(connection)
 	if err != nil {
 		return nil, err
 	}
@@ -55,21 +54,22 @@ func NewGorm(config *gorm.Config) (*gorm.DB, error) {
 	)
 }
 
-func NewDB() (*sql.DB, error) {
-	return sql.Open("pgx", connectionString)
+func NewDB(connection string) (*sql.DB, error) {
+	return sql.Open("pgx", connection)
 }
 
 func NewPgxPool(connection string) (*pgxpool.Pool, error) {
+	if pool != nil {
+		return pool, nil
+	}
+
 	pgUrl, err := url.Parse(connection)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Infof("Connecting to %s", pgUrl.Redacted())
-	if pool != nil {
-		return pool, nil
-	}
-	connectionString = connection
+
 	config, err := pgxpool.ParseConfig(connection)
 	if err != nil {
 		return nil, err
