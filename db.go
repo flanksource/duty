@@ -79,6 +79,11 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
+	// prevent deadlocks from concurrent queries
+	if config.MaxConns < 10 {
+		config.MaxConns = 10
+	}
+
 	if logger.IsTraceEnabled() {
 		logrusLogger := &logrus.Logger{
 			Out:          os.Stderr,
