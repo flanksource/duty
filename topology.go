@@ -2,11 +2,6 @@ package duty
 
 import "fmt"
 
-const (
-	emptyJSONBArraySQL  = "(SELECT json_build_array())::jsonb"
-	emptyJSONBObjectSQL = "(SELECT json_build_object())::jsonb"
-)
-
 type TopologyOptions struct {
 	ID     string            `query:"id"`
 	Owner  string            `query:"owner"`
