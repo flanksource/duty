@@ -8,15 +8,9 @@ const (
 )
 
 type TopologyOptions struct {
-	ID                     string            `query:"id"`
-	Owner                  string            `query:"owner"`
-	Labels                 map[string]string `query:"labels"`
-	Status                 []string          `query:"status"`
-	Types                  []string          `query:"types"`
-	Depth                  int               `query:"depth"`
-	Flatten                bool              `query:"flatten"`
-	IncludeHealth          bool              `query:"includeHealth"`
-	IncludeInsightsSummary bool              `query:"includeInsightsSummary"`
+	ID     string            `query:"id"`
+	Owner  string            `query:"owner"`
+	Labels map[string]string `query:"labels"`
 }
 
 func (opt TopologyOptions) String() string {
@@ -68,11 +62,12 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 func TopologyQuery(opts TopologyOptions) (string, map[string]any) {
 	query := fmt.Sprintf(`
     WITH topology_result as (
-    SELECT * FROM components %s
-	UNION (
-        SELECT components.* FROM component_relationships
-        INNER JOIN components ON components.id = component_relationships.component_id
-        INNER JOIN components AS parent ON component_relationships.relationship_id = parent.id %s)
+        SELECT * FROM components %s
+        UNION (
+            SELECT components.* FROM component_relationships
+            INNER JOIN components ON components.id = component_relationships.component_id
+            INNER JOIN components AS parent ON component_relationships.relationship_id = parent.id %s
+        )
     )
 	SELECT json_agg(
         jsonb_set_lax(
@@ -110,37 +105,9 @@ func (opts TopologyOptions) checksForComponents() string {
 }
 
 func (opts TopologyOptions) configAnalysisSummaryForComponents() string {
-	if !opts.IncludeInsightsSummary {
-		return emptyJSONBObjectSQL
-	}
-	return `(
-        SELECT json_object_agg(flatten.analysis_type, flatten.summary_json)
-        FROM (
-            SELECT summary.component_id, summary.analysis_type, json_object_agg(f.k, f.v) as summary_json
-            FROM (
-                SELECT config_component_relationships.component_id AS component_id, config_analysis.analysis_type, json_build_object(severity, count(*)) AS severity_agg
-                FROM config_analysis
-                LEFT JOIN config_component_relationships ON config_analysis.config_id = config_component_relationships.config_id
-                WHERE config_component_relationships.component_id = topology_result.id AND config_component_relationships.deleted_at IS NULL
-                GROUP BY config_analysis.severity, config_analysis.analysis_type, config_component_relationships.component_id
-            ) AS summary, json_each(summary.severity_agg) AS f(k,v) GROUP BY summary.analysis_type, summary.component_id
-        ) AS flatten GROUP BY flatten.component_id
-    ) :: jsonb`
+	return `(SELECT analysis FROM analysis_summary_by_component WHERE id = topology_result.id)`
 }
 
 func (p TopologyOptions) incidentSummaryForComponents() string {
-	return `(
-        SELECT json_object_agg(flatten.type, flatten.summary_json)
-        FROM (
-            SELECT summary.component_id, summary.type, json_object_agg(f.k, f.v) as summary_json
-            FROM (
-                SELECT evidences.component_id AS component_id, incidents.type, json_build_object(severity, count(*)) AS severity_agg
-                FROM incidents
-                INNER JOIN hypotheses ON hypotheses.incident_id = incidents.id
-                INNER JOIN evidences ON evidences.hypothesis_id = hypotheses.id
-                WHERE evidences.component_id = topology_result.id AND (incidents.resolved IS NULL AND incidents.closed IS NULL)
-                GROUP BY incidents.severity, incidents.type, evidences.component_id
-            ) AS summary, json_each(summary.severity_agg) AS f(k,v) GROUP BY summary.type, summary.component_id
-        ) AS flatten GROUP BY flatten.component_id
-    ) :: jsonb`
+	return `(SELECT incidents FROM incident_summary_by_component WHERE id = topology_result.id)`
 }
