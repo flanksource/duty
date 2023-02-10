@@ -35,7 +35,7 @@ func (opt TopologyOptions) componentWhereClause() string {
 }
 
 func (opt TopologyOptions) componentRelationWhereClause() string {
-	s := "WHERE component_relationships.deleted_at IS NULL"
+	s := "WHERE component_relationships.deleted_at IS NULL and parent.deleted_at IS NULL"
 	if opt.Owner != "" {
 		s += " AND (parent.owner = :owner)"
 	}
