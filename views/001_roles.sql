@@ -1,5 +1,4 @@
-DO
-$$
+DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_api') THEN
         CREATE ROLE postgrest_api;
@@ -10,5 +9,4 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_anon') THEN
         CREATE ROLE postgrest_anon;
     END IF;
-END
-$$;
+END $$;
