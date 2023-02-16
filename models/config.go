@@ -117,10 +117,13 @@ func (ci ConfigItem) ConfigJSONStringMap() (map[string]interface{}, error) {
 }
 
 type ConfigRelationship struct {
-	ConfigID   string `gorm:"column:config_id" json:"config_id"`
-	RelatedID  string `gorm:"column:related_id" json:"related_id"`
-	Relation   string `gorm:"column:relation" json:"relation"`
-	SelectorID string `gorm:"selector_id" json:"selector_id"`
+	ConfigID   string     `gorm:"column:config_id" json:"config_id"`
+	RelatedID  string     `gorm:"column:related_id" json:"related_id"`
+	Relation   string     `gorm:"column:relation" json:"relation"`
+	SelectorID string     `gorm:"selector_id" json:"selector_id"`
+	CreatedAt  time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
+	UpdatedAt  time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty"`
+	DeletedAt  *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 }
 
 func (cr ConfigRelationship) TableName() string {
