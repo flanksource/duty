@@ -270,5 +270,5 @@ type CanaryStatus struct {
 	// Average latency to complete all checks
 	Latency1H string `json:"latency1h,omitempty"`
 	// used for keeping history of the checks
-	runnerName string `json:"-"`
+	runnerName string `json:"-"` //nolint:unused
 }
