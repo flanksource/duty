@@ -57,9 +57,9 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 func TopologyQuery(opts TopologyOptions) (string, map[string]any) {
 	query := fmt.Sprintf(`
     WITH topology_result as (
-        SELECT * FROM components %s
+        SELECT *, NULL AS relationship_id FROM components %s
         UNION (
-            SELECT components.* FROM component_relationships
+            SELECT components.*, relationship_id FROM component_relationships
             INNER JOIN components ON components.id = component_relationships.component_id
             INNER JOIN components AS parent ON component_relationships.relationship_id = parent.id %s
         )
