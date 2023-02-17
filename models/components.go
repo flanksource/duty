@@ -20,54 +20,50 @@ import (
 type Components []*Component
 
 type Component struct {
-	Checks           Checks                   `json:"checks,omitempty" gorm:"-"`
-	ComponentChecks  ComponentChecks          `json:"-" gorm:"column:component_checks" swaggerignore:"true"`
-	Components       Components               `json:"components,omitempty" gorm:"-"`
-	ConfigInsights   []map[string]interface{} `json:"insights,omitempty" gorm:"-"`
-	Configs          Configs                  `json:"configs,omitempty" gorm:"type:configs"`
-	CostPerMinute    float64                  `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
-	CostTotal1d      float64                  `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
-	CostTotal30d     float64                  `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
-	CostTotal7d      float64                  `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
-	CreatedAt        time.Time                `json:"created_at,omitempty" time_format:"postgres_timestamp"`
-	DeletedAt        *time.Time               `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
-	ExternalId       string                   `json:"external_id,omitempty"` //nolint
-	Icon             string                   `json:"icon,omitempty"`
-	ID               uuid.UUID                `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
-	Incidents        []Incident               `json:"incidents,omitempty" gorm:"-"`
-	IsLeaf           bool                     `json:"is_leaf"`
-	Labels           types.JSONStringMap      `json:"labels,omitempty"`
-	Lifecycle        string                   `json:"lifecycle,omitempty"`
-	Name             string                   `json:"name,omitempty"`
-	Namespace        string                   `json:"namespace,omitempty"`
-	Order            int                      `json:"order,omitempty"  gorm:"-"`
-	Owner            string                   `json:"owner,omitempty"`
-	ParentId         *uuid.UUID               `json:"parent_id,omitempty"` //nolint
-	Path             string                   `json:"path,omitempty"`
-	Properties       Properties               `json:"properties,omitempty" gorm:"type:properties"`
-	Schedule         string                   `json:"schedule,omitempty"`
-	SelectorID       string                   `json:"-" gorm:"-"`
-	Selectors        ResourceSelectors        `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Status           ComponentStatus          `json:"status,omitempty"`
-	StatusReason     string                   `json:"statusReason,omitempty"`
-	Summary          Summary                  `json:"summary,omitempty" gorm:"type:summary"`
-	SystemTemplateID *uuid.UUID               `json:"system_template_id,omitempty"`
-	Text             string                   `json:"text,omitempty"`
-	Tooltip          string                   `json:"tooltip,omitempty"`
-	TopologyType     string                   `json:"topology_type,omitempty"`
-	Type             string                   `json:"type,omitempty"`
-	UpdatedAt        time.Time                `json:"updated_at,omitempty" time_format:"postgres_timestamp"`
+	ID               uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
+	SystemTemplateID *uuid.UUID          `json:"system_template_id,omitempty"`
+	ExternalId       string              `json:"external_id,omitempty"` //nolint
+	ParentId         uuid.UUID           `json:"parent_id,omitempty"`   //nolint
+	Name             string              `json:"name,omitempty"`
+	Text             string              `json:"text,omitempty"`
+	TopologyType     string              `json:"topology_type,omitempty"`
+	Namespace        string              `json:"namespace,omitempty"`
+	Labels           types.JSONStringMap `json:"labels,omitempty"`
+	Hidden           bool                `json:"hidden,omitempty"`
+	Silenced         bool                `json:"silenced,omitempty"`
+	Status           ComponentStatus     `json:"status,omitempty"`
+	Description      string              `json:"description,omitempty"`
+	Lifecycle        string              `json:"lifecycle,omitempty"`
+	Tooltip          string              `json:"tooltip,omitempty"`
+	StatusReason     string              `json:"statusReason,omitempty"`
+	Schedule         string              `json:"schedule,omitempty"`
+	Icon             string              `json:"icon,omitempty"`
+	Type             string              `json:"type,omitempty"`
+	Owner            string              `json:"owner,omitempty"`
+	Selectors        ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
+	ComponentChecks  ComponentChecks     `json:"-" gorm:"column:component_checks" swaggerignore:"true"`
+	Configs          Configs             `json:"configs,omitempty" gorm:"type:configs"`
+	Properties       Properties          `json:"properties,omitempty" gorm:"type:properties"`
+	Path             string              `json:"path,omitempty"`
+	Summary          Summary             `json:"summary,omitempty" gorm:"type:summary"`
+	IsLeaf           bool                `json:"is_leaf"`
+	CostPerMinute    float64             `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
+	CostTotal1d      float64             `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
+	CostTotal7d      float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
+	CostTotal30d     float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
+	CreatedBy        uuid.UUID           `json:"created_by,omitempty"`
+	CreatedAt        time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp"`
+	UpdatedAt        time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp"`
+	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
+
+	// Auxiliary fields
+	Checks     Checks     `json:"checks,omitempty" gorm:"-"`
+	Components Components `json:"components,omitempty" gorm:"-"`
+	Order      int        `json:"order,omitempty"  gorm:"-"`
+	SelectorID string     `json:"-" gorm:"-"`
 }
 
 type ComponentStatus string
-
-type Incident struct {
-	ID          uuid.UUID `json:"id"`
-	Type        string    `json:"type"`
-	Title       string    `json:"title"`
-	Severity    int       `json:"severity"`
-	Description string    `json:"description"`
-}
 
 type Text struct {
 	Tooltip string `json:"tooltip,omitempty"`
@@ -478,13 +474,15 @@ func (cs *ComponentChecks) Scan(val interface{}) error {
 		*cs = ComponentChecks{}
 		return nil
 	}
+
 	var ba []byte
 	switch v := val.(type) {
 	case []byte:
 		ba = v
 	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal componentChecks value:", val))
+		return fmt.Errorf("failed to unmarshal componentChecks value %v. unexpected data type", val)
 	}
+
 	return json.Unmarshal(ba, cs)
 }
 
