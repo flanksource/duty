@@ -17,6 +17,17 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+const (
+	SQLServerType = "sqlserver"
+	PostgresType  = "postgres"
+	SqliteType    = "sqlite"
+	MysqlType     = "mysql"
+	Text          = "TEXT"
+	JSONType      = "JSON"
+	JSONBType     = "JSONB"
+	NVarcharType  = "NVARCHAR(MAX)"
+)
+
 const PostgresTimestampFormat = "2006-01-02T15:04:05.999999"
 
 func init() {
@@ -84,18 +95,18 @@ func (j JSON) String() string {
 
 // GormDataType gorm common data type
 func (JSON) GormDataType() string {
-	return "json"
+	return JSONType
 }
 
 // GormDBDataType gorm db data type
 func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case "sqlite":
-		return "JSON"
-	case "mysql":
-		return "JSON"
-	case "postgres":
-		return "JSONB"
+	case SqliteType:
+		return JSONType
+	case MysqlType:
+		return JSONType
+	case PostgresType:
+		return JSONBType
 	}
 	return ""
 }
@@ -142,7 +153,7 @@ func (jsonQuery *JSONQueryExpression) Equals(value interface{}, keys ...string) 
 func (jsonQuery *JSONQueryExpression) Build(builder clause.Builder) {
 	if stmt, ok := builder.(*gorm.Statement); ok {
 		switch stmt.Dialector.Name() {
-		case "mysql", "sqlite":
+		case MysqlType, SqliteType:
 			switch {
 			case jsonQuery.hasKeys:
 				if len(jsonQuery.keys) > 0 {
@@ -162,7 +173,7 @@ func (jsonQuery *JSONQueryExpression) Build(builder clause.Builder) {
 					}
 				}
 			}
-		case "postgres":
+		case PostgresType:
 			switch {
 			case jsonQuery.hasKeys:
 				if len(jsonQuery.keys) > 0 {
@@ -257,12 +268,12 @@ func (m JSONStringMap) GormDataType() string {
 // GormDBDataType gorm db data type
 func (JSONStringMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case "sqlite":
-		return "JSON"
-	case "postgres":
-		return "JSONB"
-	case "sqlserver":
-		return "NVARCHAR(MAX)"
+	case SqliteType:
+		return JSONType
+	case PostgresType:
+		return JSONBType
+	case SQLServerType:
+		return NVarcharType
 	}
 	return ""
 }
@@ -330,12 +341,12 @@ func (m JSONMap) GormDataType() string {
 // GormDBDataType gorm db data type
 func (JSONMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case "sqlite":
-		return "JSON"
-	case "postgres":
-		return "JSONB"
-	case "sqlserver":
-		return "NVARCHAR(MAX)"
+	case SqliteType:
+		return JSONType
+	case PostgresType:
+		return JSONBType
+	case SQLServerType:
+		return NVarcharType
 	}
 	return ""
 }

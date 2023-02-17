@@ -64,12 +64,12 @@ func (Configs) GormDataType() string {
 
 func (Configs) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case SqliteType:
-		return "TEXT"
-	case PostgresType:
-		return "JSONB"
-	case SQLServerType:
-		return "NVARCHAR(MAX)"
+	case types.SqliteType:
+		return types.Text
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
 	}
 	return ""
 }
