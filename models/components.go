@@ -41,7 +41,6 @@ type Component struct {
 	Type             string              `json:"type,omitempty"`
 	Owner            string              `json:"owner,omitempty"`
 	Selectors        ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	ComponentChecks  ComponentChecks     `json:"-" gorm:"column:component_checks" swaggerignore:"true"`
 	Configs          Configs             `json:"configs,omitempty" gorm:"type:configs"`
 	Properties       Properties          `json:"properties,omitempty" gorm:"type:properties"`
 	Path             string              `json:"path,omitempty"`
@@ -452,60 +451,6 @@ func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string
 
 func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := json.Marshal(rs)
-	return gorm.Expr("?", string(data))
-}
-
-type ComponentChecks []ComponentCheck
-
-type ComponentCheck struct {
-	Selector ResourceSelector `json:"selector,omitempty"`
-	Inline   *CanarySpec      `json:"inline,omitempty"`
-}
-
-func (cs ComponentChecks) Value() (driver.Value, error) {
-	if len(cs) == 0 {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(cs)
-}
-
-func (cs *ComponentChecks) Scan(val interface{}) error {
-	if val == nil {
-		*cs = ComponentChecks{}
-		return nil
-	}
-
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return fmt.Errorf("failed to unmarshal componentChecks value %v. unexpected data type", val)
-	}
-
-	return json.Unmarshal(ba, cs)
-}
-
-// GormDataType gorm common data type
-func (cs ComponentChecks) GormDataType() string {
-	return "componentChecks"
-}
-
-// GormDBDataType gorm db data type
-func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.JSONType
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
-
-func (cs ComponentChecks) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(cs)
 	return gorm.Expr("?", string(data))
 }
 
