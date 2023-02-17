@@ -142,12 +142,12 @@ func (Summary) GormDataType() string {
 
 func (Summary) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case SqliteType:
-		return text
-	case PostgresType:
-		return jsonbType
-	case SQLServerType:
-		return nvarcharType
+	case types.SqliteType:
+		return types.Text
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
 	}
 	return ""
 }
@@ -317,12 +317,12 @@ func (Properties) GormDataType() string {
 
 func (Properties) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case SqliteType:
-		return "TEXT"
-	case PostgresType:
-		return "JSONB"
-	case SQLServerType:
-		return "NVARCHAR(MAX)"
+	case types.SqliteType:
+		return types.Text
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
 	}
 	return ""
 }
@@ -444,12 +444,12 @@ func (rs ResourceSelectors) GormDataType() string {
 // GormDBDataType gorm db data type
 func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case SqliteType:
-		return jsonType
-	case PostgresType:
-		return jsonbType
-	case SQLServerType:
-		return nvarcharType
+	case types.SqliteType:
+		return types.JSONType
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
 	}
 	return ""
 }
@@ -496,12 +496,12 @@ func (cs ComponentChecks) GormDataType() string {
 // GormDBDataType gorm db data type
 func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
-	case SqliteType:
-		return jsonType
-	case PostgresType:
-		return jsonbType
-	case SQLServerType:
-		return nvarcharType
+	case types.SqliteType:
+		return types.JSONType
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
 	}
 	return ""
 }
