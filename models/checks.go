@@ -80,3 +80,21 @@ func (u Uptime) String() string {
 	percentage := 100.0 * (1 - (float64(u.Failed) / float64(u.Passed+u.Failed)))
 	return fmt.Sprintf("%d/%d (%0.1f%%)", u.Passed, u.Passed+u.Failed, percentage)
 }
+
+type CheckStatus struct {
+	Status   bool   `json:"status"`
+	Invalid  bool   `json:"invalid,omitempty"`
+	Time     string `json:"time"`
+	Duration int    `json:"duration"`
+	Message  string `json:"message,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Detail   any    `json:"-"`
+}
+
+func (s CheckStatus) GetTime() (time.Time, error) {
+	return time.Parse("2006-01-02 15:04:05", s.Time)
+}
+
+func (s CheckStatus) TableName() string {
+	return "check_statuses"
+}
