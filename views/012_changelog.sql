@@ -2,30 +2,39 @@
 CREATE OR REPLACE FUNCTION change_trigger() 
 RETURNS trigger AS $$
 BEGIN
-  IF TG_TABLE_NAME = 'component_relationships' OR TG_TABLE_NAME = 'config_component_relationships' THEN
+  IF TG_TABLE_NAME = 'component_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, NEW.component_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.component_id, ':', NEW.relationship_id, ':', NEW.selector_id));
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, OLD.component_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.component_id, ':', OLD.relationship_id, ':', OLD.selector_id));
+      RETURN OLD;
+    END IF;
+
+  ELSIF TG_TABLE_NAME = 'config_component_relationships' THEN
+    IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.component_id, ':', NEW.config_id));
+      RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.component_id, ':', OLD.config_id));
       RETURN OLD;
     END IF;
   
   ELSIF TG_TABLE_NAME = 'config_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, NEW.config_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.related_id, ':', NEW.config_id, ':', NEW.selector_id));
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, OLD.config_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.related_id, ':', OLD.config_id, ':', OLD.selector_id));
       RETURN OLD;
     END IF;
 
   ELSIF TG_TABLE_NAME = 'check_statuses' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, NEW.check_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.check_id, ':', NEW.time));
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, OLD.check_id);
+      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.check_id, ':', NEW.time));
       RETURN OLD;
     END IF;
   

@@ -7,7 +7,7 @@ table "push_queue" {
   }
   column "item_id" {
     null = false
-    type = uuid
+    type = text # not a uuid. it could also be a composite key.
   }
   column "table_name" {
     null    = false
