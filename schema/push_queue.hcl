@@ -13,11 +13,6 @@ table "push_queue" {
     null    = false
     type    = text
   }
-  column "author" {
-    null    = false
-    type    = text
-    default = sql("CURRENT_USER")
-  }
   column "operation" {
     null    = false
     type    = text

@@ -11,7 +11,6 @@ type PushQueue struct {
 	ID        uuid.UUID `gorm:"column:id"`
 	ItemID    uuid.UUID `gorm:"column:item_id"`
 	Table     string    `gorm:"column:table_name"`
-	Author    string    `gorm:"column:author"`
 	Operation string    `gorm:"column:operation"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 }
