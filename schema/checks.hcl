@@ -108,6 +108,10 @@ table "check_statuses" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+  index "check_statuses_time_brin_idx" {
+    type = BRIN
+    columns = [column.time]
+  }
 }
 table "checks" {
   schema = schema.public
