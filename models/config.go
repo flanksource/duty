@@ -1,78 +1,15 @@
 package models
 
 import (
-	"context"
-	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-	"gorm.io/gorm/schema"
 )
-
-type Config struct {
-	ID           uuid.UUID         `json:"id,omitempty"`
-	ConfigType   string            `json:"config_type,omitempty"`
-	Name         string            `json:"name,omitempty"`
-	Namespace    string            `json:"namespace,omitempty"`
-	Spec         *types.JSONMap    `json:"spec,omitempty" gorm:"column:config"`
-	Labels       map[string]string `json:"labels,omitempty"  gorm:"type:jsonstringmap"`
-	ExternalID   pq.StringArray    `json:"external_id,omitempty" gorm:"type:text[]"`
-	ExternalType string            `json:"external_type,omitempty"`
-}
-
-type Configs []*Config
-
-func (c Configs) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(c)
-	return gorm.Expr("?", data)
-}
-
-// Scan scan value into Jsonb, implements sql.Scanner interface
-func (c Configs) Value() (driver.Value, error) {
-	return json.Marshal(c)
-}
-
-// Scan scan value into Jsonb, implements sql.Scanner interface
-func (c *Configs) Scan(val any) error {
-	if val == nil {
-		*c = Configs{}
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal properties value:", val))
-	}
-	err := json.Unmarshal(ba, c)
-	return err
-}
-
-// GormDataType gorm common data type
-func (Configs) GormDataType() string {
-	return "configs"
-}
-
-func (Configs) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.Text
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
