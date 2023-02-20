@@ -79,13 +79,13 @@ type Link struct {
 }
 
 type CheckStatus struct {
-	Status   bool        `json:"status"`
-	Invalid  bool        `json:"invalid,omitempty"`
-	Time     string      `json:"time"`
-	Duration int         `json:"duration"`
-	Message  string      `json:"message,omitempty"`
-	Error    string      `json:"error,omitempty"`
-	Detail   interface{} `json:"-"`
+	Status   bool   `json:"status"`
+	Invalid  bool   `json:"invalid,omitempty"`
+	Time     string `json:"time"`
+	Duration int    `json:"duration"`
+	Message  string `json:"message,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Detail   any    `json:"-"`
 }
 
 func (s CheckStatus) GetTime() (time.Time, error) {
@@ -114,7 +114,7 @@ func (s Summary) Value() (driver.Value, error) {
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
-func (s *Summary) Scan(val interface{}) error {
+func (s *Summary) Scan(val any) error {
 	if val == nil {
 		*s = Summary{}
 		return nil
@@ -177,7 +177,7 @@ type Property struct {
 	Links          []Link `json:"links,omitempty"`
 }
 
-func (p Property) GetValue() interface{} {
+func (p Property) GetValue() any {
 	if p.Text != "" {
 		return p.Text
 	}
@@ -263,8 +263,8 @@ func (p Properties) AsJSON() []byte {
 	return data
 }
 
-func (p Properties) AsMap() map[string]interface{} {
-	result := make(map[string]interface{})
+func (p Properties) AsMap() map[string]any {
+	result := make(map[string]any)
 	for _, property := range p {
 		result[property.Name] = property.GetValue()
 	}
@@ -289,7 +289,7 @@ func (p Properties) Value() (driver.Value, error) {
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
-func (p *Properties) Scan(val interface{}) error {
+func (p *Properties) Scan(val any) error {
 	if val == nil {
 		*p = make(Properties, 0)
 		return nil
@@ -409,7 +409,7 @@ type ResourceSelector struct {
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 }
 
-func (rs *ResourceSelectors) Scan(val interface{}) error {
+func (rs *ResourceSelectors) Scan(val any) error {
 	if val == nil {
 		*rs = ResourceSelectors{}
 		return nil

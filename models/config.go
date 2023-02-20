@@ -41,7 +41,7 @@ func (c Configs) Value() (driver.Value, error) {
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
-func (c *Configs) Scan(val interface{}) error {
+func (c *Configs) Scan(val any) error {
 	if val == nil {
 		*c = Configs{}
 		return nil
@@ -110,8 +110,8 @@ func (ci ConfigItem) String() string {
 	return fmt.Sprintf("%s/%s", ci.ConfigType, ci.ID)
 }
 
-func (ci ConfigItem) ConfigJSONStringMap() (map[string]interface{}, error) {
-	var m map[string]interface{}
+func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
+	var m map[string]any
 	err := json.Unmarshal([]byte(*ci.Config), &m)
 	return m, err
 }
