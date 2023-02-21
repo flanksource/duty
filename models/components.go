@@ -23,7 +23,7 @@ type Component struct {
 	ID               uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
 	SystemTemplateID *uuid.UUID          `json:"system_template_id,omitempty"`
 	ExternalId       string              `json:"external_id,omitempty"` //nolint
-	ParentId         uuid.UUID           `json:"parent_id,omitempty"`   //nolint
+	ParentId         *uuid.UUID          `json:"parent_id,omitempty"`   //nolint
 	Name             string              `json:"name,omitempty"`
 	Text             string              `json:"text,omitempty"`
 	TopologyType     string              `json:"topology_type,omitempty"`
@@ -41,7 +41,7 @@ type Component struct {
 	Type             string              `json:"type,omitempty"`
 	Owner            string              `json:"owner,omitempty"`
 	Selectors        ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Configs          ConfigItem          `json:"configs,omitempty" gorm:"type:configs"`
+	Configs          ConfigItems         `json:"configs,omitempty" gorm:"type:configs"`
 	Properties       Properties          `json:"properties,omitempty" gorm:"type:properties"`
 	Path             string              `json:"path,omitempty"`
 	Summary          Summary             `json:"summary,omitempty" gorm:"type:summary"`
@@ -50,7 +50,7 @@ type Component struct {
 	CostTotal1d      float64             `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
 	CostTotal7d      float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
 	CostTotal30d     float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
-	CreatedBy        uuid.UUID           `json:"created_by,omitempty"`
+	CreatedBy        *uuid.UUID          `json:"created_by,omitempty"`
 	CreatedAt        time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp"`
 	UpdatedAt        time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp"`
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
