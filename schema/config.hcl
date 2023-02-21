@@ -331,8 +331,7 @@ table "config_scrapers" {
     null = true
     type = text
   }
-  column "scraper_type" {
-    null = false
+  column "name" {
     type = text
   }
   column "spec" {
