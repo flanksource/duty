@@ -355,3 +355,34 @@ func (jm JSONMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := jm.MarshalJSON()
 	return gorm.Expr("?", string(data))
 }
+
+// GenericStructValue can be set as the Value() func for any json struct
+func GenericStructValue[T any](t T, defaultNull bool) (driver.Value, error) {
+	b, err := json.Marshal(t)
+	if err != nil {
+		return b, err
+	}
+	if defaultNull && string(b) == "{}" {
+		return nil, nil
+	}
+	return string(b), nil
+}
+
+// GenericStructScan can be set as the Scan(val) func for any json struct
+func GenericStructScan[T any](t *T, val any) error {
+	if val == nil {
+		*t = *new(T)
+		return nil
+	}
+	var ba []byte
+	switch v := val.(type) {
+	case []byte:
+		ba = v
+	case string:
+		ba = []byte(v)
+	default:
+		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", val))
+	}
+	err := json.Unmarshal(ba, &t)
+	return err
+}
