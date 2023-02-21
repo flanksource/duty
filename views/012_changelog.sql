@@ -4,46 +4,56 @@ RETURNS trigger AS $$
 BEGIN
   IF TG_TABLE_NAME = 'component_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.component_id, ':', NEW.relationship_id, ':', NEW.selector_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', NEW.component_id, 'relationship_id', NEW.relationship_id, 'selector_id', NEW.selector_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.component_id, ':', OLD.relationship_id, ':', OLD.selector_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', OLD.component_id, 'relationship_id', OLD.relationship_id, 'selector_id', OLD.selector_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN OLD;
     END IF;
 
   ELSIF TG_TABLE_NAME = 'config_component_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.component_id, ':', NEW.config_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', NEW.component_id, 'config_id', NEW.config_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.component_id, ':', OLD.config_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', OLD.component_id, 'config_id', OLD.config_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN OLD;
     END IF;
   
   ELSIF TG_TABLE_NAME = 'config_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.related_id, ':', NEW.config_id, ':', NEW.selector_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'related_id', NEW.related_id, 'config_id', NEW.config_id, 'selector_id', NEW.selector_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.related_id, ':', OLD.config_id, ':', OLD.selector_id));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'related_id', OLD.related_id, 'config_id', OLD.config_id, 'selector_id', OLD.selector_id));
+      NOTIFY event_queue_updates, 'update';
       RETURN OLD;
     END IF;
 
   ELSIF TG_TABLE_NAME = 'check_statuses' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(NEW.check_id, ':', NEW.time));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'check_id', NEW.check_id, 'time', NEW.time));
+      NOTIFY event_queue_updates, 'update';
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, CONCAT(OLD.check_id, ':', NEW.time));
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'check_id', OLD.check_id, 'time', OLD.time));
+      NOTIFY event_queue_updates, 'update';
       RETURN OLD;
     END IF;
   
   ELSE
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, NEW.id);
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'id', NEW.id));
+      NOTIFY event_queue_updates, 'update';
       RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
-      INSERT INTO push_queue (table_name, operation, item_id) VALUES (TG_RELNAME, TG_OP, OLD.id);
+      INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'id', OLD.id));
+      NOTIFY event_queue_updates, 'update';
       RETURN OLD;
     END IF;
   END IF;
@@ -82,18 +92,3 @@ BEGIN
     );
   END LOOP; 
 END $$;
-
--- Insert push_queue updates in event_queue
-CREATE OR REPLACE FUNCTION insert_push_queue_in_event_queue()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO event_queue(name, properties) VALUES ('push_queue.create', jsonb_build_object('type', 'push_queue', 'id', NEW.id));
-    NOTIFY event_queue_updates, 'update';
-    RETURN NEW;
-END
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER push_queue_enqueue
-AFTER INSERT ON push_queue 
-FOR EACH ROW 
-EXECUTE PROCEDURE insert_push_queue_in_event_queue();
