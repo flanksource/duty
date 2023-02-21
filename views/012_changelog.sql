@@ -82,3 +82,18 @@ BEGIN
     );
   END LOOP; 
 END $$;
+
+-- Insert push_queue updates in event_queue
+CREATE OR REPLACE FUNCTION insert_push_queue_in_event_queue()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO event_queue(name, properties) VALUES ('push_queue.create', jsonb_build_object('type', 'push_queue', 'id', NEW.id));
+    NOTIFY event_queue_updates, 'update';
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER push_queue_enqueue
+AFTER INSERT ON push_queue 
+FOR EACH ROW 
+EXECUTE PROCEDURE insert_push_queue_in_event_queue();
