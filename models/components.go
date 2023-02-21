@@ -41,7 +41,7 @@ type Component struct {
 	Type             string              `json:"type,omitempty"`
 	Owner            string              `json:"owner,omitempty"`
 	Selectors        ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Configs          ConfigItems         `json:"configs,omitempty" gorm:"type:configs"`
+	Configs          types.JSON          `json:"configs,omitempty"`
 	Properties       Properties          `json:"properties,omitempty" gorm:"type:properties"`
 	Path             string              `json:"path,omitempty"`
 	Summary          Summary             `json:"summary,omitempty" gorm:"type:summary"`

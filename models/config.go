@@ -1,10 +1,7 @@
 package models
 
 import (
-	"context"
-	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,54 +9,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-	"gorm.io/gorm/schema"
 )
-
-type ConfigItems []*ConfigItem
-
-func (c ConfigItems) Value() (driver.Value, error) {
-	return json.Marshal(c)
-}
-
-func (c *ConfigItems) Scan(val interface{}) error {
-	if val == nil {
-		*c = ConfigItems{}
-		return nil
-	}
-
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return errors.New(fmt.Sprint("failed to unmarshal properties value:", val))
-	}
-
-	err := json.Unmarshal(ba, c)
-	return err
-}
-
-func (c ConfigItems) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(c)
-	return gorm.Expr("?", data)
-}
-
-func (ConfigItems) GormDataType() string {
-	return "configs"
-}
-
-func (ConfigItems) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.Text
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
