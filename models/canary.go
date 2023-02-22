@@ -24,3 +24,7 @@ type Canary struct {
 func (c Canary) GetCheckID(checkName string) string {
 	return c.Checks[checkName]
 }
+
+func (c Canary) TableName() string {
+	return "canaries"
+}
