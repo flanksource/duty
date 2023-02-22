@@ -1,11 +1,19 @@
 package duty
 
-import "fmt"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/flanksource/duty/models"
+	"github.com/jackc/pgx/v5"
+)
 
 type TopologyOptions struct {
-	ID     string            `query:"id"`
-	Owner  string            `query:"owner"`
-	Labels map[string]string `query:"labels"`
+	ID      string            `query:"id"`
+	Owner   string            `query:"owner"`
+	Labels  map[string]string `query:"labels"`
+	Flatten bool
 }
 
 func (opt TopologyOptions) String() string {
@@ -13,21 +21,21 @@ func (opt TopologyOptions) String() string {
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
-	s := "where components.deleted_at is null "
+	s := "WHERE components.deleted_at IS NULL "
 	if opt.ID != "" {
 		s += `and (starts_with(path,
 			(SELECT
 				(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
-				FROM components where id = :id)
+				FROM components where id = @id)
 			) or id = :id or path = :id :: text)`
 	}
 	if opt.Owner != "" {
-		s += " AND (components.owner = :owner or id = :id)"
+		s += " AND (components.owner = @owner or id = @id)"
 	}
 	if opt.Labels != nil {
-		s += " AND (components.labels @> :labels"
+		s += " AND (components.labels @> @labels"
 		if opt.ID != "" {
-			s += " or id = :id"
+			s += " or id = @id"
 		}
 		s += ")"
 	}
@@ -105,4 +113,79 @@ func (opts TopologyOptions) configAnalysisSummaryForComponents() string {
 
 func (p TopologyOptions) incidentSummaryForComponents() string {
 	return `(SELECT incidents FROM incident_summary_by_component WHERE id = topology_result.id)`
+}
+
+func QueryTopology() ([]models.Component, error) {
+	params := TopologyOptions{}
+	query, args := TopologyQuery(params)
+	rows, err := pool.Query(context.Background(), query, pgx.NamedArgs(args))
+	if err != nil {
+		return nil, err
+	}
+
+	var results []models.Component
+	for rows.Next() {
+		var components []models.Component
+		if rows.RawValues()[0] == nil {
+			continue
+		}
+
+		if err := json.Unmarshal(rows.RawValues()[0], &components); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
+		}
+		results = append(results, components...)
+	}
+
+	for _, c := range results {
+		c.Status = c.GetStatus()
+	}
+
+	if !params.Flatten {
+		results = createComponentTree(results)
+	}
+	return results, nil
+}
+
+func tree(cs []models.Component, compChildrenMap map[string][]models.Component) []models.Component {
+	var root []models.Component
+	for _, c := range cs {
+		if children, exists := compChildrenMap[c.ID.String()]; exists {
+			c.Components = tree(children, compChildrenMap)
+		}
+		root = append(root, c)
+	}
+	return root
+}
+
+func createComponentTree(cs []models.Component) []models.Component {
+	// ComponentID with its component
+	compMap := make(map[string]models.Component)
+	// ComponentID with its children
+	compChildrenMap := make(map[string][]models.Component)
+
+	for _, c := range cs {
+		compMap[c.ID.String()] = c
+		compChildrenMap[c.ID.String()] = []models.Component{}
+	}
+	for _, c := range cs {
+		if c.ParentId != nil {
+			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
+				compChildrenMap[c.ParentId.String()] = append(compChildrenMap[c.ParentId.String()], c)
+			}
+		}
+		if c.RelationshipID != nil {
+			if _, exists := compChildrenMap[c.RelationshipID.String()]; exists {
+				compChildrenMap[c.RelationshipID.String()] = append(compChildrenMap[c.RelationshipID.String()], c)
+			}
+		}
+	}
+
+	ctree := tree(cs, compChildrenMap)
+	var final []models.Component
+	for _, c := range ctree {
+		if c.ParentId == nil {
+			final = append(final, c)
+		}
+	}
+	return final
 }

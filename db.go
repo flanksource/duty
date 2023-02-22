@@ -10,8 +10,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/migrate"
-	"github.com/jackc/pgx/v4/log/logrusadapter"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sirupsen/logrus"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -93,9 +92,10 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 			ExitFunc:     os.Exit,
 			ReportCaller: false,
 		}
-		config.ConnConfig.Logger = logrusadapter.NewLogger(logrusLogger)
+		_ = logrusLogger
+		//config.ConnConfig.Logger = logrusadapter.NewLogger(logrusLogger)
 	}
-	pool, err = pgxpool.ConnectConfig(context.Background(), config)
+	pool, err = pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
