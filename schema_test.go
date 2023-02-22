@@ -2,18 +2,19 @@ package duty
 
 import (
 	"database/sql"
+	"io"
 	"testing"
 
 	. "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	_ "github.com/flanksource/duty/types"
-	. "github.com/onsi/ginkgo/v2"
+	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 func TestSchema(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Schema Suite")
+	RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Schema Suite")
 }
 
 var postgres *EmbeddedPostgres
@@ -28,42 +29,44 @@ func MustDB() *sql.DB {
 	return db
 }
 
-var _ = BeforeSuite(func() {
+var _ = ginkgo.BeforeSuite(func() {
 	postgres = NewDatabase(DefaultConfig().
 		Database("test").
-		Port(9876))
+		Port(9876).
+		Logger(io.Discard))
 	if err := postgres.Start(); err != nil {
-		Fail(err.Error())
+		ginkgo.Fail(err.Error())
 	}
 	logger.Infof("Started postgres on port 9876")
 	if pool != nil {
 		return
 	}
 	if _, err := NewPgxPool(pgUrl); err != nil {
-		Fail(err.Error())
+		ginkgo.Fail(err.Error())
 	}
 	if _, err := NewDB(pgUrl); err != nil {
-		Fail(err.Error())
+		ginkgo.Fail(err.Error())
 	}
+	err := Migrate(pgUrl)
+	Expect(err).ToNot(HaveOccurred())
+
 })
 
-var _ = AfterSuite(func() {
+var _ = ginkgo.AfterSuite(func() {
 	logger.Infof("Stopping postgres")
 	if err := postgres.Stop(); err != nil {
-		Fail(err.Error())
+		ginkgo.Fail(err.Error())
 	}
 })
 
-var _ = Describe("Schema", func() {
-	It("should be able to run migrations", func() {
+var _ = ginkgo.Describe("Schema", func() {
+	ginkgo.It("should be able to run migrations", func() {
 		logger.Infof("Running migrations against %s", pgUrl)
+		// run again to ensure idempotency
 		err := Migrate(pgUrl)
 		Expect(err).ToNot(HaveOccurred())
-		// run again to ensure idempotency
-		err = Migrate(pgUrl)
-		Expect(err).ToNot(HaveOccurred())
 	})
-	It(" Gorm Can connect", func() {
+	ginkgo.It(" Gorm Can connect", func() {
 		gorm, err := NewGorm(pgUrl, DefaultGormConfig())
 		Expect(err).ToNot(HaveOccurred())
 		var people int64
@@ -72,8 +75,8 @@ var _ = Describe("Schema", func() {
 	})
 })
 
-var _ = Describe("DB", func() {
-	It("Can connect", func() {
+var _ = ginkgo.Describe("DB", func() {
+	ginkgo.It("Can connect", func() {
 		db, err := NewDB(pgUrl)
 		Expect(err).ToNot(HaveOccurred())
 		result, err := db.Exec("SELECT 1")

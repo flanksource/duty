@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	ariga.io/atlas v0.9.0
+	github.com/brianvoe/gofakeit/v6 v6.20.1
 	github.com/fergusstrange/embedded-postgres v1.19.0
 	github.com/flanksource/commons v1.6.2
 	github.com/google/uuid v1.3.0
@@ -36,6 +37,7 @@ require (
 	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/jackc/pgx/v5 v5.2.0 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/jackc/puddle/v2 v2.1.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
@@ -51,6 +53,7 @@ require (
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/net v0.3.0 // indirect
+	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
