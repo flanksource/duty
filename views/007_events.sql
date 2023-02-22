@@ -9,7 +9,7 @@ END
 $$ LANGUAGE plpgsql;
 
 
-CREATE  OR REPLACE TRIGGER responder_enqueue
+CREATE OR REPLACE TRIGGER responder_enqueue
     AFTER INSERT
     ON responders
     FOR EACH ROW
@@ -25,7 +25,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE  OR REPLACE TRIGGER comment_enqueue
+CREATE OR REPLACE TRIGGER comment_enqueue
     AFTER INSERT
     ON comments
     FOR EACH ROW

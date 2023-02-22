@@ -1,5 +1,5 @@
--- Trigger def
-CREATE OR REPLACE FUNCTION change_trigger() 
+-- Push table changes to event queue
+CREATE OR REPLACE FUNCTION push_changes_to_event_queue() 
 RETURNS trigger AS $$
 BEGIN
   IF TG_TABLE_NAME = 'component_relationships' THEN
@@ -82,12 +82,11 @@ BEGIN
         'config_relationships'
       )
   LOOP 
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS %1$I_change_trigger ON %1$I;
-      CREATE TRIGGER %1$I_change_trigger
+    EXECUTE format('
+      CREATE OR REPLACE TRIGGER %1$I_change_to_event_queue
       BEFORE INSERT OR UPDATE OR DELETE ON %1$I
       FOR EACH ROW
-      EXECUTE PROCEDURE change_trigger()',
+      EXECUTE PROCEDURE push_changes_to_event_queue()',
       table_name
     );
   END LOOP; 
