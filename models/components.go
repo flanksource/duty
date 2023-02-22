@@ -19,6 +19,16 @@ import (
 
 type Components []*Component
 
+type ComponentStatus string
+
+const (
+	ComponentStatusHealthy   ComponentStatus = "healthy"
+	ComponentStatusUnhealthy ComponentStatus = "unhealthy"
+	ComponentStatusWarning   ComponentStatus = "warning"
+	ComponentStatusError     ComponentStatus = "error"
+	ComponentStatusInfo      ComponentStatus = "info"
+)
+
 type Component struct {
 	ID               uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
 	SystemTemplateID *uuid.UUID          `json:"system_template_id,omitempty"`
@@ -51,18 +61,31 @@ type Component struct {
 	CostTotal7d      float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
 	CostTotal30d     float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
 	CreatedBy        *uuid.UUID          `json:"created_by,omitempty"`
-	CreatedAt        time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp"`
-	UpdatedAt        time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp"`
+	CreatedAt        LocalTime           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	UpdatedAt        LocalTime           `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
-	Checks     Checks     `json:"checks,omitempty" gorm:"-"`
-	Components Components `json:"components,omitempty" gorm:"-"`
-	Order      int        `json:"order,omitempty"  gorm:"-"`
-	SelectorID string     `json:"-" gorm:"-"`
+	Checks         Checks      `json:"checks,omitempty" gorm:"-"`
+	Components     []Component `json:"components,omitempty" gorm:"-"`
+	Order          int         `json:"order,omitempty"  gorm:"-"`
+	SelectorID     string      `json:"-" gorm:"-"`
+	RelationshipID *uuid.UUID  `json:"relationship_id,omitempty" gorm:"-"`
 }
 
-type ComponentStatus string
+func (c Component) GetStatus() ComponentStatus {
+	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
+		return ComponentStatusWarning
+	} else if c.Summary.Unhealthy > 0 {
+		return ComponentStatusUnhealthy
+	} else if c.Summary.Warning > 0 {
+		return ComponentStatusWarning
+	} else if c.Summary.Healthy > 0 {
+		return ComponentStatusHealthy
+	} else {
+		return ComponentStatusInfo
+	}
+}
 
 type Text struct {
 	Tooltip string `json:"tooltip,omitempty"`
