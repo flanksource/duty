@@ -371,7 +371,7 @@ func GenericStructValue[T any](t T, defaultNull bool) (driver.Value, error) {
 // GenericStructScan can be set as the Scan(val) func for any json struct
 func GenericStructScan[T any](t *T, val any) error {
 	if val == nil {
-		*t = *new(T)
+		t = new(T)
 		return nil
 	}
 	var ba []byte
@@ -381,7 +381,7 @@ func GenericStructScan[T any](t *T, val any) error {
 	case string:
 		ba = []byte(v)
 	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", val))
+		return fmt.Errorf("Failed to unmarshal JSONB value: %v", val)
 	}
 	err := json.Unmarshal(ba, &t)
 	return err
