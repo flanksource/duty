@@ -87,6 +87,44 @@ func (c Component) GetStatus() ComponentStatus {
 	}
 }
 
+func (c Component) Summarize() Summary {
+	var s Summary
+	// TODO: Handle for both checks and child components
+	if c.Checks != nil && c.Components == nil {
+		for _, check := range c.Checks {
+			if ComponentStatus(check.Status) == ComponentStatusHealthy {
+				s.Healthy++
+			} else {
+				s.Unhealthy++
+			}
+		}
+		return s
+	}
+
+	if len(c.Components) == 0 {
+		switch c.Status {
+		case ComponentStatusHealthy:
+			s.Healthy++
+		case ComponentStatusUnhealthy:
+			s.Unhealthy++
+		case ComponentStatusWarning:
+			s.Warning++
+		case ComponentStatusInfo:
+			s.Info++
+		}
+		s.Incidents = c.Summary.Incidents
+		s.Insights = c.Summary.Insights
+		return s
+	}
+
+	for _, child := range c.Components {
+		childSummary := child.Summarize()
+		s = s.Add(childSummary, c.Name+"-"+child.Name)
+		child.Summary = childSummary
+	}
+	return s
+}
+
 type Text struct {
 	Tooltip string `json:"tooltip,omitempty"`
 	Icon    string `json:"icon,omitempty"`
@@ -115,6 +153,55 @@ type Summary struct {
 	Info      int                       `json:"info,omitempty"`
 	Incidents map[string]map[string]int `json:"incidents,omitempty"`
 	Insights  map[string]map[string]int `json:"insights,omitempty"`
+}
+
+func (s Summary) String() string {
+	type _s Summary
+	return fmt.Sprintf("%v", _s(s))
+}
+
+func (s Summary) Add(b Summary, n string) Summary {
+	if b.Healthy > 0 && b.Unhealthy > 0 {
+		s.Warning += 1
+	} else if b.Unhealthy > 0 {
+		s.Unhealthy += 1
+	} else if b.Healthy > 0 {
+		s.Healthy += 1
+	}
+	if b.Warning > 0 {
+		s.Warning += b.Warning
+	}
+	if b.Info > 0 {
+		s.Info += b.Info
+	}
+
+	if s.Insights == nil {
+		s.Insights = make(map[string]map[string]int)
+	}
+	for typ, details := range b.Insights {
+		if _, exists := s.Insights[typ]; !exists {
+			s.Insights[typ] = make(map[string]int)
+		}
+		for sev, count := range details {
+			logger.Infof("name=%s typ=%s sev=%s count=%d prev_val=%d", n, typ, sev, count, s.Insights[typ][sev])
+			s.Insights[typ][sev] += count
+		}
+	}
+
+	if s.Incidents == nil {
+		s.Incidents = make(map[string]map[string]int)
+	}
+	for typ, details := range b.Incidents {
+		if _, exists := s.Incidents[typ]; !exists {
+			s.Incidents[typ] = make(map[string]int)
+		}
+		for sev, count := range details {
+			logger.Infof("name=%s typ=%s sev=%s count=%d prev_val=%d", n, typ, sev, count, s.Incidents[typ][sev])
+			s.Incidents[typ][sev] += count
+		}
+	}
+
+	return s
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface

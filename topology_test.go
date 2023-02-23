@@ -6,6 +6,7 @@ import (
 
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
 	_ "github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ func TestTopology(t *testing.T) {
 func generateDummyComponent(name string) models.Component {
 	return models.Component{
 		ID:         uuid.New(),
-		Name:       name,
+		Name:       gofakeit.AppName(),
 		ExternalId: gofakeit.UUID(),
 		Status:     models.ComponentStatusHealthy,
 	}
@@ -91,12 +92,35 @@ var _ = ginkgo.Describe("Models creation", func() {
 		level2D, level2E, level2F, level2G,
 		level3H, level3J, level3K, level3M,
 	}
+	_ = allComponents
 	ginkgo.It("should be able to create models", func() {
 		logger.Infof("Running model create against %s", pgUrl)
-		for _, c := range allComponents {
+		for _, c := range dummy.AllDummyPeople {
 			err = gorm.Create(&c).Error
 			Expect(err).ToNot(HaveOccurred())
 		}
+
+		for _, c := range dummy.AllDummyComponents {
+			err = gorm.Create(&c).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for _, c := range dummy.AllDummyConfigs {
+			err = gorm.Create(&c).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for _, c := range dummy.AllDummyConfigAnalysis {
+			err = gorm.Create(&c).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for _, c := range dummy.AllDummyConfigComponentRelationships {
+			err = gorm.Create(&c).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for _, c := range dummy.AllDummyIncidents {
+			err = gorm.Create(&c).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+
 	})
 
 	ginkgo.It("able to fetch model", func() {
@@ -110,13 +134,13 @@ var _ = ginkgo.Describe("Models creation", func() {
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Printf("\n\n")
 		for _, c := range mytree {
-			fmt.Printf("- %s\n", c.Name)
+			fmt.Printf("- %s {analysis: %v}\n", c.Name, c.Summary)
 			for _, cc := range c.Components {
-				fmt.Printf("  |- %s\n", cc.Name)
+				fmt.Printf("  |- %s {analysis: %v}\n", cc.Name, cc.Summary)
 				for _, ccc := range cc.Components {
-					fmt.Printf("    |- %s\n", ccc.Name)
+					fmt.Printf("    |- %s {analysis: %v}\n", ccc.Name, ccc.Summary)
 					for _, cccc := range ccc.Components {
-						fmt.Printf("      |- %s\n", cccc.Name)
+						fmt.Printf("      |- %s {analysis: %v}\n", cccc.Name, cccc.Summary)
 					}
 				}
 			}
