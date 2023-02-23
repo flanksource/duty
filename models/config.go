@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID            string               `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
+	ID            uuid.UUID            `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
 	ScraperID     *string              `gorm:"column:scraper_id;default:null" json:"scraper_id,omitempty"  `
 	ConfigType    string               `gorm:"column:config_type;default:''" json:"config_type" faker:"oneof:  File, EC2Instance, KubernetesPod" `
 	ExternalID    pq.StringArray       `gorm:"column:external_id;type:[]text" json:"external_id,omitempty" faker:"external_id"  `
@@ -23,7 +24,7 @@ type ConfigItem struct {
 	Description   *string              `gorm:"column:description;default:null" json:"description,omitempty"  `
 	Config        *string              `gorm:"column:config;default:null" json:"config,omitempty"  `
 	Source        *string              `gorm:"column:source;default:null" json:"source,omitempty"  `
-	ParentID      *string              `gorm:"column:parent_id;default:null" json:"parent_id,omitempty" faker:"-"`
+	ParentID      *uuid.UUID           `gorm:"column:parent_id;default:null" json:"parent_id,omitempty" faker:"-"`
 	Path          string               `gorm:"column:path;default:null" json:"path,omitempty" faker:"-"`
 	CostPerMinute float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
 	CostTotal1d   float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
@@ -40,7 +41,7 @@ func (c ConfigItem) TableName() string {
 
 func (ci *ConfigItem) SetParent(parent *ConfigItem) {
 	ci.ParentID = &parent.ID
-	ci.Path = parent.Path + "." + ci.ID
+	ci.Path = parent.Path + "." + ci.ID.String()
 }
 
 func (ci ConfigItem) String() string {
@@ -99,10 +100,10 @@ func (c ConfigChange) String() string {
 }
 
 type ConfigAnalysis struct {
+	ID            uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ExternalID    string              `gorm:"-"`
 	ExternalType  string              `gorm:"-"`
-	ID            string              `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
-	ConfigID      string              `gorm:"column:config_id;default:''" json:"config_id"`
+	ConfigID      uuid.UUID           `gorm:"column:config_id;default:''" json:"config_id"`
 	Analyzer      string              `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
 	Message       string              `gorm:"column:message" json:"message"`
 	Summary       string              `gorm:"column:summary;default:null" json:"summary,omitempty"`

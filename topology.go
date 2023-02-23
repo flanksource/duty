@@ -147,14 +147,15 @@ func QueryTopology() ([]models.Component, error) {
 }
 
 func tree(cs []models.Component, compChildrenMap map[string][]models.Component) []models.Component {
-	var root []models.Component
+	var nodes []models.Component
 	for _, c := range cs {
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
 			c.Components = tree(children, compChildrenMap)
 		}
-		root = append(root, c)
+		c.Summary = c.Summarize()
+		nodes = append(nodes, c)
 	}
-	return root
+	return nodes
 }
 
 func createComponentTree(cs []models.Component) []models.Component {
