@@ -1,4 +1,4 @@
-DROP VIEW IF EXISTS configs;
+DROP VIEW IF EXISTS configs CASCADE;
 
 CREATE or REPLACE VIEW configs AS
   SELECT
@@ -173,5 +173,8 @@ CREATE OR REPLACE VIEW changes_by_component AS
   INNER JOIN config_component_relationships relations on relations.config_id = config_changes.config_id
   INNER JOIN config_items  configs on configs.id = config_changes.config_id;
 
-
-
+-- config_tags
+DROP VIEW IF EXISTS config_tags;
+CREATE OR REPLACE VIEW config_tags AS
+  SELECT d.key, d.value
+  FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
