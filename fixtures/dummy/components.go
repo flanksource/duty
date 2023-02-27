@@ -30,7 +30,7 @@ var LogisticsAPI = models.Component{
 }
 
 var LogisticsUI = models.Component{
-	ID:         uuid.MustParse("018681FD-C1FF-16EE-DFF0-8C8796E4263E"),
+	ID:         uuid.MustParse("018681fd-c1ff-16ee-dff0-8c8796e4263e"),
 	Name:       "logistics-ui",
 	Type:       "Application",
 	ExternalId: "dummy/logistics-ui",
@@ -41,7 +41,7 @@ var LogisticsUI = models.Component{
 }
 
 var LogisticsWorker = models.Component{
-	ID:         uuid.MustParse("018681FE-010A-6647-74AD-58B3A136DFE4"),
+	ID:         uuid.MustParse("018681fe-010a-6647-74ad-58b3a136dfe4"),
 	Name:       "logistics-worker",
 	ExternalId: "dummy/logistics-worker",
 	Type:       "Application",
@@ -51,7 +51,7 @@ var LogisticsWorker = models.Component{
 }
 
 var LogisticsDB = models.Component{
-	ID:         uuid.MustParse("018681FE-4529-C50F-26FD-530FA9C57319"),
+	ID:         uuid.MustParse("018681fe-4529-c50f-26fd-530fa9c57319"),
 	Name:       "logistics-db",
 	ExternalId: "dummy/logistics-db",
 	Type:       "Database",
@@ -61,7 +61,7 @@ var LogisticsDB = models.Component{
 }
 
 var ClusterComponent = models.Component{
-	ID:         uuid.MustParse("018681FE-8156-4B91-D178-CAF8B3C2818C"),
+	ID:         uuid.MustParse("018681fe-8156-4b91-d178-caf8b3c2818c"),
 	Name:       "cluster",
 	ExternalId: "dummy/cluster",
 	Type:       "KubernetesCluster",
@@ -70,7 +70,7 @@ var ClusterComponent = models.Component{
 }
 
 var NodesComponent = models.Component{
-	ID:         uuid.MustParse("018681FE-B27E-7627-72C2-AD18E93F72F4"),
+	ID:         uuid.MustParse("018681fe-b27e-7627-72c2-ad18e93f72f4"),
 	Name:       "Nodes",
 	ExternalId: "dummy/nodes",
 	Type:       "KubernetesNodes",
@@ -80,7 +80,7 @@ var NodesComponent = models.Component{
 }
 
 var NodeA = models.Component{
-	ID:         uuid.MustParse("018681FE-F5AA-37E9-83F7-47B5B0232D5E"),
+	ID:         uuid.MustParse("018681fe-f5aa-37e9-83f7-47b5b0232d5e"),
 	Name:       "node-a",
 	ExternalId: "dummy/node-a",
 	Type:       "KubernetesNode",
@@ -90,7 +90,7 @@ var NodeA = models.Component{
 }
 
 var NodeB = models.Component{
-	ID:         uuid.MustParse("018681FF-227E-4D71-B38E-0693CC862213"),
+	ID:         uuid.MustParse("018681ff-227e-4d71-b38e-0693cc862213"),
 	Name:       "node-b",
 	ExternalId: "dummy/node-b",
 	Type:       "KubernetesNode",
@@ -100,7 +100,7 @@ var NodeB = models.Component{
 }
 
 var PodsComponent = models.Component{
-	ID:         uuid.MustParse("018681FF-559F-7183-19D1-7D898B4E1413"),
+	ID:         uuid.MustParse("018681ff-559f-7183-19d1-7d898b4e1413"),
 	Name:       "Pods",
 	ExternalId: "dummy/pods",
 	Type:       "KubernetesPods",
@@ -110,7 +110,7 @@ var PodsComponent = models.Component{
 }
 
 var LogisticsAPIPod = models.Component{
-	ID:         uuid.MustParse("018681FF-80ED-D10D-21EF-C74F152B085B"),
+	ID:         uuid.MustParse("018681ff-80ed-d10d-21ef-c74f152b085b"),
 	Name:       "logistics-api-574dc95b5d-mp64w",
 	ExternalId: "dummy/logistics-api-574dc95b5d-mp64w",
 	Type:       "KubernetesPod",
@@ -120,7 +120,7 @@ var LogisticsAPIPod = models.Component{
 }
 
 var LogisticsUIPod = models.Component{
-	ID:         uuid.MustParse("018681FF-B6C1-A14D-2FD4-8C7DAC94CDDD"),
+	ID:         uuid.MustParse("018681ff-b6c1-a14d-2fd4-8c7dac94cddd"),
 	Name:       "logistics-ui-676b85b87c-tjjcp",
 	Type:       "KubernetesPod",
 	ExternalId: "dummy/logistics-ui-676b85b87c-tjjcp",
@@ -130,7 +130,7 @@ var LogisticsUIPod = models.Component{
 }
 
 var LogisticsWorkerPod = models.Component{
-	ID:         uuid.MustParse("018681FF-E578-A926-E366-D2DC0646EAFA"),
+	ID:         uuid.MustParse("018681ff-e578-a926-e366-d2dc0646eafa"),
 	Name:       "logistics-worker-79cb67d8f5-lr66n",
 	ExternalId: "dummy/logistics-worker-79cb67d8f5-lr66n",
 	Type:       "KubernetesPod",
