@@ -83,13 +83,11 @@ func (c *Component) GetStatus() ComponentStatus {
 	} else if c.Summary.Healthy > 0 {
 		return ComponentStatusHealthy
 	} else {
-		logger.Infof("SUMMARY ELSE for %s %+v", c.Name, c.Summary)
 		return ComponentStatusInfo
 	}
 }
 
 func (c *Component) Summarize() Summary {
-	logger.Infof("OUTSIDE SWITCH FOR %s - %s", c.Name, c.Status)
 	if c.Summary.processed {
 		return c.Summary
 	}
@@ -107,12 +105,10 @@ func (c *Component) Summarize() Summary {
 		return s
 	}
 
-	// TODO: Debug why the 2 count when gen. from children
 	s.Incidents = c.Summary.Incidents
 	s.Insights = c.Summary.Insights
 
 	if c.Components == nil {
-		logger.Infof("INSIDE SWITCH FOR %s - %s", c.Name, c.Status)
 		switch c.Status {
 		case ComponentStatusHealthy:
 			s.Healthy++
@@ -198,7 +194,6 @@ func (s Summary) Add(b Summary, n string) Summary {
 			s.Insights[typ] = make(map[string]int)
 		}
 		for sev, count := range details {
-			logger.Infof("name=%s typ=%s sev=%s count=%d prev_val=%d", n, typ, sev, count, s.Insights[typ][sev])
 			s.Insights[typ][sev] += count
 		}
 	}
@@ -211,7 +206,6 @@ func (s Summary) Add(b Summary, n string) Summary {
 			s.Incidents[typ] = make(map[string]int)
 		}
 		for sev, count := range details {
-			logger.Infof("name=%s typ=%s sev=%s count=%d prev_val=%d", n, typ, sev, count, s.Incidents[typ][sev])
 			s.Incidents[typ][sev] += count
 		}
 	}
