@@ -1,11 +1,9 @@
 package models
 
 import (
-	/*
-		"database/sql/driver"
+	"database/sql/driver"
 
-		"github.com/flanksource/duty/types"
-	*/
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 )
 
@@ -25,11 +23,10 @@ type PersonProperties struct {
 	Role string `json:"role,omitempty"`
 }
 
-/*
 func (p PersonProperties) Value() (driver.Value, error) {
 	return types.GenericStructValue(p, true)
 }
 
 func (p *PersonProperties) Scan(val any) error {
 	return types.GenericStructScan(&p, val)
-}*/
+}

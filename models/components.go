@@ -66,14 +66,14 @@ type Component struct {
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
-	Checks         Checks      `json:"checks,omitempty" gorm:"-"`
-	Components     []Component `json:"components,omitempty" gorm:"-"`
-	Order          int         `json:"order,omitempty"  gorm:"-"`
-	SelectorID     string      `json:"-" gorm:"-"`
-	RelationshipID *uuid.UUID  `json:"relationship_id,omitempty" gorm:"-"`
+	Checks         Checks       `json:"checks,omitempty" gorm:"-"`
+	Components     []*Component `json:"components,omitempty" gorm:"-"`
+	Order          int          `json:"order,omitempty"  gorm:"-"`
+	SelectorID     string       `json:"-" gorm:"-"`
+	RelationshipID *uuid.UUID   `json:"relationship_id,omitempty" gorm:"-"`
 }
 
-func (c Component) GetStatus() ComponentStatus {
+func (c *Component) GetStatus() ComponentStatus {
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
 		return ComponentStatusWarning
 	} else if c.Summary.Unhealthy > 0 {
@@ -83,11 +83,16 @@ func (c Component) GetStatus() ComponentStatus {
 	} else if c.Summary.Healthy > 0 {
 		return ComponentStatusHealthy
 	} else {
+		logger.Infof("SUMMARY ELSE for %s %+v", c.Name, c.Summary)
 		return ComponentStatusInfo
 	}
 }
 
-func (c Component) Summarize() Summary {
+func (c *Component) Summarize() Summary {
+	logger.Infof("OUTSIDE SWITCH FOR %s - %s", c.Name, c.Status)
+	if c.Summary.processed {
+		return c.Summary
+	}
 	var s Summary
 	// TODO: Handle for both checks and child components
 	if c.Checks != nil && c.Components == nil {
@@ -98,10 +103,16 @@ func (c Component) Summarize() Summary {
 				s.Unhealthy++
 			}
 		}
+		s.processed = true
 		return s
 	}
 
-	if len(c.Components) == 0 {
+	// TODO: Debug why the 2 count when gen. from children
+	s.Incidents = c.Summary.Incidents
+	s.Insights = c.Summary.Insights
+
+	if c.Components == nil {
+		logger.Infof("INSIDE SWITCH FOR %s - %s", c.Name, c.Status)
 		switch c.Status {
 		case ComponentStatusHealthy:
 			s.Healthy++
@@ -114,14 +125,15 @@ func (c Component) Summarize() Summary {
 		}
 		s.Incidents = c.Summary.Incidents
 		s.Insights = c.Summary.Insights
+		s.processed = true
 		return s
 	}
 
 	for _, child := range c.Components {
 		childSummary := child.Summarize()
 		s = s.Add(childSummary, c.Name+"-"+child.Name)
-		child.Summary = childSummary
 	}
+	s.processed = true
 	return s
 }
 
@@ -153,11 +165,14 @@ type Summary struct {
 	Info      int                       `json:"info,omitempty"`
 	Incidents map[string]map[string]int `json:"incidents,omitempty"`
 	Insights  map[string]map[string]int `json:"insights,omitempty"`
+
+	// processed is used to prevent from being caluclated twice
+	processed bool
 }
 
 func (s Summary) String() string {
 	type _s Summary
-	return fmt.Sprintf("%v", _s(s))
+	return fmt.Sprintf("%+v", _s(s))
 }
 
 func (s Summary) Add(b Summary, n string) Summary {
