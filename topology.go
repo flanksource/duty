@@ -4,16 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
 )
 
+const DefaultDepth = 5
+
 type TopologyOptions struct {
-	ID      string            `query:"id"`
-	Owner   string            `query:"owner"`
-	Labels  map[string]string `query:"labels"`
+	ID      string
+	Owner   string
+	Labels  map[string]string
 	Flatten bool
+	Depth   int
+	Types   []string
+	Status  []string
 }
 
 func (opt TopologyOptions) String() string {
@@ -27,7 +33,7 @@ func (opt TopologyOptions) componentWhereClause() string {
 			(SELECT
 				(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
 				FROM components where id = @id)
-			) or id = :id or path = :id :: text)`
+			) or id = @id or path = @id :: text)`
 	}
 	if opt.Owner != "" {
 		s += " AND (components.owner = @owner or id = @id)"
@@ -45,15 +51,15 @@ func (opt TopologyOptions) componentWhereClause() string {
 func (opt TopologyOptions) componentRelationWhereClause() string {
 	s := "WHERE component_relationships.deleted_at IS NULL and parent.deleted_at IS NULL"
 	if opt.Owner != "" {
-		s += " AND (parent.owner = :owner)"
+		s += " AND (parent.owner = @owner)"
 	}
 	if opt.Labels != nil {
-		s += " AND (parent.labels @> :labels)"
+		s += " AND (parent.labels @> @labels)"
 	}
 	if opt.ID != "" {
-		s += ` and (component_relationships.relationship_id = :id or starts_with(component_relationships.relationship_path, (SELECT
+		s += ` and (component_relationships.relationship_id = @id or starts_with(component_relationships.relationship_path, (SELECT
 			(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
-			FROM components where id = :id)))`
+			FROM components where id = @id)))`
 	} else {
 		s += ` and (parent.parent_id is null or starts_with(component_relationships.relationship_path, (SELECT
 			(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
@@ -115,17 +121,16 @@ func (p TopologyOptions) incidentSummaryForComponents() string {
 	return `(SELECT incidents FROM incident_summary_by_component WHERE id = topology_result.id)`
 }
 
-func QueryTopology() ([]models.Component, error) {
-	params := TopologyOptions{}
+func QueryTopology(params TopologyOptions) ([]*models.Component, error) {
 	query, args := TopologyQuery(params)
 	rows, err := pool.Query(context.Background(), query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
 	}
 
-	var results []models.Component
+	var results []*models.Component
 	for rows.Next() {
-		var components []models.Component
+		var components []*models.Component
 		if rows.RawValues()[0] == nil {
 			continue
 		}
@@ -136,38 +141,63 @@ func QueryTopology() ([]models.Component, error) {
 		results = append(results, components...)
 	}
 
-	for _, c := range results {
-		c.Status = c.GetStatus()
+	results = applyTypeFilter(results, params.Types...)
+	if !params.Flatten {
+		results = createComponentTree(params, results)
 	}
 
-	if !params.Flatten {
-		results = createComponentTree(results)
+	if params.Depth <= 0 {
+		params.Depth = DefaultDepth
 	}
+	results = applyDepthFilter(results, params.Depth)
+
+	results = applyStatusFilter(results, params.Status...)
+
 	return results, nil
 }
 
-func tree(cs []models.Component, compChildrenMap map[string][]models.Component) []models.Component {
-	var nodes []models.Component
+func applyDepthFilter(components []*models.Component, depth int) []*models.Component {
+	if depth <= 0 || len(components) == 0 {
+		return components
+	}
+	if depth == 1 {
+		for _, comp := range components {
+			comp.Components = nil
+		}
+		return components
+	}
+
+	for _, comp := range components {
+		comp.Components = applyDepthFilter(comp.Components, depth-1)
+	}
+	return components
+}
+
+func tree(cs []*models.Component, compChildrenMap map[string][]*models.Component) []*models.Component {
+	var nodes []*models.Component
 	for _, c := range cs {
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
 			c.Components = tree(children, compChildrenMap)
 		}
 		c.Summary = c.Summarize()
+
+		c.Status = c.GetStatus()
 		nodes = append(nodes, c)
 	}
 	return nodes
 }
 
-func createComponentTree(cs []models.Component) []models.Component {
+func createComponentTree(params TopologyOptions, cs []*models.Component) []*models.Component {
 	// ComponentID with its component
 	compMap := make(map[string]models.Component)
 	// ComponentID with its children
-	compChildrenMap := make(map[string][]models.Component)
+	compChildrenMap := make(map[string][]*models.Component)
 
 	for _, c := range cs {
-		compMap[c.ID.String()] = c
-		compChildrenMap[c.ID.String()] = []models.Component{}
+		compMap[c.ID.String()] = *c
+		compChildrenMap[c.ID.String()] = []*models.Component{}
 	}
+
 	for _, c := range cs {
 		if c.ParentId != nil {
 			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
@@ -182,11 +212,72 @@ func createComponentTree(cs []models.Component) []models.Component {
 	}
 
 	ctree := tree(cs, compChildrenMap)
-	var final []models.Component
+	var final []*models.Component
 	for _, c := range ctree {
-		if c.ParentId == nil {
+		if c.ParentId == nil || params.ID == c.ID.String() {
 			final = append(final, c)
 		}
 	}
 	return final
+}
+
+func applyTypeFilter(components []*models.Component, types ...string) []*models.Component {
+	if len(types) == 0 {
+		return components
+	}
+
+	var filtered []*models.Component
+	for _, component := range components {
+		if matchItems(component.Type, types...) {
+			filtered = append(filtered, component)
+		}
+	}
+	return filtered
+}
+
+func applyStatusFilter(components []*models.Component, statii ...string) []*models.Component {
+	if len(statii) == 0 {
+		return components
+	}
+	var filtered []*models.Component
+	for _, component := range components {
+		if matchItems(string(component.Status), statii...) {
+			filtered = append(filtered, component)
+		}
+		var filteredChildren []*models.Component
+		for _, child := range component.Components {
+			if matchItems(string(child.Status), statii...) {
+				filteredChildren = append(filteredChildren, child)
+			}
+		}
+		component.Components = filteredChildren
+	}
+	return filtered
+}
+
+// matchItems returns true if any of the items in the list match the item
+// negative matches are supported by prefixing the item with a !
+// * matches everything
+func matchItems(item string, items ...string) bool {
+	if len(items) == 0 {
+		return true
+	}
+
+	for _, i := range items {
+		if strings.HasPrefix(i, "!") {
+			if item == strings.TrimPrefix(i, "!") {
+				return false
+			}
+		}
+	}
+
+	for _, i := range items {
+		if strings.HasPrefix(i, "!") {
+			continue
+		}
+		if i == "*" || item == i {
+			return true
+		}
+	}
+	return false
 }
