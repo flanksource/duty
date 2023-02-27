@@ -1,0 +1,51 @@
+[
+        {
+          "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+          "external_id": "dummy/node-a",
+          "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+          "name": "node-a",
+          "status": "healthy",
+          "type": "KubernetesNode",
+          "configs": null,
+          "summary": {
+            "healthy": 2
+          },
+          "is_leaf": false,
+          "created_at": "2022-12-31T23:59:00",
+          "updated_at": "2022-12-31T23:59:00",
+          "components": [
+            {
+              "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+              "external_id": "dummy/logistics-api-574dc95b5d-mp64w",
+              "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+              "name": "logistics-api-574dc95b5d-mp64w",
+              "status": "healthy",
+              "type": "KubernetesPod",
+              "configs": null,
+              "summary": {
+                "healthy": 1
+              },
+              "is_leaf": false,
+              "created_at": "2022-12-31T23:59:00",
+              "updated_at": "2022-12-31T23:59:00",
+              "relationship_id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+            },
+            {
+              "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+              "external_id": "dummy/logistics-ui-676b85b87c-tjjcp",
+              "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+              "name": "logistics-ui-676b85b87c-tjjcp",
+              "status": "healthy",
+              "type": "KubernetesPod",
+              "configs": null,
+              "summary": {
+                "healthy": 1
+              },
+              "is_leaf": false,
+              "created_at": "2022-12-31T23:59:00",
+              "updated_at": "2022-12-31T23:59:00",
+              "relationship_id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+            }
+          ]
+        }
+      ]

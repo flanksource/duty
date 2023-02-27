@@ -19,8 +19,14 @@ var LogisticsDBRDSLogisticsDBComponentRelationship = models.ConfigComponentRelat
 	ComponentID: LogisticsDB.ID,
 }
 
+var EC2InstanceBNodeBRelationship = models.ConfigComponentRelationship{
+	ConfigID:    EC2InstanceB.ID,
+	ComponentID: NodeB.ID,
+}
+
 var AllDummyConfigComponentRelationships = []models.ConfigComponentRelationship{
 	EKSClusterClusterComponentRelationship,
 	KubernetesClusterClusterComponentRelationship,
 	LogisticsDBRDSLogisticsDBComponentRelationship,
+	EC2InstanceBNodeBRelationship,
 }
