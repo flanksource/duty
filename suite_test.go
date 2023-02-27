@@ -10,7 +10,6 @@ import (
 	. "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
-	"github.com/flanksource/duty/models"
 	_ "github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,7 +59,8 @@ var _ = ginkgo.BeforeSuite(func() {
 	testDB, err = NewGorm(pgUrl, DefaultGormConfig())
 	Expect(err).ToNot(HaveOccurred())
 
-	populateDBWithDummyModels()
+	err = dummy.PopulateDBWithDummyModels(testDB)
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = ginkgo.AfterSuite(func() {
@@ -69,71 +69,6 @@ var _ = ginkgo.AfterSuite(func() {
 		ginkgo.Fail(err.Error())
 	}
 })
-
-func populateDBWithDummyModels() {
-	var err error
-	createTime := dummy.DummyCreatedAt
-	for _, c := range dummy.AllDummyPeople {
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyComponents {
-		c.UpdatedAt = models.LocalTime(createTime)
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyComponentRelationships {
-		c.UpdatedAt = createTime
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyConfigs {
-		c.CreatedAt = createTime
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyConfigAnalysis {
-		c.FirstObserved = &createTime
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyConfigComponentRelationships {
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyIncidents {
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyHypotheses {
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-	for _, c := range dummy.AllDummyEvidences {
-		err = testDB.Create(&c).Error
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	logger.Infof("Populated database with dummy models")
-}
 
 func readTestFile(path string) string {
 	d, err := os.ReadFile(path)
