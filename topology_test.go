@@ -17,6 +17,7 @@ func TestTopology(t *testing.T) {
 }
 
 // For debugging
+// nolint
 func prettytree(mytree []*models.Component) {
 	for _, c := range mytree {
 		fmt.Printf("- %s {analysis: %v}\n\n", c.Name, c.Summary)
