@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	. "github.com/fergusstrange/embedded-postgres"
@@ -136,7 +136,7 @@ func populateDBWithDummyModels() {
 }
 
 func readTestFile(path string) string {
-	d, err := ioutil.ReadFile(path)
+	d, err := os.ReadFile(path)
 	// We panic here because text fixtures should always be readable
 	if err != nil {
 		panic(fmt.Errorf("Unable to read file:%s due to %v", path, err))
