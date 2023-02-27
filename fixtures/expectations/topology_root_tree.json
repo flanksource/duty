@@ -1,0 +1,261 @@
+[
+  {
+    "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+    "external_id": "dummy/logistics",
+    "name": "logistics",
+    "status": "warning",
+    "type": "Entity",
+    "owner": "logistics-team",
+    "labels": {
+      "telemetry": "enabled"
+    },
+    "configs": null,
+    "summary": {
+      "healthy": 1,
+      "warning": 1,
+      "incidents": {
+        "availability": {
+          "Blocker": 1
+        }
+      },
+      "insights": {
+        "security": {
+          "critical": 1
+        }
+      }
+    },
+    "is_leaf": false,
+    "created_at": "2022-12-31T23:59:00",
+    "updated_at": "2022-12-31T23:59:00",
+    "components": [
+      {
+        "id": "018681fd-5770-336f-227c-259435d7fc6b",
+        "external_id": "dummy/logistics-api",
+        "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+        "name": "logistics-api",
+        "owner": "logistics-team",
+        "labels": {
+          "telemetry": "enabled"
+        },
+        "status": "warning",
+        "type": "Application",
+        "configs": null,
+        "summary": {
+          "healthy": 1,
+          "unhealthy": 1,
+          "incidents": {
+            "availability": {
+              "Blocker": 1
+            }
+          },
+          "insights": {
+            "security": {
+              "critical": 1
+            }
+          }
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00",
+        "components": [
+          {
+            "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
+            "external_id": "dummy/logistics-worker",
+            "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
+            "name": "logistics-worker",
+            "status": "healthy",
+            "type": "Application",
+            "configs": null,
+            "summary": {
+              "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          },
+          {
+            "id": "018681fe-4529-c50f-26fd-530fa9c57319",
+            "external_id": "dummy/logistics-db",
+            "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
+            "name": "logistics-db",
+            "status": "unhealthy",
+            "type": "Database",
+            "configs": null,
+            "summary": {
+              "unhealthy": 1,
+              "incidents": {
+                "availability": {
+                  "Blocker": 1
+                }
+              },
+              "insights": {
+                "security": {
+                  "critical": 1
+                }
+              }
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          }
+        ]
+      },
+      {
+        "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
+        "external_id": "dummy/logistics-ui",
+        "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+        "name": "logistics-ui",
+        "owner": "logistics-team",
+        "status": "healthy",
+        "type": "Application",
+        "configs": null,
+        "summary": {
+          "healthy": 1
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00"
+      }
+    ]
+  },
+  {
+    "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+    "external_id": "dummy/cluster",
+    "name": "cluster",
+    "status": "healthy",
+    "type": "KubernetesCluster",
+    "configs": null,
+    "summary": {
+      "healthy": 2,
+      "insights": {
+        "security": {
+          "critical": 1
+        }
+      }
+    },
+    "is_leaf": false,
+    "created_at": "2022-12-31T23:59:00",
+    "updated_at": "2022-12-31T23:59:00",
+    "components": [
+      {
+        "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+        "external_id": "dummy/nodes",
+        "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+        "name": "Nodes",
+        "status": "healthy",
+        "type": "KubernetesNodes",
+        "configs": null,
+        "summary": {
+          "healthy": 2,
+          "insights": {
+            "security": {
+              "critical": 1
+            }
+          }
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00",
+        "components": [
+          {
+            "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+            "external_id": "dummy/node-a",
+            "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+            "name": "node-a",
+            "status": "healthy",
+            "type": "KubernetesNode",
+            "configs": null,
+            "summary": {
+              "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          },
+          {
+            "id": "018681ff-227e-4d71-b38e-0693cc862213",
+            "external_id": "dummy/node-b",
+            "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+            "name": "node-b",
+            "status": "healthy",
+            "type": "KubernetesNode",
+            "configs": null,
+            "summary": {
+              "healthy": 1,
+              "insights": {
+                "security": {
+                  "critical": 1
+                }
+              }
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          }
+        ]
+      },
+      {
+        "id": "018681ff-559f-7183-19d1-7d898b4e1413",
+        "external_id": "dummy/pods",
+        "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+        "name": "Pods",
+        "status": "healthy",
+        "type": "KubernetesPods",
+        "configs": null,
+        "summary": {
+          "healthy": 3
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00",
+        "components": [
+          {
+            "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+            "external_id": "dummy/logistics-api-574dc95b5d-mp64w",
+            "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+            "name": "logistics-api-574dc95b5d-mp64w",
+            "status": "healthy",
+            "type": "KubernetesPod",
+            "configs": null,
+            "summary": {
+              "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          },
+          {
+            "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+            "external_id": "dummy/logistics-ui-676b85b87c-tjjcp",
+            "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+            "name": "logistics-ui-676b85b87c-tjjcp",
+            "status": "healthy",
+            "type": "KubernetesPod",
+            "configs": null,
+            "summary": {
+              "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          },
+          {
+            "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+            "external_id": "dummy/logistics-worker-79cb67d8f5-lr66n",
+            "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+            "name": "logistics-worker-79cb67d8f5-lr66n",
+            "status": "healthy",
+            "type": "KubernetesPod",
+            "configs": null,
+            "summary": {
+              "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2022-12-31T23:59:00",
+            "updated_at": "2022-12-31T23:59:00"
+          }
+        ]
+      }
+    ]
+  }
+]
