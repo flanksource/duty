@@ -3,7 +3,6 @@ package duty
 import (
 	"encoding/json"
 	"fmt"
-	"testing"
 
 	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
@@ -11,10 +10,6 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-func TestTopology(t *testing.T) {
-	RegisterFailHandler(ginkgo.Fail)
-}
 
 // For debugging
 // nolint
