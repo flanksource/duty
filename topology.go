@@ -173,11 +173,11 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return components
 }
 
-func tree(cs []*models.Component, compChildrenMap map[string][]*models.Component) []*models.Component {
+func generateTree(components []*models.Component, compChildrenMap map[string][]*models.Component) []*models.Component {
 	var nodes []*models.Component
-	for _, c := range cs {
+	for _, c := range components {
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			c.Components = tree(children, compChildrenMap)
+			c.Components = generateTree(children, compChildrenMap)
 		}
 		c.Summary = c.Summarize()
 
@@ -187,18 +187,15 @@ func tree(cs []*models.Component, compChildrenMap map[string][]*models.Component
 	return nodes
 }
 
-func createComponentTree(params TopologyOptions, cs []*models.Component) []*models.Component {
-	// ComponentID with its component
-	compMap := make(map[string]models.Component)
+func createComponentTree(params TopologyOptions, components []*models.Component) []*models.Component {
 	// ComponentID with its children
 	compChildrenMap := make(map[string][]*models.Component)
 
-	for _, c := range cs {
-		compMap[c.ID.String()] = *c
+	for _, c := range components {
 		compChildrenMap[c.ID.String()] = []*models.Component{}
 	}
 
-	for _, c := range cs {
+	for _, c := range components {
 		if c.ParentId != nil {
 			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
 				compChildrenMap[c.ParentId.String()] = append(compChildrenMap[c.ParentId.String()], c)
@@ -211,14 +208,14 @@ func createComponentTree(params TopologyOptions, cs []*models.Component) []*mode
 		}
 	}
 
-	ctree := tree(cs, compChildrenMap)
-	var final []*models.Component
-	for _, c := range ctree {
+	tree := generateTree(components, compChildrenMap)
+	var root []*models.Component
+	for _, c := range tree {
 		if c.ParentId == nil || params.ID == c.ID.String() {
-			final = append(final, c)
+			root = append(root, c)
 		}
 	}
-	return final
+	return root
 }
 
 func applyTypeFilter(components []*models.Component, types ...string) []*models.Component {
