@@ -6,7 +6,6 @@ import (
 
 	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
-	_ "github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,7 +28,7 @@ func prettytree(mytree []*models.Component) {
 }
 
 func testTopologyJSON(opts TopologyOptions, path string) {
-	tree, err := QueryTopology(opts)
+	tree, err := QueryTopology(testDBPGPool, opts)
 	Expect(err).ToNot(HaveOccurred())
 
 	treeJSON, err := json.Marshal(tree)
