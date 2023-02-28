@@ -17,8 +17,6 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-type Components []*Component
-
 type ComponentStatus string
 
 const (
@@ -66,11 +64,11 @@ type Component struct {
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
-	Checks         Checks       `json:"checks,omitempty" gorm:"-"`
-	Components     []*Component `json:"components,omitempty" gorm:"-"`
-	Order          int          `json:"order,omitempty"  gorm:"-"`
-	SelectorID     string       `json:"-" gorm:"-"`
-	RelationshipID *uuid.UUID   `json:"relationship_id,omitempty" gorm:"-"`
+	Checks         Checks     `json:"checks,omitempty" gorm:"-"`
+	Components     Components `json:"components,omitempty" gorm:"-"`
+	Order          int        `json:"order,omitempty"  gorm:"-"`
+	SelectorID     string     `json:"-" gorm:"-"`
+	RelationshipID *uuid.UUID `json:"relationship_id,omitempty" gorm:"-"`
 }
 
 func (c *Component) GetStatus() ComponentStatus {
@@ -131,6 +129,20 @@ func (c *Component) Summarize() Summary {
 	}
 	s.processed = true
 	return s
+}
+
+type Components []*Component
+
+func (components Components) Walk() Components {
+	var comps Components
+	for _, _c := range components {
+		c := _c
+		comps = append(comps, c)
+		if c.Components != nil {
+			comps = append(comps, c.Components.Walk()...)
+		}
+	}
+	return comps
 }
 
 type Text struct {

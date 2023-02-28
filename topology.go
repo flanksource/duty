@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const DefaultDepth = 5
@@ -68,7 +69,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 	return s
 }
 
-func TopologyQuery(opts TopologyOptions) (string, map[string]any) {
+func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	query := fmt.Sprintf(`
     WITH topology_result as (
         SELECT *, NULL AS relationship_id FROM components %s
@@ -121,16 +122,16 @@ func (p TopologyOptions) incidentSummaryForComponents() string {
 	return `(SELECT incidents FROM incident_summary_by_component WHERE id = topology_result.id)`
 }
 
-func QueryTopology(params TopologyOptions) ([]*models.Component, error) {
-	query, args := TopologyQuery(params)
-	rows, err := pool.Query(context.Background(), query, pgx.NamedArgs(args))
+func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) ([]*models.Component, error) {
+	query, args := generateQuery(params)
+	rows, err := dbpool.Query(context.Background(), query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
 	}
 
-	var results []*models.Component
+	var results models.Components
 	for rows.Next() {
-		var components []*models.Component
+		var components models.Components
 		if rows.RawValues()[0] == nil {
 			continue
 		}
@@ -187,7 +188,7 @@ func generateTree(components []*models.Component, compChildrenMap map[string][]*
 	return nodes
 }
 
-func createComponentTree(params TopologyOptions, components []*models.Component) []*models.Component {
+func createComponentTree(params TopologyOptions, components models.Components) []*models.Component {
 	// ComponentID with its children
 	compChildrenMap := make(map[string][]*models.Component)
 
@@ -209,7 +210,7 @@ func createComponentTree(params TopologyOptions, components []*models.Component)
 	}
 
 	tree := generateTree(components, compChildrenMap)
-	var root []*models.Component
+	var root models.Components
 	for _, c := range tree {
 		if c.ParentId == nil || params.ID == c.ID.String() {
 			root = append(root, c)

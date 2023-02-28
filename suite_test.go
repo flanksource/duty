@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	. "github.com/fergusstrange/embedded-postgres"
+	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
-	_ "github.com/flanksource/duty/types"
+	"github.com/jackc/pgx/v5/pgxpool"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
@@ -21,11 +21,12 @@ func TestDuty(t *testing.T) {
 	ginkgo.RunSpecs(t, "Duty Suite")
 }
 
-var postgresServer *EmbeddedPostgres
+var postgresServer *embeddedPG.EmbeddedPostgres
 
 const pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
 
 var testDB *gorm.DB
+var testDBPGPool *pgxpool.Pool
 
 func MustDB() *sql.DB {
 	db, err := NewDB(pgUrl)
@@ -36,7 +37,7 @@ func MustDB() *sql.DB {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
-	postgresServer = NewDatabase(DefaultConfig().
+	postgresServer = embeddedPG.NewDatabase(embeddedPG.DefaultConfig().
 		Database("test").
 		Port(9876).
 		Logger(io.Discard))
@@ -47,13 +48,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	if pool != nil {
 		return
 	}
-	if _, err := NewPgxPool(pgUrl); err != nil {
+	var err error
+	if testDBPGPool, err = NewPgxPool(pgUrl); err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	if _, err := NewDB(pgUrl); err != nil {
 		ginkgo.Fail(err.Error())
 	}
-	err := Migrate(pgUrl)
+	err = Migrate(pgUrl)
 	Expect(err).ToNot(HaveOccurred())
 
 	testDB, err = NewGorm(pgUrl, DefaultGormConfig())
