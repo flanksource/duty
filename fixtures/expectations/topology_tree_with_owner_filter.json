@@ -1,57 +1,57 @@
 [
-        {
-          "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-          "external_id": "dummy/logistics",
-          "name": "logistics",
-          "labels": {
-            "telemetry": "enabled"
-          },
-          "status": "healthy",
-          "type": "Entity",
-          "owner": "logistics-team",
-          "configs": null,
-          "summary": {
-            "healthy": 2
-          },
-          "is_leaf": false,
-          "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00",
-          "components": [
-            {
-              "id": "018681fd-5770-336f-227c-259435d7fc6b",
-              "external_id": "dummy/logistics-api",
-              "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-              "name": "logistics-api",
-              "labels": {
-                "telemetry": "enabled"
-              },
-              "status": "healthy",
-              "type": "Application",
-              "owner": "logistics-team",
-              "configs": null,
-              "summary": {
-                "healthy": 1
-              },
-              "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
-            },
-            {
-              "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
-              "external_id": "dummy/logistics-ui",
-              "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-              "name": "logistics-ui",
-              "status": "healthy",
-              "type": "Application",
-              "owner": "logistics-team",
-              "configs": null,
-              "summary": {
-                "healthy": 1
-              },
-              "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
-            }
-          ]
-        }
-      ]
+  {
+    "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+    "external_id": "dummy/logistics",
+    "name": "logistics",
+    "labels": {
+      "telemetry": "enabled"
+    },
+    "status": "healthy",
+    "type": "Entity",
+    "owner": "logistics-team",
+    "configs": null,
+    "summary": {
+      "healthy": 2
+    },
+    "is_leaf": false,
+    "created_at": "2022-12-31T23:59:00",
+    "updated_at": "2022-12-31T23:59:00",
+    "components": [
+      {
+        "id": "018681fd-5770-336f-227c-259435d7fc6b",
+        "external_id": "dummy/logistics-api",
+        "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+        "name": "logistics-api",
+        "labels": {
+          "telemetry": "enabled"
+        },
+        "status": "healthy",
+        "type": "Application",
+        "owner": "logistics-team",
+        "configs": null,
+        "summary": {
+          "healthy": 1
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00"
+      },
+      {
+        "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
+        "external_id": "dummy/logistics-ui",
+        "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+        "name": "logistics-ui",
+        "status": "healthy",
+        "type": "Application",
+        "owner": "logistics-team",
+        "configs": null,
+        "summary": {
+          "healthy": 1
+        },
+        "is_leaf": false,
+        "created_at": "2022-12-31T23:59:00",
+        "updated_at": "2022-12-31T23:59:00"
+      }
+    ]
+  }
+]
