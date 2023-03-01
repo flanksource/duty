@@ -133,16 +133,13 @@ func (c *Component) Summarize() Summary {
 
 type Components []*Component
 
-func (components Components) Walk() Components {
-	var comps Components
-	for _, _c := range components {
-		c := _c
-		comps = append(comps, c)
+func (components Components) Map(fn func(c *Component)) {
+	for _, c := range components {
+		fn(c)
 		if c.Components != nil {
-			comps = append(comps, c.Components.Walk()...)
+			c.Components.Map(fn)
 		}
 	}
-	return comps
 }
 
 type Text struct {
