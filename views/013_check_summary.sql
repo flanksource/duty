@@ -18,13 +18,13 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
 CREATE OR REPLACE FUNCTION update_last_transition_time_for_check()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE checks SET last_transition_time = NOW() WHERE id = NEW.id;
+    NEW.last_transition_time = NOW();
     RETURN NEW;
 END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER checks_last_transition_time
-    AFTER UPDATE
+    BEFORE UPDATE
     ON checks
     FOR EACH ROW
     WHEN (OLD.status IS DISTINCT FROM NEW.status)
