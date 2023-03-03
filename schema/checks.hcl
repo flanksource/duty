@@ -164,6 +164,10 @@ table "checks" {
     null = true
     type = timestamp
   }
+  column "last_transition_time" {
+    null = true
+    type = timestamp
+  }
   column "next_runtime" {
     null = true
     type = timestamp
