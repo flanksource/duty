@@ -14,7 +14,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   bump-clients:
     runs-on: ubuntu-latest
-    if: steps.semantic.outputs.new-release-published == 'true'
+    if: ${{ steps.semantic.outputs.new-release-published == 'true' }}
     strategy:
       matrix:
         repos: ['incident-commander', 'canary-checker', 'config-db']
