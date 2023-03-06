@@ -35,8 +35,8 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          branch: 'bump-duty-@${{ needs.semantic-release.outputs.release-version }}'
-          commit-message: 'chore: bump duty'
-          title: 'chore: bump duty'
+          branch: 'bump-duty-${{ needs.semantic-release.outputs.release-version }}'
+          commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
+          title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           committer: 'Flankbot <flankbot@users.noreply.github.com>'
           token: ${{ secrets.FLANKBOT }}
