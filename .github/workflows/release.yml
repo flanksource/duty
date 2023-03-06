@@ -26,9 +26,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           repository: flanksource/${{ matrix.repos }}
+          token: ${{ secrets.FLANKBOT }}
       - name: Create commits
         run: |
-          # Sleep to let index to refresh
+          # Sleep to let index refresh
           sleep 60
           go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
       - name: Create Pull Request
@@ -39,4 +40,4 @@ jobs:
           title: 'chore: bump duty'
           committer: 'Flankbot <flankbot@users.noreply.github.com>'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.FLANKBOT }}
