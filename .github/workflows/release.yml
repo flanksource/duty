@@ -39,5 +39,4 @@ jobs:
           commit-message: 'chore: bump duty'
           title: 'chore: bump duty'
           committer: 'Flankbot <flankbot@users.noreply.github.com>'
-        env:
-          GITHUB_TOKEN: ${{ secrets.FLANKBOT }}
+          token: ${{ secrets.FLANKBOT }}
