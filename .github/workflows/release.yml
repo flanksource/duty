@@ -12,10 +12,13 @@ jobs:
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      release-version: ${{ steps.semantic.outputs.release-version }}
+      new-release-published: ${{ steps.semantic.outputs.new-release-published }}
   bump-clients:
     runs-on: ubuntu-latest
     needs: [semantic-release]
-    if: ${{ jobs.semantic-release.steps.semantic.outputs.new-release-published == 'true' }}
+    if: needs.semantic-release.outputs.new-release-published == 'true'
     strategy:
       matrix:
         repos: ['incident-commander', 'canary-checker', 'config-db']
@@ -28,11 +31,11 @@ jobs:
           git checkout -b bump-duty 
           # Sleep to let index to refresh
           sleep 60
-          go get -u github.com/flanksource/duty@${{ jobs.semantic-release.steps.semantic.outputs.release-version }}
+          go get -u github.com/flanksource/duty@v{{ needs.semantic-release.outputs.release-version }}
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          branch: 'bump-duty-@{{ jobs.semantic-release.steps.semantic.outputs.release-version }}'
+          branch: 'bump-duty-@{{ needs.semantic-release.outputs.release-version }}'
           commit-message: 'chore: bump duty'
           title: 'chore: bump duty'
           commiter: 'Flankbot <flankbot@users.noreply.github.com>'
