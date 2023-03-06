@@ -71,10 +71,6 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 
 func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 	var err error
-
-	if gormDB == nil {
-		panic("yaa")
-	}
 	if err = gormDB.Exec(`DELETE FROM incident_histories`).Error; err != nil {
 		return err
 	}
