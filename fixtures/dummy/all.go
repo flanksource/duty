@@ -79,10 +79,9 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range AllDummyCheckStatuses {
+		// TODO: Figure out why it panics without Table
 		err = gormDB.Table("check_statuses").Create(&c).Error
-		//err = gormDB.Create(&c).Error
 		if err != nil {
-			panic(err)
 			return err
 		}
 	}

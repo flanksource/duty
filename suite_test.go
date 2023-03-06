@@ -91,7 +91,7 @@ func readTestFile(path string) string {
 func parseJQ(v []byte, expr string) ([]byte, error) {
 	query, err := gojq.Parse(expr)
 	if err != nil {
-		Expect(err).ToNot(HaveOccurred())
+		return nil, err
 	}
 	var input any
 	err = json.Unmarshal(v, &input)
@@ -110,10 +110,10 @@ func parseJQ(v []byte, expr string) ([]byte, error) {
 		}
 
 		jsonVal, err = json.Marshal(val)
-		logger.Infof("JSON VAL %s", string(jsonVal))
+		if err != nil {
+			return nil, err
+		}
 	}
-	logger.Infof("JSON VAL END ===")
-
 	return jsonVal, nil
 }
 
@@ -132,7 +132,5 @@ func matchJSON(a []byte, b []byte, jqExpr *string) {
 		}
 
 	}
-	logger.Infof("VAL-A %s", string(valueA))
-	logger.Infof("VAL-B %s", string(valueB))
 	Expect(valueA).To(MatchJSON(valueB))
 }

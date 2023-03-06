@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/models"
-	//"github.com/google/uuid"
 )
 
 var t1 = currentTime.Add(-15 * time.Minute)
