@@ -28,7 +28,6 @@ jobs:
           repository: flanksource/${{ matrix.repos }}
       - name: Create commits
         run: |
-          git checkout -b bump-duty 
           # Sleep to let index to refresh
           sleep 60
           go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
@@ -38,6 +37,6 @@ jobs:
           branch: 'bump-duty-@${{ needs.semantic-release.outputs.release-version }}'
           commit-message: 'chore: bump duty'
           title: 'chore: bump duty'
-          commiter: 'Flankbot <flankbot@users.noreply.github.com>'
+          committer: 'Flankbot <flankbot@users.noreply.github.com>'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
