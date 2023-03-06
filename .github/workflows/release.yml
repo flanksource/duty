@@ -31,11 +31,11 @@ jobs:
           git checkout -b bump-duty 
           # Sleep to let index to refresh
           sleep 60
-          go get -u github.com/flanksource/duty@v{{ needs.semantic-release.outputs.release-version }}
+          go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          branch: 'bump-duty-@{{ needs.semantic-release.outputs.release-version }}'
+          branch: 'bump-duty-@${{ needs.semantic-release.outputs.release-version }}'
           commit-message: 'chore: bump duty'
           title: 'chore: bump duty'
           commiter: 'Flankbot <flankbot@users.noreply.github.com>'
