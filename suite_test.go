@@ -66,6 +66,14 @@ var _ = ginkgo.BeforeSuite(func() {
 })
 
 var _ = ginkgo.AfterSuite(func() {
+	logger.Infof("Deleting dummy data")
+	testDB, err := NewGorm(pgUrl, DefaultGormConfig())
+	if err != nil {
+		ginkgo.Fail(err.Error())
+	}
+	if err := dummy.DeleteDummyModelsFromDB(testDB); err != nil {
+		ginkgo.Fail(err.Error())
+	}
 	logger.Infof("Stopping postgres")
 	if err := postgresServer.Stop(); err != nil {
 		ginkgo.Fail(err.Error())
