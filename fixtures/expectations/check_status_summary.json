@@ -1,0 +1,40 @@
+[
+  {
+    "id": "4a8af29f-68ac-4ff9-8121-3f285f57f2cb",
+    "canary_id": "a1398415-031f-4baa-8010-af184443c974",
+    "type": "postgres",
+    "name": "logistics-db-check",
+    "canary_name": "dummy-logistics-db-canary",
+    "namespace": "logistics",
+    "labels": {},
+    "uptime": {
+      "passed": 0,
+      "failed": 1,
+      "last_fail": "2023-03-06T20:54:52"
+    },
+    "latency": {
+      "p99": 50,
+      "rolling1h": 0
+    },
+    "checkStatuses": null
+  },
+  {
+    "id": "757f45b0-c396-43fb-ac81-4d5149b9bf93",
+    "canary_id": "ac2eed39-253f-46a6-8d9e-e39aeb679590",
+    "type": "http",
+    "name": "logistics-api-health-check",
+    "canary_name": "dummy-logistics-api-canary",
+    "namespace": "logistics",
+    "labels": {},
+    "uptime": {
+      "passed": 3,
+      "failed": 0,
+      "last_pass": "2023-03-06T21:04:52"
+    },
+    "latency": {
+      "p99": 100,
+      "rolling1h": 0
+    },
+    "checkStatuses": null
+  }
+]

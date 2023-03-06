@@ -66,5 +66,25 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyCanaries {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyChecks {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyCheckStatuses {
+		err = gormDB.Table("check_statuses").Create(&c).Error
+		//err = gormDB.Create(&c).Error
+		if err != nil {
+			panic(err)
+			return err
+		}
+	}
 	return nil
 }

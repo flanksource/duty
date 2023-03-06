@@ -9,28 +9,30 @@ import (
 )
 
 type Check struct {
-	ID          uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
-	CanaryID    uuid.UUID           `json:"canary_id"`
-	Spec        types.JSON          `json:"-"`
-	Type        string              `json:"type"`
-	Name        string              `json:"name"`
-	CanaryName  string              `json:"canary_name" gorm:"-"`
-	Namespace   string              `json:"namespace"  gorm:"-"`
-	Labels      types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
-	Description string              `json:"description,omitempty"`
-	Status      string              `json:"status,omitempty"`
-	Uptime      Uptime              `json:"uptime"  gorm:"-"`
-	Latency     Latency             `json:"latency"  gorm:"-"`
-	Statuses    []CheckStatus       `json:"checkStatuses"  gorm:"-"`
-	Owner       string              `json:"owner,omitempty"`
-	Severity    string              `json:"severity,omitempty"`
-	Icon        string              `json:"icon,omitempty"`
-	DisplayType string              `json:"displayType,omitempty"  gorm:"-"`
-	LastRuntime *time.Time          `json:"lastRuntime,omitempty"`
-	NextRuntime *time.Time          `json:"nextRuntime,omitempty"`
-	UpdatedAt   *time.Time          `json:"updatedAt,omitempty"`
-	CreatedAt   *time.Time          `json:"createdAt,omitempty"`
-	DeletedAt   *time.Time          `json:"deletedAt,omitempty"`
+	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
+	CanaryID           uuid.UUID           `json:"canary_id"`
+	Spec               types.JSON          `json:"-"`
+	Type               string              `json:"type"`
+	Name               string              `json:"name"`
+	CanaryName         string              `json:"canary_name" gorm:"-"`
+	Namespace          string              `json:"namespace"  gorm:"-"`
+	Labels             types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
+	Description        string              `json:"description,omitempty"`
+	Status             string              `json:"status,omitempty"`
+	Uptime             Uptime              `json:"uptime"  gorm:"-"`
+	Latency            Latency             `json:"latency"  gorm:"-"`
+	Statuses           []CheckStatus       `json:"checkStatuses"  gorm:"-"`
+	Owner              string              `json:"owner,omitempty"`
+	Severity           string              `json:"severity,omitempty"`
+	Icon               string              `json:"icon,omitempty"`
+	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
+	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
+	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
+	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	CreatedAt          *LocalTime          `json:"created_at,omitempty"`
+	UpdatedAt          *LocalTime          `json:"updated_at,omitempty"`
+	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	SilencedAt         *LocalTime          `json:"silenced_at,omitempty"`
 }
 
 func (c Check) ToString() string {
@@ -65,9 +67,11 @@ func (c Checks) Find(key string) *Check {
 }
 
 type Uptime struct {
-	Passed int     `json:"passed"`
-	Failed int     `json:"failed"`
-	P100   float64 `json:"p100,omitempty"`
+	Passed   int        `json:"passed"`
+	Failed   int        `json:"failed"`
+	P100     float64    `json:"p100,omitempty"`
+	LastPass *LocalTime `json:"last_pass,omitempty"`
+	LastFail *LocalTime `json:"last_fail,omitempty"`
 }
 
 func (u Uptime) String() string {
@@ -82,19 +86,21 @@ func (u Uptime) String() string {
 }
 
 type CheckStatus struct {
-	Status   bool   `json:"status"`
-	Invalid  bool   `json:"invalid,omitempty"`
-	Time     string `json:"time"`
-	Duration int    `json:"duration"`
-	Message  string `json:"message,omitempty"`
-	Error    string `json:"error,omitempty"`
-	Detail   any    `json:"-"`
+	CheckID   uuid.UUID `json:"check_id"`
+	Status    bool      `json:"status"`
+	Invalid   bool      `json:"invalid,omitempty"`
+	Time      string    `json:"time"`
+	Duration  int       `json:"duration"`
+	Message   string    `json:"message,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	Detail    any       `json:"-" gorm:"-"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 func (s CheckStatus) GetTime() (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", s.Time)
 }
 
-func (s CheckStatus) TableName() string {
+func (CheckStatus) TableName() string {
 	return "check_statuses"
 }
