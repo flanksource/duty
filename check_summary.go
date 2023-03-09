@@ -27,6 +27,7 @@ func QueryCheckSummary(dbpool *pgxpool.Pool) (models.Checks, error) {
             checks.type,
             checks.icon,
             checks.name,
+            checks.status,
             checks.description,
             canaries.namespace,
             canaries.name as canary_name,
