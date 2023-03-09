@@ -26,9 +26,9 @@ type Check struct {
 	Severity           string              `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
-	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
+	LastRuntime        *LocalTime          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
-	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	LastTransitionTime *LocalTime          `json:"last_transition_time,omitempty"`
 	CreatedAt          *LocalTime          `json:"created_at,omitempty"`
 	UpdatedAt          *LocalTime          `json:"updated_at,omitempty"`
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
