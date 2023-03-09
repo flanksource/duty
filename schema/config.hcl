@@ -195,22 +195,6 @@ table "config_items" {
     null = true
     type = text
   }
-  column "region" {
-    null = true
-    type = text
-  }
-  column "zone" {
-    null = true
-    type = text
-  }
-  column "network" {
-    null = true
-    type = text
-  }
-  column "subnet" {
-    null = true
-    type = text
-  }
   column "config" {
     null = true
     type = jsonb
