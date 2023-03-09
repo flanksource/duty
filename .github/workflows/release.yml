@@ -32,6 +32,7 @@ jobs:
           # Sleep to let index refresh
           sleep 60
           go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
+          go mod tidy
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
@@ -40,3 +41,4 @@ jobs:
           title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           committer: 'Flankbot <flankbot@users.noreply.github.com>'
           token: ${{ secrets.FLANKBOT }}
+          labels: dependencies
