@@ -6,6 +6,7 @@
     "name": "logistics-api-health-check",
     "canary_name": "dummy-logistics-api-canary",
     "namespace": "logistics",
+    "status": "healthy",
     "labels": {},
     "uptime": {
       "passed": 3,
@@ -24,6 +25,7 @@
     "type": "postgres",
     "name": "logistics-db-check",
     "canary_name": "dummy-logistics-db-canary",
+    "status": "unhealthy",
     "namespace": "logistics",
     "labels": {},
     "uptime": {

@@ -10,6 +10,7 @@ var LogisticsAPIHealthHTTPCheck = models.Check{
 	CanaryID: LogisticsAPICanary.ID,
 	Name:     "logistics-api-health-check",
 	Type:     "http",
+	Status:   "healthy",
 }
 
 var LogisticsAPIHomeHTTPCheck = models.Check{
@@ -24,6 +25,7 @@ var LogisticsDBCheck = models.Check{
 	CanaryID: LogisticsDBCanary.ID,
 	Name:     "logistics-db-check",
 	Type:     "postgres",
+	Status:   "unhealthy",
 }
 
 var AllDummyChecks = []models.Check{
