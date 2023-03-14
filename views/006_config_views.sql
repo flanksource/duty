@@ -99,7 +99,8 @@ language plpgsql;
 
 
 -- lookup_configs_by_component
-CREATE OR REPLACE function lookup_configs_by_component(id text)
+DROP FUNCTION IF EXISTS lookup_configs_by_component;
+CREATE OR REPLACE FUNCTION lookup_configs_by_component(id text)
 returns table (
   config_id UUID,
   name TEXT,
