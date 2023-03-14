@@ -10,3 +10,20 @@ BEGIN
         CREATE ROLE postgrest_anon;
     END IF;
 END $$;
+
+
+-- We need to reload postgrest schema after DDL Updates
+-- Docs: https://postgrest.org/en/stable/schema_cache.html
+
+-- Create an event trigger function
+CREATE OR REPLACE FUNCTION public.pgrst_watch()
+RETURNS event_trigger AS $$
+BEGIN
+    NOTIFY pgrst, 'reload schema';
+END
+$$ LANGUAGE plpgsql;
+
+-- This event trigger will fire after every ddl_command_end event
+CREATE EVENT TRIGGER pgrst_watch
+    ON ddl_command_end
+    EXECUTE PROCEDURE public.pgrst_watch();
