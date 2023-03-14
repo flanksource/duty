@@ -24,6 +24,7 @@ END
 $$ LANGUAGE plpgsql;
 
 -- This event trigger will fire after every ddl_command_end event
+DROP EVENT TRIGGER IF EXISTS pgrst_watch;
 CREATE EVENT TRIGGER pgrst_watch
     ON ddl_command_end
     EXECUTE PROCEDURE public.pgrst_watch();
