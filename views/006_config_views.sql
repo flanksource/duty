@@ -114,7 +114,7 @@ begin
 	  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'left' as role
 	  FROM config_component_relationships
 	  INNER JOIN  config_items on config_items.id = config_component_relationships.config_id
-	  WHERE config_component_relationships.component_id = $1::uuid;
+	  WHERE config_component_relationships.component_id = $1::uuid AND config_items.deleted_at IS NULL;
 end;
 $$
 language plpgsql;
@@ -149,17 +149,17 @@ begin
 	  SELECT parent.id as config_id, parent.name, parent.config_type, parent.icon, 'parent' as role, null
 	  FROM config_items
 	  INNER JOIN  config_items parent on config_items.parent_id = parent.id
-	  WHERE config_items.id = $1::uuid
+	  WHERE config_items.id = $1::uuid AND deleted_at IS NULL
 	UNION
 		  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'left' as role, config_relationships.relation
 		  FROM config_relationships
 		  INNER JOIN  config_items on config_items.id = config_relationships.related_id
-		  WHERE config_relationships.config_id = $1::uuid
+		  WHERE config_relationships.config_id = $1::uuid AND deleted_at IS NULL
 	UNION
 		  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'right' as role , config_relationships.relation
 		  FROM config_relationships
 		  INNER JOIN  config_items on config_items.id = config_relationships.config_id
-		  WHERE config_relationships.related_id = $1::uuid;
+		  WHERE config_relationships.related_id = $1::uuid AND deleted_at IS NULL;
 end;
 $$
 language plpgsql;
@@ -171,7 +171,8 @@ CREATE OR REPLACE VIEW changes_by_component AS
          config_changes.created_at,config_changes.created_by, config_changes.id as change_id, config_changes.severity, component_id
   FROM config_changes
   INNER JOIN config_component_relationships relations on relations.config_id = config_changes.config_id
-  INNER JOIN config_items  configs on configs.id = config_changes.config_id;
+  INNER JOIN config_items configs on configs.id = config_changes.config_id
+  WHERE configs.deleted_at IS NULL;
 
 -- config_tags
 DROP VIEW IF EXISTS config_tags;
