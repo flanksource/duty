@@ -52,6 +52,11 @@ func (h *JobHistory) End() *JobHistory {
 		"errors": h.Errors,
 	}
 	h.Status = StatusFinished
+
+	// Set success count if not set before
+	if h.SuccessCount == 0 && h.ErrorCount == 0 {
+		h.IncrSuccess()
+	}
 	return h
 }
 
