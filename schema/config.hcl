@@ -362,12 +362,24 @@ table "config_scrapers" {
     type    = timestamp
     default = sql("now()")
   }
+  column "connection_id" {
+    null    = true
+    type    = uuid
+    comment = "The connection used to run the scraper, if more than 1 scraper is defined in the spec, they will all use the same connection."
+  }
   primary_key {
     columns = [column.id]
   }
   foreign_key "config_scrapers_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+
+  foreign_key "config_scrapers_connection_id_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.connections.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
