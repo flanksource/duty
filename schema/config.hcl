@@ -141,6 +141,10 @@ table "config_items" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "icon" {
     null = true
     type = text
@@ -243,6 +247,12 @@ table "config_items" {
   foreign_key "config_items_scraper_id_fkey" {
     columns     = [column.scraper_id]
     ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "config_items_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
