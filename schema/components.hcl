@@ -10,6 +10,11 @@ table "templates" {
     null = false
     type = text
   }
+  column "connection_id" {
+    null    = true
+    type    = uuid
+    comment = "The connection used to create the topology, if more than 1 topology is defined in the spec, they will all use the same connection. If you need to use multiple connections, create multiple topologies and use selection rules to create the desired topology."
+  }
   column "namespace" {
     null = false
     type = text
@@ -48,6 +53,12 @@ table "templates" {
   foreign_key "templates_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "templates_connection_id_fkey" {
+    columns     = [column.connection_id]
+    ref_columns = [table.connections.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }

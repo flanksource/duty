@@ -134,6 +134,11 @@ table "checks" {
     null = false
     type = uuid
   }
+  column "connection_id" {
+    null    = true
+    type    = uuid
+    comment = "The connection used to run the health check"
+  }
   column "type" {
     null = false
     type = text
@@ -204,6 +209,12 @@ table "checks" {
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "checks_connection_id_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.connections.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "checks_canary_id_fkey" {
     columns     = [column.canary_id]
