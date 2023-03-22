@@ -114,6 +114,10 @@ table "components" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "system_template_id" {
     null = true
     type = uuid
@@ -276,6 +280,13 @@ table "components" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "components_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+
   index "components_system_template_id_type_name_parent_id_key" {
     unique  = true
     columns = [column.system_template_id, column.type, column.name, column.parent_id]

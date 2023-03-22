@@ -5,6 +5,10 @@ table "canaries" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "name" {
     null = false
     type = text
@@ -47,6 +51,12 @@ table "canaries" {
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "canaries_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "canaries_created_by_fkey" {
     columns     = [column.created_by]
