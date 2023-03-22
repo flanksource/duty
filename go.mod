@@ -3,7 +3,7 @@ module github.com/flanksource/duty
 go 1.19
 
 require (
-	ariga.io/atlas v0.9.0
+	ariga.io/atlas v0.10.0
 	github.com/fergusstrange/embedded-postgres v1.19.0
 	github.com/flanksource/commons v1.6.2
 	github.com/google/uuid v1.3.0
@@ -49,6 +49,6 @@ require (
 	golang.org/x/net v0.3.0 // indirect
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7 // indirect
 	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
