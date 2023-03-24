@@ -27,6 +27,10 @@ jobs:
         with:
           repository: flanksource/${{ matrix.repos }}
           token: ${{ secrets.FLANKBOT }}
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: v1.19.x
       - name: Create commits
         run: |
           # Sleep to let index refresh
