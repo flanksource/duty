@@ -1,4 +1,3 @@
-
 table "config_analysis" {
   schema = schema.public
   column "id" {
@@ -134,7 +133,6 @@ table "config_changes" {
     columns = [column.config_id, column.external_change_id]
   }
 }
-
 
 table "config_items" {
   schema = schema.public
