@@ -15,7 +15,7 @@ func Query(ctx context.Context, conn *sql.DB, query string) ([]map[string]any, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin db transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
