@@ -207,11 +207,19 @@ table "checks" {
   }
 }
 
-table "check_statuses_1h" {
+table "check_statuses_aggregate" {
   schema = schema.public
-  column "interval_start" {
+  column "check_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
     null = false
     type = timestamp
+  }
+  column "interval_duration" { # Aggregate interval. Example: '1h', '24h'
+    null = false
+    type = text
   }
   column "total_duration" {
     null = false
@@ -221,42 +229,21 @@ table "check_statuses_1h" {
     null = false
     type = integer
   }
-  column "successful_checks" {
+  column "passed" {
     null = false
     type = integer
   }
-  column "failed_checks" {
-    null = false
-    type = integer
-  }
-  primary_key {
-    columns = [column.interval_start]
-  }
-}
-
-table "check_statuses_1d" {
-  schema = schema.public
-  column "interval_start" {
-    null = false
-    type = timestamp
-  }
-  column "total_duration" {
-    null = false
-    type = integer
-  }
-  column "total_checks" {
-    null = false
-    type = integer
-  }
-  column "successful_checks" {
-    null = false
-    type = integer
-  }
-  column "failed_checks" {
+  column "failed" {
     null = false
     type = integer
   }
   primary_key {
-    columns = [column.interval_start]
+    columns = [column.check_id, column.created_at, column.interval_duration]
+  }
+  foreign_key "check_statuses_aggr_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
   }
 }

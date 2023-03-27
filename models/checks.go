@@ -104,3 +104,18 @@ func (s CheckStatus) GetTime() (time.Time, error) {
 func (CheckStatus) TableName() string {
 	return "check_statuses"
 }
+
+// CheckStatusAggregate represents the `check_statuses_aggregate` table
+type CheckStatusAggregate struct {
+	IntervalStart    time.Time `gorm:"column:created_at"`
+	CheckID          string    `gorm:"column:check_id"`
+	IntervalDuration string    `gorm:"column:interval_duration"`
+	TotalDuration    int       `gorm:"column:total_duration"`
+	TotalChecks      int       `gorm:"column:total_checks"`
+	SuccessfulChecks int       `gorm:"column:passed"`
+	FailedChecks     int       `gorm:"column:failed"`
+}
+
+func (CheckStatusAggregate) TableName() string {
+	return "check_statuses_aggregate"
+}

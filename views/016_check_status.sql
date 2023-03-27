@@ -1,13 +1,16 @@
 CREATE OR REPLACE VIEW check_statuses_5m AS
 SELECT
-  date_trunc('minute', TIME) - (date_part('minute', TIME)::INT % 5) * INTERVAL '1 minute' AS interval_start,
+  check_statuses.check_id,
+  date_trunc('minute', "time") - (date_part('minute', "time")::INT % 5) * INTERVAL '1 minute' AS created_at,
   count(*) AS total_checks,
-  count(*) FILTER (WHERE status = TRUE) AS successful_checks,
-  count(*) FILTER (WHERE status = FALSE) AS failed_checks,
+  count(*) FILTER (WHERE check_statuses.status = TRUE) AS passed,
+  count(*) FILTER (WHERE check_statuses.status = FALSE) AS failed,
   SUM(duration) AS total_duration
 FROM
-  check_statuses
+  check_statuses LEFT JOIN checks ON check_statuses.check_id = checks.id
+WHERE
+  checks.created_at > now() - INTERVAL '1 day'
 GROUP BY
-  interval_start
+  check_id, date_trunc('minute', "time") - (date_part('minute', "time") :: INT % 5) * INTERVAL '1 minute'
 ORDER BY
-  interval_start DESC;
+  check_id, created_at DESC;
