@@ -60,7 +60,6 @@ table "canaries" {
   }
 }
 
-
 table "check_statuses" {
   schema = schema.public
   column "check_id" {
@@ -109,10 +108,11 @@ table "check_statuses" {
     on_delete   = CASCADE
   }
   index "check_statuses_time_brin_idx" {
-    type = BRIN
+    type    = BRIN
     columns = [column.time]
   }
 }
+
 table "checks" {
   schema = schema.public
   column "id" {
@@ -204,5 +204,59 @@ table "checks" {
   index "checks_canary_id_type_name_key" {
     unique  = true
     columns = [column.canary_id, column.type, column.name]
+  }
+}
+
+table "check_statuses_1h" {
+  schema = schema.public
+  column "interval_start" {
+    null = false
+    type = timestamp
+  }
+  column "total_duration" {
+    null = false
+    type = integer
+  }
+  column "total_checks" {
+    null = false
+    type = integer
+  }
+  column "successful_checks" {
+    null = false
+    type = integer
+  }
+  column "failed_checks" {
+    null = false
+    type = integer
+  }
+  primary_key {
+    columns = [column.interval_start]
+  }
+}
+
+table "check_statuses_1d" {
+  schema = schema.public
+  column "interval_start" {
+    null = false
+    type = timestamp
+  }
+  column "total_duration" {
+    null = false
+    type = integer
+  }
+  column "total_checks" {
+    null = false
+    type = integer
+  }
+  column "successful_checks" {
+    null = false
+    type = integer
+  }
+  column "failed_checks" {
+    null = false
+    type = integer
+  }
+  primary_key {
+    columns = [column.interval_start]
   }
 }
