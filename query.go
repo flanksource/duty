@@ -2,41 +2,28 @@ package duty
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"github.com/flanksource/commons/logger"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Query runs the given SQL query against the provided db connection.
 // The rows are returned as a map of columnName=>columnValue.
-func Query(ctx context.Context, conn *sql.DB, query string) ([]map[string]any, error) {
-	tx, err := conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+func Query(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]any, error) {
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin db transaction: %w", err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck
 
-	stmt, err := tx.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare statement: %w", err)
-	}
-
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := tx.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query: %w", err)
 	}
-	defer func() {
-		if err := rows.Close(); err != nil {
-			logger.Errorf("failed to close rows: %w", err)
-		}
-	}()
+	defer rows.Close()
 
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %w", err)
-	}
-
+	columns := rows.FieldDescriptions()
 	results := make([]map[string]any, 0)
 	for rows.Next() {
 		values := make([]any, len(columns))
@@ -51,7 +38,7 @@ func Query(ctx context.Context, conn *sql.DB, query string) ([]map[string]any, e
 
 		row := make(map[string]any)
 		for i, col := range columns {
-			row[col] = values[i]
+			row[col.Name] = values[i]
 		}
 
 		results = append(results, row)
@@ -62,5 +49,5 @@ func Query(ctx context.Context, conn *sql.DB, query string) ([]map[string]any, e
 		return nil, err
 	}
 
-	return results, tx.Commit()
+	return results, nil
 }
