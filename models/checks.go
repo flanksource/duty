@@ -105,17 +105,30 @@ func (CheckStatus) TableName() string {
 	return "check_statuses"
 }
 
-// CheckStatusAggregate represents the `check_statuses_aggregate` table
-type CheckStatusAggregate struct {
-	IntervalStart    time.Time `gorm:"column:created_at"`
-	CheckID          string    `gorm:"column:check_id"`
-	IntervalDuration string    `gorm:"column:interval_duration"`
-	TotalDuration    int       `gorm:"column:total_duration"`
-	TotalChecks      int       `gorm:"column:total_checks"`
-	SuccessfulChecks int       `gorm:"column:passed"`
-	FailedChecks     int       `gorm:"column:failed"`
+// CheckStatusAggregate1h represents the `check_statuses_1h` table
+type CheckStatusAggregate1h struct {
+	CheckID   string    `gorm:"column:check_id"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+	Duration  int       `gorm:"column:duration"`
+	Total     int       `gorm:"column:total"`
+	Passed    int       `gorm:"column:passed"`
+	Failed    int       `gorm:"column:failed"`
 }
 
-func (CheckStatusAggregate) TableName() string {
-	return "check_statuses_aggregate"
+func (CheckStatusAggregate1h) TableName() string {
+	return "check_statuses_1h"
+}
+
+// CheckStatusAggregate1d represents the `check_statuses_1d` table
+type CheckStatusAggregate1d struct {
+	CheckID   string    `gorm:"column:check_id"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+	Duration  int       `gorm:"column:duration"`
+	Total     int       `gorm:"column:total"`
+	Passed    int       `gorm:"column:passed"`
+	Failed    int       `gorm:"column:failed"`
+}
+
+func (CheckStatusAggregate1d) TableName() string {
+	return "check_statuses_1d"
 }
