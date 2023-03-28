@@ -207,7 +207,7 @@ table "checks" {
   }
 }
 
-table "check_statuses_aggregate" {
+table "check_statuses_1h" {
   schema = schema.public
   column "check_id" {
     null = false
@@ -217,15 +217,11 @@ table "check_statuses_aggregate" {
     null = false
     type = timestamp
   }
-  column "interval_duration" { # Aggregate interval. Example: '1h', '24h'
-    null = false
-    type = text
-  }
-  column "total_duration" {
+  column "duration" {
     null = false
     type = integer
   }
-  column "total_checks" {
+  column "total" {
     null = false
     type = integer
   }
@@ -238,12 +234,57 @@ table "check_statuses_aggregate" {
     type = integer
   }
   primary_key {
-    columns = [column.check_id, column.created_at, column.interval_duration]
+    columns = [column.check_id, column.created_at]
   }
   foreign_key "check_statuses_aggr_check_id_fkey" {
     columns     = [column.check_id]
     ref_columns = [table.checks.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  index "check_statuses_1h_created_at_brin_idx" {
+    type    = BRIN
+    columns = [column.created_at]
+  }
+}
+
+table "check_statuses_1d" {
+  schema = schema.public
+  column "check_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
+    null = false
+    type = timestamp
+  }
+  column "duration" {
+    null = false
+    type = integer
+  }
+  column "total" {
+    null = false
+    type = integer
+  }
+  column "passed" {
+    null = false
+    type = integer
+  }
+  column "failed" {
+    null = false
+    type = integer
+  }
+  primary_key {
+    columns = [column.check_id, column.created_at]
+  }
+  foreign_key "check_statuses_aggr_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  index "check_statuses_1d_created_at_brin_idx" {
+    type    = BRIN
+    columns = [column.created_at]
   }
 }
