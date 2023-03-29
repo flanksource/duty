@@ -200,6 +200,10 @@ table "components" {
     null = true
     type = jsonb
   }
+  column "logs_selectors" {
+    null = true
+    type = jsonb
+  }
   column "component_checks" {
     null = true
     type = jsonb
