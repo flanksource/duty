@@ -281,9 +281,9 @@ func matchItems(item string, items ...string) bool {
 	return false
 }
 
-func GetComponent(ctx context.Context, dbpool *gorm.DB, id string) (*models.Component, error) {
+func GetComponent(ctx context.Context, db *gorm.DB, id string) (*models.Component, error) {
 	var component models.Component
-	if err := dbpool.WithContext(ctx).Where("id = ?", id).First(&component).Error; err != nil {
+	if err := db.WithContext(ctx).Where("id = ?", id).First(&component).Error; err != nil {
 		return nil, err
 	}
 
