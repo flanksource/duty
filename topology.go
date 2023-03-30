@@ -9,6 +9,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 )
 
 const DefaultDepth = 5
@@ -278,4 +279,13 @@ func matchItems(item string, items ...string) bool {
 		}
 	}
 	return false
+}
+
+func GetComponent(ctx context.Context, dbpool *gorm.DB, id string) (*models.Component, error) {
+	var component models.Component
+	if err := dbpool.WithContext(ctx).Where("id = ?", id).First(&component).Error; err != nil {
+		return nil, err
+	}
+
+	return &component, nil
 }
