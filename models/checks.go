@@ -1,11 +1,17 @@
 package models
 
 import (
+	"context"
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
 )
 
 type Check struct {
@@ -131,4 +137,59 @@ type CheckStatusAggregate1d struct {
 
 func (CheckStatusAggregate1d) TableName() string {
 	return "check_statuses_1d"
+}
+
+type ComponentCheck struct {
+	Selector ResourceSelector `json:"selector,omitempty"`
+	Inline   []byte           `json:"inline,omitempty"`
+}
+
+type ComponentChecks []ComponentCheck
+
+func (cs ComponentChecks) Value() (driver.Value, error) {
+	if len(cs) == 0 {
+		return []byte("[]"), nil
+	}
+	return json.Marshal(cs)
+}
+
+func (cs *ComponentChecks) Scan(val interface{}) error {
+	if val == nil {
+		*cs = ComponentChecks{}
+		return nil
+	}
+
+	var ba []byte
+	switch v := val.(type) {
+	case []byte:
+		ba = v
+	default:
+		return fmt.Errorf("value is of type: %T. it should be []byte", v)
+	}
+
+	return json.Unmarshal(ba, cs)
+}
+
+// GormDataType gorm common data type
+func (cs ComponentChecks) GormDataType() string {
+	return "componentChecks"
+}
+
+// GormDBDataType gorm db data type
+func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case types.SqliteType:
+		return types.Text
+	case types.PostgresType:
+		return types.JSONBType
+	case types.SQLServerType:
+		return types.NVarcharType
+	}
+
+	return ""
+}
+
+func (cs ComponentChecks) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	data, _ := json.Marshal(cs)
+	return gorm.Expr("?", string(data))
 }

@@ -33,6 +33,7 @@ type Component struct {
 	ExternalId       string              `json:"external_id,omitempty"` //nolint
 	ParentId         *uuid.UUID          `json:"parent_id,omitempty"`   //nolint
 	Name             string              `json:"name,omitempty"`
+	ComponentChecks  ComponentChecks     `json:"componentChecks" gorm:"componentChecks"`
 	Text             string              `json:"text,omitempty"`
 	TopologyType     string              `json:"topology_type,omitempty"`
 	Namespace        string              `json:"namespace,omitempty"`
@@ -42,6 +43,7 @@ type Component struct {
 	Status           ComponentStatus     `json:"status,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	Lifecycle        string              `json:"lifecycle,omitempty"`
+	LogsSelectors    LogsSelectors       `json:"logsSelectors,omitempty" gorm:"column:logs_selectors"`
 	Tooltip          string              `json:"tooltip,omitempty"`
 	StatusReason     string              `json:"statusReason,omitempty"`
 	Schedule         string              `json:"schedule,omitempty"`
