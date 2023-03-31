@@ -13,6 +13,10 @@ table "config_analysis" {
     null = true
     type = uuid
   }
+  column "source" {
+    null = false
+    type = text
+  }
   column "analyzer" {
     null = false
     type = text
@@ -59,7 +63,6 @@ table "config_analysis" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-
   foreign_key "config_analysis_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
@@ -67,6 +70,7 @@ table "config_analysis" {
     on_delete   = NO_ACTION
   }
 }
+
 table "config_changes" {
   schema = schema.public
   column "id" {
@@ -163,19 +167,19 @@ table "config_items" {
   }
   column "cost_per_minute" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_1d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_7d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_30d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "name" {
     null = true
