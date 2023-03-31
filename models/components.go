@@ -532,29 +532,12 @@ type LogsSelector struct {
 
 type LogsSelectors []LogsSelector
 
-func (rs LogsSelectors) Value() (driver.Value, error) {
-	if len(rs) == 0 {
-		return []byte("[]"), nil
-	}
-
-	return json.Marshal(rs)
+func (t LogsSelectors) Value() (driver.Value, error) {
+	return types.GenericStructValue(t, true)
 }
 
-func (rs *LogsSelectors) Scan(val interface{}) error {
-	if val == nil {
-		*rs = LogsSelectors{}
-		return nil
-	}
-
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return fmt.Errorf("value is not []byte: It's %T", val)
-	}
-
-	return json.Unmarshal(ba, rs)
+func (t *LogsSelectors) Scan(val any) error {
+	return types.GenericStructScan(&t, val)
 }
 
 func (LogsSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
