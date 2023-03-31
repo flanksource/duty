@@ -42,7 +42,7 @@ type Component struct {
 	Status           ComponentStatus     `json:"status,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	Lifecycle        string              `json:"lifecycle,omitempty"`
-	LogsSelectors    LogsSelectors       `json:"logsSelectors,omitempty" gorm:"column:logs_selectors"`
+	LogSelectors     LogSelectors        `json:"logSelectors,omitempty" gorm:"column:log_selectors"`
 	Tooltip          string              `json:"tooltip,omitempty"`
 	StatusReason     string              `json:"statusReason,omitempty"`
 	Schedule         string              `json:"schedule,omitempty"`
@@ -522,24 +522,24 @@ func (cr ConfigComponentRelationship) TableName() string {
 	return "config_component_relationships"
 }
 
-// LogsSelector ...
-type LogsSelector struct {
+// LogSelector ...
+type LogSelector struct {
 	Name   string            `json:"name,omitempty" yaml:"name,omitempty"`
 	Type   string            `json:"type,omitempty" yaml:"type,omitempty"`
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
-type LogsSelectors []LogsSelector
+type LogSelectors []LogSelector
 
-func (t LogsSelectors) Value() (driver.Value, error) {
+func (t LogSelectors) Value() (driver.Value, error) {
 	return types.GenericStructValue(t, true)
 }
 
-func (t *LogsSelectors) Scan(val any) error {
+func (t *LogSelectors) Scan(val any) error {
 	return types.GenericStructScan(&t, val)
 }
 
-func (LogsSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case types.SqliteType:
 		return types.JSONType
@@ -551,7 +551,7 @@ func (LogsSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return ""
 }
 
-func (rs LogsSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+func (rs LogSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := json.Marshal(rs)
 	return gorm.Expr("?", string(data))
 }
