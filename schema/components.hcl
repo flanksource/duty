@@ -196,7 +196,7 @@ table "components" {
     null = true
     type = jsonb
   }
-  column "logs_selectors" {
+  column "log_selectors" {
     null = true
     type = jsonb
   }
