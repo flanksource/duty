@@ -111,6 +111,7 @@ type ConfigAnalysis struct {
 	Severity      string              `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
 	AnalysisType  string              `gorm:"column:analysis_type" json:"change_type" faker:"oneof: availability, compliance, cost, security, performance"`
 	Analysis      types.JSONStringMap `gorm:"column:analysis" json:"analysis,omitempty"`
+	Source        string              `gorm:"column:source" json:"source,omitempty"`
 	FirstObserved *time.Time          `gorm:"column:first_observed;<-:false" json:"first_observed"`
 	LastObserved  *time.Time          `gorm:"column:last_observed" json:"last_observed"`
 }
