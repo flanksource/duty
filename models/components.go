@@ -525,8 +525,8 @@ func (cr ConfigComponentRelationship) TableName() string {
 // LogSelector ...
 type LogSelector struct {
 	Name   string            `json:"name,omitempty" yaml:"name,omitempty"`
-	Type   string            `json:"type,omitempty" yaml:"type,omitempty"`
-	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Type   string            `json:"type,omitempty" yaml:"type,omitempty" template:"true"`
+	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty" template:"true"`
 }
 
 type LogSelectors []LogSelector
