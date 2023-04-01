@@ -16,6 +16,10 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestDuty(t *testing.T) {
@@ -29,6 +33,7 @@ const pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
 
 var testDB *gorm.DB
 var testDBPGPool *pgxpool.Pool
+var testClient kubernetes.Interface
 
 func MustDB() *sql.DB {
 	db, err := NewDB(pgUrl)
@@ -59,8 +64,26 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	testDB, err = NewGorm(pgUrl, DefaultGormConfig())
 	Expect(err).ToNot(HaveOccurred())
+	Expect(testDB).ToNot(BeNil())
 
 	err = dummy.PopulateDBWithDummyModels(testDB)
+
+	testClient = fake.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cm",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"foo": "bar",
+		},
+	}, &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"foo": []byte("secret"),
+		}})
 	Expect(err).ToNot(HaveOccurred())
 })
 
