@@ -130,14 +130,4 @@ func (e *EnvVar) Scan(value any) error {
 	default:
 		return fmt.Errorf("invalid value type: %T", value)
 	}
-	return nil
 }
-
-// func (e EnvVar) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-// 	if len(js) == 0 {
-// 		return gorm.Expr("NULL")
-// 	}
-
-// 	data, _ := js.MarshalJSON()
-// 	return gorm.Expr("?", string(data))
-// }
