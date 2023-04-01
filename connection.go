@@ -3,11 +3,9 @@ package duty
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/flanksource/commons/template"
 	"github.com/flanksource/duty/models"
-	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
 )
@@ -22,7 +20,7 @@ func FindConnection(ctx context.Context, db *gorm.DB, connectionType, name strin
 
 // Create a cache with a default expiration time of 5 minutes, and which
 // purges expired items every 10 minutes
-var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
+// var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB, connectionType string, name string, namespace string) (*models.Connection, error) {
 	connection, err := FindConnection(ctx, db, connectionType, name)
