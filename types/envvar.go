@@ -18,6 +18,13 @@ type EnvVar struct {
 	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
 }
 
+func (e EnvVar) String() string {
+	if e.ValueFrom == nil {
+		return e.ValueStatic
+	}
+	return e.ValueFrom.String()
+}
+
 func (e EnvVar) IsEmpty() bool {
 	return e.ValueStatic == "" && e.ValueFrom == nil
 }

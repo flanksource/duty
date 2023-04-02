@@ -18,20 +18,29 @@ func FindConnection(ctx context.Context, db *gorm.DB, connectionType, name strin
 	return &connection, err
 }
 
-// Create a cache with a default expiration time of 5 minutes, and which
-// purges expired items every 10 minutes
-// var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
-
 func GetConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB, connectionType string, name string, namespace string) (*models.Connection, error) {
 	connection, err := FindConnection(ctx, db, connectionType, name)
 	if err != nil {
 		return nil, err
 	}
+	return HydrateConnection(ctx, client, db, connection, namespace)
+
+}
+
+// Create a cache with a default expiration time of 5 minutes, and which
+// purges expired items every 10 minutes
+// var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
+func HydrateConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB, connection *models.Connection, namespace string) (*models.Connection, error) {
+	var err error
 	if connection.Username, err = GetEnvStringFromCache(client, connection.Username, namespace); err != nil {
 		return nil, err
 	}
 
 	if connection.Password, err = GetEnvStringFromCache(client, connection.Password, namespace); err != nil {
+		return nil, err
+	}
+
+	if connection.Certificate, err = GetEnvStringFromCache(client, connection.Certificate, namespace); err != nil {
 		return nil, err
 	}
 
@@ -42,8 +51,8 @@ func GetConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB
 	}
 
 	data := map[string]interface{}{
-		"name":      name,
-		"type":      connectionType,
+		"name":      connection.Name,
+		"type":      connection.Type,
 		"namespace": namespace,
 		"username":  connection.Username,
 		"password":  connection.Password,
