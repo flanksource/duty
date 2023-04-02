@@ -17,6 +17,9 @@ import (
 var envCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetEnvValueFromCache(c kubernetes.Interface, input types.EnvVar, namespace string) (string, error) {
+	if input.ValueFrom == nil {
+		return input.ValueStatic, nil
+	}
 	if input.ValueFrom.SecretKeyRef != nil {
 		value, err := GetSecretFromCache(c, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
 		return value, err
@@ -26,7 +29,7 @@ func GetEnvValueFromCache(c kubernetes.Interface, input types.EnvVar, namespace 
 		return value, err
 	}
 
-	return input.ValueStatic, nil
+	return "", nil
 }
 
 func GetEnvStringFromCache(c kubernetes.Interface, env string, namespace string) (string, error) {
