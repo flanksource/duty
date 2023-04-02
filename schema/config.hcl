@@ -14,7 +14,7 @@ table "config_analysis" {
     type = uuid
   }
   column "source" {
-    null = false
+    null = true
     type = text
   }
   column "analyzer" {
