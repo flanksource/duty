@@ -92,7 +92,7 @@ CREATE OR REPLACE TRIGGER responder_comment_to_incident_history
     ON comments
     FOR EACH ROW
     WHEN (NEW.responder_id IS NOT NULL)
-    EXECUTE PROCEDURE insert_incident_status_update_in_incident_history();
+    EXECUTE PROCEDURE insert_responder_comment_in_incident_history();
 
 -- Insert hypothesis creation updates in incident_histories
 CREATE OR REPLACE FUNCTION insert_hypothesis_created_in_incident_history()
