@@ -31,7 +31,7 @@ type Check struct {
 	LastTransitionTime *LocalTime          `json:"last_transition_time,omitempty"`
 	CreatedAt          *LocalTime          `json:"created_at,omitempty"`
 	UpdatedAt          *LocalTime          `json:"updated_at,omitempty"`
-	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	DeletedAt          *LocalTime          `json:"deleted_at,omitempty"`
 	SilencedAt         *LocalTime          `json:"silenced_at,omitempty"`
 }
 
