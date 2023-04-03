@@ -86,6 +86,13 @@ func (c *Component) GetStatus() ComponentStatus {
 	}
 }
 
+func (component Component) GetAsEnvironment() map[string]interface{} {
+	return map[string]interface{}{
+		"self":       component,
+		"properties": component.Properties.AsMap(),
+	}
+}
+
 func (c *Component) Summarize() Summary {
 	if c.Summary.processed {
 		return c.Summary
