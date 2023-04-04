@@ -152,7 +152,8 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) ([]*models.Comp
 	}
 	results = applyDepthFilter(results, params.Depth)
 
-	results = applyStatusFilter(results, params.Status...)
+	// If ID is present, we do not apply any filters to the root component
+	results = applyStatusFilter(results, params.ID != "", params.Status...)
 
 	return results, nil
 }
@@ -233,13 +234,13 @@ func applyTypeFilter(components []*models.Component, types ...string) []*models.
 	return filtered
 }
 
-func applyStatusFilter(components []*models.Component, statii ...string) []*models.Component {
+func applyStatusFilter(components []*models.Component, filterRoot bool, statii ...string) []*models.Component {
 	if len(statii) == 0 {
 		return components
 	}
 	var filtered []*models.Component
 	for _, component := range components {
-		if matchItems(string(component.Status), statii...) {
+		if filterRoot || matchItems(string(component.Status), statii...) {
 			filtered = append(filtered, component)
 		}
 		var filteredChildren []*models.Component
