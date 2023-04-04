@@ -29,6 +29,7 @@
         "type": "Application",
         "owner": "logistics-team",
         "configs": null,
+            "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
         "summary": {
           "healthy": 1
         },

@@ -26,6 +26,7 @@ var LogisticsAPI = models.Component{
 	Labels:     types.JSONStringMap{"telemetry": "enabled"},
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
+	Path:       Logistics.ID.String(),
 	CreatedAt:  models.LocalTime(DummyCreatedAt),
 }
 
@@ -37,6 +38,7 @@ var LogisticsUI = models.Component{
 	Status:     models.ComponentStatusHealthy,
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
+	Path:       Logistics.ID.String(),
 	CreatedAt:  models.LocalTime(DummyCreatedAt),
 }
 
@@ -47,6 +49,7 @@ var LogisticsWorker = models.Component{
 	Type:       "Application",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &LogisticsAPI.ID,
+	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
 	CreatedAt:  models.LocalTime(DummyCreatedAt),
 }
 
@@ -57,6 +60,7 @@ var LogisticsDB = models.Component{
 	Type:       "Database",
 	Status:     models.ComponentStatusUnhealthy,
 	ParentId:   &LogisticsAPI.ID,
+	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
 	CreatedAt:  models.LocalTime(DummyCreatedAt),
 }
 

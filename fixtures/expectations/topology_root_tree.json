@@ -40,6 +40,7 @@
         "status": "warning",
         "type": "Application",
         "configs": null,
+        "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
         "summary": {
           "healthy": 1,
           "unhealthy": 1,
@@ -66,6 +67,7 @@
             "status": "healthy",
             "type": "Application",
             "configs": null,
+            "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
             "summary": {
               "healthy": 1
             },
@@ -81,6 +83,7 @@
             "status": "unhealthy",
             "type": "Database",
             "configs": null,
+            "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
             "summary": {
               "unhealthy": 1,
               "incidents": {
@@ -109,6 +112,7 @@
         "status": "healthy",
         "type": "Application",
         "configs": null,
+        "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
         "summary": {
           "healthy": 1
         },
