@@ -26,13 +26,13 @@ type Check struct {
 	Severity           string              `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
-	LastRuntime        *LocalTime          `json:"last_runtime,omitempty"`
+	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
-	LastTransitionTime *LocalTime          `json:"last_transition_time,omitempty"`
-	CreatedAt          *LocalTime          `json:"created_at,omitempty"`
-	UpdatedAt          *LocalTime          `json:"updated_at,omitempty"`
-	DeletedAt          *LocalTime          `json:"deleted_at,omitempty"`
-	SilencedAt         *LocalTime          `json:"silenced_at,omitempty"`
+	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	CreatedAt          *time.Time          `json:"created_at,omitempty"`
+	UpdatedAt          *time.Time          `json:"updated_at,omitempty"`
+	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
 }
 
 func (c Check) ToString() string {
@@ -70,8 +70,8 @@ type Uptime struct {
 	Passed   int        `json:"passed"`
 	Failed   int        `json:"failed"`
 	P100     float64    `json:"p100,omitempty"`
-	LastPass *LocalTime `json:"last_pass,omitempty"`
-	LastFail *LocalTime `json:"last_fail,omitempty"`
+	LastPass *time.Time `json:"last_pass,omitempty"`
+	LastFail *time.Time `json:"last_fail,omitempty"`
 }
 
 func (u Uptime) String() string {

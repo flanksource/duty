@@ -13,7 +13,7 @@ var Logistics = models.Component{
 	ExternalId: "dummy/logistics",
 	Labels:     types.JSONStringMap{"telemetry": "enabled"},
 	Owner:      "logistics-team",
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 	Status:     models.ComponentStatusHealthy,
 }
 
@@ -27,7 +27,7 @@ var LogisticsAPI = models.Component{
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
 	Path:       Logistics.ID.String(),
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsUI = models.Component{
@@ -39,7 +39,7 @@ var LogisticsUI = models.Component{
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
 	Path:       Logistics.ID.String(),
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsWorker = models.Component{
@@ -50,7 +50,7 @@ var LogisticsWorker = models.Component{
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &LogisticsAPI.ID,
 	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsDB = models.Component{
@@ -61,7 +61,7 @@ var LogisticsDB = models.Component{
 	Status:     models.ComponentStatusUnhealthy,
 	ParentId:   &LogisticsAPI.ID,
 	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var ClusterComponent = models.Component{
@@ -70,7 +70,7 @@ var ClusterComponent = models.Component{
 	ExternalId: "dummy/cluster",
 	Type:       "KubernetesCluster",
 	Status:     models.ComponentStatusHealthy,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var NodesComponent = models.Component{
@@ -80,7 +80,7 @@ var NodesComponent = models.Component{
 	Type:       "KubernetesNodes",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var NodeA = models.Component{
@@ -90,7 +90,7 @@ var NodeA = models.Component{
 	Type:       "KubernetesNode",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var NodeB = models.Component{
@@ -100,7 +100,7 @@ var NodeB = models.Component{
 	Type:       "KubernetesNode",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var PodsComponent = models.Component{
@@ -110,7 +110,7 @@ var PodsComponent = models.Component{
 	Type:       "KubernetesPods",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsAPIPod = models.Component{
@@ -120,7 +120,7 @@ var LogisticsAPIPod = models.Component{
 	Type:       "KubernetesPod",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsUIPod = models.Component{
@@ -130,7 +130,7 @@ var LogisticsUIPod = models.Component{
 	ExternalId: "dummy/logistics-ui-676b85b87c-tjjcp",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 var LogisticsWorkerPod = models.Component{
@@ -140,7 +140,7 @@ var LogisticsWorkerPod = models.Component{
 	Type:       "KubernetesPod",
 	Status:     models.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
-	CreatedAt:  models.LocalTime(DummyCreatedAt),
+	CreatedAt:  DummyCreatedAt,
 }
 
 // Order is important since ParentIDs refer to previous components
