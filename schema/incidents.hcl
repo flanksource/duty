@@ -69,12 +69,12 @@ table "evidences" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "script" {
@@ -172,12 +172,12 @@ table "hypotheses" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -247,12 +247,12 @@ table "incident_histories" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "responder_id" {
@@ -324,12 +324,12 @@ table "incident_relationships" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   foreign_key "incident_relationships_incident_id_fkey" {
@@ -370,12 +370,12 @@ table "incident_rules" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -437,24 +437,24 @@ table "incidents" {
   }
   column "acknowledged" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "resolved" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "closed" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -523,15 +523,15 @@ table "responders" {
   }
   column "acknowledged" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "resolved" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "closed" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "created_by" {
     null = false
@@ -539,12 +539,12 @@ table "responders" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -599,12 +599,12 @@ table "comment_responders" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -664,12 +664,12 @@ table "comments" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
