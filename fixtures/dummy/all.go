@@ -1,7 +1,6 @@
 package dummy
 
 import (
-	"github.com/flanksource/duty/models"
 	"gorm.io/gorm"
 )
 
@@ -15,7 +14,7 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range AllDummyComponents {
-		c.UpdatedAt = models.LocalTime(createTime)
+		c.UpdatedAt = createTime
 		err = gormDB.Create(&c).Error
 		if err != nil {
 			return err

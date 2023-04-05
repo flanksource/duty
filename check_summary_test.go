@@ -15,7 +15,7 @@ func testCheckSummaryJSON(path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	jqExpr := `del(.[].uptime.last_pass) | del(.[].uptime.last_fail)`
+	jqExpr := `del(.[].uptime.last_pass) | del(.[].uptime.last_fail) | del(.[].created_at) | del(.[].updated_at)`
 	matchJSON([]byte(expected), resultJSON, &jqExpr)
 }
 
