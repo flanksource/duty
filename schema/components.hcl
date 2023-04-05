@@ -24,11 +24,11 @@ table "templates" {
   }
   column "created_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "updated_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "schedule" {
     null = true
@@ -40,7 +40,7 @@ table "templates" {
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -70,17 +70,17 @@ table "component_relationships" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "selector_id" {
     null = true
@@ -251,17 +251,17 @@ table "components" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -313,17 +313,17 @@ table "check_component_relationships" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "selector_id" {
     null = true
@@ -365,17 +365,17 @@ table "config_component_relationships" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "selector_id" {
     null = true

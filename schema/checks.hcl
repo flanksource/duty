@@ -35,7 +35,7 @@ table "canaries" {
   }
   column "created_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "created_by" {
     null = true
@@ -43,11 +43,11 @@ table "canaries" {
   }
   column "updated_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -90,7 +90,7 @@ table "check_statuses" {
   }
   column "time" {
     null = false
-    type = timestamp
+    type = timestamptz
   }
   column "created_at" {
     null = false
@@ -172,19 +172,19 @@ table "checks" {
   }
   column "last_runtime" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "last_transition_time" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "next_runtime" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "silenced_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "status" {
     null = true
@@ -192,15 +192,15 @@ table "checks" {
   }
   column "created_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "updated_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -225,7 +225,7 @@ table "check_statuses_1h" {
   }
   column "created_at" {
     null = false
-    type = timestamp
+    type = timestamptz
   }
   column "duration" {
     null = false
@@ -266,7 +266,7 @@ table "check_statuses_1d" {
   }
   column "created_at" {
     null = false
-    type = timestamp
+    type = timestamptz
   }
   column "duration" {
     null = false

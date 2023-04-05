@@ -28,7 +28,7 @@ table "logging_backends" {
   }
   column "created_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "created_by" {
     null = true
@@ -36,11 +36,11 @@ table "logging_backends" {
   }
   column "updated_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
