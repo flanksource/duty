@@ -106,9 +106,9 @@ table "config_changes" {
     null = true
     type = text
   }
-  column "patches" {
+  column "diff" {
     null = true
-    type = jsonb
+    type = text
   }
   column "details" {
     null = true

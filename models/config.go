@@ -79,7 +79,7 @@ type ConfigChange struct {
 	Severity         string     `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
 	Source           string     `gorm:"column:source" json:"source"`
 	Summary          string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
-	Patches          string     `gorm:"column:patches;default:null" json:"patches,omitempty"`
+	Diff             string     `gorm:"column:diff;default:null" json:"diff,omitempty"`
 	Details          types.JSON `gorm:"column:details" json:"details,omitempty"`
 	CreatedAt        *time.Time `gorm:"column:created_at" json:"created_at"`
 }
