@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ConfigItem represents the config item database table
@@ -97,6 +98,23 @@ func (c ConfigChange) GetExternalID() ExternalID {
 
 func (c ConfigChange) String() string {
 	return fmt.Sprintf("[%s/%s] %s", c.ExternalType, c.ExternalID, c.ChangeType)
+}
+
+// BeforeCreate is a user defined hook for Gorm.
+// It will be called when creating a record.
+func (c *ConfigChange) BeforeCreate(tx *gorm.DB) (err error) {
+	if c.ID == "" {
+		c.ID = uuid.New().String()
+	}
+
+	if c.CreatedAt == nil {
+		now := time.Now()
+		c.CreatedAt = &now
+	}
+
+	tx.Statement.AddClause(clause.OnConflict{DoNothing: true})
+
+	return
 }
 
 type ConfigAnalysis struct {
