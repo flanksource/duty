@@ -29,6 +29,7 @@ table "logging_backends" {
   column "created_at" {
     null = true
     type = timestamptz
+    default = sql("now()")
   }
   column "created_by" {
     null = true
