@@ -42,7 +42,7 @@ type Component struct {
 	Status           ComponentStatus     `json:"status,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	Lifecycle        string              `json:"lifecycle,omitempty"`
-	LogSelectors     LogSelectors        `json:"logSelectors,omitempty" gorm:"column:log_selectors"`
+	LogSelectors     LogSelectors        `json:"logs,omitempty" gorm:"column:log_selectors"`
 	Tooltip          string              `json:"tooltip,omitempty"`
 	StatusReason     string              `json:"statusReason,omitempty"`
 	Schedule         string              `json:"schedule,omitempty"`
