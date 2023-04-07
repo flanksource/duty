@@ -42,7 +42,7 @@ type Component struct {
 	Status           ComponentStatus     `json:"status,omitempty"`
 	Description      string              `json:"description,omitempty"`
 	Lifecycle        string              `json:"lifecycle,omitempty"`
-	LogSelectors     LogSelectors        `json:"logs,omitempty" gorm:"column:log_selectors"`
+	LogSelectors     types.LogSelectors  `json:"logs,omitempty" gorm:"column:log_selectors"`
 	Tooltip          string              `json:"tooltip,omitempty"`
 	StatusReason     string              `json:"statusReason,omitempty"`
 	Schedule         string              `json:"schedule,omitempty"`
@@ -527,38 +527,4 @@ type ConfigComponentRelationship struct {
 
 func (cr ConfigComponentRelationship) TableName() string {
 	return "config_component_relationships"
-}
-
-// LogSelector ...
-type LogSelector struct {
-	Name   string            `json:"name,omitempty" yaml:"name,omitempty"`
-	Type   string            `json:"type,omitempty" yaml:"type,omitempty" template:"true"`
-	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty" template:"true"`
-}
-
-type LogSelectors []LogSelector
-
-func (t LogSelectors) Value() (driver.Value, error) {
-	return types.GenericStructValue(t, true)
-}
-
-func (t *LogSelectors) Scan(val any) error {
-	return types.GenericStructScan(&t, val)
-}
-
-func (LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.JSONType
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
-
-func (rs LogSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(rs)
-	return gorm.Expr("?", string(data))
 }
