@@ -50,3 +50,23 @@ CREATE OR REPLACE VIEW incident_summary_by_component AS
   )
 
   SELECT id, jsonb_object_agg(key, value) as incidents FROM (select id, json_object_agg(type,json) incidents from type_summary group by id, type) i, json_each(incidents) group by id;
+
+-- incident_summary VIEW
+DROP VIEW IF EXISTS incident_summary;
+CREATE OR REPLACE VIEW incident_summary AS 
+  SELECT
+    incidents.id,
+    incidents.title,
+    incidents.severity,
+    incidents.type,
+    incidents.status,
+    incidents.created_at,
+    incidents.updated_at,
+    COUNT(DISTINCT responders.id) AS distinct_responders,
+    COUNT(DISTINCT COMMENTS.id) AS distinct_commenters
+  FROM
+    incidents
+    LEFT JOIN responders ON incidents.id = responders.incident_id
+    LEFT JOIN COMMENTS ON incidents.id = COMMENTS.incident_id
+  GROUP BY
+    incidents.id;
