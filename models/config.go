@@ -54,6 +54,30 @@ func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 	return m, err
 }
 
+// ConfigScraper represents the config_scrapers database table
+type ConfigScraper struct {
+	ID          uuid.UUID  `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description,omitempty"`
+	Spec        string     `json:"spec,omitempty"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+func (c ConfigScraper) TableName() string {
+	return "config_scrapers"
+}
+
+// BeforeCreate GORM hook
+func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
+	if cs.ID == uuid.Nil {
+		cs.ID = uuid.New()
+	}
+
+	return nil
+}
+
 type ConfigRelationship struct {
 	ConfigID   string     `gorm:"column:config_id" json:"config_id"`
 	RelatedID  string     `gorm:"column:related_id" json:"related_id"`
