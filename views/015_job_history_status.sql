@@ -17,6 +17,7 @@ FROM
   AND job_history.created_at = latest_job_history.max_created_at;
 
 -- Template View
+DROP VIEW IF EXISTS templates_with_status;
 CREATE OR REPLACE VIEW templates_with_status AS
 SELECT
   templates.*,
@@ -37,6 +38,7 @@ FROM
   ON templates.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'system_template';
 
 -- Canaries View
+DROP VIEW IF EXISTS canaries_with_status;
 CREATE OR REPLACE VIEW canaries_with_status AS
 SELECT
   canaries.*,
@@ -57,6 +59,7 @@ FROM
   ON canaries.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'canary';
 
 -- Teams View
+DROP VIEW IF EXISTS teams_with_status;
 CREATE OR REPLACE VIEW teams_with_status AS
 SELECT
   teams.*,
@@ -77,6 +80,7 @@ FROM
   ON teams.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'team';
 
 -- Config scrapers View
+DROP VIEW IF EXISTS config_scrapers_with_status;
 CREATE OR REPLACE VIEW config_scrapers_with_status AS
 SELECT
   config_scrapers.*,
