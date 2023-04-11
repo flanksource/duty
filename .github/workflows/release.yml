@@ -21,7 +21,7 @@ jobs:
     if: needs.semantic-release.outputs.new-release-published == 'true'
     strategy:
       matrix:
-        repos: ['incident-commander', 'canary-checker', 'config-db']
+        repos: ['incident-commander', 'canary-checker', 'config-db', 'apm-hub']
     steps:
       - uses: actions/checkout@v3
         with:
@@ -37,7 +37,7 @@ jobs:
           sleep 60
           go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
           go mod tidy
-          [ -d "hack/generate-schemas" ] && cd hack/generate-schemas && go run ./main.go
+          [ -d "hack/generate-schemas" ] && cd hack/generate-schemas && go mod tidy
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
