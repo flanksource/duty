@@ -39,8 +39,7 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
         with:
-          #ref: main
-          ref: test-migration-change
+          ref: main
       - name: Apply base migrations
         run: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
       - name: Check out current branch
