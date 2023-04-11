@@ -39,18 +39,20 @@ jobs:
       - name: Check out main branch
         uses: actions/checkout@v3
         with:
-          ref: main
+          #ref: main
+          ref: test-migration-change
       - name: Apply base migrations
-        run: cd hack/migrate && go run main.go --db-url postgres://postgres:postgres@postgres:5432/mission-control
+        run: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
       - name: Check out current branch
         uses: actions/checkout@v3
       - name: Apply new migrations
-        run: cd hack/migrate && go run main.go --db-url postgres://postgres:postgres@postgres:5432/mission-control
+        run: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
 
-    container: ubuntu
     services:
       postgres:
         image: postgres
+        ports:
+          - 5432:5432
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: mission-control
