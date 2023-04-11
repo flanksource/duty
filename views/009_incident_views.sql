@@ -62,11 +62,30 @@ CREATE OR REPLACE VIEW incident_summary AS
     incidents.status,
     incidents.created_at,
     incidents.updated_at,
-    COUNT(DISTINCT responders.id) AS distinct_responders,
-    COUNT(DISTINCT COMMENTS.id) AS distinct_commenters
+    jsonb_build_object(
+      'id', people.id,
+      'avatar', people.avatar,
+      'name', people.name
+    ) AS commander,
+    jsonb_agg(
+      DISTINCT jsonb_build_object(
+        'id', responder_person.id,
+        'avatar', responder_person.avatar,
+        'name', responder_person.name
+      )
+    ) FILTER (WHERE responder_person.id IS NOT NULL) AS distinct_responders,
+    jsonb_agg(
+      DISTINCT jsonb_build_object(
+        'id', commenter.id,
+        'avatar', commenter.avatar,
+        'name', commenter.name
+      )
+    ) FILTER (WHERE commenter.id IS NOT NULL) AS distinct_commenters
   FROM
     incidents
-    LEFT JOIN responders ON incidents.id = responders.incident_id
-    LEFT JOIN COMMENTS ON incidents.id = COMMENTS.incident_id
+    LEFT JOIN people ON incidents.commander_id = people.id
+    LEFT JOIN responders ON incidents.id = responders.incident_id LEFT JOIN people responder_person ON responders.person_id = responder_person.id
+    LEFT JOIN comments ON incidents.id = comments.incident_id LEFT JOIN people commenter ON comments.created_by = commenter.id
   GROUP BY
-    incidents.id;
+    incidents.id,
+    people.id;
