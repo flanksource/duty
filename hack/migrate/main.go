@@ -9,7 +9,7 @@ import (
 )
 
 var migrate = &cobra.Command{
-	Use: "generate-schema",
+	Use: "migrate",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := duty.Migrate(connection); err != nil {
 			logger.Fatalf(err.Error())
