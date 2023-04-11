@@ -73,14 +73,14 @@ CREATE OR REPLACE VIEW incident_summary AS
         'avatar', responder_person.avatar,
         'name', responder_person.name
       )
-    ) FILTER (WHERE responder_person.id IS NOT NULL) AS distinct_responders,
+    ) FILTER (WHERE responder_person.id IS NOT NULL) AS responders,
     jsonb_agg(
       DISTINCT jsonb_build_object(
         'id', commenter.id,
         'avatar', commenter.avatar,
         'name', commenter.name
       )
-    ) FILTER (WHERE commenter.id IS NOT NULL) AS distinct_commenters
+    ) FILTER (WHERE commenter.id IS NOT NULL) AS commenters
   FROM
     incidents
     LEFT JOIN people ON incidents.commander_id = people.id
