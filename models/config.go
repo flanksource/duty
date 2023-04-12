@@ -103,19 +103,13 @@ func (c ConfigChange) String() string {
 
 // BeforeCreate is a user defined hook for Gorm.
 // It will be called when creating a record.
-func (c *ConfigChange) BeforeCreate(tx *gorm.DB) (err error) {
+func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == "" {
 		c.ID = uuid.New().String()
 	}
 
-	if c.CreatedAt == nil {
-		now := time.Now()
-		c.CreatedAt = &now
-	}
-
 	tx.Statement.AddClause(clause.OnConflict{DoNothing: true})
-
-	return
+	return nil
 }
 
 type ConfigAnalysis struct {
