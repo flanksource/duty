@@ -170,6 +170,10 @@ table "checks" {
     null = true
     type = text
   }
+  column "transformed" {
+    null = true
+    type = boolean
+  }
   column "last_runtime" {
     null = true
     type = timestamptz

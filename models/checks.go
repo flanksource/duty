@@ -8,6 +8,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type CheckHealthStatus string
+
+const (
+	CheckStatusHealthy   = "healthy"
+	CheckStatusUnhealthy = "unhealthy"
+)
+
+var CheckHealthStatuses = []CheckHealthStatus{
+	CheckStatusHealthy,
+	CheckStatusUnhealthy,
+}
+
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
@@ -18,13 +30,14 @@ type Check struct {
 	Namespace          string              `json:"namespace"  gorm:"-"`
 	Labels             types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
 	Description        string              `json:"description,omitempty"`
-	Status             string              `json:"status,omitempty"`
+	Status             CheckHealthStatus   `json:"status,omitempty"`
 	Uptime             Uptime              `json:"uptime"  gorm:"-"`
 	Latency            Latency             `json:"latency"  gorm:"-"`
 	Statuses           []CheckStatus       `json:"checkStatuses"  gorm:"-"`
 	Owner              string              `json:"owner,omitempty"`
 	Severity           string              `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
+	Transformed        bool                `json:"transformed,omitempty"`
 	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
 	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
