@@ -29,8 +29,10 @@ jobs:
         with:
           files: test/test-results.xml
           check_name: E2E - ${{matrix.suite}}
-  migrate-test:
+  migrate:
     runs-on: ubuntu-latest
+    env:
+      migrate_command: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
     steps:
       - name: Install Go
         uses: actions/setup-go@v2
@@ -41,11 +43,11 @@ jobs:
         with:
           ref: main
       - name: Apply base migrations
-        run: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
+        run: ${{ env.migrate_command }}
       - name: Check out current branch
         uses: actions/checkout@v3
       - name: Apply new migrations
-        run: cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
+        run: ${{ env.migrate_command }}
 
     services:
       postgres:
