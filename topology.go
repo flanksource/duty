@@ -123,12 +123,13 @@ func (p TopologyOptions) incidentSummaryForComponents() string {
 	return `(SELECT incidents FROM incident_summary_by_component WHERE id = topology_result.id)`
 }
 
-func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) ([]*models.Component, error) {
+func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
 	query, args := generateQuery(params)
 	rows, err := dbpool.Query(context.Background(), query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var results models.Components
 	for rows.Next() {
@@ -138,9 +139,14 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) ([]*models.Comp
 		}
 
 		if err := json.Unmarshal(rows.RawValues()[0], &components); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
+			return nil, fmt.Errorf("failed to unmarshal components: %w for %s", err, rows.RawValues()[0])
 		}
+
 		results = append(results, components...)
+	}
+
+	if len(results) == 0 {
+		return &TopologyResponse{}, nil
 	}
 
 	results = applyTypeFilter(results, params.Types...)
@@ -156,7 +162,23 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) ([]*models.Comp
 	// If ID is present, we do not apply any filters to the root component
 	results = applyStatusFilter(results, params.ID != "", params.Status...)
 
-	return results, nil
+	var res TopologyResponse
+	res.Components = results
+	populateTopologyResult(results, &res)
+
+	res.Teams, err = GetTeamsOfComponents(res.componentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get teams of components: %w", err)
+	}
+
+	return &res, nil
+}
+
+func GetTeamsOfComponents(componentIDs []string) ([]string, error) {
+	var teams []string
+	// err := Gorm.Table("team_components").Select("DISTINCT teams.name").Joins("LEFT JOIN teams ON teams.id = team_components.team_id").Where("component_id IN (?)", componentIDs).Find(&teams).Error
+	// return teams, err
+	return teams, nil
 }
 
 func applyDepthFilter(components []*models.Component, depth int) []*models.Component {
@@ -289,4 +311,70 @@ func GetComponent(ctx context.Context, db *gorm.DB, id string) (*models.Componen
 	}
 
 	return &component, nil
+}
+
+type Tag struct {
+	Key string `json:"key"`
+	Val string `json:"val"`
+}
+
+type TopologyResponse struct {
+	componentIDs    []string
+	healthStatusMap map[string]struct{}
+	typeMap         map[string]struct{}
+	tagMap          map[string]struct{}
+
+	Components     models.Components `json:"components,omitempty"`
+	HealthStatuses []string          `json:"healthStatuses,omitempty"`
+	Teams          []string          `json:"teams,omitempty"`
+	Tags           []Tag             `json:"tags,omitempty"`
+	Types          []string          `json:"types,omitempty"`
+}
+
+func (t *TopologyResponse) AddHealthStatuses(s string) {
+	if t.healthStatusMap == nil {
+		t.healthStatusMap = make(map[string]struct{})
+	}
+
+	if _, exists := t.healthStatusMap[s]; !exists {
+		t.HealthStatuses = append(t.HealthStatuses, s)
+		t.healthStatusMap[s] = struct{}{}
+	}
+}
+
+func (t *TopologyResponse) AddType(typ string) {
+	if t.typeMap == nil {
+		t.typeMap = make(map[string]struct{})
+	}
+
+	if _, exists := t.typeMap[typ]; !exists {
+		t.Types = append(t.Types, typ)
+		t.typeMap[typ] = struct{}{}
+	}
+}
+
+func (t *TopologyResponse) AddTag(tags map[string]string) {
+	if t.tagMap == nil {
+		t.tagMap = make(map[string]struct{})
+	}
+
+	for k, v := range tags {
+		tagKey := fmt.Sprintf("%s=%s", k, v)
+		if _, exists := t.tagMap[tagKey]; !exists {
+			t.Tags = append(t.Tags, Tag{Key: k, Val: v})
+			t.tagMap[tagKey] = struct{}{}
+		}
+	}
+}
+
+// populateTopologyResult goes through the components recursively (depth-first)
+// and populates the TopologyRes struct.
+func populateTopologyResult(components models.Components, res *TopologyResponse) {
+	for _, component := range components {
+		res.componentIDs = append(res.componentIDs, component.ID.String())
+		res.AddTag(component.Labels)
+		res.AddType(component.Type)
+		res.AddHealthStatuses(string(component.Status))
+		populateTopologyResult(component.Components, res)
+	}
 }
