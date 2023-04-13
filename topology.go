@@ -124,8 +124,10 @@ func (p TopologyOptions) incidentSummaryForComponents() string {
 }
 
 func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
+	ctx := context.Background() // TODO: accept context as an argument
+
 	query, args := generateQuery(params)
-	rows, err := dbpool.Query(context.Background(), query, pgx.NamedArgs(args))
+	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,7 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 	res.Components = results
 	populateTopologyResult(results, &res)
 
-	res.Teams, err = GetTeamsOfComponents(res.componentIDs)
+	res.Teams, err = GetTeamNamesOfComponents(ctx, dbpool, res.componentIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get teams of components: %w", err)
 	}
@@ -174,10 +176,38 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 	return &res, nil
 }
 
-func GetTeamsOfComponents(componentIDs []string) ([]string, error) {
+func GetTeamNamesOfComponents(ctx context.Context, dbpool *pgxpool.Pool, componentIDs []string) ([]string, error) {
+	if len(componentIDs) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(componentIDs))
+	for i := range componentIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+	}
+
+	args := make([]any, len(componentIDs))
+	for i, id := range componentIDs {
+		args[i] = id
+	}
+
+	query := fmt.Sprintf("SELECT DISTINCT teams.name FROM team_components LEFT JOIN teams ON teams.id = team_components.team_id WHERE component_id IN (%s)", strings.Join(placeholders, ","))
+	rows, err := dbpool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
 	var teams []string
-	// err := Gorm.Table("team_components").Select("DISTINCT teams.name").Joins("LEFT JOIN teams ON teams.id = team_components.team_id").Where("component_id IN (?)", componentIDs).Find(&teams).Error
-	// return teams, err
+	for rows.Next() {
+		var team string
+		if err := rows.Scan(&team); err != nil {
+			return nil, err
+		}
+
+		teams = append(teams, team)
+	}
+
 	return teams, nil
 }
 
@@ -368,7 +398,7 @@ func (t *TopologyResponse) AddTag(tags map[string]string) {
 }
 
 // populateTopologyResult goes through the components recursively (depth-first)
-// and populates the TopologyRes struct.
+// and populates the TopologyResponse struct.
 func populateTopologyResult(components models.Components, res *TopologyResponse) {
 	for _, component := range components {
 		res.componentIDs = append(res.componentIDs, component.ID.String())
