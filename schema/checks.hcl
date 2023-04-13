@@ -219,6 +219,9 @@ table "checks" {
     unique  = true
     columns = [column.canary_id, column.type, column.name]
   }
+  index "checks_canary_id_transformed_idx" {
+    columns = [column.canary_id, column.transformed]
+  }
 }
 
 table "check_statuses_1h" {
