@@ -36,6 +36,7 @@ table "canaries" {
   column "created_at" {
     null = true
     type = timestamptz
+    default = sql("now()")
   }
   column "created_by" {
     null = true
@@ -44,6 +45,7 @@ table "canaries" {
   column "updated_at" {
     null = true
     type = timestamptz
+    default = sql("now()")
   }
   column "deleted_at" {
     null = true
