@@ -348,6 +348,10 @@ table "config_scrapers" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
   primary_key {
     columns = [column.id]
   }
