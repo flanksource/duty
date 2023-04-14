@@ -25,10 +25,12 @@ table "templates" {
   column "created_at" {
     null = true
     type = timestamptz
+    default = sql("now()")
   }
   column "updated_at" {
     null = true
     type = timestamptz
+    default = sql("now()")
   }
   column "schedule" {
     null = true
