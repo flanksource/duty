@@ -1,6 +1,8 @@
 package dummy
 
 import (
+	"fmt"
+
 	"gorm.io/gorm"
 )
 
@@ -77,6 +79,18 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyResponders {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return fmt.Errorf("error creating dummy responder: %w", err)
+		}
+	}
+	for _, c := range AllDummyComments {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return fmt.Errorf("error creating dummy comment: %w", err)
+		}
+	}
 	for _, c := range AllDummyCheckStatuses {
 		// TODO: Figure out why it panics without Table
 		err = gormDB.Table("check_statuses").Create(&c).Error
@@ -100,6 +114,18 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range AllDummyHypotheses {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyComments {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyResponders {
 		err = gormDB.Delete(&c).Error
 		if err != nil {
 			return err

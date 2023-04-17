@@ -10,4 +10,9 @@ var JohnDoe = models.Person{
 	Name: "John Doe",
 }
 
-var AllDummyPeople = []models.Person{JohnDoe}
+var JohnWick = models.Person{
+	ID:   uuid.New(),
+	Name: "John Wick",
+}
+
+var AllDummyPeople = []models.Person{JohnDoe, JohnWick}
