@@ -28,7 +28,16 @@ var FirstComment = models.Comment{
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyComments = []models.Comment{FirstComment}
+var SecondComment = models.Comment{
+	ID:         uuid.New(),
+	CreatedBy:  JohnDoe.ID,
+	Comment:    "This is another comment",
+	IncidentID: LogisticsAPIDownIncident.ID,
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
+
+var AllDummyComments = []models.Comment{FirstComment, SecondComment}
 
 var FirstResponder = models.Responder{
 	ID:         uuid.New(),
@@ -40,4 +49,14 @@ var FirstResponder = models.Responder{
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyResponders = []models.Responder{FirstResponder}
+var SecondResponder = models.Responder{
+	ID:         uuid.New(),
+	IncidentID: LogisticsAPIDownIncident.ID,
+	Type:       "whattype",
+	PersonID:   &JohnDoe.ID,
+	CreatedBy:  JohnDoe.ID,
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
+
+var AllDummyResponders = []models.Responder{FirstResponder, SecondResponder}
