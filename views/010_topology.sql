@@ -15,15 +15,50 @@ language plpgsql;
 DROP VIEW IF EXISTS topology;
 CREATE OR REPLACE VIEW topology AS
   WITH children AS (
-    select relationship_id as id,  array_agg(component_id) as children from  component_relationships  where deleted_at is null group by id
-  ),
+    SELECT 
+      relationship_id AS id, 
+      ARRAY_AGG(component_id) AS children 
+    FROM 
+      component_relationships 
+    WHERE 
+      deleted_at IS NULL 
+    GROUP BY 
+      id
+  ), 
   parents AS (
-    select component_id as id,  array_agg(relationship_id) as parents from  component_relationships  where deleted_at is null group by id
-  )
-
-  SELECT components.*, checks, incidents, children.children, parents.parents from components
-    LEFT JOIN check_summary_by_component on check_summary_by_component.component_id = components.id
-    LEFT JOIN incident_summary_by_component on incident_summary_by_component.id = components.id
-    LEFT JOIN children on children.id = components.id
-    LEFT JOIN parents on parents.id = components.id
-    WHERE components.deleted_at is null
+    SELECT 
+      component_id AS id, 
+      ARRAY_AGG(relationship_id) AS parents 
+    FROM 
+      component_relationships 
+    WHERE 
+      deleted_at IS NULL 
+    GROUP BY 
+      id
+  ), 
+  team_info AS (
+    SELECT 
+      team_components.component_id, 
+      ARRAY_AGG(teams.name) AS team_names 
+    FROM 
+      team_components 
+      LEFT JOIN teams ON team_components.team_id = teams.id 
+    GROUP BY 
+      team_components.component_id
+  ) 
+  SELECT 
+    components.*, 
+    checks, 
+    team_info.team_names, 
+    incidents, 
+    children.children, 
+    parents.parents 
+  FROM 
+    components 
+    LEFT JOIN check_summary_by_component ON check_summary_by_component.component_id = components.id 
+    LEFT JOIN incident_summary_by_component ON incident_summary_by_component.id = components.id 
+    LEFT JOIN children ON children.id = components.id 
+    LEFT JOIN parents ON parents.id = components.id 
+    LEFT JOIN team_info ON team_info.component_id = components.id 
+  WHERE 
+    components.deleted_at IS NULL
