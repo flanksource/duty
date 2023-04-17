@@ -110,6 +110,10 @@ table "config_changes" {
     null = true
     type = jsonb
   }
+  column "diff" {
+    null = true
+    type = text
+  }
   column "details" {
     null = true
     type = jsonb
