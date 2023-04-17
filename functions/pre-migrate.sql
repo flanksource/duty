@@ -1,0 +1,3 @@
+DROP VIEW IF EXISTS analysis_by_config, analysis_by_component, analysis_summary_by_component, check_names, check_labels, checks_by_component, check_summary_by_component, component_names, component_names_all, component_labels, configs, config_names, config_types, analyzer_types, analysis_types, change_types, changes_by_component, config_tags, incidents_by_component, incidents_by_config, incident_summary_by_component, topology, config_scrapers_with_status, config_items_aws, job_history_latest_status, templates_with_status, canaries_with_status, teams_with_status, check_statuses_5m cascade;
+
+DROP MATERIALIZED VIEW IF EXISTS check_status_summary;

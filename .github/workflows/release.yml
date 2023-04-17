@@ -21,7 +21,7 @@ jobs:
     if: needs.semantic-release.outputs.new-release-published == 'true'
     strategy:
       matrix:
-        repos: ['incident-commander', 'canary-checker', 'config-db']
+        repos: ['incident-commander', 'canary-checker', 'config-db', 'apm-hub']
     steps:
       - uses: actions/checkout@v3
         with:
@@ -30,19 +30,24 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: v1.19.x
+          go-version: v1.20.x
       - name: Create commits
         run: |
           # Sleep to let index refresh
           sleep 60
           go get -u github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
           go mod tidy
+          if [ -d "hack/generate-schemas" ]; then
+            cd hack/generate-schemas && go mod tidy
+          fi
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
         with:
-          branch: 'bump-duty-${{ needs.semantic-release.outputs.release-version }}'
+          branch: 'bump-duty-auto-pr'
           commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           committer: 'Flankbot <flankbot@users.noreply.github.com>'
           token: ${{ secrets.FLANKBOT }}
           labels: dependencies
+          delete-branch: true

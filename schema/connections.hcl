@@ -50,13 +50,13 @@ table "connections" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
 
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
 

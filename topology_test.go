@@ -35,7 +35,8 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	matchJSON([]byte(expected), treeJSON, nil)
+	jqExpr := `del(.. | .created_at?, .updated_at?)`
+	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 
 var _ = ginkgo.Describe("Topology behavior", ginkgo.Ordered, func() {

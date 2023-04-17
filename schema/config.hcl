@@ -47,12 +47,12 @@ table "config_analysis" {
   }
   column "first_observed" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "last_observed" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -124,7 +124,7 @@ table "config_changes" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -231,17 +231,17 @@ table "config_items" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -286,17 +286,17 @@ table "config_relationships" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "selector_id" {
     null = true
@@ -344,13 +344,17 @@ table "config_scrapers" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]

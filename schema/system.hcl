@@ -21,12 +21,12 @@ table "event_queue" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "last_attempt" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "attempts" {
     null    = true
@@ -66,12 +66,12 @@ table "integrations" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -129,15 +129,15 @@ table "job_history" {
   }
   column "time_start" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "time_end" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {

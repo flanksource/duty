@@ -8,6 +8,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type CheckHealthStatus string
+
+const (
+	CheckStatusHealthy   = "healthy"
+	CheckStatusUnhealthy = "unhealthy"
+)
+
+var CheckHealthStatuses = []CheckHealthStatus{
+	CheckStatusHealthy,
+	CheckStatusUnhealthy,
+}
+
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
@@ -18,21 +30,22 @@ type Check struct {
 	Namespace          string              `json:"namespace"  gorm:"-"`
 	Labels             types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
 	Description        string              `json:"description,omitempty"`
-	Status             string              `json:"status,omitempty"`
+	Status             CheckHealthStatus   `json:"status,omitempty"`
 	Uptime             Uptime              `json:"uptime"  gorm:"-"`
 	Latency            Latency             `json:"latency"  gorm:"-"`
 	Statuses           []CheckStatus       `json:"checkStatuses"  gorm:"-"`
 	Owner              string              `json:"owner,omitempty"`
 	Severity           string              `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
+	Transformed        bool                `json:"transformed,omitempty"`
 	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
-	LastRuntime        *LocalTime          `json:"last_runtime,omitempty"`
+	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
-	LastTransitionTime *LocalTime          `json:"last_transition_time,omitempty"`
-	CreatedAt          *LocalTime          `json:"created_at,omitempty"`
-	UpdatedAt          *LocalTime          `json:"updated_at,omitempty"`
-	DeletedAt          *LocalTime          `json:"deleted_at,omitempty"`
-	SilencedAt         *LocalTime          `json:"silenced_at,omitempty"`
+	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	CreatedAt          *time.Time          `json:"created_at,omitempty"`
+	UpdatedAt          *time.Time          `json:"updated_at,omitempty"`
+	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
 }
 
 func (c Check) ToString() string {
@@ -70,8 +83,8 @@ type Uptime struct {
 	Passed   int        `json:"passed"`
 	Failed   int        `json:"failed"`
 	P100     float64    `json:"p100,omitempty"`
-	LastPass *LocalTime `json:"last_pass,omitempty"`
-	LastFail *LocalTime `json:"last_fail,omitempty"`
+	LastPass *time.Time `json:"last_pass,omitempty"`
+	LastFail *time.Time `json:"last_fail,omitempty"`
 }
 
 func (u Uptime) String() string {

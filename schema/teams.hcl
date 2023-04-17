@@ -47,12 +47,12 @@ table "people" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null = true
-    type = timestamp
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -120,13 +120,17 @@ table "teams" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
   }
   primary_key {
     columns = [column.id]
@@ -208,12 +212,12 @@ table "saved_query" {
   }
   column "created_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
     null    = false
-    type    = timestamp
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
