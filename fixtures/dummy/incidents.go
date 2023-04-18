@@ -24,20 +24,29 @@ var FirstComment = models.Comment{
 	CreatedBy:  JohnWick.ID,
 	Comment:    "This is a comment",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  time.Now().Add(-time.Hour),
+	UpdatedAt:  time.Now().Add(-time.Hour),
 }
 
 var SecondComment = models.Comment{
 	ID:         uuid.New(),
 	CreatedBy:  JohnDoe.ID,
-	Comment:    "This is another comment",
+	Comment:    "A comment by John Doe",
+	IncidentID: LogisticsAPIDownIncident.ID,
+	CreatedAt:  time.Now().Add(-time.Minute),
+	UpdatedAt:  time.Now().Add(-time.Minute),
+}
+
+var ThirdComment = models.Comment{
+	ID:         uuid.New(),
+	CreatedBy:  JohnDoe.ID,
+	Comment:    "Another comment by John Doe",
 	IncidentID: LogisticsAPIDownIncident.ID,
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyComments = []models.Comment{FirstComment, SecondComment}
+var AllDummyComments = []models.Comment{FirstComment, SecondComment, ThirdComment}
 
 var FirstResponder = models.Responder{
 	ID:         uuid.New(),
@@ -45,11 +54,21 @@ var FirstResponder = models.Responder{
 	Type:       "whattype",
 	PersonID:   &JohnWick.ID,
 	CreatedBy:  JohnWick.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  time.Now().Add(-time.Hour),
+	UpdatedAt:  time.Now().Add(-time.Hour),
 }
 
 var SecondResponder = models.Responder{
+	ID:         uuid.New(),
+	IncidentID: LogisticsAPIDownIncident.ID,
+	Type:       "whattype",
+	PersonID:   &JohnDoe.ID,
+	CreatedBy:  JohnDoe.ID,
+	CreatedAt:  time.Now().Add(-time.Minute),
+	UpdatedAt:  time.Now().Add(-time.Minute),
+}
+
+var ThirdResponder = models.Responder{
 	ID:         uuid.New(),
 	IncidentID: LogisticsAPIDownIncident.ID,
 	Type:       "whattype",
@@ -59,4 +78,4 @@ var SecondResponder = models.Responder{
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyResponders = []models.Responder{FirstResponder, SecondResponder}
+var AllDummyResponders = []models.Responder{FirstResponder, SecondResponder, ThirdResponder}
