@@ -59,20 +59,25 @@ SELECT
 FROM
   topology`
 
+	var clauses []string
 	args := make(map[string]any)
 	if opts.ID != "" {
-		query = fmt.Sprintf("%s WHERE id = @id OR parent_id = @id", query)
+		clauses = append(clauses, "(id = @id OR parent_id = @id)")
 		args["id"] = opts.ID
 	}
 
 	if opts.Owner != "" {
-		query = fmt.Sprintf("%s WHERE owner = @owner", query)
+		clauses = append(clauses, "owner = @owner")
 		args["owner"] = opts.Owner
 	}
 
 	if len(opts.Labels) > 0 {
-		query = fmt.Sprintf("%s WHERE labels @> @labels", query)
+		clauses = append(clauses, "labels @> @labels")
 		args["labels"] = opts.Labels
+	}
+
+	if len(clauses) > 0 {
+		query = fmt.Sprintf("%s WHERE %s", query, strings.Join(clauses, " AND "))
 	}
 
 	return query, args
