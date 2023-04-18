@@ -24,8 +24,8 @@ var FirstComment = models.Comment{
 	CreatedBy:  JohnWick.ID,
 	Comment:    "This is a comment",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now().Add(-time.Hour),
-	UpdatedAt:  time.Now().Add(-time.Hour),
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
 }
 
 var SecondComment = models.Comment{
@@ -33,8 +33,8 @@ var SecondComment = models.Comment{
 	CreatedBy:  JohnDoe.ID,
 	Comment:    "A comment by John Doe",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now().Add(-time.Minute),
-	UpdatedAt:  time.Now().Add(-time.Minute),
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
 }
 
 var ThirdComment = models.Comment{
@@ -48,34 +48,34 @@ var ThirdComment = models.Comment{
 
 var AllDummyComments = []models.Comment{FirstComment, SecondComment, ThirdComment}
 
-var FirstResponder = models.Responder{
+var JiraResponder = models.Responder{
 	ID:         uuid.New(),
 	IncidentID: LogisticsAPIDownIncident.ID,
-	Type:       "whattype",
+	Type:       "Jira",
 	PersonID:   &JohnWick.ID,
 	CreatedBy:  JohnWick.ID,
-	CreatedAt:  time.Now().Add(-time.Hour),
-	UpdatedAt:  time.Now().Add(-time.Hour),
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
 }
 
-var SecondResponder = models.Responder{
+var GitHubIssueResponder = models.Responder{
 	ID:         uuid.New(),
 	IncidentID: LogisticsAPIDownIncident.ID,
-	Type:       "whattype",
-	PersonID:   &JohnDoe.ID,
-	CreatedBy:  JohnDoe.ID,
-	CreatedAt:  time.Now().Add(-time.Minute),
-	UpdatedAt:  time.Now().Add(-time.Minute),
-}
-
-var ThirdResponder = models.Responder{
-	ID:         uuid.New(),
-	IncidentID: LogisticsAPIDownIncident.ID,
-	Type:       "whattype",
+	Type:       "GithubIssue",
 	PersonID:   &JohnDoe.ID,
 	CreatedBy:  JohnDoe.ID,
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyResponders = []models.Responder{FirstResponder, SecondResponder, ThirdResponder}
+var SlackResponder = models.Responder{
+	ID:         uuid.New(),
+	IncidentID: LogisticsAPIDownIncident.ID,
+	Type:       "Slack",
+	PersonID:   &JohnDoe.ID,
+	CreatedBy:  JohnDoe.ID,
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
+
+var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder}

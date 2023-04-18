@@ -38,18 +38,34 @@ var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 		err = json.Unmarshal(respondersRaw, &responders)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(responders)).To(Equal(2))
-		Expect(responders[0].ID).To(Equal(dummy.JohnWick.ID.String()))
-		Expect(responders[0].Name).To(Equal(dummy.JohnWick.Name))
-		Expect(responders[1].ID).To(Equal(dummy.JohnDoe.ID.String()))
-		Expect(responders[1].Name).To(Equal(dummy.JohnDoe.Name))
+		Expect(responders).To(Equal([]actor{
+			{
+				ID:     dummy.JohnDoe.ID.String(),
+				Name:   dummy.JohnDoe.Name,
+				Avatar: dummy.JohnDoe.Avatar,
+			},
+			{
+				ID:     dummy.JohnWick.ID.String(),
+				Name:   dummy.JohnWick.Name,
+				Avatar: dummy.JohnWick.Avatar,
+			},
+		}))
 
 		var commenters []actor
 		err = json.Unmarshal(commentersRaw, &commenters)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(commenters)).To(Equal(2))
-		Expect(commenters[0].ID).To(Equal(dummy.JohnWick.ID.String()))
-		Expect(commenters[0].Name).To(Equal(dummy.JohnWick.Name))
-		Expect(commenters[1].ID).To(Equal(dummy.JohnDoe.ID.String()))
-		Expect(commenters[1].Name).To(Equal(dummy.JohnDoe.Name))
+		Expect(commenters).To(Equal([]actor{
+			{
+				ID:     dummy.JohnDoe.ID.String(),
+				Name:   dummy.JohnDoe.Name,
+				Avatar: dummy.JohnDoe.Avatar,
+			},
+			{
+				ID:     dummy.JohnWick.ID.String(),
+				Name:   dummy.JohnWick.Name,
+				Avatar: dummy.JohnWick.Avatar,
+			},
+		}))
 	})
 })
