@@ -54,6 +54,64 @@ CREATE OR REPLACE VIEW incident_summary_by_component AS
 -- incident_summary VIEW
 DROP VIEW IF EXISTS incident_summary;
 CREATE OR REPLACE VIEW incident_summary AS 
+  WITH distinct_commenter AS (
+    SELECT
+      DISTINCT ON (people.id) people.id,
+      people.avatar,
+      people.name,
+      comments.incident_id
+    FROM
+      comments
+      LEFT JOIN people ON comments.created_by = people.id
+    WHERE
+      people.id IS NOT NULL
+    ORDER BY
+      people.id
+  ),
+  commenters AS (
+    SELECT
+      incident_id,
+      jsonb_agg(
+        jsonb_build_object(
+          'id', distinct_commenter.id,
+          'avatar', distinct_commenter.avatar,
+          'name', distinct_commenter.name
+        ) ORDER BY distinct_commenter.id
+      ) AS actor
+    FROM
+      distinct_commenter
+    GROUP BY
+      incident_id
+  ),
+  distinct_responder AS (
+    SELECT
+      DISTINCT ON (people.id) people.id,
+      people.avatar,
+      people.name,
+      responders.incident_id
+    FROM
+      responders
+      LEFT JOIN people ON responders.person_id = people.id
+    WHERE
+      people.id IS NOT NULL
+    ORDER BY
+      people.id
+  ),
+  responders AS (
+    SELECT
+      incident_id,
+      jsonb_agg(
+        jsonb_build_object(
+          'id', distinct_responder.id,
+          'avatar', distinct_responder.avatar,
+          'name', distinct_responder.name
+        ) ORDER BY distinct_responder.id
+      ) AS actor
+    FROM
+      distinct_responder
+    GROUP BY
+      incident_id
+  )
   SELECT
     incidents.id,
     incidents.title,
@@ -67,25 +125,15 @@ CREATE OR REPLACE VIEW incident_summary AS
       'avatar', people.avatar,
       'name', people.name
     ) AS commander,
-    jsonb_agg(
-      DISTINCT jsonb_build_object(
-        'id', responder_person.id,
-        'avatar', responder_person.avatar,
-        'name', responder_person.name
-      )
-    ) FILTER (WHERE responder_person.id IS NOT NULL) AS responders,
-    jsonb_agg(
-      DISTINCT jsonb_build_object(
-        'id', commenter.id,
-        'avatar', commenter.avatar,
-        'name', commenter.name
-      )
-    ) FILTER (WHERE commenter.id IS NOT NULL) AS commenters
+    responders.actor responders,
+    commenters.actor commenters
   FROM
     incidents
     LEFT JOIN people ON incidents.commander_id = people.id
-    LEFT JOIN responders ON incidents.id = responders.incident_id LEFT JOIN people responder_person ON responders.person_id = responder_person.id
-    LEFT JOIN comments ON incidents.id = comments.incident_id LEFT JOIN people commenter ON comments.created_by = commenter.id
+    LEFT JOIN responders ON incidents.id = responders.incident_id
+    LEFT JOIN commenters ON commenters.incident_id = incidents.id
   GROUP BY
     incidents.id,
-    people.id;
+    people.id,
+    commenters.actor,
+    responders.actor;
