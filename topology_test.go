@@ -1,6 +1,7 @@
 package duty
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -28,7 +29,7 @@ func prettytree(mytree []*models.Component) {
 }
 
 func testTopologyJSON(opts TopologyOptions, path string) {
-	tree, err := QueryTopology(testDBPGPool, opts)
+	tree, err := QueryTopology(context.Background(), testDBPGPool, opts)
 	Expect(err).ToNot(HaveOccurred())
 
 	treeJSON, err := json.Marshal(tree)

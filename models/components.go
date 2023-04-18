@@ -241,15 +241,18 @@ func (s *Summary) Scan(val any) error {
 		*s = Summary{}
 		return nil
 	}
+
 	var ba []byte
 	switch v := val.(type) {
 	case []byte:
 		ba = v
+	case string:
+		ba = []byte(v)
 	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal properties value:", val))
+		return fmt.Errorf("failed to unmarshal properties. (type=%T, value=%v)", val, val)
 	}
-	err := json.Unmarshal(ba, s)
-	return err
+
+	return json.Unmarshal(ba, s)
 }
 
 // GormDataType gorm common data type
