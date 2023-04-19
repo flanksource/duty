@@ -166,7 +166,7 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 
 	var res TopologyResponse
 	res.Components = results
-	populateTopologyResult(results, &res)
+	populateTopologyResponse(results, &res)
 
 	res.Teams, err = GetTeamNamesOfComponents(ctx, dbpool, res.componentIDs)
 	if err != nil {
@@ -397,14 +397,14 @@ func (t *TopologyResponse) AddTag(tags map[string]string) {
 	}
 }
 
-// populateTopologyResult goes through the components recursively (depth-first)
+// populateTopologyResponse goes through the components recursively (depth-first)
 // and populates the TopologyResponse struct.
-func populateTopologyResult(components models.Components, res *TopologyResponse) {
+func populateTopologyResponse(components models.Components, res *TopologyResponse) {
 	for _, component := range components {
 		res.componentIDs = append(res.componentIDs, component.ID.String())
 		res.AddTag(component.Labels)
 		res.AddType(component.Type)
 		res.AddHealthStatuses(string(component.Status))
-		populateTopologyResult(component.Components, res)
+		populateTopologyResponse(component.Components, res)
 	}
 }
