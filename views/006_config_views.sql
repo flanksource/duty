@@ -191,6 +191,7 @@ CREATE VIEW config_type_summary AS
     FROM
       config_changes
       LEFT JOIN config_items ON config_changes.config_id = config_items.id
+    WHERE config_changes.created_at > now() - interval '30 days'
     GROUP BY
       config_items.config_type
   ),

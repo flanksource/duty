@@ -11,6 +11,14 @@ var EKSClusterCreateChange = models.ConfigChange{
 	ConfigID:         EKSCluster.ID.String(),
 	ChangeType:       "CREATE",
 	ExternalChangeId: utils.RandomString(10),
+	CreatedAt:        &DummyYearOldDate,
+}
+
+var EKSClusterUpdateChange = models.ConfigChange{
+	ID:               uuid.New().String(),
+	ConfigID:         EKSCluster.ID.String(),
+	ChangeType:       "UPDATE",
+	ExternalChangeId: utils.RandomString(10),
 }
 
 var EKSClusterDeleteChange = models.ConfigChange{
@@ -29,6 +37,7 @@ var KubernetesNodeAChange = models.ConfigChange{
 
 var AllDummyConfigChanges = []models.ConfigChange{
 	EKSClusterCreateChange,
+	EKSClusterUpdateChange,
 	EKSClusterDeleteChange,
 	KubernetesNodeAChange,
 }
