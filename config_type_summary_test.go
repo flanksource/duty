@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/flanksource/duty/models"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -40,35 +41,36 @@ var _ = ginkgo.Describe("Check config_type_summary view", ginkgo.Ordered, func()
 		Expect(configTypeSummaries).To(HaveLen(5))
 		Expect(configTypeSummaries).To(Equal([]configTypeSummary{
 			{
-				configType:   "database",
+				configType:   models.CTCluster,
+				totalConfigs: 2,
+				changes:      ptr(2),
+			},
+			{
+				configType:   models.CTDatabase,
 				totalConfigs: 1,
 				analysis: map[string]any{
 					"security": float64(1),
 				},
 			},
 			{
-				configType:   "deployment",
+				configType:   models.CTDeployment,
 				totalConfigs: 3,
 			},
 			{
-				configType:   "ec2",
+				configType:   models.CTEC2,
 				totalConfigs: 2,
 				analysis: map[string]any{
 					"security": float64(1),
 				},
 			},
 			{
-				configType:   "kubernetesCluster",
-				totalConfigs: 2,
-				changes:      ptr(2),
-			},
-			{
-				configType:   "kubernetesNode",
+				configType:   models.CTNode,
 				totalConfigs: 2,
 				changes:      ptr(1),
 				cp30d:        ptr(2.5),
 			},
-		}))
+		}),
+		)
 	})
 })
 
