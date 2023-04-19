@@ -25,10 +25,6 @@ table "canaries" {
     null = false
     type = jsonb
   }
-  column "schedule" {
-    null = true
-    type = text
-  }
   column "source" {
     null = true
     type = text

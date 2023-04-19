@@ -15,7 +15,6 @@ type Canary struct {
 	Name      string
 	Namespace string
 	Checks    types.JSONStringMap `gorm:"-"`
-	Schedule  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
