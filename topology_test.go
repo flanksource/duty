@@ -223,7 +223,7 @@ func Test_populateTopologyResult(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var res TopologyResponse
-			populateTopologyResponse(tt.args.components, &res)
+			addMetadata(tt.args.components, &res)
 			if diff := cmp.Diff(tt.args.res, res, cmpopts.IgnoreUnexported(TopologyResponse{})); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

@@ -164,51 +164,12 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 	// If ID is present, we do not apply any filters to the root component
 	results = applyStatusFilter(results, params.ID != "", params.Status...)
 
-	var res TopologyResponse
-	res.Components = results
-	populateTopologyResponse(results, &res)
-
-	res.Teams, err = GetTeamNamesOfComponents(ctx, dbpool, res.componentIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get teams of components: %w", err)
+	res := TopologyResponse{
+		Components: results,
 	}
+	addMetadata(results, &res)
 
 	return &res, nil
-}
-
-func GetTeamNamesOfComponents(ctx context.Context, dbpool *pgxpool.Pool, componentIDs []string) ([]string, error) {
-	if len(componentIDs) == 0 {
-		return nil, nil
-	}
-
-	placeholders := make([]string, len(componentIDs))
-	for i := range componentIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-	}
-
-	args := make([]any, len(componentIDs))
-	for i, id := range componentIDs {
-		args[i] = id
-	}
-
-	query := fmt.Sprintf("SELECT DISTINCT teams.name FROM team_components LEFT JOIN teams ON teams.id = team_components.team_id WHERE component_id IN (%s)", strings.Join(placeholders, ","))
-	rows, err := dbpool.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var teams []string
-	for rows.Next() {
-		var team string
-		if err := rows.Scan(&team); err != nil {
-			return nil, err
-		}
-
-		teams = append(teams, team)
-	}
-
-	return teams, nil
 }
 
 func applyDepthFilter(components []*models.Component, depth int) []*models.Component {
@@ -349,7 +310,6 @@ type Tag struct {
 }
 
 type TopologyResponse struct {
-	componentIDs    []string
 	healthStatusMap map[string]struct{}
 	typeMap         map[string]struct{}
 	tagMap          map[string]struct{}
@@ -397,14 +357,13 @@ func (t *TopologyResponse) AddTag(tags map[string]string) {
 	}
 }
 
-// populateTopologyResponse goes through the components recursively (depth-first)
+// addMetadata goes through the components recursively (depth-first)
 // and populates the TopologyResponse struct.
-func populateTopologyResponse(components models.Components, res *TopologyResponse) {
+func addMetadata(components models.Components, res *TopologyResponse) {
 	for _, component := range components {
-		res.componentIDs = append(res.componentIDs, component.ID.String())
 		res.AddTag(component.Labels)
 		res.AddType(component.Type)
 		res.AddHealthStatuses(string(component.Status))
-		populateTopologyResponse(component.Components, res)
+		addMetadata(component.Components, res)
 	}
 }
