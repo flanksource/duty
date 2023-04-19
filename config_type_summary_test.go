@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/fixtures/dummy"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -41,30 +41,30 @@ var _ = ginkgo.Describe("Check config_type_summary view", ginkgo.Ordered, func()
 		Expect(configTypeSummaries).To(HaveLen(5))
 		Expect(configTypeSummaries).To(Equal([]configTypeSummary{
 			{
-				configType:   models.CTCluster,
+				configType:   dummy.ConfigTypeCluster,
 				totalConfigs: 2,
 				changes:      ptr(2),
 			},
 			{
-				configType:   models.CTDatabase,
+				configType:   dummy.ConfigTypeDatabase,
 				totalConfigs: 1,
 				analysis: map[string]any{
 					"security": float64(1),
 				},
 			},
 			{
-				configType:   models.CTDeployment,
+				configType:   dummy.ConfigTypeDeployment,
 				totalConfigs: 3,
 			},
 			{
-				configType:   models.CTEC2,
+				configType:   dummy.ConfigTypeEC2,
 				totalConfigs: 2,
 				analysis: map[string]any{
 					"security": float64(1),
 				},
 			},
 			{
-				configType:   models.CTNode,
+				configType:   dummy.ConfigTypeNode,
 				totalConfigs: 2,
 				changes:      ptr(1),
 				cp30d:        ptr(2.5),
