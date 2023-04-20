@@ -1,4 +1,3 @@
-
 table "evidences" {
   schema = schema.public
   column "id" {
@@ -396,12 +395,18 @@ table "incident_rules" {
     columns = [column.name]
   }
 }
+
 table "incidents" {
   schema = schema.public
   column "id" {
     null    = false
     type    = uuid
     default = sql("generate_ulid()")
+  }
+  column "incident_id" {
+    null = false
+    type = varchar(10)
+    default = sql("format_incident_id(NEXTVAL('incident_id_sequence'))")
   }
   column "incident_rule_id" {
     null = true
