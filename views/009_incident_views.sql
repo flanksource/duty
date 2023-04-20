@@ -114,6 +114,7 @@ CREATE OR REPLACE VIEW incident_summary AS
   )
   SELECT
     incidents.id,
+    incidents.incident_id,
     incidents.title,
     incidents.severity,
     incidents.type,

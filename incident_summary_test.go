@@ -18,15 +18,17 @@ type actor struct {
 
 var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query incident_summary view", func() {
-		row := testDBPGPool.QueryRow(context.Background(), "SELECT id, title, responders, commenters, commander FROM incident_summary")
-		var id, title string
+		row := testDBPGPool.QueryRow(context.Background(), "SELECT id, incident_id, title, responders, commenters, commander FROM incident_summary")
+		var id, incidentID, title string
 		var respondersRaw, commentersRaw, commanderRaw json.RawMessage
 
-		err := row.Scan(&id, &title, &respondersRaw, &commentersRaw, &commanderRaw)
+		err := row.Scan(&id, &incidentID, &title, &respondersRaw, &commentersRaw, &commanderRaw)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(id).To(Equal(dummy.LogisticsAPIDownIncident.ID.String()))
 		Expect(title).To(Equal(dummy.LogisticsAPIDownIncident.Title))
+
+		Expect(incidentID).To(Equal("INC0000001"))
 
 		var commander actor
 		err = json.Unmarshal(commanderRaw, &commander)

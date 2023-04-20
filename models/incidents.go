@@ -30,7 +30,7 @@ var (
 
 type Incident struct {
 	ID             uuid.UUID      `json:"id,omitempty" gorm:"default:generate_ulid()"`
-	IncidentID     string         `json:"incident_id,omitempty"`
+	IncidentID     string         `json:"incident_id,omitempty" gorm:"default:format_incident_id(NEXTVAL('incident_id_sequence'))"`
 	Title          string         `json:"title,omitempty"`
 	Description    string         `json:"description,omitempty"`
 	Type           IncidentType   `json:"type,omitempty"`
