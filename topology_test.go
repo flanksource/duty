@@ -42,11 +42,11 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 
 var _ = ginkgo.Describe("Topology behavior", ginkgo.Ordered, func() {
 
-	ginkgo.It("Should create root tree", func() {
+	ginkgo.FIt("Should create root tree", func() {
 		testTopologyJSON(TopologyOptions{}, "fixtures/expectations/topology_root_tree.json")
 	})
 
-	ginkgo.FIt("Should create child tree", func() {
+	ginkgo.It("Should create child tree", func() {
 		testTopologyJSON(TopologyOptions{ID: dummy.NodeA.ID.String()}, "fixtures/expectations/topology_child_tree.json")
 	})
 

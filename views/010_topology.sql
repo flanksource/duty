@@ -51,13 +51,14 @@ CREATE OR REPLACE VIEW topology AS
     checks, 
     team_info.team_names, 
     incidents, 
+    analysis,
     children.children, 
-    -- parents.id AS relationship_id, 
     parents.parents 
   FROM 
     components 
     LEFT JOIN check_summary_by_component ON check_summary_by_component.component_id = components.id 
     LEFT JOIN incident_summary_by_component ON incident_summary_by_component.id = components.id 
+	LEFT JOIN analysis_summary_by_component ON analysis_summary_by_component.id = components.id
     LEFT JOIN children ON children.id = components.id 
     LEFT JOIN parents ON parents.id = components.id 
     LEFT JOIN team_info ON team_info.component_id = components.id 
