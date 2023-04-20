@@ -65,15 +65,15 @@ type Component struct {
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
-	Checks         Checks         `json:"checks,omitempty" gorm:"-"`
-	Incidents      map[string]any `json:"incidents,omitempty" gorm:"-"`
-	Analysis       map[string]any `json:"analysis,omitempty" gorm:"-"`
-	Components     Components     `json:"components,omitempty" gorm:"-"`
-	Order          int            `json:"order,omitempty"  gorm:"-"`
-	SelectorID     string         `json:"-" gorm:"-"`
-	RelationshipID *uuid.UUID     `json:"relationship_id,omitempty" gorm:"-"`
-	Children       []string       `json:"children" gorm:"-"`
-	Parents        []string       `json:"parents" gorm:"-"`
+	Checks         Checks                    `json:"checks,omitempty" gorm:"-"`
+	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
+	Analysis       map[string]map[string]int `json:"analysis,omitempty" gorm:"-"`
+	Components     Components                `json:"components,omitempty" gorm:"-"`
+	Order          int                       `json:"order,omitempty"  gorm:"-"`
+	SelectorID     string                    `json:"-" gorm:"-"`
+	RelationshipID *uuid.UUID                `json:"relationship_id,omitempty" gorm:"-"`
+	Children       []string                  `json:"children,omitempty" gorm:"-"`
+	Parents        []string                  `json:"parents,omitempty" gorm:"-"`
 }
 
 func (c *Component) GetStatus() ComponentStatus {

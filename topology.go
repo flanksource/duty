@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
@@ -21,8 +22,9 @@ type TopologyOptions struct {
 	Labels  map[string]string
 	Flatten bool
 	Depth   int
-	Types   []string
-	Status  []string
+	// TODO: Filter status and types in DB Query
+	Types  []string
+	Status []string
 }
 
 func (opt TopologyOptions) String() string {
@@ -32,7 +34,7 @@ func (opt TopologyOptions) String() string {
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL"
 	if opt.ID != "" {
-		s += `AND (components.id = @id OR components.path LIKE '%@id%')`
+		s += " AND (components.id = @id OR components.path LIKE @path)"
 	}
 	if opt.Owner != "" {
 		s += " AND (components.owner = @owner)"
@@ -52,7 +54,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		s += ` AND (parent.labels @> @labels)`
 	}
 	if opt.ID != "" {
-		s += ` AND (component_relationships.relationship_id = @id OR parent.path LIKE '%@id%')`
+		s += ` AND (component_relationships.relationship_id = @id OR parent.path LIKE @path)`
 	}
 	return s
 }
@@ -89,9 +91,12 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
             topology_result
         `, subQuery)
 
+	logger.Infof("Query is %s", query)
+	time.Sleep(time.Minute * 0)
 	args := make(map[string]any)
 	if opts.ID != "" {
 		args["id"] = opts.ID
+		args["path"] = strings.ReplaceAll(`%id%`, "id", opts.ID)
 	}
 	if opts.Owner != "" {
 		args["owner"] = opts.Owner
@@ -130,6 +135,8 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%v for %s", err, rows.RawValues()[0])
 		}
+		logger.Infof("RESPONSE IS %s", rows.RawValues()[0])
+		logger.Prettyf("OBJ", response)
 	}
 
 	response.Components = applyTypeFilter(response.Components, params.Types...)
@@ -189,6 +196,12 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 	}
 
 	for _, c := range components {
+		// TODO: Try https://stackoverflow.com/questions/30101603/merging-concatenating-jsonb-columns-in-query
+		c.Summary.Incidents = c.Incidents
+		c.Summary.Insights = c.Analysis
+		c.Analysis = nil
+		c.Incidents = nil
+
 		if c.ParentId != nil {
 			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
 				if c.ID.String() == c.ParentId.String() {

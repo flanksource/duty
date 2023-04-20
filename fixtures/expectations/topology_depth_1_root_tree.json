@@ -1,4 +1,31 @@
-[
+{
+
+        "healthStatuses": [
+          "healthy",
+          "unhealthy"
+        ],
+        "tags": [
+          {
+            "telemetry": [
+              "enabled"
+            ]
+          }
+        ],
+        "teams": [
+          ""
+        ],
+        "types": [
+          "Application",
+          "Database",
+          "Entity",
+          "KubernetesCluster",
+          "KubernetesNode",
+          "KubernetesNodes",
+          "KubernetesPod",
+          "KubernetesPods"
+        ]
+      ,
+    "components": [
   {
     "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
     "external_id": "dummy/logistics",
@@ -48,3 +75,4 @@
     "updated_at": "2022-12-31T23:59:00"
   }
 ]
+}

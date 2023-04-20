@@ -1,4 +1,16 @@
-[
+{
+            "healthStatuses": [
+          "healthy"
+        ],
+        "teams": [
+          ""
+        ],
+        "types": [
+          "KubernetesNode",
+          "KubernetesPod"
+        ],
+
+    "components": [
   {
     "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
     "external_id": "dummy/node-a",
@@ -27,8 +39,7 @@
         },
         "is_leaf": false,
         "created_at": "2022-12-31T23:59:00",
-        "updated_at": "2022-12-31T23:59:00",
-        "relationship_id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+        "updated_at": "2022-12-31T23:59:00"
       },
       {
         "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
@@ -43,9 +54,9 @@
         },
         "is_leaf": false,
         "created_at": "2022-12-31T23:59:00",
-        "updated_at": "2022-12-31T23:59:00",
-        "relationship_id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+        "updated_at": "2022-12-31T23:59:00"
       }
     ]
   }
 ]
+}

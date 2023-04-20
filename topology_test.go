@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -35,14 +36,15 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	jqExpr := `del(.. | .created_at?, .updated_at?, .summary?, .healthStatuses?, .tags?, .teams?,
-    .type?, .status?, .owner?, .labels?, .external_id?, .is_leaf?, .configs?, .path?, .parent_id?)`
+	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?)`
+	//.summary?, .labels?, .parent_id?, .path?, .configs?, .owner?, .status?, .is_leaf?, .external_id?,.name?,.type?)`
+	logger.Infof("Tree json is %s", treeJSON)
 	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 
-var _ = ginkgo.Describe("Topology behavior", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Topology behavior", func() {
 
-	ginkgo.FIt("Should create root tree", func() {
+	ginkgo.It("Should create root tree", func() {
 		testTopologyJSON(TopologyOptions{}, "fixtures/expectations/topology_root_tree.json")
 	})
 

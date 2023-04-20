@@ -1,4 +1,23 @@
-[
+{
+            "healthStatuses": [
+          "healthy"
+        ],
+        "tags": [
+          {
+            "telemetry": [
+              "enabled"
+            ]
+          }
+        ],
+        "teams": [
+          ""
+        ],
+        "types": [
+          "Application",
+          "Entity"
+        ],
+
+    "components": [
   {
     "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
     "external_id": "dummy/logistics",
@@ -57,3 +76,4 @@
     ]
   }
 ]
+}
