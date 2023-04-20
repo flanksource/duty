@@ -31,21 +31,13 @@ func (opt TopologyOptions) String() string {
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL "
 	if opt.ID != "" {
-		s += `and (starts_with(path,
-			(SELECT
-				(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
-				FROM components where id = @id)
-			) or id = @id or path = @id :: text)`
+		s += `AND (id = @id OR path LIKE %@id%)`
 	}
 	if opt.Owner != "" {
-		s += " AND (components.owner = @owner or id = @id)"
+		s += " AND (components.owner = @owner)"
 	}
 	if opt.Labels != nil {
-		s += " AND (components.labels @> @labels"
-		if opt.ID != "" {
-			s += " or id = @id"
-		}
-		s += ")"
+		s += " AND (components.labels @> @labels)"
 	}
 	return s
 }
@@ -59,13 +51,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		s += " AND (parent.labels @> @labels)"
 	}
 	if opt.ID != "" {
-		s += ` and (component_relationships.relationship_id = @id or starts_with(component_relationships.relationship_path, (SELECT
-			(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
-			FROM components where id = @id)))`
-	} else {
-		s += ` and (parent.parent_id is null or starts_with(component_relationships.relationship_path, (SELECT
-			(CASE WHEN (path IS NULL OR path = '') THEN id :: text ELSE concat(path,'.', id) END)
-			FROM components where id = parent.id)))`
+		s += ` AND (component_relationships.relationship_id = @id OR parent.path LIKE %@id%)`
 	}
 	return s
 }
