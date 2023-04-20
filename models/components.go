@@ -70,6 +70,8 @@ type Component struct {
 	Order          int        `json:"order,omitempty"  gorm:"-"`
 	SelectorID     string     `json:"-" gorm:"-"`
 	RelationshipID *uuid.UUID `json:"relationship_id,omitempty" gorm:"-"`
+	Children       []string   `json:"children" gorm:"-"`
+	Parents        []string   `json:"parents" gorm:"-"`
 }
 
 func (c *Component) GetStatus() ComponentStatus {
@@ -245,8 +247,10 @@ func (s *Summary) Scan(val any) error {
 	switch v := val.(type) {
 	case []byte:
 		ba = v
+	case string:
+		ba = []byte(v)
 	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal properties value:", val))
+		return fmt.Errorf("failed to unmarshal properties. (type=%T, value=%v)", val, val)
 	}
 	err := json.Unmarshal(ba, s)
 	return err

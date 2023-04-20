@@ -47,11 +47,12 @@ CREATE OR REPLACE VIEW topology AS
       team_components.component_id
   ) 
   SELECT 
-    components.*, 
+    components.*,
     checks, 
     team_info.team_names, 
     incidents, 
     children.children, 
+    -- parents.id AS relationship_id, 
     parents.parents 
   FROM 
     components 
