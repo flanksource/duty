@@ -404,8 +404,8 @@ table "incidents" {
     default = sql("generate_ulid()")
   }
   column "incident_id" {
-    null = false
-    type = varchar(10)
+    null    = false
+    type    = varchar(10)
     default = sql("format_incident_id(NEXTVAL('incident_id_sequence'))")
   }
   column "incident_rule_id" {
@@ -468,6 +468,10 @@ table "incidents" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "incidents_incident_id_key" {
+    unique  = true
+    columns = [column.incident_id]
   }
   foreign_key "incidents_commander_id_fkey" {
     columns     = [column.commander_id]
