@@ -32,7 +32,6 @@ table "connections" {
   column "certificate" {
     null = true
     type = text
-
   }
   column "properties" {
     null    = true
@@ -53,7 +52,6 @@ table "connections" {
     type    = timestamptz
     default = sql("now()")
   }
-
   column "updated_at" {
     null    = false
     type    = timestamptz
@@ -62,6 +60,10 @@ table "connections" {
 
   primary_key {
     columns = [column.id]
+  }
+  index "connections_name_type_key" {
+    unique  = true
+    columns = [column.type, column.name]
   }
   foreign_key "connections_created_by_fkey" {
     columns     = [column.created_by]
