@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type IncidentType string
@@ -29,6 +30,7 @@ var (
 
 type Incident struct {
 	ID             uuid.UUID      `json:"id,omitempty" gorm:"default:generate_ulid()"`
+	IncidentID     string         `json:"incident_id,omitempty"`
 	Title          string         `json:"title,omitempty"`
 	Description    string         `json:"description,omitempty"`
 	Type           IncidentType   `json:"type,omitempty"`
