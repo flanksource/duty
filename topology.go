@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -91,8 +89,6 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
             topology_result
         `, subQuery)
 
-	logger.Infof("Query is %s", query)
-	time.Sleep(time.Minute * 0)
 	args := make(map[string]any)
 	if opts.ID != "" {
 		args["id"] = opts.ID
@@ -135,8 +131,6 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%v for %s", err, rows.RawValues()[0])
 		}
-		logger.Infof("RESPONSE IS %s", rows.RawValues()[0])
-		logger.Prettyf("OBJ", response)
 	}
 
 	response.Components = applyTypeFilter(response.Components, params.Types...)
@@ -204,37 +198,14 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 
 		if c.ParentId != nil {
 			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
-				if c.ID.String() == c.ParentId.String() {
-					logger.Infof("IDS ARE EQUAL %s", c.ID)
-				}
 				compChildrenMap[c.ParentId.String()] = append(compChildrenMap[c.ParentId.String()], c)
 			}
 		}
-		//logger.Infof("Outside Comp ID: %s || Rel ID got %s", c.ID, c.RelationshipID)
-		//if c.RelationshipID != nil {
-		//if _, exists := compChildrenMap[c.RelationshipID.String()]; exists {
-		//logger.Infof("Comp ID: %s || Rel ID got %s", c.ID, c.RelationshipID)
-		//if c.ID.String() != c.RelationshipID.String() {
-		//logger.Infof("REL IDS ARE EQUAL %s", c.ID)
-		//compChildrenMap[c.RelationshipID.String()] = append(compChildrenMap[c.RelationshipID.String()], c)
-		//}
-		//}
-		//}
-		//if len(c.Parents) > 0 {
-		//compChildrenMap[c.Parents[0]] = append(compChildrenMap[c.Parents[0]], c)
-		//}
 		for _, parentID := range c.Parents {
 			compChildrenMap[parentID] = append(compChildrenMap[parentID], c)
 		}
 	}
 
-	logger.Infof("COMP CHILD MAP: %s", compChildrenMap)
-	for k, v := range compChildrenMap {
-		logger.Infof("For parent %s", k)
-		for _, vv := range v {
-			logger.Infof("Children are %s", vv.ID)
-		}
-	}
 	tree := generateTree(components, compChildrenMap)
 	var root models.Components
 	for _, c := range tree {

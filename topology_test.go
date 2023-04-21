@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -37,8 +36,6 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 
 	expected := readTestFile(path)
 	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?)`
-	//.summary?, .labels?, .parent_id?, .path?, .configs?, .owner?, .status?, .is_leaf?, .external_id?,.name?,.type?)`
-	logger.Infof("Tree json is %s", treeJSON)
 	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 

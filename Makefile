@@ -44,3 +44,11 @@ download-openapi-schemas:
 
 	# Cleanup
 	rm -rf tmp
+
+fmt_json:
+	ls fixtures/expectations/*.json | while read -r jf; do \
+		cat <<< $$(jq . $$jf) > $$jf; \
+	done; 
+
+fmt_sql:
+	echo 'hello'
