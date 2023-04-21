@@ -51,4 +51,6 @@ fmt_json:
 	done; 
 
 fmt_sql:
-	echo 'hello'
+	ls views/*.sql | while read -r sqlf; do \
+		sql-formatter -l postgresql --fix $$sqlf; \
+	done;
