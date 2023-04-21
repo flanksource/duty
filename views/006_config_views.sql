@@ -180,3 +180,58 @@ DROP VIEW IF EXISTS config_tags;
 CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
   FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+
+-- config_type_summary
+DROP VIEW IF EXISTS config_type_summary;
+CREATE VIEW config_type_summary AS
+  WITH changes_per_type AS (
+    SELECT
+      config_items.config_type,
+      COUNT(config_changes.id) AS count
+    FROM
+      config_changes
+      LEFT JOIN config_items ON config_changes.config_id = config_items.id
+    WHERE config_changes.created_at > now() - interval '30 days'
+    GROUP BY
+      config_items.config_type
+  ),
+  analysis_counts AS (
+    SELECT
+      config_items.config_type,
+      config_analysis.analysis_type,
+      COUNT(*) AS count
+    FROM
+      config_analysis
+      LEFT JOIN config_items ON config_items.id = config_analysis.config_id
+    GROUP BY
+      config_items.config_type,
+      config_analysis.analysis_type
+  ),
+  aggregated_analysis_counts AS (
+    SELECT
+      config_type,
+      json_object_agg(analysis_type, count) :: jsonb AS analysis
+    FROM
+      analysis_counts
+    GROUP BY
+      config_type
+  )
+  SELECT
+    config_items.config_type,
+    aggregated_analysis_counts.analysis,
+    changes_per_type.count AS changes,
+    COUNT(*) AS total_configs,
+    SUM(cost_per_minute) AS cost_per_minute,
+    SUM(cost_total_1d) AS cost_total_1d,
+    SUM(cost_total_7d) AS cost_total_7d,
+    SUM(cost_total_30d) AS cost_total_30d
+  FROM
+    config_items
+    LEFT JOIN changes_per_type ON config_items.config_type = changes_per_type.config_type
+    LEFT JOIN aggregated_analysis_counts ON config_items.config_type = aggregated_analysis_counts.config_type
+  GROUP BY
+    config_items.config_type,
+    changes_per_type.count,
+    aggregated_analysis_counts.analysis
+  ORDER BY
+    config_type;

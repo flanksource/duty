@@ -36,6 +36,12 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyConfigChanges {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
 	for _, c := range AllDummyConfigAnalysis {
 		c.FirstObserved = &createTime
 		err = gormDB.Create(&c).Error
@@ -144,6 +150,12 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range AllDummyConfigAnalysis {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyConfigChanges {
 		err = gormDB.Delete(&c).Error
 		if err != nil {
 			return err
