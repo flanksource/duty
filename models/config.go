@@ -137,20 +137,20 @@ func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigAnalysis struct {
-	ID            uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
-	ExternalID    string              `gorm:"-"`
-	ExternalType  string              `gorm:"-"`
-	ConfigID      uuid.UUID           `gorm:"column:config_id;default:''" json:"config_id"`
-	Analyzer      string              `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
-	Message       string              `gorm:"column:message" json:"message"`
-	Summary       string              `gorm:"column:summary;default:null" json:"summary,omitempty"`
-	Status        string              `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
-	Severity      string              `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
-	AnalysisType  string              `gorm:"column:analysis_type" json:"change_type" faker:"oneof: availability, compliance, cost, security, performance"`
-	Analysis      types.JSONStringMap `gorm:"column:analysis" json:"analysis,omitempty"`
-	Source        string              `gorm:"column:source" json:"source,omitempty"`
-	FirstObserved *time.Time          `gorm:"column:first_observed;<-:false" json:"first_observed"`
-	LastObserved  *time.Time          `gorm:"column:last_observed" json:"last_observed"`
+	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ExternalID    string        `gorm:"-"`
+	ExternalType  string        `gorm:"-"`
+	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
+	Analyzer      string        `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
+	Message       string        `gorm:"column:message" json:"message"`
+	Summary       string        `gorm:"column:summary;default:null" json:"summary,omitempty"`
+	Status        string        `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
+	Severity      string        `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
+	AnalysisType  string        `gorm:"column:analysis_type" json:"change_type" faker:"oneof: availability, compliance, cost, security, performance"`
+	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
+	Source        string        `gorm:"column:source" json:"source,omitempty"`
+	FirstObserved *time.Time    `gorm:"column:first_observed;<-:false" json:"first_observed"`
+	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
 }
 
 func (a ConfigAnalysis) TableName() string {
