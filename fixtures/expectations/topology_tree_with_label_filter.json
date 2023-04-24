@@ -3,19 +3,15 @@
     "Application",
     "Entity"
   ],
-  "teams": [
-    ""
-  ],
+  "teams": null,
   "healthStatuses": [
     "healthy"
   ],
-  "tags": [
-    {
-      "telemetry": [
-        "enabled"
-      ]
-    }
-  ],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
   "components": [
     {
       "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",

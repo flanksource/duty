@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
@@ -76,7 +77,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
                 'components', json_agg(to_jsonb(topology_result)),
                 'types', json_agg(DISTINCT(type)),
                 'healthStatuses', json_agg(DISTINCT(status)),
-                'tags', (SELECT json_agg(json_build_object(key, value))
+                'tags', (SELECT json_build_object(key, value)
                         FROM (
                             SELECT label->>'key' as key, array_agg(DISTINCT(label->>'value')) AS value
                             FROM (
@@ -105,14 +106,14 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 }
 
 // Map of tag keys to the list of available values
-type Tag map[string][]string
+type Tags map[string][]string
 
 type TopologyResponse struct {
 	Components     models.Components `json:"components"`
-	HealthStatuses []string          `json:"healthStatuses,omitempty"`
-	Teams          []string          `json:"teams,omitempty"`
-	Tags           []Tag             `json:"tags,omitempty"`
-	Types          []string          `json:"types,omitempty"`
+	HealthStatuses []string          `json:"healthStatuses"`
+	Teams          []string          `json:"teams"`
+	Tags           Tags              `json:"tags"`
+	Types          []string          `json:"types"`
 }
 
 func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
@@ -129,7 +130,7 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 		}
 
 		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%v for %s", err, rows.RawValues()[0])
+			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
 		}
 	}
 
@@ -146,6 +147,8 @@ func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyRespo
 
 	// If ID is present, we do not apply any filters to the root component
 	response.Components = applyStatusFilter(response.Components, params.ID != "", params.Status...)
+
+	response = updateMetadata(response)
 
 	return &response, nil
 }
@@ -248,6 +251,13 @@ func applyStatusFilter(components []*models.Component, filterRoot bool, statii .
 		component.Components = filteredChildren
 	}
 	return filtered
+}
+
+func updateMetadata(resp TopologyResponse) TopologyResponse {
+	// Clean teams
+	resp.Teams = utils.DeleteEmptyStrings(resp.Teams)
+
+	return resp
 }
 
 // matchItems returns true if any of the items in the list match the item

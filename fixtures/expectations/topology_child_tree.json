@@ -2,9 +2,8 @@
   "healthStatuses": [
     "healthy"
   ],
-  "teams": [
-    ""
-  ],
+  "tags": null,
+  "teams": null,
   "types": [
     "KubernetesNode",
     "KubernetesPod"

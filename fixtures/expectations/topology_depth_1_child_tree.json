@@ -3,16 +3,12 @@
     "healthy",
     "unhealthy"
   ],
-  "tags": [
-    {
-      "telemetry": [
-        "enabled"
-      ]
-    }
-  ],
-  "teams": [
-    ""
-  ],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "teams": null,
   "types": [
     "Application",
     "Database"

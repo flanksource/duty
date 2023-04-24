@@ -2,16 +2,12 @@
   "healthStatuses": [
     "healthy"
   ],
-  "tags": [
-    {
-      "telemetry": [
-        "enabled"
-      ]
-    }
-  ],
-  "teams": [
-    ""
-  ],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "teams": null,
   "types": [
     "Application",
     "Entity"
