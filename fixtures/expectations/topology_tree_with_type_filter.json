@@ -1,20 +1,42 @@
-[
-  {
-    "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-    "external_id": "dummy/logistics",
-    "name": "logistics",
-    "labels": {
-      "telemetry": "enabled"
-    },
-    "status": "healthy",
-    "type": "Entity",
-    "owner": "logistics-team",
-    "configs": null,
-    "summary": {
-      "healthy": 1
-    },
-    "is_leaf": false,
-    "created_at": "2022-12-31T23:59:00",
-    "updated_at": "2022-12-31T23:59:00"
-  }
-]
+{
+  "healthStatuses": [
+    "healthy",
+    "unhealthy"
+  ],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "teams": null,
+  "types": [
+    "Application",
+    "Database",
+    "Entity",
+    "KubernetesCluster",
+    "KubernetesNode",
+    "KubernetesNodes",
+    "KubernetesPod",
+    "KubernetesPods"
+  ],
+  "components": [
+    {
+      "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+      "external_id": "dummy/logistics",
+      "name": "logistics",
+      "labels": {
+        "telemetry": "enabled"
+      },
+      "status": "healthy",
+      "type": "Entity",
+      "owner": "logistics-team",
+      "configs": null,
+      "summary": {
+        "healthy": 1
+      },
+      "is_leaf": false,
+      "created_at": "2022-12-31T23:59:00",
+      "updated_at": "2022-12-31T23:59:00"
+    }
+  ]
+}

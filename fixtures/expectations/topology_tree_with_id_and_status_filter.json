@@ -1,51 +1,67 @@
-[
+{
+  "healthStatuses": [
+    "healthy",
+    "unhealthy"
+  ],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "teams": null,
+  "types": [
+    "Application",
+    "Database"
+  ],
+  "components": [
+    {
+      "id": "018681fd-5770-336f-227c-259435d7fc6b",
+      "external_id": "dummy/logistics-api",
+      "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+      "name": "logistics-api",
+      "labels": {
+        "telemetry": "enabled"
+      },
+      "status": "warning",
+      "type": "Application",
+      "owner": "logistics-team",
+      "configs": null,
+      "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+      "summary": {
+        "healthy": 1,
+        "unhealthy": 1,
+        "incidents": {
+          "availability": {
+            "Blocker": 1
+          }
+        },
+        "insights": {
+          "security": {
+            "critical": 1
+          }
+        }
+      },
+      "is_leaf": false,
+      "created_at": "2022-12-31T23:59:00",
+      "updated_at": "2022-12-31T23:59:00",
+      "components": [
         {
-          "id": "018681fd-5770-336f-227c-259435d7fc6b",
-          "external_id": "dummy/logistics-api",
-          "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-          "name": "logistics-api",
-          "labels": {
-            "telemetry": "enabled"
-          },
-          "status": "warning",
+          "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
+          "external_id": "dummy/logistics-worker",
+          "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
+          "name": "logistics-worker",
+          "status": "healthy",
           "type": "Application",
-          "owner": "logistics-team",
           "configs": null,
-          "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+          "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
           "summary": {
-            "healthy": 1,
-            "unhealthy": 1,
-            "incidents": {
-              "availability": {
-                "Blocker": 1
-              }
-            },
-            "insights": {
-              "security": {
-                "critical": 1
-              }
-            }
+            "healthy": 1
           },
           "is_leaf": false,
           "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00",
-          "components": [
-            {
-              "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
-              "external_id": "dummy/logistics-worker",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
-              "name": "logistics-worker",
-              "status": "healthy",
-              "type": "Application",
-              "configs": null,
-              "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
-              "summary": {
-                "healthy": 1
-              },
-              "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
-            }
-          ]
+          "updated_at": "2022-12-31T23:59:00"
         }
       ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 -- Insert identities in people table
-CREATE OR REPLACE FUNCTION insert_identity_to_people()
-RETURNS TRIGGER AS $$
+CREATE
+OR REPLACE FUNCTION insert_identity_to_people () RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO people (id, name, email)
     VALUES (NEW.id, concat(NEW.traits::json->'name'->>'first', ' ', NEW.traits::json->'name'->>'last'), NEW.traits::json->>'email');

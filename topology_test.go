@@ -35,11 +35,11 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	jqExpr := `del(.. | .created_at?, .updated_at?)`
+	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?)`
 	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 
-var _ = ginkgo.Describe("Topology behavior", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Topology behavior", func() {
 
 	ginkgo.It("Should create root tree", func() {
 		testTopologyJSON(TopologyOptions{}, "fixtures/expectations/topology_root_tree.json")

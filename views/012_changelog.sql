@@ -1,6 +1,6 @@
 -- Push table changes to event queue
-CREATE OR REPLACE FUNCTION push_changes_to_event_queue() 
-RETURNS trigger AS $$
+CREATE
+OR REPLACE FUNCTION push_changes_to_event_queue () RETURNS trigger AS $$
 BEGIN
   IF TG_TABLE_NAME = 'component_relationships' THEN
     IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
