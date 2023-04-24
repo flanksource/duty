@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// SystemTemplate represents the templates database table
-type SystemTemplate struct {
+// Topology represents the topologies database table
+type Topology struct {
 	ID        uuid.UUID `gorm:"default:generate_ulid()"`
 	Name      string
 	Namespace string
@@ -20,6 +20,6 @@ type SystemTemplate struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
-func (cr SystemTemplate) TableName() string {
-	return "templates"
+func (Topology) TableName() string {
+	return "topologies"
 }

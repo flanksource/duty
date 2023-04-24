@@ -34,7 +34,7 @@ download-openapi-schemas:
 	# create schemas for specs only
 	cat tmp/canary-checker/config/schemas/canary.schema.json | jq '.["$$ref"] = "#/definitions/CanarySpec"' > schema/openapi/canary.spec.schema.json
 	cat tmp/canary-checker/config/schemas/component.schema.json | jq '.["$$ref"] = "#/definitions/ComponentSpec"' > schema/openapi/component.spec.schema.json
-	cat tmp/canary-checker/config/schemas/system.schema.json | jq '.["$$ref"] = "#/definitions/SystemTemplateSpec"' > schema/openapi/system.spec.schema.json
+	cat tmp/canary-checker/config/schemas/topology.schema.json | jq '.["$$ref"] = "#/definitions/TopologySpec"' > schema/openapi/topology.spec.schema.json
 
 	# Config DB
 	git clone --depth=1 git@github.com:flanksource/config-db.git tmp/config-db && cp tmp/config-db/config/schemas/* schema/openapi/

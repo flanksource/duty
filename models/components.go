@@ -28,41 +28,41 @@ const (
 )
 
 type Component struct {
-	ID               uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
-	SystemTemplateID *uuid.UUID          `json:"system_template_id,omitempty"`
-	ExternalId       string              `json:"external_id,omitempty"` //nolint
-	ParentId         *uuid.UUID          `json:"parent_id,omitempty"`   //nolint
-	Name             string              `json:"name,omitempty"`
-	Text             string              `json:"text,omitempty"`
-	TopologyType     string              `json:"topology_type,omitempty"`
-	Namespace        string              `json:"namespace,omitempty"`
-	Labels           types.JSONStringMap `json:"labels,omitempty"`
-	Hidden           bool                `json:"hidden,omitempty"`
-	Silenced         bool                `json:"silenced,omitempty"`
-	Status           ComponentStatus     `json:"status,omitempty"`
-	Description      string              `json:"description,omitempty"`
-	Lifecycle        string              `json:"lifecycle,omitempty"`
-	LogSelectors     types.LogSelectors  `json:"logs,omitempty" gorm:"column:log_selectors"`
-	Tooltip          string              `json:"tooltip,omitempty"`
-	StatusReason     string              `json:"statusReason,omitempty"`
-	Schedule         string              `json:"schedule,omitempty"`
-	Icon             string              `json:"icon,omitempty"`
-	Type             string              `json:"type,omitempty"`
-	Owner            string              `json:"owner,omitempty"`
-	Selectors        ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Configs          types.JSON          `json:"configs,omitempty"`
-	Properties       Properties          `json:"properties,omitempty" gorm:"type:properties"`
-	Path             string              `json:"path,omitempty"`
-	Summary          Summary             `json:"summary,omitempty" gorm:"type:summary"`
-	IsLeaf           bool                `json:"is_leaf"`
-	CostPerMinute    float64             `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
-	CostTotal1d      float64             `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
-	CostTotal7d      float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
-	CostTotal30d     float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
-	CreatedBy        *uuid.UUID          `json:"created_by,omitempty"`
-	CreatedAt        time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	UpdatedAt        time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	DeletedAt        *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
+	ID            uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
+	TopologyID    *uuid.UUID          `json:"topology_id,omitempty"`
+	ExternalId    string              `json:"external_id,omitempty"` //nolint
+	ParentId      *uuid.UUID          `json:"parent_id,omitempty"`   //nolint
+	Name          string              `json:"name,omitempty"`
+	Text          string              `json:"text,omitempty"`
+	TopologyType  string              `json:"topology_type,omitempty"`
+	Namespace     string              `json:"namespace,omitempty"`
+	Labels        types.JSONStringMap `json:"labels,omitempty"`
+	Hidden        bool                `json:"hidden,omitempty"`
+	Silenced      bool                `json:"silenced,omitempty"`
+	Status        ComponentStatus     `json:"status,omitempty"`
+	Description   string              `json:"description,omitempty"`
+	Lifecycle     string              `json:"lifecycle,omitempty"`
+	LogSelectors  types.LogSelectors  `json:"logs,omitempty" gorm:"column:log_selectors"`
+	Tooltip       string              `json:"tooltip,omitempty"`
+	StatusReason  string              `json:"statusReason,omitempty"`
+	Schedule      string              `json:"schedule,omitempty"`
+	Icon          string              `json:"icon,omitempty"`
+	Type          string              `json:"type,omitempty"`
+	Owner         string              `json:"owner,omitempty"`
+	Selectors     ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
+	Configs       types.JSON          `json:"configs,omitempty"`
+	Properties    Properties          `json:"properties,omitempty" gorm:"type:properties"`
+	Path          string              `json:"path,omitempty"`
+	Summary       Summary             `json:"summary,omitempty" gorm:"type:summary"`
+	IsLeaf        bool                `json:"is_leaf"`
+	CostPerMinute float64             `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
+	CostTotal1d   float64             `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
+	CostTotal7d   float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
+	CostTotal30d  float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
+	CreatedBy     *uuid.UUID          `json:"created_by,omitempty"`
+	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	UpdatedAt     time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	DeletedAt     *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
 	Checks         Checks                    `json:"checks,omitempty" gorm:"-"`

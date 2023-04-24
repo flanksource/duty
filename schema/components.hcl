@@ -1,5 +1,5 @@
 
-table "templates" {
+table "topologies" {
   schema = schema.public
   column "id" {
     null    = false
@@ -47,13 +47,13 @@ table "templates" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "templates_created_by_fkey" {
+  foreign_key "topologies_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "templates_name_namespace_key" {
+  index "topologies_name_namespace_key" {
     unique  = true
     columns = [column.name, column.namespace]
   }
@@ -120,7 +120,7 @@ table "components" {
     null = true
     type = uuid
   }
-  column "system_template_id" {
+  column "topology_id" {
     null = true
     type = uuid
   }
@@ -280,9 +280,9 @@ table "components" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  foreign_key "components_system_template_id_fkey" {
-    columns     = [column.system_template_id]
-    ref_columns = [table.templates.column.id]
+  foreign_key "components_topology_id_fkey" {
+    columns     = [column.topology_id]
+    ref_columns = [table.topologies.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
@@ -293,9 +293,9 @@ table "components" {
     on_delete   = NO_ACTION
   }
 
-  index "components_system_template_id_type_name_parent_id_key" {
+  index "components_topology_id_type_name_parent_id_key" {
     unique  = true
-    columns = [column.system_template_id, column.type, column.name, column.parent_id]
+    columns = [column.topology_id, column.type, column.name, column.parent_id]
   }
 }
 

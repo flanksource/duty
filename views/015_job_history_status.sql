@@ -18,13 +18,11 @@ FROM
   JOIN latest_job_history ON job_history.resource_id = latest_job_history.resource_id
   AND job_history.created_at = latest_job_history.max_created_at;
 
--- Template View
-DROP VIEW IF EXISTS templates_with_status;
-
-CREATE OR REPLACE VIEW
-  templates_with_status AS
+-- Topologies with job status
+DROP VIEW IF EXISTS topologies_with_status;
+CREATE OR REPLACE VIEW topologies_with_status AS
 SELECT
-  templates.*,
+  topologies.*,
   job_history_latest_status.name job_name,
   job_history_latest_status.success_count job_success_count,
   job_history_latest_status.error_count job_error_count,
@@ -37,13 +35,12 @@ SELECT
   job_history_latest_status.time_end job_time_end,
   job_history_latest_status.created_at job_created_at
 FROM
-  templates
-  LEFT JOIN job_history_latest_status ON templates.id::TEXT = job_history_latest_status.resource_id
-  AND job_history_latest_status.resource_type = 'system_template';
+  topologies
+  LEFT JOIN job_history_latest_status 
+  ON topologies.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'topologies';
 
 -- Canaries View
 DROP VIEW IF EXISTS canaries_with_status;
-
 CREATE OR REPLACE VIEW
   canaries_with_status AS
 SELECT
