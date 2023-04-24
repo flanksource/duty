@@ -14,8 +14,9 @@ const EnvVarType = "env_var"
 // +kubebuilder:object:generate=true
 type EnvVar struct {
 	Name        string        `json:"name,omitempty" yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
-	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
+	Connection  string        `json:"connection,omitempty" yaml:"connection,omitempty" protobuf:"bytes,2,opt,name=connection"`
+	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,3,opt,name=value"`
+	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,4,opt,name=valueFrom"`
 }
 
 func (e EnvVar) String() string {
@@ -31,8 +32,9 @@ func (e EnvVar) IsEmpty() bool {
 
 // +kubebuilder:object:generate=true
 type EnvVarSource struct {
-	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
-	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
+	Connection      string                `json:"connection,omitempty" yaml:"connection,omitempty" protobuf:"bytes,1,opt,name=connection"`
+	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,2,opt,name=configMapKeyRef"`
+	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,3,opt,name=secretKeyRef"`
 }
 
 func (e EnvVarSource) String() string {

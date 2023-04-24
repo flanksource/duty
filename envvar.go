@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -15,6 +17,22 @@ import (
 // Create a cache with a default expiration time of 5 minutes, and which
 // purges expired items every 10 minutes
 var envCache = cache.New(5*time.Minute, 10*time.Minute)
+
+func FindConnectionFromEnvVar(ctx context.Context, db *gorm.DB, input types.EnvVar) (*models.Connection, error) {
+	if input.Connection == "" {
+		return nil, nil
+	}
+
+	return FindConnectionFromConnectionString(ctx, db, input.Connection)
+}
+
+func FindConnectionFromEnvVarSource(ctx context.Context, db *gorm.DB, input types.EnvVarSource) (*models.Connection, error) {
+	if input.Connection == "" {
+		return nil, nil
+	}
+
+	return FindConnectionFromConnectionString(ctx, db, input.Connection)
+}
 
 func GetEnvValueFromCache(c kubernetes.Interface, input types.EnvVar, namespace string) (string, error) {
 	if input.ValueFrom == nil {
