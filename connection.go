@@ -11,6 +11,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// extractConnectionNameType extracts the name and connection type from a connection
+// string formatted as "connection://<type>/<name>".
 func extractConnectionNameType(connectionString string) (name string, connectionType string, found bool) {
 	prefix := "connection://"
 
@@ -31,7 +33,9 @@ func extractConnectionNameType(connectionString string) (name string, connection
 	return parts[1], parts[0], true
 }
 
-func FindConnectionFromConnectionString(ctx context.Context, db *gorm.DB, connectionString string) (*models.Connection, error) {
+// FindConnectionByURL retrieves a connection from the given connection string.
+// The connection string is expected to be of the form: connection://<type>/<name>
+func FindConnectionByURL(ctx context.Context, db *gorm.DB, connectionString string) (*models.Connection, error) {
 	name, connectionType, found := extractConnectionNameType(connectionString)
 	if !found {
 		return nil, nil

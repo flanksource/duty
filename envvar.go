@@ -23,7 +23,7 @@ func FindConnectionFromEnvVar(ctx context.Context, db *gorm.DB, input types.EnvV
 		return nil, nil
 	}
 
-	return FindConnectionFromConnectionString(ctx, db, input.Connection)
+	return FindConnectionByURL(ctx, db, input.Connection)
 }
 
 func FindConnectionFromEnvVarSource(ctx context.Context, db *gorm.DB, input types.EnvVarSource) (*models.Connection, error) {
@@ -31,7 +31,7 @@ func FindConnectionFromEnvVarSource(ctx context.Context, db *gorm.DB, input type
 		return nil, nil
 	}
 
-	return FindConnectionFromConnectionString(ctx, db, input.Connection)
+	return FindConnectionByURL(ctx, db, input.Connection)
 }
 
 func GetEnvValueFromCache(c kubernetes.Interface, input types.EnvVar, namespace string) (string, error) {
