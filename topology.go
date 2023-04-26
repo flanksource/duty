@@ -77,7 +77,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
                 'components', json_agg(to_jsonb(topology_result)),
                 'types', json_agg(DISTINCT(type)),
                 'healthStatuses', json_agg(DISTINCT(status)),
-                'tags', (SELECT json_build_object(key, value)
+                'tags', (SELECT jsonb_object_agg(key, value)
                         FROM (
                             SELECT label->>'key' as key, array_agg(DISTINCT(label->>'value')) AS value
                             FROM (
