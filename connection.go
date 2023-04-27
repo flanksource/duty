@@ -2,6 +2,7 @@ package duty
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,10 @@ import (
 	"github.com/flanksource/duty/models"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
+)
+
+var (
+	ErrNotFound = errors.New("NOT_FOUND")
 )
 
 // extractConnectionNameType extracts the name and connection type from a connection
@@ -54,7 +59,15 @@ func FindConnection(ctx context.Context, db *gorm.DB, connectionType, name strin
 	var connection models.Connection
 
 	err := db.Where("type = ? AND name = ?", connectionType, name).First(&connection).Error
-	return &connection, err
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &connection, nil
 }
 
 func GetConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB, connectionType string, name string, namespace string) (*models.Connection, error) {
@@ -62,8 +75,12 @@ func GetConnection(ctx context.Context, client kubernetes.Interface, db *gorm.DB
 	if err != nil {
 		return nil, err
 	}
-	return HydrateConnection(ctx, client, db, connection, namespace)
 
+	if connection == nil {
+		return nil, ErrNotFound
+	}
+
+	return HydrateConnection(ctx, client, db, connection, namespace)
 }
 
 // Create a cache with a default expiration time of 5 minutes, and which
