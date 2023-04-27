@@ -18,7 +18,7 @@ table "casbin_rule" {
     type = varchar(100)
   }
   column "v2" {
-    null    = false
+    null    = true
     type = varchar(100)
   }
   column "v3" {
