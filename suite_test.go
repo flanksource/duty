@@ -67,6 +67,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	Expect(testDB).ToNot(BeNil())
 
 	err = dummy.PopulateDBWithDummyModels(testDB)
+	Expect(err).ToNot(HaveOccurred())
 
 	testClient = fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -84,7 +85,6 @@ var _ = ginkgo.BeforeSuite(func() {
 		Data: map[string][]byte{
 			"foo": []byte("secret"),
 		}})
-	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = ginkgo.AfterSuite(func() {

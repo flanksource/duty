@@ -22,7 +22,6 @@ var _ = Describe("Connection", Ordered, func() {
 	})
 
 	It("username should be looked up from configmap", func() {
-
 		user, err := GetEnvStringFromCache(testClient, "configmap://test-cm/foo", "default")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(user).To(Equal("bar"))
@@ -30,8 +29,8 @@ var _ = Describe("Connection", Ordered, func() {
 		val, err := GetConfigMapFromCache(testClient, "default", "test-cm", "foo")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(val).To(Equal("bar"))
-
 	})
+
 	var connection *models.Connection
 	var err error
 	It("should be retrieved successfully", func() {
@@ -47,7 +46,6 @@ var _ = Describe("Connection", Ordered, func() {
 	It("should template out the url", func() {
 		Expect(connection.URL).To(Equal("sql://db?user=bar&password=secret"))
 	})
-
 })
 
 func TestGetConnectionNameType(t *testing.T) {

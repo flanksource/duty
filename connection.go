@@ -38,6 +38,17 @@ func extractConnectionNameType(connectionString string) (name string, connection
 	return parts[1], parts[0], true
 }
 
+// FindHydratedConnectionByURL retrieves a connection from the given connection string.
+// The connection string is expected to be of the form: connection://<type>/<name>
+func FindHydratedConnectionByURL(ctx context.Context, db *gorm.DB, k8sClient kubernetes.Interface, namespace, connectionString string) (*models.Connection, error) {
+	connection, err := FindConnectionByURL(ctx, db, connectionString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find connection (%s): %w", connectionString, err)
+	}
+
+	return HydrateConnection(ctx, k8sClient, db, connection, namespace)
+}
+
 // FindConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be of the form: connection://<type>/<name>
 func FindConnectionByURL(ctx context.Context, db *gorm.DB, connectionString string) (*models.Connection, error) {
