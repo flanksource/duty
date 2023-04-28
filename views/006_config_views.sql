@@ -6,7 +6,7 @@ CREATE or REPLACE VIEW configs AS
     ci.scraper_id,
     ci.config_class,
     ci.external_id,
-    ci.external_type,
+    ci.type,
     ci.name,
     ci.namespace,
     ci.description,
@@ -169,7 +169,7 @@ language plpgsql;
 -- changes_by_component
 DROP VIEW IF EXISTS changes_by_component;
 CREATE OR REPLACE VIEW changes_by_component AS
-	SELECT config_changes.config_id, configs.name, configs.config_class, configs.external_type, change_type,
+	SELECT config_changes.config_id, configs.name, configs.config_class, configs.type, change_type,
          config_changes.created_at,config_changes.created_by, config_changes.id as change_id, config_changes.severity, component_id, configs.deleted_at as config_deleted_at
   FROM config_changes
   INNER JOIN config_component_relationships relations on relations.config_id = config_changes.config_id

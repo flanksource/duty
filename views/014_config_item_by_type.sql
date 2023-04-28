@@ -8,4 +8,4 @@ SELECT
 FROM
   configs
 WHERE
-  external_type LIKE 'AWS::%';
+  type LIKE 'AWS::%';
