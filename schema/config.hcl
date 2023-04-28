@@ -161,7 +161,7 @@ table "config_items" {
     null = true
     type = uuid
   }
-  column "config_type" {
+  column "config_class" {
     null = false
     type = text
   }
@@ -169,7 +169,7 @@ table "config_items" {
     null = true
     type = sql("text[]")
   }
-  column "external_type" {
+  column "config_type" {
     null = true
     type = text
   }

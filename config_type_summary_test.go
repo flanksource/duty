@@ -41,29 +41,29 @@ var _ = ginkgo.Describe("Check config_type_summary view", ginkgo.Ordered, func()
 		Expect(configTypeSummaries).To(HaveLen(5))
 		Expect(configTypeSummaries).To(Equal([]configTypeSummary{
 			{
-				configType:   models.ConfigTypeCluster,
+				configType:   models.ConfigClassCluster,
 				totalConfigs: 2,
 				changes:      ptr(2),
 			},
 			{
-				configType:   models.ConfigTypeDatabase,
+				configType:   models.ConfigClassDatabase,
 				totalConfigs: 1,
 				analysis: map[string]any{
 					"security": float64(1),
 				},
 			},
 			{
-				configType:   models.ConfigTypeDeployment,
+				configType:   models.ConfigClassDeployment,
 				totalConfigs: 3,
 			},
 			{
-				configType:   models.ConfigTypeNode,
+				configType:   models.ConfigClassNode,
 				totalConfigs: 2,
 				changes:      ptr(1),
 				cp30d:        ptr(2.5),
 			},
 			{
-				configType:   models.ConfigTypeVirtualMachine,
+				configType:   models.ConfigClassVirtualMachine,
 				totalConfigs: 2,
 				analysis: map[string]any{
 					"security": float64(1),

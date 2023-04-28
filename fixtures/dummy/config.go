@@ -6,55 +6,55 @@ import (
 )
 
 var EKSCluster = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeCluster,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassCluster,
 }
 
 var KubernetesCluster = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeCluster,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassCluster,
 }
 
 var KubernetesNodeA = models.ConfigItem{
 	ID:           uuid.New(),
-	ConfigType:   models.ConfigTypeNode,
+	ConfigClass:  models.ConfigClassNode,
 	CostTotal30d: 1,
 }
 
 var KubernetesNodeB = models.ConfigItem{
 	ID:           uuid.New(),
-	ConfigType:   models.ConfigTypeNode,
+	ConfigClass:  models.ConfigClassNode,
 	CostTotal30d: 1.5,
 }
 
 var EC2InstanceA = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeVirtualMachine,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassVirtualMachine,
 }
 
 var EC2InstanceB = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeVirtualMachine,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassVirtualMachine,
 }
 
 var LogisticsAPIDeployment = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeDeployment,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassDeployment,
 }
 
 var LogisticsUIDeployment = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeDeployment,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassDeployment,
 }
 
 var LogisticsWorkerDeployment = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeDeployment,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassDeployment,
 }
 
 var LogisticsDBRDS = models.ConfigItem{
-	ID:         uuid.New(),
-	ConfigType: models.ConfigTypeDatabase,
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassDatabase,
 }
 
 var AllDummyConfigs = []models.ConfigItem{
