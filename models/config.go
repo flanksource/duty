@@ -29,7 +29,7 @@ type ConfigItem struct {
 	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
 	ScraperID     *string              `json:"scraper_id,omitempty"`
 	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
-	ExternalID    pq.StringArray       `json:"external_id,omitempty"`
+	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
 	ExternalType  *string              `json:"external_type,omitempty"`
 	Name          *string              `json:"name,omitempty" faker:"name"  `
 	Namespace     *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
