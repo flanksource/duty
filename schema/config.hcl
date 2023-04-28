@@ -169,7 +169,7 @@ table "config_items" {
     null = true
     type = sql("text[]")
   }
-  column "external_type" {
+  column "type" {
     null = true
     type = text
   }

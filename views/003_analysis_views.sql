@@ -59,7 +59,7 @@ SELECT
   config_analysis.config_id,
   configs.name,
   configs.config_class,
-  configs.external_type,
+  configs.type,
   analysis_type,
   config_analysis.first_observed,
   config_analysis.last_observed,

@@ -30,7 +30,7 @@ type ConfigItem struct {
 	ScraperID     *string              `json:"scraper_id,omitempty"`
 	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	ExternalType  *string              `json:"external_type,omitempty"`
+	Type          *string              `json:"type,omitempty"`
 	Name          *string              `json:"name,omitempty" faker:"name"  `
 	Namespace     *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
 	Description   *string              `json:"description,omitempty"`
@@ -106,7 +106,7 @@ func (cr ConfigRelationship) TableName() string {
 // ConfigChange represents the config change database table
 type ConfigChange struct {
 	ExternalID       string     `gorm:"-"`
-	ExternalType     string     `gorm:"-"`
+	ConfigType       string     `gorm:"-"`
 	ExternalChangeId string     `gorm:"column:external_change_id" json:"external_change_id"`
 	ID               string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
@@ -126,13 +126,13 @@ func (c ConfigChange) TableName() string {
 
 func (c ConfigChange) GetExternalID() ExternalID {
 	return ExternalID{
-		ExternalID:   []string{c.ExternalID},
-		ExternalType: c.ExternalType,
+		ExternalID: []string{c.ExternalID},
+		ConfigType: c.ConfigType,
 	}
 }
 
 func (c ConfigChange) String() string {
-	return fmt.Sprintf("[%s/%s] %s", c.ExternalType, c.ExternalID, c.ChangeType)
+	return fmt.Sprintf("[%s/%s] %s", c.ConfigType, c.ExternalID, c.ChangeType)
 }
 
 // BeforeCreate is a user defined hook for Gorm.
@@ -149,7 +149,7 @@ func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 type ConfigAnalysis struct {
 	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ExternalID    string        `gorm:"-"`
-	ExternalType  string        `gorm:"-"`
+	ConfigType    string        `gorm:"-"`
 	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
 	Analyzer      string        `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
 	Message       string        `gorm:"column:message" json:"message"`
@@ -168,26 +168,26 @@ func (a ConfigAnalysis) TableName() string {
 }
 
 func (a ConfigAnalysis) String() string {
-	return fmt.Sprintf("[%s/%s] %s", a.ExternalType, a.ExternalID, a.Analyzer)
+	return fmt.Sprintf("[%s/%s] %s", a.ConfigType, a.ExternalID, a.Analyzer)
 }
 
 type ExternalID struct {
-	ExternalType string
-	ExternalID   []string
+	ConfigType string
+	ExternalID []string
 }
 
 func (e ExternalID) String() string {
-	return fmt.Sprintf("%s/%s", e.ExternalType, strings.Join(e.ExternalID, ","))
+	return fmt.Sprintf("%s/%s", e.ConfigType, strings.Join(e.ExternalID, ","))
 }
 
 func (e ExternalID) IsEmpty() bool {
-	return e.ExternalType == "" && len(e.ExternalID) == 0
+	return e.ConfigType == "" && len(e.ExternalID) == 0
 }
 
 func (e ExternalID) CacheKey() string {
-	return fmt.Sprintf("external_id:%s:%s", e.ExternalType, strings.Join(e.ExternalID, ","))
+	return fmt.Sprintf("external_id:%s:%s", e.ConfigType, strings.Join(e.ExternalID, ","))
 }
 
 func (e ExternalID) WhereClause(db *gorm.DB) *gorm.DB {
-	return db.Where("external_type = ? AND external_id  @> ?", e.ExternalType, pq.StringArray(e.ExternalID))
+	return db.Where("type = ? AND external_id  @> ?", e.ConfigType, pq.StringArray(e.ExternalID))
 }
