@@ -31,8 +31,8 @@ func (e EnvVar) IsEmpty() bool {
 
 // +kubebuilder:object:generate=true
 type EnvVarSource struct {
-	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
-	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
+	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,1,opt,name=configMapKeyRef"`
+	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,2,opt,name=secretKeyRef"`
 }
 
 func (e EnvVarSource) String() string {
