@@ -13,30 +13,41 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// Config classes
+const (
+	ConfigClassCluster        = "Cluster"
+	ConfigClassDatabase       = "Database"
+	ConfigClassDeployment     = "Deployment"
+	ConfigClassNamespace      = "Namespace"
+	ConfigClassNode           = "Node"
+	ConfigClassPod            = "Pod"
+	ConfigClassVirtualMachine = "VirtualMachine"
+)
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID            uuid.UUID            `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
-	ScraperID     *string              `gorm:"column:scraper_id;default:null" json:"scraper_id,omitempty"  `
-	ConfigType    string               `gorm:"column:config_type;default:''" json:"config_type" faker:"oneof:  File, EC2Instance, KubernetesPod" `
-	ExternalID    pq.StringArray       `gorm:"column:external_id;type:[]text" json:"external_id,omitempty" faker:"external_id"  `
-	ExternalType  *string              `gorm:"column:external_type;default:null" json:"external_type,omitempty" faker:"oneof:  File, EC2Instance, KubernetesPod"  `
-	Name          *string              `gorm:"column:name;default:null" json:"name,omitempty" faker:"name"  `
-	Namespace     *string              `gorm:"column:namespace;default:null" json:"namespace,omitempty"  faker:"oneof: default, demo, prod, staging" `
-	Description   *string              `gorm:"column:description;default:null" json:"description,omitempty"  `
-	Config        *string              `gorm:"column:config;default:null" json:"config,omitempty"  `
-	Source        *string              `gorm:"column:source;default:null" json:"source,omitempty"  `
-	ParentID      *uuid.UUID           `gorm:"column:parent_id;default:null" json:"parent_id,omitempty" faker:"-"`
-	Path          string               `gorm:"column:path;default:null" json:"path,omitempty" faker:"-"`
+	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
+	ScraperID     *string              `json:"scraper_id,omitempty"`
+	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
+	ExternalID    pq.StringArray       `json:"external_id,omitempty"`
+	ExternalType  *string              `json:"external_type,omitempty"`
+	Name          *string              `json:"name,omitempty" faker:"name"  `
+	Namespace     *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
+	Description   *string              `json:"description,omitempty"`
+	Config        *string              `json:"config,omitempty"  `
+	Source        *string              `json:"source,omitempty"  `
+	ParentID      *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
+	Path          string               `json:"path,omitempty" faker:"-"`
 	CostPerMinute float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
 	CostTotal1d   float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
 	CostTotal7d   float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
 	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
-	Tags          *types.JSONStringMap `gorm:"column:tags;default:null" json:"tags,omitempty"   faker:"tags"`
-	CreatedAt     time.Time            `gorm:"column:created_at" json:"created_at"   `
-	UpdatedAt     time.Time            `gorm:"column:updated_at" json:"updated_at"   `
+	Tags          *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
+	CreatedAt     time.Time            `json:"created_at"`
+	UpdatedAt     time.Time            `json:"updated_at"`
 }
 
-func (c ConfigItem) TableName() string {
+func (ConfigItem) TableName() string {
 	return "config_items"
 }
 
@@ -46,7 +57,7 @@ func (ci *ConfigItem) SetParent(parent *ConfigItem) {
 }
 
 func (ci ConfigItem) String() string {
-	return fmt.Sprintf("%s/%s", ci.ConfigType, ci.ID)
+	return fmt.Sprintf("%s/%s", ci.ConfigClass, ci.ID)
 }
 
 func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
@@ -57,7 +68,7 @@ func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 
 // ConfigScraper represents the config_scrapers database table
 type ConfigScraper struct {
-	ID          uuid.UUID  `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ID          uuid.UUID  `json:"id"`
 	Name        string     `json:"name"`
 	Description string     `json:"description,omitempty"`
 	Spec        string     `json:"spec,omitempty"`
@@ -75,7 +86,6 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 	if cs.ID == uuid.Nil {
 		cs.ID = uuid.New()
 	}
-
 	return nil
 }
 
