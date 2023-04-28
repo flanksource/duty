@@ -1,6 +1,5 @@
 -- analysis_by_config
 DROP VIEW IF EXISTS analysis_by_config;
-
 CREATE OR REPLACE VIEW
   analysis_by_config AS
 WITH
@@ -59,7 +58,7 @@ CREATE OR REPLACE VIEW
 SELECT
   config_analysis.config_id,
   configs.name,
-  configs.config_type,
+  configs.config_class,
   configs.external_type,
   analysis_type,
   config_analysis.first_observed,

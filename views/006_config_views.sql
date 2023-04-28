@@ -4,7 +4,7 @@ CREATE or REPLACE VIEW configs AS
   SELECT
     ci.id,
     ci.scraper_id,
-    ci.config_type,
+    ci.config_class,
     ci.external_id,
     ci.external_type,
     ci.name,
@@ -39,10 +39,10 @@ CREATE or REPLACE VIEW configs AS
 
 
 CREATE or REPLACE VIEW config_names AS
-  SELECT id, config_type, external_id, name FROM config_items;
+  SELECT id, config_class, external_id, name FROM config_items;
 
-CREATE or REPLACE VIEW config_types AS
-  SELECT DISTINCT config_type FROM config_items;
+CREATE or REPLACE VIEW config_classes AS
+  SELECT DISTINCT config_class FROM config_items;
 
 CREATE or REPLACE VIEW analyzer_types AS
   SELECT DISTINCT analyzer FROM config_analysis;
@@ -113,7 +113,7 @@ as
 $$
 begin
   RETURN QUERY
-	  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'left' as role, config_items.deleted_at
+	  SELECT config_items.id as config_id, config_items.name, config_items.config_class, config_items.icon, 'left' as role, config_items.deleted_at
 	  FROM config_component_relationships
 	  INNER JOIN  config_items on config_items.id = config_component_relationships.config_id
 	  WHERE config_component_relationships.component_id = $1::uuid;
@@ -149,16 +149,16 @@ $$
 begin
 
   RETURN QUERY
-	  SELECT parent.id as config_id, parent.name, parent.config_type, parent.icon, 'parent' as role, null, parent.deleted_at
+	  SELECT parent.id as config_id, parent.name, parent.config_class, parent.icon, 'parent' as role, null, parent.deleted_at
 	  FROM config_items
 	  INNER JOIN  config_items parent on config_items.parent_id = parent.id
 	UNION
-		  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'left' as role, config_relationships.relation, config_items.deleted_at
+		  SELECT config_items.id as config_id, config_items.name, config_items.config_class, config_items.icon, 'left' as role, config_relationships.relation, config_items.deleted_at
 		  FROM config_relationships
 		  INNER JOIN  config_items on config_items.id = config_relationships.related_id
 		  WHERE config_relationships.config_id = $1::uuid
 	UNION
-		  SELECT config_items.id as config_id, config_items.name, config_items.config_type, config_items.icon, 'right' as role , config_relationships.relation, config_items.deleted_at
+		  SELECT config_items.id as config_id, config_items.name, config_items.config_class, config_items.icon, 'right' as role , config_relationships.relation, config_items.deleted_at
 		  FROM config_relationships
 		  INNER JOIN  config_items on config_items.id = config_relationships.config_id
 		  WHERE config_relationships.related_id = $1::uuid;
@@ -169,7 +169,7 @@ language plpgsql;
 -- changes_by_component
 DROP VIEW IF EXISTS changes_by_component;
 CREATE OR REPLACE VIEW changes_by_component AS
-	SELECT config_changes.config_id, configs.name, configs.config_type, configs.external_type, change_type,
+	SELECT config_changes.config_id, configs.name, configs.config_class, configs.external_type, change_type,
          config_changes.created_at,config_changes.created_by, config_changes.id as change_id, config_changes.severity, component_id, configs.deleted_at as config_deleted_at
   FROM config_changes
   INNER JOIN config_component_relationships relations on relations.config_id = config_changes.config_id
@@ -181,43 +181,43 @@ CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
   FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
 
--- config_type_summary
-DROP VIEW IF EXISTS config_type_summary;
-CREATE VIEW config_type_summary AS
+-- config_class_summary
+DROP VIEW IF EXISTS config_class_summary;
+CREATE VIEW config_class_summary AS
   WITH changes_per_type AS (
     SELECT
-      config_items.config_type,
+      config_items.config_class,
       COUNT(config_changes.id) AS count
     FROM
       config_changes
       LEFT JOIN config_items ON config_changes.config_id = config_items.id
     WHERE config_changes.created_at > now() - interval '30 days'
     GROUP BY
-      config_items.config_type
+      config_items.config_class
   ),
   analysis_counts AS (
     SELECT
-      config_items.config_type,
+      config_items.config_class,
       config_analysis.analysis_type,
       COUNT(*) AS count
     FROM
       config_analysis
       LEFT JOIN config_items ON config_items.id = config_analysis.config_id
     GROUP BY
-      config_items.config_type,
+      config_items.config_class,
       config_analysis.analysis_type
   ),
   aggregated_analysis_counts AS (
     SELECT
-      config_type,
+      config_class,
       json_object_agg(analysis_type, count) :: jsonb AS analysis
     FROM
       analysis_counts
     GROUP BY
-      config_type
+      config_class
   )
   SELECT
-    config_items.config_type,
+    config_items.config_class,
     aggregated_analysis_counts.analysis,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
@@ -227,11 +227,11 @@ CREATE VIEW config_type_summary AS
     SUM(cost_total_30d) AS cost_total_30d
   FROM
     config_items
-    LEFT JOIN changes_per_type ON config_items.config_type = changes_per_type.config_type
-    LEFT JOIN aggregated_analysis_counts ON config_items.config_type = aggregated_analysis_counts.config_type
+    LEFT JOIN changes_per_type ON config_items.config_class = changes_per_type.config_class
+    LEFT JOIN aggregated_analysis_counts ON config_items.config_class = aggregated_analysis_counts.config_class
   GROUP BY
-    config_items.config_type,
+    config_items.config_class,
     changes_per_type.count,
     aggregated_analysis_counts.analysis
   ORDER BY
-    config_type;
+    config_class;
