@@ -46,6 +46,10 @@ func HydratedConnectionByURL(ctx context.Context, db *gorm.DB, k8sClient kuberne
 		return nil, fmt.Errorf("failed to find connection (%s): %w", connectionString, err)
 	}
 
+	if connection == nil {
+		return nil, nil
+	}
+
 	return HydrateConnection(ctx, k8sClient, db, connection, namespace)
 }
 
