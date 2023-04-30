@@ -61,6 +61,9 @@
           "type": "Application",
           "owner": "logistics-team",
           "configs": null,
+          "checks": {
+            "healthy": 2
+          },
           "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "summary": {
             "healthy": 1,
@@ -104,6 +107,9 @@
               "status": "unhealthy",
               "type": "Database",
               "configs": null,
+              "checks": {
+                "unhealthy": 1
+              },
               "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
               "summary": {
                 "unhealthy": 1,

@@ -34,6 +34,14 @@ var LogisticsAPIHealthHTTPCheckStatus3 = models.CheckStatus{
 	Time:      t3.Format("2006-01-02 15:04:05"),
 }
 
+var LogisticsAPIHomeHTTPCheckStatus1 = models.CheckStatus{
+	CheckID:   LogisticsAPIHomeHTTPCheck.ID,
+	Duration:  100,
+	Status:    true,
+	CreatedAt: t1,
+	Time:      t3.Format("2006-01-02 15:04:05"),
+}
+
 var LogisticsDBCheckStatus1 = models.CheckStatus{
 	CheckID:   LogisticsDBCheck.ID,
 	Duration:  50,
@@ -46,5 +54,6 @@ var AllDummyCheckStatuses = []models.CheckStatus{
 	LogisticsAPIHealthHTTPCheckStatus1,
 	LogisticsAPIHealthHTTPCheckStatus2,
 	LogisticsAPIHealthHTTPCheckStatus3,
+	LogisticsAPIHomeHTTPCheckStatus1,
 	LogisticsDBCheckStatus1,
 }

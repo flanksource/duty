@@ -104,6 +104,12 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyCheckComponentRelationships {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -139,6 +145,12 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 	}
 	for _, c := range AllDummyIncidents {
 		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyCheckComponentRelationships {
+		err = gormDB.Where("component_id = ?", c.ComponentID).Delete(&c).Error
 		if err != nil {
 			return err
 		}

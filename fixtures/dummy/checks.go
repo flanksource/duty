@@ -18,6 +18,7 @@ var LogisticsAPIHomeHTTPCheck = models.Check{
 	CanaryID: LogisticsAPICanary.ID,
 	Name:     "logistics-api-home-check",
 	Type:     "http",
+	Status:   "healthy",
 }
 
 var LogisticsDBCheck = models.Check{
