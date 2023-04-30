@@ -65,7 +65,7 @@ type Component struct {
 	DeletedAt     *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
-	Checks         Checks                    `json:"checks,omitempty" gorm:"-"`
+	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
 	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
 	Analysis       map[string]map[string]int `json:"analysis,omitempty" gorm:"-"`
 	Components     Components                `json:"components,omitempty" gorm:"-"`
@@ -101,20 +101,8 @@ func (c *Component) Summarize() Summary {
 	if c.Summary.processed {
 		return c.Summary
 	}
-	var s Summary
-	// TODO: Handle for both checks and child components
-	if c.Checks != nil && c.Components == nil {
-		for _, check := range c.Checks {
-			if ComponentStatus(check.Status) == ComponentStatusHealthy {
-				s.Healthy++
-			} else {
-				s.Unhealthy++
-			}
-		}
-		s.processed = true
-		return s
-	}
 
+	var s Summary
 	s.Incidents = c.Summary.Incidents
 	s.Insights = c.Summary.Insights
 
@@ -533,4 +521,18 @@ type ConfigComponentRelationship struct {
 
 func (cr ConfigComponentRelationship) TableName() string {
 	return "config_component_relationships"
+}
+
+type CheckComponentRelationship struct {
+	ComponentID uuid.UUID  `json:"component_id,omitempty"`
+	CheckID     uuid.UUID  `json:"check_id,omitempty"`
+	CanaryID    uuid.UUID  `json:"canary_id,omitempty"`
+	SelectorID  string     `json:"selector_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at,omitempty"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (CheckComponentRelationship) TableName() string {
+	return "check_component_relationships"
 }
