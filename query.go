@@ -60,7 +60,7 @@ func inspect(node sqlparser.SQLNode, inspector func(node sqlparser.TableName) bo
 		return true
 
 	default:
-		logger.Debugf("Unexpected %T", node)
+		logger.Debugf("unexpected node of type: %T", node)
 	}
 
 	return false
@@ -81,7 +81,7 @@ func validateTablesInQuery(query string, allowedPrefix ...string) (bool, error) 
 		for _, prefix := range allowedPrefix {
 			if strings.HasPrefix(node.Name.String(), prefix) {
 				isValid = true
-				return true // Continue traversing. Need verify all tables.
+				return true // Continue traversing. Need to verify all the referenced tables.
 			}
 		}
 

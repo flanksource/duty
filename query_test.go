@@ -1,7 +1,13 @@
 package duty
 
 import (
+	"context"
+	"errors"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func TestValidateTablesInQuery(t *testing.T) {
@@ -79,4 +85,57 @@ func TestValidateTablesInQuery(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
+
+var _ = ginkgo.Describe("Query should only run non mutation queries", func() {
+	ginkgo.It("should support read query", func() {
+		_, err := Query(context.TODO(), testDBPGPool, "SELECT id, created_at FROM config_items")
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should not support INSERT query", func() {
+		_, err := Query(context.TODO(), testDBPGPool, "INSERT INTO config_changes(config_id, external_change_id) VALUES('0186a12e-b10d-befa-72ce-2a61f69e5ccd', 'whatever')")
+		assertPreventCommandIfReadOnlyErr(err)
+	})
+
+	ginkgo.It("should not support UPDATE query", func() {
+		_, err := Query(context.TODO(), testDBPGPool, "UPDATE config_changes SET external_change_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd' WHERE config_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
+		assertPreventCommandIfReadOnlyErr(err)
+	})
+
+	ginkgo.It("should not support DELETE query", func() {
+		_, err := Query(context.TODO(), testDBPGPool, "DELETE FROM config_changes WHERE config_id ='0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
+		assertPreventCommandIfReadOnlyErr(err)
+	})
+})
+
+var _ = ginkgo.Describe("ConfigQuery should only support config related tables", func() {
+	ginkgo.It("should support reading from config_items", func() {
+		_, err := ConfigQuery(context.TODO(), testDBPGPool, "SELECT id, created_at FROM config_items")
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should support reading from config_items & config_changes", func() {
+		_, err := ConfigQuery(context.TODO(), testDBPGPool, "SELECT config_items.id, config_changes.severity FROM config_changes LEFT JOIN config_items ON config_changes.config_id = config_items.id LIMIT 2")
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should not support reading from people table", func() {
+		_, err := ConfigQuery(context.TODO(), testDBPGPool, "SELECT id FROM people")
+		Expect(err).To(Not(BeNil()))
+	})
+
+	ginkgo.It("should not support reading from agents table with a JOIN", func() {
+		_, err := ConfigQuery(context.TODO(), testDBPGPool, "SELECT config_items.id, agents.id FROM config_items LEFT JOIN agents ON agents.id = config_items.agent_id'")
+		Expect(err).To(Not(BeNil()))
+	})
+})
+
+func assertPreventCommandIfReadOnlyErr(err error) {
+	Expect(err).ToNot(BeNil())
+
+	var pgErr *pgconn.PgError
+	Expect(errors.As(err, &pgErr)).To(BeTrue())
+
+	Expect(pgErr.Code).To(Equal("25006")) //PreventCommandIfReadOnly
 }
