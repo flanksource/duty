@@ -3,10 +3,104 @@ package duty
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/xwb1989/sqlparser"
 )
+
+// Recursively inspects a given SQLNode and applies the supplied inspector function to each node.
+func inspect(node sqlparser.SQLNode, inspector func(node sqlparser.TableName) bool) bool {
+	switch node := node.(type) {
+	case *sqlparser.Select:
+		for _, expr := range node.From {
+			if !inspect(expr, inspector) {
+				return false
+			}
+		}
+
+		if node.Where != nil {
+			return inspect(node.Where, inspector)
+		}
+
+	case *sqlparser.AliasedTableExpr:
+		return inspect(node.Expr, inspector)
+
+	case *sqlparser.Where:
+		return inspect(node.Expr, inspector)
+
+	case sqlparser.TableName:
+		return inspector(node)
+
+	case *sqlparser.JoinTableExpr:
+		if !inspect(node.LeftExpr, inspector) {
+			return false
+		}
+		return inspect(node.RightExpr, inspector)
+
+	case *sqlparser.Union:
+		if !inspect(node.Left, inspector) {
+			return false
+		}
+		return inspect(node.Right, inspector)
+
+	case *sqlparser.ComparisonExpr:
+		if !inspect(node.Left, inspector) {
+			return false
+		}
+		return inspect(node.Right, inspector)
+
+	case *sqlparser.Subquery:
+		return inspect(node.Select, inspector)
+
+	case *sqlparser.ColName, *sqlparser.SQLVal:
+		// Do nothing
+		return true
+
+	default:
+		logger.Debugf("Unexpected %T", node)
+	}
+
+	return false
+}
+
+// validateTablesInQuery checks if a SQL query only uses tables whose names are prefixed by
+// prefixes in the allowedPrefix parameter.
+//
+// It currently only supports SELECT queries.
+func validateTablesInQuery(query string, allowedPrefix ...string) (bool, error) {
+	stmt, err := sqlparser.Parse(query)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse SQL query: %w", err)
+	}
+
+	var isValid bool
+	inspect(stmt, func(node sqlparser.TableName) bool {
+		for _, prefix := range allowedPrefix {
+			if strings.HasPrefix(node.Name.String(), prefix) {
+				isValid = true
+				return true // Continue traversing. Need verify all tables.
+			}
+		}
+
+		isValid = false
+		return false // Stop traversing
+	})
+
+	return isValid, nil
+}
+
+func ConfigQuery(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]any, error) {
+	if isValid, err := validateTablesInQuery(query, "config_"); err != nil {
+		return nil, err
+	} else if !isValid {
+		return nil, fmt.Errorf("query references restricted tables: %w", err)
+	}
+
+	return Query(ctx, conn, query)
+}
 
 // Query runs the given SQL query against the provided db connection.
 // The rows are returned as a map of columnName=>columnValue.
