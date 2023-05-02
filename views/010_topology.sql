@@ -48,6 +48,7 @@ WITH
   )
 SELECT
   components.*,
+  components.log_selectors AS logs,
   checks,
   team_info.team_names,
   incidents,

@@ -84,8 +84,8 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
                                 SELECT row_to_json(jsonb_each_text(labels)) AS label FROM topology_result
                             ) AS labels_flat GROUP BY key
                         ) as t2),
-                'teams', json_agg(DISTINCT(team_names))
-            )
+                'teams', (SELECT json_agg(team) FROM topology_result, LATERAL unnest(team_names) AS team)
+						)
         FROM
             topology_result
         `, subQuery)
