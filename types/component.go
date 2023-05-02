@@ -132,3 +132,80 @@ func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := json.Marshal(s)
 	return gorm.Expr("?", data)
 }
+
+type ResourceSelectors []ResourceSelector
+
+type ResourceSelector struct {
+	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
+	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
+	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
+}
+
+func (rs *ResourceSelectors) Scan(val any) error {
+	return GenericStructScan(&rs, val)
+}
+
+func (rs ResourceSelectors) Value() (driver.Value, error) {
+	return GenericStructValue(rs, true)
+}
+
+// GormDataType gorm common data type
+func (rs ResourceSelectors) GormDataType() string {
+	return "resourceSelectors"
+}
+
+// GormDBDataType gorm db data type
+func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case SqliteType:
+		return JSONType
+	case PostgresType:
+		return JSONBType
+	case SQLServerType:
+		return NVarcharType
+	}
+	return ""
+}
+
+func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	data, _ := json.Marshal(rs)
+	return gorm.Expr("?", string(data))
+}
+
+type ComponentCheck struct {
+	Selector ResourceSelector `json:"selector,omitempty"`
+	Inline   *JSON            `json:"inline,omitempty"`
+}
+
+type ComponentChecks []ComponentCheck
+
+func (cs ComponentChecks) Value() (driver.Value, error) {
+	return GenericStructValue(cs, true)
+}
+
+func (cs *ComponentChecks) Scan(val interface{}) error {
+	return GenericStructScan(&cs, val)
+}
+
+// GormDataType gorm common data type
+func (cs ComponentChecks) GormDataType() string {
+	return "componentChecks"
+}
+
+// GormDBDataType gorm db data type
+func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case SqliteType:
+		return JSONType
+	case PostgresType:
+		return JSONBType
+	case SQLServerType:
+		return NVarcharType
+	}
+	return ""
+}
+
+func (cs ComponentChecks) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+	data, _ := json.Marshal(cs)
+	return gorm.Expr("?", string(data))
+}
