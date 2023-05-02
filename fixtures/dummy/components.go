@@ -14,7 +14,7 @@ var Logistics = models.Component{
 	Labels:     types.JSONStringMap{"telemetry": "enabled"},
 	Owner:      "logistics-team",
 	CreatedAt:  DummyCreatedAt,
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 }
 
 var LogisticsAPI = models.Component{
@@ -22,7 +22,7 @@ var LogisticsAPI = models.Component{
 	Name:       "logistics-api",
 	ExternalId: "dummy/logistics-api",
 	Type:       "Application",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	Labels:     types.JSONStringMap{"telemetry": "enabled"},
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
@@ -35,7 +35,7 @@ var LogisticsUI = models.Component{
 	Name:       "logistics-ui",
 	Type:       "Application",
 	ExternalId: "dummy/logistics-ui",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	Owner:      "logistics-team",
 	ParentId:   &Logistics.ID,
 	Path:       Logistics.ID.String(),
@@ -47,7 +47,7 @@ var LogisticsWorker = models.Component{
 	Name:       "logistics-worker",
 	ExternalId: "dummy/logistics-worker",
 	Type:       "Application",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &LogisticsAPI.ID,
 	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
 	CreatedAt:  DummyCreatedAt,
@@ -58,7 +58,7 @@ var LogisticsDB = models.Component{
 	Name:       "logistics-db",
 	ExternalId: "dummy/logistics-db",
 	Type:       "Database",
-	Status:     models.ComponentStatusUnhealthy,
+	Status:     types.ComponentStatusUnhealthy,
 	ParentId:   &LogisticsAPI.ID,
 	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
 	CreatedAt:  DummyCreatedAt,
@@ -69,7 +69,7 @@ var ClusterComponent = models.Component{
 	Name:       "cluster",
 	ExternalId: "dummy/cluster",
 	Type:       "KubernetesCluster",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	CreatedAt:  DummyCreatedAt,
 }
 
@@ -78,7 +78,7 @@ var NodesComponent = models.Component{
 	Name:       "Nodes",
 	ExternalId: "dummy/nodes",
 	Type:       "KubernetesNodes",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -88,7 +88,7 @@ var NodeA = models.Component{
 	Name:       "node-a",
 	ExternalId: "dummy/node-a",
 	Type:       "KubernetesNode",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -98,7 +98,7 @@ var NodeB = models.Component{
 	Name:       "node-b",
 	ExternalId: "dummy/node-b",
 	Type:       "KubernetesNode",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -108,7 +108,7 @@ var PodsComponent = models.Component{
 	Name:       "Pods",
 	ExternalId: "dummy/pods",
 	Type:       "KubernetesPods",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -118,7 +118,7 @@ var LogisticsAPIPod = models.Component{
 	Name:       "logistics-api-574dc95b5d-mp64w",
 	ExternalId: "dummy/logistics-api-574dc95b5d-mp64w",
 	Type:       "KubernetesPod",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -128,7 +128,7 @@ var LogisticsUIPod = models.Component{
 	Name:       "logistics-ui-676b85b87c-tjjcp",
 	Type:       "KubernetesPod",
 	ExternalId: "dummy/logistics-ui-676b85b87c-tjjcp",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }
@@ -138,7 +138,7 @@ var LogisticsWorkerPod = models.Component{
 	Name:       "logistics-worker-79cb67d8f5-lr66n",
 	ExternalId: "dummy/logistics-worker-79cb67d8f5-lr66n",
 	Type:       "KubernetesPod",
-	Status:     models.ComponentStatusHealthy,
+	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 }

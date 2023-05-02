@@ -283,6 +283,15 @@ func (jm JSONStringMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr 
 	return gorm.Expr("?", string(data))
 }
 
+func (jm JSONStringMap) ToMapStringAny() map[string]any {
+	r := make(map[string]any, len(jm))
+	for k, v := range jm {
+		r[k] = v
+	}
+
+	return r
+}
+
 // JSONMap defiend JSON data type, need to implements driver.Valuer, sql.Scanner interface
 type JSONMap map[string]any
 
