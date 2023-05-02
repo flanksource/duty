@@ -23,7 +23,6 @@
       "status": "healthy",
       "type": "Entity",
       "owner": "logistics-team",
-      "configs": null,
       "summary": {
         "healthy": 1
       },
@@ -42,7 +41,6 @@
           "status": "healthy",
           "type": "Application",
           "owner": "logistics-team",
-          "configs": null,
           "checks": {
             "healthy": 2
           },

@@ -25,7 +25,6 @@
       "status": "warning",
       "type": "Application",
       "owner": "logistics-team",
-      "configs": null,
       "checks": {
         "healthy": 2
       },
