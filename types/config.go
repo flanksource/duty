@@ -15,11 +15,13 @@ import (
 // ConfigQuery is used to look up and associate
 // config items with a component.
 type ConfigQuery struct {
-	ID        []string          `json:"id,omitempty"`
-	Type      string            `json:"type,omitempty"`
-	Name      string            `json:"name,omitempty"`
-	Namespace string            `json:"namespace,omitempty"`
-	Tags      map[string]string `json:"tags,omitempty"`
+	ID         []string          `json:"id,omitempty"`
+	Type       string            `json:"type,omitempty"`
+	Class      string            `json:"class,omitempty"`
+	ExternalID string            `json:"external_id,omitempty"`
+	Name       string            `json:"name,omitempty"`
+	Namespace  string            `json:"namespace,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
 }
 
 func (c ConfigQuery) String() string {
