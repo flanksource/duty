@@ -85,6 +85,7 @@ func (EnvVar) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case PostgresType:
 		return Text
 	}
+
 	return ""
 }
 

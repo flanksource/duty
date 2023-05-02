@@ -52,15 +52,7 @@ func (t *ConfigQueries) Scan(val any) error {
 }
 
 func (t ConfigQueries) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	case SQLServerType:
-		return NVarcharType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (t ConfigQueries) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {

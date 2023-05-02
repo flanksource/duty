@@ -28,15 +28,7 @@ func (t *LogSelectors) Scan(val any) error {
 }
 
 func (t LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	case SQLServerType:
-		return NVarcharType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (t LogSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
