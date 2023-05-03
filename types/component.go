@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -120,8 +119,7 @@ func (Summary) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(s)
-	return gorm.Expr("?", data)
+	return GormValue(s)
 }
 
 type ResourceSelectors []ResourceSelector
@@ -151,8 +149,7 @@ func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string
 }
 
 func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(rs)
-	return gorm.Expr("?", string(data))
+	return GormValue(rs)
 }
 
 type ComponentCheck struct {
@@ -181,6 +178,5 @@ func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 func (cs ComponentChecks) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(cs)
-	return gorm.Expr("?", string(data))
+	return GormValue(cs)
 }

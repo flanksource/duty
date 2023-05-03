@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -394,27 +393,12 @@ func (p Properties) Find(name string) *Property {
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (p Properties) Value() (driver.Value, error) {
-	if len(p) == 0 {
-		return nil, nil
-	}
-	return p.AsJSON(), nil
+	return types.GenericStructValue(p, true)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (p *Properties) Scan(val any) error {
-	if val == nil {
-		*p = make(Properties, 0)
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal properties value:", val))
-	}
-	err := json.Unmarshal(ba, p)
-	return err
+	return types.GenericStructScan(&p, val)
 }
 
 // GormDataType gorm common data type
@@ -423,20 +407,11 @@ func (Properties) GormDataType() string {
 }
 
 func (Properties) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.Text
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
+	return types.JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (p Properties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(p)
-	return gorm.Expr("?", data)
+	return types.GormValue(p)
 }
 
 type ComponentRelationship struct {

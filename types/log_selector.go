@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -32,6 +31,5 @@ func (t LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 func (t LogSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(t)
-	return gorm.Expr("?", string(data))
+	return GormValue(t)
 }

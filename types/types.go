@@ -322,3 +322,8 @@ func JSONGormDBDataType(dialect string) string {
 
 	return ""
 }
+
+func GormValue(t any) clause.Expr {
+	data, _ := json.Marshal(t)
+	return gorm.Expr("?", string(data))
+}

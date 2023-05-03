@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -35,7 +34,7 @@ func (c ConfigQuery) String() string {
 	}
 
 	if len(c.Tags) > 0 {
-		s += " " + fmt.Sprintf("%v", c.Tags)
+		s += " " + fmt.Sprintf("%+v", c.Tags)
 	}
 
 	return s
@@ -56,6 +55,5 @@ func (t ConfigQueries) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 func (t ConfigQueries) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(t)
-	return gorm.Expr("?", string(data))
+	return GormValue(t)
 }
