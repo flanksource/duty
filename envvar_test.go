@@ -1,7 +1,7 @@
 package duty
 
 import (
-	"github.com/flanksource/duty/hack"
+	"github.com/flanksource/duty/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -10,13 +10,13 @@ import (
 
 var _ = Describe("EnvVar", func() {
 	It("should lookup kubernetes secrets", func() {
-		val, err := GetConfigMapFromCache(hack.TestClient, "default", "test-cm", "foo")
+		val, err := GetConfigMapFromCache(testutils.TestClient, "default", "test-cm", "foo")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(val).To(Equal("bar"))
 	})
 
 	It("should lookup configmaps", func() {
-		val, err := GetSecretFromCache(hack.TestClient, "default", "test-secret", "foo")
+		val, err := GetSecretFromCache(testutils.TestClient, "default", "test-secret", "foo")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(val).To(Equal("secret"))
 	})

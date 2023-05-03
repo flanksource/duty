@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/flanksource/duty/hack"
+	"github.com/flanksource/duty/testutils"
 	"github.com/jackc/pgx/v5/pgconn"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,44 +90,44 @@ func TestValidateTablesInQuery(t *testing.T) {
 
 var _ = ginkgo.Describe("Query should only run non mutation queries", func() {
 	ginkgo.It("should support read query", func() {
-		_, err := query(context.TODO(), hack.TestDBPGPool, "SELECT id, created_at FROM config_items")
+		_, err := query(context.TODO(), testutils.TestDBPGPool, "SELECT id, created_at FROM config_items")
 		Expect(err).To(BeNil())
 	})
 
 	ginkgo.It("should not support INSERT query", func() {
-		_, err := query(context.TODO(), hack.TestDBPGPool, "INSERT INTO config_changes(config_id, external_change_id) VALUES('0186a12e-b10d-befa-72ce-2a61f69e5ccd', 'whatever')")
+		_, err := query(context.TODO(), testutils.TestDBPGPool, "INSERT INTO config_changes(config_id, external_change_id) VALUES('0186a12e-b10d-befa-72ce-2a61f69e5ccd', 'whatever')")
 		assertPreventCommandIfReadOnlyErr(err)
 	})
 
 	ginkgo.It("should not support UPDATE query", func() {
-		_, err := query(context.TODO(), hack.TestDBPGPool, "UPDATE config_changes SET external_change_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd' WHERE config_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
+		_, err := query(context.TODO(), testutils.TestDBPGPool, "UPDATE config_changes SET external_change_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd' WHERE config_id = '0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
 		assertPreventCommandIfReadOnlyErr(err)
 	})
 
 	ginkgo.It("should not support DELETE query", func() {
-		_, err := query(context.TODO(), hack.TestDBPGPool, "DELETE FROM config_changes WHERE config_id ='0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
+		_, err := query(context.TODO(), testutils.TestDBPGPool, "DELETE FROM config_changes WHERE config_id ='0186a12e-b10d-befa-72ce-2a61f69e5ccd'")
 		assertPreventCommandIfReadOnlyErr(err)
 	})
 })
 
 var _ = ginkgo.Describe("ConfigQuery should only support config related tables", func() {
 	ginkgo.It("should support reading from config_items", func() {
-		_, err := Query(context.TODO(), hack.TestDBPGPool, "SELECT id, created_at FROM config_items")
+		_, err := Query(context.TODO(), testutils.TestDBPGPool, "SELECT id, created_at FROM config_items")
 		Expect(err).To(BeNil())
 	})
 
 	ginkgo.It("should support reading from config_items & config_changes", func() {
-		_, err := Query(context.TODO(), hack.TestDBPGPool, "SELECT config_items.id, config_changes.severity FROM config_changes LEFT JOIN config_items ON config_changes.config_id = config_items.id LIMIT 2")
+		_, err := Query(context.TODO(), testutils.TestDBPGPool, "SELECT config_items.id, config_changes.severity FROM config_changes LEFT JOIN config_items ON config_changes.config_id = config_items.id LIMIT 2")
 		Expect(err).To(BeNil())
 	})
 
 	ginkgo.It("should not support reading from people table", func() {
-		_, err := Query(context.TODO(), hack.TestDBPGPool, "SELECT id FROM people")
+		_, err := Query(context.TODO(), testutils.TestDBPGPool, "SELECT id FROM people")
 		Expect(err).To(Not(BeNil()))
 	})
 
 	ginkgo.It("should not support reading from agents table with a JOIN", func() {
-		_, err := Query(context.TODO(), hack.TestDBPGPool, "SELECT config_items.id, agents.id FROM config_items LEFT JOIN agents ON agents.id = config_items.agent_id'")
+		_, err := Query(context.TODO(), testutils.TestDBPGPool, "SELECT config_items.id, agents.id FROM config_items LEFT JOIN agents ON agents.id = config_items.agent_id'")
 		Expect(err).To(Not(BeNil()))
 	})
 })

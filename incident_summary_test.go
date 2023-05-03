@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/flanksource/duty/fixtures/dummy"
-	"github.com/flanksource/duty/hack"
+	"github.com/flanksource/duty/testutils"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -19,7 +19,7 @@ type actor struct {
 
 var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query incident_summary view", func() {
-		row := hack.TestDBPGPool.QueryRow(context.Background(), "SELECT id, incident_id, title, responders, commenters, commander FROM incident_summary")
+		row := testutils.TestDBPGPool.QueryRow(context.Background(), "SELECT id, incident_id, title, responders, commenters, commander FROM incident_summary")
 		var id, incidentID, title string
 		var respondersRaw, commentersRaw, commanderRaw json.RawMessage
 

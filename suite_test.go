@@ -11,7 +11,7 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
-	"github.com/flanksource/duty/hack"
+	"github.com/flanksource/duty/testutils"
 	"github.com/itchyny/gojq"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,7 +47,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	}
 	logger.Infof("Started postgres on port 9876")
 	var err error
-	if hack.TestDBPGPool, err = NewPgxPool(pgUrl); err != nil {
+	if testutils.TestDBPGPool, err = NewPgxPool(pgUrl); err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	if _, err := NewDB(pgUrl); err != nil {
@@ -56,14 +56,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	err = Migrate(pgUrl)
 	Expect(err).ToNot(HaveOccurred())
 
-	hack.TestDB, err = NewGorm(pgUrl, DefaultGormConfig())
+	testutils.TestDB, err = NewGorm(pgUrl, DefaultGormConfig())
 	Expect(err).ToNot(HaveOccurred())
-	Expect(hack.TestDB).ToNot(BeNil())
+	Expect(testutils.TestDB).ToNot(BeNil())
 
-	err = dummy.PopulateDBWithDummyModels(hack.TestDB)
+	err = dummy.PopulateDBWithDummyModels(testutils.TestDB)
 	Expect(err).ToNot(HaveOccurred())
 
-	hack.TestClient = fake.NewSimpleClientset(&v1.ConfigMap{
+	testutils.TestClient = fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",

@@ -1,4 +1,4 @@
-package hack
+package testutils
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"

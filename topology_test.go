@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/flanksource/duty/fixtures/dummy"
-	"github.com/flanksource/duty/hack"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/testutils"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -29,7 +29,7 @@ func prettytree(mytree []*models.Component) {
 }
 
 func testTopologyJSON(opts TopologyOptions, path string) {
-	tree, err := QueryTopology(hack.TestDBPGPool, opts)
+	tree, err := QueryTopology(testutils.TestDBPGPool, opts)
 	Expect(err).ToNot(HaveOccurred())
 
 	treeJSON, err := json.Marshal(tree)
