@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/flanksource/duty/hack"
 	"github.com/flanksource/duty/models"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,7 +12,7 @@ import (
 
 var _ = Describe("Connection", Ordered, func() {
 	BeforeAll(func() {
-		tx := testDB.Save(&models.Connection{
+		tx := hack.TestDB.Save(&models.Connection{
 			Name:     "test",
 			Type:     "test",
 			Username: "configmap://test-cm/foo",
@@ -22,11 +23,11 @@ var _ = Describe("Connection", Ordered, func() {
 	})
 
 	It("username should be looked up from configmap", func() {
-		user, err := GetEnvStringFromCache(testClient, "configmap://test-cm/foo", "default")
+		user, err := GetEnvStringFromCache(hack.TestClient, "configmap://test-cm/foo", "default")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(user).To(Equal("bar"))
 
-		val, err := GetConfigMapFromCache(testClient, "default", "test-cm", "foo")
+		val, err := GetConfigMapFromCache(hack.TestClient, "default", "test-cm", "foo")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(val).To(Equal("bar"))
 	})
@@ -34,7 +35,7 @@ var _ = Describe("Connection", Ordered, func() {
 	var connection *models.Connection
 	var err error
 	It("should be retrieved successfully", func() {
-		connection, err = GetConnection(context.Background(), testClient, testDB, "test", "test", "default")
+		connection, err = GetConnection(context.Background(), hack.TestClient, hack.TestDB, "test", "test", "default")
 		Expect(err).ToNot(HaveOccurred())
 	})
 

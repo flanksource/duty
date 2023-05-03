@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/flanksource/duty/hack"
 	"github.com/flanksource/duty/models"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,7 @@ type configClassSummary struct {
 
 var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query config_class_summary view", func() {
-		rows, err := testDBPGPool.Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
+		rows, err := hack.TestDBPGPool.Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
 		Expect(err).ToNot(HaveOccurred())
 		defer rows.Close()
 
