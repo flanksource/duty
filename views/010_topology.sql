@@ -7,7 +7,7 @@ BEGIN
         SELECT array_agg(name) FROM components where id = any( component_id);
 
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql;
 
 DROP VIEW IF EXISTS topology;
 
@@ -45,10 +45,23 @@ WITH
       LEFT JOIN teams ON team_components.team_id = teams.id
     GROUP BY
       team_components.component_id
+  ),
+  log_selectors AS (
+    SELECT
+      c.id AS component_id,
+      jsonb_agg(s.selector ->> 'name') AS logs
+    FROM
+      components c,
+      LATERAL jsonb_array_elements(c.log_selectors) AS s(selector)
+    WHERE
+      c.log_selectors IS NOT NULL
+      AND jsonb_typeof(c.log_selectors) = 'array'
+    GROUP BY
+      c.id
   )
 SELECT
   components.*,
-  components.log_selectors AS logs,
+  log_selectors.logs,
   checks,
   team_info.team_names,
   incidents,
@@ -63,5 +76,6 @@ FROM
   LEFT JOIN children ON children.id = components.id
   LEFT JOIN parents ON parents.id = components.id
   LEFT JOIN team_info ON team_info.component_id = components.id
+  LEFT JOIN log_selectors ON log_selectors.component_id = components.id
 WHERE
   components.deleted_at IS NULL
