@@ -7,7 +7,7 @@
       "enabled"
     ]
   },
-  "teams": null,
+  "teams": [],
   "types": [
     "Application",
     "Entity"

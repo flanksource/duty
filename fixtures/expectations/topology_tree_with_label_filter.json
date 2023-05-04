@@ -3,7 +3,7 @@
     "Application",
     "Entity"
   ],
-  "teams": null,
+  "teams": [],
   "healthStatuses": [
     "healthy"
   ],

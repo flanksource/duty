@@ -3,7 +3,7 @@
     "healthy"
   ],
   "tags": null,
-  "teams": null,
+  "teams": [],
   "types": [
     "KubernetesNode",
     "KubernetesPod"
