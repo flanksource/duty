@@ -39,19 +39,22 @@ CREATE or REPLACE VIEW configs AS
 
 
 CREATE or REPLACE VIEW config_names AS
-  SELECT id, config_class, external_id, name FROM config_items;
+  SELECT id, type, external_id, name FROM config_items ORDER BY name;
+
+CREATE or REPLACE VIEW config_types AS
+  SELECT DISTINCT type FROM config_items ORDER BY type;
 
 CREATE or REPLACE VIEW config_classes AS
-  SELECT DISTINCT config_class FROM config_items;
+  SELECT DISTINCT config_class FROM config_items ORDER BY config_class;
 
 CREATE or REPLACE VIEW analyzer_types AS
-  SELECT DISTINCT analyzer FROM config_analysis;
+  SELECT DISTINCT analyzer FROM config_analysis ORDER BY analyzer analyzer;
 
 CREATE or REPLACE VIEW analysis_types AS
-  SELECT DISTINCT analysis_type FROM config_analysis;
+  SELECT DISTINCT analysis_type FROM config_analysis ORDER BY analysis_type ;
 
 CREATE or REPLACE VIEW change_types AS
-  SELECT DISTINCT change_type FROM config_changes;
+  SELECT DISTINCT change_type FROM config_changes ORDER BY change_type;
 
 
 
@@ -180,6 +183,62 @@ DROP VIEW IF EXISTS config_tags;
 CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
   FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+
+
+-- config_type_summary
+DROP VIEW IF EXISTS config_summary;
+CREATE VIEW config_summary AS
+  WITH changes_per_type AS (
+    SELECT
+      config_items.type,
+      COUNT(config_changes.id) AS count
+    FROM
+      config_changes
+      LEFT JOIN config_items ON config_changes.config_id = config_items.id
+    WHERE config_changes.created_at > now() - interval '30 days'
+    GROUP BY
+      config_items.type
+  ),
+  analysis_counts AS (
+    SELECT
+      config_items.type,
+      config_analysis.analysis_type,
+      COUNT(*) AS count
+    FROM
+      config_analysis
+      LEFT JOIN config_items ON config_items.id = config_analysis.config_id
+    GROUP BY
+      config_items.type,
+      config_analysis.analysis_type
+  ),
+  aggregated_analysis_counts AS (
+    SELECT
+      type,
+      json_object_agg(analysis_type, count) :: jsonb AS analysis
+    FROM
+      analysis_counts
+    GROUP BY
+      type
+  )
+  SELECT
+    config_items.type,
+    aggregated_analysis_counts.analysis,
+    changes_per_type.count AS changes,
+    COUNT(*) AS total_configs,
+    SUM(cost_per_minute) AS cost_per_minute,
+    SUM(cost_total_1d) AS cost_total_1d,
+    SUM(cost_total_7d) AS cost_total_7d,
+    SUM(cost_total_30d) AS cost_total_30d
+  FROM
+    config_items
+    LEFT JOIN changes_per_type ON config_items.type = changes_per_type.type
+    LEFT JOIN aggregated_analysis_counts ON config_items.type = aggregated_analysis_counts.type
+  GROUP BY
+    config_items.type,
+    changes_per_type.count,
+    aggregated_analysis_counts.analysis
+  ORDER BY
+    type;
 
 -- config_class_summary
 DROP VIEW IF EXISTS config_class_summary;
