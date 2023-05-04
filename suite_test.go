@@ -11,14 +11,12 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
+	"github.com/flanksource/duty/testutils"
 	"github.com/itchyny/gojq"
-	"github.com/jackc/pgx/v5/pgxpool"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gorm.io/gorm"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -30,10 +28,6 @@ func TestDuty(t *testing.T) {
 var postgresServer *embeddedPG.EmbeddedPostgres
 
 const pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
-
-var testDB *gorm.DB
-var testDBPGPool *pgxpool.Pool
-var testClient kubernetes.Interface
 
 func MustDB() *sql.DB {
 	db, err := NewDB(pgUrl)
@@ -53,7 +47,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	}
 	logger.Infof("Started postgres on port 9876")
 	var err error
-	if testDBPGPool, err = NewPgxPool(pgUrl); err != nil {
+	if testutils.TestDBPGPool, err = NewPgxPool(pgUrl); err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	if _, err := NewDB(pgUrl); err != nil {
@@ -62,14 +56,14 @@ var _ = ginkgo.BeforeSuite(func() {
 	err = Migrate(pgUrl)
 	Expect(err).ToNot(HaveOccurred())
 
-	testDB, err = NewGorm(pgUrl, DefaultGormConfig())
+	testutils.TestDB, err = NewGorm(pgUrl, DefaultGormConfig())
 	Expect(err).ToNot(HaveOccurred())
-	Expect(testDB).ToNot(BeNil())
+	Expect(testutils.TestDB).ToNot(BeNil())
 
-	err = dummy.PopulateDBWithDummyModels(testDB)
+	err = dummy.PopulateDBWithDummyModels(testutils.TestDB)
 	Expect(err).ToNot(HaveOccurred())
 
-	testClient = fake.NewSimpleClientset(&v1.ConfigMap{
+	testutils.TestClient = fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",

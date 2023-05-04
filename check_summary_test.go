@@ -3,12 +3,13 @@ package duty
 import (
 	"encoding/json"
 
+	"github.com/flanksource/duty/testutils"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 func testCheckSummaryJSON(path string) {
-	result, err := QueryCheckSummary(testDBPGPool)
+	result, err := QueryCheckSummary(testutils.TestDBPGPool)
 	Expect(err).ToNot(HaveOccurred())
 
 	resultJSON, err := json.Marshal(result)
@@ -21,7 +22,7 @@ func testCheckSummaryJSON(path string) {
 
 var _ = ginkgo.Describe("Check summary behavior", ginkgo.Ordered, func() {
 	ginkgo.It("Should test check summary result", func() {
-		err := RefreshCheckStatusSummary(testDBPGPool)
+		err := RefreshCheckStatusSummary(testutils.TestDBPGPool)
 		Expect(err).ToNot(HaveOccurred())
 
 		testCheckSummaryJSON("fixtures/expectations/check_status_summary.json")
