@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/duty/types"
-	"github.com/flanksource/duty/utils"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
@@ -72,7 +72,7 @@ func (c ConfigItem) GetSelectorID() string {
 		return ""
 	}
 
-	selectorID, err := utils.GenerateJSONMD5Hash(c.Config)
+	selectorID, err := hash.JSONMD5Hash(c.Config)
 	if err != nil {
 		return ""
 	}
