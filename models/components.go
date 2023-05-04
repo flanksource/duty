@@ -122,16 +122,6 @@ func (c *Component) Summarize() types.Summary {
 	return s
 }
 
-func (component Component) GetID() string {
-	if component.ID != uuid.Nil {
-		return component.ID.String()
-	}
-	if component.Text != "" {
-		return component.Text
-	}
-	return component.Name
-}
-
 func (component Component) Clone() Component {
 	clone := Component{
 		Name:         component.Name,
@@ -204,7 +194,7 @@ func (components Components) Debug(prefix string) string {
 			status = types.ComponentStatus(console.Redf(string(status)))
 		}
 
-		s += fmt.Sprintf("%s%s (%s) => %s\n", prefix, component, component.GetID(), status)
+		s += fmt.Sprintf("%s%s (id=%s, text=%s, name=%s) => %s\n", prefix, component, component.ID, component.Text, component.Name, status)
 		s += component.Components.Debug(prefix + "\t")
 	}
 

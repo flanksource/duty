@@ -24,20 +24,15 @@ type ConfigQuery struct {
 }
 
 func (c ConfigQuery) String() string {
-	s := c.Type
-	if c.Namespace != "" {
-		s += "/" + c.Namespace
-	}
-
-	if c.Name != "" {
-		s += "/" + c.Name
-	}
-
-	if len(c.Tags) > 0 {
-		s += " " + fmt.Sprintf("%+v", c.Tags)
-	}
-
-	return s
+	return fmt.Sprintf("id=%v, type=%s, class=%s, external_id=%s, name=%s, namespace=%s, tags=%v",
+		c.ID,
+		c.Type,
+		c.Class,
+		c.ExternalID,
+		c.Name,
+		c.Namespace,
+		c.Tags,
+	)
 }
 
 type ConfigQueries []*ConfigQuery
