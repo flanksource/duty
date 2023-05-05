@@ -7,7 +7,7 @@ BEGIN
         SELECT array_agg(name) FROM components where id = any( component_id);
 
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql;
 
 DROP VIEW IF EXISTS topology;
 
@@ -48,6 +48,7 @@ WITH
   )
 SELECT
   components.*,
+  jsonb_path_query_array(components.log_selectors, '$.name') AS logs,
   checks,
   team_info.team_names,
   incidents,
@@ -63,4 +64,4 @@ FROM
   LEFT JOIN parents ON parents.id = components.id
   LEFT JOIN team_info ON team_info.component_id = components.id
 WHERE
-  components.deleted_at IS NULL
+  components.deleted_at IS NULL;
