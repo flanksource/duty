@@ -38,9 +38,11 @@ CREATE or REPLACE VIEW configs AS
     ) as cc on cc.config_id = ci.id;
 
 
+DROP VIEW IF EXISTS config_names;
 CREATE or REPLACE VIEW config_names AS
   SELECT id, type, external_id, name FROM config_items ORDER BY name;
 
+DROP VIEW IF EXISTS config_types;
 CREATE or REPLACE VIEW config_types AS
   SELECT DISTINCT type FROM config_items ORDER BY type;
 
@@ -48,15 +50,13 @@ CREATE or REPLACE VIEW config_classes AS
   SELECT DISTINCT config_class FROM config_items ORDER BY config_class;
 
 CREATE or REPLACE VIEW analyzer_types AS
-  SELECT DISTINCT analyzer FROM config_analysis ORDER BY analyzer analyzer;
+  SELECT DISTINCT analyzer FROM config_analysis ORDER BY analyzer;
 
 CREATE or REPLACE VIEW analysis_types AS
   SELECT DISTINCT analysis_type FROM config_analysis ORDER BY analysis_type ;
 
 CREATE or REPLACE VIEW change_types AS
   SELECT DISTINCT change_type FROM config_changes ORDER BY change_type;
-
-
 
 -- lookup_config_children
 -- TODO stop the recursion once max_depth is reached.level <= max_depth;
