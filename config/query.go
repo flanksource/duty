@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/xwb1989/sqlparser"
 )
+
+var DefaultQueryTimeout = 30 * time.Second
 
 // Recursively inspects a given SQLNode and applies the supplied inspector function to each node.
 func inspect(node sqlparser.SQLNode, inspector func(node sqlparser.TableName) bool) bool {
@@ -106,6 +109,12 @@ func Query(ctx context.Context, conn *pgxpool.Pool, sqlQuery string) ([]map[stri
 // query runs the given SQL query against the provided db connection.
 // The rows are returned as a map of columnName=>columnValue.
 func query(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]any, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		defer cancel()
+	}
+
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin db transaction: %w", err)

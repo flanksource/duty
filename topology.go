@@ -116,12 +116,19 @@ type TopologyResponse struct {
 	Types          []string          `json:"types"`
 }
 
-func QueryTopology(dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
+func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
 	query, args := generateQuery(params)
-	rows, err := dbpool.Query(context.Background(), query, pgx.NamedArgs(args))
+
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		defer cancel()
+	}
+	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var response TopologyResponse
 	for rows.Next() {

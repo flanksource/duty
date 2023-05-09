@@ -1,6 +1,7 @@
 package duty
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/flanksource/duty/testutils"
@@ -9,7 +10,7 @@ import (
 )
 
 func testCheckSummaryJSON(path string) {
-	result, err := QueryCheckSummary(testutils.TestDBPGPool)
+	result, err := QueryCheckSummary(context.Background(), testutils.TestDBPGPool)
 	Expect(err).ToNot(HaveOccurred())
 
 	resultJSON, err := json.Marshal(result)
