@@ -19,6 +19,8 @@ import (
 
 var pool *pgxpool.Pool
 
+var DefaultQueryTimeout = 30 * time.Second
+
 func DefaultGormConfig() *gorm.Config {
 	logConfig := glogger.Config{
 		SlowThreshold:             time.Second,   // Slow SQL threshold

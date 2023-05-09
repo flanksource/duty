@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func QueryCheckSummary(dbpool *pgxpool.Pool) (models.Checks, error) {
+func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks, error) {
 	query := `
     SELECT json_agg(result)
     FROM (
@@ -44,10 +44,17 @@ func QueryCheckSummary(dbpool *pgxpool.Pool) (models.Checks, error) {
         INNER JOIN check_status_summary ON checks.id = check_status_summary.check_id
     ) AS result
     `
-	rows, err := dbpool.Query(context.Background(), query)
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		defer cancel()
+	}
+	rows, err := dbpool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+
 	var results models.Checks
 	for rows.Next() {
 		var components models.Checks
