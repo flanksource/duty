@@ -37,7 +37,7 @@ SELECT
 FROM
   topologies
   LEFT JOIN job_history_latest_status 
-  ON topologies.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'topologies';
+  ON topologies.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'topology';
 
 -- Canaries View
 DROP VIEW IF EXISTS canaries_with_status;
