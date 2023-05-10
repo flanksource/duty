@@ -45,10 +45,32 @@ WITH
       LEFT JOIN teams ON team_components.team_id = teams.id
     GROUP BY
       team_components.component_id
-  )
+),
+log_selector_array_elements AS (
+  SELECT
+    id component_id,
+    jsonb_array_elements(
+      CASE
+        jsonb_typeof(log_selectors)
+        WHEN 'array' THEN log_selectors
+        ELSE '[]'
+      END
+    ) AS log_selectors
+  FROM
+    components
+),
+log_selectors AS (
+  SELECT
+    component_id,
+    json_agg(jsonb_build_object('name', log_selectors -> 'name')) AS NAMES
+  FROM
+    log_selector_array_elements
+  GROUP BY
+    component_id
+)
 SELECT
   components.*,
-  jsonb_path_query_array(components.log_selectors, '$.name') AS logs,
+  log_selectors.names AS logs,
   checks,
   team_info.team_names,
   incidents,
@@ -63,5 +85,6 @@ FROM
   LEFT JOIN children ON children.id = components.id
   LEFT JOIN parents ON parents.id = components.id
   LEFT JOIN team_info ON team_info.component_id = components.id
+  LEFT JOIN log_selectors ON log_selectors.component_id = components.id
 WHERE
   components.deleted_at IS NULL;
