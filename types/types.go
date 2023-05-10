@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -47,33 +46,12 @@ type JSON json.RawMessage
 
 // Value return json value, implement driver.Valuer interface
 func (j JSON) Value() (driver.Value, error) {
-	if len(j) == 0 {
-		return nil, nil
-	}
-	bytes, err := json.RawMessage(j).MarshalJSON()
-	return string(bytes), err
+	return GenericStructValue(j, true)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (j *JSON) Scan(value any) error {
-	if value == nil {
-		*j = JSON("null")
-		return nil
-	}
-	var bytes []byte
-	switch v := value.(type) {
-	case []byte:
-		bytes = v
-	case string:
-		bytes = []byte(v)
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
-	}
-
-	result := json.RawMessage{}
-	err := json.Unmarshal(bytes, &result)
-	*j = JSON(result)
-	return err
+	return GenericStructScan(&j, value)
 }
 
 // MarshalJSON to output non base64 encoded []byte
@@ -100,15 +78,7 @@ func (JSON) GormDataType() string {
 
 // GormDBDataType gorm db data type
 func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case MysqlType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (js JSON) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
@@ -215,32 +185,12 @@ type JSONStringMap map[string]string
 
 // Value return json value, implement driver.Valuer interface
 func (m JSONStringMap) Value() (driver.Value, error) {
-	if m == nil {
-		return nil, nil
-	}
-	ba, err := m.MarshalJSON()
-	return string(ba), err
+	return GenericStructValue(m, true)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (m *JSONStringMap) Scan(val any) error {
-	if val == nil {
-		*m = make(JSONStringMap)
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	case string:
-		ba = []byte(v)
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", val))
-	}
-	t := map[string]string{}
-	err := json.Unmarshal(ba, &t)
-	*m = t
-	return err
+	return GenericStructScan(&m, val)
 }
 
 // MarshalJSON to output non base64 encoded []byte
@@ -267,15 +217,7 @@ func (m JSONStringMap) GormDataType() string {
 
 // GormDBDataType gorm db data type
 func (JSONStringMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	case SQLServerType:
-		return NVarcharType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (jm JSONStringMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
@@ -283,37 +225,26 @@ func (jm JSONStringMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr 
 	return gorm.Expr("?", string(data))
 }
 
+func (jm JSONStringMap) ToMapStringAny() map[string]any {
+	r := make(map[string]any, len(jm))
+	for k, v := range jm {
+		r[k] = v
+	}
+
+	return r
+}
+
 // JSONMap defiend JSON data type, need to implements driver.Valuer, sql.Scanner interface
 type JSONMap map[string]any
 
 // Value return json value, implement driver.Valuer interface
 func (m JSONMap) Value() (driver.Value, error) {
-	if m == nil {
-		return nil, nil
-	}
-	ba, err := m.MarshalJSON()
-	return string(ba), err
+	return GenericStructValue(m, true)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (m *JSONMap) Scan(val any) error {
-	if val == nil {
-		*m = make(JSONMap)
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	case string:
-		ba = []byte(v)
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", val))
-	}
-	t := map[string]any{}
-	err := json.Unmarshal(ba, &t)
-	*m = t
-	return err
+	return GenericStructScan(&m, val)
 }
 
 // MarshalJSON to output non base64 encoded []byte
@@ -340,15 +271,7 @@ func (m JSONMap) GormDataType() string {
 
 // GormDBDataType gorm db data type
 func (JSONMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	case SQLServerType:
-		return NVarcharType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (jm JSONMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
@@ -385,4 +308,22 @@ func GenericStructScan[T any](t *T, val any) error {
 	}
 	err := json.Unmarshal(ba, &t)
 	return err
+}
+
+func JSONGormDBDataType(dialect string) string {
+	switch dialect {
+	case SqliteType:
+		return Text
+	case PostgresType:
+		return JSONBType
+	case SQLServerType:
+		return NVarcharType
+	}
+
+	return ""
+}
+
+func GormValue(t any) clause.Expr {
+	data, _ := json.Marshal(t)
+	return gorm.Expr("?", string(data))
 }

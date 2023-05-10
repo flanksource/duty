@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/utils"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gorm.io/gorm"
@@ -262,7 +262,7 @@ func applyStatusFilter(components []*models.Component, filterRoot bool, statii .
 
 func updateMetadata(resp TopologyResponse) TopologyResponse {
 	// Clean teams
-	resp.Teams = utils.DeleteEmptyStrings(resp.Teams)
+	resp.Teams = collections.DeleteEmptyStrings(resp.Teams)
 
 	return resp
 }

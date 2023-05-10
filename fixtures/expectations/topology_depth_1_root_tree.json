@@ -8,7 +8,7 @@
       "enabled"
     ]
   },
-  "teams": null,
+  "teams": [],
   "types": [
     "Application",
     "Database",
@@ -30,7 +30,6 @@
       "labels": {
         "telemetry": "enabled"
       },
-      "configs": null,
       "summary": {
         "healthy": 1,
         "warning": 1,
@@ -55,7 +54,6 @@
       "name": "cluster",
       "status": "healthy",
       "type": "KubernetesCluster",
-      "configs": null,
       "summary": {
         "healthy": 2,
         "insights": {

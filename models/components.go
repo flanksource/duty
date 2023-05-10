@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -17,52 +17,43 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-type ComponentStatus string
-
-const (
-	ComponentStatusHealthy   ComponentStatus = "healthy"
-	ComponentStatusUnhealthy ComponentStatus = "unhealthy"
-	ComponentStatusWarning   ComponentStatus = "warning"
-	ComponentStatusError     ComponentStatus = "error"
-	ComponentStatusInfo      ComponentStatus = "info"
-)
-
 type Component struct {
-	ID            uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
-	TopologyID    *uuid.UUID          `json:"topology_id,omitempty"`
-	ExternalId    string              `json:"external_id,omitempty"` //nolint
-	ParentId      *uuid.UUID          `json:"parent_id,omitempty"`   //nolint
-	Name          string              `json:"name,omitempty"`
-	Text          string              `json:"text,omitempty"`
-	TopologyType  string              `json:"topology_type,omitempty"`
-	Namespace     string              `json:"namespace,omitempty"`
-	Labels        types.JSONStringMap `json:"labels,omitempty"`
-	Hidden        bool                `json:"hidden,omitempty"`
-	Silenced      bool                `json:"silenced,omitempty"`
-	Status        ComponentStatus     `json:"status,omitempty"`
-	Description   string              `json:"description,omitempty"`
-	Lifecycle     string              `json:"lifecycle,omitempty"`
-	LogSelectors  types.LogSelectors  `json:"logs,omitempty" gorm:"column:log_selectors"`
-	Tooltip       string              `json:"tooltip,omitempty"`
-	StatusReason  string              `json:"statusReason,omitempty"`
-	Schedule      string              `json:"schedule,omitempty"`
-	Icon          string              `json:"icon,omitempty"`
-	Type          string              `json:"type,omitempty"`
-	Owner         string              `json:"owner,omitempty"`
-	Selectors     ResourceSelectors   `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Configs       types.JSON          `json:"configs,omitempty"`
-	Properties    Properties          `json:"properties,omitempty" gorm:"type:properties"`
-	Path          string              `json:"path,omitempty"`
-	Summary       Summary             `json:"summary,omitempty" gorm:"type:summary"`
-	IsLeaf        bool                `json:"is_leaf"`
-	CostPerMinute float64             `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
-	CostTotal1d   float64             `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
-	CostTotal7d   float64             `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
-	CostTotal30d  float64             `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
-	CreatedBy     *uuid.UUID          `json:"created_by,omitempty"`
-	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	UpdatedAt     time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	DeletedAt     *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
+	ID              uuid.UUID               `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
+	TopologyID      *uuid.UUID              `json:"topology_id,omitempty"`
+	ExternalId      string                  `json:"external_id,omitempty"` //nolint
+	ParentId        *uuid.UUID              `json:"parent_id,omitempty"`   //nolint
+	Name            string                  `json:"name,omitempty"`
+	Text            string                  `json:"text,omitempty"`
+	TopologyType    string                  `json:"topology_type,omitempty"`
+	Namespace       string                  `json:"namespace,omitempty"`
+	Labels          types.JSONStringMap     `json:"labels,omitempty"`
+	Hidden          bool                    `json:"hidden,omitempty"`
+	Silenced        bool                    `json:"silenced,omitempty"`
+	Status          types.ComponentStatus   `json:"status,omitempty"`
+	Description     string                  `json:"description,omitempty"`
+	Lifecycle       string                  `json:"lifecycle,omitempty"`
+	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors"`
+	Tooltip         string                  `json:"tooltip,omitempty"`
+	StatusReason    string                  `json:"statusReason,omitempty"`
+	Schedule        string                  `json:"schedule,omitempty"`
+	Icon            string                  `json:"icon,omitempty"`
+	Type            string                  `json:"type,omitempty"`
+	Owner           string                  `json:"owner,omitempty"`
+	Selectors       types.ResourceSelectors `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
+	Configs         types.ConfigQueries     `json:"configs,omitempty"`
+	ComponentChecks types.ComponentChecks   `json:"componentChecks,omitempty"`
+	Properties      Properties              `json:"properties,omitempty" gorm:"type:properties"`
+	Path            string                  `json:"path,omitempty"`
+	Summary         types.Summary           `json:"summary,omitempty" gorm:"type:summary"`
+	IsLeaf          bool                    `json:"is_leaf"`
+	CostPerMinute   float64                 `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
+	CostTotal1d     float64                 `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
+	CostTotal7d     float64                 `json:"cost_total_7d,omitempty" gorm:"column:cost_total_7d"`
+	CostTotal30d    float64                 `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
+	CreatedBy       *uuid.UUID              `json:"created_by,omitempty"`
+	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	UpdatedAt       time.Time               `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
@@ -76,17 +67,17 @@ type Component struct {
 	Parents        []string                  `json:"parents,omitempty" gorm:"-"`
 }
 
-func (c *Component) GetStatus() ComponentStatus {
+func (c *Component) GetStatus() types.ComponentStatus {
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return ComponentStatusWarning
+		return types.ComponentStatusWarning
 	} else if c.Summary.Unhealthy > 0 {
-		return ComponentStatusUnhealthy
+		return types.ComponentStatusUnhealthy
 	} else if c.Summary.Warning > 0 {
-		return ComponentStatusWarning
+		return types.ComponentStatusWarning
 	} else if c.Summary.Healthy > 0 {
-		return ComponentStatusHealthy
+		return types.ComponentStatusHealthy
 	} else {
-		return ComponentStatusInfo
+		return types.ComponentStatusInfo
 	}
 }
 
@@ -97,29 +88,29 @@ func (component Component) GetAsEnvironment() map[string]interface{} {
 	}
 }
 
-func (c *Component) Summarize() Summary {
-	if c.Summary.processed {
+func (c *Component) Summarize() types.Summary {
+	if c.Summary.IsProcessed() {
 		return c.Summary
 	}
 
-	var s Summary
+	var s types.Summary
 	s.Incidents = c.Summary.Incidents
 	s.Insights = c.Summary.Insights
 
 	if c.Components == nil {
 		switch c.Status {
-		case ComponentStatusHealthy:
+		case types.ComponentStatusHealthy:
 			s.Healthy++
-		case ComponentStatusUnhealthy:
+		case types.ComponentStatusUnhealthy:
 			s.Unhealthy++
-		case ComponentStatusWarning:
+		case types.ComponentStatusWarning:
 			s.Warning++
-		case ComponentStatusInfo:
+		case types.ComponentStatusInfo:
 			s.Info++
 		}
 		s.Incidents = c.Summary.Incidents
 		s.Insights = c.Summary.Insights
-		s.processed = true
+		s.SetProcessed(true)
 		return s
 	}
 
@@ -127,8 +118,58 @@ func (c *Component) Summarize() Summary {
 		childSummary := child.Summarize()
 		s = s.Add(childSummary, c.Name+"-"+child.Name)
 	}
-	s.processed = true
+	s.SetProcessed(true)
 	return s
+}
+
+func (component Component) Clone() Component {
+	clone := Component{
+		Name:         component.Name,
+		TopologyType: component.TopologyType,
+		Order:        component.Order,
+		ID:           component.ID,
+		Text:         component.Text,
+		Namespace:    component.Namespace,
+		Labels:       component.Labels,
+		Tooltip:      component.Tooltip,
+		Icon:         component.Icon,
+		Owner:        component.Owner,
+		Status:       component.Status,
+		StatusReason: component.StatusReason,
+		Type:         component.Type,
+		Lifecycle:    component.Lifecycle,
+		Checks:       component.Checks,
+		Configs:      component.Configs,
+		Properties:   component.Properties,
+		ExternalId:   component.ExternalId,
+		Schedule:     component.Schedule,
+	}
+
+	copy(clone.LogSelectors, component.LogSelectors)
+	return clone
+}
+
+func (component Component) String() string {
+	s := ""
+	if component.Type != "" {
+		s += component.Type + "/"
+	}
+	if component.Namespace != "" {
+		s += component.Namespace + "/"
+	}
+	if component.Text != "" {
+		s += component.Text
+	} else if component.Name != "" {
+		s += component.Name
+	} else {
+		s += component.ExternalId
+	}
+	return s
+}
+
+func (component Component) IsHealthy() bool {
+	s := component.Summarize()
+	return s.Healthy > 0 && s.Unhealthy == 0 && s.Warning == 0
 }
 
 type Components []*Component
@@ -140,6 +181,55 @@ func (components Components) Map(fn func(c *Component)) {
 			c.Components.Map(fn)
 		}
 	}
+}
+
+func (components Components) Debug(prefix string) string {
+	var s string
+	for _, component := range components {
+		status := component.Status
+
+		if component.IsHealthy() {
+			status = types.ComponentStatus(console.Greenf(string(status)))
+		} else {
+			status = types.ComponentStatus(console.Redf(string(status)))
+		}
+
+		s += fmt.Sprintf("%s%s (id=%s, text=%s, name=%s) => %s\n", prefix, component, component.ID, component.Text, component.Name, status)
+		s += component.Components.Debug(prefix + "\t")
+	}
+
+	return s
+}
+
+func (components Components) Summarize() types.Summary {
+	var s types.Summary
+	for _, component := range components {
+		s = s.Add(component.Summarize(), "TODO:")
+	}
+
+	return s
+}
+
+func (components Components) Walk() Components {
+	var comps Components
+	for _, _c := range components {
+		c := _c
+		comps = append(comps, c)
+		if c.Components != nil {
+			comps = append(comps, c.Components.Walk()...)
+		}
+	}
+
+	return comps
+}
+
+func (components Components) Find(name string) *Component {
+	for _, component := range components {
+		if component.Name == name {
+			return component
+		}
+	}
+	return nil
 }
 
 type Text struct {
@@ -161,111 +251,6 @@ type Latency struct {
 	Percentile97 float64 `json:"p97,omitempty" db:"p97"`
 	Percentile95 float64 `json:"p95,omitempty" db:"p95"`
 	Rolling1H    float64 `json:"rolling1h"`
-}
-
-type Summary struct {
-	Healthy   int                       `json:"healthy,omitempty"`
-	Unhealthy int                       `json:"unhealthy,omitempty"`
-	Warning   int                       `json:"warning,omitempty"`
-	Info      int                       `json:"info,omitempty"`
-	Incidents map[string]map[string]int `json:"incidents,omitempty"`
-	Insights  map[string]map[string]int `json:"insights,omitempty"`
-
-	// processed is used to prevent from being caluclated twice
-	processed bool
-}
-
-func (s Summary) String() string {
-	type _s Summary
-	return fmt.Sprintf("%+v", _s(s))
-}
-
-func (s Summary) Add(b Summary, n string) Summary {
-	if b.Healthy > 0 && b.Unhealthy > 0 {
-		s.Warning += 1
-	} else if b.Unhealthy > 0 {
-		s.Unhealthy += 1
-	} else if b.Healthy > 0 {
-		s.Healthy += 1
-	}
-	if b.Warning > 0 {
-		s.Warning += b.Warning
-	}
-	if b.Info > 0 {
-		s.Info += b.Info
-	}
-
-	if s.Insights == nil {
-		s.Insights = make(map[string]map[string]int)
-	}
-	for typ, details := range b.Insights {
-		if _, exists := s.Insights[typ]; !exists {
-			s.Insights[typ] = make(map[string]int)
-		}
-		for sev, count := range details {
-			s.Insights[typ][sev] += count
-		}
-	}
-
-	if s.Incidents == nil {
-		s.Incidents = make(map[string]map[string]int)
-	}
-	for typ, details := range b.Incidents {
-		if _, exists := s.Incidents[typ]; !exists {
-			s.Incidents[typ] = make(map[string]int)
-		}
-		for sev, count := range details {
-			s.Incidents[typ][sev] += count
-		}
-	}
-
-	return s
-}
-
-// Scan scan value into Jsonb, implements sql.Scanner interface
-func (s Summary) Value() (driver.Value, error) {
-	return json.Marshal(s)
-}
-
-// Scan scan value into Jsonb, implements sql.Scanner interface
-func (s *Summary) Scan(val any) error {
-	if val == nil {
-		*s = Summary{}
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	case string:
-		ba = []byte(v)
-	default:
-		return fmt.Errorf("failed to unmarshal properties. (type=%T, value=%v)", val, val)
-	}
-	err := json.Unmarshal(ba, s)
-	return err
-}
-
-// GormDataType gorm common data type
-func (Summary) GormDataType() string {
-	return "summary"
-}
-
-func (Summary) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.Text
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
-
-func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(s)
-	return gorm.Expr("?", data)
 }
 
 // Property is a realized v1.Property without the lookup definition
@@ -398,27 +383,12 @@ func (p Properties) Find(name string) *Property {
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (p Properties) Value() (driver.Value, error) {
-	if len(p) == 0 {
-		return nil, nil
-	}
-	return p.AsJSON(), nil
+	return types.GenericStructValue(p, true)
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (p *Properties) Scan(val any) error {
-	if val == nil {
-		*p = make(Properties, 0)
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal properties value:", val))
-	}
-	err := json.Unmarshal(ba, p)
-	return err
+	return types.GenericStructScan(&p, val)
 }
 
 // GormDataType gorm common data type
@@ -427,73 +397,11 @@ func (Properties) GormDataType() string {
 }
 
 func (Properties) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.Text
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
+	return types.JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (p Properties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(p)
-	return gorm.Expr("?", data)
-}
-
-type ResourceSelectors []ResourceSelector
-
-type ResourceSelector struct {
-	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
-	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
-	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
-}
-
-func (rs *ResourceSelectors) Scan(val any) error {
-	if val == nil {
-		*rs = ResourceSelectors{}
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	default:
-		return errors.New(fmt.Sprint("Failed to unmarshal ResourceSelectors value:", val))
-	}
-	return json.Unmarshal(ba, rs)
-}
-
-func (rs ResourceSelectors) Value() (driver.Value, error) {
-	if len(rs) == 0 {
-		return []byte("[]"), nil
-	}
-	return json.Marshal(rs)
-}
-
-// GormDataType gorm common data type
-func (rs ResourceSelectors) GormDataType() string {
-	return "resourceSelectors"
-}
-
-// GormDBDataType gorm db data type
-func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case types.SqliteType:
-		return types.JSONType
-	case types.PostgresType:
-		return types.JSONBType
-	case types.SQLServerType:
-		return types.NVarcharType
-	}
-	return ""
-}
-
-func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(rs)
-	return gorm.Expr("?", string(data))
+	return types.GormValue(p)
 }
 
 type ComponentRelationship struct {

@@ -8,7 +8,7 @@
       "enabled"
     ]
   },
-  "teams": null,
+  "teams": [],
   "types": [
     "Application",
     "Database"
@@ -25,7 +25,6 @@
       "status": "warning",
       "type": "Application",
       "owner": "logistics-team",
-      "configs": null,
       "checks": {
         "healthy": 2
       },
@@ -55,7 +54,6 @@
           "name": "logistics-worker",
           "status": "healthy",
           "type": "Application",
-          "configs": null,
           "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
           "summary": {
             "healthy": 1

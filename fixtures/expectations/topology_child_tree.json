@@ -3,7 +3,7 @@
     "healthy"
   ],
   "tags": null,
-  "teams": null,
+  "teams": [],
   "types": [
     "KubernetesNode",
     "KubernetesPod"
@@ -16,7 +16,6 @@
       "name": "node-a",
       "status": "healthy",
       "type": "KubernetesNode",
-      "configs": null,
       "summary": {
         "healthy": 2
       },
@@ -31,7 +30,6 @@
           "name": "logistics-api-574dc95b5d-mp64w",
           "status": "healthy",
           "type": "KubernetesPod",
-          "configs": null,
           "summary": {
             "healthy": 1
           },
@@ -46,7 +44,6 @@
           "name": "logistics-ui-676b85b87c-tjjcp",
           "status": "healthy",
           "type": "KubernetesPod",
-          "configs": null,
           "summary": {
             "healthy": 1
           },

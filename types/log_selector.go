@@ -3,7 +3,6 @@ package types
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -28,18 +27,9 @@ func (t *LogSelectors) Scan(val any) error {
 }
 
 func (t LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case SqliteType:
-		return JSONType
-	case PostgresType:
-		return JSONBType
-	case SQLServerType:
-		return NVarcharType
-	}
-	return ""
+	return JSONGormDBDataType(db.Dialector.Name())
 }
 
 func (t LogSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := json.Marshal(t)
-	return gorm.Expr("?", string(data))
+	return GormValue(t)
 }

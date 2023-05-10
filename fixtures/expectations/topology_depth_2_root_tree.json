@@ -8,7 +8,7 @@
       "enabled"
     ]
   },
-  "teams": null,
+  "teams": [],
   "types": [
     "Application",
     "Database",
@@ -30,7 +30,6 @@
       "status": "warning",
       "type": "Entity",
       "owner": "logistics-team",
-      "configs": null,
       "summary": {
         "healthy": 1,
         "warning": 1,
@@ -60,7 +59,6 @@
           "status": "warning",
           "type": "Application",
           "owner": "logistics-team",
-          "configs": null,
           "checks": {
             "healthy": 2
           },
@@ -91,7 +89,6 @@
           "status": "healthy",
           "type": "Application",
           "owner": "logistics-team",
-          "configs": null,
           "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "summary": {
             "healthy": 1
@@ -108,7 +105,6 @@
       "name": "cluster",
       "status": "healthy",
       "type": "KubernetesCluster",
-      "configs": null,
       "summary": {
         "healthy": 2,
         "insights": {
@@ -128,7 +124,6 @@
           "name": "Nodes",
           "status": "healthy",
           "type": "KubernetesNodes",
-          "configs": null,
           "summary": {
             "healthy": 2,
             "insights": {
@@ -148,7 +143,6 @@
           "name": "Pods",
           "status": "healthy",
           "type": "KubernetesPods",
-          "configs": null,
           "summary": {
             "healthy": 3
           },

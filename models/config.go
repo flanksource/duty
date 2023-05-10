@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -64,6 +65,19 @@ func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 	var m map[string]any
 	err := json.Unmarshal([]byte(*ci.Config), &m)
 	return m, err
+}
+
+func (c ConfigItem) GetSelectorID() string {
+	if c.Config == nil || *c.Config == "" {
+		return ""
+	}
+
+	selectorID, err := hash.JSONMD5Hash(c.Config)
+	if err != nil {
+		return ""
+	}
+
+	return selectorID
 }
 
 // ConfigScraper represents the config_scrapers database table
