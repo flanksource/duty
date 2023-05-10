@@ -106,6 +106,10 @@ table "check_statuses" {
     null = true
     type = boolean
   }
+  column "severity" {
+    null = true
+    type integer
+  }
   primary_key {
     columns = [column.check_id, column.time]
   }
@@ -191,6 +195,10 @@ table "checks" {
   column "status" {
     null = true
     type = text
+  }
+  column "test_threshold" {
+    null = true
+    type = jsonb
   }
   column "created_at" {
     null = true
