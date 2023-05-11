@@ -20,7 +20,9 @@ FROM
 
 -- Topologies with job status
 DROP VIEW IF EXISTS topologies_with_status;
-CREATE OR REPLACE VIEW topologies_with_status AS
+
+CREATE OR REPLACE VIEW
+  topologies_with_status AS
 SELECT
   topologies.*,
   job_history_latest_status.name job_name,
@@ -36,11 +38,14 @@ SELECT
   job_history_latest_status.created_at job_created_at
 FROM
   topologies
-  LEFT JOIN job_history_latest_status 
-  ON topologies.id::TEXT = job_history_latest_status.resource_id AND job_history_latest_status.resource_type = 'topology';
+  LEFT JOIN job_history_latest_status ON topologies.id::TEXT = job_history_latest_status.resource_id
+  AND job_history_latest_status.resource_type = 'topology'
+WHERE
+  topologies.deleted_at IS NULL;
 
 -- Canaries View
 DROP VIEW IF EXISTS canaries_with_status;
+
 CREATE OR REPLACE VIEW
   canaries_with_status AS
 SELECT
@@ -59,7 +64,9 @@ SELECT
 FROM
   canaries
   LEFT JOIN job_history_latest_status ON canaries.id::TEXT = job_history_latest_status.resource_id
-  AND job_history_latest_status.resource_type = 'canary';
+  AND job_history_latest_status.resource_type = 'canary'
+WHERE
+  canaries.deleted_at IS NULL;
 
 -- Teams View
 DROP VIEW IF EXISTS teams_with_status;
@@ -82,7 +89,9 @@ SELECT
 FROM
   teams
   LEFT JOIN job_history_latest_status ON teams.id::TEXT = job_history_latest_status.resource_id
-  AND job_history_latest_status.resource_type = 'team';
+  AND job_history_latest_status.resource_type = 'team'
+WHERE
+  teams.deleted_at IS NULL;
 
 -- Config scrapers View
 DROP VIEW IF EXISTS config_scrapers_with_status;
@@ -104,4 +113,6 @@ SELECT
   job_history_latest_status.created_at job_created_at
 FROM
   config_scrapers
-  LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id;
+  LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
+WHERE
+  config_scrapers.deleted_at IS NULL;
