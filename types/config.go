@@ -45,6 +45,10 @@ func (t *ConfigQueries) Scan(val any) error {
 	return GenericStructScan(&t, val)
 }
 
+func (t ConfigQueries) GormDataType() string {
+	return "configQueries"
+}
+
 func (t ConfigQueries) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return JSONGormDBDataType(db.Dialector.Name())
 }

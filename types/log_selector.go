@@ -26,6 +26,10 @@ func (t *LogSelectors) Scan(val any) error {
 	return GenericStructScan(&t, val)
 }
 
+func (t LogSelectors) GormDataType() string {
+	return "logSelectors"
+}
+
 func (t LogSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return JSONGormDBDataType(db.Dialector.Name())
 }
