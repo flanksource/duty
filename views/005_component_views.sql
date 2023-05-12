@@ -93,7 +93,7 @@ FROM
   components
 WHERE
   deleted_at IS NULL
-  AND agent_id IS NOT NULL
+  AND agent_id IS NULL
   AND log_selectors IS NOT NULL;
 
 -- TODO stop the recursion once max_depth is reached.level <= max_depth;

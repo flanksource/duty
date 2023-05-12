@@ -42,7 +42,7 @@ type Component struct {
 	Selectors       types.ResourceSelectors `json:"selectors,omitempty" gorm:"resourceSelectors;default:null" swaggerignore:"true"`
 	Configs         types.ConfigQueries     `json:"configs,omitempty" gorm:"default:null"`
 	ComponentChecks types.ComponentChecks   `json:"componentChecks,omitempty" gorm:"default:null"`
-	Properties      Properties              `json:"properties,omitempty" gorm:"type:properties" gorm:"default:null"`
+	Properties      Properties              `json:"properties,omitempty" gorm:"type:properties;default:null"`
 	Path            string                  `json:"path,omitempty"`
 	Summary         types.Summary           `json:"summary,omitempty" gorm:"type:summary;default:null"`
 	IsLeaf          bool                    `json:"is_leaf"`
