@@ -82,6 +82,20 @@ ORDER BY
   key,
   value;
 
+CREATE OR REPLACE VIEW
+  components_with_logs AS
+SELECT
+  id,
+  name,
+  icon,
+type
+FROM
+  components
+WHERE
+  deleted_at IS NULL
+  AND agent_id IS NOT NULL
+  AND log_selectors IS NOT NULL;
+
 -- TODO stop the recursion once max_depth is reached.level <= max_depth;
 DROP FUNCTION if exists lookup_component_children;
 
