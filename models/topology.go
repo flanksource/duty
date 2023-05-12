@@ -12,8 +12,8 @@ type Topology struct {
 	ID        uuid.UUID `gorm:"default:generate_ulid()"`
 	Name      string
 	Namespace string
-	Labels    types.JSONStringMap
-	Spec      types.JSON
+	Labels    types.JSONStringMap `json:"labels,omitempty"  gorm:"default:null"`
+	Spec      types.JSON          `gorm:"default:null"`
 	Schedule  *string
 	CreatedAt *time.Time `json:"created_at,omitempty" time_format:"postgres_timestamp"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty" time_format:"postgres_timestamp"`

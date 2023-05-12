@@ -26,25 +26,25 @@ type Component struct {
 	Text            string                  `json:"text,omitempty"`
 	TopologyType    string                  `json:"topology_type,omitempty"`
 	Namespace       string                  `json:"namespace,omitempty"`
-	Labels          types.JSONStringMap     `json:"labels,omitempty"`
+	Labels          types.JSONStringMap     `json:"labels,omitempty" gorm:"default:null"`
 	Hidden          bool                    `json:"hidden,omitempty"`
 	Silenced        bool                    `json:"silenced,omitempty"`
 	Status          types.ComponentStatus   `json:"status,omitempty"`
 	Description     string                  `json:"description,omitempty"`
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
-	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors"`
+	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
 	Tooltip         string                  `json:"tooltip,omitempty"`
 	StatusReason    string                  `json:"statusReason,omitempty"`
 	Schedule        string                  `json:"schedule,omitempty"`
 	Icon            string                  `json:"icon,omitempty"`
 	Type            string                  `json:"type,omitempty"`
 	Owner           string                  `json:"owner,omitempty"`
-	Selectors       types.ResourceSelectors `json:"selectors,omitempty" gorm:"resourceSelectors" swaggerignore:"true"`
-	Configs         types.ConfigQueries     `json:"configs,omitempty"`
-	ComponentChecks types.ComponentChecks   `json:"componentChecks,omitempty"`
-	Properties      Properties              `json:"properties,omitempty" gorm:"type:properties"`
+	Selectors       types.ResourceSelectors `json:"selectors,omitempty" gorm:"resourceSelectors;default:null" swaggerignore:"true"`
+	Configs         types.ConfigQueries     `json:"configs,omitempty" gorm:"default:null"`
+	ComponentChecks types.ComponentChecks   `json:"componentChecks,omitempty" gorm:"default:null"`
+	Properties      Properties              `json:"properties,omitempty" gorm:"type:properties;default:null"`
 	Path            string                  `json:"path,omitempty"`
-	Summary         types.Summary           `json:"summary,omitempty" gorm:"type:summary"`
+	Summary         types.Summary           `json:"summary,omitempty" gorm:"type:summary;default:null"`
 	IsLeaf          bool                    `json:"is_leaf"`
 	CostPerMinute   float64                 `json:"cost_per_minute,omitempty" gorm:"column:cost_per_minute"`
 	CostTotal1d     float64                 `json:"cost_total_1d,omitempty" gorm:"column:cost_total_1d"`
