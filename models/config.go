@@ -29,6 +29,7 @@ const (
 type ConfigItem struct {
 	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
 	ScraperID     *string              `json:"scraper_id,omitempty"`
+	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
 	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
 	Type          *string              `json:"type,omitempty"`
@@ -84,6 +85,7 @@ func (c ConfigItem) GetSelectorID() string {
 type ConfigScraper struct {
 	ID          uuid.UUID  `json:"id"`
 	Name        string     `json:"name"`
+	AgentID     *uuid.UUID `json:"agent_id,omitempty"`
 	Description string     `json:"description,omitempty"`
 	Spec        string     `json:"spec,omitempty"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
@@ -104,6 +106,7 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigRelationship struct {
+	AgentID    *uuid.UUID `json:"agent_id,omitempty"`
 	ConfigID   string     `gorm:"column:config_id" json:"config_id"`
 	RelatedID  string     `gorm:"column:related_id" json:"related_id"`
 	Relation   string     `gorm:"column:relation" json:"relation"`
@@ -123,6 +126,7 @@ type ConfigChange struct {
 	ConfigType       string     `gorm:"-"`
 	ExternalChangeId string     `gorm:"column:external_change_id" json:"external_change_id"`
 	ID               string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	AgentID          *uuid.UUID `json:"agent_id,omitempty"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
 	ChangeType       string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
 	Severity         string     `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
@@ -162,6 +166,7 @@ func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 
 type ConfigAnalysis struct {
 	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	AgentID       *uuid.UUID    `json:"agent_id,omitempty"`
 	ExternalID    string        `gorm:"-"`
 	ConfigType    string        `gorm:"-"`
 	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
