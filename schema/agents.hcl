@@ -1,4 +1,3 @@
-
 table "agents" {
   schema = schema.public
   column "id" {
