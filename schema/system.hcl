@@ -1,5 +1,3 @@
-
-
 table "event_queue" {
   schema = schema.public
   column "id" {
@@ -36,7 +34,12 @@ table "event_queue" {
   primary_key {
     columns = [column.id]
   }
+  index "event_queue_name_properties" {
+    unique  = true
+    columns = [column.name, column.properties]
+  }
 }
+
 table "integrations" {
   schema = schema.public
   column "id" {
