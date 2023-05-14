@@ -9,6 +9,10 @@ table "config_analysis" {
     null = false
     type = uuid
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -69,6 +73,12 @@ table "config_analysis" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "config_analysis_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
 
 table "config_changes" {
@@ -80,6 +90,10 @@ table "config_changes" {
   }
   column "config_id" {
     null = false
+    type = uuid
+  }
+  column "agent_id" {
+    null = true
     type = uuid
   }
   column "external_change_id" {
@@ -133,6 +147,12 @@ table "config_changes" {
   foreign_key "config_changes_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "config_changes_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
