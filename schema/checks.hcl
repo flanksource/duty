@@ -64,7 +64,7 @@ table "canaries" {
   }
   index "canaries_name_namespace_source_key" {
     unique  = true
-    columns = [column.name, column.namespace, column.source]
+    columns = [column.agent_id, column.name, column.namespace, column.source]
   }
 }
 
