@@ -74,6 +74,10 @@ table "check_statuses" {
     null = false
     type = uuid
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "details" {
     null = true
     type = jsonb
@@ -115,6 +119,12 @@ table "check_statuses" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+  foreign_key "check_statuses_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   index "check_statuses_time_brin_idx" {
     type    = BRIN
     columns = [column.time]
@@ -130,6 +140,10 @@ table "checks" {
   }
   column "canary_id" {
     null = false
+    type = uuid
+  }
+  column "agent_id" {
+    null = true
     type = uuid
   }
   column "type" {
@@ -212,6 +226,12 @@ table "checks" {
     ref_columns = [table.canaries.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "checks_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   index "checks_canary_id_type_name_key" {
     unique  = true
