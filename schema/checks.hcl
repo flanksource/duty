@@ -196,10 +196,6 @@ table "checks" {
     null = true
     type = text
   }
-  column "test_threshold" {
-    null = true
-    type = jsonb
-  }
   column "created_at" {
     null = true
     type = timestamptz
