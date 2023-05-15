@@ -72,9 +72,9 @@ table "agents" {
     columns = [column.id]
   }
 
-  index "agents_name_hostname_key" {
+  index "agents_name_key" {
     unique  = true
-    columns = [column.name, column.hostname]
+    columns = [column.name]
   }
 
   foreign_key "agents_created_by_fkey" {

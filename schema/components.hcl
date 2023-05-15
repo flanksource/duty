@@ -91,10 +91,6 @@ table "component_relationships" {
     null = true
     type = text
   }
-  column "agent_id" {
-    null = true
-    type = uuid
-  }
 
   foreign_key "component_relationships_component_id_fkey" {
     columns     = [column.component_id]
@@ -108,18 +104,13 @@ table "component_relationships" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  foreign_key "component_relationships_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
-  }
 
   index "component_relationships_component_id_relationship_id_select_key" {
     unique  = true
     columns = [column.component_id, column.relationship_id, column.selector_id]
   }
 }
+
 table "components" {
   schema = schema.public
   column "id" {
@@ -376,10 +367,6 @@ table "config_component_relationships" {
     null = false
     type = uuid
   }
-  column "agent_id" {
-    null = true
-    type = uuid
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -407,12 +394,6 @@ table "config_component_relationships" {
   foreign_key "config_component_relationships_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
-  }
-  foreign_key "config_component_relationships_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }

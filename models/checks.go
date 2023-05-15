@@ -100,16 +100,15 @@ func (u Uptime) String() string {
 }
 
 type CheckStatus struct {
-	CheckID   uuid.UUID  `json:"check_id"`
-	AgentID   *uuid.UUID `json:"agent_id,omitempty"`
-	Status    bool       `json:"status"`
-	Invalid   bool       `json:"invalid,omitempty"`
-	Time      string     `json:"time"`
-	Duration  int        `json:"duration"`
-	Message   string     `json:"message,omitempty"`
-	Error     string     `json:"error,omitempty"`
-	Detail    any        `json:"-" gorm:"-"`
-	CreatedAt time.Time  `json:"created_at,omitempty"`
+	CheckID   uuid.UUID `json:"check_id"`
+	Status    bool      `json:"status"`
+	Invalid   bool      `json:"invalid,omitempty"`
+	Time      string    `json:"time"`
+	Duration  int       `json:"duration"`
+	Message   string    `json:"message,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	Detail    any       `json:"-" gorm:"-"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 func (s CheckStatus) GetTime() (time.Time, error) {

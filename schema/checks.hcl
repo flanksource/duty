@@ -74,10 +74,6 @@ table "check_statuses" {
     null = false
     type = uuid
   }
-  column "agent_id" {
-    null = true
-    type = uuid
-  }
   column "details" {
     null = true
     type = jsonb
@@ -118,12 +114,6 @@ table "check_statuses" {
     ref_columns = [table.checks.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
-  }
-  foreign_key "check_statuses_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
   }
   index "check_statuses_time_brin_idx" {
     type    = BRIN
