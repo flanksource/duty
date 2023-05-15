@@ -21,7 +21,17 @@ var LogisticsDBCanary = models.Canary{
 	CreatedAt: DummyCreatedAt,
 }
 
+var CartAPICanaryAgent = models.Canary{
+	ID:        uuid.MustParse("6dc9d6dd-0b55-4801-837c-352d3abf9b70"),
+	AgentID:   &GCPAgent.ID,
+	Name:      "dummy-cart-api-canary",
+	Namespace: "cart",
+	Spec:      []byte("{}"),
+	CreatedAt: DummyCreatedAt,
+}
+
 var AllDummyCanaries = []models.Canary{
 	LogisticsAPICanary,
 	LogisticsDBCanary,
+	CartAPICanaryAgent,
 }
