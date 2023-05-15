@@ -3,34 +3,36 @@ CREATE
 OR REPLACE FUNCTION push_changes_to_event_queue () RETURNS trigger AS $$
 DECLARE
     rec RECORD;
+    payload JSONB;
 BEGIN
   rec = NEW;
   IF TG_OP = 'DELETE' THEN
     rec = OLD;
   END IF;
 
-  IF TG_TABLE_NAME = 'component_relationships' THEN
-    INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', rec.component_id, 'relationship_id', rec.relationship_id, 'selector_id', rec.selector_id)) ON CONFLICT (name, properties) DO UPDATE SET attempts = 0;
-    RETURN rec;
+  CASE TG_TABLE_NAME
+    WHEN 'component_relationships' THEN
+      payload = jsonb_build_object('component_id', rec.component_id, 'relationship_id', rec.relationship_id, 'selector_id', rec.selector_id);
+    WHEN 'config_component_relationships' THEN
+      payload = jsonb_build_object('component_id', rec.component_id, 'config_id', rec.config_id);
+    WHEN 'config_relationships' THEN
+      payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id);
+    WHEN 'check_statuses' THEN
+      payload = jsonb_build_object('check_id', rec.check_id, 'time', rec.time);
+    ELSE
+      payload = jsonb_build_object('id', rec.id);
+  END CASE;
 
-  ELSIF TG_TABLE_NAME = 'config_component_relationships' THEN
-    INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'component_id', rec.component_id, 'config_id', rec.config_id)) ON CONFLICT (name, properties) DO UPDATE SET attempts = 0;
-    RETURN rec;
-
-  ELSIF TG_TABLE_NAME = 'config_relationships' THEN
-    INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id)) ON CONFLICT (name, properties) DO UPDATE SET attempts = 0;
-    RETURN rec;
-
-  ELSIF TG_TABLE_NAME = 'check_statuses' THEN
-    INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'check_id', rec.check_id, 'time', rec.time)) ON CONFLICT (name, properties) DO UPDATE SET attempts = 0;
-    RETURN rec;
-  
-  ELSE
-    INSERT INTO event_queue (name, properties) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME, 'id', rec.id)) ON CONFLICT (name, properties) DO UPDATE SET attempts = 0;
-    RETURN rec;
-  END IF;
-
+  INSERT INTO
+    event_queue (name, properties)
+  VALUES
+    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload)
+  ON CONFLICT
+    (name, properties)
+  DO UPDATE SET
+    attempts = 0;
   NOTIFY event_queue_updates, 'update';
+  RETURN rec;
 END;
 $$ LANGUAGE 'plpgsql' SECURITY DEFINER;
 
