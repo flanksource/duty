@@ -410,7 +410,6 @@ type ComponentRelationship struct {
 	RelationshipID   uuid.UUID  `gorm:"column:relationship_id" json:"relationship_id,omitempty"`
 	SelectorID       string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
 	RelationshipPath string     `gorm:"column:relationship_path" json:"relationship_path,omitempty"`
-	AgentID          *uuid.UUID `json:"agent_id,omitempty"`
 	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
 	UpdatedAt        time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty"`
 	DeletedAt        *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
@@ -424,7 +423,6 @@ type ConfigComponentRelationship struct {
 	ComponentID uuid.UUID  `gorm:"column:component_id" json:"component_id,omitempty"`
 	ConfigID    uuid.UUID  `gorm:"column:config_id" json:"config_id,omitempty"`
 	SelectorID  string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
-	AgentID     *uuid.UUID `json:"agent_id,omitempty"`
 	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
 	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty"`
 	DeletedAt   *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
