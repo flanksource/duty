@@ -6,7 +6,8 @@ table "canaries" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = true
+    null = false
+    default = var.uuid_nil
     type = uuid
   }
   column "name" {
@@ -133,7 +134,8 @@ table "checks" {
     type = uuid
   }
   column "agent_id" {
-    null = true
+    null = false
+    default = var.uuid_nil
     type = uuid
   }
   column "type" {

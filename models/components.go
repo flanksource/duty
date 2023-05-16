@@ -20,7 +20,7 @@ import (
 type Component struct {
 	ID              uuid.UUID               `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
 	TopologyID      *uuid.UUID              `json:"topology_id,omitempty"`
-	AgentID         *uuid.UUID              `json:"agent_id,omitempty"`
+	AgentID         uuid.UUID               `json:"agent_id,omitempty"`
 	ExternalId      string                  `json:"external_id,omitempty"` //nolint
 	ParentId        *uuid.UUID              `json:"parent_id,omitempty"`   //nolint
 	Name            string                  `json:"name,omitempty"`

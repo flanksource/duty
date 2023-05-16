@@ -23,7 +23,7 @@ var LogisticsDBCanary = models.Canary{
 
 var CartAPICanaryAgent = models.Canary{
 	ID:        uuid.MustParse("6dc9d6dd-0b55-4801-837c-352d3abf9b70"),
-	AgentID:   &GCPAgent.ID,
+	AgentID:   GCPAgent.ID,
 	Name:      "dummy-cart-api-canary",
 	Namespace: "cart",
 	Spec:      []byte("{}"),

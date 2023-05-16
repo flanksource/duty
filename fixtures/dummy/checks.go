@@ -32,7 +32,7 @@ var LogisticsDBCheck = models.Check{
 
 var CartAPIHeathCheckAgent = models.Check{
 	ID:       uuid.MustParse("eed7bd6e-529b-4693-aca9-43977bcc5ff1"),
-	AgentID:  &GCPAgent.ID,
+	AgentID:  GCPAgent.ID,
 	CanaryID: CartAPICanaryAgent.ID,
 	Name:     "cart-api-health-check",
 	Type:     "http",
