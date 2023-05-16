@@ -29,6 +29,7 @@ const (
 type ConfigItem struct {
 	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
 	ScraperID     *string              `json:"scraper_id,omitempty"`
+	AgentID       uuid.UUID            `json:"agent_id,omitempty"`
 	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
 	Type          *string              `json:"type,omitempty"`

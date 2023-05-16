@@ -9,6 +9,7 @@ import (
 
 type Canary struct {
 	ID        uuid.UUID `gorm:"default:generate_ulid()"`
+	AgentID   uuid.UUID `json:"agent_id,omitempty"`
 	Spec      types.JSON
 	Labels    types.JSONStringMap
 	Source    string

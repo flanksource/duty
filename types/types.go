@@ -221,8 +221,7 @@ func (JSONStringMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 func (jm JSONStringMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
-	data, _ := jm.MarshalJSON()
-	return gorm.Expr("?", string(data))
+	return GormValue(jm)
 }
 
 func (jm JSONStringMap) ToMapStringAny() map[string]any {

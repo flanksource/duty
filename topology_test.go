@@ -38,7 +38,8 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?)`
+	// TODO: Update fixtures with agent_id
+	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?, .agent_id?)`
 	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 

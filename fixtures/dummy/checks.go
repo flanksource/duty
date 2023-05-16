@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 )
 
@@ -29,8 +30,18 @@ var LogisticsDBCheck = models.Check{
 	Status:   "unhealthy",
 }
 
+var CartAPIHeathCheckAgent = models.Check{
+	ID:       uuid.MustParse("eed7bd6e-529b-4693-aca9-43977bcc5ff1"),
+	AgentID:  GCPAgent.ID,
+	CanaryID: CartAPICanaryAgent.ID,
+	Name:     "cart-api-health-check",
+	Type:     "http",
+	Status:   models.CheckHealthStatus(types.ComponentStatusHealthy),
+}
+
 var AllDummyChecks = []models.Check{
 	LogisticsAPIHealthHTTPCheck,
 	LogisticsAPIHomeHTTPCheck,
 	LogisticsDBCheck,
+	CartAPIHeathCheckAgent,
 }

@@ -6,7 +6,8 @@ table "canaries" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = true
+    null = false
+    default = var.uuid_nil
     type = uuid
   }
   column "name" {
@@ -64,7 +65,7 @@ table "canaries" {
   }
   index "canaries_name_namespace_source_key" {
     unique  = true
-    columns = [column.name, column.namespace, column.source]
+    columns = [column.agent_id, column.name, column.namespace, column.source]
   }
 }
 
@@ -134,6 +135,11 @@ table "checks" {
   }
   column "canary_id" {
     null = false
+    type = uuid
+  }
+  column "agent_id" {
+    null = false
+    default = var.uuid_nil
     type = uuid
   }
   column "type" {
@@ -216,6 +222,12 @@ table "checks" {
     ref_columns = [table.canaries.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "checks_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   index "checks_canary_id_type_name_key" {
     unique  = true

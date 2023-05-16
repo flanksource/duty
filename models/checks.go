@@ -23,6 +23,7 @@ var CheckHealthStatuses = []CheckHealthStatus{
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
+	AgentID            uuid.UUID           `json:"agent_id,omitempty"`
 	Spec               types.JSON          `json:"-"`
 	Type               string              `json:"type"`
 	Name               string              `json:"name"`

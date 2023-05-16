@@ -1,4 +1,3 @@
-
 table "topologies" {
   schema = schema.public
   column "id" {
@@ -92,6 +91,7 @@ table "component_relationships" {
     null = true
     type = text
   }
+
   foreign_key "component_relationships_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
@@ -104,11 +104,13 @@ table "component_relationships" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+
   index "component_relationships_component_id_relationship_id_select_key" {
     unique  = true
     columns = [column.component_id, column.relationship_id, column.selector_id]
   }
 }
+
 table "components" {
   schema = schema.public
   column "id" {
@@ -117,7 +119,8 @@ table "components" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = true
+    null = false
+    default = var.uuid_nil
     type = uuid
   }
   column "topology_id" {
