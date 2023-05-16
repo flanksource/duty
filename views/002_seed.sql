@@ -7,6 +7,13 @@ END $$;
 
 DO $$
 BEGIN
+    IF NOT EXISTS (SELECT FROM agents WHERE name = 'local') THEN
+        INSERT INTO agents (id, name) VALUES ('00000000-0000-0000-0000-000000000000', 'local');
+    END IF;
+END $$;
+
+DO $$
+BEGIN
    IF NOT EXISTS (SELECT FROM severities ) THEN
         INSERT INTO severities (id, name, icon, aliases)
         VALUES
