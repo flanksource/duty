@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
-  "$ref": "#/definitions/ComponentSpec",
+  "$ref": "#/definitions/TopologySpec",
   "definitions": {
     "AWSConnection": {
       "properties": {
@@ -656,31 +656,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Component": {
-      "required": [
-        "TypeMeta"
-      ],
-      "properties": {
-        "TypeMeta": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/TypeMeta"
-        },
-        "metadata": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ObjectMeta"
-        },
-        "spec": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ComponentSpec"
-        },
-        "status": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ComponentStatus"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ComponentCheck": {
       "properties": {
         "selector": {
@@ -708,7 +683,6 @@
           "type": "string"
         },
         "id": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
           "$ref": "#/definitions/Template"
         },
         "order": {
@@ -858,15 +832,6 @@
             "$ref": "#/definitions/LogSelector"
           },
           "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ComponentStatus": {
-      "properties": {
-        "status": {
-          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -3115,6 +3080,96 @@
     },
     "Time": {
       "properties": {},
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Topology": {
+      "required": [
+        "TypeMeta"
+      ],
+      "properties": {
+        "TypeMeta": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/TypeMeta"
+        },
+        "metadata": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/ObjectMeta"
+        },
+        "spec": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/TopologySpec"
+        },
+        "status": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/TopologyStatus"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TopologySpec": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/Template"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "tooltip": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "components": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/ComponentSpec"
+          },
+          "type": "array"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/definitions/Property"
+          },
+          "type": "array"
+        },
+        "configs": {
+          "items": {
+            "$ref": "#/definitions/Config"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TopologyStatus": {
+      "properties": {
+        "persistentID": {
+          "type": "string"
+        },
+        "observedGeneration": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
       "additionalProperties": false,
       "type": "object"
     },

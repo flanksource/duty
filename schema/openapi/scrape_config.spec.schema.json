@@ -102,6 +102,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Azure": {
+      "required": [
+        "BaseScraper",
+        "subscriptionID",
+        "organisation",
+        "tenantID"
+      ],
+      "properties": {
+        "BaseScraper": {
+          "$ref": "#/definitions/BaseScraper"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "subscriptionID": {
+          "type": "string"
+        },
+        "organisation": {
+          "type": "string"
+        },
+        "clientID": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "tenantID": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AzureDevops": {
       "required": [
         "BaseScraper",
@@ -156,6 +189,29 @@
         },
         "format": {
           "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -186,9 +242,6 @@
         },
         "key": {
           "type": "string"
-        },
-        "optional": {
-          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -237,12 +290,36 @@
           },
           "type": "array"
         },
+        "githubActions": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/GitHubActions"
+          },
+          "type": "array"
+        },
+        "azure": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Azure"
+          },
+          "type": "array"
+        },
         "sql": {
           "items": {
             "$schema": "http://json-schema.org/draft-04/schema#",
             "$ref": "#/definitions/SQL"
           },
           "type": "array"
+        },
+        "trivy": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Trivy"
+          },
+          "type": "array"
+        },
+        "full": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -339,6 +416,12 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -348,6 +431,37 @@
       "properties": {
         "jsonpath": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GitHubActions": {
+      "required": [
+        "BaseScraper",
+        "owner",
+        "repository",
+        "personalAccessToken",
+        "workflows"
+      ],
+      "properties": {
+        "BaseScraper": {
+          "$ref": "#/definitions/BaseScraper"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "personalAccessToken": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "workflows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -396,6 +510,26 @@
         },
         "kubeconfig": {
           "$ref": "#/definitions/EnvVar"
+        },
+        "event": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/KubernetesEvent"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubernetesEvent": {
+      "properties": {
+        "exclusions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "severityKeywords": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/SeverityKeywords"
         }
       },
       "additionalProperties": false,
@@ -701,9 +835,24 @@
         },
         "key": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SeverityKeywords": {
+      "properties": {
+        "warn": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
-        "optional": {
-          "type": "boolean"
+        "error": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -716,7 +865,7 @@
     },
     "Transform": {
       "properties": {
-        "template": {
+        "gotemplate": {
           "type": "string"
         },
         "jsonpath": {
@@ -747,6 +896,70 @@
             "$ref": "#/definitions/Mask"
           },
           "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Trivy": {
+      "required": [
+        "BaseScraper"
+      ],
+      "properties": {
+        "BaseScraper": {
+          "$ref": "#/definitions/BaseScraper"
+        },
+        "version": {
+          "type": "string"
+        },
+        "compliance": {
+          "type": "string"
+        },
+        "ignoredLicenses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ignoreUnfixed": {
+          "type": "boolean"
+        },
+        "licenseFull": {
+          "type": "boolean"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "vulnType": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "kubernetes": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/TrivyK8sOptions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TrivyK8sOptions": {
+      "properties": {
+        "components": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "context": {
+          "type": "string"
+        },
+        "kubeconfig": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
