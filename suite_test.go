@@ -11,6 +11,7 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
+	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/testutils"
 	"github.com/itchyny/gojq"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -53,12 +54,18 @@ var _ = ginkgo.BeforeSuite(func() {
 	if _, err := NewDB(pgUrl); err != nil {
 		ginkgo.Fail(err.Error())
 	}
-	err = Migrate(pgUrl)
+	err = Migrate(pgUrl, &migrate.MigrateOptions{IgnoreFiles: []string{"postgrest.sql"}})
 	Expect(err).ToNot(HaveOccurred())
 
 	testutils.TestDB, err = NewGorm(pgUrl, DefaultGormConfig())
 	Expect(err).ToNot(HaveOccurred())
 	Expect(testutils.TestDB).ToNot(BeNil())
+
+	// Since postgrest.sql is ignored, postgrest_anon role should not be present
+	var pgrstCount int
+	err = testutils.TestDB.Raw(`SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_anon'`).Scan(&pgrstCount).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pgrstCount).To(Equal(0))
 
 	err = dummy.PopulateDBWithDummyModels(testutils.TestDB)
 	Expect(err).ToNot(HaveOccurred())
