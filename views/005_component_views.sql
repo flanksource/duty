@@ -82,6 +82,8 @@ ORDER BY
   key,
   value;
 
+DROP VIEW IF EXISTS components_with_logs;
+
 CREATE OR REPLACE VIEW
   components_with_logs AS
 SELECT
