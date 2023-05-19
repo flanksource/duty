@@ -324,5 +324,9 @@ func JSONGormDBDataType(dialect string) string {
 
 func GormValue(t any) clause.Expr {
 	data, _ := json.Marshal(t)
+	if string(data) == "null" {
+		return gorm.Expr("NULL")
+	}
+
 	return gorm.Expr("?", string(data))
 }
