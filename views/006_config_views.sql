@@ -20,6 +20,7 @@ CREATE or REPLACE VIEW configs AS
     ci.cost_total_1d,
     ci.cost_total_7d,
     ci.cost_total_30d,
+    ci.agent_id,
     analysis,
     changes
   FROM config_items as ci
