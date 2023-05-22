@@ -116,3 +116,8 @@ FROM
   LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
 WHERE
   config_scrapers.deleted_at IS NULL;
+
+DROP VIEW IF EXISTS job_history_names;
+CREATE OR REPLACE VIEW job_history_names AS
+  SELECT distinct on (name) name
+  FROM job_history;
