@@ -10,7 +10,10 @@ import (
 
 const (
 	StatusRunning  = "RUNNING"
+	StatusSuccess  = "SUCCESS"
+	StatusWarning  = "WARNING"
 	StatusFinished = "FINISHED"
+	StatusFailed   = "FAILED"
 )
 
 type JobHistory struct {
@@ -51,12 +54,14 @@ func (h *JobHistory) End() *JobHistory {
 	h.Details = map[string]any{
 		"errors": h.Errors,
 	}
-	h.Status = StatusFinished
 
 	// Set success count if not set before
 	if h.SuccessCount == 0 && h.ErrorCount == 0 {
 		h.IncrSuccess()
 	}
+
+	h.EvaluateStatus()
+
 	return h
 }
 
@@ -71,4 +76,22 @@ func (h *JobHistory) AddError(err string) *JobHistory {
 func (h *JobHistory) IncrSuccess() *JobHistory {
 	h.SuccessCount += 1
 	return h
+}
+
+// EvaluateStatus updates the Status field of JobHistory based on the counts of
+// Success and Error in it.
+func (h *JobHistory) EvaluateStatus() {
+	if h.SuccessCount == 0 {
+		if h.ErrorCount > 0 {
+			h.Status = StatusFailed
+		} else {
+			h.Status = StatusFinished
+		}
+	} else {
+		if h.ErrorCount == 0 {
+			h.Status = StatusSuccess
+		} else {
+			h.Status = StatusWarning
+		}
+	}
 }
