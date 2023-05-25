@@ -295,3 +295,7 @@ CREATE VIEW config_class_summary AS
     aggregated_analysis_counts.analysis
   ORDER BY
     config_class;
+
+DROP VIEW IF EXISTS config_analysis_analyzers;
+CREATE OR REPLACE VIEW config_analysis_analyzers AS
+  SELECT DISTINCT(analyzer) FROM config_analysis;
