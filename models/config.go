@@ -25,6 +25,13 @@ const (
 	ConfigClassVirtualMachine = "VirtualMachine"
 )
 
+// Config Analysis statuses
+const (
+	AnalysisStatusOpen     = "open"
+	AnalysisStatusResolved = "resolved"
+	AnalysisStatusSilenced = "silenced"
+)
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
 	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
@@ -166,6 +173,7 @@ type ConfigAnalysis struct {
 	ExternalID    string        `gorm:"-"`
 	ConfigType    string        `gorm:"-"`
 	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
+	ScraperID     *uuid.UUID    `gorm:"column:scraper_id;default:null" json:"scraper_id"`
 	Analyzer      string        `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
 	Message       string        `gorm:"column:message" json:"message"`
 	Summary       string        `gorm:"column:summary;default:null" json:"summary,omitempty"`

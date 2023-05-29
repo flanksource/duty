@@ -9,6 +9,10 @@ table "config_analysis" {
     null = false
     type = uuid
   }
+  column "scraper_id" {
+    null = true
+    type = uuid
+  }
   column "created_by" {
     null = true
     type = uuid
