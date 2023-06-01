@@ -343,6 +343,10 @@ table "config_scrapers" {
     null = true
     type = jsonb
   }
+  column "source" {
+    null = true
+    type = enum.source
+  }
   column "created_by" {
     null = true
     type = uuid
