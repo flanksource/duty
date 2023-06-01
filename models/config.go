@@ -94,6 +94,7 @@ type ConfigScraper struct {
 	Name        string     `json:"name"`
 	Description string     `json:"description,omitempty"`
 	Spec        string     `json:"spec,omitempty"`
+	Source      string     `json:"source,omitempty"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
