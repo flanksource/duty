@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sort"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
@@ -12,7 +13,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RunMigrations(pool *sql.DB, connection string) error {
+type MigrateOptions struct {
+	IgnoreFiles []string
+}
+
+func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
@@ -32,7 +37,7 @@ func RunMigrations(pool *sql.DB, connection string) error {
 		return err
 	}
 
-	if err := runScripts(pool, funcs); err != nil {
+	if err := runScripts(pool, funcs, opts.IgnoreFiles); err != nil {
 		return err
 	}
 	logger.Debugf("Applying schema migrations")
@@ -45,21 +50,24 @@ func RunMigrations(pool *sql.DB, connection string) error {
 		return err
 	}
 
-	if err := runScripts(pool, views); err != nil {
+	if err := runScripts(pool, views, opts.IgnoreFiles); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func runScripts(pool *sql.DB, scripts map[string]string) error {
+func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) error {
 	var filenames []string
 	for name := range scripts {
+		if collections.Contains(ignoreFiles, name) {
+			continue
+		}
 		filenames = append(filenames, name)
 	}
 	sort.Strings(filenames)
 	for _, file := range filenames {
-		logger.Debugf("Running script %s", file)
+		logger.Tracef("Running script %s", file)
 		if _, err := pool.Exec(scripts[file]); err != nil {
 			return errors.Wrapf(err, "failed to run script %s", file)
 		}

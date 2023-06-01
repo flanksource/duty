@@ -27,3 +27,34 @@ CREATE
 OR REPLACE TRIGGER comment_enqueue
 AFTER INSERT ON comments FOR EACH ROW
 EXECUTE PROCEDURE insert_comment_in_event_queue ();
+
+CREATE OR REPLACE VIEW failed_push_queue AS
+SELECT
+  properties ->> 'table' AS "table",
+  COUNT(id) AS error_count,
+  ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
+  MIN(created_at) AS first_failure,
+  MAX(last_attempt) AS latest_failure,
+  mode() WITHIN GROUP (ORDER BY error) AS most_common_error
+FROM
+  event_queue
+WHERE
+  error IS NOT NULL AND attempts > 0
+GROUP BY
+  "table";
+
+CREATE OR REPLACE VIEW failed_events AS
+SELECT
+  name,
+  COUNT(DISTINCT error) AS unique_errors,
+  ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
+  COUNT(*) AS total_failed_events,
+  mode() WITHIN GROUP (ORDER BY error) AS most_common_error
+FROM
+  event_queue
+WHERE
+  error IS NOT NULL
+  AND attempts > 0
+  AND created_at >= NOW() - INTERVAL '7 days'
+GROUP BY
+  name;

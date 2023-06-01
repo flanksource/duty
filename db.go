@@ -112,11 +112,16 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(connection string) error {
+func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	db, err := NewDB(connection)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	return migrate.RunMigrations(db, connection)
+
+	migrateOptions := opts
+	if migrateOptions == nil {
+		migrateOptions = &migrate.MigrateOptions{}
+	}
+	return migrate.RunMigrations(db, connection, *migrateOptions)
 }

@@ -9,6 +9,10 @@ table "config_analysis" {
     null = false
     type = uuid
   }
+  column "scraper_id" {
+    null = true
+    type = uuid
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -338,6 +342,10 @@ table "config_scrapers" {
   column "spec" {
     null = true
     type = jsonb
+  }
+  column "source" {
+    null = true
+    type = enum.source
   }
   column "created_by" {
     null = true

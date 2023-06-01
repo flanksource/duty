@@ -20,6 +20,7 @@ CREATE or REPLACE VIEW configs AS
     ci.cost_total_1d,
     ci.cost_total_7d,
     ci.cost_total_30d,
+    ci.agent_id,
     analysis,
     changes
   FROM config_items as ci
@@ -27,6 +28,7 @@ CREATE or REPLACE VIEW configs AS
       SELECT config_id,
         json_agg(json_build_object('analyzer',analyzer,'analysis_type',analysis_type,'severity',severity)) as analysis
       FROM config_analysis
+      WHERE config_analysis.status = 'open'
       GROUP BY  config_id
     ) as ca on ca.config_id = ci.id
     full join (
@@ -207,6 +209,7 @@ CREATE VIEW config_summary AS
     FROM
       config_analysis
       LEFT JOIN config_items ON config_items.id = config_analysis.config_id
+    WHERE config_analysis.status = 'open'
     GROUP BY
       config_items.type,
       config_analysis.analysis_type
@@ -261,7 +264,10 @@ CREATE VIEW config_class_summary AS
       COUNT(*) AS count
     FROM
       config_analysis
-      LEFT JOIN config_items ON config_items.id = config_analysis.config_id
+      LEFT JOIN config_items 
+    ON config_items.id = config_analysis.config_id
+    WHERE
+      config_analysis.status = 'open'
     GROUP BY
       config_items.config_class,
       config_analysis.analysis_type
@@ -294,3 +300,7 @@ CREATE VIEW config_class_summary AS
     aggregated_analysis_counts.analysis
   ORDER BY
     config_class;
+
+DROP VIEW IF EXISTS config_analysis_analyzers;
+CREATE OR REPLACE VIEW config_analysis_analyzers AS
+  SELECT DISTINCT(analyzer) FROM config_analysis WHERE status = 'open';

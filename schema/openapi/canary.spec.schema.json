@@ -4,6 +4,9 @@
   "definitions": {
     "AWSConnection": {
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "accessKey": {
           "$ref": "#/definitions/EnvVar"
         },
@@ -24,6 +27,70 @@
         },
         "usePathStyle": {
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "AlertManagerCheck": {
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "test": {
+          "$ref": "#/definitions/Template"
+        },
+        "display": {
+          "$ref": "#/definitions/Template"
+        },
+        "transform": {
+          "$ref": "#/definitions/Template"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "auth": {
+          "$ref": "#/definitions/Authentication"
+        },
+        "alerts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "filters": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -146,16 +213,75 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Bucket": {
+    "AzureDevopsCheck": {
+      "required": [
+        "name",
+        "organization",
+        "personalAccessToken",
+        "project",
+        "pipeline",
+        "variables",
+        "branch",
+        "thresholdMillis"
+      ],
       "properties": {
+        "description": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },
-        "region": {
+        "icon": {
           "type": "string"
         },
-        "endpoint": {
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "test": {
+          "$ref": "#/definitions/Template"
+        },
+        "display": {
+          "$ref": "#/definitions/Template"
+        },
+        "transform": {
+          "$ref": "#/definitions/Template"
+        },
+        "connection": {
           "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "personalAccessToken": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "project": {
+          "type": "string"
+        },
+        "pipeline": {
+          "type": "string"
+        },
+        "variables": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "branch": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thresholdMillis": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -428,6 +554,27 @@
           },
           "type": "array"
         },
+        "alertmanager": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/AlertManagerCheck"
+          },
+          "type": "array"
+        },
+        "dynatrace": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/DynatraceCheck"
+          },
+          "type": "array"
+        },
+        "azureDevops": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/AzureDevopsCheck"
+          },
+          "type": "array"
+        },
         "interval": {
           "type": "integer"
         },
@@ -546,6 +693,9 @@
           },
           "type": "object"
         },
+        "connection": {
+          "type": "string"
+        },
         "accessKey": {
           "$ref": "#/definitions/EnvVar"
         },
@@ -608,7 +758,6 @@
     "ConfigDBCheck": {
       "required": [
         "name",
-        "host",
         "query"
       ],
       "properties": {
@@ -637,12 +786,6 @@
             }
           },
           "type": "object"
-        },
-        "authentication": {
-          "$ref": "#/definitions/Authentication"
-        },
-        "host": {
-          "type": "string"
         },
         "query": {
           "type": "string"
@@ -913,6 +1056,53 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "DynatraceCheck": {
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "test": {
+          "$ref": "#/definitions/Template"
+        },
+        "display": {
+          "$ref": "#/definitions/Template"
+        },
+        "transform": {
+          "$ref": "#/definitions/Template"
+        },
+        "host": {
+          "type": "string"
+        },
+        "scheme": {
+          "type": "string"
+        },
+        "apiKey": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EC2Check": {
       "required": [
         "name"
@@ -934,6 +1124,9 @@
             }
           },
           "type": "object"
+        },
+        "connection": {
+          "type": "string"
         },
         "accessKey": {
           "$ref": "#/definitions/EnvVar"
@@ -1014,6 +1207,9 @@
         },
         "transform": {
           "$ref": "#/definitions/Template"
+        },
+        "connection": {
+          "type": "string"
         },
         "url": {
           "type": "string"
@@ -1212,6 +1408,9 @@
     },
     "GCPConnection": {
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "endpoint": {
           "type": "string"
         },
@@ -1273,6 +1472,9 @@
         "transform": {
           "$ref": "#/definitions/Template"
         },
+        "connection": {
+          "type": "string"
+        },
         "query": {
           "type": "string"
         },
@@ -1314,6 +1516,9 @@
         },
         "transform": {
           "$ref": "#/definitions/Template"
+        },
+        "connection": {
+          "type": "string"
         },
         "endpoint": {
           "type": "string"
@@ -1485,6 +1690,9 @@
           },
           "type": "object"
         },
+        "connection": {
+          "type": "string"
+        },
         "jmx": {
           "$ref": "#/definitions/EnvVar"
         },
@@ -1638,6 +1846,9 @@
             }
           },
           "type": "object"
+        },
+        "connection": {
+          "type": "string"
         },
         "host": {
           "type": "string"
@@ -2097,6 +2308,9 @@
         "ingressHost": {
           "type": "string"
         },
+        "ingressClass": {
+          "type": "string"
+        },
         "expectedContent": {
           "type": "string"
         },
@@ -2194,6 +2408,9 @@
         "transform": {
           "$ref": "#/definitions/Template"
         },
+        "connection": {
+          "type": "string"
+        },
         "host": {
           "type": "string"
         },
@@ -2227,6 +2444,9 @@
             }
           },
           "type": "object"
+        },
+        "connection": {
+          "type": "string"
         },
         "addr": {
           "type": "string"
@@ -2281,6 +2501,12 @@
           },
           "type": "object"
         },
+        "connection": {
+          "type": "string"
+        },
+        "awsConnectionName": {
+          "type": "string"
+        },
         "repository": {
           "type": "string"
         },
@@ -2328,21 +2554,32 @@
           },
           "type": "object"
         },
-        "bucket": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Bucket"
+        "connection": {
+          "type": "string"
         },
         "accessKey": {
-          "type": "string"
+          "$ref": "#/definitions/EnvVar"
         },
         "secretKey": {
+          "$ref": "#/definitions/EnvVar"
+        },
+        "region": {
           "type": "string"
         },
-        "objectPath": {
+        "endpoint": {
           "type": "string"
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "objectPath": {
+          "type": "string"
+        },
+        "usePathStyle": {
+          "type": "boolean"
+        },
+        "bucketName": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -2354,6 +2591,9 @@
         "auth"
       ],
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "port": {
           "type": "integer"
         },
@@ -2372,6 +2612,9 @@
         "auth"
       ],
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "port": {
           "type": "integer"
         },

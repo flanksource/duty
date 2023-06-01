@@ -16,6 +16,7 @@ var LogisticsDBRDSAnalysis = models.ConfigAnalysis{
 	Severity:      "critical",
 	Message:       "Port exposed to public",
 	FirstObserved: &currentTime,
+	Status:        models.AnalysisStatusOpen,
 }
 
 var EC2InstanceBAnalysis = models.ConfigAnalysis{
@@ -25,6 +26,7 @@ var EC2InstanceBAnalysis = models.ConfigAnalysis{
 	Severity:      "critical",
 	Message:       "SSH key not rotated",
 	FirstObserved: &currentTime,
+	Status:        models.AnalysisStatusOpen,
 }
 
 var AllDummyConfigAnalysis = []models.ConfigAnalysis{
