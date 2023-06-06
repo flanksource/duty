@@ -107,6 +107,10 @@ table "check_statuses" {
     null = true
     type = boolean
   }
+  column "severity" {
+    null = true
+    type = integer
+  }
   primary_key {
     columns = [column.check_id, column.time]
   }
