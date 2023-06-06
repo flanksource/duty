@@ -58,3 +58,24 @@ WHERE
   AND created_at >= NOW() - INTERVAL '7 days'
 GROUP BY
   name;
+
+-- Insert team updates in event_queue
+CREATE
+OR REPLACE FUNCTION insert_team_in_event_queue () RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    INSERT INTO event_queue(name, properties) VALUES ('team.delete', jsonb_build_object('team_id', OLD.id));
+    NOTIFY event_queue_updates, 'update';
+    RETURN OLD;
+  ELSE
+    INSERT INTO event_queue(name, properties) VALUES ('team.update', jsonb_build_object('team_id', NEW.id));
+    NOTIFY event_queue_updates, 'update';
+    RETURN NEW;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE
+OR REPLACE TRIGGER team_enqueue
+AFTER INSERT OR UPDATE OR DELETE ON teams FOR EACH ROW
+EXECUTE PROCEDURE insert_team_in_event_queue ();

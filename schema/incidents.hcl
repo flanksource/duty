@@ -714,7 +714,6 @@ table "comments" {
   }
 }
 
-
 table "severities" {
   schema = schema.public
   column "id" {
@@ -732,5 +731,39 @@ table "severities" {
   column "icon" {
     null = true
     type = text
+  }
+}
+
+table "notifications" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "team_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  column "config" {
+    null = false
+    type = jsonb
+  }
+  foreign_key "notifications_team_id_fkey" {
+    columns     = [column.team_id]
+    ref_columns = [table.teams.column.id]
+  }
+  index "notifications_team_id_key" {
+    unique  = false
+    columns = [column.team_id]
   }
 }
