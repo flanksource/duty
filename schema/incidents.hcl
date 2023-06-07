@@ -130,6 +130,7 @@ table "evidences" {
     on_delete   = NO_ACTION
   }
 }
+
 table "hypotheses" {
   schema = schema.public
   column "id" {
@@ -344,6 +345,7 @@ table "incident_relationships" {
     on_delete   = NO_ACTION
   }
 }
+
 table "incident_rules" {
   schema = schema.public
   column "id" {
@@ -411,6 +413,11 @@ table "incidents" {
   column "incident_rule_id" {
     null = true
     type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
+    comment = "the id of the component that caused the incident. applicable only when an incident rule creates an incident from a component."
   }
   column "title" {
     null = false
@@ -494,6 +501,12 @@ table "incidents" {
   foreign_key "incidents_incident_rule_id_fkey" {
     columns     = [column.incident_rule_id]
     ref_columns = [table.incident_rules.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "incidents_component_id_fkey" {
+    columns = [column.component_id]
+    ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
@@ -589,8 +602,6 @@ table "responders" {
   }
 }
 
-
-
 table "comment_responders" {
   schema = schema.public
   column "id" {
@@ -636,6 +647,7 @@ table "comment_responders" {
     on_delete   = NO_ACTION
   }
 }
+
 table "comments" {
   schema = schema.public
   column "id" {

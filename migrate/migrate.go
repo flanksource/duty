@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sort"
 
 	"github.com/flanksource/commons/collections"
@@ -42,7 +43,7 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	}
 	logger.Debugf("Applying schema migrations")
 	if err := schema.Apply(context.TODO(), connection); err != nil {
-		return err
+		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
 	views, err := views.GetViews()

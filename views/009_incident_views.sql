@@ -19,10 +19,10 @@ language plpgsql;
 -- incidents_by_component
 DROP VIEW IF EXISTS incidents_by_component;
 CREATE OR REPLACE VIEW incidents_by_component AS
-  SELECT DISTINCT incidents.title,incidents.id, incidents.created_at, incidents."type", incidents.status, incidents.severity, component_id FROM evidences
+  SELECT DISTINCT incidents.title,incidents.id, incidents.created_at, incidents."type", incidents.status, incidents.severity, evidences.component_id FROM evidences
   INNER join hypotheses on evidences.hypothesis_id = hypotheses.id
   INNER JOIN incidents on hypotheses.incident_id = incidents.id
-  WHERE component_id is not null;
+  WHERE evidences.component_id is not null;
 
 
 --incidents_by_config
