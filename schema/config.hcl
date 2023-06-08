@@ -170,6 +170,10 @@ table "config_items" {
     null = false
     type = text
   }
+  column "status" {
+    null = true
+    type = text
+  }
   column "external_id" {
     null = true
     type = sql("text[]")
