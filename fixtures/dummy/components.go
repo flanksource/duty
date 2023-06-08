@@ -143,6 +143,16 @@ var LogisticsWorkerPod = models.Component{
 	CreatedAt:  DummyCreatedAt,
 }
 
+var PaymentsAPI = models.Component{
+	ID:         uuid.MustParse("4643e4de-6215-4c71-9600-9cf69b2cbbee"),
+	AgentID:    GCPAgent.ID,
+	Name:       "payments-api",
+	ExternalId: "dummy/payments-api",
+	Type:       "Application",
+	CreatedAt:  DummyCreatedAt,
+	Status:     types.ComponentStatusHealthy,
+}
+
 // Order is important since ParentIDs refer to previous components
 var AllDummyComponents = []models.Component{
 	Logistics,
@@ -158,4 +168,5 @@ var AllDummyComponents = []models.Component{
 	LogisticsAPIPod,
 	LogisticsUIPod,
 	LogisticsWorkerPod,
+	PaymentsAPI,
 }

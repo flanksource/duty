@@ -19,6 +19,7 @@ type TopologyOptions struct {
 	ID      string
 	Owner   string
 	Labels  map[string]string
+	AgentID string
 	Flatten bool
 	Depth   int
 	// TODO: Filter status and types in DB Query
@@ -40,6 +41,9 @@ func (opt TopologyOptions) componentWhereClause() string {
 	}
 	if opt.Labels != nil {
 		s += " AND (components.labels @> @labels)"
+	}
+	if opt.AgentID != "" {
+		s += " AND (components.agent_id = @agent_id)"
 	}
 	return s
 }
@@ -94,6 +98,9 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	if opts.ID != "" {
 		args["id"] = opts.ID
 		args["path"] = strings.ReplaceAll(`%id%`, "id", opts.ID)
+	}
+	if opts.AgentID != "" {
+		args["agent_id"] = opts.AgentID
 	}
 	if opts.Owner != "" {
 		args["owner"] = opts.Owner
