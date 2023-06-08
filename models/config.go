@@ -25,6 +25,23 @@ const (
 	ConfigClassVirtualMachine = "VirtualMachine"
 )
 
+// Config Statuses
+const (
+	ConfigStatusCordoned   = "Cordoned"
+	ConfigStatusCordoning  = "Cordoning"
+	ConfigStatusDeleted    = "Deleted"
+	ConfigStatusDeleting   = "Deleting"
+	ConfigStatusFailed     = "Failed"
+	ConfigStatusPending    = "Pending"
+	ConfigStatusRunning    = "Running"
+	ConfigStatusStarting   = "Starting"
+	ConfigStatusStopped    = "Stopped"
+	ConfigStatusStopping   = "Stopping"
+	ConfigStatusSucceeded  = "Succeeded"
+	ConfigStatusUncordoned = "Uncordoned"
+	ConfigStatusUnknown    = "Unknown"
+)
+
 // Config Analysis statuses
 const (
 	AnalysisStatusOpen     = "open"
@@ -40,6 +57,7 @@ type ConfigItem struct {
 	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
 	Type          *string              `json:"type,omitempty"`
+	Status        *string              `json:"status,omitempty" gorm:"default:null"`
 	Name          *string              `json:"name,omitempty" faker:"name"  `
 	Namespace     *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
 	Description   *string              `json:"description,omitempty"`
