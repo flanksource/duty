@@ -1,35 +1,16 @@
 {
-  "healthStatuses": [
-    "healthy",
-    "unhealthy"
-  ],
-  "tags": {
-    "telemetry": [
-      "enabled"
-    ]
-  },
-  "teams": [],
-  "types": [
-    "Application",
-    "Database",
-    "Entity",
-    "KubernetesCluster",
-    "KubernetesNode",
-    "KubernetesNodes",
-    "KubernetesPod",
-    "KubernetesPods"
-  ],
   "components": [
     {
       "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+      "agent_id": "00000000-0000-0000-0000-000000000000",
       "external_id": "dummy/logistics",
       "name": "logistics",
-      "status": "warning",
-      "type": "Entity",
-      "owner": "logistics-team",
       "labels": {
         "telemetry": "enabled"
       },
+      "status": "warning",
+      "type": "Entity",
+      "owner": "logistics-team",
       "summary": {
         "healthy": 1,
         "warning": 1,
@@ -45,23 +26,21 @@
         }
       },
       "is_leaf": false,
-      "created_at": "2022-12-31T23:59:00",
-      "updated_at": "2022-12-31T23:59:00",
+      "created_at": "2023-01-01T05:29:00+05:30",
+      "updated_at": "2023-01-01T05:29:00+05:30",
       "components": [
         {
           "id": "018681fd-5770-336f-227c-259435d7fc6b",
+          "agent_id": "00000000-0000-0000-0000-000000000000",
           "external_id": "dummy/logistics-api",
           "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "name": "logistics-api",
-          "owner": "logistics-team",
           "labels": {
             "telemetry": "enabled"
           },
           "status": "warning",
           "type": "Application",
-          "checks": {
-            "healthy": 2
-          },
+          "owner": "logistics-team",
           "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "summary": {
             "healthy": 1,
@@ -78,11 +57,15 @@
             }
           },
           "is_leaf": false,
-          "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00",
+          "created_at": "2023-01-01T05:29:00+05:30",
+          "updated_at": "2023-01-01T05:29:00+05:30",
+          "checks": {
+            "healthy": 2
+          },
           "components": [
             {
               "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/logistics-worker",
               "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "name": "logistics-worker",
@@ -93,19 +76,17 @@
                 "healthy": 1
               },
               "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30"
             },
             {
               "id": "018681fe-4529-c50f-26fd-530fa9c57319",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/logistics-db",
               "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "name": "logistics-db",
               "status": "unhealthy",
               "type": "Database",
-              "checks": {
-                "unhealthy": 1
-              },
               "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
               "summary": {
                 "unhealthy": 1,
@@ -121,31 +102,36 @@
                 }
               },
               "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
+              "checks": {
+                "unhealthy": 1
+              }
             }
           ]
         },
         {
           "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
+          "agent_id": "00000000-0000-0000-0000-000000000000",
           "external_id": "dummy/logistics-ui",
           "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "name": "logistics-ui",
-          "owner": "logistics-team",
           "status": "healthy",
           "type": "Application",
+          "owner": "logistics-team",
           "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "summary": {
             "healthy": 1
           },
           "is_leaf": false,
-          "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00"
+          "created_at": "2023-01-01T05:29:00+05:30",
+          "updated_at": "2023-01-01T05:29:00+05:30"
         }
       ]
     },
     {
       "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+      "agent_id": "00000000-0000-0000-0000-000000000000",
       "external_id": "dummy/cluster",
       "name": "cluster",
       "status": "healthy",
@@ -159,11 +145,12 @@
         }
       },
       "is_leaf": false,
-      "created_at": "2022-12-31T23:59:00",
-      "updated_at": "2022-12-31T23:59:00",
+      "created_at": "2023-01-01T05:29:00+05:30",
+      "updated_at": "2023-01-01T05:29:00+05:30",
       "components": [
         {
           "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+          "agent_id": "00000000-0000-0000-0000-000000000000",
           "external_id": "dummy/nodes",
           "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
           "name": "Nodes",
@@ -178,19 +165,27 @@
             }
           },
           "is_leaf": false,
-          "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00",
+          "created_at": "2023-01-01T05:29:00+05:30",
+          "updated_at": "2023-01-01T05:29:00+05:30",
           "components": [
             {
               "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/node-a",
               "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
               "name": "node-a",
               "status": "healthy",
               "type": "KubernetesNode",
+              "summary": {
+                "healthy": 2
+              },
+              "is_leaf": false,
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
               "components": [
                 {
                   "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+                  "agent_id": "00000000-0000-0000-0000-000000000000",
                   "external_id": "dummy/logistics-api-574dc95b5d-mp64w",
                   "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
                   "name": "logistics-api-574dc95b5d-mp64w",
@@ -208,6 +203,7 @@
                 },
                 {
                   "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+                  "agent_id": "00000000-0000-0000-0000-000000000000",
                   "external_id": "dummy/logistics-ui-676b85b87c-tjjcp",
                   "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
                   "name": "logistics-ui-676b85b87c-tjjcp",
@@ -224,23 +220,34 @@
                   ]
                 }
               ],
-              "summary": {
-                "healthy": 2
-              },
-              "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "children": [
+                "018681ff-80ed-d10d-21ef-c74f152b085b",
+                "018681ff-b6c1-a14d-2fd4-8c7dac94cddd"
+              ]
             },
             {
               "id": "018681ff-227e-4d71-b38e-0693cc862213",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/node-b",
               "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
               "name": "node-b",
               "status": "healthy",
               "type": "KubernetesNode",
+              "summary": {
+                "healthy": 1,
+                "insights": {
+                  "security": {
+                    "critical": 1
+                  }
+                }
+              },
+              "is_leaf": false,
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
               "components": [
                 {
                   "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+                  "agent_id": "00000000-0000-0000-0000-000000000000",
                   "external_id": "dummy/logistics-worker-79cb67d8f5-lr66n",
                   "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
                   "name": "logistics-worker-79cb67d8f5-lr66n",
@@ -257,22 +264,15 @@
                   ]
                 }
               ],
-              "summary": {
-                "healthy": 1,
-                "insights": {
-                  "security": {
-                    "critical": 1
-                  }
-                }
-              },
-              "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "children": [
+                "018681ff-e578-a926-e366-d2dc0646eafa"
+              ]
             }
           ]
         },
         {
           "id": "018681ff-559f-7183-19d1-7d898b4e1413",
+          "agent_id": "00000000-0000-0000-0000-000000000000",
           "external_id": "dummy/pods",
           "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
           "name": "Pods",
@@ -282,11 +282,12 @@
             "healthy": 3
           },
           "is_leaf": false,
-          "created_at": "2022-12-31T23:59:00",
-          "updated_at": "2022-12-31T23:59:00",
+          "created_at": "2023-01-01T05:29:00+05:30",
+          "updated_at": "2023-01-01T05:29:00+05:30",
           "components": [
             {
               "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/logistics-api-574dc95b5d-mp64w",
               "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "name": "logistics-api-574dc95b5d-mp64w",
@@ -296,11 +297,15 @@
                 "healthy": 1
               },
               "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
+              "parents": [
+                "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+              ]
             },
             {
               "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/logistics-ui-676b85b87c-tjjcp",
               "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "name": "logistics-ui-676b85b87c-tjjcp",
@@ -310,11 +315,15 @@
                 "healthy": 1
               },
               "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
+              "parents": [
+                "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
+              ]
             },
             {
               "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+              "agent_id": "00000000-0000-0000-0000-000000000000",
               "external_id": "dummy/logistics-worker-79cb67d8f5-lr66n",
               "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "name": "logistics-worker-79cb67d8f5-lr66n",
@@ -324,12 +333,49 @@
                 "healthy": 1
               },
               "is_leaf": false,
-              "created_at": "2022-12-31T23:59:00",
-              "updated_at": "2022-12-31T23:59:00"
+              "created_at": "2023-01-01T05:29:00+05:30",
+              "updated_at": "2023-01-01T05:29:00+05:30",
+              "parents": [
+                "018681ff-227e-4d71-b38e-0693cc862213"
+              ]
             }
           ]
         }
       ]
+    },
+    {
+      "id": "4643e4de-6215-4c71-9600-9cf69b2cbbee",
+      "agent_id": "ebd4cbf7-267e-48f9-a050-eca12e535ce1",
+      "external_id": "dummy/payments-api",
+      "name": "payments-api",
+      "status": "healthy",
+      "type": "Application",
+      "summary": {
+        "healthy": 1
+      },
+      "is_leaf": false,
+      "created_at": "2023-01-01T05:29:00+05:30",
+      "updated_at": "2023-01-01T05:29:00+05:30"
     }
+  ],
+  "healthStatuses": [
+    "healthy",
+    "unhealthy"
+  ],
+  "teams": [],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "types": [
+    "Application",
+    "Database",
+    "Entity",
+    "KubernetesCluster",
+    "KubernetesNode",
+    "KubernetesNodes",
+    "KubernetesPod",
+    "KubernetesPods"
   ]
 }
