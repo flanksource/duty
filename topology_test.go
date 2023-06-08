@@ -38,8 +38,8 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	expected := readTestFile(path)
-	// TODO: Update fixtures with agent_id
-	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?, .agent_id?)`
+
+	jqExpr := `del(.. | .created_at?, .updated_at?, .children?, .parents?)`
 	matchJSON([]byte(expected), treeJSON, &jqExpr)
 }
 
@@ -100,4 +100,7 @@ var _ = ginkgo.Describe("Topology behavior", func() {
 		testTopologyJSON(TopologyOptions{ID: dummy.LogisticsAPI.ID.String(), Status: []string{string(types.ComponentStatusHealthy)}}, "fixtures/expectations/topology_tree_with_id_and_status_filter.json")
 	})
 
+	ginkgo.It("Should test tree with agent ID filter", func() {
+		testTopologyJSON(TopologyOptions{AgentID: dummy.GCPAgent.ID.String()}, "fixtures/expectations/topology_tree_with_agent_id.json")
+	})
 })
