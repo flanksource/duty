@@ -1,21 +1,8 @@
 {
-  "healthStatuses": [
-    "healthy",
-    "unhealthy"
-  ],
-  "tags": {
-    "telemetry": [
-      "enabled"
-    ]
-  },
-  "teams": [],
-  "types": [
-    "Application",
-    "Database"
-  ],
   "components": [
     {
       "id": "018681fd-5770-336f-227c-259435d7fc6b",
+      "agent_id": "00000000-0000-0000-0000-000000000000",
       "external_id": "dummy/logistics-api",
       "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
       "name": "logistics-api",
@@ -25,9 +12,6 @@
       "status": "warning",
       "type": "Application",
       "owner": "logistics-team",
-      "checks": {
-        "healthy": 2
-      },
       "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
       "summary": {
         "healthy": 1,
@@ -44,8 +28,25 @@
         }
       },
       "is_leaf": false,
-      "created_at": "2022-12-31T23:59:00",
-      "updated_at": "2022-12-31T23:59:00"
+      "created_at": "2023-01-01T05:29:00+05:30",
+      "updated_at": "2023-01-01T05:29:00+05:30",
+      "checks": {
+        "healthy": 2
+      }
     }
+  ],
+  "healthStatuses": [
+    "healthy",
+    "unhealthy"
+  ],
+  "teams": [],
+  "tags": {
+    "telemetry": [
+      "enabled"
+    ]
+  },
+  "types": [
+    "Application",
+    "Database"
   ]
 }
