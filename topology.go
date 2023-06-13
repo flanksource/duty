@@ -224,9 +224,21 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 	}
 
 	tree := generateTree(components, compChildrenMap)
+
 	var root models.Components
 	for _, c := range tree {
-		if c.ParentId == nil || params.ID == c.ID.String() {
+		// If ID is provided, we solely use that in our root tree
+		if params.ID != "" {
+			if params.ID == c.ID.String() {
+				root = append(root, c)
+				break
+			}
+			continue
+		}
+
+		// In case of generic topology
+		// components without a parent will be in root
+		if c.ParentId == nil {
 			root = append(root, c)
 		}
 	}
