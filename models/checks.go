@@ -47,6 +47,8 @@ type Check struct {
 	UpdatedAt          *time.Time          `json:"updated_at,omitempty"`
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
+
+	CheckComponentRelationship []CheckComponentRelationship `json:"component_relationship,omitempty" gorm:"foreignKey:CheckID"`
 }
 
 func (c Check) ToString() string {
