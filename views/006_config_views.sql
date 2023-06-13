@@ -304,3 +304,21 @@ CREATE VIEW config_class_summary AS
 DROP VIEW IF EXISTS config_analysis_analyzers;
 CREATE OR REPLACE VIEW config_analysis_analyzers AS
   SELECT DISTINCT(analyzer) FROM config_analysis WHERE status = 'open';
+
+DROP VIEW IF EXISTS config_changes_by_types;
+CREATE OR REPLACE VIEW config_changes_by_types AS
+  SELECT config_items.type, COUNT(config_changes.id) as change_count
+  FROM config_changes
+  INNER JOIN config_items ON config_changes.config_id = config_items.id 
+  WHERE config_changes.created_at >= now() - INTERVAL '30 days'
+  GROUP BY config_items.type
+  ORDER BY change_count;
+
+DROP VIEW IF EXISTS config_analysis_by_severity;
+CREATE OR REPLACE VIEW config_analysis_by_severity AS
+  SELECT config_items.type, config_analysis.severity, COUNT(*) as analysis_count
+  FROM config_analysis
+  INNER JOIN config_items ON config_analysis.config_id = config_items.id
+  WHERE config_analysis.first_observed >= now() - INTERVAL '30 days'
+  GROUP BY config_items.type, config_analysis.severity
+  ORDER BY config_items.type, config_analysis.severity;
