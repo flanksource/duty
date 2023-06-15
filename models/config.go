@@ -109,6 +109,7 @@ func (c ConfigItem) GetSelectorID() string {
 // ConfigScraper represents the config_scrapers database table
 type ConfigScraper struct {
 	ID          uuid.UUID  `json:"id"`
+	AgentID     uuid.UUID  `json:"agent_id,omitempty"`
 	Name        string     `json:"name"`
 	Description string     `json:"description,omitempty"`
 	Spec        string     `json:"spec,omitempty"`
@@ -116,6 +117,7 @@ type ConfigScraper struct {
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
 func (c ConfigScraper) TableName() string {
