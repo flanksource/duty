@@ -18,15 +18,7 @@
       "rolling1h": 0
     },
     "checkStatuses": null,
-    "component_relationship": [
-      {
-        "canary_id": "00000000-0000-0000-0000-000000000000",
-        "check_id": "00000000-0000-0000-0000-000000000000",
-        "component_id": "018681fd-5770-336f-227c-259435d7fc6b",
-        "created_at": "0001-01-01T00:00:00Z",
-        "updated_at": "0001-01-01T00:00:00Z"
-      }
-    ]
+    "component_ids": ["018681fd-5770-336f-227c-259435d7fc6b"]
   },
   {
     "canary_id": "0186b7a5-a2a4-86fd-c326-3a2104a2777f",
@@ -46,15 +38,7 @@
       "failed": 0,
       "passed": 1
     },
-    "component_relationship": [
-      {
-        "canary_id": "00000000-0000-0000-0000-000000000000",
-        "check_id": "00000000-0000-0000-0000-000000000000",
-        "component_id": "018681fd-5770-336f-227c-259435d7fc6b",
-        "created_at": "0001-01-01T00:00:00Z",
-        "updated_at": "0001-01-01T00:00:00Z"
-      }
-    ]
+    "component_ids": ["018681fd-5770-336f-227c-259435d7fc6b"]
   },
   {
     "id": "0186b7a4-9338-7142-1b10-25dc49030218",
@@ -75,14 +59,6 @@
       "rolling1h": 0
     },
     "checkStatuses": null,
-    "component_relationship": [
-      {
-        "canary_id": "00000000-0000-0000-0000-000000000000",
-        "check_id": "00000000-0000-0000-0000-000000000000",
-        "component_id": "018681fe-4529-c50f-26fd-530fa9c57319",
-        "created_at": "0001-01-01T00:00:00Z",
-        "updated_at": "0001-01-01T00:00:00Z"
-      }
-    ]
+    "component_ids": ["018681fe-4529-c50f-26fd-530fa9c57319"]
   }
 ]

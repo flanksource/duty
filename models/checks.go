@@ -27,19 +27,13 @@ type Check struct {
 	Spec               types.JSON          `json:"-"`
 	Type               string              `json:"type"`
 	Name               string              `json:"name"`
-	CanaryName         string              `json:"canary_name" gorm:"-"`
-	Namespace          string              `json:"namespace"  gorm:"-"`
 	Labels             types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
 	Description        string              `json:"description,omitempty"`
 	Status             CheckHealthStatus   `json:"status,omitempty"`
-	Uptime             Uptime              `json:"uptime"  gorm:"-"`
-	Latency            Latency             `json:"latency"  gorm:"-"`
-	Statuses           []CheckStatus       `json:"checkStatuses"  gorm:"-"`
 	Owner              string              `json:"owner,omitempty"`
 	Severity           string              `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Transformed        bool                `json:"transformed,omitempty"`
-	DisplayType        string              `json:"display_type,omitempty"  gorm:"-"`
 	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
@@ -48,7 +42,14 @@ type Check struct {
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
 
-	CheckComponentRelationship []CheckComponentRelationship `json:"component_relationship,omitempty" gorm:"foreignKey:CheckID"`
+	// Auxiliary fields
+	CanaryName   string        `json:"canary_name" gorm:"-"`
+	Namespace    string        `json:"namespace"  gorm:"-"`     // Namespace of the parent canary
+	ComponentIDs []string      `json:"component_ids"  gorm:"-"` // Linked component ids
+	Uptime       Uptime        `json:"uptime"  gorm:"-"`
+	Latency      Latency       `json:"latency"  gorm:"-"`
+	Statuses     []CheckStatus `json:"checkStatuses"  gorm:"-"`
+	DisplayType  string        `json:"display_type,omitempty"  gorm:"-"`
 }
 
 func (c Check) ToString() string {
