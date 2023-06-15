@@ -16,7 +16,7 @@ func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks
         WITH check_component_relationship_by_check AS (
             SELECT
                 check_id,
-                json_agg(component_id) AS component_ids
+                json_agg(component_id) AS components
             FROM
                 check_component_relationships
             GROUP BY
@@ -48,7 +48,7 @@ func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks
             checks.updated_at,
             checks.deleted_at,
             checks.silenced_at,
-            check_component_relationship_by_check.component_ids
+            check_component_relationship_by_check.components
         FROM
             checks
             LEFT JOIN check_component_relationship_by_check ON checks.id = check_component_relationship_by_check.check_id

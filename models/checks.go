@@ -45,7 +45,7 @@ type Check struct {
 	// Auxiliary fields
 	CanaryName   string        `json:"canary_name" gorm:"-"`
 	Namespace    string        `json:"namespace"  gorm:"-"`     // Namespace of the parent canary
-	ComponentIDs []string      `json:"component_ids"  gorm:"-"` // Linked component ids
+	ComponentIDs []string      `json:"components"  gorm:"-"` // Linked component ids
 	Uptime       Uptime        `json:"uptime"  gorm:"-"`
 	Latency      Latency       `json:"latency"  gorm:"-"`
 	Statuses     []CheckStatus `json:"checkStatuses"  gorm:"-"`
