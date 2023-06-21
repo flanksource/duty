@@ -58,6 +58,22 @@ OR REPLACE TRIGGER evidence_to_incident_history
 AFTER INSERT ON evidences FOR EACH ROW
 EXECUTE PROCEDURE insert_evidence_created_in_incident_history ();
 
+-- Insert incident done definition added in incident_histories
+CREATE
+OR REPLACE FUNCTION insert_config_done_definition_added_in_incident_history () RETURNS TRIGGER AS $$
+DECLARE incident_id UUID;
+BEGIN
+    SELECT hypotheses.incident_id INTO STRICT incident_id FROM evidences LEFT JOIN hypotheses ON hypotheses.id = evidences.hypothesis_id WHERE evidences.id = NEW.id;
+    INSERT INTO incident_histories(incident_id, evidence_id, created_by, type) VALUES (incident_id, NEW.id, NEW.created_by, 'evidence.done_definition_added');
+    RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE
+OR REPLACE TRIGGER evidence_done_definition_to_incident_history
+AFTER UPDATE ON evidences FOR EACH ROW WHEN (OLD.definition_of_done IS DISTINCT FROM NEW.definition_of_done AND NEW.definition_of_done = true)
+EXECUTE PROCEDURE insert_config_done_definition_added_in_incident_history ();
+
 -- Insert responder responses updates in incident_histories
 CREATE
 OR REPLACE FUNCTION insert_responder_comment_in_incident_history () RETURNS TRIGGER AS $$
