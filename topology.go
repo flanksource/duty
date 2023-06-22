@@ -22,6 +22,7 @@ type TopologyOptions struct {
 	AgentID string
 	Flatten bool
 	Depth   int
+	Team    string
 	// TODO: Filter status and types in DB Query
 	Types  []string
 	Status []string
@@ -62,6 +63,14 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 	return s
 }
 
+func (opt TopologyOptions) teamWhereClause() string {
+	if opt.Team != "" {
+		return "AND @team = ANY(team_names)"
+	}
+
+	return ""
+}
+
 func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	selectSubQuery := `
         SELECT id FROM components %s
@@ -74,7 +83,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	query := fmt.Sprintf(`
         WITH topology_result AS (
             SELECT * FROM topology
-            WHERE id IN (%s)
+            WHERE id IN (%s) %s
         )
         SELECT
             json_build_object(
@@ -92,7 +101,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 						)
         FROM
             topology_result
-        `, subQuery)
+        `, subQuery, opts.teamWhereClause())
 
 	args := make(map[string]any)
 	if opts.ID != "" {
@@ -107,6 +116,9 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	}
 	if opts.Labels != nil {
 		args["labels"] = opts.Labels
+	}
+	if opts.Team != "" {
+		args["team"] = opts.Team
 	}
 
 	return query, args
@@ -131,6 +143,7 @@ func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOpt
 		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
 		defer cancel()
 	}
+
 	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
 		return nil, err
