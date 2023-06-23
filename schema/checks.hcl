@@ -229,9 +229,9 @@ table "checks" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "checks_canary_id_type_name_key" {
+  index "checks_canary_id_type_name_agent_id_key" {
     unique  = true
-    columns = [column.canary_id, column.type, column.name]
+    columns = [column.canary_id, column.type, column.name, column.agent_id]
   }
   index "checks_canary_id_transformed_idx" {
     columns = [column.canary_id, column.transformed]
