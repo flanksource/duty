@@ -49,6 +49,7 @@ BEGIN
         'canaries',
         'checks',
         'components',
+        'config_scrapers',
         'config_analysis',
         'config_changes',
         'config_items',

@@ -154,9 +154,9 @@ table "config_items" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "icon" {
     null = true
@@ -355,6 +355,11 @@ table "config_scrapers" {
     null = true
     type = uuid
   }
+  column "agent_id" {
+    null    = false
+    default = var.uuid_nil
+    type    = uuid
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -378,5 +383,10 @@ table "config_scrapers" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-
+  foreign_key "config_scrapers_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
