@@ -180,7 +180,7 @@ FROM config_changes
     INNER JOIN config_component_relationships relations on relations.config_id = config_changes.config_id
     INNER JOIN config_items configs on configs.id = config_changes.config_id
 ORDER BY
-    configs.name ASC;
+    config_changes.created_at DESC;
 
 -- config_tags
 DROP VIEW IF EXISTS config_tags;
