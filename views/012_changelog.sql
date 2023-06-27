@@ -4,10 +4,12 @@ OR REPLACE FUNCTION push_changes_to_event_queue () RETURNS trigger AS $$
 DECLARE
     rec RECORD;
     payload JSONB;
+    priority integer := 0;
 BEGIN
   rec = NEW;
   IF TG_OP = 'DELETE' THEN
-    rec = OLD;
+    -- Do not push deletions in event queue
+    return OLD;
   END IF;
 
   CASE TG_TABLE_NAME
@@ -18,15 +20,31 @@ BEGIN
     WHEN 'config_relationships' THEN
       payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id);
     WHEN 'check_statuses' THEN
-      payload = jsonb_build_object('check_id', rec.check_id, 'time', rec.time);
+      payload = jsonb_build_object('check_id', rec.check_id);
+    WHEN 'checks' THEN
+      -- Set these fields to null for checks to prevent excessive pushes
+      rec.last_runtime = NULL;
+      rec.last_transition_time = NULL;
+      rec.updated_at = NULL;
+      OLD.last_runtime = NULL;
+      OLD.last_transition_time = NULL;
+      OLD.updated_at = NULL;
+
+      -- If it is same as the old record, then no action required
+      IF rec IS NOT DISTINCT FROM OLD THEN
+        RETURN rec;
+      END IF;
+      priority = 10;
+      payload = jsonb_build_object('id', rec.id);
     ELSE
+      priority = 10;
       payload = jsonb_build_object('id', rec.id);
   END CASE;
 
   INSERT INTO
-    event_queue (name, properties)
+    event_queue (name, properties, priority)
   VALUES
-    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload)
+    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload, priority)
   ON CONFLICT
     (name, properties)
   DO UPDATE SET
