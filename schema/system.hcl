@@ -31,12 +31,20 @@ table "event_queue" {
     type    = integer
     default = 0
   }
+  column "priority" {
+    null    = false
+    type    = integer
+    default = 0
+  }
   primary_key {
     columns = [column.id]
   }
   index "event_queue_name_properties" {
     unique  = true
     columns = [column.name, column.properties]
+  }
+  index "event_queue_attempts_priority" {
+    columns = [column.attempts, column.priority]
   }
 }
 

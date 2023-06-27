@@ -4,11 +4,11 @@ OR REPLACE FUNCTION push_changes_to_event_queue () RETURNS trigger AS $$
 DECLARE
     rec RECORD;
     payload JSONB;
+    priority integer := 0;
 BEGIN
   rec = NEW;
   IF TG_OP = 'DELETE' THEN
-    -- TODO: Deletions are not handled
-    -- Handle deletions in reconcile and do not push them in queue
+    -- Do not push deletions in event queue
     return OLD;
   END IF;
 
@@ -34,15 +34,17 @@ BEGIN
       IF rec IS NOT DISTINCT FROM OLD THEN
         RETURN rec;
       END IF;
+      priority = 10;
       payload = jsonb_build_object('id', rec.id);
     ELSE
+      priority = 10;
       payload = jsonb_build_object('id', rec.id);
   END CASE;
 
   INSERT INTO
-    event_queue (name, properties)
+    event_queue (name, properties, priority)
   VALUES
-    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload)
+    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload, priority)
   ON CONFLICT
     (name, properties)
   DO UPDATE SET
