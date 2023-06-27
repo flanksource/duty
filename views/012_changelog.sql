@@ -20,7 +20,7 @@ BEGIN
     WHEN 'config_relationships' THEN
       payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id);
     WHEN 'check_statuses' THEN
-      payload = jsonb_build_object('check_id', rec.check_id);
+      payload = jsonb_build_object('check_id', rec.check_id, 'time', rec.time);
     WHEN 'checks' THEN
       -- Set these fields to null for checks to prevent excessive pushes
       rec.last_runtime = NULL;
