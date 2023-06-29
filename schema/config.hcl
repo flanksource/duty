@@ -65,7 +65,7 @@ table "config_analysis" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "config_analysis_created_by_fkey" {
     columns     = [column.created_by]
@@ -138,7 +138,7 @@ table "config_changes" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   index "config_changes_config_id_external_change_id_key" {
     unique  = true
@@ -315,13 +315,13 @@ table "config_relationships" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "config_relationships_related_id_fkey" {
     columns     = [column.related_id]
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   index "config_relationships_related_id_config_id_selector_id_key" {
     unique  = true

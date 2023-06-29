@@ -96,13 +96,13 @@ table "component_relationships" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "component_relationships_relationship_id_fkey" {
     columns     = [column.relationship_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
 
   index "component_relationships_component_id_relationship_id_select_key" {
@@ -338,19 +338,19 @@ table "check_component_relationships" {
     columns     = [column.canary_id]
     ref_columns = [table.canaries.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "check_component_relationships_check_id_fkey" {
     columns     = [column.check_id]
     ref_columns = [table.checks.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "check_component_relationships_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE 
   }
   index "check_component_relationships_component_id_check_id_canary__key" {
     unique  = true
@@ -390,13 +390,13 @@ table "config_component_relationships" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "config_component_relationships_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   index "config_component_relationships_component_id_config_id_key" {
     unique  = true
