@@ -85,17 +85,22 @@ CREATE OR REPLACE VIEW incident_summary AS
   ),
   distinct_responder AS (
     SELECT
-      DISTINCT ON (people.id) people.id,
+      DISTINCT ON (people.id, responders.incident_id) people.id as id,
       people.avatar,
       people.name,
       responders.incident_id
     FROM
       responders
-      LEFT JOIN people ON responders.person_id = people.id
-    WHERE
-      people.id IS NOT NULL
-    ORDER BY
-      people.id
+      INNER JOIN people ON responders.person_id = people.id
+    UNION
+    SELECT
+      DISTINCT ON (teams.id, responders.incident_id) teams.id as id,
+      teams.icon as avatar,
+      teams.name,
+      responders.incident_id
+    FROM
+      responders
+      INNER JOIN teams ON responders.team_id = teams.id
   ),
   responders AS (
     SELECT
