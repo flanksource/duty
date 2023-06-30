@@ -95,7 +95,7 @@ CREATE OR REPLACE VIEW incident_summary AS
     UNION
     SELECT
       DISTINCT ON (teams.id, responders.incident_id) teams.id as id,
-      '' as avatar, -- Teams do not have avatar.
+      teams.icon as avatar,
       teams.name,
       responders.incident_id
     FROM

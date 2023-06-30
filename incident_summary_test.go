@@ -96,8 +96,9 @@ var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 					actorFromPerson(dummy.JohnDoe),
 					actorFromPerson(dummy.JohnWick),
 					{
-						ID:   dummy.BackendTeam.ID.String(),
-						Name: dummy.BackendTeam.Name,
+						ID:     dummy.BackendTeam.ID.String(),
+						Avatar: dummy.BackendTeam.Icon,
+						Name:   dummy.BackendTeam.Name,
 					},
 				}
 
