@@ -17,7 +17,17 @@ var LogisticsAPIDownIncident = models.Incident{
 	CommanderID: &JohnDoe.ID,
 }
 
-var AllDummyIncidents = []models.Incident{LogisticsAPIDownIncident}
+var UIDownIncident = models.Incident{
+	ID:          uuid.MustParse("0c00b8a6-5bf8-42a4-98fe-2d39ddcb67cb"),
+	Title:       "UI is down",
+	CreatedBy:   JohnDoe.ID,
+	Type:        models.IncidentTypeAvailability,
+	Status:      models.IncidentStatusOpen,
+	Severity:    "Blocker",
+	CommanderID: &JohnWick.ID,
+}
+
+var AllDummyIncidents = []models.Incident{LogisticsAPIDownIncident, UIDownIncident}
 
 var FirstComment = models.Comment{
 	ID:         uuid.New(),
@@ -70,12 +80,32 @@ var GitHubIssueResponder = models.Responder{
 
 var SlackResponder = models.Responder{
 	ID:         uuid.New(),
-	IncidentID: LogisticsAPIDownIncident.ID,
+	IncidentID: UIDownIncident.ID,
 	Type:       "Slack",
-	PersonID:   &JohnDoe.ID,
+	TeamID:     &BackendTeam.ID,
 	CreatedBy:  JohnDoe.ID,
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }
 
 var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder}
+
+var BackendTeam = models.Team{
+	ID:        uuid.New(),
+	Name:      "Backend",
+	Icon:      "backend",
+	CreatedBy: JohnDoe.ID,
+	CreatedAt: time.Now(),
+	UpdatedAt: time.Now(),
+}
+
+var FrontendTeam = models.Team{
+	ID:        uuid.New(),
+	Name:      "Frontend",
+	Icon:      "frontend",
+	CreatedBy: JohnDoe.ID,
+	CreatedAt: time.Now(),
+	UpdatedAt: time.Now(),
+}
+
+var AllTeams = []models.Team{BackendTeam, FrontendTeam}
