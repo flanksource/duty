@@ -35,6 +35,12 @@ func (t *actor) FromPerson(p models.Person) {
 	t.ID = p.ID.String()
 }
 
+func actorFromPerson(p models.Person) actor {
+	var a actor
+	a.FromPerson(p)
+	return a
+}
+
 type actors []actor
 
 func (t actors) Value() (driver.Value, error) {
@@ -80,39 +86,21 @@ var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 			case dummy.LogisticsAPIDownIncident.ID:
 				incident = dummy.LogisticsAPIDownIncident
 				commander.FromPerson(dummy.JohnDoe)
-				responders = []actor{
-					{
-						ID:     dummy.JohnDoe.ID.String(),
-						Name:   dummy.JohnDoe.Name,
-						Avatar: dummy.JohnDoe.Avatar,
-					},
-					{
-						ID:     dummy.JohnWick.ID.String(),
-						Name:   dummy.JohnWick.Name,
-						Avatar: dummy.JohnWick.Avatar,
-					},
-				}
-				commenters = []actor{
-					{
-						ID:     dummy.JohnDoe.ID.String(),
-						Name:   dummy.JohnDoe.Name,
-						Avatar: dummy.JohnDoe.Avatar,
-					},
-					{
-						ID:     dummy.JohnWick.ID.String(),
-						Name:   dummy.JohnWick.Name,
-						Avatar: dummy.JohnWick.Avatar,
-					},
-				}
+				responders = []actor{actorFromPerson(dummy.JohnDoe), actorFromPerson(dummy.JohnWick)}
+				commenters = []actor{actorFromPerson(dummy.JohnDoe), actorFromPerson(dummy.JohnWick)}
+
 			case dummy.UIDownIncident.ID:
 				incident = dummy.UIDownIncident
 				commander.FromPerson(dummy.JohnWick)
 				responders = []actor{
+					actorFromPerson(dummy.JohnDoe),
+					actorFromPerson(dummy.JohnWick),
 					{
 						ID:   dummy.BackendTeam.ID.String(),
 						Name: dummy.BackendTeam.Name,
 					},
 				}
+
 			default:
 				ginkgo.Fail(fmt.Sprintf("unexpected incident: %s", incidentSummary.Title))
 			}
@@ -124,8 +112,8 @@ var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 			Expect(incidentSummary.Type).To(Equal(incident.Type))
 			Expect(incidentSummary.Status).To(Equal(incident.Status))
 			Expect(incidentSummary.Commander).To(Equal(commander))
-			Expect(incidentSummary.Responders).To(Equal(responders))
-			Expect(incidentSummary.Commenters).To(Equal(commenters))
+			Expect(incidentSummary.Responders).To(ConsistOf(responders))
+			Expect(incidentSummary.Commenters).To(ConsistOf(commenters))
 		}
 	})
 })

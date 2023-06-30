@@ -88,7 +88,27 @@ var SlackResponder = models.Responder{
 	UpdatedAt:  time.Now(),
 }
 
-var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder}
+var MsPlannerResponder = models.Responder{
+	ID:         uuid.New(),
+	IncidentID: UIDownIncident.ID,
+	Type:       "MSPlanner",
+	PersonID:   &JohnWick.ID,
+	CreatedBy:  JohnDoe.ID,
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
+
+var TelegramResponder = models.Responder{
+	ID:         uuid.New(),
+	IncidentID: UIDownIncident.ID,
+	Type:       "Telegram",
+	PersonID:   &JohnDoe.ID,
+	CreatedBy:  JohnDoe.ID,
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
+
+var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder, MsPlannerResponder, TelegramResponder}
 
 var BackendTeam = models.Team{
 	ID:        uuid.New(),
