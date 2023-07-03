@@ -31,7 +31,7 @@ type Check struct {
 	Description        string              `json:"description,omitempty"`
 	Status             CheckHealthStatus   `json:"status,omitempty"`
 	Owner              string              `json:"owner,omitempty"`
-	Severity           string              `json:"severity,omitempty"`
+	Severity           Severity            `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Transformed        bool                `json:"transformed,omitempty"`
 	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
@@ -44,7 +44,7 @@ type Check struct {
 
 	// Auxiliary fields
 	CanaryName   string        `json:"canary_name" gorm:"-"`
-	Namespace    string        `json:"namespace"  gorm:"-"`     // Namespace of the parent canary
+	Namespace    string        `json:"namespace"  gorm:"-"`  // Namespace of the parent canary
 	ComponentIDs []string      `json:"components"  gorm:"-"` // Linked component ids
 	Uptime       Uptime        `json:"uptime"  gorm:"-"`
 	Latency      Latency       `json:"latency"  gorm:"-"`

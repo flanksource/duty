@@ -154,7 +154,7 @@ type ConfigChange struct {
 	ID               string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
 	ChangeType       string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
-	Severity         string     `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
+	Severity         Severity   `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
 	Source           string     `gorm:"column:source" json:"source"`
 	Summary          string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
 	Patches          string     `gorm:"column:patches;default:null" json:"patches,omitempty"`
@@ -199,7 +199,7 @@ type ConfigAnalysis struct {
 	Message       string        `gorm:"column:message" json:"message"`
 	Summary       string        `gorm:"column:summary;default:null" json:"summary,omitempty"`
 	Status        string        `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
-	Severity      string        `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
+	Severity      Severity      `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
 	AnalysisType  string        `gorm:"column:analysis_type" json:"change_type" faker:"oneof: availability, compliance, cost, security, performance"`
 	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
