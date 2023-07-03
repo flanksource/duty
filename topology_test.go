@@ -83,9 +83,12 @@ var _ = ginkgo.Describe("Topology behavior", func() {
 		testTopologyJSON(TopologyOptions{Owner: "logistics-team"}, "fixtures/expectations/topology_tree_with_owner_filter.json")
 	})
 
-	// ginkgo.It("Should test tree with type filter", func() {
-	// 	testTopologyJSON(TopologyOptions{Types: []string{"Entity"}}, "fixtures/expectations/topology_tree_with_type_filter.json")
-	// })
+	ginkgo.It("Should test tree with type filter", func() {
+		// FIXME:
+		ginkgo.Skip("type filter is applied on Go side. The team list is already populated by the SQL query and later the component might be removed by the type filter.")
+
+		testTopologyJSON(TopologyOptions{Types: []string{"Entity"}}, "fixtures/expectations/topology_tree_with_type_filter.json")
+	})
 
 	ginkgo.It("Should test tree with negative type filter", func() {
 		// TODO: Change implementation of matchItems to fix this
@@ -94,9 +97,12 @@ var _ = ginkgo.Describe("Topology behavior", func() {
 		testTopologyJSON(TopologyOptions{Types: []string{"!KubernetesCluster"}}, "fixtures/expectations/topology_tree_with_negative_type_filter.json")
 	})
 
-	// ginkgo.It("Should test tree with status filter", func() {
-	// 	testTopologyJSON(TopologyOptions{Status: []string{string(types.ComponentStatusWarning)}}, "fixtures/expectations/topology_tree_with_status_filter.json")
-	// })
+	ginkgo.It("Should test tree with status filter", func() {
+		// FIXME:
+		ginkgo.Skip("status filter is applied on Go side. The team list is already populated by the SQL query and later the component might be removed by the status filter.")
+
+		testTopologyJSON(TopologyOptions{Status: []string{string(types.ComponentStatusWarning)}}, "fixtures/expectations/topology_tree_with_status_filter.json")
+	})
 
 	ginkgo.It("Should test tree with ID and status filter", func() {
 		testTopologyJSON(TopologyOptions{ID: dummy.LogisticsAPI.ID.String(), Status: []string{string(types.ComponentStatusHealthy)}}, "fixtures/expectations/topology_tree_with_id_and_status_filter.json")
