@@ -56,7 +56,7 @@ type IncidentSummary struct {
 	ID         uuid.UUID
 	IncidentID string
 	Title      string
-	Severity   string
+	Severity   models.Severity
 	Type       models.IncidentType
 	Status     models.IncidentStatus
 	CreatedAt  time.Time

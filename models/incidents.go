@@ -35,7 +35,7 @@ type Incident struct {
 	Description    string         `json:"description,omitempty"`
 	Type           IncidentType   `json:"type,omitempty"`
 	Status         IncidentStatus `json:"status,omitempty"`
-	Severity       string         `json:"severity,omitempty"`
+	Severity       Severity       `json:"severity,omitempty"`
 	CreatedAt      *time.Time     `json:"created_at,omitempty"`
 	UpdatedAt      *time.Time     `json:"updated_at,omitempty"`
 	Acknowledged   *time.Time     `json:"acknowledged,omitempty"`
