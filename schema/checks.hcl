@@ -109,7 +109,7 @@ table "check_statuses" {
   }
   column "severity" {
     null = true
-    type = integer
+    type = text
   }
   primary_key {
     columns = [column.check_id, column.time]
