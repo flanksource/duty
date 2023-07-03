@@ -7,3 +7,7 @@ var (
 
 	DummyYearOldDate = time.Now().AddDate(-1, 0, 0)
 )
+
+func ptr[T any](t T) *T {
+	return &t
+}

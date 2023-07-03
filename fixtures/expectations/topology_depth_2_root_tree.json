@@ -153,15 +153,10 @@
       "updated_at": "2023-01-01T05:29:00+05:30"
     }
   ],
-  "healthStatuses": [
-    "healthy",
-    "unhealthy"
-  ],
-  "teams": [],
+  "healthStatuses": ["healthy", "unhealthy"],
+  "teams": ["Backend", "Payment"],
   "tags": {
-    "telemetry": [
-      "enabled"
-    ]
+    "telemetry": ["enabled"]
   },
   "types": [
     "Application",

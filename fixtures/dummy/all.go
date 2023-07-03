@@ -28,6 +28,16 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyTeams {
+		if err := gormDB.Create(&c).Error; err != nil {
+			return err
+		}
+	}
+	for _, c := range AllTeamComponents {
+		if err := gormDB.Create(&c).Error; err != nil {
+			return err
+		}
+	}
 	for _, c := range AllDummyComponentRelationships {
 		c.UpdatedAt = createTime
 		err = gormDB.Create(&c).Error
@@ -58,11 +68,6 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 	for _, c := range AllDummyConfigComponentRelationships {
 		err = gormDB.Create(&c).Error
 		if err != nil {
-			return err
-		}
-	}
-	for _, c := range AllTeams {
-		if err := gormDB.Create(&c).Error; err != nil {
 			return err
 		}
 	}
@@ -160,6 +165,12 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllTeamComponents {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
 	for _, c := range AllDummyCheckComponentRelationships {
 		err = gormDB.Where("component_id = ?", c.ComponentID).Delete(&c).Error
 		if err != nil {
@@ -178,7 +189,7 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 			return err
 		}
 	}
-	for _, c := range AllTeams {
+	for _, c := range AllDummyTeams {
 		if err := gormDB.Delete(&c).Error; err != nil {
 			return err
 		}
