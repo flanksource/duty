@@ -215,7 +215,7 @@ type ConfigAnalysis struct {
 	Summary       string        `gorm:"column:summary;default:null" json:"summary,omitempty"`
 	Status        string        `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
 	Severity      Severity      `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
-	AnalysisType  AnalysisType  `gorm:"column:analysis_type" json:"change_type" faker:"oneof: availability, compliance, cost, security, performance"`
+	AnalysisType  AnalysisType  `gorm:"column:analysis_type" json:"analysis_type" faker:"oneof: availability, compliance, cost, security, performance"`
 	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
 	FirstObserved *time.Time    `gorm:"column:first_observed;<-:false" json:"first_observed"`
