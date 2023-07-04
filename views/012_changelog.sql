@@ -9,7 +9,7 @@ BEGIN
   rec = NEW;
   IF TG_OP = 'DELETE' THEN
     -- Do not push deletions in event queue
-    return OLD;
+    return NULL;
   END IF;
 
   CASE TG_TABLE_NAME
@@ -32,7 +32,7 @@ BEGIN
 
       -- If it is same as the old record, then no action required
       IF rec IS NOT DISTINCT FROM OLD THEN
-        RETURN rec;
+        RETURN NEW;
       END IF;
       priority = 10;
       payload = jsonb_build_object('id', rec.id);
@@ -50,7 +50,7 @@ BEGIN
   DO UPDATE SET
     attempts = 0;
   NOTIFY event_queue_updates, 'update';
-  RETURN rec;
+  RETURN NULL;
 END;
 $$ LANGUAGE 'plpgsql' SECURITY DEFINER;
 
@@ -79,7 +79,7 @@ BEGIN
   LOOP 
     EXECUTE format('
       CREATE OR REPLACE TRIGGER %1$I_change_to_event_queue
-      BEFORE INSERT OR UPDATE OR DELETE ON %1$I
+      AFTER INSERT OR UPDATE ON %1$I
       FOR EACH ROW
       EXECUTE PROCEDURE push_changes_to_event_queue()',
       table_name
