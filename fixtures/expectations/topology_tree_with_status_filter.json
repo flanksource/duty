@@ -117,7 +117,7 @@
     "healthy",
     "unhealthy"
   ],
-  "teams": [],
+  "teams": ["Backend"],
   "tags": {
     "telemetry": [
       "enabled"

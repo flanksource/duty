@@ -64,7 +64,7 @@
   "healthStatuses": [
     "healthy"
   ],
-  "teams": [],
+  "teams": ["Backend"],
   "tags": {
     "telemetry": [
       "enabled"

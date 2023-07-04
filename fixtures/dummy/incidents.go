@@ -109,23 +109,3 @@ var TelegramResponder = models.Responder{
 }
 
 var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder, MsPlannerResponder, TelegramResponder}
-
-var BackendTeam = models.Team{
-	ID:        uuid.New(),
-	Name:      "Backend",
-	Icon:      "backend",
-	CreatedBy: JohnDoe.ID,
-	CreatedAt: time.Now(),
-	UpdatedAt: time.Now(),
-}
-
-var FrontendTeam = models.Team{
-	ID:        uuid.New(),
-	Name:      "Frontend",
-	Icon:      "frontend",
-	CreatedBy: JohnDoe.ID,
-	CreatedAt: time.Now(),
-	UpdatedAt: time.Now(),
-}
-
-var AllTeams = []models.Team{BackendTeam, FrontendTeam}

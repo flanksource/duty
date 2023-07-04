@@ -362,7 +362,7 @@
     "healthy",
     "unhealthy"
   ],
-  "teams": [],
+  "teams": ["Backend", "Payment"],
   "tags": {
     "telemetry": [
       "enabled"

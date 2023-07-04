@@ -21,7 +21,6 @@
   "teams": ["Payment"],
   "tags": null,
   "types": [
-    "Application",
-    "KubernetesPod"
+    "Application"
   ]
 }
