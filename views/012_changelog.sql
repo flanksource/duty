@@ -26,13 +26,15 @@ BEGIN
       rec.last_runtime = NULL;
       rec.last_transition_time = NULL;
       rec.updated_at = NULL;
+      rec.deleted_at = NULL;
       OLD.last_runtime = NULL;
       OLD.last_transition_time = NULL;
       OLD.updated_at = NULL;
+      OLD.deleted_at = NULL;
 
       -- If it is same as the old record, then no action required
       IF rec IS NOT DISTINCT FROM OLD THEN
-        RETURN NEW;
+        RETURN NULL;
       END IF;
       priority = 10;
       payload = jsonb_build_object('id', rec.id);
