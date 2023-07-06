@@ -1,13 +1,13 @@
-CREATE OR REPLACE FUNCTION update_checks_and_relationships_deleted_at ()
+CREATE OR REPLACE FUNCTION soft_delete_canary ()
 RETURNS TRIGGER AS $$
 BEGIN
-  UPDATE checks
-  SET deleted_at = NEW.deleted_at
-  WHERE canary_id = OLD.id;
-
   UPDATE check_component_relationships
   SET deleted_at = NEW.deleted_at
-  WHERE canary_id = OLD.id;
+  WHERE canary_id = OLD.id AND deleted_at IS NULL;
+  
+  UPDATE checks
+  SET deleted_at = NEW.deleted_at
+  WHERE canary_id = OLD.id AND deleted_at IS NULL;
 
   RETURN NEW;
 END;
@@ -17,4 +17,21 @@ CREATE OR REPLACE TRIGGER canary_deleted_trigger
 AFTER UPDATE ON canaries
 FOR EACH ROW
 WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
-EXECUTE FUNCTION update_checks_and_relationships_deleted_at();
+EXECUTE FUNCTION soft_delete_canary();
+
+CREATE OR REPLACE FUNCTION soft_delete_check ()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE check_component_relationships
+  SET deleted_at = NEW.deleted_at
+  WHERE check_id = OLD.id AND deleted_at IS NULL;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER check_deleted_trigger
+AFTER UPDATE ON checks
+FOR EACH ROW
+WHEN (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL)
+EXECUTE FUNCTION soft_delete_check();
