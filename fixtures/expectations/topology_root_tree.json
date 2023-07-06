@@ -86,6 +86,7 @@
               "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "name": "logistics-db",
               "status": "unhealthy",
+              "status_reason": "database not accepting connections",
               "type": "Database",
               "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
               "summary": {

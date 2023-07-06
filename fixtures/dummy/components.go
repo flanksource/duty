@@ -54,14 +54,15 @@ var LogisticsWorker = models.Component{
 }
 
 var LogisticsDB = models.Component{
-	ID:         uuid.MustParse("018681fe-4529-c50f-26fd-530fa9c57319"),
-	Name:       "logistics-db",
-	ExternalId: "dummy/logistics-db",
-	Type:       "Database",
-	Status:     types.ComponentStatusUnhealthy,
-	ParentId:   &LogisticsAPI.ID,
-	Path:       Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
-	CreatedAt:  DummyCreatedAt,
+	ID:           uuid.MustParse("018681fe-4529-c50f-26fd-530fa9c57319"),
+	Name:         "logistics-db",
+	ExternalId:   "dummy/logistics-db",
+	Type:         "Database",
+	Status:       types.ComponentStatusUnhealthy,
+	StatusReason: "database not accepting connections",
+	ParentId:     &LogisticsAPI.ID,
+	Path:         Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
+	CreatedAt:    DummyCreatedAt,
 }
 
 var ClusterComponent = models.Component{
