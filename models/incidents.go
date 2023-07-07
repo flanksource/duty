@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,4 +46,11 @@ type Incident struct {
 	IncidentRuleID *uuid.UUID     `json:"incident_rule_id,omitempty"`
 	CommanderID    *uuid.UUID     `json:"commander_id,omitempty"`
 	CommunicatorID *uuid.UUID     `json:"communicator_id,omitempty"`
+}
+
+func (i Incident) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&i)
+	_ = json.Unmarshal(b, &m)
+	return m
 }
