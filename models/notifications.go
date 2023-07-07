@@ -22,3 +22,7 @@ type Notification struct {
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt *time.Time     `json:"deleted_at"`
 }
+
+func (n *Notification) HasRecipients() bool {
+	return n.TeamID != nil || n.PersonID != nil || len(n.Receivers) != 0
+}

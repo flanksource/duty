@@ -36,10 +36,10 @@ EXECUTE PROCEDURE insert_incident_updates_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_responder_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added', jsonb_build_object('type', 'responder', 'id', NEW.id));
+        INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added', jsonb_build_object('id', NEW.id));
     ELSIF TG_OP = 'UPDATE' THEN
         IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-            INSERT INTO event_queue(name, properties) VALUES ('incident.responder.removed', jsonb_build_object('type', 'responder', 'id', NEW.id));
+            INSERT INTO event_queue(name, properties) VALUES ('incident.responder.removed', jsonb_build_object('id', NEW.id));
         END IF;
     END IF;
 
@@ -56,7 +56,7 @@ EXECUTE PROCEDURE insert_responder_in_event_queue();
 -- Insert incident comment creation in event_queue
 CREATE OR REPLACE FUNCTION insert_comment_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added', jsonb_build_object('type', 'comment', 'id', NEW.id, 'body', NEW.comment));
+    INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added', jsonb_build_object('id', NEW.id));
     NOTIFY event_queue_updates, 'update';
     RETURN NULL;
 END
