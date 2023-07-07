@@ -2,6 +2,8 @@
 CREATE OR REPLACE FUNCTION insert_incident_creation_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO event_queue(name, properties) VALUES ('incident.created', jsonb_build_object('id', NEW.id));
+    NOTIFY event_queue_updates, 'update';
+    RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
 
@@ -25,7 +27,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER incident_enqueue
+CREATE OR REPLACE TRIGGER incident_status_enque
 AFTER UPDATE ON incidents
 FOR EACH ROW
 EXECUTE PROCEDURE insert_incident_updates_in_event_queue();
