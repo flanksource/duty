@@ -5,6 +5,19 @@ DECLARE
     rec RECORD;
     payload JSONB;
     priority integer := 0;
+    priority_table JSONB := '{
+        "canaries": 20,
+        "config_scrapers": 20,
+        "checks": 10,
+        "components": 10,
+        "config_items": 10,
+        "config_analysis": 5,
+        "config_changes": 5,
+        "config_component_relationships": 5,
+        "component_relationships": 5,
+        "config_relationships": 5,
+        "check_statuses": 0
+    }';
 BEGIN
   rec = NEW;
   IF TG_OP = 'DELETE' THEN
@@ -36,13 +49,12 @@ BEGIN
       IF rec IS NOT DISTINCT FROM OLD THEN
         RETURN NULL;
       END IF;
-      priority = 10;
       payload = jsonb_build_object('id', rec.id);
     ELSE
-      priority = 10;
       payload = jsonb_build_object('id', rec.id);
   END CASE;
 
+  priority = (priority_table->>TG_TABLE_NAME)::integer;
   INSERT INTO
     event_queue (name, properties, priority)
   VALUES
