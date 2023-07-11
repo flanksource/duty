@@ -8,7 +8,7 @@ table "notifications" {
   column "events" {
     null    = false
     type    = sql("text[]")
-    comment = "a list of events this notification is for"
+    comment = "a list of events this notification is for."
   }
   column "template" {
     null = false
@@ -18,20 +18,25 @@ table "notifications" {
     null = true
     type = text
   }
+  column "properties" {
+    null    = true
+    type    = jsonb
+    comment = "Shoutrrr properties shared by all the receivers (person, team & custom services)."
+  }
   column "person_id" {
     null    = true
     type    = uuid
-    comment = "person who should receive this notification"
+    comment = "person who should receive this notification."
   }
   column "team_id" {
     null    = true
     type    = uuid
-    comment = "team that should receive this notification"
+    comment = "team that should receive this notification."
   }
-  column "receivers" {
+  column "custom_services" {
     null    = true
     type    = jsonb
-    comment = "other custom destination for the notification like Slack, Telegram, ..."
+    comment = "other 3rd party services for the notification like Slack, Telegram, ..."
   }
   column "created_by" {
     null = false
