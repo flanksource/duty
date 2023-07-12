@@ -21,7 +21,7 @@ table "notifications" {
   column "properties" {
     null    = true
     type    = jsonb
-    comment = "Shoutrrr properties shared by all the receivers (person, team & custom services)."
+    comment = "Shoutrrr properties used when sending email to the person receipient."
   }
   column "person_id" {
     null    = true
