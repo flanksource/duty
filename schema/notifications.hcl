@@ -60,18 +60,18 @@ table "notifications" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "notification_person_id_fkey" {
-    columns     = [column.created_by]
+    columns     = [column.person_id]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "notification_team_id_fkey" {
-    columns     = [column.created_by]
-    ref_columns = [table.people.column.id]
+    columns     = [column.team_id]
+    ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
 }
