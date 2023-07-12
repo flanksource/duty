@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -28,6 +29,13 @@ type Evidence struct {
 	Properties       types.JSONMap `json:"properties"`
 	CreatedAt        time.Time     `json:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at"`
+}
+
+func (i Evidence) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&i)
+	_ = json.Unmarshal(b, &m)
+	return m
 }
 
 type EvidenceConfig struct {

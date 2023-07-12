@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,4 +22,11 @@ type Responder struct {
 	CreatedBy    uuid.UUID  `json:"created_by"`
 	CreatedAt    time.Time  `json:"created_at" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 	UpdatedAt    time.Time  `json:"updated_at" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+}
+
+func (i Responder) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&i)
+	_ = json.Unmarshal(b, &m)
+	return m
 }

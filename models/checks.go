@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -58,6 +59,13 @@ func (c Check) ToString() string {
 
 func (c Check) GetDescription() string {
 	return c.Description
+}
+
+func (c Check) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&c)
+	_ = json.Unmarshal(b, &m)
+	return m
 }
 
 type Checks []*Check
