@@ -175,3 +175,24 @@ CREATE
 OR REPLACE TRIGGER team_enqueue
 AFTER INSERT OR UPDATE OR DELETE ON teams FOR EACH ROW
 EXECUTE PROCEDURE insert_team_in_event_queue ();
+
+-- Create new event on any updates on the notifications table
+CREATE OR REPLACE FUNCTION notifications_trigger_function()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        INSERT INTO event_queue(name, properties) VALUES ('notification.delete', jsonb_build_object('id', OLD.id));
+        NOTIFY event_queue_updates, 'update';
+        RETURN OLD;
+    ELSE
+        INSERT INTO event_queue(name, properties) VALUES ('notification.update', jsonb_build_object('id', NEW.id));
+        NOTIFY event_queue_updates, 'update';
+        RETURN NEW;
+    END IF;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER notification_update_enqueue
+AFTER INSERT OR UPDATE OR DELETE ON notifications
+FOR EACH ROW
+EXECUTE PROCEDURE notifications_trigger_function ();
