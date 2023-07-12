@@ -39,7 +39,7 @@ table "notifications" {
     comment = "other 3rd party services for the notification like Slack, Telegram, ..."
   }
   column "created_by" {
-    null = false
+    null = true
     type = uuid
   }
   column "created_at" {
@@ -60,7 +60,7 @@ table "notifications" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
-    on_delete   = CASCADE
+    on_delete   = NO_ACTION
   }
   foreign_key "notification_person_id_fkey" {
     columns     = [column.person_id]

@@ -18,10 +18,10 @@ type Notification struct {
 	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
 	CustomServices types.JSON          `json:"custom_services,omitempty" gorm:"column:custom_services"`
-	CreatedBy      uuid.UUID           `json:"created_by"`
+	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 	CreatedAt      time.Time           `json:"created_at"`
-	DeletedAt      *time.Time          `json:"deleted_at"`
+	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
 }
 
 func (n *Notification) HasRecipients() bool {
