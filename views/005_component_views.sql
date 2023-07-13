@@ -133,3 +133,7 @@ BEGIN
         SELECT cr.component_id as id FROM component_relationships cr WHERE cr.relationship_id = $1::UUID;
 END;
 $$ language plpgsql;
+
+CREATE OR REPLACE VIEW component_types AS
+  SELECT distinct on (type) type
+  FROM components;
