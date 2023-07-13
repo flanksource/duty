@@ -6,8 +6,7 @@ AS $$
   DECLARE
     result VARCHAR;
   BEGIN
-    result := 'INC' || LPAD(seq_value::TEXT, 7, '0');
-    RETURN result;
+    RETURN 'INC-' || seq_value::TEXT;
   END;
 $$ 
 LANGUAGE plpgsql;
