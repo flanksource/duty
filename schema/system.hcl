@@ -34,7 +34,7 @@ table "event_queue" {
   column "priority" {
     null    = false
     type    = integer
-    default = 0
+    default = 100
   }
   primary_key {
     columns = [column.id]
