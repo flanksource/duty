@@ -136,4 +136,4 @@ $$ language plpgsql;
 
 CREATE OR REPLACE VIEW component_types AS
   SELECT distinct on (type) type
-  FROM components;
+  FROM components ORDER BY type asc;
