@@ -240,6 +240,8 @@ CREATE VIEW config_summary AS
   )
   SELECT
     config_items.type,
+    MAX(config_items.created_at) as most_recently_created,
+    MAX(config_items.updated_at) as most_recently_updated,
     aggregated_analysis_counts.analysis,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
