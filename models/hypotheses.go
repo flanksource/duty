@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,4 +23,11 @@ type Hypothesis struct {
 
 func (Hypothesis) TableName() string {
 	return "hypotheses"
+}
+
+func (h Hypothesis) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&h)
+	_ = json.Unmarshal(b, &m)
+	return m
 }

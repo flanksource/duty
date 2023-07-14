@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,4 +19,11 @@ type Comment struct {
 	Read              []int16    `json:"read,omitempty" gorm:"type:smallint[]"`
 	CreatedAt         time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 	UpdatedAt         time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+}
+
+func (i Comment) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&i)
+	_ = json.Unmarshal(b, &m)
+	return m
 }

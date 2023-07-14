@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -27,4 +28,11 @@ func (c Canary) GetCheckID(checkName string) string {
 
 func (c Canary) TableName() string {
 	return "canaries"
+}
+
+func (c Canary) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&c)
+	_ = json.Unmarshal(b, &m)
+	return m
 }
