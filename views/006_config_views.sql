@@ -112,7 +112,7 @@ returns table (
   type TEXT,
   icon TEXT,
   role TEXT,
-  deleted_at TIMESTAMP
+  deleted_at TIMESTAMP WITH TIME ZONE
 )
 as
 $$
@@ -136,6 +136,19 @@ end;
 $$
 language plpgsql;
 
+-- lookup analysis by component
+CREATE OR REPLACE FUNCTION lookup_analysis_by_component(id text)
+RETURNS SETOF config_analysis AS
+$$
+BEGIN
+  RETURN QUERY
+    SELECT * FROM config_analysis 
+    WHERE config_id IN (
+      SELECT config_id FROM lookup_configs_by_component($1)
+    );
+END;
+$$
+LANGUAGE plpgsql;
 
 -- lookup_related_configs
 DROP FUNCTION IF EXISTS lookup_related_configs;
@@ -227,6 +240,8 @@ CREATE VIEW config_summary AS
   )
   SELECT
     config_items.type,
+    MAX(config_items.created_at) as created_at,
+    MAX(config_items.updated_at) as updated_at,
     aggregated_analysis_counts.analysis,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
