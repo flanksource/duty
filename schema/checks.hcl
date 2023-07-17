@@ -6,9 +6,9 @@ table "canaries" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "name" {
     null = false
@@ -31,8 +31,8 @@ table "canaries" {
     type = text
   }
   column "created_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "created_by" {
@@ -40,8 +40,8 @@ table "canaries" {
     type = uuid
   }
   column "updated_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
@@ -138,9 +138,9 @@ table "checks" {
     type = uuid
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "type" {
     null = false
@@ -317,5 +317,16 @@ table "check_statuses_1d" {
   index "check_statuses_1d_created_at_brin_idx" {
     type    = BRIN
     columns = [column.created_at]
+  }
+}
+
+table "disabled_checks" {
+  schema = schema.public
+  column "name" {
+    null = false
+    type = text
+  }
+  primary_key {
+    columns = [column.name]
   }
 }
