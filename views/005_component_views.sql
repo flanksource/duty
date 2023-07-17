@@ -1,3 +1,14 @@
+-- components by check
+DROP FUNCTION IF EXISTS lookup_components_by_check;
+
+CREATE OR REPLACE FUNCTION lookup_components_by_check (id uuid) RETURNS setof components AS
+$$
+SELECT * FROM components WHERE id IN (
+  SELECT component_id FROM check_component_relationships
+  WHERE check_id = $1
+)
+$$ LANGUAGE sql;
+
 -- lookup_component_by_property
 CREATE
 OR REPLACE function lookup_component_by_property (text, text) returns setof components as $$
