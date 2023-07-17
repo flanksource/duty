@@ -5,6 +5,11 @@ table "topologies" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "agent_id" {
+    null = false
+    default = var.uuid_nil
+    type = uuid
+  }
   column "name" {
     null = false
     type = text
@@ -49,6 +54,12 @@ table "topologies" {
   foreign_key "topologies_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "topologies_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }

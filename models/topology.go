@@ -10,6 +10,7 @@ import (
 // Topology represents the topologies database table
 type Topology struct {
 	ID        uuid.UUID `gorm:"default:generate_ulid()"`
+	AgentID   uuid.UUID `json:"agent_id,omitempty"`
 	Name      string
 	Namespace string
 	Labels    types.JSONStringMap `json:"labels,omitempty"  gorm:"default:null"`
