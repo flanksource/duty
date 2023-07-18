@@ -72,7 +72,7 @@ FROM
   INNER JOIN config_component_relationships relations on relations.config_id = config_analysis.config_id
   INNER JOIN config_items configs on configs.id = config_analysis.config_id
 WHERE
-  configs.deleted_at IS NULL
+  configs.deleted_at IS NULL AND config_analysis.status = 'open'
 ORDER BY
     ARRAY_POSITION(ARRAY['critical', 'blocker', 'high', 'medium', 'low', 'info'], config_analysis.severity),
     configs.name;
