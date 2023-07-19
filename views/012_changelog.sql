@@ -6,6 +6,7 @@ DECLARE
     payload JSONB;
     priority integer := 0;
     priority_table JSONB := '{
+        "topologies": 20,
         "canaries": 20,
         "config_scrapers": 20,
         "checks": 10,
@@ -88,7 +89,8 @@ BEGIN
         'check_statuses',
         'config_component_relationships',
         'component_relationships',
-        'config_relationships'
+        'config_relationships',
+        'topologies'
       )
   LOOP 
     EXECUTE format('
