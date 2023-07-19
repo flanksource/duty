@@ -21,6 +21,12 @@ func PopulateDBWithDummyModels(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, c := range AllDummyTopologies {
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
 	for _, c := range AllDummyComponents {
 		c.UpdatedAt = createTime
 		err = gormDB.Create(&c).Error
@@ -210,6 +216,12 @@ func DeleteDummyModelsFromDB(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range AllDummyCanaries {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range AllDummyTopologies {
 		err = gormDB.Delete(&c).Error
 		if err != nil {
 			return err
