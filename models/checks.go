@@ -44,12 +44,12 @@ type Check struct {
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
 
 	// Auxiliary fields
-	CanaryName   string        `json:"canary_name" gorm:"-"`
-	Namespace    string        `json:"namespace"  gorm:"-"`  // Namespace of the parent canary
-	ComponentIDs []string      `json:"components"  gorm:"-"` // Linked component ids
-	Uptime       Uptime        `json:"uptime"  gorm:"-"`
-	Latency      Latency       `json:"latency"  gorm:"-"`
-	Statuses     []CheckStatus `json:"checkStatuses"  gorm:"-"`
+	CanaryName   string        `json:"canary_name,omitempty" gorm:"-"`
+	Namespace    string        `json:"namespace,omitempty"  gorm:"-"`  // Namespace of the parent canary
+	ComponentIDs []string      `json:"components,omitempty"  gorm:"-"` // Linked component ids
+	Uptime       Uptime        `json:"uptime,omitempty"  gorm:"-"`
+	Latency      Latency       `json:"latency,omitempty"  gorm:"-"`
+	Statuses     []CheckStatus `json:"checkStatuses,omitempty"  gorm:"-"`
 	DisplayType  string        `json:"display_type,omitempty"  gorm:"-"`
 }
 
