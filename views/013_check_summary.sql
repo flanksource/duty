@@ -47,15 +47,6 @@ EXECUTE PROCEDURE update_last_transition_time_for_check ();
 
 -- check summary view
 CREATE OR REPLACE VIEW check_summary AS
-  WITH check_component_relationship_by_check AS (
-  SELECT
-    check_id,
-    json_agg(component_id) AS components
-  FROM
-    check_component_relationships
-  GROUP BY
-    check_id
-  )
   SELECT
     checks.id,
     checks.canary_id,
@@ -81,11 +72,9 @@ CREATE OR REPLACE VIEW check_summary AS
     checks.created_at,
     checks.updated_at,
     checks.deleted_at,
-    checks.silenced_at,
-    check_component_relationship_by_check.components
+    checks.silenced_at
   FROM
     checks
-    LEFT JOIN check_component_relationship_by_check ON checks.id = check_component_relationship_by_check.check_id
     INNER JOIN canaries ON checks.canary_id = canaries.id
     INNER JOIN check_status_summary ON checks.id = check_status_summary.check_id;
 
