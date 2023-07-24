@@ -10,8 +10,10 @@ BEGIN
   END IF;
 
   changed_fields = hstore(NEW.*) - hstore(OLD.*);
-  IF changed_fields = hstore('') THEN
-    RETURN NULL; -- No columns have been updated.
+  IF TG_TABLE_NAME = 'canaries' AND NOT (changed_fields ? 'spec')  THEN
+    RETURN NEW; -- For canaries, only spec column should be considered
+  ELSIF changed_fields = hstore('') THEN
+    RETURN NEW; -- No columns have been updated.
   END IF;
 
   NEW.updated_at = NOW();
