@@ -20,7 +20,6 @@ FROM
 
 -- Topologies with job status
 DROP VIEW IF EXISTS topologies_with_status;
-
 CREATE OR REPLACE VIEW
   topologies_with_status AS
 SELECT
@@ -45,11 +44,19 @@ WHERE
 
 -- Canaries View
 DROP VIEW IF EXISTS canaries_with_status;
-
-CREATE OR REPLACE VIEW
-  canaries_with_status AS
+CREATE OR REPLACE VIEW canaries_with_status AS
+WITH canaries_last_runtime AS (
+    SELECT MAX(last_runtime) as last_runtime, canary_id
+    FROM checks
+    GROUP BY canary_id
+)
 SELECT
-  canaries.*,
+  canaries.id,
+  canaries.name,
+  canaries.namespace,
+  canaries.labels,
+  canaries.source,
+  canaries_last_runtime.last_runtime,
   job_history_latest_status.name job_name,
   job_history_latest_status.success_count job_success_count,
   job_history_latest_status.error_count job_error_count,
@@ -64,6 +71,7 @@ SELECT
 FROM
   canaries
   LEFT JOIN job_history_latest_status ON canaries.id::TEXT = job_history_latest_status.resource_id
+  INNER JOIN canaries_last_runtime ON canaries_last_runtime.canary_id = canaries.id
   AND job_history_latest_status.resource_type = 'canary'
 WHERE
   canaries.deleted_at IS NULL;
