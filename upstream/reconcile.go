@@ -39,10 +39,6 @@ func NewUpstreamSyncer(upstreamConf UpstreamConfig, pageSize int) *upstreamSynce
 	}
 }
 
-func (t *upstreamSyncer) SetPagesize(size int) {
-	t.pageSize = size
-}
-
 func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) error {
 	logger.Infof("Syncing table %q with upstream", table)
 
