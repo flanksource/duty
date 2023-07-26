@@ -24,7 +24,8 @@ type PaginateResponse struct {
 	Total int    `gorm:"column:total"`
 }
 
-type upstreamSyncer struct {
+// upstreamReconciler pushes missing resources from an agent to the upstream.
+type upstreamReconciler struct {
 	upstreamConf UpstreamConfig
 
 	// the max number of resources the agent fetches
@@ -32,17 +33,17 @@ type upstreamSyncer struct {
 	pageSize int
 }
 
-func NewUpstreamSyncer(upstreamConf UpstreamConfig, pageSize int) *upstreamSyncer {
-	return &upstreamSyncer{
+func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamReconciler {
+	return &upstreamReconciler{
 		upstreamConf: upstreamConf,
 		pageSize:     pageSize,
 	}
 }
 
-// SyncTableWithUpstream compares all the resource of the given table against
+// Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) error {
-	logger.Infof("Syncing table %q with upstream", table)
+func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
+	logger.Debugf("Reconciling table %q with upstream", table)
 
 	var next string
 	if table == "check_statuses" {
@@ -52,14 +53,14 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
-		local, err := GetPrimaryKeysHash(ctx, paginateRequest, uuid.Nil)
+		localStatus, err := GetPrimaryKeysHash(ctx, paginateRequest, uuid.Nil)
 		if err != nil {
 			return fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
 		}
-		next = local.Next
+		next = localStatus.Next
 
 		// Nothing left to push
-		if local.Total == 0 {
+		if localStatus.Total == 0 {
 			break
 		}
 
@@ -68,7 +69,7 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 			return fmt.Errorf("failed to fetch upstream status: %w", err)
 		}
 
-		if upstreamStatus.Hash == local.Hash {
+		if upstreamStatus.Hash == localStatus.Hash {
 			continue
 		}
 
@@ -95,7 +96,7 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
-func (t *upstreamSyncer) fetchUpstreamResourceIDs(ctx dbContext, request PaginateRequest) ([]string, error) {
+func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx dbContext, request PaginateRequest) ([]string, error) {
 	endpoint, err := url.JoinPath(t.upstreamConf.Host, "upstream", "pull", t.upstreamConf.AgentName)
 	if err != nil {
 		return nil, fmt.Errorf("error creating url endpoint for host %s: %w", t.upstreamConf.Host, err)
@@ -126,7 +127,7 @@ func (t *upstreamSyncer) fetchUpstreamResourceIDs(ctx dbContext, request Paginat
 	return response, nil
 }
 
-func (t *upstreamSyncer) fetchUpstreamStatus(ctx context.Context, request PaginateRequest) (*PaginateResponse, error) {
+func (t *upstreamReconciler) fetchUpstreamStatus(ctx context.Context, request PaginateRequest) (*PaginateResponse, error) {
 	endpoint, err := url.JoinPath(t.upstreamConf.Host, "upstream", "status", t.upstreamConf.AgentName)
 	if err != nil {
 		return nil, fmt.Errorf("error creating url endpoint for host %s: %w", t.upstreamConf.Host, err)
@@ -157,7 +158,7 @@ func (t *upstreamSyncer) fetchUpstreamStatus(ctx context.Context, request Pagina
 	return &response, nil
 }
 
-func (t *upstreamSyncer) createPaginateRequest(ctx context.Context, url string, request PaginateRequest) (*http.Request, error) {
+func (t *upstreamReconciler) createPaginateRequest(ctx context.Context, url string, request PaginateRequest) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequest: %w", err)
