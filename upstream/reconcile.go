@@ -9,19 +9,18 @@ import (
 	"net/url"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/google/uuid"
 )
 
 type PaginateRequest struct {
-	Table string    `query:"table"`
-	From  uuid.UUID `query:"from"`
-	Size  int       `query:"size"`
+	Table string `query:"table"`
+	From  string `query:"from"`
+	Size  int    `query:"size"`
 }
 
 type PaginateResponse struct {
-	Hash  string    `gorm:"column:sha256sum"`
-	Next  uuid.UUID `gorm:"column:last_id"`
-	Total int       `gorm:"column:total"`
+	Hash  string `gorm:"column:sha256sum"`
+	Next  string `gorm:"column:last_id"`
+	Total int    `gorm:"column:total"`
 }
 
 type upstreamSyncer struct {
@@ -39,20 +38,27 @@ func NewUpstreamSyncer(upstreamConf UpstreamConfig, pageSize int) *upstreamSynce
 	}
 }
 
+// SyncTableWithUpstream compares all the resource of the given table against
+// the upstream server and pushes any missing resources to the upstream.
 func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) error {
 	logger.Infof("Syncing table %q with upstream", table)
 
-	var next uuid.UUID
+	var next string
+	if table == "check_statuses" {
+		next = "," // in the format <check_id>,<time>
+	}
+
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
-		current, err := GetIDsHash(ctx, table, next, t.pageSize)
+		local, err := GetPrimaryKeysHash(ctx, table, next, t.pageSize)
 		if err != nil {
-			return fmt.Errorf("failed to fetch local id hash: %w", err)
+			return fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
 		}
-		next = current.Next
+		next = local.Next
 
-		if current.Total == 0 {
+		// Nothing left to push
+		if local.Total == 0 {
 			break
 		}
 
@@ -61,7 +67,7 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 			return fmt.Errorf("failed to fetch upstream status: %w", err)
 		}
 
-		if upstreamStatus.Hash == current.Hash {
+		if upstreamStatus.Hash == local.Hash {
 			continue
 		}
 
@@ -125,7 +131,7 @@ func (t *upstreamSyncer) fetchUpstreamStatus(ctx context.Context, request Pagina
 
 	req, err := t.createPaginateRequest(ctx, endpoint, request)
 	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: %w", err)
+		return nil, fmt.Errorf("error creating paginate request: %w", err)
 	}
 
 	httpClient := http.Client{}
@@ -156,7 +162,7 @@ func (t *upstreamSyncer) createPaginateRequest(ctx context.Context, url string, 
 
 	query := req.URL.Query()
 	query.Add("table", request.Table)
-	query.Add("from", request.From.String())
+	query.Add("from", request.From)
 	query.Add("size", fmt.Sprintf("%d", request.Size))
 	req.URL.RawQuery = query.Encode()
 

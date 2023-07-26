@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/models"
@@ -43,7 +44,7 @@ func (t *UpstreamConfig) LabelsMap() map[string]string {
 // PushData consists of data about changes to
 // components, configs, analysis.
 type PushData struct {
-	AgentName                    string                               `json:"cluster_name,omitempty"`
+	AgentName                    string                               `json:"agent_name,omitempty"`
 	Canaries                     []models.Canary                      `json:"canaries,omitempty"`
 	Checks                       []models.Check                       `json:"checks,omitempty"`
 	Components                   []models.Component                   `json:"components,omitempty"`
@@ -125,13 +126,38 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func GetIDsHash(ctx dbContext, table string, from uuid.UUID, size int) (*PaginateResponse, error) {
-	query := fmt.Sprintf(`
-		WITH id_list AS (
+func GetPrimaryKeysHash(ctx dbContext, table, from string, size int) (*PaginateResponse, error) {
+	if table == "check_statuses" {
+		query := `
+			WITH p_keys AS (
+				SELECT check_id::TEXT, time::TEXT
+				FROM check_statuses
+				WHERE (check_id::TEXT, time::TEXT) > (?, ?)
+				ORDER BY check_id, time
+				LIMIT ?
+			)
 			SELECT
-				id::TEXT
+				encode(digest(string_agg(check_id::TEXT || time::TEXT, ''), 'sha256'), 'hex') as sha256sum,
+				(MAX(check_id::TEXT) || ',' || MAX(time::TEXT)) as last_id,
+				COUNT(*) as total
+			FROM
+				p_keys`
+
+		parts := strings.Split(from, ",")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", from)
+		}
+
+		var resp PaginateResponse
+		err := ctx.DB().Raw(query, parts[0], parts[1], size).Scan(&resp).Error
+		return &resp, err
+	}
+
+	query := fmt.Sprintf(`
+		WITH p_keys AS (
+			SELECT id::TEXT
 			FROM %s
-			WHERE id > ?
+			WHERE id::TEXT > ?
 			ORDER BY id
 			LIMIT ?
 		)
@@ -140,7 +166,7 @@ func GetIDsHash(ctx dbContext, table string, from uuid.UUID, size int) (*Paginat
 			MAX(id) as last_id,
 			COUNT(*) as total
 		FROM
-			id_list`, table)
+			p_keys`, table)
 
 	var resp PaginateResponse
 	err := ctx.DB().Raw(query, from, size).Scan(&resp).Error
