@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
 )
 
 type PaginateRequest struct {
@@ -51,7 +52,7 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
-		local, err := GetPrimaryKeysHash(ctx, table, next, t.pageSize)
+		local, err := GetPrimaryKeysHash(ctx, paginateRequest, uuid.Nil)
 		if err != nil {
 			return fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
 		}
@@ -80,6 +81,8 @@ func (t *upstreamSyncer) SyncTableWithUpstream(ctx dbContext, table string) erro
 		if err != nil {
 			return fmt.Errorf("failed to fetch missing resource ids: %w", err)
 		}
+
+		logger.Debugf("[table=%s] Pushing %d items to upstream. Next: %s", table, pushData.Count(), next)
 
 		pushData.AgentName = t.upstreamConf.AgentName
 		if err := Push(ctx, t.upstreamConf, pushData); err != nil {

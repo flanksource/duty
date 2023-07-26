@@ -111,10 +111,10 @@ func (u Uptime) String() string {
 }
 
 type CheckStatus struct {
-	CheckID   uuid.UUID `json:"check_id"`
+	CheckID   uuid.UUID `json:"check_id" gorm:"primaryKey"`
 	Status    bool      `json:"status"`
 	Invalid   bool      `json:"invalid,omitempty"`
-	Time      string    `json:"time"`
+	Time      string    `json:"time" gorm:"primaryKey"`
 	Duration  int       `json:"duration"`
 	Message   string    `json:"message,omitempty"`
 	Error     string    `json:"error,omitempty"`

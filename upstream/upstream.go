@@ -77,6 +77,12 @@ func (p *PushData) String() string {
 	return result
 }
 
+func (t *PushData) Count() int {
+	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
+		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
+		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) + len(t.Topologies)
+}
+
 // ReplaceTopologyID replaces the topology_id for all the components
 // with the provided id.
 func (t *PushData) ReplaceTopologyID(id *uuid.UUID) {
@@ -126,13 +132,14 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func GetPrimaryKeysHash(ctx dbContext, table, from string, size int) (*PaginateResponse, error) {
-	if table == "check_statuses" {
+func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
+	if req.Table == "check_statuses" {
 		query := `
 			WITH p_keys AS (
 				SELECT check_id::TEXT, time::TEXT
 				FROM check_statuses
-				WHERE (check_id::TEXT, time::TEXT) > (?, ?)
+				LEFT JOIN checks ON check_statuses.check_id = checks.id
+				WHERE (check_id::TEXT, time::TEXT) > (?, ?) AND checks.agent_id = ?
 				ORDER BY check_id, time
 				LIMIT ?
 			)
@@ -143,13 +150,13 @@ func GetPrimaryKeysHash(ctx dbContext, table, from string, size int) (*PaginateR
 			FROM
 				p_keys`
 
-		parts := strings.Split(from, ",")
+		parts := strings.Split(req.From, ",")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", from)
+			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", req.From)
 		}
 
 		var resp PaginateResponse
-		err := ctx.DB().Raw(query, parts[0], parts[1], size).Scan(&resp).Error
+		err := ctx.DB().Raw(query, parts[0], parts[1], agentID, req.Size).Scan(&resp).Error
 		return &resp, err
 	}
 
@@ -166,10 +173,10 @@ func GetPrimaryKeysHash(ctx dbContext, table, from string, size int) (*PaginateR
 			MAX(id) as last_id,
 			COUNT(*) as total
 		FROM
-			p_keys`, table)
+			p_keys`, req.Table)
 
 	var resp PaginateResponse
-	err := ctx.DB().Raw(query, from, size).Scan(&resp).Error
+	err := ctx.DB().Raw(query, req.From, req.Size).Scan(&resp).Error
 	return &resp, err
 }
 
@@ -178,32 +185,55 @@ func GetMissingResourceIDs(ctx dbContext, ids []string, paginateReq PaginateRequ
 
 	switch paginateReq.Table {
 	case "topologies":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Topologies).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Topologies).Error; err != nil {
 			return nil, fmt.Errorf("error fetching topologies: %w", err)
 		}
 
 	case "canaries":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Canaries).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Canaries).Error; err != nil {
 			return nil, fmt.Errorf("error fetching canaries: %w", err)
 		}
 
 	case "checks":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Checks).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Checks).Error; err != nil {
 			return nil, fmt.Errorf("error fetching checks: %w", err)
 		}
 
 	case "components":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Components).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Components).Error; err != nil {
 			return nil, fmt.Errorf("error fetching components: %w", err)
 		}
 
 	case "config_scrapers":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigScrapers).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigScrapers).Error; err != nil {
 			return nil, fmt.Errorf("error fetching config scrapers: %w", err)
 		}
 
 	case "config_items":
-		if err := ctx.DB().Not(ids).Where("id > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigItems).Error; err != nil {
+		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigItems).Error; err != nil {
+			return nil, fmt.Errorf("error fetching config items: %w", err)
+		}
+
+	case "check_statuses":
+		parts := strings.Split(paginateReq.From, ",")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", paginateReq.From)
+		}
+
+		tx := ctx.DB().Where("(check_id::TEXT, time::TEXT) > (?, ?)", parts[0], parts[1])
+
+		// Attach a Not IN query only if required
+		if len(ids) != 0 {
+			var pKeys = make([][]string, 0, len(ids))
+			for _, pkey := range ids {
+				parts := strings.Split(pkey, ",")
+				pKeys = append(pKeys, parts)
+			}
+
+			tx = tx.Where("(check_id::TEXT, time::TEXT) NOT IN (?)", pKeys)
+		}
+
+		if err := tx.Limit(paginateReq.Size).Order("check_id, time").Find(&pushData.CheckStatuses).Error; err != nil {
 			return nil, fmt.Errorf("error fetching config items: %w", err)
 		}
 	}
