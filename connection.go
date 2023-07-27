@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/commons/template"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"k8s.io/client-go/kubernetes"
 )
@@ -53,9 +54,25 @@ func HydratedConnectionByURL(ctx context.Context, db *gorm.DB, k8sClient kuberne
 	return HydrateConnection(ctx, k8sClient, db, connection, namespace)
 }
 
+func IsValidConnectionURL(connectionString string) bool {
+	if _, err := uuid.Parse(connectionString); err == nil {
+		return true
+	}
+	_, _, found := extractConnectionNameType(connectionString)
+	return found
+}
+
 // FindConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be of the form: connection://<type>/<name>
 func FindConnectionByURL(ctx context.Context, db *gorm.DB, connectionString string) (*models.Connection, error) {
+	if _, err := uuid.Parse(connectionString); err == nil {
+		var connection models.Connection
+		if err := db.Where("id = ?", connectionString).First(&connection).Error; err != nil {
+			return nil, err
+		}
+		return &connection, nil
+	}
+
 	name, connectionType, found := extractConnectionNameType(connectionString)
 	if !found {
 		return nil, nil
