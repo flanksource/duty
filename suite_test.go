@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 
@@ -39,27 +38,19 @@ func MustDB() *sql.DB {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
-	postgresServer = embeddedPG.NewDatabase(embeddedPG.DefaultConfig().
-		Database("test").
-		Port(9876).
-		Logger(io.Discard))
-	if err := postgresServer.Start(); err != nil {
+	var err error
+
+	config, _ := testutils.GetEmbeddedPGConfig("test", 9876)
+	postgresServer = embeddedPG.NewDatabase(config)
+	if err = postgresServer.Start(); err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	logger.Infof("Started postgres on port 9876")
-	var err error
-	if testutils.TestDBPGPool, err = NewPgxPool(pgUrl); err != nil {
-		ginkgo.Fail(err.Error())
-	}
-	if _, err := NewDB(pgUrl); err != nil {
-		ginkgo.Fail(err.Error())
-	}
-	err = Migrate(pgUrl, &migrate.MigrateOptions{IgnoreFiles: []string{"postgrest.sql"}})
-	Expect(err).ToNot(HaveOccurred())
 
-	testutils.TestDB, err = NewGorm(pgUrl, DefaultGormConfig())
-	Expect(err).ToNot(HaveOccurred())
-	Expect(testutils.TestDB).ToNot(BeNil())
+	migrateOpts := &migrate.MigrateOptions{IgnoreFiles: []string{"postgrest.sql"}}
+	if testutils.TestDB, testutils.TestDBPGPool, err = SetupDB(pgUrl, migrateOpts); err != nil {
+		ginkgo.Fail(err.Error())
+	}
 
 	// Since postgrest.sql is ignored, postgrest_anon role should not be present
 	var pgrstCount int
