@@ -125,3 +125,28 @@ func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	}
 	return migrate.RunMigrations(db, connection, *migrateOptions)
 }
+
+// SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
+func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
+	pgxpool, err = NewPgxPool(connection)
+	if err != nil {
+		return
+	}
+
+	conn, err := pgxpool.Acquire(context.Background())
+	if err != nil {
+		return
+	}
+	defer conn.Release()
+
+	gormDB, err = NewGorm(connection, DefaultGormConfig())
+	if err != nil {
+		return
+	}
+
+	if err = Migrate(connection, migrateOpts); err != nil {
+		return
+	}
+
+	return
+}
