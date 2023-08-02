@@ -129,3 +129,26 @@ DROP VIEW IF EXISTS job_history_names;
 CREATE OR REPLACE VIEW job_history_names AS
   SELECT distinct on (name) name
   FROM job_history;
+
+-- Notifications with job history
+DROP VIEW IF EXISTS notifications_summary;
+
+CREATE OR REPLACE VIEW notifications_summary AS
+SELECT
+  notifications.events,
+  notifications.filter,
+  notifications.person_id,
+  notifications.team_id,
+  notifications.custom_services,
+  notifications.created_at,
+  notifications.updated_at,
+  notifications.created_by,
+  job_history_latest_status.status job_status,
+  job_history_latest_status.details job_details,
+  job_history_latest_status.duration_millis job_duration_millis,
+  job_history_latest_status.time_start job_time_start
+FROM
+  notifications
+  LEFT JOIN job_history_latest_status ON notifications.id::TEXT = job_history_latest_status.resource_id
+WHERE
+  notifications.deleted_at IS NULL;
