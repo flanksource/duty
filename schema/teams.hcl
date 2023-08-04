@@ -57,6 +57,10 @@ table "people" {
   primary_key {
     columns = [column.id]
   }
+  index "people_name_unique_idx" {
+    unique  = true
+    columns = [column.name]
+  }
   foreign_key "people_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
@@ -91,6 +95,7 @@ table "team_members" {
     on_delete   = NO_ACTION
   }
 }
+
 table "teams" {
   schema = schema.public
   column "id" {
@@ -142,7 +147,6 @@ table "teams" {
     on_delete   = NO_ACTION
   }
 }
-
 
 table "team_components" {
   schema = schema.public
