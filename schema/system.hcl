@@ -1,3 +1,41 @@
+table "access_tokens" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "person_id" {
+    null = false
+    type = uuid
+  }
+  column "value" {
+    null = false
+    type = text
+  }
+  column "created_at" {
+    null = false
+    type = timestamptz
+  }
+  column "expires_at" {
+    null = true # We can have never expiring tokens
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "access_tokens_value" {
+    unique  = true
+    columns = [column.value]
+  }
+  foreign_key "access_tokens_person_fkey" {
+    columns     = [column.person_id]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+}
+
 table "event_queue" {
   schema = schema.public
   column "id" {
@@ -95,6 +133,7 @@ table "integrations" {
     on_delete   = NO_ACTION
   }
 }
+
 table "job_history" {
   schema = schema.public
   column "id" {
