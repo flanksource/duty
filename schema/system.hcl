@@ -5,6 +5,10 @@ table "access_tokens" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "name" {
+    null = false
+    type = text
+  }
   column "person_id" {
     null = false
     type = uuid
@@ -24,9 +28,9 @@ table "access_tokens" {
   primary_key {
     columns = [column.id]
   }
-  index "access_tokens_value" {
+  index "access_tokens_person_name_unique_key" {
     unique  = true
-    columns = [column.value]
+    columns = [column.person_id, column.name]
   }
   foreign_key "access_tokens_person_fkey" {
     columns     = [column.person_id]

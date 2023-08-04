@@ -34,8 +34,9 @@ func (p *PersonProperties) Scan(val any) error {
 }
 
 type AccessToken struct {
-	ID        uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
-	Value     string
+	ID        uuid.UUID `gorm:"default:generate_ulid()"`
+	Name      string    `gorm:"not null"`
+	Value     string    `gorm:"not null"`
 	PersonID  uuid.UUID
 	ExpiresAt time.Time
 	CreatedAt time.Time
