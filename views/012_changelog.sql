@@ -28,6 +28,15 @@ BEGIN
 
   CASE TG_TABLE_NAME
     WHEN 'component_relationships' THEN
+      -- Set these fields to null for component_relationships to prevent excessive pushes
+      rec.updated_at = NULL;
+      OLD.updated_at = NULL;
+
+      -- If it is same as the old record, then no action required
+      IF rec IS NOT DISTINCT FROM OLD THEN
+        RETURN NULL;
+      END IF;
+
       payload = jsonb_build_object('component_id', rec.component_id, 'relationship_id', rec.relationship_id, 'selector_id', rec.selector_id);
     WHEN 'config_component_relationships' THEN
       payload = jsonb_build_object('component_id', rec.component_id, 'config_id', rec.config_id);
@@ -45,6 +54,16 @@ BEGIN
       OLD.last_transition_time = NULL;
       OLD.updated_at = NULL;
       OLD.deleted_at = NULL;
+
+      -- If it is same as the old record, then no action required
+      IF rec IS NOT DISTINCT FROM OLD THEN
+        RETURN NULL;
+      END IF;
+      payload = jsonb_build_object('id', rec.id);
+    WHEN 'canaries' THEN
+      -- Set these fields to null for canaries to prevent excessive pushes
+      rec.updated_at = NULL;
+      OLD.updated_at = NULL;
 
       -- If it is same as the old record, then no action required
       IF rec IS NOT DISTINCT FROM OLD THEN
