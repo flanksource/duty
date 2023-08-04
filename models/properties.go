@@ -57,27 +57,26 @@ func parsePropertiesFile(filename string) ([]AppProperty, error) {
 	return props, nil
 }
 
-func SetPropertiesInDB(db *gorm.DB, filename string) error {
+func SetPropertiesInDBFromFile(db *gorm.DB, filename string) error {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return nil
 	}
-
 	props, err := parsePropertiesFile(filename)
 	if err != nil {
 		return err
 	}
+	return SetProperties(db, props)
+}
 
+func SetProperties(db *gorm.DB, props []AppProperty) error {
 	var values []string
 	for _, p := range props {
 		values = append(values, fmt.Sprintf("('%s', '%s')", p.Name, p.Value))
 	}
 
-	if len(values) > 0 {
-		query := fmt.Sprintf("INSERT INTO properties (name, value) VALUES %s ON CONFLICT (name) DO UPDATE SET value = excluded.value", strings.Join(values, ","))
-		if err := db.Exec(query).Error; err != nil {
-			return fmt.Errorf("failed to insert properties into DB: %w", err)
-		}
+	if len(values) == 0 {
+		return nil
 	}
-
-	return nil
+	query := fmt.Sprintf("INSERT INTO properties (name, value) VALUES %s ON CONFLICT (name) DO UPDATE SET value = excluded.value", strings.Join(values, ","))
+	return db.Exec(query).Error
 }
