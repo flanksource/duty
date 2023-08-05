@@ -65,7 +65,7 @@ table "topologies" {
   }
   index "topologies_name_namespace_key" {
     unique  = true
-    columns = [column.name, column.namespace]
+    columns = [column.agent_id, column.name, column.namespace]
   }
 }
 
