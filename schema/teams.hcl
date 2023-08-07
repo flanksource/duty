@@ -57,9 +57,9 @@ table "people" {
   primary_key {
     columns = [column.id]
   }
-  index "people_name_unique_idx" {
+  index "people_email_unique_idx" {
     unique  = true
-    columns = [column.name]
+    columns = [column.email]
   }
   foreign_key "people_team_id_fkey" {
     columns     = [column.team_id]
