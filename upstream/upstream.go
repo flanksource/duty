@@ -164,7 +164,7 @@ func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (
 		WITH p_keys AS (
 			SELECT id::TEXT
 			FROM %s
-			WHERE id::TEXT > ?
+			WHERE id::TEXT > ? AND agent_id = ?
 			ORDER BY id
 			LIMIT ?
 		)
@@ -176,7 +176,7 @@ func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (
 			p_keys`, req.Table)
 
 	var resp PaginateResponse
-	err := ctx.DB().Raw(query, req.From, req.Size).Scan(&resp).Error
+	err := ctx.DB().Raw(query, req.From, agentID, req.Size).Scan(&resp).Error
 	return &resp, err
 }
 
