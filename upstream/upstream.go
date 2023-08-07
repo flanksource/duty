@@ -183,34 +183,35 @@ func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (
 func GetMissingResourceIDs(ctx dbContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
 	var pushData PushData
 
+	tx := ctx.DB().Where("agent_id = ?", uuid.Nil)
 	switch paginateReq.Table {
 	case "topologies":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Topologies).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Topologies).Error; err != nil {
 			return nil, fmt.Errorf("error fetching topologies: %w", err)
 		}
 
 	case "canaries":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Canaries).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Canaries).Error; err != nil {
 			return nil, fmt.Errorf("error fetching canaries: %w", err)
 		}
 
 	case "checks":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Checks).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Checks).Error; err != nil {
 			return nil, fmt.Errorf("error fetching checks: %w", err)
 		}
 
 	case "components":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Components).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Components).Error; err != nil {
 			return nil, fmt.Errorf("error fetching components: %w", err)
 		}
 
 	case "config_scrapers":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigScrapers).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigScrapers).Error; err != nil {
 			return nil, fmt.Errorf("error fetching config scrapers: %w", err)
 		}
 
 	case "config_items":
-		if err := ctx.DB().Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigItems).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigItems).Error; err != nil {
 			return nil, fmt.Errorf("error fetching config items: %w", err)
 		}
 
