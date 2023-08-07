@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,6 +51,7 @@ func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
 		next = "," // in the format <check_id>,<time>
 	}
 
+	var errorList []error
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
@@ -87,11 +89,11 @@ func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
 
 		pushData.AgentName = t.upstreamConf.AgentName
 		if err := Push(ctx, t.upstreamConf, pushData); err != nil {
-			return fmt.Errorf("failed to push missing resource ids: %w", err)
+			errorList = append(errorList, fmt.Errorf("failed to push missing resource ids: %w", err))
 		}
 	}
 
-	return nil
+	return errors.Join(errorList...)
 }
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
