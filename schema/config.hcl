@@ -344,11 +344,11 @@ table "config_scrapers" {
     type = text
   }
   column "spec" {
-    null = true
+    null = false
     type = jsonb
   }
   column "source" {
-    null = true
+    null = false
     type = enum.source
   }
   column "created_by" {
