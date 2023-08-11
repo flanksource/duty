@@ -9,25 +9,30 @@ import (
 )
 
 type DummyData struct {
-	People                       []models.Person
-	Agents                       []models.Agent
-	Topologies                   []models.Topology
-	Components                   []models.Component
-	ComponentRelationships       []models.ComponentRelationship
+	People []models.Person
+	Agents []models.Agent
+
+	Topologies             []models.Topology
+	Components             []models.Component
+	ComponentRelationships []models.ComponentRelationship
+
 	Configs                      []models.ConfigItem
+	ConfigScrapers               []models.ConfigScraper
 	ConfigChanges                []models.ConfigChange
 	ConfigAnalyses               []models.ConfigAnalysis
 	ConfigComponentRelationships []models.ConfigComponentRelationship
-	Teams                        []models.Team
-	Incidents                    []models.Incident
-	Hypotheses                   []models.Hypothesis
-	Evidences                    []models.Evidence
-	Canaries                     []models.Canary
-	Checks                       []models.Check
-	CheckStatuses                []models.CheckStatus
-	Responders                   []models.Responder
-	Comments                     []models.Comment
-	CheckComponentRelationships  []models.CheckComponentRelationship
+
+	Teams      []models.Team
+	Incidents  []models.Incident
+	Hypotheses []models.Hypothesis
+	Responders []models.Responder
+	Evidences  []models.Evidence
+	Comments   []models.Comment
+
+	Canaries                    []models.Canary
+	Checks                      []models.Check
+	CheckStatuses               []models.CheckStatus
+	CheckComponentRelationships []models.CheckComponentRelationship
 }
 
 // GenerateDummyData generates a set of dummy data.
@@ -70,6 +75,10 @@ func GenerateDummyData(randomize bool) DummyData {
 
 	for i := range d.Topologies {
 		d.Topologies[i].ID = uuid.New()
+
+		if d.Topologies[i].AgentID != uuid.Nil {
+			d.Topologies[i].AgentID = d.Agents[0].ID
+		}
 	}
 
 	for i := range d.Components {
@@ -77,6 +86,10 @@ func GenerateDummyData(randomize bool) DummyData {
 
 		if d.Components[i].ParentId != nil {
 			d.Components[i].ParentId = &d.Components[0].ID
+		}
+
+		if d.Components[i].AgentID != uuid.Nil {
+			d.Components[i].AgentID = d.Agents[0].ID
 		}
 	}
 
@@ -121,11 +134,19 @@ func GenerateDummyData(randomize bool) DummyData {
 
 	for i := range d.Canaries {
 		d.Canaries[i].ID = uuid.New()
+
+		if d.Canaries[i].AgentID != uuid.Nil {
+			d.Canaries[i].AgentID = d.Agents[0].ID
+		}
 	}
 
 	for i := range d.Checks {
 		d.Checks[i].ID = uuid.New()
 		d.Checks[i].CanaryID = d.Canaries[0].ID
+
+		if d.Checks[i].AgentID != uuid.Nil {
+			d.Checks[i].AgentID = d.Agents[0].ID
+		}
 	}
 
 	for i := range d.Responders {
@@ -193,6 +214,13 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 	}
 	for _, c := range t.ComponentRelationships {
 		c.UpdatedAt = createTime
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range t.ConfigScrapers {
+		c.CreatedAt = createTime
 		err = gormDB.Create(&c).Error
 		if err != nil {
 			return err
@@ -353,6 +381,12 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range t.Configs {
+		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range t.ConfigScrapers {
 		err = gormDB.Delete(&c).Error
 		if err != nil {
 			return err
