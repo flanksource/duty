@@ -128,4 +128,4 @@ var FrontendTeam = models.Team{
 	UpdatedAt: time.Now(),
 }
 
-var AllTeams = []models.Team{BackendTeam, FrontendTeam}
+var AllDummyTeams = []models.Team{BackendTeam, FrontendTeam}

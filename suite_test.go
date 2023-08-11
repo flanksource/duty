@@ -26,6 +26,7 @@ func TestDuty(t *testing.T) {
 }
 
 var postgresServer *embeddedPG.EmbeddedPostgres
+var dummyData dummy.DummyData
 
 const pgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
 
@@ -58,7 +59,8 @@ var _ = ginkgo.BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pgrstCount).To(Equal(0))
 
-	err = dummy.PopulateDBWithDummyModels(testutils.TestDB)
+	dummyData = dummy.GenerateDummyData(false)
+	err = dummyData.Populate(testutils.TestDB)
 	Expect(err).ToNot(HaveOccurred())
 
 	testutils.TestClient = fake.NewSimpleClientset(&v1.ConfigMap{
@@ -85,7 +87,7 @@ var _ = ginkgo.AfterSuite(func() {
 	if err != nil {
 		ginkgo.Fail(err.Error())
 	}
-	if err := dummy.DeleteDummyModelsFromDB(testDB); err != nil {
+	if err := dummyData.Delete(testDB); err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	logger.Infof("Stopping postgres")
