@@ -59,7 +59,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pgrstCount).To(Equal(0))
 
-	dummyData = dummy.GenerateDummyData(false)
+	dummyData = dummy.GetStaticDummyData()
 	err = dummyData.Populate(testutils.TestDB)
 	Expect(err).ToNot(HaveOccurred())
 
