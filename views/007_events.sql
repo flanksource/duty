@@ -164,10 +164,6 @@ BEGIN
     NOTIFY event_queue_updates, 'update';
     RETURN OLD;
   ELSE
-    IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-      DELETE FROM team_components WHERE team_id = OLD.id;
-    END IF;
-
     INSERT INTO event_queue(name, properties) VALUES ('team.update', jsonb_build_object('team_id', NEW.id));
     NOTIFY event_queue_updates, 'update';
     RETURN NEW;
