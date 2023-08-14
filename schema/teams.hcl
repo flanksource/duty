@@ -183,13 +183,13 @@ table "team_components" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   foreign_key "team_components_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_delete   = CASCADE
   }
   index "team_components_team_id_component_id_selector_id_key" {
     unique  = true
