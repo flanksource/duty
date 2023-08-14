@@ -157,7 +157,7 @@ GROUP BY
 
 -- Insert team updates in event_queue
 CREATE
-OR REPLACE FUNCTION handle_team_updates () RETURNS TRIGGER AS $$
+OR REPLACE FUNCTION insert_team_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
     INSERT INTO event_queue(name, properties) VALUES ('team.delete', jsonb_build_object('team_id', OLD.id));
@@ -176,9 +176,9 @@ END
 $$ LANGUAGE plpgsql;
 
 CREATE
-OR REPLACE TRIGGER team_updates
+OR REPLACE TRIGGER team_enqueue
 AFTER INSERT OR UPDATE OR DELETE ON teams FOR EACH ROW
-EXECUTE PROCEDURE handle_team_updates ();
+EXECUTE PROCEDURE insert_team_in_event_queue ();
 
 -- Create new event on any updates on the notifications table
 CREATE OR REPLACE FUNCTION notifications_trigger_function()
@@ -200,20 +200,3 @@ CREATE OR REPLACE TRIGGER notification_update_enqueue
 AFTER INSERT OR UPDATE OR DELETE ON notifications
 FOR EACH ROW
 EXECUTE PROCEDURE notifications_trigger_function ();
-
--- Handle component updates
-CREATE
-OR REPLACE FUNCTION handle_component_updates () RETURNS TRIGGER AS $$
-BEGIN
-  IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-    DELETE FROM team_components WHERE component_id = OLD.id;
-  END IF;
-
-  RETURN NEW;
-END
-$$ LANGUAGE plpgsql;
-
-CREATE
-OR REPLACE TRIGGER component_updates
-AFTER UPDATE ON components FOR EACH ROW
-EXECUTE PROCEDURE handle_component_updates();
