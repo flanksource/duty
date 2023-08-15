@@ -5,7 +5,7 @@ table "playbooks" {
     type    = uuid
     default = sql("generate_ulid()")
   }
-  column "description" {
+  column "name" {
     null = true
     type = text
   }
@@ -42,6 +42,11 @@ table "playbooks" {
   }
 }
 
+enum "playbook_run_status" {
+  schema = schema.public
+  values = ["scheduled", "running", "cancelled", "completed", "failed"]
+}
+
 table "playbook_runs" {
   schema = schema.public
   column "id" {
@@ -53,20 +58,24 @@ table "playbook_runs" {
     null = false
     type = uuid
   }
+  column "status" {
+    null    = false
+    type    = enum.playbook_run_status
+    default = "scheduled"
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
     default = sql("now()")
   }
-  column "started_at" {
-    null    = true
+  column "start_date" {
+    null    = false
     type    = timestamptz
     default = sql("now()")
   }
-  column "completed_at" {
-    null    = true
-    type    = timestamptz
-    default = sql("now()")
+  column "end_date" {
+    null = true
+    type = timestamptz
   }
   column "duration" {
     null = true
@@ -74,25 +83,63 @@ table "playbook_runs" {
   }
   column "result" {
     null = true
-    type = text
+    type = jsonb
   }
   column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
+  }
+  column "parameters" {
+    null = true
+    type = jsonb
+  }
+  column "agent_id" {
     null = true
     type = uuid
   }
   primary_key {
     columns = [column.id]
   }
-  foreign_key "playbook_runs_playbook_id_fkey" {
+  foreign_key "playbook_run_playbook_id_fkey" {
     columns     = [column.playbook_id]
     ref_columns = [table.playbooks.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
-  foreign_key "playbook_runs_created_by_fkey" {
+  foreign_key "playbook_run_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  foreign_key "playbook_run_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "playbook_run_component_id_fkey" {
+    columns     = [column.component_id]
+    ref_columns = [table.components.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "playbook_run_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  check "check_component_or_config" {
+    expr    = "(((component_id IS NOT NULL) AND (config_id IS NULL)) OR ((config_id IS NOT NULL) AND (component_id IS NULL)))"
+    comment = "either a component id or a config id can be provided. and at least one of them is required."
   }
 }
