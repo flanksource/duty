@@ -237,12 +237,33 @@ CREATE VIEW config_summary AS
       analysis_counts
     GROUP BY
       type
+  ),
+  analysis_by_severity AS (
+    SELECT config_items.type, config_analysis.severity, COUNT(*) AS count
+    FROM
+      config_analysis
+      LEFT JOIN config_items ON config_items.id = config_analysis.config_id
+    WHERE
+      config_analysis.status = 'open'
+    GROUP BY
+      config_items.type,
+      config_analysis.severity
+  ),
+  aggregated_analysis_severity_counts AS (
+    SELECT
+      type,
+      json_object_agg(severity, count) :: jsonb AS severity
+    FROM
+      analysis_by_severity
+    GROUP BY
+      type
   )
   SELECT
     config_items.type,
     MAX(config_items.created_at) as created_at,
     MAX(config_items.updated_at) as updated_at,
     aggregated_analysis_counts.analysis,
+    aggregated_analysis_severity_counts.severity,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
     SUM(cost_per_minute) AS cost_per_minute,
@@ -253,10 +274,12 @@ CREATE VIEW config_summary AS
     config_items
     LEFT JOIN changes_per_type ON config_items.type = changes_per_type.type
     LEFT JOIN aggregated_analysis_counts ON config_items.type = aggregated_analysis_counts.type
+    LEFT JOIN aggregated_analysis_severity_counts ON config_items.type = aggregated_analysis_severity_counts.type
   GROUP BY
     config_items.type,
     changes_per_type.count,
-    aggregated_analysis_counts.analysis
+    aggregated_analysis_counts.analysis,
+    aggregated_analysis_severity_counts.severity
   ORDER BY
     type;
 
