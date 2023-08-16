@@ -6,7 +6,7 @@ table "playbooks" {
     default = sql("generate_ulid()")
   }
   column "name" {
-    null = true
+    null = false
     type = text
   }
   column "spec" {
@@ -68,12 +68,12 @@ table "playbook_runs" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "start_date" {
+  column "start_time" {
     null    = false
     type    = timestamptz
     default = sql("now()")
   }
-  column "end_date" {
+  column "end_time" {
     null = true
     type = timestamptz
   }
@@ -84,6 +84,10 @@ table "playbook_runs" {
   column "result" {
     null = true
     type = jsonb
+  }
+  column "error" {
+    null = true
+    type = text
   }
   column "created_by" {
     null = true
