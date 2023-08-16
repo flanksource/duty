@@ -81,14 +81,6 @@ table "playbook_runs" {
     null = true
     type = integer
   }
-  column "result" {
-    null = true
-    type = jsonb
-  }
-  column "error" {
-    null = true
-    type = text
-  }
   column "created_by" {
     null = true
     type = uuid
@@ -145,5 +137,57 @@ table "playbook_runs" {
   check "check_component_or_config" {
     expr    = "(((component_id IS NOT NULL) AND (config_id IS NULL)) OR ((config_id IS NOT NULL) AND (component_id IS NULL)))"
     comment = "either a component id or a config id can be provided. and at least one of them is required."
+  }
+}
+
+table "playbook_run_actions" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "name" {
+    null = false
+    type = text
+  }
+  column "status" {
+    null    = false
+    type    = enum.playbook_run_status
+    default = "running"
+  }
+  column "playbook_run_id" {
+    null = false
+    type = uuid
+  }
+  column "start_time" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "end_time" {
+    null = true
+    type = timestamptz
+  }
+  column "duration" {
+    null = true
+    type = integer
+  }
+  column "result" {
+    null = true
+    type = jsonb
+  }
+  column "error" {
+    null = true
+    type = text
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "playbook_run_playbook_run_id_fkey" {
+    columns     = [column.playbook_run_id]
+    ref_columns = [table.playbook_runs.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
   }
 }

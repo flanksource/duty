@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// PlaybookRunStatus are statuses for a playbook run and its actions.
 type PlaybookRunStatus string
 
 const (
@@ -30,15 +31,26 @@ type Playbook struct {
 type PlaybookRun struct {
 	ID          uuid.UUID           `gorm:"default:generate_ulid()"`
 	PlaybookID  uuid.UUID           `json:"playbook_id"`
+	Status      PlaybookRunStatus   `json:"status,omitempty"`
 	CreatedAt   time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
 	StartTime   time.Time           `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
 	EndTime     *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Duration    time.Duration       `json:"duration" gorm:"default:null"`
-	Result      types.JSON          `json:"result,omitempty"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	ComponentID *uuid.UUID          `json:"component_id,omitempty"`
 	ConfigID    *uuid.UUID          `json:"config_id,omitempty"`
 	Parameters  types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
-	Status      PlaybookRunStatus   `json:"status,omitempty"`
 	AgentID     *uuid.UUID          `json:"agent_id,omitempty"`
+}
+
+type PlaybookRunAction struct {
+	ID            uuid.UUID         `gorm:"default:generate_ulid()"`
+	Name          string            `json:"name" gorm:"not null"`
+	PlaybookRunID uuid.UUID         `json:"playbook_run_id"`
+	Status        PlaybookRunStatus `json:"status,omitempty"`
+	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
+	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
+	Duration      time.Duration     `json:"duration" gorm:"default:null"`
+	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
+	Error         string            `json:"error,omitempty" gorm:"default:null"`
 }
