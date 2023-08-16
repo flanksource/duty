@@ -35,7 +35,6 @@ type PlaybookRun struct {
 	CreatedAt   time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
 	StartTime   time.Time           `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
 	EndTime     *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
-	Duration    time.Duration       `json:"duration" gorm:"default:null"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	ComponentID *uuid.UUID          `json:"component_id,omitempty"`
 	ConfigID    *uuid.UUID          `json:"config_id,omitempty"`
@@ -50,7 +49,6 @@ type PlaybookRunAction struct {
 	Status        PlaybookRunStatus `json:"status,omitempty"`
 	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW()"`
 	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
-	Duration      time.Duration     `json:"duration" gorm:"default:null"`
 	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
 	Error         string            `json:"error,omitempty" gorm:"default:null"`
 }

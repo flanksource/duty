@@ -77,10 +77,6 @@ table "playbook_runs" {
     null = true
     type = timestamptz
   }
-  column "duration" {
-    null = true
-    type = integer
-  }
   column "created_by" {
     null = true
     type = uuid
@@ -168,10 +164,6 @@ table "playbook_run_actions" {
   column "end_time" {
     null = true
     type = timestamptz
-  }
-  column "duration" {
-    null = true
-    type = integer
   }
   column "result" {
     null = true
