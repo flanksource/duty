@@ -22,6 +22,7 @@ type Playbook struct {
 	ID        uuid.UUID  `gorm:"default:generate_ulid()"`
 	Name      string     `json:"name"`
 	Spec      types.JSON `json:"spec"`
+	Source    string     `json:"source"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp"`
 	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp"`

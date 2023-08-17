@@ -17,6 +17,10 @@ table "playbooks" {
     null = true
     type = uuid
   }
+  column "source" {
+    null = true
+    type = text
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
