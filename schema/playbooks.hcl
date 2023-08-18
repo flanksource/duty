@@ -18,8 +18,8 @@ table "playbooks" {
     type = uuid
   }
   column "source" {
-    null = true
-    type = text
+    null = false
+    type = enum.source
   }
   column "created_at" {
     null    = false
@@ -37,6 +37,10 @@ table "playbooks" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "playbook_name_key" {
+    unique  = true
+    columns = [column.name]
   }
   foreign_key "playbook_created_by_fkey" {
     columns     = [column.created_by]
