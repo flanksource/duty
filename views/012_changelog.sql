@@ -46,14 +46,8 @@ BEGIN
       payload = jsonb_build_object('check_id', rec.check_id, 'time', rec.time);
     WHEN 'checks' THEN
       -- Set these fields to null for checks to prevent excessive pushes
-      rec.last_runtime = NULL;
-      rec.last_transition_time = NULL;
       rec.updated_at = NULL;
-      rec.deleted_at = NULL;
-      OLD.last_runtime = NULL;
-      OLD.last_transition_time = NULL;
       OLD.updated_at = NULL;
-      OLD.deleted_at = NULL;
 
       -- If it is same as the old record, then no action required
       IF rec IS NOT DISTINCT FROM OLD THEN
