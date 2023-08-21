@@ -1,4 +1,3 @@
-
 schema "public" {
 }
 
@@ -44,6 +43,10 @@ table "people" {
   column "properties" {
     null = true
     type = jsonb
+  }
+  column "external_id" {
+    null = true
+    type = text
   }
   column "created_at" {
     null    = false
