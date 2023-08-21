@@ -69,3 +69,12 @@ var AllDummyConfigs = []models.ConfigItem{
 	LogisticsWorkerDeployment,
 	LogisticsDBRDS,
 }
+
+var AzureConfigScraper = models.ConfigScraper{
+	ID:     uuid.New(),
+	Name:   "Azure scraper",
+	Source: "ConfigFile",
+	Spec:   "{}",
+}
+
+var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper}
