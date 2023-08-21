@@ -50,9 +50,54 @@ table "playbooks" {
   }
 }
 
+table "playbook_approvals" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "run_id" {
+    null = false
+    type = uuid
+  }
+  column "person_id" {
+    null = true
+    type = uuid
+  }
+  column "team_id" {
+    null = true
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  foreign_key "playbook_approval_person_approver_fkey" {
+    columns     = [column.run_id]
+    ref_columns = [table.playbook_runs.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "playbook_approval_person_approver_fkey" {
+    columns     = [column.person_id]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "playbook_approval_team_approver_fkey" {
+    columns     = [column.team_id]
+    ref_columns = [table.teams.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  comment = "Keeps track of approvals on a playbook run"
+}
+
 enum "playbook_run_status" {
   schema = schema.public
-  values = ["scheduled", "running", "cancelled", "completed", "failed"]
+  values = ["pending", "scheduled", "running", "cancelled", "completed", "failed"]
 }
 
 table "playbook_runs" {
@@ -69,7 +114,7 @@ table "playbook_runs" {
   column "status" {
     null    = false
     type    = enum.playbook_run_status
-    default = "scheduled"
+    default = "pending"
   }
   column "created_at" {
     null    = false

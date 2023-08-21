@@ -11,6 +11,7 @@ import (
 type PlaybookRunStatus string
 
 const (
+	PlaybookRunStatusPending   PlaybookRunStatus = "pending"
 	PlaybookRunStatusScheduled PlaybookRunStatus = "scheduled"
 	PlaybookRunStatusRunning   PlaybookRunStatus = "running"
 	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
@@ -52,4 +53,12 @@ type PlaybookRunAction struct {
 	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
 	Error         string            `json:"error,omitempty" gorm:"default:null"`
+}
+
+type PlaybookApproval struct {
+	ID        uuid.UUID `gorm:"default:generate_ulid()"`
+	RunID     uuid.UUID `json:"run_id"`
+	PersonID  uuid.UUID `json:"person_id,omitempty"`
+	TeamID    uuid.UUID `json:"team_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
