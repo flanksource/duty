@@ -21,13 +21,18 @@ EXECUTE PROCEDURE notify_playbook_run_insertion();
 -- Notify playbook `spec.approval` updated
 CREATE OR REPLACE FUNCTION notify_playbook_spec_approval_update() 
 RETURNS TRIGGER AS $$
+DECLARE payload TEXT;
 BEGIN
+  payload = NEW.id::TEXT;
+  PERFORM pg_notify('playbook_spec_approval_updated', payload);
+
   IF OLD.spec->'approval' != NEW.spec->'approval' THEN
-    NOTIFY playbook_approval_updated;
+    payload = NEW.id::TEXT;
+    PERFORM pg_notify('playbook_spec_approval_updated', payload);
   END IF;
     
   RETURN NULL;
-END
+END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER playbook_spec_approval_update
@@ -38,10 +43,12 @@ EXECUTE PROCEDURE notify_playbook_spec_approval_update();
 -- Notify playbook approvals insertion
 CREATE OR REPLACE FUNCTION notify_playbook_approvals_insert() 
 RETURNS TRIGGER AS $$
+DECLARE payload TEXT;
 BEGIN
-  NOTIFY playbook_approval_updated;
+  payload = NEW.run_id::TEXT;
+  PERFORM pg_notify('playbook_approval_inserted', payload);
   RETURN NULL;
-END
+END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER playbook_approvals_insert

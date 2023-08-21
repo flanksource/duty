@@ -74,7 +74,7 @@ table "playbook_approvals" {
     type    = timestamptz
     default = sql("now()")
   }
-  foreign_key "playbook_approval_person_approver_fkey" {
+  foreign_key "playbook_approval_run_id_fkey" {
     columns     = [column.run_id]
     ref_columns = [table.playbook_runs.column.id]
     on_update   = NO_ACTION
@@ -91,6 +91,14 @@ table "playbook_approvals" {
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "playbook_approval_run_person_key" {
+    unique  = true
+    columns = [column.run_id, column.person_id, ]
+  }
+  index "playbook_approval_run_team_key" {
+    unique  = true
+    columns = [column.run_id, column.team_id]
   }
   comment = "Keeps track of approvals on a playbook run"
 }
