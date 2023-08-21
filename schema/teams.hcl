@@ -64,6 +64,9 @@ table "people" {
     unique  = true
     columns = [column.email]
   }
+  index "people_external_id_idx" {
+    columns = [column.external_id]
+  }
   foreign_key "people_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
