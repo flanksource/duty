@@ -105,7 +105,7 @@ table "playbook_approvals" {
 
 enum "playbook_run_status" {
   schema = schema.public
-  values = ["pending", "scheduled", "running", "cancelled", "completed", "failed"]
+  values = ["scheduled", "running", "cancelled", "completed", "failed", "pending"]
 }
 
 table "playbook_runs" {
