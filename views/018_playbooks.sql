@@ -16,7 +16,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER playbook_run_insertion
 AFTER INSERT ON playbook_runs
 FOR EACH ROW
-EXECUTE PROCEDURE notify_playbook_run_insertion();
+EXECUTE PROCEDURE notify_playbook_run_update();
 
 -- Notify playbook `spec.approval` updated
 CREATE OR REPLACE FUNCTION notify_playbook_spec_approval_update() 
