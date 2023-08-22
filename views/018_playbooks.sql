@@ -13,8 +13,8 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER playbook_run_insertion
-AFTER INSERT ON playbook_runs
+CREATE OR REPLACE TRIGGER playbook_run_updates
+AFTER INSERT OR UPDATE ON playbook_runs
 FOR EACH ROW
 EXECUTE PROCEDURE notify_playbook_run_update();
 
