@@ -92,14 +92,6 @@ table "playbook_approvals" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "playbook_approval_run_person_key" {
-    unique  = true
-    columns = [column.run_id, column.person_id, ]
-  }
-  index "playbook_approval_run_team_key" {
-    unique  = true
-    columns = [column.run_id, column.team_id]
-  }
   comment = "Keeps track of approvals on a playbook run"
 }
 
