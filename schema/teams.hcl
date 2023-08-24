@@ -146,6 +146,10 @@ table "teams" {
   primary_key {
     columns = [column.id]
   }
+  index "team_name_key" {
+    unique  = true
+    columns = [column.name]
+  }
   foreign_key "teams_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
