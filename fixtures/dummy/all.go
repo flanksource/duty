@@ -324,13 +324,15 @@ func GenerateDynamicDummyData() DummyData {
 
 	// People
 	var JohnDoe = models.Person{
-		ID:   uuid.New(),
-		Name: "John Doe",
+		ID:    uuid.New(),
+		Name:  "John Doe",
+		Email: "john@doe.com",
 	}
 
 	var JohnWick = models.Person{
-		ID:   uuid.New(),
-		Name: "John Wick",
+		ID:    uuid.New(),
+		Name:  "John Wick",
+		Email: "john@wick.com",
 	}
 
 	var people = []models.Person{JohnDoe, JohnWick}
