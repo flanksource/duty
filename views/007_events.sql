@@ -37,7 +37,6 @@ CREATE OR REPLACE FUNCTION insert_responder_in_event_queue() RETURNS TRIGGER AS 
 BEGIN
     IF TG_OP = 'INSERT' THEN
         INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added', jsonb_build_object('id', NEW.id));
-        INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added.sync', jsonb_build_object('id', NEW.id));
     ELSIF TG_OP = 'UPDATE' THEN
         IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
             INSERT INTO event_queue(name, properties) VALUES ('incident.responder.removed', jsonb_build_object('id', NEW.id));
@@ -58,7 +57,6 @@ EXECUTE PROCEDURE insert_responder_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_comment_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added', jsonb_build_object('id', NEW.id));
-    INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added.sync', jsonb_build_object('id', NEW.id));
     NOTIFY event_queue_updates, 'update';
     RETURN NULL;
 END
@@ -110,9 +108,9 @@ BEGIN
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.passed.sync', jsonb_build_object('id', NEW.id));
+        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id));
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.failed.sync', jsonb_build_object('id', NEW.id));
+        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id));
     END IF;
 
     NOTIFY event_queue_updates, 'update';
@@ -133,7 +131,7 @@ BEGIN
       RETURN NULL;
     END IF;
 
-    event_name := 'component.status.' || NEW.status || '.sync';
+    event_name := 'component.status.' || NEW.status;
     INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id));
 
     NOTIFY event_queue_updates;
