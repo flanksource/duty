@@ -133,7 +133,7 @@ BEGIN
       RETURN NULL;
     END IF;
 
-    event_name := 'component.' || NEW.status || '.sync';
+    event_name := 'component.status.' || NEW.status || '.sync';
     INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id));
 
     NOTIFY event_queue_updates;
