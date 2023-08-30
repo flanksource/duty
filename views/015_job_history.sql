@@ -138,6 +138,7 @@ DROP VIEW IF EXISTS notifications_summary;
 
 CREATE OR REPLACE VIEW notifications_summary AS
 SELECT
+  notifications.id,
   notifications.events,
   notifications.filter,
   notifications.person_id,
