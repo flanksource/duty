@@ -19,15 +19,14 @@ FOR EACH ROW
 EXECUTE PROCEDURE notify_playbook_run_update();
 
 -- Notify playbook `spec.approval` updated
-CREATE OR REPLACE FUNCTION notify_playbook_spec_approval_update() 
+CREATE OR REPLACE FUNCTION notify_playbook_update() 
 RETURNS TRIGGER AS $$
 DECLARE payload TEXT;
 BEGIN
   payload = NEW.id::TEXT;
-  PERFORM pg_notify('playbook_spec_approval_updated', payload);
+  PERFORM pg_notify('playbook_updated', payload);
 
   IF OLD.spec->'approval' != NEW.spec->'approval' THEN
-    payload = NEW.id::TEXT;
     PERFORM pg_notify('playbook_spec_approval_updated', payload);
   END IF;
     
@@ -35,10 +34,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER playbook_spec_approval_update
+CREATE OR REPLACE TRIGGER playbook_update
 AFTER UPDATE ON playbooks
 FOR EACH ROW
-EXECUTE PROCEDURE notify_playbook_spec_approval_update();
+EXECUTE PROCEDURE notify_playbook_update();
 
 -- Notify playbook approvals insertion
 CREATE OR REPLACE FUNCTION notify_playbook_approvals_insert() 

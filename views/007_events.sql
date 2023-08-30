@@ -123,6 +123,26 @@ AFTER UPDATE ON checks
 FOR EACH ROW
 EXECUTE PROCEDURE insert_check_updates_in_event_queue ();
 
+-- Insert component status updates in event_queue
+CREATE OR REPLACE FUNCTION insert_component_status_updates_in_event_queue() RETURNS TRIGGER AS $$
+DECLARE event_name TEXT;
+BEGIN
+    IF OLD.status = NEW.status THEN
+      RETURN NULL;
+    END IF;
+
+    event_name := 'component.status.' || NEW.status;
+    INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id));
+
+    NOTIFY event_queue_updates;
+    RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER component_status_enqueue
+AFTER UPDATE ON components
+FOR EACH ROW
+EXECUTE PROCEDURE insert_component_status_updates_in_event_queue();
 
 CREATE OR REPLACE VIEW failed_push_queue AS
 SELECT
