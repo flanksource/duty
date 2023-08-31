@@ -20,7 +20,7 @@ EXECUTE PROCEDURE insert_playbook_spec_approval_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id));
+  INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id, 'run_id', NEW.run_id));
   NOTIFY event_queue_updates;
   RETURN NULL;
 END;
