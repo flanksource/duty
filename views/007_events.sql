@@ -1,3 +1,36 @@
+-- Insert playbook `spec.approval` updates to event queue
+CREATE OR REPLACE FUNCTION insert_playbook_spec_approval_in_event_queue() 
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.spec->'approval' != NEW.spec->'approval' THEN
+    INSERT INTO event_queue(name, properties) VALUES ('playbook.spec.approval.updated', jsonb_build_object('id', NEW.id));
+    NOTIFY event_queue_updates;
+  END IF;
+    
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER enqueue_playbook_spec_approval_updated
+AFTER UPDATE ON playbooks
+FOR EACH ROW
+EXECUTE PROCEDURE insert_playbook_spec_approval_in_event_queue();
+
+-- Insert new playbook approvals to event queue
+CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue() 
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id));
+  NOTIFY event_queue_updates;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER enqueue_new_playbook_approval
+AFTER INSERT ON playbook_approvals
+FOR EACH ROW
+EXECUTE PROCEDURE insert_new_playbook_approvals_to_event_queue();
+
 -- Insert incident created in event_queue
 CREATE OR REPLACE FUNCTION insert_incident_creation_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
