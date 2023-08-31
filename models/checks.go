@@ -157,3 +157,27 @@ type CheckStatusAggregate1d struct {
 func (CheckStatusAggregate1d) TableName() string {
 	return "check_statuses_1d"
 }
+
+// CheckSummary represents the `check_summary` view
+type CheckSummary struct {
+	ID                 uuid.UUID           `json:"id"`
+	CanaryID           uuid.UUID           `json:"canary_id"`
+	Uptime             Uptime              `json:"uptime"`
+	Latency            Latency             `json:"latency"`
+	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	Type               string              `json:"type"`
+	Icon               string              `json:"icon"`
+	Name               string              `json:"name"`
+	Status             string              `json:"status"`
+	Description        string              `json:"description"`
+	Namespace          string              `json:"namespace"`
+	CanaryName         string              `json:"canary_name"`
+	Labels             types.JSONStringMap `json:"labels"`
+	Severity           string              `json:"severity"`
+	Owner              string              `json:"owner"`
+	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
+	CreatedAt          time.Time           `json:"created_at"`
+	UpdatedAt          time.Time           `json:"updated_at"`
+	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
+}

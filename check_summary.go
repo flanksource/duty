@@ -3,11 +3,26 @@ package duty
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 )
+
+func CheckSummary(ctx dbContext, checkID string) (*models.CheckSummary, error) {
+	var checkSummary models.CheckSummary
+	if err := ctx.DB().First(&checkSummary, "id = ?", checkID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return &checkSummary, nil
+}
 
 func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks, error) {
 	if _, ok := ctx.Deadline(); !ok {
