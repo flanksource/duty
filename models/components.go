@@ -247,13 +247,6 @@ type Link struct {
 	Text `json:",inline"`
 }
 
-type Latency struct {
-	Percentile99 float64 `json:"p99,omitempty" db:"p99"`
-	Percentile97 float64 `json:"p97,omitempty" db:"p97"`
-	Percentile95 float64 `json:"p95,omitempty" db:"p95"`
-	Rolling1H    float64 `json:"rolling1h"`
-}
-
 // Property is a realized v1.Property without the lookup definition
 type Property struct {
 	Label    string `json:"label,omitempty"`
