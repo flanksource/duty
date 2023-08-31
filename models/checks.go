@@ -47,8 +47,8 @@ type Check struct {
 	CanaryName   string        `json:"canary_name,omitempty" gorm:"-"`
 	Namespace    string        `json:"namespace,omitempty"  gorm:"-"`  // Namespace of the parent canary
 	ComponentIDs []string      `json:"components,omitempty"  gorm:"-"` // Linked component ids
-	Uptime       Uptime        `json:"uptime,omitempty"  gorm:"-"`
-	Latency      Latency       `json:"latency,omitempty"  gorm:"-"`
+	Uptime       types.Uptime  `json:"uptime,omitempty"  gorm:"-"`
+	Latency      types.Latency `json:"latency,omitempty"  gorm:"-"`
 	Statuses     []CheckStatus `json:"checkStatuses,omitempty"  gorm:"-"`
 	DisplayType  string        `json:"display_type,omitempty"  gorm:"-"`
 }
@@ -89,25 +89,6 @@ func (c Checks) Find(key string) *Check {
 		}
 	}
 	return nil
-}
-
-type Uptime struct {
-	Passed   int        `json:"passed"`
-	Failed   int        `json:"failed"`
-	P100     float64    `json:"p100,omitempty"`
-	LastPass *time.Time `json:"last_pass,omitempty"`
-	LastFail *time.Time `json:"last_fail,omitempty"`
-}
-
-func (u Uptime) String() string {
-	if u.Passed == 0 && u.Failed == 0 {
-		return ""
-	}
-	if u.Passed == 0 {
-		return fmt.Sprintf("0/%d 0%%", u.Failed)
-	}
-	percentage := 100.0 * (1 - (float64(u.Failed) / float64(u.Passed+u.Failed)))
-	return fmt.Sprintf("%d/%d (%0.1f%%)", u.Passed, u.Passed+u.Failed, percentage)
 }
 
 type CheckStatus struct {
@@ -162,8 +143,8 @@ func (CheckStatusAggregate1d) TableName() string {
 type CheckSummary struct {
 	ID                 uuid.UUID           `json:"id"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
-	Uptime             Uptime              `json:"uptime"`
-	Latency            Latency             `json:"latency"`
+	Uptime             types.Uptime        `json:"uptime"`
+	Latency            types.Latency       `json:"latency"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
 	Type               string              `json:"type"`
 	Icon               string              `json:"icon"`
@@ -180,4 +161,8 @@ type CheckSummary struct {
 	UpdatedAt          time.Time           `json:"updated_at"`
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
+}
+
+func (t *CheckSummary) TableName() string {
+	return "check_summary"
 }
