@@ -134,6 +134,10 @@ table "playbook_runs" {
     null = true
     type = uuid
   }
+  column "check_id" {
+    null = true
+    type = uuid
+  }
   column "config_id" {
     null = true
     type = uuid
@@ -165,6 +169,12 @@ table "playbook_runs" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "playbook_run_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   foreign_key "playbook_run_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
@@ -183,9 +193,13 @@ table "playbook_runs" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  check "check_component_or_config" {
-    expr    = "(((component_id IS NOT NULL) AND (config_id IS NULL)) OR ((config_id IS NOT NULL) AND (component_id IS NULL)))"
-    comment = "either a component id or a config id can be provided. and at least one of them is required."
+  check "check_component_or_config_or_check" {
+    expr    = <<EOF
+    (component_id IS NOT NULL AND config_id IS NULL AND check_id IS NULL) OR
+    (component_id IS NULL AND config_id IS NOT NULL AND check_id IS NULL) OR
+    (component_id IS NULL AND config_id IS NULL AND check_id IS NOT NULL)
+    EOF
+    comment = "Need exactly one of the following: check id, component id, or config id."
   }
 }
 

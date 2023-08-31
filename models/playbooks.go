@@ -39,6 +39,7 @@ type PlaybookRun struct {
 	EndTime     *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	ComponentID *uuid.UUID          `json:"component_id,omitempty"`
+	CheckID     *uuid.UUID          `json:"check_id,omitempty"`
 	ConfigID    *uuid.UUID          `json:"config_id,omitempty"`
 	Parameters  types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
 	AgentID     *uuid.UUID          `json:"agent_id,omitempty"`

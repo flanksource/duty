@@ -18,39 +18,18 @@ AFTER INSERT OR UPDATE ON playbook_runs
 FOR EACH ROW
 EXECUTE PROCEDURE notify_playbook_run_update();
 
--- Notify playbook `spec.approval` updated
+-- Notify playbook updates
 CREATE OR REPLACE FUNCTION notify_playbook_update() 
 RETURNS TRIGGER AS $$
 DECLARE payload TEXT;
 BEGIN
   payload = NEW.id::TEXT;
   PERFORM pg_notify('playbook_updated', payload);
-
-  IF OLD.spec->'approval' != NEW.spec->'approval' THEN
-    PERFORM pg_notify('playbook_spec_approval_updated', payload);
-  END IF;
-    
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER playbook_update
+CREATE OR REPLACE TRIGGER playbook_updated_trigger
 AFTER UPDATE ON playbooks
 FOR EACH ROW
 EXECUTE PROCEDURE notify_playbook_update();
-
--- Notify playbook approvals insertion
-CREATE OR REPLACE FUNCTION notify_playbook_approvals_insert() 
-RETURNS TRIGGER AS $$
-DECLARE payload TEXT;
-BEGIN
-  payload = NEW.run_id::TEXT;
-  PERFORM pg_notify('playbook_approval_inserted', payload);
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER playbook_approvals_insert
-AFTER INSERT ON playbook_approvals
-FOR EACH ROW
-EXECUTE PROCEDURE notify_playbook_approvals_insert();
