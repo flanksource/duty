@@ -12,6 +12,7 @@ import (
 type Notification struct {
 	ID             uuid.UUID           `json:"id"`
 	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
+	Title          string              `json:"title,omitempty"`
 	Template       string              `json:"template"`
 	Filter         string              `json:"filter"`
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
