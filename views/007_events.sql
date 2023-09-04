@@ -141,9 +141,9 @@ BEGIN
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id));
+        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id)) ON CONFLICT (name, properties) DO NOTHING;
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id));
+        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id)) ON CONFLICT (name, properties) DO NOTHING;
     END IF;
 
     NOTIFY event_queue_updates, 'update';
