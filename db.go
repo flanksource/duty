@@ -81,8 +81,8 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	}
 
 	// prevent deadlocks from concurrent queries
-	if config.MaxConns < 10 {
-		config.MaxConns = 10
+	if config.MaxConns < 20 {
+		config.MaxConns = 20
 	}
 
 	if logger.IsTraceEnabled() {
