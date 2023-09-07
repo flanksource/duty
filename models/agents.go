@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -9,7 +10,7 @@ import (
 
 type Agent struct {
 	ID          uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"`
-	Name        string              `json:"name,omitempty"`
+	Name        string              `json:"name"`
 	Hostname    string              `json:"hostname,omitempty"`
 	Description string              `json:"description,omitempty"`
 	IP          string              `json:"ip,omitempty"`
@@ -19,5 +20,13 @@ type Agent struct {
 	Properties  types.JSONStringMap `json:"properties,omitempty"`
 	TLS         string              `json:"tls,omitempty"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
-	CreatedAt   time.Time           `json:"created_at,omitempty"`
+	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp"`
+	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp"`
+}
+
+func (t Agent) AsMap() map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&t)
+	_ = json.Unmarshal(b, &m)
+	return m
 }

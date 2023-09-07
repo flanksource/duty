@@ -15,7 +15,7 @@ table "notifications" {
     type = text
   }
   column "template" {
-    null = false
+    null = true
     type = text
   }
   column "filter" {
