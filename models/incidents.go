@@ -48,9 +48,16 @@ type Incident struct {
 	CommunicatorID *uuid.UUID     `json:"communicator_id,omitempty"`
 }
 
-func (i Incident) AsMap() map[string]any {
+func (i Incident) AsMap(removeFields ...string) map[string]any {
 	m := make(map[string]any)
 	b, _ := json.Marshal(&i)
-	_ = json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
 	return m
 }

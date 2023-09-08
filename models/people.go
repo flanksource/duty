@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -10,7 +11,7 @@ import (
 
 type Person struct {
 	ID         uuid.UUID        `json:"id" gorm:"default:generate_ulid()"`
-	Name       string           `json:"name,omitempty"`
+	Name       string           `json:"name"`
 	Email      string           `json:"email,omitempty" gorm:"default:null"`
 	Type       string           `json:"type,omitempty" gorm:"default:null"`
 	Avatar     string           `json:"avatar,omitempty" gorm:"default:null"`
@@ -19,6 +20,20 @@ type Person struct {
 
 func (person Person) TableName() string {
 	return "people"
+}
+
+func (person Person) AsMap(removeFields ...string) map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&person)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
+	return m
 }
 
 type PersonProperties struct {
