@@ -11,7 +11,7 @@ import (
 )
 
 // getterCache caches the results for all the getters in this file.
-var getterCache = cache.New(time.Minute, time.Minute*5)
+var getterCache = cache.New(time.Second*30, time.Minute*5)
 
 type cachedItem struct {
 	resource any
