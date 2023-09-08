@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func CheckSummary(ctx dbContext, checkID string) (*models.CheckSummary, error) {
+func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
 	var checkSummary models.CheckSummary
 	if err := ctx.DB().First(&checkSummary, "id = ?", checkID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

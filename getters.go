@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 )
@@ -13,7 +14,11 @@ import (
 // getterCache caches the results for all the getters in this file.
 var getterCache = cache.New(time.Second*90, time.Minute*5)
 
-func FindCachedAgent(ctx dbContext, agentID string) (*models.Agent, error) {
+func FindCachedAgent(ctx DBContext, agentID string) (*models.Agent, error) {
+	if agentID == uuid.Nil.String() {
+		return nil, nil
+	}
+
 	agent, err := findCachedEntity[models.Agent](ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -22,7 +27,7 @@ func FindCachedAgent(ctx dbContext, agentID string) (*models.Agent, error) {
 	return agent, nil
 }
 
-func FindCachedCheck(ctx dbContext, agentID string) (*models.Check, error) {
+func FindCachedCheck(ctx DBContext, agentID string) (*models.Check, error) {
 	check, err := findCachedEntity[models.Check](ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -31,7 +36,7 @@ func FindCachedCheck(ctx dbContext, agentID string) (*models.Check, error) {
 	return check, nil
 }
 
-func FindCachedCanary(ctx dbContext, agentID string) (*models.Canary, error) {
+func FindCachedCanary(ctx DBContext, agentID string) (*models.Canary, error) {
 	canary, err := findCachedEntity[models.Canary](ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -40,7 +45,7 @@ func FindCachedCanary(ctx dbContext, agentID string) (*models.Canary, error) {
 	return canary, nil
 }
 
-func FindCachedPerson(ctx dbContext, agentID string) (*models.Person, error) {
+func FindCachedPerson(ctx DBContext, agentID string) (*models.Person, error) {
 	person, err := findCachedEntity[models.Person](ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -49,7 +54,7 @@ func FindCachedPerson(ctx dbContext, agentID string) (*models.Person, error) {
 	return person, nil
 }
 
-func FindCachedComponent(ctx dbContext, componentID string) (*models.Component, error) {
+func FindCachedComponent(ctx DBContext, componentID string) (*models.Component, error) {
 	component, err := findCachedEntity[models.Component](ctx, componentID)
 	if err != nil {
 		return nil, err
@@ -58,7 +63,7 @@ func FindCachedComponent(ctx dbContext, componentID string) (*models.Component, 
 	return component, nil
 }
 
-func FindCachedConfig(ctx dbContext, configID string) (*models.ConfigItem, error) {
+func FindCachedConfig(ctx DBContext, configID string) (*models.ConfigItem, error) {
 	config, err := findCachedEntity[models.ConfigItem](ctx, configID)
 	if err != nil {
 		return nil, err
@@ -67,7 +72,7 @@ func FindCachedConfig(ctx dbContext, configID string) (*models.ConfigItem, error
 	return config, nil
 }
 
-func FindCachedIncident(ctx dbContext, incidentID string) (*models.Incident, error) {
+func FindCachedIncident(ctx DBContext, incidentID string) (*models.Incident, error) {
 	incident, err := findCachedEntity[models.Incident](ctx, incidentID)
 	if err != nil {
 		return nil, err
@@ -76,7 +81,7 @@ func FindCachedIncident(ctx dbContext, incidentID string) (*models.Incident, err
 	return incident, nil
 }
 
-func findCachedEntity[T any](ctx dbContext, id string) (*T, error) {
+func findCachedEntity[T any](ctx DBContext, id string) (*T, error) {
 	if value, ok := getterCache.Get(id); ok {
 		if cache, ok := value.(*T); ok {
 			return cache, nil
