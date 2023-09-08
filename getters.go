@@ -49,7 +49,7 @@ func FindCachedPerson(ctx dbContext, agentID string) (*models.Person, error) {
 	return person, nil
 }
 
-func FindCacheComponent(ctx dbContext, componentID string) (*models.Component, error) {
+func FindCachedComponent(ctx dbContext, componentID string) (*models.Component, error) {
 	component, err := findCachedEntity[models.Component](ctx, componentID)
 	if err != nil {
 		return nil, err
@@ -65,6 +65,15 @@ func FindCachedConfig(ctx dbContext, configID string) (*models.ConfigItem, error
 	}
 
 	return config, nil
+}
+
+func FindCachedIncident(ctx dbContext, incidentID string) (*models.Incident, error) {
+	incident, err := findCachedEntity[models.Incident](ctx, incidentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return incident, nil
 }
 
 func findCachedEntity[T any](ctx dbContext, id string) (*T, error) {
