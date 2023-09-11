@@ -123,7 +123,16 @@ func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	if migrateOptions == nil {
 		migrateOptions = &migrate.MigrateOptions{}
 	}
-	return migrate.RunMigrations(db, connection, *migrateOptions)
+	if err := migrate.RunMigrations(db, connection, *migrateOptions); err != nil {
+		return err
+	}
+
+	// Reload postgrest schema after migrations
+	if _, err := db.Exec(`NOTIFY pgrst, 'reload schema'`); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
