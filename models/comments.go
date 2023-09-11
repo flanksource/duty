@@ -21,9 +21,16 @@ type Comment struct {
 	UpdatedAt         time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 }
 
-func (i Comment) AsMap() map[string]any {
+func (c Comment) AsMap(removeFields ...string) map[string]any {
 	m := make(map[string]any)
-	b, _ := json.Marshal(&i)
-	_ = json.Unmarshal(b, &m)
+	b, _ := json.Marshal(&c)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
 	return m
 }

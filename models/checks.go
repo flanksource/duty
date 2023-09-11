@@ -61,10 +61,17 @@ func (c Check) GetDescription() string {
 	return c.Description
 }
 
-func (c Check) AsMap() map[string]any {
+func (c Check) AsMap(removeFields ...string) map[string]any {
 	m := make(map[string]any)
 	b, _ := json.Marshal(&c)
-	_ = json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
 	return m
 }
 
@@ -109,6 +116,20 @@ func (s CheckStatus) GetTime() (time.Time, error) {
 
 func (CheckStatus) TableName() string {
 	return "check_statuses"
+}
+
+func (s CheckStatus) AsMap(removeFields ...string) map[string]any {
+	m := make(map[string]any)
+	b, _ := json.Marshal(&s)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
+	return m
 }
 
 // CheckStatusAggregate1h represents the `check_statuses_1h` table

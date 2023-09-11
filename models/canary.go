@@ -30,9 +30,16 @@ func (c Canary) TableName() string {
 	return "canaries"
 }
 
-func (c Canary) AsMap() map[string]any {
+func (c Canary) AsMap(removeFields ...string) map[string]any {
 	m := make(map[string]any)
 	b, _ := json.Marshal(&c)
-	_ = json.Unmarshal(b, &m)
+	if err := json.Unmarshal(b, &m); err != nil {
+		return m
+	}
+
+	for _, field := range removeFields {
+		delete(m, field)
+	}
+
 	return m
 }

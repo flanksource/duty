@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type dbContext interface {
+type DBContext interface {
 	context.Context
 	DB() *gorm.DB
 }
