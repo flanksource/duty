@@ -75,7 +75,6 @@ FROM
   canaries
   LEFT JOIN job_history_latest_status ON canaries.id::TEXT = job_history_latest_status.resource_id
   INNER JOIN canaries_last_runtime ON canaries_last_runtime.canary_id = canaries.id
-  AND job_history_latest_status.resource_type = 'canary'
 WHERE
   canaries.deleted_at IS NULL;
 
