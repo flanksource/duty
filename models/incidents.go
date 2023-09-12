@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,15 +48,6 @@ type Incident struct {
 }
 
 func (i Incident) AsMap(removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&i)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
-	}
+	return asMap(i, removeFields...)
 
-	for _, field := range removeFields {
-		delete(m, field)
-	}
-
-	return m
 }

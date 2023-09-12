@@ -18,3 +18,7 @@ type Team struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
+
+func (t *Team) AsMap(removeFields ...string) map[string]any {
+	return asMap(t, removeFields...)
+}

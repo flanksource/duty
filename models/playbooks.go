@@ -30,6 +30,10 @@ type Playbook struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (p Playbook) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
+}
+
 type PlaybookRun struct {
 	ID          uuid.UUID           `gorm:"default:generate_ulid()"`
 	PlaybookID  uuid.UUID           `json:"playbook_id"`
@@ -45,6 +49,10 @@ type PlaybookRun struct {
 	AgentID     *uuid.UUID          `json:"agent_id,omitempty"`
 }
 
+func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
+}
+
 type PlaybookRunAction struct {
 	ID            uuid.UUID         `gorm:"default:generate_ulid()"`
 	Name          string            `json:"name" gorm:"not null"`
@@ -56,10 +64,18 @@ type PlaybookRunAction struct {
 	Error         string            `json:"error,omitempty" gorm:"default:null"`
 }
 
+func (p PlaybookRunAction) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
+}
+
 type PlaybookApproval struct {
 	ID        uuid.UUID  `gorm:"default:generate_ulid()"`
 	RunID     uuid.UUID  `json:"run_id"`
 	PersonID  *uuid.UUID `json:"person_id,omitempty"`
 	TeamID    *uuid.UUID `json:"team_id,omitempty"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:false"`
+}
+
+func (p PlaybookApproval) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
 }

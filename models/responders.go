@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,15 +24,5 @@ type Responder struct {
 }
 
 func (r Responder) AsMap(removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&r)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
-	}
-
-	for _, field := range removeFields {
-		delete(m, field)
-	}
-
-	return m
+	return asMap(r, removeFields...)
 }

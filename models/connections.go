@@ -44,3 +44,7 @@ func (c Connection) String() string {
 	re := regexp.MustCompile(`password=([^;]*)`)
 	return re.ReplaceAllString(connection, "password=###")
 }
+
+func (c Connection) AsMap(removeFields ...string) map[string]any {
+	return asMap(c, removeFields...)
+}

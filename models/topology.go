@@ -24,3 +24,7 @@ type Topology struct {
 func (Topology) TableName() string {
 	return "topologies"
 }
+
+func (t *Topology) AsMap(removeFields ...string) map[string]any {
+	return asMap(t, removeFields...)
+}
