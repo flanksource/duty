@@ -28,3 +28,7 @@ type Notification struct {
 func (n *Notification) HasRecipients() bool {
 	return n.TeamID != nil || n.PersonID != nil || len(n.CustomServices) != 0
 }
+
+func (n Notification) AsMap(removeFields ...string) map[string]any {
+	return asMap(n, removeFields...)
+}

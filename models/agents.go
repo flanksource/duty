@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -25,15 +24,5 @@ type Agent struct {
 }
 
 func (t Agent) AsMap(removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&t)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
-	}
-
-	for _, field := range removeFields {
-		delete(m, field)
-	}
-
-	return m
+	return asMap(t, removeFields...)
 }

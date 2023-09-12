@@ -102,6 +102,10 @@ func (ci ConfigItem) String() string {
 	return fmt.Sprintf("%s/%s", ci.ConfigClass, ci.ID)
 }
 
+func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
+	return asMap(ci, removeFields...)
+}
+
 func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 	var m map[string]any
 	err := json.Unmarshal([]byte(*ci.Config), &m)
@@ -137,6 +141,10 @@ type ConfigScraper struct {
 
 func (c ConfigScraper) TableName() string {
 	return "config_scrapers"
+}
+
+func (c ConfigScraper) AsMap(removeFields ...string) map[string]any {
+	return asMap(c, removeFields...)
 }
 
 // BeforeCreate GORM hook

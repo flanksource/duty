@@ -82,6 +82,10 @@ func (c *Component) GetStatus() types.ComponentStatus {
 	}
 }
 
+func (c *Component) AsMap(removeFields ...string) map[string]any {
+	return asMap(c, removeFields...)
+}
+
 func (component Component) GetAsEnvironment() map[string]interface{} {
 	return map[string]interface{}{
 		"self":       component,
@@ -343,6 +347,10 @@ func (p *Property) Merge(other *Property) {
 	if other.Color != "" {
 		p.Color = other.Color
 	}
+}
+
+func (p Property) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
 }
 
 type Properties []*Property

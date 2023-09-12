@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -62,17 +61,7 @@ func (c Check) GetDescription() string {
 }
 
 func (c Check) AsMap(removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&c)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
-	}
-
-	for _, field := range removeFields {
-		delete(m, field)
-	}
-
-	return m
+	return asMap(c, removeFields...)
 }
 
 type Checks []*Check
@@ -119,17 +108,7 @@ func (CheckStatus) TableName() string {
 }
 
 func (s CheckStatus) AsMap(removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&s)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
-	}
-
-	for _, field := range removeFields {
-		delete(m, field)
-	}
-
-	return m
+	return asMap(s, removeFields...)
 }
 
 // CheckStatusAggregate1h represents the `check_statuses_1h` table
@@ -186,4 +165,8 @@ type CheckSummary struct {
 
 func (t *CheckSummary) TableName() string {
 	return "check_summary"
+}
+
+func (t CheckSummary) AsMap(removeFields ...string) map[string]any {
+	return asMap(t, removeFields...)
 }
