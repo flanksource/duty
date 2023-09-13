@@ -13,15 +13,15 @@ type Notification struct {
 	ID             uuid.UUID           `json:"id"`
 	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
 	Title          string              `json:"title,omitempty"`
-	Template       string              `json:"template"`
-	Filter         string              `json:"filter"`
+	Template       string              `json:"template,omitempty"`
+	Filter         string              `json:"filter,omitempty"`
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
 	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
 	CustomServices types.JSON          `json:"custom_services,omitempty" gorm:"column:custom_services"`
 	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
-	UpdatedAt      time.Time           `json:"updated_at"`
-	CreatedAt      time.Time           `json:"created_at"`
+	UpdatedAt      time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	CreatedAt      time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
 }
 
