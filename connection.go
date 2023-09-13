@@ -40,8 +40,19 @@ func extractConnectionNameType(connectionString string) (name string, connection
 }
 
 // HydratedConnectionByURL retrieves a connection from the given connection string.
-// The connection string is expected to be of the form: connection://<type>/<name>
+// The connection string is expected to be in one of the following forms:
+//   - connection://<type>/<name> or
+//   - the UUID of the connection.
 func HydratedConnectionByURL(ctx context.Context, db *gorm.DB, k8sClient kubernetes.Interface, namespace, connectionString string) (*models.Connection, error) {
+	if connectionString == "" {
+		return nil, nil
+	}
+
+	// Must be in one of the correct forms.
+	if _, err := uuid.Parse(connectionString); err != nil && !strings.HasPrefix(connectionString, "connection://") {
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection://<type>/<name> or the connection UUID", connectionString)
+	}
+
 	connection, err := FindConnectionByURL(ctx, db, connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find connection (%s): %w", connectionString, err)
