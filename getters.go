@@ -14,6 +14,29 @@ import (
 // getterCache caches the results for all the getters in this file.
 var getterCache = cache.New(time.Second*90, time.Minute*5)
 
+func cacheKey[T any](field, key string) string {
+	var v T
+	return fmt.Sprintf("%T:%s=%s", v, field, key)
+}
+
+type GetterOption uint8
+
+const (
+	GetterOptionNoCache GetterOption = iota + 1
+)
+
+type GetterOptions []GetterOption
+
+func (t GetterOptions) IsSet(option GetterOption) bool {
+	for _, opt := range t {
+		if opt == option {
+			return true
+		}
+	}
+
+	return false
+}
+
 func FindCachedAgent(ctx DBContext, id string) (*models.Agent, error) {
 	if id == uuid.Nil.String() {
 		return nil, nil
@@ -45,8 +68,18 @@ func FindCachedCanary(ctx DBContext, id string) (*models.Canary, error) {
 	return canary, nil
 }
 
-func FindCachedPerson(ctx DBContext, id string) (*models.Person, error) {
-	person, err := findCachedEntity[models.Person](ctx, id)
+// FindPerson looks up a person by the given identifier which can either be
+//   - UUID
+//   - email
+func FindPerson(ctx DBContext, identifier string, opts ...GetterOption) (*models.Person, error) {
+	var field string
+	if _, err := uuid.Parse(identifier); err == nil {
+		field = "id"
+	} else {
+		field = "email"
+	}
+
+	person, err := findEntityByField[models.Person](ctx, field, identifier, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,17 +87,18 @@ func FindCachedPerson(ctx DBContext, id string) (*models.Person, error) {
 	return person, nil
 }
 
-func FindPersonByEmail(ctx DBContext, email string) (*models.Person, error) {
-	person, err := findEntityByField[models.Person](ctx, "email", email, false)
-	if err != nil {
-		return nil, err
+// FindTeam looks up a team by the given identifier which can either be
+//   - UUID
+//   - team name
+func FindTeam(ctx DBContext, identifier string, opts ...GetterOption) (*models.Team, error) {
+	var field string
+	if _, err := uuid.Parse(identifier); err == nil {
+		field = "id"
+	} else {
+		field = "name"
 	}
 
-	return person, nil
-}
-
-func FindTeamByName(ctx DBContext, name string) (*models.Team, error) {
-	team, err := findEntityByField[models.Team](ctx, "name", name, false)
+	team, err := findEntityByField[models.Team](ctx, field, identifier, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +134,12 @@ func FindCachedIncident(ctx DBContext, id string) (*models.Incident, error) {
 }
 
 func findCachedEntity[T any](ctx DBContext, id string) (*T, error) {
-	return findEntityByField[T](ctx, "id", id, true)
+	return findEntityByField[T](ctx, "id", id)
 }
 
-func findEntityByField[T any](ctx DBContext, field, key string, withCache bool) (*T, error) {
-	if withCache {
-		if value, ok := getterCache.Get(key); ok {
+func findEntityByField[T any](ctx DBContext, field, key string, opts ...GetterOption) (*T, error) {
+	if !GetterOptions(opts).IsSet(GetterOptionNoCache) {
+		if value, ok := getterCache.Get(cacheKey[T](field, key)); ok {
 			if cache, ok := value.(*T); ok {
 				return cache, nil
 			} else {
@@ -123,6 +157,6 @@ func findEntityByField[T any](ctx DBContext, field, key string, withCache bool) 
 		return nil, err
 	}
 
-	getterCache.SetDefault(key, &resource)
+	getterCache.SetDefault(cacheKey[T](field, key), &resource)
 	return &resource, nil
 }
