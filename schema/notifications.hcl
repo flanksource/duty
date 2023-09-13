@@ -60,6 +60,9 @@ table "notifications" {
     null = true
     type = timestamptz
   }
+  primary_key {
+    columns = [column.id]
+  }
   foreign_key "notification_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
