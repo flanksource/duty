@@ -82,3 +82,42 @@ table "notifications" {
     on_delete   = CASCADE
   }
 }
+
+table "notification_send_history" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "notification_id" {
+    null = false
+    type = uuid
+  }
+  column "body" {
+    null = false
+    type = text
+  }
+  column "error" {
+    null = true
+    type = text
+  }
+  column "duration_millis" {
+    null = true
+    type = integer
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "notification_id_fkey" {
+    columns     = [column.notification_id]
+    ref_columns = [table.notifications.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+}
