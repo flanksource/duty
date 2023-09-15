@@ -4,7 +4,7 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF OLD.spec->'approval' != NEW.spec->'approval' THEN
     INSERT INTO event_queue(name, properties) VALUES ('playbook.spec.approval.updated', jsonb_build_object('id', NEW.id));
-    NOTIFY event_queue_updates;
+    NOTIFY event_queue_updates, 'playbook.spec.approval.updated';
   END IF;
     
   RETURN NULL;
@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id, 'run_id', NEW.run_id));
-  NOTIFY event_queue_updates;
+  NOTIFY event_queue_updates, 'playbook.approval.inserted';
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -35,7 +35,7 @@ EXECUTE PROCEDURE insert_new_playbook_approvals_to_event_queue();
 CREATE OR REPLACE FUNCTION insert_incident_creation_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO event_queue(name, properties) VALUES ('incident.created', jsonb_build_object('id', NEW.id));
-    NOTIFY event_queue_updates, 'update';
+    NOTIFY event_queue_updates, 'incident.created';
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -55,7 +55,7 @@ BEGIN
 
     event_name := 'incident.status.' || NEW.status;
     INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id));
-    NOTIFY event_queue_updates, 'update';
+    PERFORM pg_notify('event_queue_updates', event_name);
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -70,13 +70,14 @@ CREATE OR REPLACE FUNCTION insert_responder_in_event_queue() RETURNS TRIGGER AS 
 BEGIN
     IF TG_OP = 'INSERT' THEN
         INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added', jsonb_build_object('id', NEW.id));
+        NOTIFY event_queue_updates, 'incident.responder.added';
     ELSIF TG_OP = 'UPDATE' THEN
         IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
             INSERT INTO event_queue(name, properties) VALUES ('incident.responder.removed', jsonb_build_object('id', NEW.id));
+            NOTIFY event_queue_updates, 'incident.responder.removed';
         END IF;
     END IF;
 
-    NOTIFY event_queue_updates, 'update';
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -90,7 +91,7 @@ EXECUTE PROCEDURE insert_responder_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_comment_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added', jsonb_build_object('id', NEW.id));
-    NOTIFY event_queue_updates, 'update';
+    NOTIFY event_queue_updates, 'incident.comment.added';
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -110,20 +111,23 @@ BEGIN
     IF OLD.definition_of_done != NEW.definition_of_done THEN
         IF NEW.definition_of_done THEN
             INSERT INTO event_queue(name, properties) VALUES ('incident.dod.added', jsonb_build_object('id', NEW.id));
+            NOTIFY event_queue_updates, 'incident.dod.added';
         ELSE
             INSERT INTO event_queue(name, properties) VALUES ('incident.dod.removed', jsonb_build_object('id', NEW.id));
+            NOTIFY event_queue_updates, 'incident.dod.removed';
         END IF;
     END IF;
 
     IF OLD.done != NEW.done THEN
         IF NEW.done THEN
             INSERT INTO event_queue(name, properties) VALUES ('incident.dod.passed', jsonb_build_object('id', NEW.id));
+            NOTIFY event_queue_updates, 'incident.dod.passed';
         ELSE
             INSERT INTO event_queue(name, properties) VALUES ('incident.dod.regressed', jsonb_build_object('id', NEW.id));
+            NOTIFY event_queue_updates, 'incident.dod.regressed';
         END IF;
     END IF;
     
-    NOTIFY event_queue_updates, 'update';
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -142,11 +146,12 @@ BEGIN
 
     IF NEW.status = 'healthy' THEN
         INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id)) ON CONFLICT (name, properties) DO NOTHING;
+        NOTIFY event_queue_updates, 'check.passed';
     ELSEIF NEW.status = 'unhealthy' THEN
         INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id)) ON CONFLICT (name, properties) DO NOTHING;
+        NOTIFY event_queue_updates, 'check.failed';
     END IF;
 
-    NOTIFY event_queue_updates, 'update';
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -167,7 +172,7 @@ BEGIN
     event_name := 'component.status.' || NEW.status;
     INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id));
 
-    NOTIFY event_queue_updates;
+    PERFORM pg_notify('event_queue_updates', event_name);
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -214,11 +219,11 @@ OR REPLACE FUNCTION insert_team_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
     INSERT INTO event_queue(name, properties) VALUES ('team.delete', jsonb_build_object('team_id', OLD.id));
-    NOTIFY event_queue_updates, 'update';
+    NOTIFY event_queue_updates, 'team.delete';
     RETURN OLD;
   ELSE
     INSERT INTO event_queue(name, properties) VALUES ('team.update', jsonb_build_object('team_id', NEW.id));
-    NOTIFY event_queue_updates, 'update';
+    NOTIFY event_queue_updates, 'team.update';
     RETURN NEW;
   END IF;
 END
@@ -235,11 +240,11 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
         INSERT INTO event_queue(name, properties) VALUES ('notification.delete', jsonb_build_object('id', OLD.id));
-        NOTIFY event_queue_updates, 'update';
+        NOTIFY event_queue_updates, 'notification.delete';
         RETURN OLD;
     ELSE
         INSERT INTO event_queue(name, properties) VALUES ('notification.update', jsonb_build_object('id', NEW.id));
-        NOTIFY event_queue_updates, 'update';
+        NOTIFY event_queue_updates, 'notification.update';
         RETURN NEW;
     END IF;
 END
