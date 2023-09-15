@@ -10,7 +10,6 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
-	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/testutils"
 	"github.com/itchyny/gojq"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -48,16 +47,9 @@ var _ = ginkgo.BeforeSuite(func() {
 	}
 	logger.Infof("Started postgres on port 9876")
 
-	migrateOpts := &migrate.MigrateOptions{IgnoreFiles: []string{"postgrest.sql"}}
-	if testutils.TestDB, testutils.TestDBPGPool, err = SetupDB(pgUrl, migrateOpts); err != nil {
+	if testutils.TestDB, testutils.TestDBPGPool, err = SetupDB(pgUrl, nil); err != nil {
 		ginkgo.Fail(err.Error())
 	}
-
-	// Since postgrest.sql is ignored, postgrest_anon role should not be present
-	var pgrstCount int
-	err = testutils.TestDB.Raw(`SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_anon'`).Scan(&pgrstCount).Error
-	Expect(err).ToNot(HaveOccurred())
-	Expect(pgrstCount).To(Equal(0))
 
 	dummyData = dummy.GetStaticDummyData()
 	err = dummyData.Populate(testutils.TestDB)
