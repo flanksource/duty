@@ -77,7 +77,7 @@ BEGIN
     (name, properties)
   DO UPDATE SET
     attempts = 0;
-  NOTIFY event_queue_updates, 'update';
+  NOTIFY event_queue_updates, 'push_queue.create';
   RETURN NULL;
 END;
 $$ LANGUAGE 'plpgsql' SECURITY DEFINER;
