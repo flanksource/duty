@@ -3,6 +3,7 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -12,7 +13,6 @@ import (
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
-	"github.com/pkg/errors"
 )
 
 type MigrateOptions struct {
@@ -23,6 +23,7 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
+
 	if pool == nil {
 		return errors.New("pool is nil")
 	}
@@ -30,36 +31,36 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	row := pool.QueryRow("SELECT current_database();")
 	var name string
 	if err := row.Scan(&name); err != nil {
-		return errors.Wrap(err, "failed to get current database")
+		return fmt.Errorf("failed to get current database: %w", err)
 	}
+
 	logger.Infof("Migrating database %s", name)
 
 	funcs, err := functions.GetFunctions()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get functions: %w", err)
 	}
 
 	if err := runScripts(pool, funcs, opts.IgnoreFiles); err != nil {
-		return err
+		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
 	if err := grantPostgrestRolesToCurrentUser(pool, connection); err != nil {
-		return err
+		return fmt.Errorf("failed to grant postgrest roles: %w", err)
 	}
 
-	logger.Debugf("Applying schema migrations")
 	if err := schema.Apply(context.TODO(), connection); err != nil {
-		return err
+		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
 	views, err := views.GetViews()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get views: %w", err)
 	}
 
 	if err := runScripts(pool, views, opts.IgnoreFiles); err != nil {
-		return err
+		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
 	return nil
@@ -133,8 +134,9 @@ func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) e
 	for _, file := range filenames {
 		logger.Tracef("Running script %s", file)
 		if _, err := pool.Exec(scripts[file]); err != nil {
-			return errors.Wrapf(err, "failed to run script %s", file)
+			return fmt.Errorf("failed to run script %s: %w", file, err)
 		}
 	}
+
 	return nil
 }
