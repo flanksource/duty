@@ -42,22 +42,26 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 func Apply(ctx context.Context, connection string) error {
 	from, err := dbReader(ctx, connection, []string{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open connection: %w", err)
 	}
 	defer from.Close()
+
 	client, ok := from.Closer.(*sqlclient.Client)
 	if !ok {
 		return errors.New("--url must be a database connection")
 	}
+
 	to, err := hclStateReader(ctx, client, schemas)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initiate HCL state reader: %w", err)
 	}
 	defer to.Close()
+
 	changes, err := computeDiff(ctx, client, from, to)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to compute diff: %w", err)
 	}
+
 	if len(changes) == 0 {
 		logger.Infof("No changes detected")
 		return nil
@@ -67,7 +71,7 @@ func Apply(ctx context.Context, connection string) error {
 
 	var plan *migrate.Plan
 	if plan, err = client.PlanChanges(ctx, "", changes); err != nil {
-		return err
+		return fmt.Errorf("failed to plan changes: %w", err)
 	}
 
 	for _, change := range plan.Changes {
@@ -75,8 +79,9 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	if err = client.ApplyChanges(ctx, changes); err != nil {
-		return fmt.Errorf("Applied %d changes and then failed: %v", len(changes), err)
+		return fmt.Errorf("applied %d changes and then failed: %w", len(changes), err)
 	}
+
 	logger.Infof("Applied %d changes", len(changes))
 	return nil
 }
@@ -84,11 +89,11 @@ func Apply(ctx context.Context, connection string) error {
 func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateReadCloser) ([]schema.Change, error) {
 	current, err := from.ReadState(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read state: %w", err)
 	}
 	desired, err := to.ReadState(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read state: %w", err)
 	}
 	var diff []schema.Change
 	switch {
@@ -96,7 +101,7 @@ func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateR
 	case from.hcl, to.hcl, from.schema == "" && to.schema == "":
 		diff, err = differ.RealmDiff(current, desired)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to diff realms: %w", err)
 		}
 	case from.schema == "", to.schema == "":
 		return nil, fmt.Errorf("cannot diff a schema with a database connection: %q <> %q", from.schema, to.schema)
@@ -106,7 +111,7 @@ func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateR
 		current.Schemas[0].Name, desired.Schemas[0].Name = "", ""
 		diff, err = differ.SchemaDiff(current.Schemas[0], desired.Schemas[0])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to diff schemas: %w", err)
 		}
 	}
 	return diff, nil
@@ -116,7 +121,7 @@ func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateR
 func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) (*stateReadCloser, error) {
 	scripts, err := schemas.ReadDir(".")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read scripts: %w", err)
 	}
 
 	p := hclparse.NewParser()
@@ -124,17 +129,20 @@ func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) 
 	for _, file := range scripts {
 		script, err := schemas.ReadFile(file.Name())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read script %s: %w", file.Name(), err)
 		}
+
 		_, diag := p.ParseHCL(script, file.Name())
 		if diag.HasErrors() {
 			return nil, diag
 		}
 	}
+
 	realm := &schema.Realm{}
 	if err := client.Eval(p, realm, make(map[string]cty.Value)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to evaluate HCL: %w", err)
 	}
+
 	t := &stateReadCloser{StateReader: migrate.Realm(realm), hcl: true}
 	return t, nil
 }
