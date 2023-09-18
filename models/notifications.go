@@ -38,7 +38,7 @@ type NotificationSendHistory struct {
 	NotificationID uuid.UUID `json:"notification_id"`
 	Body           string    `json:"body,omitempty"`
 	Error          *string   `json:"error,omitempty"`
-	DurationMs     int64     `json:"duration_ms,omitempty" gorm:"column:duration_millis"`
+	DurationMillis int64     `json:"duration_millis,omitempty"`
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
 
 	// Name of the original event that caused this notification
@@ -69,6 +69,6 @@ func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHisto
 }
 
 func (t *NotificationSendHistory) End() *NotificationSendHistory {
-	t.DurationMs = time.Since(t.timeStart).Milliseconds()
+	t.DurationMillis = time.Since(t.timeStart).Milliseconds()
 	return t
 }
