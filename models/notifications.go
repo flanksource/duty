@@ -32,3 +32,43 @@ func (n *Notification) HasRecipients() bool {
 func (n Notification) AsMap(removeFields ...string) map[string]any {
 	return asMap(n, removeFields...)
 }
+
+type NotificationSendHistory struct {
+	ID             uuid.UUID `json:"id,omitempty" gorm:"default:generate_ulid()"`
+	NotificationID uuid.UUID `json:"notification_id"`
+	Body           string    `json:"body,omitempty"`
+	Error          *string   `json:"error,omitempty"`
+	DurationMillis int64     `json:"duration_millis,omitempty"`
+	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
+
+	// Name of the original event that caused this notification
+	SourceEvent string `json:"source_event"`
+
+	// ID of the resource this notification is for
+	ResourceID uuid.UUID `json:"resource_id"`
+
+	// ID of the person this notification is for.
+	PersonID *uuid.UUID `json:"person_id"`
+
+	timeStart time.Time
+}
+
+func (n NotificationSendHistory) AsMap(removeFields ...string) map[string]any {
+	return asMap(n, removeFields...)
+}
+
+func (t *NotificationSendHistory) TableName() string {
+	return "notification_send_history"
+}
+
+func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHistory {
+	return &NotificationSendHistory{
+		NotificationID: notificationID,
+		timeStart:      time.Now(),
+	}
+}
+
+func (t *NotificationSendHistory) End() *NotificationSendHistory {
+	t.DurationMillis = time.Since(t.timeStart).Milliseconds()
+	return t
+}
