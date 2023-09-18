@@ -98,6 +98,20 @@ table "notification_send_history" {
     null = false
     type = text
   }
+  column "source_event" {
+    null    = false
+    type    = text
+    comment = "The event that caused this notification"
+  }
+  column "resource_id" {
+    null    = false
+    type    = uuid
+    comment = "The resource this notification is for"
+  }
+  column "person_id" {
+    null = true
+    type = uuid
+  }
   column "error" {
     null = true
     type = text
@@ -117,6 +131,12 @@ table "notification_send_history" {
   foreign_key "notification_id_fkey" {
     columns     = [column.notification_id]
     ref_columns = [table.notifications.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "notification_recipient_person_id_fkey" {
+    columns     = [column.person_id]
+    ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
