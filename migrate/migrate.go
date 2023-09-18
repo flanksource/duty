@@ -36,29 +36,35 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 
 	logger.Infof("Migrating database %s", name)
 
+	logger.Infof("Getting functions")
 	funcs, err := functions.GetFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to get functions: %w", err)
 	}
 
+	logger.Infof("Running scripts")
 	if err := runScripts(pool, funcs, opts.IgnoreFiles); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
+	logger.Infof("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
 	if err := grantPostgrestRolesToCurrentUser(pool, connection); err != nil {
 		return fmt.Errorf("failed to grant postgrest roles: %w", err)
 	}
 
+	logger.Infof("Applying schema migrations")
 	if err := schema.Apply(context.TODO(), connection); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
+	logger.Infof("Getting views")
 	views, err := views.GetViews()
 	if err != nil {
 		return fmt.Errorf("failed to get views: %w", err)
 	}
 
+	logger.Infof("Running scripts for views")
 	if err := runScripts(pool, views, opts.IgnoreFiles); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}

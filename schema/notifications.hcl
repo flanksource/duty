@@ -137,7 +137,7 @@ table "notification_send_history" {
   foreign_key "notification_recipient_person_id_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
 }
