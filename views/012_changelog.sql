@@ -68,16 +68,11 @@ BEGIN
       payload = jsonb_build_object('id', rec.id);
   END CASE;
 
+  -- Log changes to event queue
   priority = (priority_table->>TG_TABLE_NAME)::integer;
-  INSERT INTO
-    event_queue (name, properties, priority)
-  VALUES
-    ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload, priority)
-  ON CONFLICT
-    (name, properties)
-  DO UPDATE SET
-    attempts = 0;
-  NOTIFY event_queue_updates, 'push_queue.create';
+  INSERT INTO event_queue (name, properties, priority) VALUES ('push_queue.create', jsonb_build_object('table', TG_TABLE_NAME) || payload, priority)
+  ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+
   RETURN NULL;
 END;
 $$ LANGUAGE 'plpgsql' SECURITY DEFINER;
