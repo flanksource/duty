@@ -11,15 +11,10 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
-
-type dbContext interface {
-	context.Context
-	DB() *gorm.DB
-}
 
 type UpstreamConfig struct {
 	AgentName string
@@ -132,14 +127,14 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
+func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	if req.Table == "check_statuses" {
 		query := `
 			WITH p_keys AS (
 				SELECT check_id::TEXT, time::TEXT
 				FROM check_statuses
 				LEFT JOIN checks ON check_statuses.check_id = checks.id
-				WHERE (check_id::TEXT, time::TEXT) > (?, ?) AND checks.agent_id = ?
+				WHERE (check_id::TEXT, time) > (?, ?) AND checks.agent_id = ?
 				ORDER BY check_id, time
 				LIMIT ?
 			)
@@ -180,7 +175,7 @@ func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (
 	return &resp, err
 }
 
-func GetMissingResourceIDs(ctx dbContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
+func GetMissingResourceIDs(ctx duty.DBContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
 	var pushData PushData
 
 	tx := ctx.DB().Where("agent_id = ?", uuid.Nil)
