@@ -12,7 +12,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER notification_update_enqueue
+CREATE OR REPLACE TRIGGER handle_notifications_updates_deletes_trigger
 AFTER UPDATE OR DELETE ON notifications
 FOR EACH ROW
 EXECUTE PROCEDURE handle_notifications_updates_deletes();
@@ -29,7 +29,7 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER notification_update_enqueue
+CREATE OR REPLACE TRIGGER reset_notification_error_before_update_trigger
 BEFORE UPDATE ON notifications
 FOR EACH ROW
 EXECUTE PROCEDURE reset_notification_error_before_update();
