@@ -134,13 +134,13 @@ func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UU
 				SELECT check_id::TEXT, time::TEXT
 				FROM check_statuses
 				LEFT JOIN checks ON check_statuses.check_id = checks.id
-				WHERE (check_id::TEXT, time) > (?, ?) AND checks.agent_id = ?
+				WHERE (check_id::TEXT, time::TEXT) > (?, ?) AND checks.agent_id = ?
 				ORDER BY check_id, time
 				LIMIT ?
 			)
 			SELECT
 				encode(digest(string_agg(check_id::TEXT || time::TEXT, ''), 'sha256'), 'hex') as sha256sum,
-				(MAX(check_id::TEXT) || ',' || MAX(time::TEXT)) as last_id,
+				(SELECT (check_id::TEXT || ',' || time::TEXT) FROM p_keys ORDER BY (check_id, time) DESC LIMIT 1) as last_id,
 				COUNT(*) as total
 			FROM
 				p_keys`
