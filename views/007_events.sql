@@ -218,27 +218,6 @@ WHERE
 GROUP BY
   name;
 
--- Insert team updates in event_queue
-CREATE
-OR REPLACE FUNCTION insert_team_in_event_queue () RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    INSERT INTO event_queue(name, properties) VALUES ('team.delete', jsonb_build_object('team_id', OLD.id))
-    ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
-  ELSE
-    INSERT INTO event_queue(name, properties) VALUES ('team.update', jsonb_build_object('team_id', NEW.id))
-    ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
-  END IF;
-  
-  RETURN NULL;
-END
-$$ LANGUAGE plpgsql;
-
-CREATE
-OR REPLACE TRIGGER team_enqueue
-AFTER INSERT OR UPDATE OR DELETE ON teams FOR EACH ROW
-EXECUTE PROCEDURE insert_team_in_event_queue ();
-
 -- Publish Notify on new events
 CREATE OR REPLACE FUNCTION notify_new_events_function()
 RETURNS TRIGGER AS $$
