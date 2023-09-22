@@ -6,6 +6,10 @@ BEGIN
     DELETE FROM team_components WHERE team_id = OLD.id;
   END IF;
 
+  IF OLD.spec != NEW.spec THEN
+    UPDATE notifications SET error = NULL WHERE team_id = NEW.id;
+  END IF;
+
   PERFORM pg_notify('table_activity', TG_TABLE_NAME || ' ' || NEW.id);
   
   RETURN NULL;

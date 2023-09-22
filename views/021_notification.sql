@@ -16,3 +16,20 @@ CREATE OR REPLACE TRIGGER notification_update_enqueue
 AFTER UPDATE OR DELETE ON notifications
 FOR EACH ROW
 EXECUTE PROCEDURE handle_notifications_updates_deletes();
+
+-- Handle before updates for notifications
+CREATE OR REPLACE FUNCTION reset_notification_error_before_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.filter != NEW.filter OR OLD.custom_services != NEW.custom_services OR OLD.team_id != NEW.team_id THEN
+    NEW.error = NULL;
+  END IF;
+
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER notification_update_enqueue
+BEFORE UPDATE ON notifications
+FOR EACH ROW
+EXECUTE PROCEDURE reset_notification_error_before_update();
