@@ -20,7 +20,7 @@ const (
 )
 
 type Playbook struct {
-	ID        uuid.UUID  `gorm:"default:generate_ulid()"`
+	ID        uuid.UUID  `gorm:"default:generate_ulid()" json:"id"`
 	Name      string     `json:"name"`
 	Spec      types.JSON `json:"spec"`
 	Source    string     `json:"source"`
