@@ -25,16 +25,31 @@ type TopologyOptions struct {
 	// TODO: Filter status and types in DB Query
 	Types  []string
 	Status []string
+
+	// when set to true, only the children (except the immediate children) are returned
+	restOfTheChildrenOnly bool
 }
 
 func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
 }
 
+func (opt TopologyOptions) selectClause() string {
+	if !opt.restOfTheChildrenOnly {
+		return "*"
+	}
+
+	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, agent_id, parent_id, type"
+}
+
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL"
 	if opt.ID != "" {
-		s += " AND (components.id = @id OR components.path LIKE @path)"
+		if !opt.restOfTheChildrenOnly {
+			s += " AND (components.id = @id OR components.parent_id = @id)"
+		} else {
+			s += " AND (components.path LIKE @path AND components.id != @id AND components.parent_id != @id)"
+		}
 	}
 	if opt.Owner != "" {
 		s += " AND (components.owner = @owner)"
@@ -57,7 +72,11 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		s += ` AND (parent.labels @> @labels)`
 	}
 	if opt.ID != "" {
-		s += ` AND (component_relationships.relationship_id = @id OR parent.path LIKE @path)`
+		if !opt.restOfTheChildrenOnly {
+			s += " AND (component_relationships.relationship_id = @id OR parent.parent_id = @id)"
+		} else {
+			s += " AND (component_relationships.relationship_id = @id OR (parent.path LIKE @path AND parent.parent_id != @id))"
+		}
 	}
 	return s
 }
@@ -73,7 +92,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	subQuery := fmt.Sprintf(selectSubQuery, opts.componentWhereClause(), opts.componentRelationWhereClause())
 	query := fmt.Sprintf(`
         WITH topology_result AS (
-            SELECT * FROM topology
+            SELECT %s FROM topology
             WHERE id IN (%s)
         )
         SELECT
@@ -92,7 +111,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 						)
         FROM
             topology_result
-        `, subQuery)
+        `, opts.selectClause(), subQuery)
 
 	args := make(map[string]any)
 	if opts.ID != "" {
@@ -123,31 +142,73 @@ type TopologyResponse struct {
 	Types          []string          `json:"types"`
 }
 
-func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
-	query, args := generateQuery(params)
+func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (TopologyResponse, error) {
+	// Fetch the children (with all the details)
+	// & the rest of the decendents (minimal details) in two separate queries
 
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
-		defer cancel()
-	}
+	var response TopologyResponse
+	query, args := generateQuery(params)
 	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
-		return nil, err
+		return response, fmt.Errorf("failed to query component & its immediate children: %w", err)
 	}
 	defer rows.Close()
 
-	var response TopologyResponse
 	for rows.Next() {
 		if rows.RawValues()[0] == nil {
 			continue
 		}
 
 		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
 		}
 	}
 
+	// On the home view (id=""), the first query covers all the components.
+	if params.ID == "" {
+		return response, nil
+	}
+
+	params.restOfTheChildrenOnly = true
+	query, args = generateQuery(params)
+	rows, err = dbpool.Query(ctx, query, pgx.NamedArgs(args))
+	if err != nil {
+		return response, fmt.Errorf("failed to query rest of the children: %w", err)
+	}
+	defer rows.Close()
+
+	var nonImmediateChildren TopologyResponse
+	for rows.Next() {
+		if rows.RawValues()[0] == nil {
+			continue
+		}
+
+		if err := json.Unmarshal(rows.RawValues()[0], &nonImmediateChildren); err != nil {
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+		}
+	}
+
+	response.Components = append(response.Components, nonImmediateChildren.Components...)
+
+	// Not sure if we need these from non immediate children
+	// response.HealthStatuses = append(response.HealthStatuses, nonImmediateChildren.HealthStatuses...)
+	// response.Teams = append(response.Teams, nonImmediateChildren.Teams...)
+	// response.Tags = append(response.Tags, nonImmediateChildren.Tags...)
+	// response.Types = append(response.Types, nonImmediateChildren.Types...)
+	return response, nil
+}
+
+func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		defer cancel()
+	}
+
+	response, err := fetchAllComponents(ctx, dbpool, params)
+	if err != nil {
+		return nil, err
+	}
 	response.Components = applyTypeFilter(response.Components, params.Types...)
 
 	if !params.Flatten {
