@@ -10,6 +10,10 @@ table "notifications" {
     type    = sql("text[]")
     comment = "a list of events this notification is for."
   }
+  column "error" {
+    null = true
+    type = text
+  }
   column "title" {
     null = true
     type = text

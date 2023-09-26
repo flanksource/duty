@@ -23,6 +23,9 @@ type Notification struct {
 	UpdatedAt      time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	CreatedAt      time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
+
+	// Error stores errors in notification filters (if any)
+	Error *string `json:"error,omitempty"`
 }
 
 func (n *Notification) HasRecipients() bool {
