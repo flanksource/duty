@@ -12,9 +12,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type PaginateRequest struct {
@@ -51,38 +49,16 @@ func (t *upstreamReconciler) Sync(ctx duty.DBContext, table string) error {
 	logger.Debugf("Reconciling table %q with upstream", table)
 
 	// Empty starting cursor, so we sync everything
-	var next string
-	if table == "check_statuses" {
-		next = "," // in the format <check_id>,<time>
-	}
-
-	return t.sync(ctx, table, next)
+	return t.sync(ctx, table, "")
 }
 
-// Sync compares all the resource of the given table against
-// the upstream server and pushes any missing resources to the upstream.
+// SyncAfter pushes all the records of the given table that were updated in the given duration
 func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after time.Duration) error {
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339)).Debugf("Reconciling table %q with upstream", table)
 
 	var next string
-	switch table {
-	case "check_statuses":
-		var checkStatus *models.CheckStatus
-		if err := ctx.DB().Select("checks.id as check_id", "check_statuses.time").
-			Joins("LEFT JOIN checks ON check_statuses.check_id = checks.id").
-			Where("checks.agent_id = ?", uuid.Nil).
-			Where("NOW() - check_statuses.created_at <= ?", after).
-			Order("check_statuses.created_at").
-			First(&checkStatus).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		} else if checkStatus != nil && checkStatus.CheckID != uuid.Nil && checkStatus.Time != "" {
-			next = fmt.Sprintf("%s,%s", checkStatus.CheckID, checkStatus.Time)
-		}
-
-	default:
-		if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - created_at <= ?", after).Order("created_at").Limit(1).Scan(&next).Error; err != nil {
-			return err
-		}
+	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at <= ?", after).Order("updated_at").Limit(1).Scan(&next).Error; err != nil {
+		return err
 	}
 
 	if next == "" {
