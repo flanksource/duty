@@ -16,8 +16,7 @@ DECLARE
         "config_changes": 5,
         "config_component_relationships": 5,
         "component_relationships": 5,
-        "config_relationships": 5,
-        "check_statuses": 0
+        "config_relationships": 5
     }';
 BEGIN
   rec = NEW;
@@ -42,8 +41,6 @@ BEGIN
       payload = jsonb_build_object('component_id', rec.component_id, 'config_id', rec.config_id);
     WHEN 'config_relationships' THEN
       payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id);
-    WHEN 'check_statuses' THEN
-      payload = jsonb_build_object('check_id', rec.check_id, 'time', rec.time);
     WHEN 'checks' THEN
       -- Set these fields to null for checks to prevent excessive pushes
       rec.updated_at = NULL;
@@ -94,7 +91,6 @@ BEGIN
         'config_analysis',
         'config_changes',
         'config_items',
-        'check_statuses',
         'config_component_relationships',
         'component_relationships',
         'config_relationships',
