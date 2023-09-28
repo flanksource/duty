@@ -57,13 +57,8 @@ func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after t
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339)).Debugf("Reconciling table %q with upstream", table)
 
 	var next string
-	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at <= ?", after).Order("updated_at").Limit(1).Scan(&next).Error; err != nil {
+	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("updated_at DESC").Limit(1).Scan(&next).Error; err != nil {
 		return err
-	}
-
-	if next == "" {
-		logger.Debugf("no records found within the given duration")
-		return nil
 	}
 
 	return t.sync(ctx, table, next)
