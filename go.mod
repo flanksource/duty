@@ -6,6 +6,7 @@ require (
 	ariga.io/atlas v0.10.0
 	github.com/fergusstrange/embedded-postgres v1.21.0
 	github.com/flanksource/commons v1.11.0
+	github.com/flanksource/postq v1.0.0 // dummy version
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/hcl/v2 v2.16.2
 	github.com/itchyny/gojq v0.12.13
@@ -20,7 +21,7 @@ require (
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	github.com/zclconf/go-cty v1.13.1
 	gorm.io/driver/postgres v1.5.0
-	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
+	gorm.io/gorm v1.25.0
 	k8s.io/api v0.28.0
 	k8s.io/apimachinery v0.28.0
 	k8s.io/client-go v0.28.0
@@ -141,3 +142,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/flanksource/postq => ../postq
