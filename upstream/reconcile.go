@@ -54,7 +54,7 @@ func (t *upstreamReconciler) Sync(ctx duty.DBContext, table string) error {
 
 // SyncAfter pushes all the records of the given table that were updated in the given duration
 func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after time.Duration) error {
-	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339)).Debugf("Reconciling table %q with upstream", table)
+	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
 
 	var next string
 	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("updated_at DESC").Limit(1).Scan(&next).Error; err != nil {
