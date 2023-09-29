@@ -1,3 +1,8 @@
+// Copyright 2021-present The Atlas Authors. All rights reserved.
+// This source code is licensed under the Apache 2.0 license found at
+// https://github.com/ariga/atlas/blob/master/LICENSE
+
+
 package schema
 
 import (
