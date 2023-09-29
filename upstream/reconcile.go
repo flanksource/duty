@@ -8,8 +8,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty"
 	"github.com/google/uuid"
 )
 
@@ -43,14 +45,28 @@ func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamR
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
+func (t *upstreamReconciler) Sync(ctx duty.DBContext, table string) error {
 	logger.Debugf("Reconciling table %q with upstream", table)
 
+	// Empty starting cursor, so we sync everything
+	return t.sync(ctx, table, "")
+}
+
+// SyncAfter pushes all the records of the given table that were updated in the given duration
+func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after time.Duration) error {
+	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
+
 	var next string
-	if table == "check_statuses" {
-		next = "," // in the format <check_id>,<time>
+	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("updated_at DESC").Limit(1).Scan(&next).Error; err != nil {
+		return err
 	}
 
+	return t.sync(ctx, table, next)
+}
+
+// Sync compares all the resource of the given table against
+// the upstream server and pushes any missing resources to the upstream.
+func (t *upstreamReconciler) sync(ctx duty.DBContext, table, next string) error {
 	var errorList []error
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
@@ -85,7 +101,7 @@ func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
 			return fmt.Errorf("failed to fetch missing resource ids: %w", err)
 		}
 
-		logger.Debugf("[table=%s] Pushing %d items to upstream. Next: %s", table, pushData.Count(), next)
+		logger.WithValues("table", table).Debugf("Pushing %d items to upstream. Next: %q", pushData.Count(), next)
 
 		pushData.AgentName = t.upstreamConf.AgentName
 		if err := Push(ctx, t.upstreamConf, pushData); err != nil {
@@ -98,7 +114,7 @@ func (t *upstreamReconciler) Sync(ctx dbContext, table string) error {
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
-func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx dbContext, request PaginateRequest) ([]string, error) {
+func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, request PaginateRequest) ([]string, error) {
 	endpoint, err := url.JoinPath(t.upstreamConf.Host, "upstream", "pull", t.upstreamConf.AgentName)
 	if err != nil {
 		return nil, fmt.Errorf("error creating url endpoint for host %s: %w", t.upstreamConf.Host, err)

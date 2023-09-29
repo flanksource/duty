@@ -11,15 +11,10 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
-
-type dbContext interface {
-	context.Context
-	DB() *gorm.DB
-}
 
 type UpstreamConfig struct {
 	AgentName string
@@ -132,34 +127,7 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
-	if req.Table == "check_statuses" {
-		query := `
-			WITH p_keys AS (
-				SELECT check_id::TEXT, time::TEXT
-				FROM check_statuses
-				LEFT JOIN checks ON check_statuses.check_id = checks.id
-				WHERE (check_id::TEXT, time::TEXT) > (?, ?) AND checks.agent_id = ?
-				ORDER BY check_id, time
-				LIMIT ?
-			)
-			SELECT
-				encode(digest(string_agg(check_id::TEXT || time::TEXT, ''), 'sha256'), 'hex') as sha256sum,
-				(MAX(check_id::TEXT) || ',' || MAX(time::TEXT)) as last_id,
-				COUNT(*) as total
-			FROM
-				p_keys`
-
-		parts := strings.Split(req.From, ",")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", req.From)
-		}
-
-		var resp PaginateResponse
-		err := ctx.DB().Raw(query, parts[0], parts[1], agentID, req.Size).Scan(&resp).Error
-		return &resp, err
-	}
-
+func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
 			SELECT id::TEXT
@@ -180,7 +148,7 @@ func GetPrimaryKeysHash(ctx dbContext, req PaginateRequest, agentID uuid.UUID) (
 	return &resp, err
 }
 
-func GetMissingResourceIDs(ctx dbContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
+func GetMissingResourceIDs(ctx duty.DBContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
 	var pushData PushData
 
 	tx := ctx.DB().Where("agent_id = ?", uuid.Nil)
