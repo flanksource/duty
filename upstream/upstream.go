@@ -128,33 +128,6 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 }
 
 func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
-	if req.Table == "check_statuses" {
-		query := `
-			WITH p_keys AS (
-				SELECT check_id::TEXT, time::TEXT
-				FROM check_statuses
-				LEFT JOIN checks ON check_statuses.check_id = checks.id
-				WHERE (check_id::TEXT, time::TEXT) > (?, ?) AND checks.agent_id = ?
-				ORDER BY check_id, time
-				LIMIT ?
-			)
-			SELECT
-				encode(digest(string_agg(check_id::TEXT || time::TEXT, ''), 'sha256'), 'hex') as sha256sum,
-				(SELECT (check_id::TEXT || ',' || time::TEXT) FROM p_keys ORDER BY (check_id, time) DESC LIMIT 1) as last_id,
-				COUNT(*) as total
-			FROM
-				p_keys`
-
-		parts := strings.Split(req.From, ",")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", req.From)
-		}
-
-		var resp PaginateResponse
-		err := ctx.DB().Raw(query, parts[0], parts[1], agentID, req.Size).Scan(&resp).Error
-		return &resp, err
-	}
-
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
 			SELECT id::TEXT
