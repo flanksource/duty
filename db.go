@@ -64,10 +64,6 @@ func NewDB(connection string) (*sql.DB, error) {
 }
 
 func NewPgxPool(connection string) (*pgxpool.Pool, error) {
-	if pool != nil {
-		return pool, nil
-	}
-
 	pgUrl, err := url.Parse(connection)
 	if err != nil {
 		return nil, err
