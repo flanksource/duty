@@ -6,7 +6,7 @@ require (
 	ariga.io/atlas v0.10.0
 	github.com/fergusstrange/embedded-postgres v1.21.0
 	github.com/flanksource/commons v1.11.0
-	github.com/flanksource/postq v0.1.0
+	github.com/flanksource/postq v0.1.1
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/hcl/v2 v2.16.2
 	github.com/itchyny/gojq v0.12.13
