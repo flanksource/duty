@@ -20,7 +20,7 @@ func NewPushQueueConsumer(config UpstreamConfig) postq.AsyncEventConsumer {
 		ConsumerOption: &postq.ConsumerOption{
 			NumConsumers: 5,
 			ErrorHandler: func(err error) bool {
-				logger.Errorf("error handling upstream push events: %v", err)
+				logger.Errorf("error consuming upstream push_queue.create events: %v", err)
 				time.Sleep(time.Second)
 				return true
 			},
@@ -28,12 +28,12 @@ func NewPushQueueConsumer(config UpstreamConfig) postq.AsyncEventConsumer {
 	}
 }
 
+// getPushUpstreamConsumer acts as an adapter to supply PushToUpstream event consumer.
 func getPushUpstreamConsumer(config UpstreamConfig) func(ctx postq.Context, events postq.Events) postq.Events {
 	return func(ctx postq.Context, events postq.Events) postq.Events {
 		dbCtx, ok := ctx.(duty.DBContext)
 		if !ok {
-			logger.Infof("invalid context type: %T. Need duty.DBContext", ctx)
-			return events
+			return addErrorToFailedEvents(events, fmt.Errorf("invalid context type: %T. Need duty.DBContext", ctx))
 		}
 
 		return PushToUpstream(dbCtx, config, events)

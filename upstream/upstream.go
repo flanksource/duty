@@ -130,14 +130,14 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
-			SELECT id::TEXT
+			SELECT id::TEXT, updated_at
 			FROM %s
 			WHERE id::TEXT > ? AND agent_id = ?
 			ORDER BY id
 			LIMIT ?
 		)
 		SELECT
-			encode(digest(string_agg(id::TEXT, ''), 'sha256'), 'hex') as sha256sum,
+			encode(digest(string_agg(id::TEXT || updated_at::TEXT, ''), 'sha256'), 'hex') as sha256sum,
 			MAX(id) as last_id,
 			COUNT(*) as total
 		FROM
@@ -212,6 +212,10 @@ func GetMissingResourceIDs(ctx duty.DBContext, ids []string, paginateReq Paginat
 
 // Push uploads the given push message to the upstream server.
 func Push(ctx context.Context, config UpstreamConfig, msg *PushData) error {
+	if msg.Count() == 0 {
+		return nil
+	}
+
 	payloadBuf := new(bytes.Buffer)
 	if err := json.NewEncoder(payloadBuf).Encode(msg); err != nil {
 		return fmt.Errorf("error encoding msg: %w", err)
