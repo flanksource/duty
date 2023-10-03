@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -26,7 +27,8 @@ type TopologyOptions struct {
 	Types  []string
 	Status []string
 
-	// when set to true, only the children (except the immediate children) are returned
+	// when set to true, only the children (except the immediate children) are returned.
+	// when set to false, the direct children & the parent itself is fetched.
 	restOfTheChildrenOnly bool
 }
 
@@ -34,23 +36,33 @@ func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
 }
 
+// selectClause returns the columns that should be selected from the topology view.
 func (opt TopologyOptions) selectClause() string {
 	if !opt.restOfTheChildrenOnly {
 		return "*"
 	}
 
-	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, agent_id, parent_id, type"
+	// parents, incidents, analysis, checks columns need to fetched to create the topology tree even though they may not be essential to the UI.
+	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, agent_id, parent_id, type, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL"
+
 	if opt.ID != "" {
 		if !opt.restOfTheChildrenOnly {
 			s += " AND (components.id = @id OR components.parent_id = @id)"
 		} else {
 			s += " AND (components.path LIKE @path AND components.id != @id AND components.parent_id != @id)"
 		}
+	} else {
+		if !opt.restOfTheChildrenOnly {
+			s += " AND components.parent_id IS NULL"
+		} else {
+			s += " AND components.parent_id IS NOT NULL"
+		}
 	}
+
 	if opt.Owner != "" {
 		s += " AND (components.owner = @owner)"
 	}
@@ -76,6 +88,12 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 			s += " AND (component_relationships.relationship_id = @id OR parent.parent_id = @id)"
 		} else {
 			s += " AND (component_relationships.relationship_id = @id OR (parent.path LIKE @path AND parent.parent_id != @id))"
+		}
+	} else {
+		if !opt.restOfTheChildrenOnly {
+			s += " AND component_relationships.component_id = NULL"
+		} else {
+			s += " AND component_relationships.component_id IS NOT NULL"
 		}
 	}
 	return s
@@ -164,11 +182,6 @@ func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params Topolo
 		}
 	}
 
-	// On the home view (id=""), the first query covers all the components.
-	if params.ID == "" {
-		return response, nil
-	}
-
 	params.restOfTheChildrenOnly = true
 	query, args = generateQuery(params)
 	rows, err = dbpool.Query(ctx, query, pgx.NamedArgs(args))
@@ -188,13 +201,16 @@ func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params Topolo
 		}
 	}
 
-	response.Components = append(response.Components, nonImmediateChildren.Components...)
+	if len(nonImmediateChildren.Components) > 0 {
+		response.Components = append(response.Components, nonImmediateChildren.Components...)
+		response.HealthStatuses = uniqueAppend(response.HealthStatuses, nonImmediateChildren.HealthStatuses)
+		response.Teams = uniqueAppend(response.Teams, nonImmediateChildren.Teams)
+		response.Types = uniqueAppend(response.Types, nonImmediateChildren.Types)
+		if response.Tags != nil || nonImmediateChildren.Tags != nil {
+			response.Tags = collections.MergeMap(response.Tags, nonImmediateChildren.Tags)
+		}
+	}
 
-	// Not sure if we need these from non immediate children
-	// response.HealthStatuses = append(response.HealthStatuses, nonImmediateChildren.HealthStatuses...)
-	// response.Teams = append(response.Teams, nonImmediateChildren.Teams...)
-	// response.Tags = append(response.Tags, nonImmediateChildren.Tags...)
-	// response.Types = append(response.Types, nonImmediateChildren.Types...)
 	return response, nil
 }
 
@@ -381,4 +397,30 @@ func GetComponent(ctx context.Context, db *gorm.DB, id string) (*models.Componen
 	}
 
 	return &component, nil
+}
+
+// uniqueAppend appends elements of b into a if they are not already present in a.
+func uniqueAppend(a, b []string) []string {
+	if len(a) == 0 {
+		return b
+	}
+
+	if len(b) == 0 {
+		return a
+	}
+
+	m := make(map[string]struct{})
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+
+	for _, v := range b {
+		if _, ok := m[v]; !ok {
+			m[v] = struct{}{}
+			a = append(a, v)
+		}
+	}
+
+	slices.Sort(a)
+	return a
 }

@@ -1,6 +1,8 @@
 package dummy
 
 import (
+	"fmt"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -72,76 +74,99 @@ var ClusterComponent = models.Component{
 	Type:       "KubernetesCluster",
 	Status:     types.ComponentStatusHealthy,
 	CreatedAt:  DummyCreatedAt,
+	Tooltip:    "Kubernetes Cluster",
+	Icon:       "icon-cluster",
 }
 
 var NodesComponent = models.Component{
 	ID:         uuid.MustParse("018681fe-b27e-7627-72c2-ad18e93f72f4"),
 	Name:       "Nodes",
+	Icon:       "icon-kubernetes-node",
+	Tooltip:    "Kubernetes Nodes",
 	ExternalId: "dummy/nodes",
 	Type:       "KubernetesNodes",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       ClusterComponent.ID.String(),
 }
 
 var NodeA = models.Component{
 	ID:         uuid.MustParse("018681fe-f5aa-37e9-83f7-47b5b0232d5e"),
 	Name:       "node-a",
+	Icon:       "icon-kubernetes-node",
+	Tooltip:    "Node A",
 	ExternalId: "dummy/node-a",
 	Type:       "KubernetesNode",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), NodesComponent.ID.String()),
 }
 
 var NodeB = models.Component{
 	ID:         uuid.MustParse("018681ff-227e-4d71-b38e-0693cc862213"),
 	Name:       "node-b",
+	Icon:       "icon-kubernetes-node",
+	Tooltip:    "Node B",
 	ExternalId: "dummy/node-b",
 	Type:       "KubernetesNode",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &NodesComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), NodesComponent.ID.String()),
 }
 
 var PodsComponent = models.Component{
 	ID:         uuid.MustParse("018681ff-559f-7183-19d1-7d898b4e1413"),
 	Name:       "Pods",
+	Icon:       "icon-kubernetes-pod",
+	Tooltip:    "Kubernetes Pods",
 	ExternalId: "dummy/pods",
 	Type:       "KubernetesPods",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &ClusterComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       ClusterComponent.ID.String(),
 }
 
 var LogisticsAPIPod = models.Component{
 	ID:         uuid.MustParse("018681ff-80ed-d10d-21ef-c74f152b085b"),
 	Name:       "logistics-api-574dc95b5d-mp64w",
+	Icon:       "icon-kubernetes-pod",
+	Tooltip:    "Logistic API Pod",
 	ExternalId: "dummy/logistics-api-574dc95b5d-mp64w",
 	Type:       "KubernetesPod",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
 }
 
 var LogisticsUIPod = models.Component{
 	ID:         uuid.MustParse("018681ff-b6c1-a14d-2fd4-8c7dac94cddd"),
 	Name:       "logistics-ui-676b85b87c-tjjcp",
+	Icon:       "icon-kubernetes-pod",
+	Tooltip:    "Logistic UI Pod",
 	Type:       "KubernetesPod",
 	ExternalId: "dummy/logistics-ui-676b85b87c-tjjcp",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
 }
 
 var LogisticsWorkerPod = models.Component{
 	ID:         uuid.MustParse("018681ff-e578-a926-e366-d2dc0646eafa"),
 	Name:       "logistics-worker-79cb67d8f5-lr66n",
+	Icon:       "icon-kubernetes-pod",
+	Tooltip:    "Logistic Worker Pod",
 	ExternalId: "dummy/logistics-worker-79cb67d8f5-lr66n",
 	Type:       "KubernetesPod",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
+	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
 }
 
 var PaymentsAPI = models.Component{

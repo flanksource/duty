@@ -1,96 +1,38 @@
 {
   "components": [
     {
-      "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
       "agent_id": "00000000-0000-0000-0000-000000000000",
-      "external_id": "dummy/logistics",
-      "name": "logistics",
-      "labels": {
-        "telemetry": "enabled"
-      },
-      "status": "warning",
-      "type": "Entity",
-      "owner": "logistics-team",
-      "summary": {
-        "healthy": 1,
-        "warning": 1,
-        "incidents": {
-          "availability": {
-            "Blocker": 1
-          }
-        },
-        "insights": {
-          "security": {
-            "critical": 1
-          }
-        }
-      },
-      "is_leaf": false,
-      "created_at": "2023-01-01T05:29:00+05:30",
-      "updated_at": "2023-01-01T05:29:00+05:30",
       "components": [
         {
-          "id": "018681fd-5770-336f-227c-259435d7fc6b",
           "agent_id": "00000000-0000-0000-0000-000000000000",
-          "external_id": "dummy/logistics-api",
-          "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-          "name": "logistics-api",
-          "labels": {
-            "telemetry": "enabled"
-          },
-          "status": "warning",
-          "type": "Application",
-          "owner": "logistics-team",
-          "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
-          "summary": {
-            "healthy": 1,
-            "unhealthy": 1,
-            "incidents": {
-              "availability": {
-                "Blocker": 1
-              }
-            },
-            "insights": {
-              "security": {
-                "critical": 1
-              }
-            }
-          },
-          "is_leaf": false,
-          "created_at": "2023-01-01T05:29:00+05:30",
-          "updated_at": "2023-01-01T05:29:00+05:30",
           "checks": {
             "healthy": 2
           },
           "components": [
             {
-              "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "external_id": "dummy/logistics-worker",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
+              "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
+              "is_leaf": false,
               "name": "logistics-worker",
+              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "healthy",
-              "type": "Application",
-              "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
               "summary": {
                 "healthy": 1
               },
-              "is_leaf": false,
-              "created_at": "2023-01-01T05:29:00+05:30",
-              "updated_at": "2023-01-01T05:29:00+05:30"
+              "type": "Application"
             },
             {
-              "id": "018681fe-4529-c50f-26fd-530fa9c57319",
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "external_id": "dummy/logistics-db",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
+              "checks": {
+                "unhealthy": 1
+              },
+              "id": "018681fe-4529-c50f-26fd-530fa9c57319",
+              "is_leaf": false,
               "name": "logistics-db",
+              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "unhealthy",
               "status_reason": "database not accepting connections",
-              "type": "Database",
-              "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5.018681fd-5770-336f-227c-259435d7fc6b",
               "summary": {
-                "unhealthy": 1,
                 "incidents": {
                   "availability": {
                     "Blocker": 1
@@ -100,29 +42,67 @@
                   "security": {
                     "critical": 1
                   }
-                }
-              },
-              "is_leaf": false,
-              "created_at": "2023-01-01T05:29:00+05:30",
-              "updated_at": "2023-01-01T05:29:00+05:30",
-              "checks": {
+                },
                 "unhealthy": 1
-              }
+              },
+              "type": "Database"
             }
-          ]
+          ],
+          "id": "018681fd-5770-336f-227c-259435d7fc6b",
+          "is_leaf": false,
+          "labels": {
+            "telemetry": "enabled"
+          },
+          "name": "logistics-api",
+          "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+          "status": "warning",
+          "summary": {
+            "healthy": 1,
+            "incidents": {
+              "availability": {
+                "Blocker": 1
+              }
+            },
+            "insights": {
+              "security": {
+                "critical": 1
+              }
+            },
+            "unhealthy": 1
+          },
+          "type": "Application"
         }
-      ]
+      ],
+      "external_id": "dummy/logistics",
+      "id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
+      "is_leaf": false,
+      "labels": {
+        "telemetry": "enabled"
+      },
+      "name": "logistics",
+      "owner": "logistics-team",
+      "status": "warning",
+      "summary": {
+        "healthy": 1,
+        "incidents": {
+          "availability": {
+            "Blocker": 1
+          }
+        },
+        "insights": {
+          "security": {
+            "critical": 1
+          }
+        },
+        "warning": 1
+      },
+      "type": "Entity"
     }
   ],
-  "healthStatuses": [
-    "healthy",
-    "unhealthy"
-  ],
+  "healthStatuses": ["healthy", "unhealthy"],
   "teams": [],
   "tags": {
-    "telemetry": [
-      "enabled"
-    ]
+    "telemetry": ["enabled"]
   },
   "types": [
     "Application",

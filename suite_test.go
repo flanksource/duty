@@ -126,16 +126,16 @@ func parseJQ(v []byte, expr string) ([]byte, error) {
 	return jsonVal, nil
 }
 
-func matchJSON(a []byte, b []byte, jqExpr *string) {
-	var valueA, valueB = a, b
+func matchJSON(actual []byte, expected []byte, jqExpr *string) {
+	var valueA, valueB = actual, expected
 	var err error
 
 	if jqExpr != nil {
-		valueA, err = parseJQ(a, *jqExpr)
+		valueA, err = parseJQ(actual, *jqExpr)
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
-		valueB, err = parseJQ(b, *jqExpr)
+		valueB, err = parseJQ(expected, *jqExpr)
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}

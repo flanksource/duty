@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 )
 
 // For debugging
@@ -40,13 +41,18 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	expected := readTestFile(path)
 
 	jqExpr := `del(.. | .created_at?, .updated_at?)`
-	matchJSON([]byte(expected), treeJSON, &jqExpr)
+	matchJSON(treeJSON, []byte(expected), &jqExpr)
 }
 
 var _ = ginkgo.Describe("Topology behavior", func() {
+	format.MaxLength = 0 // Do not truncate diffs
 
 	ginkgo.It("Should create root tree", func() {
 		testTopologyJSON(TopologyOptions{}, "fixtures/expectations/topology_root_tree.json")
+	})
+
+	ginkgo.It("Should fetch minimal details of other children", func() {
+		testTopologyJSON(TopologyOptions{ID: dummy.ClusterComponent.ID.String(), Depth: 5}, "fixtures/expectations/topology_cluster_component_tree.json")
 	})
 
 	ginkgo.It("Should create child tree", func() {
