@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
+	"sort"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -421,6 +421,8 @@ func uniqueAppend(a, b []string) []string {
 		}
 	}
 
-	slices.Sort(a)
+	sort.Slice(a, func(i, j int) bool {
+		return a[i] < a[j]
+	})
 	return a
 }
