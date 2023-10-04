@@ -27,9 +27,9 @@ type TopologyOptions struct {
 	Types  []string
 	Status []string
 
-	// when set to true, only the children (except the immediate children) are returned.
+	// when set to true, only the children (except the direct children) are returned.
 	// when set to false, the direct children & the parent itself is fetched.
-	restOfTheChildrenOnly bool
+	nonDirectChildrenOnly bool
 }
 
 func (opt TopologyOptions) String() string {
@@ -38,25 +38,25 @@ func (opt TopologyOptions) String() string {
 
 // selectClause returns the columns that should be selected from the topology view.
 func (opt TopologyOptions) selectClause() string {
-	if !opt.restOfTheChildrenOnly {
+	if !opt.nonDirectChildrenOnly {
 		return "*"
 	}
 
-	// parents, incidents, analysis, checks columns need to fetched to create the topology tree even though they may not be essential to the UI.
-	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, agent_id, parent_id, type, parents, incidents, analysis, checks"
+	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
+	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL"
 
 	if opt.ID != "" {
-		if !opt.restOfTheChildrenOnly {
+		if !opt.nonDirectChildrenOnly {
 			s += " AND (components.id = @id OR components.parent_id = @id)"
 		} else {
 			s += " AND (components.path LIKE @path AND components.id != @id AND components.parent_id != @id)"
 		}
 	} else {
-		if !opt.restOfTheChildrenOnly {
+		if !opt.nonDirectChildrenOnly {
 			s += " AND components.parent_id IS NULL"
 		} else {
 			s += " AND components.parent_id IS NOT NULL"
@@ -84,13 +84,13 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		s += ` AND (parent.labels @> @labels)`
 	}
 	if opt.ID != "" {
-		if !opt.restOfTheChildrenOnly {
+		if !opt.nonDirectChildrenOnly {
 			s += " AND (component_relationships.relationship_id = @id OR parent.parent_id = @id)"
 		} else {
 			s += " AND (component_relationships.relationship_id = @id OR (parent.path LIKE @path AND parent.parent_id != @id))"
 		}
 	} else {
-		if !opt.restOfTheChildrenOnly {
+		if !opt.nonDirectChildrenOnly {
 			s += " AND component_relationships.component_id = NULL"
 		} else {
 			s += " AND component_relationships.component_id IS NOT NULL"
@@ -168,7 +168,7 @@ func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params Topolo
 	query, args := generateQuery(params)
 	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
-		return response, fmt.Errorf("failed to query component & its immediate children: %w", err)
+		return response, fmt.Errorf("failed to query component & its direct children: %w", err)
 	}
 	defer rows.Close()
 
@@ -182,7 +182,7 @@ func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params Topolo
 		}
 	}
 
-	params.restOfTheChildrenOnly = true
+	params.nonDirectChildrenOnly = true
 	query, args = generateQuery(params)
 	rows, err = dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
@@ -190,24 +190,24 @@ func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params Topolo
 	}
 	defer rows.Close()
 
-	var nonImmediateChildren TopologyResponse
+	var nonDirectChildren TopologyResponse
 	for rows.Next() {
 		if rows.RawValues()[0] == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &nonImmediateChildren); err != nil {
+		if err := json.Unmarshal(rows.RawValues()[0], &nonDirectChildren); err != nil {
 			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
 		}
 	}
 
-	if len(nonImmediateChildren.Components) > 0 {
-		response.Components = append(response.Components, nonImmediateChildren.Components...)
-		response.HealthStatuses = uniqueAppend(response.HealthStatuses, nonImmediateChildren.HealthStatuses)
-		response.Teams = uniqueAppend(response.Teams, nonImmediateChildren.Teams)
-		response.Types = uniqueAppend(response.Types, nonImmediateChildren.Types)
-		if response.Tags != nil || nonImmediateChildren.Tags != nil {
-			response.Tags = collections.MergeMap(response.Tags, nonImmediateChildren.Tags)
+	if len(nonDirectChildren.Components) > 0 {
+		response.Components = append(response.Components, nonDirectChildren.Components...)
+		response.HealthStatuses = append(response.HealthStatuses, nonDirectChildren.HealthStatuses...)
+		response.Teams = append(response.Teams, nonDirectChildren.Teams...)
+		response.Types = append(response.Types, nonDirectChildren.Types...)
+		if response.Tags != nil || nonDirectChildren.Tags != nil {
+			response.Tags = collections.MergeMap(response.Tags, nonDirectChildren.Tags)
 		}
 	}
 
@@ -240,6 +240,18 @@ func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOpt
 	response.Components = applyStatusFilter(response.Components, params.ID != "", params.Status...)
 
 	response = updateMetadata(response)
+
+	// Remove fields from children that aren't required by the UI
+	root := response.Components
+	if len(root) == 1 {
+		for j := range root[0].Components {
+			removeComponentFields(root[0].Components[j].Components)
+		}
+	} else {
+		for i := range root {
+			removeComponentFields(root[i].Components)
+		}
+	}
 
 	return &response, nil
 }
@@ -319,6 +331,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 			root = append(root, c)
 		}
 	}
+
 	return root
 }
 
@@ -360,6 +373,22 @@ func updateMetadata(resp TopologyResponse) TopologyResponse {
 	// Clean teams
 	resp.Teams = collections.DeleteEmptyStrings(resp.Teams)
 
+	resp.Teams = collections.Dedup(resp.Teams)
+	resp.HealthStatuses = collections.Dedup(resp.HealthStatuses)
+	resp.Types = collections.Dedup(resp.Types)
+
+	sort.Slice(resp.Teams, func(i, j int) bool {
+		return resp.Teams[i] < resp.Teams[j]
+	})
+
+	sort.Slice(resp.HealthStatuses, func(i, j int) bool {
+		return resp.HealthStatuses[i] < resp.HealthStatuses[j]
+	})
+
+	sort.Slice(resp.Types, func(i, j int) bool {
+		return resp.Types[i] < resp.Types[j]
+	})
+
 	return resp
 }
 
@@ -399,30 +428,17 @@ func GetComponent(ctx context.Context, db *gorm.DB, id string) (*models.Componen
 	return &component, nil
 }
 
-// uniqueAppend appends elements of b into a if they are not already present in a.
-func uniqueAppend(a, b []string) []string {
-	if len(a) == 0 {
-		return b
-	}
+// removeComponentFields recursively removes some of the fields from components
+// and their children and so on.
+func removeComponentFields(components models.Components) {
+	for i := range components {
+		c := components[i]
 
-	if len(b) == 0 {
-		return a
+		c.ParentId = nil
+		c.Parents = nil
+		c.Checks = nil
+		c.Incidents = nil
+		c.Analysis = nil
+		removeComponentFields(c.Components)
 	}
-
-	m := make(map[string]struct{})
-	for _, v := range a {
-		m[v] = struct{}{}
-	}
-
-	for _, v := range b {
-		if _, ok := m[v]; !ok {
-			m[v] = struct{}{}
-			a = append(a, v)
-		}
-	}
-
-	sort.Slice(a, func(i, j int) bool {
-		return a[i] < a[j]
-	})
-	return a
 }

@@ -14,7 +14,6 @@
               "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
               "is_leaf": false,
               "name": "logistics-worker",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "healthy",
               "summary": {
                 "healthy": 1
@@ -23,13 +22,9 @@
             },
             {
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "checks": {
-                "unhealthy": 1
-              },
               "id": "018681fe-4529-c50f-26fd-530fa9c57319",
               "is_leaf": false,
               "name": "logistics-db",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "unhealthy",
               "status_reason": "database not accepting connections",
               "summary": {

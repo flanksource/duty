@@ -11,7 +11,6 @@
               "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
               "is_leaf": false,
               "name": "logistics-worker",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "healthy",
               "summary": {
                 "healthy": 1
@@ -20,13 +19,9 @@
             },
             {
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "checks": {
-                "unhealthy": 1
-              },
               "id": "018681fe-4529-c50f-26fd-530fa9c57319",
               "is_leaf": false,
               "name": "logistics-db",
-              "parent_id": "018681fd-5770-336f-227c-259435d7fc6b",
               "status": "unhealthy",
               "status_reason": "database not accepting connections",
               "summary": {
@@ -51,11 +46,7 @@
             "telemetry": "enabled"
           },
           "name": "logistics-api",
-          "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "status": "warning",
-          "checks": {
-            "healthy": 2
-          },
           "summary": {
             "healthy": 1,
             "incidents": {
@@ -77,7 +68,6 @@
           "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
           "is_leaf": false,
           "name": "logistics-ui",
-          "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
           "status": "healthy",
           "summary": {"healthy": 1},
           "type": "Application"
@@ -115,12 +105,24 @@
           "agent_id": "00000000-0000-0000-0000-000000000000",
           "components": [
             {
-              "id": "018681ff-227e-4d71-b38e-0693cc862213",
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+              "components": [
+                {
+                  "agent_id": "00000000-0000-0000-0000-000000000000",
+                  "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+                  "is_leaf": false,
+                  "name": "logistics-worker-79cb67d8f5-lr66n",
+                  "status": "healthy",
+                  "summary": {
+                    "healthy": 1
+                  },
+                  "type": "KubernetesPod"
+                }
+              ],
+              "id": "018681ff-227e-4d71-b38e-0693cc862213",
+              "is_leaf": false,
               "name": "node-b",
               "status": "healthy",
-              "type": "KubernetesNode",
               "summary": {
                 "healthy": 1,
                 "insights": {
@@ -129,70 +131,47 @@
                   }
                 }
               },
-              "is_leaf": false,
-              "created_at": "2023-01-01T05:29:00+05:30",
-              "updated_at": "2023-01-01T05:29:00+05:30",
-              "components": [
-                {
-                  "id": "018681ff-e578-a926-e366-d2dc0646eafa",
-                  "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
-                  "name": "logistics-worker-79cb67d8f5-lr66n",
-                  "parents": ["018681ff-227e-4d71-b38e-0693cc862213"],
-                  "status": "healthy",
-                  "type": "KubernetesPod",
-                  "summary": {
-                    "healthy": 1
-                  },
-                  "is_leaf": false
-                }
-              ]
+              "type": "KubernetesNode"
             },
             {
-              "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
               "agent_id": "00000000-0000-0000-0000-000000000000",
-              "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
-              "name": "node-a",
-              "status": "healthy",
-              "type": "KubernetesNode",
-              "summary": {
-                "healthy": 2
-              },
-              "is_leaf": false,
               "components": [
                 {
                   "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
                   "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
                   "name": "logistics-api-574dc95b5d-mp64w",
                   "status": "healthy",
                   "type": "KubernetesPod",
-                  "parents": ["018681fe-f5aa-37e9-83f7-47b5b0232d5e"],
                   "summary": {
                     "healthy": 1
                   },
                   "is_leaf": false
                 },
                 {
-                  "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
                   "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+                  "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+                  "is_leaf": false,
                   "name": "logistics-ui-676b85b87c-tjjcp",
                   "status": "healthy",
-                  "parents": ["018681fe-f5aa-37e9-83f7-47b5b0232d5e"],
-                  "type": "KubernetesPod",
                   "summary": {
                     "healthy": 1
                   },
-                  "is_leaf": false
+                  "type": "KubernetesPod"
                 }
-              ]
+              ],
+              "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+              "is_leaf": false,
+              "name": "node-a",
+              "status": "healthy",
+              "summary": {
+                "healthy": 2
+              },
+              "type": "KubernetesNode"
             }
           ],
           "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
           "is_leaf": false,
           "name": "Nodes",
-          "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
           "status": "healthy",
           "summary": {
             "healthy": 2,
@@ -207,7 +186,6 @@
         {
           "id": "018681ff-559f-7183-19d1-7d898b4e1413",
           "agent_id": "00000000-0000-0000-0000-000000000000",
-          "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
           "name": "Pods",
           "status": "healthy",
           "type": "KubernetesPods",
@@ -221,8 +199,6 @@
               "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
               "is_leaf": false,
               "name": "logistics-api-574dc95b5d-mp64w",
-              "parents": ["018681fe-f5aa-37e9-83f7-47b5b0232d5e"],
-              "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "status": "healthy",
               "summary": { "healthy": 1 },
               "type": "KubernetesPod"
@@ -231,9 +207,7 @@
               "agent_id": "00000000-0000-0000-0000-000000000000",
               "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
               "is_leaf": false,
-              "parents": ["018681fe-f5aa-37e9-83f7-47b5b0232d5e"],
               "name": "logistics-ui-676b85b87c-tjjcp",
-              "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "status": "healthy",
               "summary": { "healthy": 1 },
               "type": "KubernetesPod"
@@ -243,8 +217,6 @@
               "id": "018681ff-e578-a926-e366-d2dc0646eafa",
               "is_leaf": false,
               "name": "logistics-worker-79cb67d8f5-lr66n",
-              "parents": ["018681ff-227e-4d71-b38e-0693cc862213"],
-              "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
               "status": "healthy",
               "summary": { "healthy": 1 },
               "type": "KubernetesPod"
