@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -25,17 +26,43 @@ type TopologyOptions struct {
 	// TODO: Filter status and types in DB Query
 	Types  []string
 	Status []string
+
+	// when set to true, only the children (except the direct children) are returned.
+	// when set to false, the direct children & the parent itself is fetched.
+	nonDirectChildrenOnly bool
 }
 
 func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
 }
 
+// selectClause returns the columns that should be selected from the topology view.
+func (opt TopologyOptions) selectClause() string {
+	if !opt.nonDirectChildrenOnly {
+		return "*"
+	}
+
+	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
+	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
+}
+
 func (opt TopologyOptions) componentWhereClause() string {
 	s := "WHERE components.deleted_at IS NULL"
+
 	if opt.ID != "" {
-		s += " AND (components.id = @id OR components.path LIKE @path)"
+		if !opt.nonDirectChildrenOnly {
+			s += " AND (components.id = @id OR components.parent_id = @id)"
+		} else {
+			s += " AND (components.path LIKE @path AND components.id != @id AND components.parent_id != @id)"
+		}
+	} else {
+		if !opt.nonDirectChildrenOnly {
+			s += " AND components.parent_id IS NULL"
+		} else {
+			s += " AND components.parent_id IS NOT NULL"
+		}
 	}
+
 	if opt.Owner != "" {
 		s += " AND (components.owner = @owner)"
 	}
@@ -57,7 +84,17 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		s += ` AND (parent.labels @> @labels)`
 	}
 	if opt.ID != "" {
-		s += ` AND (component_relationships.relationship_id = @id OR parent.path LIKE @path)`
+		if !opt.nonDirectChildrenOnly {
+			s += " AND (component_relationships.relationship_id = @id OR parent.parent_id = @id)"
+		} else {
+			s += " AND (component_relationships.relationship_id = @id OR (parent.path LIKE @path AND parent.parent_id != @id))"
+		}
+	} else {
+		if !opt.nonDirectChildrenOnly {
+			s += " AND component_relationships.component_id = NULL"
+		} else {
+			s += " AND component_relationships.component_id IS NOT NULL"
+		}
 	}
 	return s
 }
@@ -73,7 +110,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	subQuery := fmt.Sprintf(selectSubQuery, opts.componentWhereClause(), opts.componentRelationWhereClause())
 	query := fmt.Sprintf(`
         WITH topology_result AS (
-            SELECT * FROM topology
+            SELECT %s FROM topology
             WHERE id IN (%s)
         )
         SELECT
@@ -92,7 +129,7 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 						)
         FROM
             topology_result
-        `, subQuery)
+        `, opts.selectClause(), subQuery)
 
 	args := make(map[string]any)
 	if opts.ID != "" {
@@ -123,31 +160,71 @@ type TopologyResponse struct {
 	Types          []string          `json:"types"`
 }
 
-func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
-	query, args := generateQuery(params)
+func fetchAllComponents(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (TopologyResponse, error) {
+	// Fetch the children (with all the details)
+	// & the rest of the decendents (minimal details) in two separate queries
 
-	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
-		defer cancel()
-	}
+	var response TopologyResponse
+	query, args := generateQuery(params)
 	rows, err := dbpool.Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
-		return nil, err
+		return response, fmt.Errorf("failed to query component & its direct children: %w", err)
 	}
 	defer rows.Close()
 
-	var response TopologyResponse
 	for rows.Next() {
 		if rows.RawValues()[0] == nil {
 			continue
 		}
 
 		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
 		}
 	}
 
+	params.nonDirectChildrenOnly = true
+	query, args = generateQuery(params)
+	rows, err = dbpool.Query(ctx, query, pgx.NamedArgs(args))
+	if err != nil {
+		return response, fmt.Errorf("failed to query rest of the children: %w", err)
+	}
+	defer rows.Close()
+
+	var nonDirectChildren TopologyResponse
+	for rows.Next() {
+		if rows.RawValues()[0] == nil {
+			continue
+		}
+
+		if err := json.Unmarshal(rows.RawValues()[0], &nonDirectChildren); err != nil {
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+		}
+	}
+
+	if len(nonDirectChildren.Components) > 0 {
+		response.Components = append(response.Components, nonDirectChildren.Components...)
+		response.HealthStatuses = append(response.HealthStatuses, nonDirectChildren.HealthStatuses...)
+		response.Teams = append(response.Teams, nonDirectChildren.Teams...)
+		response.Types = append(response.Types, nonDirectChildren.Types...)
+		if response.Tags != nil || nonDirectChildren.Tags != nil {
+			response.Tags = collections.MergeMap(response.Tags, nonDirectChildren.Tags)
+		}
+	}
+
+	return response, nil
+}
+
+func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOptions) (*TopologyResponse, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		defer cancel()
+	}
+
+	response, err := fetchAllComponents(ctx, dbpool, params)
+	if err != nil {
+		return nil, err
+	}
 	response.Components = applyTypeFilter(response.Components, params.Types...)
 
 	if !params.Flatten {
@@ -163,6 +240,18 @@ func QueryTopology(ctx context.Context, dbpool *pgxpool.Pool, params TopologyOpt
 	response.Components = applyStatusFilter(response.Components, params.ID != "", params.Status...)
 
 	response = updateMetadata(response)
+
+	// Remove fields from children that aren't required by the UI
+	root := response.Components
+	if len(root) == 1 {
+		for j := range root[0].Components {
+			removeComponentFields(root[0].Components[j].Components)
+		}
+	} else {
+		for i := range root {
+			removeComponentFields(root[i].Components)
+		}
+	}
 
 	return &response, nil
 }
@@ -242,6 +331,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 			root = append(root, c)
 		}
 	}
+
 	return root
 }
 
@@ -283,6 +373,22 @@ func updateMetadata(resp TopologyResponse) TopologyResponse {
 	// Clean teams
 	resp.Teams = collections.DeleteEmptyStrings(resp.Teams)
 
+	resp.Teams = collections.Dedup(resp.Teams)
+	resp.HealthStatuses = collections.Dedup(resp.HealthStatuses)
+	resp.Types = collections.Dedup(resp.Types)
+
+	sort.Slice(resp.Teams, func(i, j int) bool {
+		return resp.Teams[i] < resp.Teams[j]
+	})
+
+	sort.Slice(resp.HealthStatuses, func(i, j int) bool {
+		return resp.HealthStatuses[i] < resp.HealthStatuses[j]
+	})
+
+	sort.Slice(resp.Types, func(i, j int) bool {
+		return resp.Types[i] < resp.Types[j]
+	})
+
 	return resp
 }
 
@@ -320,4 +426,19 @@ func GetComponent(ctx context.Context, db *gorm.DB, id string) (*models.Componen
 	}
 
 	return &component, nil
+}
+
+// removeComponentFields recursively removes some of the fields from components
+// and their children and so on.
+func removeComponentFields(components models.Components) {
+	for i := range components {
+		c := components[i]
+
+		c.ParentId = nil
+		c.Parents = nil
+		c.Checks = nil
+		c.Incidents = nil
+		c.Analysis = nil
+		removeComponentFields(c.Components)
+	}
 }
