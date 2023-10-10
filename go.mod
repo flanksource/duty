@@ -21,6 +21,9 @@ require (
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	github.com/zclconf/go-cty v1.13.1
 	go.opentelemetry.io/otel v1.19.0
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.19.0
+	go.opentelemetry.io/otel/sdk v1.19.0
+	go.opentelemetry.io/otel/trace v1.19.0
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/gorm v1.25.0
 	k8s.io/api v0.28.0
