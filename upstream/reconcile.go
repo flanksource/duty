@@ -129,7 +129,7 @@ func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, reques
 	}
 
 	var response []string
-	if err := httpResponse.Into(&response); err != nil {
+	if err := httpResponse.AsJSON(&response); err != nil {
 		return nil, err
 	}
 
@@ -150,7 +150,7 @@ func (t *upstreamReconciler) fetchUpstreamStatus(ctx context.Context, request Pa
 	}
 
 	var response PaginateResponse
-	if err := httpResponse.Into(&response); err != nil {
+	if err := httpResponse.AsJSON(&response); err != nil {
 		return nil, err
 	}
 

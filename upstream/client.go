@@ -15,11 +15,14 @@ type UpstreamClient struct {
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
-	tracedTransport := middlewares.NewTracedTransport().TraceProvider(otel.GetTracerProvider()).TraceAll(true).MaxBodyLength(512)
+	tracedTransport := middlewares.NewTracedTransport().
+		TraceProvider(otel.GetTracerProvider()).
+		TraceAll(true).
+		MaxBodyLength(512)
 
 	return &UpstreamClient{
 		httpClient: http.NewClient().
-			BasicAuth(config.Username, config.Password).
+			Auth(config.Username, config.Password).
 			BaseURL(fmt.Sprintf("%s/upstream", config.Host)).
 			Use(tracedTransport.RoundTripper),
 	}

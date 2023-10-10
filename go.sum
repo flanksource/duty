@@ -1100,6 +1100,13 @@ github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZ
 github.com/ulikunitz/xz v0.5.10/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/ulikunitz/xz v0.5.11 h1:kpFauv27b6ynzBNT/Xy+1k+fK4WswhN/6PN5WhFAGw8=
 github.com/ulikunitz/xz v0.5.11/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
+github.com/vadimi/go-http-ntlm v1.0.3 h1:o6n2vAtP1MlLT73jIXuQYryIcWzXyMN0SCQWZ2QVLLc=
+github.com/vadimi/go-http-ntlm v1.0.3/go.mod h1:SwhhmybQ4Yn1mC53UPmQ6MCrBX6UvJHlS1Xt89OmM9M=
+github.com/vadimi/go-http-ntlm/v2 v2.4.1 h1:y/OWq3pp8+qQymcYHf7rztV9VcLH3cbqnIa4WSXFRVw=
+github.com/vadimi/go-http-ntlm/v2 v2.4.1/go.mod h1:KduY1xBqaL8Q2Rh/erMvRQHKoj3VAT9GNYxe9EH+rOo=
+github.com/vadimi/go-ntlm v1.0.1/go.mod h1:hPTY60eLSKGj9oUJAB+kZiLs2Cg5eKdH60aLczM9rMg=
+github.com/vadimi/go-ntlm v1.2.1 h1:y2xZf/a5+BJlYNJIIulP1q8F438H9bU7aGcYE53vghQ=
+github.com/vadimi/go-ntlm v1.2.1/go.mod h1:hPTY60eLSKGj9oUJAB+kZiLs2Cg5eKdH60aLczM9rMg=
 github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 h1:nIPpBwaJSVYIxUFsDv3M8ofmx9yWTog9BfvIu0q41lo=
 github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8/go.mod h1:HUYIGzjTL3rfEspMxjDjgmT5uz5wzYJKVo23qUhYTos=
 github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 h1:zzrxE1FKn5ryBNl9eKOeqQ58Y/Qpo3Q9QNxKHX5uzzQ=
