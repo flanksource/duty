@@ -6,9 +6,9 @@ table "canaries" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "name" {
     null = false
@@ -31,8 +31,8 @@ table "canaries" {
     type = text
   }
   column "created_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "created_by" {
@@ -40,8 +40,8 @@ table "canaries" {
     type = uuid
   }
   column "updated_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "deleted_at" {
@@ -111,6 +111,12 @@ table "check_statuses" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the check status has been pushed to upstream."
+  }
   primary_key {
     columns = [column.check_id, column.time]
   }
@@ -123,6 +129,10 @@ table "check_statuses" {
   index "check_statuses_time_brin_idx" {
     type    = BRIN
     columns = [column.time]
+  }
+  index "check_statuses_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
@@ -138,9 +148,9 @@ table "checks" {
     type = uuid
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "type" {
     null = false

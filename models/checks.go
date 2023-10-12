@@ -97,6 +97,8 @@ type CheckStatus struct {
 	Error     string    `json:"error,omitempty"`
 	Detail    any       `json:"-" gorm:"-"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
+	// IsPushed when set to true indicates that the check status has been pushed to upstream.
+	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
 func (s CheckStatus) GetTime() (time.Time, error) {
