@@ -3,7 +3,7 @@ module github.com/flanksource/duty/hack/migrate
 go 1.20
 
 require (
-	github.com/flanksource/commons v1.13.0
+	github.com/flanksource/commons v1.14.1
 	github.com/flanksource/duty v1.0.180
 	github.com/spf13/cobra v1.7.0
 )
@@ -107,7 +107,7 @@ require (
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
+	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/api v0.146.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231009173412-8bfb1ae86b6c // indirect
