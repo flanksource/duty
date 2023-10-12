@@ -17,6 +17,7 @@ const (
 	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
 	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
 	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
+	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
 )
 
 type Playbook struct {
@@ -58,7 +59,8 @@ type PlaybookRunAction struct {
 	Name          string            `json:"name" gorm:"not null"`
 	PlaybookRunID uuid.UUID         `json:"playbook_run_id"`
 	Status        PlaybookRunStatus `json:"status,omitempty"`
-	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), not null"`
+	ScheduledTime time.Time         `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
+	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
 	Error         string            `json:"error,omitempty" gorm:"default:null"`

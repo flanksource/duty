@@ -97,7 +97,7 @@ table "playbook_approvals" {
 
 enum "playbook_run_status" {
   schema = schema.public
-  values = ["scheduled", "running", "cancelled", "completed", "failed", "pending"]
+  values = ["scheduled", "running", "cancelled", "completed", "failed", "pending", "sleeping"]
 }
 
 table "playbook_runs" {
@@ -224,6 +224,11 @@ table "playbook_run_actions" {
     type = uuid
   }
   column "start_time" {
+    null    = true
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "scheduled_time" {
     null    = false
     type    = timestamptz
     default = sql("now()")
