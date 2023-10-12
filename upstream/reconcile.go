@@ -2,14 +2,12 @@ package upstream
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"time"
 
+	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
 	"github.com/google/uuid"
@@ -29,7 +27,8 @@ type PaginateResponse struct {
 
 // upstreamReconciler pushes missing resources from an agent to the upstream.
 type upstreamReconciler struct {
-	upstreamConf UpstreamConfig
+	upstreamConf   UpstreamConfig
+	upstreamClient *UpstreamClient
 
 	// the max number of resources the agent fetches
 	// from the upstream in one request.
@@ -38,8 +37,9 @@ type upstreamReconciler struct {
 
 func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamReconciler {
 	return &upstreamReconciler{
-		upstreamConf: upstreamConf,
-		pageSize:     pageSize,
+		upstreamConf:   upstreamConf,
+		pageSize:       pageSize,
+		upstreamClient: NewUpstreamClient(upstreamConf),
 	}
 }
 
@@ -105,7 +105,7 @@ func (t *upstreamReconciler) sync(ctx duty.DBContext, table, next string) error 
 		logger.WithValues("table", table).Debugf("Pushing %d items to upstream. Next: %q", pushData.Count(), next)
 
 		pushData.AgentName = t.upstreamConf.AgentName
-		if err := Push(ctx, t.upstreamConf, pushData); err != nil {
+		if err := t.upstreamClient.Push(ctx, pushData); err != nil {
 			errorList = append(errorList, fmt.Errorf("failed to push missing resource ids: %w", err))
 		}
 	}
@@ -116,30 +116,20 @@ func (t *upstreamReconciler) sync(ctx duty.DBContext, table, next string) error 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
 func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, request PaginateRequest) ([]string, error) {
-	endpoint, err := url.JoinPath(t.upstreamConf.Host, "upstream", "pull", t.upstreamConf.AgentName)
-	if err != nil {
-		return nil, fmt.Errorf("error creating url endpoint for host %s: %w", t.upstreamConf.Host, err)
-	}
-
-	req, err := t.createPaginateRequest(ctx, endpoint, request)
-	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: %w", err)
-	}
-
-	httpClient := http.Client{}
-	resp, err := httpClient.Do(req)
+	httpReq := t.createPaginateRequest(ctx, request)
+	httpResponse, err := httpReq.Get(fmt.Sprintf("pull/%s", t.upstreamConf.AgentName))
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer httpResponse.Body.Close()
 
-	if resp.StatusCode != http.StatusFound {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, string(respBody))
+	if !httpResponse.IsOK() {
+		respBody, _ := io.ReadAll(httpResponse.Body)
+		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, string(respBody))
 	}
 
 	var response []string
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := httpResponse.Into(&response); err != nil {
 		return nil, err
 	}
 
@@ -147,48 +137,29 @@ func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, reques
 }
 
 func (t *upstreamReconciler) fetchUpstreamStatus(ctx context.Context, request PaginateRequest) (*PaginateResponse, error) {
-	endpoint, err := url.JoinPath(t.upstreamConf.Host, "upstream", "status", t.upstreamConf.AgentName)
-	if err != nil {
-		return nil, fmt.Errorf("error creating url endpoint for host %s: %w", t.upstreamConf.Host, err)
-	}
-
-	req, err := t.createPaginateRequest(ctx, endpoint, request)
-	if err != nil {
-		return nil, fmt.Errorf("error creating paginate request: %w", err)
-	}
-
-	httpClient := http.Client{}
-	resp, err := httpClient.Do(req)
+	httpReq := t.createPaginateRequest(ctx, request)
+	httpResponse, err := httpReq.Get(fmt.Sprintf("status/%s", t.upstreamConf.AgentName))
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer httpResponse.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, string(respBody))
+	if !httpResponse.IsOK() {
+		respBody, _ := io.ReadAll(httpResponse.Body)
+		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, string(respBody))
 	}
 
 	var response PaginateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := httpResponse.Into(&response); err != nil {
 		return nil, err
 	}
 
 	return &response, nil
 }
 
-func (t *upstreamReconciler) createPaginateRequest(ctx context.Context, url string, request PaginateRequest) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("http.NewRequest: %w", err)
-	}
-
-	query := req.URL.Query()
-	query.Add("table", request.Table)
-	query.Add("from", request.From)
-	query.Add("size", fmt.Sprintf("%d", request.Size))
-	req.URL.RawQuery = query.Encode()
-
-	req.SetBasicAuth(t.upstreamConf.Username, t.upstreamConf.Password)
-	return req, nil
+func (t *upstreamReconciler) createPaginateRequest(ctx context.Context, request PaginateRequest) *http.Request {
+	return t.upstreamClient.httpClient.R(ctx).
+		QueryParam("table", request.Table).
+		QueryParam("from", request.From).
+		QueryParam("size", fmt.Sprintf("%d", request.Size))
 }

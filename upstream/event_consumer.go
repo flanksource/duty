@@ -124,7 +124,9 @@ func PushToUpstream(ctx duty.DBContext, config UpstreamConfig, events []postq.Ev
 	}
 
 	upstreamMsg.ApplyLabels(config.LabelsMap())
-	err := Push(ctx, config, upstreamMsg)
+
+	upstreamClient := NewUpstreamClient(config)
+	err := upstreamClient.Push(ctx, upstreamMsg)
 	if err == nil {
 		return failedEvents
 	}
