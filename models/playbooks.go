@@ -17,6 +17,7 @@ const (
 	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
 	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
 	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
+	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
 )
 
 type Playbook struct {
