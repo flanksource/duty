@@ -122,9 +122,15 @@ table "playbook_runs" {
     default = sql("now()")
   }
   column "start_time" {
+    null    = true
+    type    = timestamptz
+    comment = "the time the run was first started"
+  }
+  column "scheduled_time" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+    comment = "the time the run is supposed to start/resume"
   }
   column "end_time" {
     null = true
