@@ -17,6 +17,7 @@ const (
 	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
 	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
 	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
+	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
 )
 
 type Playbook struct {
@@ -35,18 +36,19 @@ func (p Playbook) AsMap(removeFields ...string) map[string]any {
 }
 
 type PlaybookRun struct {
-	ID          uuid.UUID           `gorm:"default:generate_ulid()"`
-	PlaybookID  uuid.UUID           `json:"playbook_id"`
-	Status      PlaybookRunStatus   `json:"status,omitempty"`
-	CreatedAt   time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	StartTime   time.Time           `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), not null"`
-	EndTime     *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
-	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
-	ComponentID *uuid.UUID          `json:"component_id,omitempty"`
-	CheckID     *uuid.UUID          `json:"check_id,omitempty"`
-	ConfigID    *uuid.UUID          `json:"config_id,omitempty"`
-	Parameters  types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
-	AgentID     *uuid.UUID          `json:"agent_id,omitempty"`
+	ID            uuid.UUID           `gorm:"default:generate_ulid()"`
+	PlaybookID    uuid.UUID           `json:"playbook_id"`
+	Status        PlaybookRunStatus   `json:"status,omitempty"`
+	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	StartTime     time.Time           `json:"start_time,omitempty" time_format:"postgres_timestamp"`
+	ScheduledTime time.Time           `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
+	EndTime       *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
+	CreatedBy     *uuid.UUID          `json:"created_by,omitempty"`
+	ComponentID   *uuid.UUID          `json:"component_id,omitempty"`
+	CheckID       *uuid.UUID          `json:"check_id,omitempty"`
+	ConfigID      *uuid.UUID          `json:"config_id,omitempty"`
+	Parameters    types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
+	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
 }
 
 func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
@@ -58,7 +60,8 @@ type PlaybookRunAction struct {
 	Name          string            `json:"name" gorm:"not null"`
 	PlaybookRunID uuid.UUID         `json:"playbook_run_id"`
 	Status        PlaybookRunStatus `json:"status,omitempty"`
-	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), not null"`
+	ScheduledTime time.Time         `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
+	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
 	Error         string            `json:"error,omitempty" gorm:"default:null"`
