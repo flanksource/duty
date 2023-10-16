@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 )
@@ -121,7 +121,7 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
+func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
 			SELECT id::TEXT, updated_at
@@ -142,7 +142,7 @@ func GetPrimaryKeysHash(ctx duty.DBContext, req PaginateRequest, agentID uuid.UU
 	return &resp, err
 }
 
-func GetMissingResourceIDs(ctx duty.DBContext, ids []string, paginateReq PaginateRequest) (*PushData, error) {
+func GetMissingResourceIDs(ctx context.Context, ids []string, paginateReq PaginateRequest) (*PushData, error) {
 	var pushData PushData
 
 	tx := ctx.DB().Where("agent_id = ?", uuid.Nil)
