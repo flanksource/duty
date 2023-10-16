@@ -1,6 +1,7 @@
 package context
 
 import (
+	gocontext "context"
 	commons "github.com/flanksource/commons/context"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
@@ -13,21 +14,22 @@ import (
 	"github.com/flanksource/duty/types"
 
 	"k8s.io/client-go/kubernetes"
+	"time"
 )
 
 type Context struct {
-	*commons.Context
+	commons.Context
 }
 
-func NewContext() *Context {
-	return &Context{
+func NewContext() Context {
+	return Context{
 		Context: commons.NewContext(
-			commons.WithDebugFn(func(ctx *commons.Context) bool {
+			commons.WithDebugFn(func(ctx commons.Context) bool {
 				annotations := getObjectMeta(ctx).Annotations
 				return annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true")
 
 			}),
-			commons.WithTraceFn(func(ctx *commons.Context) bool {
+			commons.WithTraceFn(func(ctx commons.Context) bool {
 				annotations := getObjectMeta(ctx).Annotations
 				return annotations != nil && annotations["trace"] == "true"
 			}),
@@ -35,30 +37,37 @@ func NewContext() *Context {
 	}
 }
 
-func (k *Context) WithObject(object metav1.ObjectMeta) *Context {
-	return &Context{
+func (k Context) WithTimeout(timeout time.Duration) (Context, gocontext.CancelFunc) {
+	ctx, cancelFunc := k.Context.WithTimeout(timeout)
+	return Context{
+		Context: ctx,
+	}, cancelFunc
+}
+
+func (k Context) WithObject(object metav1.ObjectMeta) Context {
+	return Context{
 		Context: k.WithValue("object", object),
 	}
 }
 
-func (k *Context) WithUser(user *models.Person) *Context {
-	return &Context{
+func (k Context) WithUser(user *models.Person) Context {
+	return Context{
 		Context: k.WithValue("user", user),
 	}
 }
 
-func (k *Context) User() *models.Person {
+func (k Context) User() *models.Person {
 	return k.Value("user").(*models.Person)
 }
 
-func (k *Context) WithKubernetes(client kubernetes.Interface) *Context {
-	return &Context{
+func (k *Context) WithKubernetes(client kubernetes.Interface) Context {
+	return Context{
 		Context: k.WithValue("kubernetes", client),
 	}
 }
 
-func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) *Context {
-	return &Context{
+func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
+	return Context{
 		Context: k.WithValue("db", db).WithValue("pgxpool", pool),
 	}
 }
@@ -87,7 +96,7 @@ func (k Context) StartSpan(name string) (Context, trace.Span) {
 	}, span
 }
 
-func getObjectMeta(ctx *commons.Context) metav1.ObjectMeta {
+func getObjectMeta(ctx commons.Context) metav1.ObjectMeta {
 	o := ctx.Value("object")
 	if o == nil {
 		return metav1.ObjectMeta{Annotations: map[string]string{}, Labels: map[string]string{}}
@@ -114,7 +123,7 @@ func (k Context) GetAnnotations() map[string]string {
 	return k.GetObjectMeta().Annotations
 }
 
-func (k *Context) GetEnvValueFromCache(c kubernetes.Interface, input types.EnvVar, namespace string) (string, error) {
+func (k *Context) GetEnvValueFromCache(input types.EnvVar, namespace string) (string, error) {
 	return duty.GetEnvValueFromCache(k.Kubernetes(), input, namespace)
 }
 

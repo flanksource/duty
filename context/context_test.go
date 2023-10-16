@@ -47,6 +47,7 @@ func TestContext(t *testing.T) {
 
 	Expect(c.GetName()).To(Equal("test"))
 	Expect(c.GetNamespace()).To(Equal("default"))
+
 	ctx, span := c.StartSpan("test")
 	Expect(ctx.GetName()).To(Equal("test"))
 	Expect(ctx.GetNamespace()).To(Equal("default"))

@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 )
 
 // SyncCheckStatuses pushes check statuses, that haven't already been pushed, to upstream.
-func SyncCheckStatuses(ctx duty.DBContext, config UpstreamConfig, batchSize int) error {
+func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int) error {
 	client := NewUpstreamClient(config)
 
 	for {

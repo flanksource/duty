@@ -60,8 +60,7 @@ func (h *JobHistory) End() *JobHistory {
 		h.IncrSuccess()
 	}
 
-	h.EvaluateStatus()
-
+	h.evaluateStatus()
 	return h
 }
 
@@ -80,7 +79,7 @@ func (h *JobHistory) IncrSuccess() *JobHistory {
 
 // EvaluateStatus updates the Status field of JobHistory based on the counts of
 // Success and Error in it.
-func (h *JobHistory) EvaluateStatus() {
+func (h *JobHistory) evaluateStatus() {
 	if h.SuccessCount == 0 {
 		if h.ErrorCount > 0 {
 			h.Status = StatusFailed

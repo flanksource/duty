@@ -1,7 +1,7 @@
 package upstream
 
 import (
-	"context"
+	gocontext "context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/context"
 	"github.com/google/uuid"
 )
 
@@ -45,7 +45,7 @@ func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamR
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) Sync(ctx duty.DBContext, table string) error {
+func (t *upstreamReconciler) Sync(ctx context.Context, table string) error {
 	logger.Debugf("Reconciling table %q with upstream", table)
 
 	// Empty starting cursor, so we sync everything
@@ -53,7 +53,7 @@ func (t *upstreamReconciler) Sync(ctx duty.DBContext, table string) error {
 }
 
 // SyncAfter pushes all the records of the given table that were updated in the given duration
-func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after time.Duration) error {
+func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) error {
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
 
 	// We find the item that falls just before the requested duration & begin from there.
@@ -67,7 +67,7 @@ func (t *upstreamReconciler) SyncAfter(ctx duty.DBContext, table string, after t
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) sync(ctx duty.DBContext, table, next string) error {
+func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error {
 	var errorList []error
 	for {
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
@@ -115,7 +115,7 @@ func (t *upstreamReconciler) sync(ctx duty.DBContext, table, next string) error 
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
-func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, request PaginateRequest) ([]string, error) {
+func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, request PaginateRequest) ([]string, error) {
 	httpReq := t.createPaginateRequest(ctx, request)
 	httpResponse, err := httpReq.Get(fmt.Sprintf("pull/%s", t.upstreamConf.AgentName))
 	if err != nil {
@@ -136,7 +136,7 @@ func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx duty.DBContext, reques
 	return response, nil
 }
 
-func (t *upstreamReconciler) fetchUpstreamStatus(ctx context.Context, request PaginateRequest) (*PaginateResponse, error) {
+func (t *upstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request PaginateRequest) (*PaginateResponse, error) {
 	httpReq := t.createPaginateRequest(ctx, request)
 	httpResponse, err := httpReq.Get(fmt.Sprintf("status/%s", t.upstreamConf.AgentName))
 	if err != nil {
@@ -157,7 +157,7 @@ func (t *upstreamReconciler) fetchUpstreamStatus(ctx context.Context, request Pa
 	return &response, nil
 }
 
-func (t *upstreamReconciler) createPaginateRequest(ctx context.Context, request PaginateRequest) *http.Request {
+func (t *upstreamReconciler) createPaginateRequest(ctx gocontext.Context, request PaginateRequest) *http.Request {
 	return t.upstreamClient.httpClient.R(ctx).
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).
