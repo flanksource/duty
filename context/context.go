@@ -155,3 +155,11 @@ func (k *Context) HydratedConnectionByURL(namespace, connectionString string) (*
 func (k *Context) HydrateConnection(connection *models.Connection, namespace string) (*models.Connection, error) {
 	return duty.HydrateConnection(k, k.Kubernetes(), k.DB(), connection, namespace)
 }
+
+func WrapContext(gormDB *gorm.DB, pool *pgxpool.Pool, k8s kubernetes.Interface, tracer trace.Tracer) func(gocontext.Context) Context {
+	return func(ctx gocontext.Context) Context {
+		return NewContext(ctx, commons.WithTracer(tracer)).
+			WithDB(gormDB, pool).
+			WithKubernetes(k8s)
+	}
+}
