@@ -2,6 +2,7 @@ package context
 
 import (
 	gocontext "context"
+
 	commons "github.com/flanksource/commons/context"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
@@ -13,8 +14,9 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 
-	"k8s.io/client-go/kubernetes"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
 )
 
 type Context struct {
@@ -70,6 +72,12 @@ func (k Context) WithKubernetes(client kubernetes.Interface) Context {
 	}
 }
 
+func (k Context) WithNamespace(namespace string) Context {
+	return Context{
+		Context: k.WithValue("namespace", namespace),
+	}
+}
+
 func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	return Context{
 		Context: k.WithValue("db", db).WithValue("pgxpool", pool),
@@ -80,11 +88,6 @@ func (k Context) DB() *gorm.DB {
 	return k.Value("db").(*gorm.DB)
 }
 
-func (k Context) PgxPool() *pgxpool.Pool {
-	return k.Value("pgxpool").(*pgxpool.Pool)
-}
-
-// For compatibility with duty.DBContext
 func (k Context) Pool() *pgxpool.Pool {
 	return k.Value("pgxpool").(*pgxpool.Pool)
 }
@@ -118,7 +121,13 @@ func (k Context) GetObjectMeta() metav1.ObjectMeta {
 }
 
 func (k Context) GetNamespace() string {
-	return k.GetObjectMeta().Namespace
+	if k.Value("object") != nil {
+		return k.GetObjectMeta().Namespace
+	}
+	if k.Value("namespace") != nil {
+		return k.Value("namespace").(string)
+	}
+	return ""
 }
 func (k Context) GetName() string {
 	return k.GetObjectMeta().Name
@@ -132,7 +141,7 @@ func (k Context) GetAnnotations() map[string]string {
 	return k.GetObjectMeta().Annotations
 }
 
-func (k *Context) GetEnvValueFromCache(input types.EnvVar, namespace string) (string, error) {
+func (k Context) GetEnvValueFromCache(input types.EnvVar, namespace string) (string, error) {
 	return duty.GetEnvValueFromCache(k.Kubernetes(), input, namespace)
 }
 
@@ -148,7 +157,7 @@ func (k *Context) GetConfigMapFromCache(namespace, name, key string) (string, er
 	return duty.GetConfigMapFromCache(k.Kubernetes(), namespace, name, key)
 }
 
-func (k *Context) HydratedConnectionByURL(namespace, connectionString string) (*models.Connection, error) {
+func (k Context) HydratedConnectionByURL(namespace, connectionString string) (*models.Connection, error) {
 	return duty.HydratedConnectionByURL(k, k.DB(), k.Kubernetes(), namespace, connectionString)
 }
 
@@ -162,4 +171,11 @@ func WrapContext(gormDB *gorm.DB, pool *pgxpool.Pool, k8s kubernetes.Interface, 
 			WithDB(gormDB, pool).
 			WithKubernetes(k8s)
 	}
+}
+
+func (k Context) Wrap(ctx gocontext.Context) Context {
+	return NewContext(ctx, commons.WithTracer(k.GetTracer())).
+		WithDB(k.DB(), k.Pool()).
+		WithKubernetes(k.Kubernetes()).
+		WithNamespace(k.GetNamespace())
 }

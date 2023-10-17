@@ -14,6 +14,7 @@ type Person struct {
 	Email      string           `json:"email,omitempty" gorm:"default:null"`
 	Type       string           `json:"type,omitempty" gorm:"default:null"`
 	Avatar     string           `json:"avatar,omitempty" gorm:"default:null"`
+	ExternalID string           `json:"external_id,omitempty" gorm:"default:null"`
 	Properties PersonProperties `json:"properties,omitempty" gorm:"default:null"`
 }
 

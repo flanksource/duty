@@ -5,7 +5,7 @@ go 1.20
 require (
 	ariga.io/atlas v0.14.2
 	github.com/fergusstrange/embedded-postgres v1.21.0
-	github.com/flanksource/commons v1.15.0
+	github.com/flanksource/commons v1.15.1
 	github.com/flanksource/postq v0.1.1
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/hcl/v2 v2.18.1
