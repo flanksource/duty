@@ -1,6 +1,7 @@
 package context
 
 import (
+	gocontext "context"
 	"testing"
 
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -35,7 +36,7 @@ var tracer trace.Tracer
 func TestContext(t *testing.T) {
 
 	RegisterTestingT(t)
-	c := NewContext().WithObject(metav1.ObjectMeta{
+	c := NewContext(gocontext.Background()).WithObject(metav1.ObjectMeta{
 		Name:        "test",
 		Namespace:   "default",
 		Annotations: map[string]string{"debug": "true"},
@@ -61,5 +62,4 @@ func TestContext(t *testing.T) {
 
 	Expect(inner.IsTrace()).To(BeTrue())
 	span.End()
-
 }
