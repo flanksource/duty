@@ -15,7 +15,7 @@ type UpstreamClient struct {
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
-	tracedTransport := middlewares.NewTracedTransport().
+	tracedTransport := middlewares.NewTracedTransport(middlewares.TraceConfig{}).
 		TraceProvider(otel.GetTracerProvider()).
 		TraceQueryParam(true)
 
