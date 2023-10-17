@@ -5,7 +5,7 @@ go 1.20
 require (
 	ariga.io/atlas v0.14.2
 	github.com/fergusstrange/embedded-postgres v1.21.0
-	github.com/flanksource/commons v1.14.1
+	github.com/flanksource/commons v1.15.0
 	github.com/flanksource/postq v0.1.1
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/hcl/v2 v2.18.1
@@ -17,6 +17,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	github.com/zclconf/go-cty v1.14.1
@@ -102,7 +103,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/robertkrimen/otto v0.2.1 // indirect
-	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -152,5 +152,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/flanksource/commons => ../commons

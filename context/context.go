@@ -21,18 +21,22 @@ type Context struct {
 	commons.Context
 }
 
-func NewContext() Context {
+func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Context {
+	baseOpts := []commons.ContextOptions{
+		commons.WithDebugFn(func(ctx commons.Context) bool {
+			annotations := getObjectMeta(ctx).Annotations
+			return annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true")
+		}),
+		commons.WithTraceFn(func(ctx commons.Context) bool {
+			annotations := getObjectMeta(ctx).Annotations
+			return annotations != nil && annotations["trace"] == "true"
+		}),
+	}
+	baseOpts = append(baseOpts, opts...)
 	return Context{
 		Context: commons.NewContext(
-			commons.WithDebugFn(func(ctx commons.Context) bool {
-				annotations := getObjectMeta(ctx).Annotations
-				return annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true")
-
-			}),
-			commons.WithTraceFn(func(ctx commons.Context) bool {
-				annotations := getObjectMeta(ctx).Annotations
-				return annotations != nil && annotations["trace"] == "true"
-			}),
+			baseCtx,
+			baseOpts...,
 		),
 	}
 }
@@ -60,7 +64,7 @@ func (k Context) User() *models.Person {
 	return k.Value("user").(*models.Person)
 }
 
-func (k *Context) WithKubernetes(client kubernetes.Interface) Context {
+func (k Context) WithKubernetes(client kubernetes.Interface) Context {
 	return Context{
 		Context: k.WithValue("kubernetes", client),
 	}
@@ -77,6 +81,11 @@ func (k Context) DB() *gorm.DB {
 }
 
 func (k Context) PgxPool() *pgxpool.Pool {
+	return k.Value("pgxpool").(*pgxpool.Pool)
+}
+
+// For compatibility with duty.DBContext
+func (k Context) Pool() *pgxpool.Pool {
 	return k.Value("pgxpool").(*pgxpool.Pool)
 }
 
