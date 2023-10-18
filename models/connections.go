@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -156,9 +158,9 @@ func (c Connection) AsGoGetterURL() (string, error) {
 }
 
 // AsEnv generates environment variables and a configuration file content based on the connection type.
-func (c Connection) AsEnv() EnvPrep {
-	envPrep := EnvPrep{
-		Conn: c,
+func (c Connection) AsEnv(ctx context.Context) EnvPrep {
+	var envPrep = EnvPrep{
+		Files: make(map[string]bytes.Buffer),
 	}
 
 	switch c.Type {
@@ -166,9 +168,13 @@ func (c Connection) AsEnv() EnvPrep {
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
 
-		envPrep.File.WriteString("[default]\n")
-		envPrep.File.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
-		envPrep.File.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
+		// credentialFilePath :="$HOME/.aws/credentials"
+		credentialFilePath := filepath.Join(".creds", "aws", fmt.Sprintf("cred-%d", rand.Intn(100000000)))
+
+		var credentialFile bytes.Buffer
+		credentialFile.WriteString("[default]\n")
+		credentialFile.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
+		credentialFile.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
 
 		if v, ok := c.Properties["profile"]; ok {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
@@ -176,71 +182,58 @@ func (c Connection) AsEnv() EnvPrep {
 
 		if v, ok := c.Properties["region"]; ok {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
-			envPrep.File.WriteString(fmt.Sprintf("region = %s\n", v))
+			credentialFile.WriteString(fmt.Sprintf("region = %s\n", v))
 		}
 
+		envPrep.Files[credentialFilePath] = credentialFile
+
 	case ConnectionTypeAzure:
-		// Do nothing
+		args := []string{"login", "--service-principal", "--username", c.Username, "--password", c.Password}
+		if v, ok := c.Properties["tenant"]; ok {
+			args = append(args, "--tenant")
+			args = append(args, v)
+		}
+
+		// login with service principal
+		envPrep.PreRuns = append(envPrep.PreRuns, exec.CommandContext(ctx, "az", args...))
 
 	case ConnectionTypeGCP:
-		envPrep.File.WriteString(c.Certificate)
+		var credentialFile bytes.Buffer
+		credentialFile.WriteString(c.Certificate)
+
+		// credentialFilePath := "$HOME/.config/gcloud/credentials"
+		credentialFilePath := filepath.Join(".creds", "gcp", fmt.Sprintf("cred-%d", rand.Intn(100000000)))
+
+		// to configure gcloud CLI to use the service account specified in GOOGLE_APPLICATION_CREDENTIALS,
+		// we need to explicitly activate it
+		envPrep.PreRuns = append(envPrep.PreRuns, exec.CommandContext(ctx, "gcloud", "auth", "activate-service-account", "--key-file", credentialFilePath))
+		envPrep.Files[credentialFilePath] = credentialFile
 	}
 
 	return envPrep
 }
 
 type EnvPrep struct {
-	Conn Connection
-
 	// Env is the connection credentials in environment variables
 	Env []string
 
+	PreRuns []*exec.Cmd
+
 	// File contains the content of the configuration file based on the connection
-	File bytes.Buffer
+	Files map[string]bytes.Buffer
 }
 
-func (c *EnvPrep) Apply(ctx context.Context, cmd *exec.Cmd, configAbsPath string) error {
-	switch c.Conn.Type {
-	case ConnectionTypeAWS:
-		if err := saveConfig(c.File.Bytes(), configAbsPath); err != nil {
-			return err
-		}
-
-		cmd.Env = append(cmd.Env, "AWS_EC2_METADATA_DISABLED=true") // https://github.com/aws/aws-cli/issues/5262#issuecomment-705832151
-		cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_SHARED_CREDENTIALS_FILE=%s", configAbsPath))
-		if v, ok := c.Conn.Properties["region"]; ok {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
-		}
-
-	case ConnectionTypeGCP:
-		if err := saveConfig(c.File.Bytes(), configAbsPath); err != nil {
-			return err
-		}
-
-		// to configure gcloud CLI to use the service account specified in GOOGLE_APPLICATION_CREDENTIALS,
-		// we need to explicitly activate it
-		runCmd := exec.Command("gcloud", "auth", "activate-service-account", "--key-file", configAbsPath)
-		if err := runCmd.Run(); err != nil {
-			return fmt.Errorf("failed to activate GCP service account: %w", err)
-		}
-
-		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configAbsPath))
-
-	case ConnectionTypeAzure:
-		args := []string{"login", "--service-principal", "--username", c.Conn.Username, "--password", c.Conn.Password}
-		if v, ok := c.Conn.Properties["tenant"]; ok {
-			args = append(args, "--tenant")
-			args = append(args, v)
-		}
-
-		// login with service principal
-		runCmd := exec.CommandContext(ctx, "az", args...)
-		if err := runCmd.Run(); err != nil {
-			return err
+// Inject creates the config file & injects the necessary environment variable into the command
+func (c *EnvPrep) Inject(ctx context.Context, cmd *exec.Cmd) ([]*exec.Cmd, error) {
+	for path, file := range c.Files {
+		if err := saveConfig(file.Bytes(), path); err != nil {
+			return nil, fmt.Errorf("error saving config to %s: %w", path, err)
 		}
 	}
 
-	return nil
+	cmd.Env = append(cmd.Env, c.Env...)
+
+	return c.PreRuns, nil
 }
 
 func saveConfig(content []byte, absPath string) error {

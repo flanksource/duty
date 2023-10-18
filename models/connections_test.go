@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"testing"
 )
 
@@ -52,10 +53,10 @@ func Test_Connection_AsGoGetterURL(t *testing.T) {
 
 func Test_Connection_AsEnv(t *testing.T) {
 	testCases := []struct {
-		name         string
-		connection   Connection
-		expectedEnv  []string
-		expectedFile string
+		name          string
+		connection    Connection
+		expectedEnv   []string
+		expectedFiles map[string]string
 	}{
 		{
 			name: "AWS Connection",
@@ -71,7 +72,9 @@ func Test_Connection_AsEnv(t *testing.T) {
 				"AWS_DEFAULT_PROFILE=awsprofile",
 				"AWS_DEFAULT_REGION=us-east-1",
 			},
-			expectedFile: "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
+			expectedFiles: map[string]string{
+				"$HOME/.aws/credentials": "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
+			},
 		},
 		{
 			name: "GCP Connection",
@@ -80,14 +83,16 @@ func Test_Connection_AsEnv(t *testing.T) {
 				Username:    "gcpuser",
 				Certificate: `{"account": "gcpuser"}`,
 			},
-			expectedEnv:  []string{},
-			expectedFile: `{"account": "gcpuser"}`,
+			expectedEnv: []string{},
+			expectedFiles: map[string]string{
+				"$HOME/.config/gcloud/credentials": `{"account": "gcpuser"}`,
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			envPrep := tc.connection.AsEnv()
+			envPrep := tc.connection.AsEnv(context.Background())
 
 			for i, expected := range tc.expectedEnv {
 				if envPrep.Env[i] != expected {
@@ -95,8 +100,11 @@ func Test_Connection_AsEnv(t *testing.T) {
 				}
 			}
 
-			if envPrep.File.String() != tc.expectedFile {
-				t.Errorf("Expected file content:\n%s\nBut got:\n%s", tc.expectedFile, envPrep.File.String())
+			for path, expected := range tc.expectedFiles {
+				got := envPrep.Files[path]
+				if got.String() != expected {
+					t.Errorf("Expected file content: %s, but got: %s", expected, got.String())
+				}
 			}
 		})
 	}
