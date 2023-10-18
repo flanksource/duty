@@ -7,7 +7,7 @@ SELECT
     playbook_runs.count as playbook_runs_count
 FROM
     agents
-    INNER JOIN (
+    LEFT JOIN (
         SELECT
             agent_id,
             COUNT(id) as count
@@ -16,7 +16,7 @@ FROM
         GROUP BY
             agent_id
     ) AS configs ON configs.agent_id = agents.id
-    INNER JOIN (
+    LEFT JOIN (
         SELECT
             agent_id,
             COUNT(id) as count
@@ -25,7 +25,7 @@ FROM
         GROUP BY
             agent_id
     ) AS config_scrapper ON config_scrapper.agent_id = agents.id
-    INNER JOIN (
+    LEFT JOIN (
         SELECT
             agent_id,
             COUNT(id) as count
@@ -34,7 +34,7 @@ FROM
         GROUP BY
             agent_id
     ) AS checks ON checks.agent_id = agents.id
-    INNER JOIN (
+    LEFT JOIN (
         SELECT
             agent_id,
             COUNT(id) as count
