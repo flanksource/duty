@@ -69,7 +69,9 @@
           "is_leaf": false,
           "name": "logistics-ui",
           "status": "healthy",
-          "summary": {"healthy": 1},
+          "summary": {
+            "healthy": 1
+          },
           "type": "Application"
         }
       ],
@@ -109,6 +111,7 @@
               "components": [
                 {
                   "agent_id": "00000000-0000-0000-0000-000000000000",
+                  "icon": "icon-kubernetes-pod",
                   "id": "018681ff-e578-a926-e366-d2dc0646eafa",
                   "is_leaf": false,
                   "name": "logistics-worker-79cb67d8f5-lr66n",
@@ -119,6 +122,7 @@
                   "type": "KubernetesPod"
                 }
               ],
+              "icon": "icon-kubernetes-node",
               "id": "018681ff-227e-4d71-b38e-0693cc862213",
               "is_leaf": false,
               "name": "node-b",
@@ -137,18 +141,20 @@
               "agent_id": "00000000-0000-0000-0000-000000000000",
               "components": [
                 {
-                  "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
                   "agent_id": "00000000-0000-0000-0000-000000000000",
+                  "icon": "icon-kubernetes-pod",
+                  "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+                  "is_leaf": false,
                   "name": "logistics-api-574dc95b5d-mp64w",
                   "status": "healthy",
-                  "type": "KubernetesPod",
                   "summary": {
                     "healthy": 1
                   },
-                  "is_leaf": false
+                  "type": "KubernetesPod"
                 },
                 {
                   "agent_id": "00000000-0000-0000-0000-000000000000",
+                  "icon": "icon-kubernetes-pod",
                   "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
                   "is_leaf": false,
                   "name": "logistics-ui-676b85b87c-tjjcp",
@@ -159,6 +165,7 @@
                   "type": "KubernetesPod"
                 }
               ],
+              "icon": "icon-kubernetes-node",
               "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
               "is_leaf": false,
               "name": "node-a",
@@ -169,6 +176,7 @@
               "type": "KubernetesNode"
             }
           ],
+          "icon": "icon-kubernetes-node",
           "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
           "is_leaf": false,
           "name": "Nodes",
@@ -184,44 +192,54 @@
           "type": "KubernetesNodes"
         },
         {
-          "id": "018681ff-559f-7183-19d1-7d898b4e1413",
           "agent_id": "00000000-0000-0000-0000-000000000000",
-          "name": "Pods",
-          "status": "healthy",
-          "type": "KubernetesPods",
-          "summary": {
-            "healthy": 3
-          },
-          "is_leaf": false,
           "components": [
             {
               "agent_id": "00000000-0000-0000-0000-000000000000",
+              "icon": "icon-kubernetes-pod",
               "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
               "is_leaf": false,
               "name": "logistics-api-574dc95b5d-mp64w",
               "status": "healthy",
-              "summary": { "healthy": 1 },
+              "summary": {
+                "healthy": 1
+              },
               "type": "KubernetesPod"
             },
             {
               "agent_id": "00000000-0000-0000-0000-000000000000",
+              "icon": "icon-kubernetes-pod",
               "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
               "is_leaf": false,
               "name": "logistics-ui-676b85b87c-tjjcp",
               "status": "healthy",
-              "summary": { "healthy": 1 },
+              "summary": {
+                "healthy": 1
+              },
               "type": "KubernetesPod"
             },
             {
               "agent_id": "00000000-0000-0000-0000-000000000000",
+              "icon": "icon-kubernetes-pod",
               "id": "018681ff-e578-a926-e366-d2dc0646eafa",
               "is_leaf": false,
               "name": "logistics-worker-79cb67d8f5-lr66n",
               "status": "healthy",
-              "summary": { "healthy": 1 },
+              "summary": {
+                "healthy": 1
+              },
               "type": "KubernetesPod"
             }
-          ]
+          ],
+          "icon": "icon-kubernetes-pod",
+          "id": "018681ff-559f-7183-19d1-7d898b4e1413",
+          "is_leaf": false,
+          "name": "Pods",
+          "status": "healthy",
+          "summary": {
+            "healthy": 3
+          },
+          "type": "KubernetesPods"
         }
       ],
       "external_id": "dummy/cluster",
@@ -258,12 +276,12 @@
     "healthy",
     "unhealthy"
   ],
-  "teams": [],
   "tags": {
     "telemetry": [
       "enabled"
     ]
   },
+  "teams": [],
   "types": [
     "Application",
     "Database",

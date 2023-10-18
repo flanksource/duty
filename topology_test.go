@@ -41,6 +41,8 @@ func testTopologyJSON(opts TopologyOptions, path string) {
 	expected := readTestFile(path)
 
 	jqExpr := `del(.. | .created_at?, .updated_at?)`
+
+	writeTestResult(path, treeJSON)
 	matchJSON(treeJSON, []byte(expected), &jqExpr)
 }
 

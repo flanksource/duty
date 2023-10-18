@@ -43,7 +43,7 @@ func (opt TopologyOptions) selectClause() string {
 	}
 
 	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
-	return "name, namespace, id, is_leaf, status, status_reason, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
+	return "name, namespace, id, is_leaf, status, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
