@@ -188,10 +188,16 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 
 		if v, ok := c.Properties["region"]; ok {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
+
 			credentialFile.WriteString(fmt.Sprintf("region = %s\n", v))
+
+			envPrep.CmdEnvs = append(envPrep.CmdEnvs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
 		}
 
 		envPrep.Files[credentialFilePath] = credentialFile
+
+		envPrep.CmdEnvs = append(envPrep.CmdEnvs, "AWS_EC2_METADATA_DISABLED=true") // https://github.com/aws/aws-cli/issues/5262#issuecomment-705832151
+		envPrep.CmdEnvs = append(envPrep.CmdEnvs, fmt.Sprintf("AWS_SHARED_CREDENTIALS_FILE=%s", credentialFilePath))
 
 	case ConnectionTypeAzure:
 		args := []string{"login", "--service-principal", "--username", c.Username, "--password", c.Password}
@@ -214,6 +220,8 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 		// we need to explicitly activate it
 		envPrep.PreRuns = append(envPrep.PreRuns, exec.CommandContext(ctx, "gcloud", "auth", "activate-service-account", "--key-file", credentialFilePath))
 		envPrep.Files[credentialFilePath] = credentialFile
+
+		envPrep.CmdEnvs = append(envPrep.CmdEnvs, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", credentialFilePath))
 	}
 
 	return envPrep
@@ -223,6 +231,11 @@ type EnvPrep struct {
 	// Env is the connection credentials in environment variables
 	Env []string
 
+	// CmdEnvs is a list of env vars that will be passed to the command
+	CmdEnvs []string
+
+	// List of commands that need to be run before the actual command.
+	// These commands will setup the connection.
 	PreRuns []*exec.Cmd
 
 	// File contains the content of the configuration file based on the connection
@@ -237,7 +250,7 @@ func (c *EnvPrep) Inject(ctx context.Context, cmd *exec.Cmd) ([]*exec.Cmd, error
 		}
 	}
 
-	cmd.Env = append(cmd.Env, c.Env...)
+	cmd.Env = append(cmd.Env, c.CmdEnvs...)
 
 	return c.PreRuns, nil
 }
