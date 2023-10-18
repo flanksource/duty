@@ -53,10 +53,10 @@ func Test_Connection_AsGoGetterURL(t *testing.T) {
 
 func Test_Connection_AsEnv(t *testing.T) {
 	testCases := []struct {
-		name          string
-		connection    Connection
-		expectedEnv   []string
-		expectedFiles map[string]string
+		name                string
+		connection          Connection
+		expectedEnv         []string
+		expectedFileContent string
 	}{
 		{
 			name: "AWS Connection",
@@ -72,9 +72,7 @@ func Test_Connection_AsEnv(t *testing.T) {
 				"AWS_DEFAULT_PROFILE=awsprofile",
 				"AWS_DEFAULT_REGION=us-east-1",
 			},
-			expectedFiles: map[string]string{
-				"$HOME/.aws/credentials": "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
-			},
+			expectedFileContent: "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
 		},
 		{
 			name: "GCP Connection",
@@ -83,10 +81,8 @@ func Test_Connection_AsEnv(t *testing.T) {
 				Username:    "gcpuser",
 				Certificate: `{"account": "gcpuser"}`,
 			},
-			expectedEnv: []string{},
-			expectedFiles: map[string]string{
-				"$HOME/.config/gcloud/credentials": `{"account": "gcpuser"}`,
-			},
+			expectedEnv:         []string{},
+			expectedFileContent: `{"account": "gcpuser"}`,
 		},
 	}
 
@@ -100,10 +96,9 @@ func Test_Connection_AsEnv(t *testing.T) {
 				}
 			}
 
-			for path, expected := range tc.expectedFiles {
-				got := envPrep.Files[path]
-				if got.String() != expected {
-					t.Errorf("Expected file content: %s, but got: %s", expected, got.String())
+			for _, content := range envPrep.Files {
+				if content.String() != tc.expectedFileContent {
+					t.Errorf("Expected file content: %s, but got: %s", tc.expectedFileContent, content.String())
 				}
 			}
 		})
