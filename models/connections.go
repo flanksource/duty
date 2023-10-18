@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -151,12 +152,21 @@ func (c Connection) AsGoGetterURL() (string, error) {
 	return output, nil
 }
 
-func (c Connection) AsEnv() []string {
-	var envs []string
+// AsEnv generates environment variables and a configuration file content based on the connection type.
+func (c Connection) AsEnv() ([]string, string) {
+	var (
+		envs []string
+		file strings.Builder
+	)
+
 	switch c.Type {
 	case ConnectionTypeAWS:
 		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
 		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
+
+		file.WriteString("[default]\n")
+		file.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
+		file.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
 
 		if v, ok := c.Properties["profile"]; ok {
 			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
@@ -164,8 +174,12 @@ func (c Connection) AsEnv() []string {
 
 		if v, ok := c.Properties["region"]; ok {
 			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
+			file.WriteString(fmt.Sprintf("region = %s\n", v))
 		}
+
+	case ConnectionTypeGCP:
+		file.WriteString(c.Certificate)
 	}
 
-	return envs
+	return envs, file.String()
 }
