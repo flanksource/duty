@@ -1,12 +1,57 @@
 package models
 
 import (
+	"fmt"
 	"net/url"
 	"regexp"
 	"time"
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+)
+
+// List of all connection types
+const (
+	ConnectionTypeAWS            = "AWS"
+	ConnectionTypeAzure          = "Azure"
+	ConnectionTypeAzureDevops    = "Azure Devops"
+	ConnectionTypeDiscord        = "Discord"
+	ConnectionTypeDynatrace      = "Dynatrace"
+	ConnectionTypeElasticSearch  = "ElasticSearch"
+	ConnectionTypeEmail          = "Email"
+	ConnectionTypeGCP            = "Google Cloud"
+	ConnectionTypeGenericWebhook = "Generic Webhook"
+	ConnectionTypeGit            = "Git"
+	ConnectionTypeGithub         = "Github"
+	ConnectionTypeGoogleChat     = "Google Chat"
+	ConnectionTypeHTTP           = "HTTP"
+	ConnectionTypeIFTTT          = "IFTTT"
+	ConnectionTypeJMeter         = "JMeter"
+	ConnectionTypeKubernetes     = "Kubernetes"
+	ConnectionTypeLDAP           = "LDAP"
+	ConnectionTypeMatrix         = "Matrix"
+	ConnectionTypeMattermost     = "Mattermost"
+	ConnectionTypeMongo          = "Mongo"
+	ConnectionTypeMySQL          = "MySQL"
+	ConnectionTypeNtfy           = "Ntfy"
+	ConnectionTypeOpsGenie       = "OpsGenie"
+	ConnectionTypePostgres       = "Postgres"
+	ConnectionTypePrometheus     = "Prometheus"
+	ConnectionTypePushbullet     = "Pushbullet"
+	ConnectionTypePushover       = "Pushover"
+	ConnectionTypeRedis          = "Redis"
+	ConnectionTypeRestic         = "Restic"
+	ConnectionTypeRocketchat     = "Rocketchat"
+	ConnectionTypeSFTP           = "SFTP"
+	ConnectionTypeSlack          = "Slack"
+	ConnectionTypeSlackWebhook   = "SlackWebhook"
+	ConnectionTypeSMB            = "SMB"
+	ConnectionTypeSQLServer      = "SQL Server"
+	ConnectionTypeTeams          = "Teams"
+	ConnectionTypeTelegram       = "Telegram"
+	ConnectionTypeWebhook        = "Webhook"
+	ConnectionTypeWindows        = "Windows"
+	ConnectionTypeZulipChat      = "Zulip Chat"
 )
 
 type Connection struct {
@@ -47,4 +92,80 @@ func (c Connection) String() string {
 
 func (c Connection) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
+}
+
+// AsGoGetterURL returns the connection as a url that's supported by https://github.com/hashicorp/go-getter
+// Connection details are added to the url as query params
+func (c Connection) AsGoGetterURL() (string, error) {
+	parsedURL, err := url.Parse(c.URL)
+	if err != nil {
+		return "", err
+	}
+
+	var output string
+	switch c.Type {
+	case ConnectionTypeHTTP:
+		if c.Username != "" || c.Password != "" {
+			parsedURL.User = url.UserPassword(c.Username, c.Password)
+		}
+
+		output = parsedURL.String()
+
+	case ConnectionTypeGit:
+		q := parsedURL.Query()
+		q.Set("sshkey", c.Certificate)
+
+		if v, ok := c.Properties["ref"]; ok {
+			q.Set("ref", v)
+		}
+
+		if v, ok := c.Properties["depth"]; ok {
+			q.Set("depth", v)
+		}
+
+		parsedURL.RawQuery = q.Encode()
+		output = parsedURL.String()
+
+	case ConnectionTypeAWS:
+		q := parsedURL.Query()
+		q.Set("aws_access_key_id", c.Username)
+		q.Set("aws_access_key_secret", c.Password)
+
+		if v, ok := c.Properties["profile"]; ok {
+			q.Set("aws_profile", v)
+		}
+
+		if v, ok := c.Properties["region"]; ok {
+			q.Set("region", v)
+		}
+
+		// For S3
+		if v, ok := c.Properties["version"]; ok {
+			q.Set("version", v)
+		}
+
+		parsedURL.RawQuery = q.Encode()
+		output = parsedURL.String()
+	}
+
+	return output, nil
+}
+
+func (c Connection) AsEnv() []string {
+	var envs []string
+	switch c.Type {
+	case ConnectionTypeAWS:
+		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
+		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
+
+		if v, ok := c.Properties["profile"]; ok {
+			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
+		}
+
+		if v, ok := c.Properties["region"]; ok {
+			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
+		}
+	}
+
+	return envs
 }
