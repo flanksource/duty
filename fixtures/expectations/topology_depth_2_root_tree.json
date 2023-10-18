@@ -7,7 +7,9 @@
           "agent_id": "00000000-0000-0000-0000-000000000000",
           "id": "018681fd-5770-336f-227c-259435d7fc6b",
           "is_leaf": false,
-          "labels": { "telemetry": "enabled" },
+          "labels": {
+            "telemetry": "enabled"
+          },
           "name": "logistics-api",
           "status": "warning",
           "summary": {
@@ -64,30 +66,15 @@
       "type": "Entity"
     },
     {
-      "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
       "agent_id": "00000000-0000-0000-0000-000000000000",
-      "external_id": "dummy/cluster",
-      "name": "cluster",
-      "status": "healthy",
-      "type": "KubernetesCluster",
-      "summary": {
-        "healthy": 2,
-        "insights": {
-          "security": {
-            "critical": 1
-          }
-        }
-      },
-      "icon": "icon-cluster",
-      "tooltip": "Kubernetes Cluster",
-      "is_leaf": false,
       "components": [
         {
-          "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
           "agent_id": "00000000-0000-0000-0000-000000000000",
+          "icon": "icon-kubernetes-node",
+          "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+          "is_leaf": false,
           "name": "Nodes",
           "status": "healthy",
-          "type": "KubernetesNodes",
           "summary": {
             "healthy": 2,
             "insights": {
@@ -96,20 +83,37 @@
               }
             }
           },
-          "is_leaf": false
+          "type": "KubernetesNodes"
         },
         {
-          "id": "018681ff-559f-7183-19d1-7d898b4e1413",
           "agent_id": "00000000-0000-0000-0000-000000000000",
+          "icon": "icon-kubernetes-pod",
+          "id": "018681ff-559f-7183-19d1-7d898b4e1413",
+          "is_leaf": false,
           "name": "Pods",
           "status": "healthy",
-          "type": "KubernetesPods",
           "summary": {
             "healthy": 3
           },
-          "is_leaf": false
+          "type": "KubernetesPods"
         }
-      ]
+      ],
+      "external_id": "dummy/cluster",
+      "icon": "icon-cluster",
+      "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+      "is_leaf": false,
+      "name": "cluster",
+      "status": "healthy",
+      "summary": {
+        "healthy": 2,
+        "insights": {
+          "security": {
+            "critical": 1
+          }
+        }
+      },
+      "tooltip": "Kubernetes Cluster",
+      "type": "KubernetesCluster"
     },
     {
       "agent_id": "ebd4cbf7-267e-48f9-a050-eca12e535ce1",
@@ -118,15 +122,22 @@
       "is_leaf": false,
       "name": "payments-api",
       "status": "healthy",
-      "summary": { "healthy": 1 },
+      "summary": {
+        "healthy": 1
+      },
       "type": "Application"
     }
   ],
-  "healthStatuses": ["healthy", "unhealthy"],
-  "teams": [],
+  "healthStatuses": [
+    "healthy",
+    "unhealthy"
+  ],
   "tags": {
-    "telemetry": ["enabled"]
+    "telemetry": [
+      "enabled"
+    ]
   },
+  "teams": [],
   "types": [
     "Application",
     "Database",

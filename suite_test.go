@@ -97,6 +97,10 @@ func readTestFile(path string) string {
 	return string(d)
 }
 
+func writeTestResult(path string, data []byte) {
+	_ = os.WriteFile(path+".out.json", data, 0644)
+}
+
 func parseJQ(v []byte, expr string) ([]byte, error) {
 	query, err := gojq.Parse(expr)
 	if err != nil {
