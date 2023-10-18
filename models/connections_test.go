@@ -87,16 +87,16 @@ func Test_Connection_AsEnv(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			env, file := tc.connection.AsEnv()
+			envPrep := tc.connection.AsEnv()
 
 			for i, expected := range tc.expectedEnv {
-				if env[i] != expected {
-					t.Errorf("Expected environment variable: %s, but got: %s", expected, env[i])
+				if envPrep.Env[i] != expected {
+					t.Errorf("Expected environment variable: %s, but got: %s", expected, envPrep.Env[i])
 				}
 			}
 
-			if file != tc.expectedFile {
-				t.Errorf("Expected file content:\n%s\nBut got:\n%s", tc.expectedFile, file)
+			if envPrep.File.String() != tc.expectedFile {
+				t.Errorf("Expected file content:\n%s\nBut got:\n%s", tc.expectedFile, envPrep.File.String())
 			}
 		})
 	}

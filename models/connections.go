@@ -1,10 +1,13 @@
 package models
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"os/exec"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -153,33 +156,100 @@ func (c Connection) AsGoGetterURL() (string, error) {
 }
 
 // AsEnv generates environment variables and a configuration file content based on the connection type.
-func (c Connection) AsEnv() ([]string, string) {
-	var (
-		envs []string
-		file strings.Builder
-	)
+func (c Connection) AsEnv() EnvPrep {
+	envPrep := EnvPrep{
+		Conn: c,
+	}
 
 	switch c.Type {
 	case ConnectionTypeAWS:
-		envs = append(envs, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
-		envs = append(envs, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
+		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
+		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
 
-		file.WriteString("[default]\n")
-		file.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
-		file.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
+		envPrep.File.WriteString("[default]\n")
+		envPrep.File.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
+		envPrep.File.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
 
 		if v, ok := c.Properties["profile"]; ok {
-			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
+			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
 		}
 
 		if v, ok := c.Properties["region"]; ok {
-			envs = append(envs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
-			file.WriteString(fmt.Sprintf("region = %s\n", v))
+			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
+			envPrep.File.WriteString(fmt.Sprintf("region = %s\n", v))
+		}
+
+	case ConnectionTypeAzure:
+		// Do nothing
+
+	case ConnectionTypeGCP:
+		envPrep.File.WriteString(c.Certificate)
+	}
+
+	return envPrep
+}
+
+type EnvPrep struct {
+	Conn Connection
+
+	// Env is the connection credentials in environment variables
+	Env []string
+
+	// File contains the content of the configuration file based on the connection
+	File bytes.Buffer
+}
+
+func (c *EnvPrep) Apply(ctx context.Context, cmd *exec.Cmd, configAbsPath string) error {
+	switch c.Conn.Type {
+	case ConnectionTypeAWS:
+		if err := saveConfig(c.File.Bytes(), configAbsPath); err != nil {
+			return err
+		}
+
+		cmd.Env = append(cmd.Env, "AWS_EC2_METADATA_DISABLED=true") // https://github.com/aws/aws-cli/issues/5262#issuecomment-705832151
+		cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_SHARED_CREDENTIALS_FILE=%s", configAbsPath))
+		if v, ok := c.Conn.Properties["region"]; ok {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
 		}
 
 	case ConnectionTypeGCP:
-		file.WriteString(c.Certificate)
+		if err := saveConfig(c.File.Bytes(), configAbsPath); err != nil {
+			return err
+		}
+
+		// to configure gcloud CLI to use the service account specified in GOOGLE_APPLICATION_CREDENTIALS,
+		// we need to explicitly activate it
+		runCmd := exec.Command("gcloud", "auth", "activate-service-account", "--key-file", configAbsPath)
+		if err := runCmd.Run(); err != nil {
+			return fmt.Errorf("failed to activate GCP service account: %w", err)
+		}
+
+		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configAbsPath))
+
+	case ConnectionTypeAzure:
+		args := []string{"login", "--service-principal", "--username", c.Conn.Username, "--password", c.Conn.Password}
+		if v, ok := c.Conn.Properties["tenant"]; ok {
+			args = append(args, "--tenant")
+			args = append(args, v)
+		}
+
+		// login with service principal
+		runCmd := exec.CommandContext(ctx, "az", args...)
+		if err := runCmd.Run(); err != nil {
+			return err
+		}
 	}
 
-	return envs, file.String()
+	return nil
+}
+
+func saveConfig(content []byte, absPath string) error {
+	file, err := os.Create(absPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.Write(content)
+	return err
 }
