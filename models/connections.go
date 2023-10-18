@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -18,46 +20,46 @@ import (
 
 // List of all connection types
 const (
-	ConnectionTypeAWS            = "AWS"
-	ConnectionTypeAzure          = "Azure"
-	ConnectionTypeAzureDevops    = "Azure Devops"
-	ConnectionTypeDiscord        = "Discord"
-	ConnectionTypeDynatrace      = "Dynatrace"
-	ConnectionTypeElasticSearch  = "ElasticSearch"
-	ConnectionTypeEmail          = "Email"
-	ConnectionTypeGCP            = "Google Cloud"
-	ConnectionTypeGenericWebhook = "Generic Webhook"
-	ConnectionTypeGit            = "Git"
-	ConnectionTypeGithub         = "Github"
-	ConnectionTypeGoogleChat     = "Google Chat"
-	ConnectionTypeHTTP           = "HTTP"
-	ConnectionTypeIFTTT          = "IFTTT"
-	ConnectionTypeJMeter         = "JMeter"
-	ConnectionTypeKubernetes     = "Kubernetes"
-	ConnectionTypeLDAP           = "LDAP"
-	ConnectionTypeMatrix         = "Matrix"
-	ConnectionTypeMattermost     = "Mattermost"
-	ConnectionTypeMongo          = "Mongo"
-	ConnectionTypeMySQL          = "MySQL"
-	ConnectionTypeNtfy           = "Ntfy"
-	ConnectionTypeOpsGenie       = "OpsGenie"
-	ConnectionTypePostgres       = "Postgres"
-	ConnectionTypePrometheus     = "Prometheus"
-	ConnectionTypePushbullet     = "Pushbullet"
-	ConnectionTypePushover       = "Pushover"
-	ConnectionTypeRedis          = "Redis"
-	ConnectionTypeRestic         = "Restic"
-	ConnectionTypeRocketchat     = "Rocketchat"
-	ConnectionTypeSFTP           = "SFTP"
-	ConnectionTypeSlack          = "Slack"
-	ConnectionTypeSlackWebhook   = "SlackWebhook"
-	ConnectionTypeSMB            = "SMB"
-	ConnectionTypeSQLServer      = "SQL Server"
-	ConnectionTypeTeams          = "Teams"
-	ConnectionTypeTelegram       = "Telegram"
-	ConnectionTypeWebhook        = "Webhook"
-	ConnectionTypeWindows        = "Windows"
-	ConnectionTypeZulipChat      = "Zulip Chat"
+	ConnectionTypeAWS            = "aws"
+	ConnectionTypeAzure          = "azure"
+	ConnectionTypeAzureDevops    = "azure_devops"
+	ConnectionTypeDiscord        = "discord"
+	ConnectionTypeDynatrace      = "dynatrace"
+	ConnectionTypeElasticSearch  = "elasticsearch"
+	ConnectionTypeEmail          = "email"
+	ConnectionTypeGCP            = "google_cloud"
+	ConnectionTypeGenericWebhook = "generic_webhook"
+	ConnectionTypeGit            = "git"
+	ConnectionTypeGithub         = "github"
+	ConnectionTypeGoogleChat     = "google_chat"
+	ConnectionTypeHTTP           = "http"
+	ConnectionTypeIFTTT          = "ifttt"
+	ConnectionTypeJMeter         = "jmeter"
+	ConnectionTypeKubernetes     = "kubernetes"
+	ConnectionTypeLDAP           = "ldap"
+	ConnectionTypeMatrix         = "matrix"
+	ConnectionTypeMattermost     = "mattermost"
+	ConnectionTypeMongo          = "mongo"
+	ConnectionTypeMySQL          = "mysql"
+	ConnectionTypeNtfy           = "ntfy"
+	ConnectionTypeOpsGenie       = "opsgenie"
+	ConnectionTypePostgres       = "postgres"
+	ConnectionTypePrometheus     = "prometheus"
+	ConnectionTypePushbullet     = "pushbullet"
+	ConnectionTypePushover       = "pushover"
+	ConnectionTypeRedis          = "redis"
+	ConnectionTypeRestic         = "restic"
+	ConnectionTypeRocketchat     = "rocketchat"
+	ConnectionTypeSFTP           = "sftp"
+	ConnectionTypeSlack          = "slack"
+	ConnectionTypeSlackWebhook   = "slackwebhook"
+	ConnectionTypeSMB            = "smb"
+	ConnectionTypeSQLServer      = "sql_server"
+	ConnectionTypeTeams          = "teams"
+	ConnectionTypeTelegram       = "telegram"
+	ConnectionTypeWebhook        = "webhook"
+	ConnectionTypeWindows        = "windows"
+	ConnectionTypeZulipChat      = "zulip_chat"
 )
 
 type Connection struct {
@@ -76,9 +78,10 @@ type Connection struct {
 }
 
 func (c Connection) String() string {
-	if c.Type == "aws" {
+	if strings.ToLower(c.Type) == ConnectionTypeAWS {
 		return "AWS::" + c.Username
 	}
+
 	var connection string
 	// Obfuscate passwords of the form ' password=xxxxx ' from connectionString since
 	// connectionStrings are used as metric labels and we don't want to leak passwords
@@ -109,7 +112,7 @@ func (c Connection) AsGoGetterURL() (string, error) {
 	}
 
 	var output string
-	switch c.Type {
+	switch strings.ReplaceAll(strings.ToLower(c.Type), " ", "_") {
 	case ConnectionTypeHTTP:
 		if c.Username != "" || c.Password != "" {
 			parsedURL.User = url.UserPassword(c.Username, c.Password)
@@ -119,7 +122,10 @@ func (c Connection) AsGoGetterURL() (string, error) {
 
 	case ConnectionTypeGit:
 		q := parsedURL.Query()
-		q.Set("sshkey", c.Certificate)
+
+		if c.Certificate != "" {
+			q.Set("sshkey", base64.URLEncoding.EncodeToString([]byte(c.Certificate)))
+		}
 
 		if v, ok := c.Properties["ref"]; ok {
 			q.Set("ref", v)
@@ -163,7 +169,7 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 		Files: make(map[string]bytes.Buffer),
 	}
 
-	switch c.Type {
+	switch strings.ReplaceAll(strings.ToLower(c.Type), " ", "_") {
 	case ConnectionTypeAWS:
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
