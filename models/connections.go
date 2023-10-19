@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 )
@@ -127,11 +128,11 @@ func (c Connection) AsGoGetterURL() (string, error) {
 			q.Set("sshkey", base64.URLEncoding.EncodeToString([]byte(c.Certificate)))
 		}
 
-		if v, ok := c.Properties["ref"]; ok {
+		if v, ok := c.Properties["ref"]; ok && v != "" {
 			q.Set("ref", v)
 		}
 
-		if v, ok := c.Properties["depth"]; ok {
+		if v, ok := c.Properties["depth"]; ok && v != "" {
 			q.Set("depth", v)
 		}
 
@@ -143,16 +144,16 @@ func (c Connection) AsGoGetterURL() (string, error) {
 		q.Set("aws_access_key_id", c.Username)
 		q.Set("aws_access_key_secret", c.Password)
 
-		if v, ok := c.Properties["profile"]; ok {
+		if v, ok := c.Properties["profile"]; ok && v != "" {
 			q.Set("aws_profile", v)
 		}
 
-		if v, ok := c.Properties["region"]; ok {
+		if v, ok := c.Properties["region"]; ok && v != "" {
 			q.Set("region", v)
 		}
 
 		// For S3
-		if v, ok := c.Properties["version"]; ok {
+		if v, ok := c.Properties["version"]; ok && v != "" {
 			q.Set("version", v)
 		}
 
@@ -174,19 +175,21 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", c.Username))
 		envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", c.Password))
 
-		// credentialFilePath :="$HOME/.aws/credentials"
 		credentialFilePath := filepath.Join(".creds", "aws", fmt.Sprintf("cred-%d", rand.Intn(100000000)))
+		if p, err := hash.JSONMD5Hash(c); err == nil {
+			credentialFilePath = filepath.Join(".creds", "aws", p)
+		}
 
 		var credentialFile bytes.Buffer
 		credentialFile.WriteString("[default]\n")
 		credentialFile.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
 		credentialFile.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
 
-		if v, ok := c.Properties["profile"]; ok {
+		if v, ok := c.Properties["profile"]; ok && v != "" {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
 		}
 
-		if v, ok := c.Properties["region"]; ok {
+		if v, ok := c.Properties["region"]; ok && v != "" {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
 
 			credentialFile.WriteString(fmt.Sprintf("region = %s\n", v))
@@ -201,7 +204,7 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 
 	case ConnectionTypeAzure:
 		args := []string{"login", "--service-principal", "--username", c.Username, "--password", c.Password}
-		if v, ok := c.Properties["tenant"]; ok {
+		if v, ok := c.Properties["tenant"]; ok && v != "" {
 			args = append(args, "--tenant")
 			args = append(args, v)
 		}
@@ -213,8 +216,10 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 		var credentialFile bytes.Buffer
 		credentialFile.WriteString(c.Certificate)
 
-		// credentialFilePath := "$HOME/.config/gcloud/credentials"
 		credentialFilePath := filepath.Join(".creds", "gcp", fmt.Sprintf("cred-%d", rand.Intn(100000000)))
+		if p, err := hash.JSONMD5Hash(c); err == nil {
+			credentialFilePath = filepath.Join(".creds", "gcp", p)
+		}
 
 		// to configure gcloud CLI to use the service account specified in GOOGLE_APPLICATION_CREDENTIALS,
 		// we need to explicitly activate it
@@ -256,9 +261,13 @@ func (c *EnvPrep) Inject(ctx context.Context, cmd *exec.Cmd) ([]*exec.Cmd, error
 }
 
 func saveConfig(content []byte, absPath string) error {
+	if err := os.MkdirAll(filepath.Dir(absPath), os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create base directory for config: %w", err)
+	}
+
 	file, err := os.Create(absPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create config file: %w", err)
 	}
 	defer file.Close()
 
