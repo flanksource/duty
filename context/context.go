@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/models"
@@ -93,21 +94,36 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 }
 
 func (k Context) DB() *gorm.DB {
-	return k.Value("db").(*gorm.DB)
+	v, ok := k.Value("db").(*gorm.DB)
+	if !ok {
+		return nil
+	}
+	return v
 }
 
 func (k Context) Pool() *pgxpool.Pool {
-	return k.Value("pgxpool").(*pgxpool.Pool)
+	v, ok := k.Value("pgxpool").(*pgxpool.Pool)
+	if !ok {
+		return nil
+	}
+	return v
+
 }
 
-// TODO: Handle it being nil/empty
 func (k *Context) Kubernetes() kubernetes.Interface {
-	return k.Value("kubernetes").(kubernetes.Interface)
+	v, ok := k.Value("kubernetes").(kubernetes.Interface)
+	if !ok {
+		return fake.NewSimpleClientset()
+	}
+	return v
 }
 
-// TODO: Handle it being nil/empty
 func (k *Context) Kommons() *kommons.Client {
-	return k.Value("kommons").(*kommons.Client)
+	v, ok := k.Value("kommons").(*kommons.Client)
+	if !ok {
+		return nil
+	}
+	return v
 }
 
 func (k Context) StartSpan(name string) (Context, trace.Span) {
