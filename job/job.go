@@ -15,8 +15,7 @@ type Job struct {
 	Schedule        string
 	AllowConcurrent bool
 	Timeout         time.Duration
-	Fn              func(ctx JobRuntime, args ...any) error
-	Args            []any
+	Fn              func(ctx JobRuntime) error
 	RunNow          bool
 	ID              string
 	entryID         *cron.EntryID
@@ -29,13 +28,12 @@ type JobRuntime struct {
 	Ended   time.Time
 }
 
-func NewJob(ctx context.Context, name string, schedule string, fn func(ctx JobRuntime, args ...any) error, args ...any) *Job {
+func NewJob(ctx context.Context, name string, schedule string, fn func(ctx JobRuntime) error) *Job {
 	return &Job{
 		Context:  ctx,
 		Name:     name,
 		Schedule: schedule,
 		Fn:       fn,
-		Args:     args,
 	}
 }
 
@@ -70,7 +68,7 @@ func (j Job) Run() {
 	}
 
 	defer span.End()
-	if err := j.Fn(r, j.Args...); err != nil {
+	if err := j.Fn(r); err != nil {
 		ctx.Error(err)
 	}
 }
@@ -96,11 +94,9 @@ func (j Job) GetEntry(cronRunner *cron.Cron) *cron.Entry {
 	return &entry
 }
 
-func (j Job) RemoveFromScheduler(cronRunner *cron.Cron) *cron.Entry {
-	for _, entry := range cronRunner.Entries() {
-		if entry.Job.(Job).Name == j.Name {
-			return &entry
-		}
+func (j Job) RemoveFromScheduler(cronRunner *cron.Cron) {
+	if j.entryID == nil {
+		return
 	}
-	return nil
+	cronRunner.Remove(*j.entryID)
 }
