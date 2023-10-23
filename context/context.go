@@ -4,6 +4,7 @@ import (
 	gocontext "context"
 
 	commons "github.com/flanksource/commons/context"
+	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -57,6 +58,7 @@ func (k Context) WithObject(object metav1.ObjectMeta) Context {
 }
 
 func (k Context) WithUser(user *models.Person) Context {
+	k.GetSpan().SetAttributes(attribute.String("user-id", user.ID.String()))
 	return Context{
 		Context: k.WithValue("user", user),
 	}
@@ -69,6 +71,12 @@ func (k Context) User() *models.Person {
 func (k Context) WithKubernetes(client kubernetes.Interface) Context {
 	return Context{
 		Context: k.WithValue("kubernetes", client),
+	}
+}
+
+func (k Context) WithKommons(client *kommons.Client) Context {
+	return Context{
+		Context: k.WithValue("kommons", client),
 	}
 }
 
@@ -92,8 +100,14 @@ func (k Context) Pool() *pgxpool.Pool {
 	return k.Value("pgxpool").(*pgxpool.Pool)
 }
 
+// TODO: Handle it being nil/empty
 func (k *Context) Kubernetes() kubernetes.Interface {
 	return k.Value("kubernetes").(kubernetes.Interface)
+}
+
+// TODO: Handle it being nil/empty
+func (k *Context) Kommons() *kommons.Client {
+	return k.Value("kommons").(*kommons.Client)
 }
 
 func (k Context) StartSpan(name string) (Context, trace.Span) {
@@ -165,17 +179,10 @@ func (k *Context) HydrateConnection(connection *models.Connection, namespace str
 	return duty.HydrateConnection(k, k.Kubernetes(), k.DB(), connection, namespace)
 }
 
-func WrapContext(gormDB *gorm.DB, pool *pgxpool.Pool, k8s kubernetes.Interface, tracer trace.Tracer) func(gocontext.Context) Context {
-	return func(ctx gocontext.Context) Context {
-		return NewContext(ctx, commons.WithTracer(tracer)).
-			WithDB(gormDB, pool).
-			WithKubernetes(k8s)
-	}
-}
-
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer())).
 		WithDB(k.DB(), k.Pool()).
 		WithKubernetes(k.Kubernetes()).
+		WithKommons(k.Kommons()).
 		WithNamespace(k.GetNamespace())
 }
