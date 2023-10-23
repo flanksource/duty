@@ -43,3 +43,5 @@ FROM
         GROUP BY
             agent_id
     ) AS playbook_runs ON playbook_runs.agent_id = agents.id
+WHERE
+  deleted_at IS NULL;
