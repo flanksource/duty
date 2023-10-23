@@ -6,24 +6,21 @@ import (
 	"io"
 
 	"github.com/flanksource/commons/http"
-	"github.com/flanksource/commons/http/middlewares"
-	"go.opentelemetry.io/otel"
 )
 
 type UpstreamClient struct {
-	httpClient *http.Client
+	*http.Client
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
-	tracedTransport := middlewares.NewTracedTransport(middlewares.TraceConfig{}).
-		TraceProvider(otel.GetTracerProvider()).
-		TraceQueryParam(true)
-
 	return &UpstreamClient{
-		httpClient: http.NewClient().
+		Client: http.NewClient().
 			Auth(config.Username, config.Password).
+			InsecureSkipVerify(config.InsecureSkipVerify).
 			BaseURL(fmt.Sprintf("%s/upstream", config.Host)).
-			Use(tracedTransport.RoundTripper),
+			Trace(http.TraceConfig{
+				QueryParam: true,
+			}),
 	}
 }
 
@@ -33,7 +30,7 @@ func (t *UpstreamClient) Push(ctx context.Context, msg *PushData) error {
 		return nil
 	}
 
-	resp, err := t.httpClient.R(ctx).Post("push", msg)
+	resp, err := t.R(ctx).Post("push", msg)
 	if err != nil {
 		return fmt.Errorf("error pushing to upstream: %w", err)
 	}
