@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS agents_summary;
+
 CREATE OR REPLACE VIEW agents_summary AS
 SELECT
     agents.*,
