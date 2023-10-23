@@ -68,6 +68,17 @@ table "agents" {
     default = sql("now()")
   }
 
+  column "cleanup" {
+    null    = false
+    type    = boolean
+    default = false
+  }
+
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+
   primary_key {
     columns = [column.id]
   }
