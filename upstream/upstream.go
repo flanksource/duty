@@ -11,11 +11,12 @@ import (
 )
 
 type UpstreamConfig struct {
-	AgentName string
-	Host      string
-	Username  string
-	Password  string
-	Labels    []string
+	AgentName          string
+	Host               string
+	InsecureSkipVerify bool
+	Username           string
+	Password           string
+	Labels             []string
 }
 
 func (t *UpstreamConfig) Valid() bool {
@@ -50,20 +51,55 @@ type PushData struct {
 
 func (p *PushData) String() string {
 	result := ""
-	result += fmt.Sprintf("AgentName: %s\n", p.AgentName)
-	result += fmt.Sprintf("Topologies: %d\n", len(p.Topologies))
-	result += fmt.Sprintf("Canaries: %d\n", len(p.Canaries))
-	result += fmt.Sprintf("Checks: %d\n", len(p.Checks))
-	result += fmt.Sprintf("Components: %d\n", len(p.Components))
-	result += fmt.Sprintf("ConfigAnalysis: %d\n", len(p.ConfigAnalysis))
-	result += fmt.Sprintf("ConfigScrapers: %d\n", len(p.ConfigScrapers))
-	result += fmt.Sprintf("ConfigChanges: %d\n", len(p.ConfigChanges))
-	result += fmt.Sprintf("ConfigItems: %d\n", len(p.ConfigItems))
-	result += fmt.Sprintf("CheckStatuses: %d\n", len(p.CheckStatuses))
-	result += fmt.Sprintf("ConfigRelationships: %d\n", len(p.ConfigRelationships))
-	result += fmt.Sprintf("ComponentRelationships: %d\n", len(p.ComponentRelationships))
-	result += fmt.Sprintf("ConfigComponentRelationships: %d\n", len(p.ConfigComponentRelationships))
-	return result
+	for k, v := range p.Attributes() {
+		result += fmt.Sprintf("%s=%s ", k, v)
+	}
+	return strings.TrimSpace(result)
+}
+
+func (p *PushData) Attributes() map[string]any {
+	attrs := map[string]any{
+		"name": p.AgentName,
+	}
+
+	if len(p.Topologies) > 0 {
+		attrs["Topologies"] = len(p.Topologies)
+	}
+	if len(p.Canaries) > 0 {
+		attrs["Canaries"] = len(p.Canaries)
+	}
+	if len(p.Checks) > 0 {
+		attrs["Checks"] = len(p.Checks)
+	}
+	if len(p.Components) > 0 {
+		attrs["Components"] = len(p.Components)
+	}
+	if len(p.ConfigAnalysis) > 0 {
+		attrs["ConfigAnalysis"] = len(p.ConfigAnalysis)
+	}
+	if len(p.ConfigScrapers) > 0 {
+		attrs["ConfigScrapers"] = len(p.ConfigScrapers)
+	}
+	if len(p.ConfigChanges) > 0 {
+		attrs["ConfigChanges"] = len(p.ConfigChanges)
+	}
+	if len(p.ConfigItems) > 0 {
+		attrs["ConfigItems"] = len(p.ConfigItems)
+	}
+	if len(p.CheckStatuses) > 0 {
+		attrs["CheckStatuses"] = len(p.CheckStatuses)
+	}
+	if len(p.ConfigRelationships) > 0 {
+		attrs["ConfigRelationships"] = len(p.ConfigRelationships)
+	}
+	if len(p.ComponentRelationships) > 0 {
+		attrs["ComponentRelationships"] = len(p.ComponentRelationships)
+	}
+	if len(p.ConfigComponentRelationships) > 0 {
+		attrs["ConfigComponentRelationships"] = len(p.ConfigComponentRelationships)
+	}
+
+	return attrs
 }
 
 func (t *PushData) Count() int {

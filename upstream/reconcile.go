@@ -158,7 +158,7 @@ func (t *upstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request 
 }
 
 func (t *upstreamReconciler) createPaginateRequest(ctx gocontext.Context, request PaginateRequest) *http.Request {
-	return t.upstreamClient.httpClient.R(ctx).
+	return t.upstreamClient.R(ctx).
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).
 		QueryParam("size", fmt.Sprintf("%d", request.Size))

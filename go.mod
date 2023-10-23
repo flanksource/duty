@@ -5,7 +5,7 @@ go 1.20
 require (
 	ariga.io/atlas v0.14.2
 	github.com/fergusstrange/embedded-postgres v1.21.0
-	github.com/flanksource/commons v1.15.1
+	github.com/flanksource/commons v1.17.1
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.1
 	github.com/google/uuid v1.3.1
@@ -88,6 +88,7 @@ require (
 	github.com/hashicorp/go-getter v1.7.3 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
+	github.com/henvic/httpretty v0.1.2 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
