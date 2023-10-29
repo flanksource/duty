@@ -9,6 +9,14 @@ table "playbooks" {
     null = false
     type = text
   }
+  column "icon" {
+    null = true
+    type = text
+  }
+  column "description" {
+    null = true
+    type = text
+  }
   column "spec" {
     null = false
     type = jsonb
