@@ -21,14 +21,16 @@ const (
 )
 
 type Playbook struct {
-	ID        uuid.UUID  `gorm:"default:generate_ulid()" json:"id"`
-	Name      string     `json:"name"`
-	Spec      types.JSON `json:"spec"`
-	Source    string     `json:"source"`
-	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+	ID          uuid.UUID  `gorm:"default:generate_ulid()" json:"id"`
+	Name        string     `json:"name"`
+	Icon        string     `json:"icon,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Spec        types.JSON `json:"spec"`
+	Source      string     `json:"source"`
+	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt   time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedAt   time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
 func (p Playbook) AsMap(removeFields ...string) map[string]any {
