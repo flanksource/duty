@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS check_summary_for_component;
 DROP VIEW IF EXISTS check_summary;
 DROP MATERIALIZED VIEW IF EXISTS check_status_summary;
 DROP VIEW IF EXISTS check_status_summary_aged;
@@ -110,8 +111,6 @@ CREATE OR REPLACE TRIGGER checks_last_transition_time BEFORE
 UPDATE ON checks FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
 EXECUTE PROCEDURE update_last_transition_time_for_check ();
 
--- Check summary by component
-DROP FUNCTION IF EXISTS check_summary_for_component;
 
 CREATE OR REPLACE FUNCTION check_summary_for_component(id uuid) RETURNS setof check_summary
 AS $$
