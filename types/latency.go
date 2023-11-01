@@ -11,8 +11,9 @@ import (
 
 type Latency struct {
 	Percentile99 float64 `json:"p99,omitempty" db:"p99"`
-	Percentile97 float64 `json:"p97,omitempty" db:"p97"`
 	Percentile95 float64 `json:"p95,omitempty" db:"p95"`
+	Percentile50 float64 `json:"p50,omitempty" db:"p50"`
+	Avg          float64 `json:"avg,omitempty" db:"mean"`
 	Rolling1H    float64 `json:"rolling1h"`
 }
 
