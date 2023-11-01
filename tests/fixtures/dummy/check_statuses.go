@@ -46,5 +46,7 @@ var OlderThan1H = models.CheckStatus{
 
 var AllDummyCheckStatuses = append(
 	generateStatus(LogisticsAPIHealthHTTPCheck, time.Now(), 70, 5),
+	generateStatus(DeletedCheck, time.Now(), 1, 1)[0],
+	generateStatus(DeletedCheckOld, *DeletedCheckOld.CreatedAt, 1, 1)[0],
 	LogisticsAPIHomeHTTPCheckStatus1,
 	OlderThan1H)
