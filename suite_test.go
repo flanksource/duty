@@ -11,6 +11,8 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/testutils"
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
 	"github.com/itchyny/gojq"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -98,7 +100,18 @@ func readTestFile(path string) string {
 }
 
 func writeTestResult(path string, data []byte) {
-	_ = os.WriteFile(path+".out.json", data, 0644)
+	d, _ := normalizeJSON(string(data))
+	_ = os.WriteFile(path+".out.json", []byte(d), 0644)
+}
+
+func match(path string, result any, jqFilter string) {
+	resultJSON, err := json.Marshal(result)
+
+	Expect(err).ToNot(HaveOccurred())
+
+	writeTestResult(path, resultJSON)
+	expected := readTestFile(path)
+	matchJSON([]byte(expected), resultJSON, &jqFilter)
 }
 
 func parseJQ(v []byte, expr string) ([]byte, error) {
@@ -130,6 +143,46 @@ func parseJQ(v []byte, expr string) ([]byte, error) {
 	return jsonVal, nil
 }
 
+// normalizeJSON returns an indented json string.
+// The keys are sorted lexicographically.
+func normalizeJSON(jsonStr string) (string, error) {
+	var jsonStrMap interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &jsonStrMap); err != nil {
+		return "", err
+	}
+
+	jsonStrIndented, err := json.MarshalIndent(jsonStrMap, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonStrIndented), nil
+}
+
+// generateDiff calculates the diff (git style) between the given 2 configs.
+func generateDiff(newConf, prevConfig string) (string, error) {
+	// We want a nicely indented json config with each key-vals in new line
+	// because that gives us a better diff. A one-line json string config produces diff
+	// that's not very helpful.
+	before, err := normalizeJSON(prevConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to normalize json for previous config: %w", err)
+	}
+
+	after, err := normalizeJSON(newConf)
+	if err != nil {
+		return "", fmt.Errorf("failed to normalize json for new config: %w", err)
+	}
+
+	edits := myers.ComputeEdits("", before, after)
+	if len(edits) == 0 {
+		return "", nil
+	}
+
+	diff := fmt.Sprint(gotextdiff.ToUnified("before", "after", before, edits))
+	return diff, nil
+}
+
 func matchJSON(actual []byte, expected []byte, jqExpr *string) {
 	var valueA, valueB = actual, expected
 	var err error
@@ -145,5 +198,8 @@ func matchJSON(actual []byte, expected []byte, jqExpr *string) {
 		}
 
 	}
-	Expect(valueA).To(MatchJSON(valueB))
+
+	diff, err := generateDiff(string(valueA), string(valueB))
+	Expect(err).To(BeNil())
+	Expect(diff).To(BeEmpty())
 }

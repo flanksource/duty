@@ -7,31 +7,25 @@ import (
 )
 
 var t1 = currentTime.Add(-15 * time.Minute)
-var t2 = currentTime.Add(-10 * time.Minute)
 var t3 = currentTime.Add(-5 * time.Minute)
 
-var LogisticsAPIHealthHTTPCheckStatus1 = models.CheckStatus{
-	CheckID:   LogisticsAPIHealthHTTPCheck.ID,
-	Duration:  100,
-	Status:    true,
-	CreatedAt: t1,
-	Time:      t1.Format("2006-01-02 15:04:05"),
-}
+func generateStatus(check models.Check, t time.Time, count int, passingMod int) []models.CheckStatus {
+	var statuses = []models.CheckStatus{}
 
-var LogisticsAPIHealthHTTPCheckStatus2 = models.CheckStatus{
-	CheckID:   LogisticsAPIHealthHTTPCheck.ID,
-	Duration:  100,
-	Status:    true,
-	CreatedAt: t2,
-	Time:      t2.Format("2006-01-02 15:04:05"),
-}
-
-var LogisticsAPIHealthHTTPCheckStatus3 = models.CheckStatus{
-	CheckID:   LogisticsAPIHealthHTTPCheck.ID,
-	Duration:  100,
-	Status:    true,
-	CreatedAt: t3,
-	Time:      t3.Format("2006-01-02 15:04:05"),
+	for i := 0; i < count; i++ {
+		status := true
+		if i%passingMod == 0 {
+			status = false
+		}
+		statuses = append(statuses, models.CheckStatus{
+			CheckID:   check.ID,
+			Status:    status,
+			CreatedAt: t,
+			Duration:  (1 + i) * 20,
+			Time:      t.Add(time.Minute * time.Duration(i)).Format(time.DateTime),
+		})
+	}
+	return statuses
 }
 
 var LogisticsAPIHomeHTTPCheckStatus1 = models.CheckStatus{
@@ -39,21 +33,18 @@ var LogisticsAPIHomeHTTPCheckStatus1 = models.CheckStatus{
 	Duration:  100,
 	Status:    true,
 	CreatedAt: t1,
-	Time:      t3.Format("2006-01-02 15:04:05"),
+	Time:      t3.Format(time.DateTime),
 }
 
-var LogisticsDBCheckStatus1 = models.CheckStatus{
+var OlderThan1H = models.CheckStatus{
 	CheckID:   LogisticsDBCheck.ID,
 	Duration:  50,
 	Status:    false,
 	CreatedAt: t1,
-	Time:      t1.Format("2006-01-02 15:04:05"),
+	Time:      time.Now().Add(-70 * time.Minute).Format(time.DateTime),
 }
 
-var AllDummyCheckStatuses = []models.CheckStatus{
-	LogisticsAPIHealthHTTPCheckStatus1,
-	LogisticsAPIHealthHTTPCheckStatus2,
-	LogisticsAPIHealthHTTPCheckStatus3,
+var AllDummyCheckStatuses = append(
+	generateStatus(LogisticsAPIHealthHTTPCheck, time.Now(), 70, 5),
 	LogisticsAPIHomeHTTPCheckStatus1,
-	LogisticsDBCheckStatus1,
-}
+	OlderThan1H)

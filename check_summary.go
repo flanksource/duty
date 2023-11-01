@@ -8,8 +8,23 @@ import (
 
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
+
+type CheckSummarySortBy string
+
+var CheckSummarySortByName CheckSummarySortBy = "name"
+
+type CheckSummaryOptions struct {
+	SortBy CheckSummarySortBy
+}
+
+func OrderByName() CheckSummaryOptions {
+	return CheckSummaryOptions{
+		SortBy: CheckSummarySortByName,
+	}
+}
 
 func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
 	var checkSummary models.CheckSummary
@@ -24,7 +39,7 @@ func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
 	return &checkSummary, nil
 }
 
-func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks, error) {
+func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool, opts ...CheckSummaryOptions) (models.Checks, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
@@ -49,6 +64,25 @@ func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool) (models.Checks
 			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
 		}
 		results = append(results, checks...)
+	}
+
+	if len(opts) > 0 && opts[0].SortBy != "" {
+		slice := []*models.Check(results)
+		slices.SortFunc(slice, func(a, b *models.Check) int {
+			var _a, _b string
+			if opts[0].SortBy == CheckSummarySortByName {
+				_a = a.Name
+				_b = b.Name
+			}
+			if _a > _b {
+				return 1
+			}
+			if _a == _b {
+				return 0
+			}
+			return -1
+		})
+		return models.Checks(slice), nil
 	}
 
 	return results, nil
