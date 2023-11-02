@@ -82,6 +82,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 	if opt.Labels != nil {
 		s += ` AND (parent.labels @> @labels)`
 	}
+
 	if opt.ID != "" {
 		if !opt.nonDirectChildrenOnly {
 			s += " AND (component_relationships.relationship_id = @id OR parent.parent_id = @id)"
@@ -90,7 +91,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 		}
 	} else {
 		if !opt.nonDirectChildrenOnly {
-			s += " AND component_relationships.component_id = NULL"
+			s += " AND component_relationships.component_id IS NULL"
 		} else {
 			s += " AND component_relationships.component_id IS NOT NULL"
 		}
@@ -201,7 +202,16 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 	}
 
 	if len(nonDirectChildren.Components) > 0 {
-		response.Components = append(response.Components, nonDirectChildren.Components...)
+		compMap := make(map[string]bool)
+		for _, c := range response.Components {
+			compMap[c.ID.String()] = true
+		}
+		for _, c := range nonDirectChildren.Components {
+			if _, exists := compMap[c.ID.String()]; !exists {
+				response.Components = append(response.Components, c)
+			}
+		}
+
 		response.HealthStatuses = append(response.HealthStatuses, nonDirectChildren.HealthStatuses...)
 		response.Teams = append(response.Teams, nonDirectChildren.Teams...)
 		response.Types = append(response.Types, nonDirectChildren.Types...)
@@ -224,6 +234,7 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	if err != nil {
 		return nil, err
 	}
+
 	response.Components = applyTypeFilter(response.Components, params.Types...)
 
 	if !params.Flatten {
@@ -306,6 +317,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 				compChildrenMap[c.ParentId.String()] = append(compChildrenMap[c.ParentId.String()], c)
 			}
 		}
+
 		for _, parentID := range c.Parents {
 			compChildrenMap[parentID] = append(compChildrenMap[parentID], c)
 		}
