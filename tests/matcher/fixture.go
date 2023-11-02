@@ -19,7 +19,7 @@ func MatchFixture(path string, result any, jqFilter string) {
 
 	writeTestResult(path, resultJSON)
 	expected := readTestFile(path)
-	CompareJSON([]byte(expected), resultJSON, &jqFilter)
+	CompareJSON(resultJSON, []byte(expected), &jqFilter)
 }
 
 func readTestFile(p string) string {
