@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/template"
-	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -42,7 +41,7 @@ func extractConnectionNameType(connectionString string) (name string, connection
 // The connection string is expected to be in one of the following forms:
 //   - connection://<type>/<name> or
 //   - the UUID of the connection.
-func HydratedConnectionByURL(ctx context.Context, namespace, connectionString string) (*models.Connection, error) {
+func HydratedConnectionByURL(ctx Context, namespace, connectionString string) (*models.Connection, error) {
 	if connectionString == "" {
 		return nil, nil
 	}
@@ -74,7 +73,7 @@ func IsValidConnectionURL(connectionString string) bool {
 
 // FindConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be of the form: connection://<type>/<name>
-func FindConnectionByURL(ctx context.Context, connectionString string) (*models.Connection, error) {
+func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
 		if err := ctx.DB().Where("id = ?", connectionString).First(&connection).Error; err != nil {
@@ -97,7 +96,7 @@ func FindConnectionByURL(ctx context.Context, connectionString string) (*models.
 }
 
 // FindConnection returns the connection with the given type and name
-func FindConnection(ctx context.Context, connectionType, name string) (*models.Connection, error) {
+func FindConnection(ctx Context, connectionType, name string) (*models.Connection, error) {
 	var connection models.Connection
 
 	err := ctx.DB().Where("type = ? AND name = ?", connectionType, name).First(&connection).Error
@@ -112,11 +111,11 @@ func FindConnection(ctx context.Context, connectionType, name string) (*models.C
 	return &connection, nil
 }
 
-func (ctx *Context) GetConnection(connectionType string, name string, namespace string) (*models.Connection, error) {
+func (ctx Context) GetConnection(connectionType string, name string, namespace string) (*models.Connection, error) {
 	return GetConnection(ctx, connectionType, name, namespace)
 }
 
-func GetConnection(ctx context.Context, connectionType string, name string, namespace string) (*models.Connection, error) {
+func GetConnection(ctx Context, connectionType string, name string, namespace string) (*models.Connection, error) {
 	connection, err := FindConnection(ctx, connectionType, name)
 	if err != nil {
 		return nil, err
@@ -132,7 +131,7 @@ func GetConnection(ctx context.Context, connectionType string, name string, name
 // Create a cache with a default expiration time of 5 minutes, and which
 // purges expired items every 10 minutes
 // var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
-func HydrateConnection(ctx context.Context, connection *models.Connection, namespace string) (*models.Connection, error) {
+func HydrateConnection(ctx Context, connection *models.Connection, namespace string) (*models.Connection, error) {
 	var err error
 	if connection.Username, err = GetEnvStringFromCache(ctx, connection.Username, namespace); err != nil {
 		return nil, err

@@ -190,7 +190,7 @@ func (k Context) HydratedConnectionByURL(namespace, connectionString string) (*m
 	return HydratedConnectionByURL(k, namespace, connectionString)
 }
 
-func (k *Context) HydrateConnection(connection *models.Connection, namespace string) (*models.Connection, error) {
+func (k Context) HydrateConnection(connection *models.Connection, namespace string) (*models.Connection, error) {
 	return HydrateConnection(k, connection, namespace)
 }
 
