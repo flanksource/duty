@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 
@@ -172,27 +171,27 @@ func (k Context) GetAnnotations() map[string]string {
 }
 
 func (k Context) GetEnvValueFromCache(input types.EnvVar, namespace string) (string, error) {
-	return duty.GetEnvValueFromCache(k.Kubernetes(), input, namespace)
+	return GetEnvValueFromCache(k, input, namespace)
 }
 
-func (k *Context) GetEnvStringFromCache(env string, namespace string) (string, error) {
-	return duty.GetEnvStringFromCache(k.Kubernetes(), env, namespace)
+func (k Context) GetEnvStringFromCache(env string, namespace string) (string, error) {
+	return GetEnvStringFromCache(k, env, namespace)
 }
 
-func (k *Context) GetSecretFromCache(namespace, name, key string) (string, error) {
-	return duty.GetSecretFromCache(k.Kubernetes(), namespace, name, key)
+func (k Context) GetSecretFromCache(namespace, name, key string) (string, error) {
+	return GetSecretFromCache(k, namespace, name, key)
 }
 
-func (k *Context) GetConfigMapFromCache(namespace, name, key string) (string, error) {
-	return duty.GetConfigMapFromCache(k.Kubernetes(), namespace, name, key)
+func (k Context) GetConfigMapFromCache(namespace, name, key string) (string, error) {
+	return GetConfigMapFromCache(k, namespace, name, key)
 }
 
 func (k Context) HydratedConnectionByURL(namespace, connectionString string) (*models.Connection, error) {
-	return duty.HydratedConnectionByURL(k, k.DB(), k.Kubernetes(), namespace, connectionString)
+	return HydratedConnectionByURL(k, namespace, connectionString)
 }
 
 func (k *Context) HydrateConnection(connection *models.Connection, namespace string) (*models.Connection, error) {
-	return duty.HydrateConnection(k, k.Kubernetes(), k.DB(), connection, namespace)
+	return HydrateConnection(k, connection, namespace)
 }
 
 func (k Context) Wrap(ctx gocontext.Context) Context {
