@@ -1,4 +1,4 @@
-package duty
+package tests
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type configClassSummary struct {
 
 var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query config_class_summary view", func() {
-		rows, err := testutils.TestDBPGPool.Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
+		rows, err := testutils.DefaultContext.Pool().Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
 		Expect(err).ToNot(HaveOccurred())
 		defer rows.Close()
 

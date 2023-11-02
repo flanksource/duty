@@ -1,18 +1,16 @@
-package config
+package query
 
 import (
-	"context"
+	gocontext "context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/context"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/xwb1989/sqlparser"
 )
-
-var DefaultQueryTimeout = 30 * time.Second
 
 // Recursively inspects a given SQLNode and applies the supplied inspector function to each node.
 func inspect(node sqlparser.SQLNode, inspector func(node sqlparser.TableName) bool) bool {
@@ -96,22 +94,22 @@ func validateTablesInQuery(query string, allowedPrefix ...string) (bool, error) 
 }
 
 // Query executes a SQL query against the "config_" tables in the database.
-func Query(ctx context.Context, conn *pgxpool.Pool, sqlQuery string) ([]map[string]any, error) {
+func Config(ctx context.Context, sqlQuery string) ([]map[string]any, error) {
 	if isValid, err := validateTablesInQuery(sqlQuery, "config_"); err != nil {
 		return nil, err
 	} else if !isValid {
 		return nil, fmt.Errorf("query references restricted tables: %w", err)
 	}
 
-	return query(ctx, conn, sqlQuery)
+	return query(ctx, ctx.Pool(), sqlQuery)
 }
 
 // query runs the given SQL query against the provided db connection.
 // The rows are returned as a map of columnName=>columnValue.
 func query(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]any, error) {
 	if _, ok := ctx.Deadline(); !ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, DefaultQueryTimeout)
+		var cancel gocontext.CancelFunc
+		ctx, cancel = ctx.WithTimeout(DefaultQueryTimeout)
 		defer cancel()
 	}
 

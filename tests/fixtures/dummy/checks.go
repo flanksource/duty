@@ -1,6 +1,8 @@
 package dummy
 
 import (
+	"time"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -39,7 +41,31 @@ var CartAPIHeathCheckAgent = models.Check{
 	Status:   models.CheckHealthStatus(types.ComponentStatusHealthy),
 }
 
+var DeletedCheck = models.Check{
+	ID:        uuid.MustParse("eed7bd6e-529b-4693-aca9-55177bcc5ff1"),
+	AgentID:   GCPAgent.ID,
+	CanaryID:  CartAPICanaryAgent.ID,
+	DeletedAt: &t1,
+	Name:      "cart-deleted",
+	Type:      "http",
+	Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
+}
+
+var old = time.Now().Add(1000 * time.Hour)
+var DeletedCheckOld = models.Check{
+	ID:        uuid.MustParse("eed8bd6e-529b-4693-aca9-55177bcc5ff1"),
+	AgentID:   GCPAgent.ID,
+	CanaryID:  CartAPICanaryAgent.ID,
+	CreatedAt: &old,
+	DeletedAt: &old,
+	Name:      "cart-deleted-old",
+	Type:      "http",
+	Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
+}
+
 var AllDummyChecks = []models.Check{
+	DeletedCheck,
+	DeletedCheckOld,
 	LogisticsAPIHealthHTTPCheck,
 	LogisticsAPIHomeHTTPCheck,
 	LogisticsDBCheck,

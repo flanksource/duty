@@ -1,4 +1,4 @@
-package duty
+package setup
 
 import (
 	"context"
