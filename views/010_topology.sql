@@ -17,7 +17,7 @@ WITH
   children AS (
     SELECT
       relationship_id AS id,
-      ARRAY_AGG(component_id) AS children
+      ARRAY_AGG(DISTINCT component_id) AS children
     FROM
       component_relationships
     WHERE
@@ -28,7 +28,7 @@ WITH
   parents AS (
     SELECT
       component_id AS id,
-      ARRAY_AGG(relationship_id) AS parents
+      ARRAY_AGG(DISTINCT relationship_id) AS parents
     FROM
       component_relationships
     WHERE
