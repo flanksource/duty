@@ -1,8 +1,7 @@
 package testutils
 
 import (
-	"github.com/jackc/pgx/v5/pgxpool"
-	"gorm.io/gorm"
+	"github.com/flanksource/duty/context"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -12,7 +11,6 @@ import (
 // for the entire test suite.
 // The variables are here so they can be imported by other packages as well.
 var (
-	TestDB       *gorm.DB
-	TestDBPGPool *pgxpool.Pool
-	TestClient   kubernetes.Interface
+	TestClient     kubernetes.Interface
+	DefaultContext context.Context
 )

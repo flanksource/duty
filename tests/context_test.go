@@ -1,4 +1,4 @@
-package context
+package tests
 
 import (
 	gocontext "context"
@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/flanksource/duty/context"
 	. "github.com/onsi/gomega"
 )
 
@@ -36,7 +37,7 @@ var tracer trace.Tracer
 func TestContext(t *testing.T) {
 
 	RegisterTestingT(t)
-	c := NewContext(gocontext.Background()).WithObject(metav1.ObjectMeta{
+	c := context.NewContext(gocontext.Background()).WithObject(metav1.ObjectMeta{
 		Name:        "test",
 		Namespace:   "default",
 		Annotations: map[string]string{"debug": "true"},

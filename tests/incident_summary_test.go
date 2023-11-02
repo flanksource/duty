@@ -1,12 +1,12 @@
-package duty
+package tests
 
 import (
 	"database/sql/driver"
 	"fmt"
 	"time"
 
-	"github.com/flanksource/duty/fixtures/dummy"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/testutils"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -69,7 +69,7 @@ type IncidentSummary struct {
 var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query incident_summary view", func() {
 		var incidents []IncidentSummary
-		err := testutils.TestDB.Raw("SELECT * FROM incident_summary").Scan(&incidents).Error
+		err := testutils.DefaultContext.DB().Raw("SELECT * FROM incident_summary").Scan(&incidents).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(len(incidents)).To(Equal(len(dummy.AllDummyIncidents)))
