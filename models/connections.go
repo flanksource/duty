@@ -66,6 +66,7 @@ const (
 type Connection struct {
 	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
 	Name        string              `gorm:"column:name" json:"name" faker:"name"  `
+	Namespace   string              `gorm:"column:namespace" json:"namespace"`
 	Type        string              `gorm:"column:type" json:"type" faker:"oneof:  postgres, mysql, aws, gcp, http" `
 	URL         string              `gorm:"column:url" json:"url,omitempty" faker:"url" template:"true"`
 	Username    string              `gorm:"column:username" json:"username,omitempty" faker:"username"  `

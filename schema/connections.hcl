@@ -9,6 +9,10 @@ table "connections" {
     null = false
     type = text
   }
+  column "namespace" {
+    null = true
+    type = text
+  }
   column "type" {
     null    = false
     type    = text
