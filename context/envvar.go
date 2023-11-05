@@ -16,6 +16,9 @@ import (
 var envCache = cache.New(5*time.Minute, 10*time.Minute)
 
 func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (string, error) {
+	if namespace == "" {
+		namespace = ctx.GetNamespace()
+	}
 	if input.ValueFrom == nil {
 		return input.ValueStatic, nil
 	}

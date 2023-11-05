@@ -18,6 +18,30 @@ type EnvVar struct {
 	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
 }
 
+// With* interfaces provide a mechanism for connections to have their values overwritten by values specified lower in the
+// heirachy
+
+type WithUsernamePassword interface {
+	GetUsername() EnvVar
+	GetPassword() EnvVar
+}
+
+type WithCertificate interface {
+	GetCertificate() EnvVar
+}
+
+type WithURL interface {
+	GetURL() EnvVar
+}
+
+type WithProperties interface {
+	GetProperties() map[string]string
+}
+
+type GetEnvVarFromCache interface {
+	GetEnvValueFromCache(e EnvVar, namespace string) (string, error)
+}
+
 func (e EnvVar) String() string {
 	if e.ValueFrom == nil {
 		return e.ValueStatic

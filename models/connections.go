@@ -105,6 +105,62 @@ func (c Connection) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
 
+func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, error) {
+	if v, ok := from.(types.WithUsernamePassword); ok {
+		username := v.GetUsername()
+		if !username.IsEmpty() {
+			val, err := ctx.GetEnvValueFromCache(username, "")
+			if err != nil {
+				return nil, err
+			}
+			c.Username = val
+		}
+		password := v.GetPassword()
+		if !password.IsEmpty() {
+			val, err := ctx.GetEnvValueFromCache(password, "")
+			if err != nil {
+				return nil, err
+			}
+			c.Password = val
+		}
+	}
+
+	if v, ok := from.(types.WithCertificate); ok {
+		cert := v.GetCertificate()
+		if !cert.IsEmpty() {
+			val, err := ctx.GetEnvValueFromCache(cert, "")
+			if err != nil {
+				return nil, err
+			}
+			c.Certificate = val
+		}
+	}
+
+	if v, ok := from.(types.WithURL); ok {
+		url := v.GetURL()
+		if !url.IsEmpty() {
+			val, err := ctx.GetEnvValueFromCache(url, "")
+			if err != nil {
+				return nil, err
+			}
+			c.URL = val
+		}
+	}
+
+	if v, ok := from.(types.WithProperties); ok {
+
+		if c.Properties == nil {
+			c.Properties = make(types.JSONStringMap)
+		}
+		for k, v := range v.GetProperties() {
+			c.Properties[k] = v
+		}
+	}
+
+	return &c, nil
+
+}
+
 // AsGoGetterURL returns the connection as a url that's supported by https://github.com/hashicorp/go-getter
 // Connection details are added to the url as query params
 func (c Connection) AsGoGetterURL() (string, error) {
@@ -124,6 +180,10 @@ func (c Connection) AsGoGetterURL() (string, error) {
 
 	case ConnectionTypeGit:
 		q := parsedURL.Query()
+
+		if c.Username != "" || c.Password != "" {
+			parsedURL.User = url.UserPassword(c.Username, c.Password)
+		}
 
 		if c.Certificate != "" {
 			q.Set("sshkey", base64.URLEncoding.EncodeToString([]byte(c.Certificate)))
