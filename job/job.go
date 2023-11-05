@@ -76,7 +76,7 @@ func (j Job) Run() {
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	entryID, err := cronRunner.AddJob(j.Schedule, j)
 	if err != nil {
-		return fmt.Errorf("failed to schedule job: %s", j.Name)
+		return fmt.Errorf("failed to schedule job %s: %s", j.Name, err)
 	}
 	j.entryID = &entryID
 	if j.RunNow {
