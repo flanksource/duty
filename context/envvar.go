@@ -50,7 +50,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	}
 	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if secret == nil {
-		return "", fmt.Errorf("could not get contents of secret %v from namespace %v: %w", name, namespace, err)
+		return "", fmt.Errorf("could not get contents of secret %s/%s: %v", namespace, name, err)
 	}
 
 	value, ok := secret.Data[key]
@@ -60,7 +60,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 		for k := range secret.Data {
 			names = append(names, k)
 		}
-		return "", fmt.Errorf("could not find key %v in secret %v (%s)", key, name, strings.Join(names, ", "))
+		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(names, ", "))
 	}
 	envCache.Set(id, string(value), 5*time.Minute)
 	return string(value), nil
@@ -73,7 +73,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	}
 	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if configMap == nil {
-		return "", fmt.Errorf("could not get contents of configmap %v from namespace %v: %w", name, namespace, err)
+		return "", fmt.Errorf("could not get contents of configmap %s/%s: %s", namespace, name, err)
 	}
 
 	value, ok := configMap.Data[key]
@@ -82,7 +82,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		for k := range configMap.Data {
 			names = append(names, k)
 		}
-		return "", fmt.Errorf("could not find key %v in configmap %v (%s)", key, name, strings.Join(names, ", "))
+		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name, strings.Join(names, ", "))
 	}
 	envCache.Set(id, string(value), 5*time.Minute)
 	return string(value), nil

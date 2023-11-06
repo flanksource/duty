@@ -8,6 +8,7 @@ import (
 )
 
 func TestCanary_AsMap(t *testing.T) {
+	id := uuid.New()
 	tests := []struct {
 		name         string
 		canary       Canary
@@ -17,17 +18,17 @@ func TestCanary_AsMap(t *testing.T) {
 		{
 			name: "remove single field",
 			canary: Canary{
-				ID:        uuid.New(),
+				ID:        id,
 				Namespace: "canary",
 				Name:      "dummy-canary",
 			},
-			removeFields: []string{"id"},
 			want: map[string]any{
 				"name":       "dummy-canary",
 				"namespace":  "canary",
 				"agent_id":   "00000000-0000-0000-0000-000000000000",
 				"created_at": "0001-01-01T00:00:00Z",
 				"updated_at": "0001-01-01T00:00:00Z",
+				"id":         id.String(),
 				"spec":       nil,
 			},
 		},

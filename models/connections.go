@@ -79,6 +79,17 @@ type Connection struct {
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
 }
 
+func ConnectionFromURL(url url.URL) *Connection {
+	c := &Connection{}
+	if url.User != nil {
+		c.Username = url.User.Username()
+		c.Password, _ = url.User.Password()
+	}
+	url.User = nil
+	c.URL = url.String()
+	return c
+}
+
 func (c Connection) String() string {
 	if strings.ToLower(c.Type) == ConnectionTypeAWS {
 		return "AWS::" + c.Username
@@ -109,7 +120,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 	if v, ok := from.(types.WithUsernamePassword); ok {
 		username := v.GetUsername()
 		if !username.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(username, "")
+			val, err := ctx.GetEnvValueFromCache(username)
 			if err != nil {
 				return nil, err
 			}
@@ -117,7 +128,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 		}
 		password := v.GetPassword()
 		if !password.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(password, "")
+			val, err := ctx.GetEnvValueFromCache(password)
 			if err != nil {
 				return nil, err
 			}
@@ -128,7 +139,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 	if v, ok := from.(types.WithCertificate); ok {
 		cert := v.GetCertificate()
 		if !cert.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(cert, "")
+			val, err := ctx.GetEnvValueFromCache(cert)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +159,6 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 	}
 
 	if v, ok := from.(types.WithProperties); ok {
-
 		if c.Properties == nil {
 			c.Properties = make(types.JSONStringMap)
 		}
@@ -199,6 +209,9 @@ func (c Connection) AsGoGetterURL() (string, error) {
 
 		parsedURL.RawQuery = q.Encode()
 		output = parsedURL.String()
+		if !strings.HasPrefix(output, "git::") {
+			output = "git::" + output
+		}
 
 	case ConnectionTypeAWS:
 		q := parsedURL.Query()
