@@ -3,6 +3,7 @@ package context
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/flanksource/commons/template"
@@ -37,18 +38,22 @@ func extractConnectionNameType(connectionString string) (name string, connection
 	return parts[1], parts[0], true
 }
 
-// HydratedConnectionByURL retrieves a connection from the given connection string.
+// HydrateConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be in one of the following forms:
 //   - connection://<type>/<name> or
 //   - the UUID of the connection.
-func HydratedConnectionByURL(ctx Context, namespace, connectionString string) (*models.Connection, error) {
+func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if connectionString == "" {
 		return nil, nil
 	}
 
 	// Must be in one of the correct forms.
 	if _, err := uuid.Parse(connectionString); err != nil && !strings.HasPrefix(connectionString, "connection://") {
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connection://<type>/<name> or the connection UUID", connectionString)
+		if _url, err := url.Parse(connectionString); err == nil {
+			return models.ConnectionFromURL(*_url), nil
+		}
+
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection://<type>/<name> , uuid or URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -60,7 +65,7 @@ func HydratedConnectionByURL(ctx Context, namespace, connectionString string) (*
 		return nil, nil
 	}
 
-	return HydrateConnection(ctx, connection, namespace)
+	return HydrateConnection(ctx, connection)
 }
 
 func IsValidConnectionURL(connectionString string) bool {
@@ -111,11 +116,11 @@ func FindConnection(ctx Context, connectionType, name string) (*models.Connectio
 	return &connection, nil
 }
 
-func (ctx Context) GetConnection(connectionType string, name string, namespace string) (*models.Connection, error) {
-	return GetConnection(ctx, connectionType, name, namespace)
+func (ctx Context) GetConnection(connectionType string, name string) (*models.Connection, error) {
+	return GetConnection(ctx, connectionType, name)
 }
 
-func GetConnection(ctx Context, connectionType string, name string, namespace string) (*models.Connection, error) {
+func GetConnection(ctx Context, connectionType string, name string) (*models.Connection, error) {
 	connection, err := FindConnection(ctx, connectionType, name)
 	if err != nil {
 		return nil, err
@@ -125,23 +130,23 @@ func GetConnection(ctx Context, connectionType string, name string, namespace st
 		return nil, ErrNotFound
 	}
 
-	return HydrateConnection(ctx, connection, namespace)
+	return HydrateConnection(ctx, connection)
 }
 
 // Create a cache with a default expiration time of 5 minutes, and which
 // purges expired items every 10 minutes
 // var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
-func HydrateConnection(ctx Context, connection *models.Connection, namespace string) (*models.Connection, error) {
+func HydrateConnection(ctx Context, connection *models.Connection) (*models.Connection, error) {
 	var err error
-	if connection.Username, err = GetEnvStringFromCache(ctx, connection.Username, namespace); err != nil {
+	if connection.Username, err = GetEnvStringFromCache(ctx, connection.Username, connection.Namespace); err != nil {
 		return nil, err
 	}
 
-	if connection.Password, err = GetEnvStringFromCache(ctx, connection.Password, namespace); err != nil {
+	if connection.Password, err = GetEnvStringFromCache(ctx, connection.Password, connection.Namespace); err != nil {
 		return nil, err
 	}
 
-	if connection.Certificate, err = GetEnvStringFromCache(ctx, connection.Certificate, namespace); err != nil {
+	if connection.Certificate, err = GetEnvStringFromCache(ctx, connection.Certificate, connection.Namespace); err != nil {
 		return nil, err
 	}
 
@@ -154,7 +159,7 @@ func HydrateConnection(ctx Context, connection *models.Connection, namespace str
 	data := map[string]interface{}{
 		"name":      connection.Name,
 		"type":      connection.Type,
-		"namespace": namespace,
+		"namespace": connection.Namespace,
 		"username":  connection.Username,
 		"password":  connection.Password,
 		"domain":    domain,
