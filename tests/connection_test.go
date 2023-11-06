@@ -10,11 +10,12 @@ import (
 var _ = Describe("Connection", Ordered, func() {
 	BeforeAll(func() {
 		tx := testutils.DefaultContext.DB().Save(&models.Connection{
-			Name:     "test",
-			Type:     "test",
-			Username: "configmap://test-cm/foo",
-			Password: "secret://test-secret/foo",
-			URL:      "sql://db?user=$(username)&password=$(password)",
+			Name:      "test",
+			Type:      "test",
+			Namespace: "default",
+			Username:  "configmap://test-cm/foo",
+			Password:  "secret://test-secret/foo",
+			URL:       "sql://db?user=$(username)&password=$(password)",
 		})
 		Expect(tx.Error).ToNot(HaveOccurred())
 	})
@@ -32,7 +33,7 @@ var _ = Describe("Connection", Ordered, func() {
 	var connection *models.Connection
 	var err error
 	It("should be retrieved successfully", func() {
-		connection, err = testutils.DefaultContext.GetConnection("test", "test", "default")
+		connection, err = testutils.DefaultContext.GetConnection("test", "test")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
