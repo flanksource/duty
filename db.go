@@ -3,7 +3,6 @@ package duty
 import (
 	"context"
 	"database/sql"
-	"log"
 	"net/url"
 	"os"
 	"time"
@@ -23,17 +22,16 @@ var pool *pgxpool.Pool
 var DefaultQueryTimeout = 30 * time.Second
 
 func DefaultGormConfig() *gorm.Config {
-	logConfig := glogger.Config{
-		SlowThreshold:             time.Second,   // Slow SQL threshold
-		LogLevel:                  glogger.Error, // Log level
-		IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
-	}
-
-	if logger.IsDebugEnabled() {
-		logConfig.LogLevel = glogger.Warn
-	}
-	if logger.IsTraceEnabled() {
-		logConfig.LogLevel = glogger.Info
+	var gloggerLevel glogger.LogLevel
+	switch LogLevel {
+	case "warn":
+		gloggerLevel = glogger.Warn
+	case "error":
+		gloggerLevel = glogger.Error
+	case "info":
+		gloggerLevel = glogger.Info
+	default:
+		gloggerLevel = glogger.Silent
 	}
 
 	return &gorm.Config{
@@ -41,9 +39,7 @@ func DefaultGormConfig() *gorm.Config {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		Logger: glogger.New(
-			log.New(os.Stderr, "\r\n", log.LstdFlags), // io writer
-			logConfig),
+		Logger: NewGormLogger().LogMode(gloggerLevel),
 	}
 }
 
