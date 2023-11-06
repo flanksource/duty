@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	logsrusapi "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/spf13/pflag"
@@ -16,40 +16,38 @@ import (
 var LogLevel string
 
 func BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. (error, warn, info)")
+	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. error, warn & info")
 }
 
 type gormLogger struct {
 	logger                    logger.Logger
-	LogLevel                  gLogger.LogLevel
 	SlowThreshold             time.Duration
 	IgnoreRecordNotFoundError bool
 }
 
 func NewGormLogger() gLogger.Interface {
-	l := logsrusapi.StandardLogger()
-	l.SetFormatter(&logsrusapi.TextFormatter{
+	l := logrus.StandardLogger()
+	l.SetFormatter(&logrus.TextFormatter{
 		ForceColors:  true,
 		DisableQuote: true,
 	})
 
 	return &gormLogger{
-		logger: logger.NewLogrusLogger(l),
+		SlowThreshold: time.Second,
+		logger:        logger.NewLogrusLogger(l),
 	}
 }
 
 func (t *gormLogger) LogMode(level gLogger.LogLevel) gLogger.Interface {
-	t.LogLevel = level
-
 	switch level {
 	case gLogger.Silent:
-		t.logger.SetLogLevel(-1)
+		t.logger.SetLogLevel(int(logrus.FatalLevel))
 	case gLogger.Error:
-		t.logger.SetLogLevel(1)
+		t.logger.SetLogLevel(int(logrus.ErrorLevel))
 	case gLogger.Warn:
-		t.logger.SetLogLevel(2)
+		t.logger.SetLogLevel(int(logrus.WarnLevel))
 	default:
-		t.logger.SetLogLevel(3)
+		t.logger.SetLogLevel(int(logrus.InfoLevel))
 	}
 
 	return t
@@ -68,32 +66,19 @@ func (l *gormLogger) Error(ctx context.Context, msg string, data ...interface{})
 }
 
 func (l *gormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
-	if l.LogLevel <= gLogger.Silent {
+	if !l.logger.IsTraceEnabled() {
 		return
 	}
 
 	elapsed := time.Since(begin)
+	sql, rows := fc()
+
 	switch {
-	case err != nil && l.LogLevel >= gLogger.Error && (!errors.Is(err, gLogger.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
-		sql, rows := fc()
-		if rows == -1 {
-			l.logger.WithValues("rows", rows).Infof(sql)
-		} else {
-			l.logger.WithValues("rows", rows).Infof(sql)
-		}
-	case elapsed > l.SlowThreshold && l.SlowThreshold != 0 && l.LogLevel >= gLogger.Warn:
-		sql, rows := fc()
-		if rows == -1 {
-			l.logger.WithValues("Slow SQL", l.SlowThreshold).WithValues("rows", rows).Infof(sql)
-		} else {
-			l.logger.WithValues("Slow SQL", l.SlowThreshold).WithValues("rows", rows).Infof(sql)
-		}
-	case l.LogLevel == gLogger.Info:
-		sql, rows := fc()
-		if rows == -1 {
-			l.logger.WithValues("rows", rows).Infof(sql)
-		} else {
-			l.logger.WithValues("rows", rows).Infof(sql)
-		}
+	case err != nil && (!errors.Is(err, gLogger.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
+		l.logger.WithValues("elapsed", elapsed).WithValues("rows", rows).Errorf(sql)
+	case elapsed > l.SlowThreshold && l.SlowThreshold != 0:
+		l.logger.WithValues("elapsed", elapsed).WithValues("slow SQL", l.SlowThreshold).WithValues("rows", rows).Warnf(sql)
+	default:
+		l.logger.WithValues("elapsed", elapsed).WithValues("rows", rows).Infof(sql)
 	}
 }
