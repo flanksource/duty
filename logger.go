@@ -16,7 +16,7 @@ import (
 var LogLevel string
 
 func BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. error, warn & info")
+	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 }
 
 type gormLogger struct {
@@ -25,31 +25,34 @@ type gormLogger struct {
 	IgnoreRecordNotFoundError bool
 }
 
-func NewGormLogger() gLogger.Interface {
-	l := logrus.StandardLogger()
+func NewGormLogger(level string) gLogger.Interface {
+	l := logrus.New()
 	l.SetFormatter(&logrus.TextFormatter{
 		ForceColors:  true,
 		DisableQuote: true,
 	})
 
+	currentGormLogger := logger.NewLogrusLogger(l)
+
+	switch LogLevel {
+	case "trace":
+		currentGormLogger.SetLogLevel(2)
+	case "debug":
+		currentGormLogger.SetLogLevel(1)
+	default:
+		currentGormLogger.SetLogLevel(0)
+	}
+
 	return &gormLogger{
 		SlowThreshold: time.Second,
-		logger:        logger.NewLogrusLogger(l),
+		logger:        currentGormLogger,
 	}
 }
 
+// Pass the log level directly to NewGormLogger
 func (t *gormLogger) LogMode(level gLogger.LogLevel) gLogger.Interface {
-	switch level {
-	case gLogger.Silent:
-		t.logger.SetLogLevel(int(logrus.FatalLevel))
-	case gLogger.Error:
-		t.logger.SetLogLevel(int(logrus.ErrorLevel))
-	case gLogger.Warn:
-		t.logger.SetLogLevel(int(logrus.WarnLevel))
-	default:
-		t.logger.SetLogLevel(int(logrus.InfoLevel))
-	}
-
+	// not applicable since the mapping of gorm's loglevel to common's logger's log level
+	// doesn't work out well.
 	return t
 }
 

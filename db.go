@@ -14,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
 )
 
 var pool *pgxpool.Pool
@@ -22,24 +21,12 @@ var pool *pgxpool.Pool
 var DefaultQueryTimeout = 30 * time.Second
 
 func DefaultGormConfig() *gorm.Config {
-	var gloggerLevel glogger.LogLevel
-	switch LogLevel {
-	case "warn":
-		gloggerLevel = glogger.Warn
-	case "error":
-		gloggerLevel = glogger.Error
-	case "info":
-		gloggerLevel = glogger.Info
-	default:
-		gloggerLevel = glogger.Silent
-	}
-
 	return &gorm.Config{
 		FullSaveAssociations: true,
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		Logger: NewGormLogger().LogMode(gloggerLevel),
+		Logger: NewGormLogger(LogLevel),
 	}
 }
 
