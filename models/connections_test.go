@@ -31,7 +31,7 @@ func Test_Connection_AsGoGetterURL(t *testing.T) {
 				Certificate: "cert123",
 				Properties:  map[string]string{"ref": "main"},
 			},
-			expectedURL:   "https://github.com/repo.git?ref=main&sshkey=Y2VydDEyMw%3D%3D",
+			expectedURL:   "git::https://github.com/repo.git?ref=main&sshkey=Y2VydDEyMw%3D%3D",
 			expectedError: nil,
 		},
 	}
