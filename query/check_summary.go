@@ -27,6 +27,9 @@ type CheckSummaryOptions struct {
 	CheckID    *uuid.UUID
 	SortBy     CheckSummarySortBy
 	DeleteFrom *time.Time
+
+	// Labels apply to both the canary and check labels
+	Labels map[string]string
 }
 
 func OrderByName() CheckSummaryOptions {
@@ -49,7 +52,6 @@ func CheckSummaryByID(ctx context.Context, checkID string) (*models.CheckSummary
 }
 
 func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Checks, error) {
-
 	opt := CheckSummaryOptions{
 		Timeout: DefaultQueryTimeout,
 	}
@@ -76,6 +78,11 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Chec
 		query += " OR deleted_at > @from"
 		args["from"] = *opt.DeleteFrom
 	}
+	if opt.Labels != nil {
+		query += " AND (labels @> @labels OR check_labels @> @labels)"
+		args["labels"] = opt.Labels
+	}
+
 	rows, err := ctx.Pool().Query(ctx, query, args)
 	if err != nil {
 		return nil, err

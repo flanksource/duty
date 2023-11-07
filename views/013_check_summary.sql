@@ -87,6 +87,7 @@ CREATE OR REPLACE VIEW check_summary AS
     canaries.namespace,
     canaries.name as canary_name,
     canaries.labels,
+    checks.labels as check_labels,
     checks.severity,
     checks.owner,
     checks.last_runtime,
