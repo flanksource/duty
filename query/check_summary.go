@@ -79,7 +79,7 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Chec
 		args["from"] = *opt.DeleteFrom
 	}
 	if opt.Labels != nil {
-		query += " AND (labels @> @labels OR check_labels @> @labels)"
+		query += " AND labels @> @labels"
 		args["labels"] = opt.Labels
 	}
 
