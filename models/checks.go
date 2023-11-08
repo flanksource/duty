@@ -27,6 +27,7 @@ type Check struct {
 	Spec               types.JSON          `json:"-"`
 	Type               string              `json:"type"`
 	Name               string              `json:"name"`
+	Namespace          string              `json:"namespace"`
 	Labels             types.JSONStringMap `json:"labels" gorm:"type:jsonstringmap"`
 	Description        string              `json:"description,omitempty"`
 	Status             CheckHealthStatus   `json:"status,omitempty"`
@@ -44,7 +45,6 @@ type Check struct {
 
 	// Auxiliary fields
 	CanaryName   string        `json:"canary_name,omitempty" gorm:"-"`
-	Namespace    string        `json:"namespace,omitempty"  gorm:"-"`  // Namespace of the parent canary
 	ComponentIDs []string      `json:"components,omitempty"  gorm:"-"` // Linked component ids
 	Uptime       types.Uptime  `json:"uptime,omitempty"  gorm:"-"`
 	Latency      types.Latency `json:"latency,omitempty"  gorm:"-"`

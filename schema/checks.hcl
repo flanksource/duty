@@ -160,6 +160,11 @@ table "checks" {
     null = false
     type = text
   }
+  column "namespace" {
+    null    = false
+    type    = text
+    default = "" # Only for backward compatibility
+  }
   column "description" {
     null = true
     type = text
