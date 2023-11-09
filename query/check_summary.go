@@ -12,7 +12,6 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
@@ -51,7 +50,7 @@ func CheckSummaryByID(ctx context.Context, checkID string) (*models.CheckSummary
 	return &checkSummary, nil
 }
 
-func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Checks, error) {
+func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.CheckSummary, error) {
 	opt := CheckSummaryOptions{
 		Timeout: DefaultQueryTimeout,
 	}
@@ -71,7 +70,15 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Chec
 		defer cancel()
 	}
 
-	query := `SELECT json_agg(result) FROM check_summary AS result WHERE deleted_at is null`
+	selectField := "result"
+	switch opt.SortBy {
+	case CheckSummarySortByName:
+		selectField += " ORDER BY name"
+	case "-" + CheckSummarySortByName:
+		selectField += " ORDER BY name DESC"
+	}
+
+	query := fmt.Sprintf(`SELECT json_agg(%s) FROM check_summary AS result WHERE deleted_at is null`, selectField)
 
 	var args = pgx.NamedArgs{}
 	if opt.DeleteFrom != nil {
@@ -89,36 +96,18 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) (models.Chec
 	}
 	defer rows.Close()
 
-	var results models.Checks
+	var results []models.CheckSummary
 	for rows.Next() {
-		var checks models.Checks
+		var summmaries []models.CheckSummary
 		if rows.RawValues()[0] == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &checks); err != nil {
+		if err := json.Unmarshal(rows.RawValues()[0], &summmaries); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
 		}
-		results = append(results, checks...)
-	}
 
-	if len(opts) > 0 && opts[0].SortBy != "" {
-		slice := []*models.Check(results)
-		slices.SortFunc(slice, func(a, b *models.Check) int {
-			var _a, _b string
-			if opts[0].SortBy == CheckSummarySortByName {
-				_a = a.Name
-				_b = b.Name
-			}
-			if _a > _b {
-				return 1
-			}
-			if _a == _b {
-				return 0
-			}
-			return -1
-		})
-		return models.Checks(slice), nil
+		results = append(results, summmaries...)
 	}
 
 	return results, nil

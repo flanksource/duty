@@ -161,9 +161,8 @@ table "checks" {
     type = text
   }
   column "namespace" {
-    null    = false
+    null    = true
     type    = text
-    default = "" # Only for backward compatibility
   }
   column "description" {
     null = true

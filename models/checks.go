@@ -145,19 +145,20 @@ func (CheckStatusAggregate1d) TableName() string {
 type CheckSummary struct {
 	ID                 uuid.UUID           `json:"id"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
-	Uptime             types.Uptime        `json:"uptime"`
-	Latency            types.Latency       `json:"latency"`
-	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
-	Type               string              `json:"type"`
-	Icon               string              `json:"icon"`
-	Name               string              `json:"name"`
-	Status             string              `json:"status"`
-	Description        string              `json:"description"`
-	Namespace          string              `json:"namespace"`
 	CanaryName         string              `json:"canary_name"`
+	CanaryNamespace    string              `json:"canary_namespace"`
+	Description        string              `json:"description,omitempty"`
+	Icon               string              `json:"icon,omitempty"`
 	Labels             types.JSONStringMap `json:"labels"`
-	Severity           string              `json:"severity"`
-	Owner              string              `json:"owner"`
+	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
+	Latency            types.Latency       `json:"latency,omitempty"`
+	Name               string              `json:"name"`
+	Namespace          string              `json:"namespace"`
+	Owner              string              `json:"owner,omitempty"`
+	Severity           string              `json:"severity,omitempty"`
+	Status             string              `json:"status"`
+	Type               string              `json:"type"`
+	Uptime             types.Uptime        `json:"uptime,omitempty"`
 	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`

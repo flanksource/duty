@@ -20,6 +20,7 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 
 		matcher.MatchFixture("fixtures/expectations/check_status_summary.json", result, `del(.[].uptime.last_pass) | del(.[].uptime.last_fail) | del(.[].created_at) | del(.[].updated_at) | del(.[].agent_id)`)
 	})
+
 	ginkgo.It("should return deleted checks", func() {
 		err := query.RefreshCheckStatusSummary(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())

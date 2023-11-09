@@ -15,7 +15,7 @@ func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
 }
 
 // deprecated use query.CheckSummary
-func QueryCheckSummary(ctx gocontext.Context, dbpool *pgxpool.Pool, opts ...query.CheckSummaryOptions) (models.Checks, error) {
+func QueryCheckSummary(ctx gocontext.Context, dbpool *pgxpool.Pool, opts ...query.CheckSummaryOptions) ([]models.CheckSummary, error) {
 	return query.CheckSummary(context.NewContext(ctx).WithDB(nil, dbpool), opts...)
 }
 
