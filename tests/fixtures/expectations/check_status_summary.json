@@ -10,7 +10,8 @@
 			"rolling1h": 0
 		},
 		"name": "cart-api-health-check",
-		"namespace": "cart",
+		"namespace": "",
+		"canary_namespace": "cart",
 		"status": "healthy",
 		"type": "http",
 		"updated_at": "2023-11-01T21:47:47.647714+02:00",
@@ -34,7 +35,8 @@
 			"rolling1h": 0
 		},
 		"name": "logistics-api-health-check",
-		"namespace": "logistics",
+		"namespace": "",
+		"canary_namespace": "logistics",
 		"status": "healthy",
 		"type": "http",
 		"updated_at": "2023-11-01T21:47:47.646435+02:00",
@@ -60,7 +62,8 @@
 			"rolling1h": 0
 		},
 		"name": "logistics-api-home-check",
-		"namespace": "logistics",
+		"namespace": "",
+		"canary_namespace": "logistics",
 		"status": "healthy",
 		"type": "http",
 		"updated_at": "2023-11-01T21:47:47.64714+02:00",
@@ -85,7 +88,8 @@
 			"rolling1h": 0
 		},
 		"name": "logistics-db-check",
-		"namespace": "logistics",
+		"namespace": "",
+		"canary_namespace": "logistics",
 		"status": "unhealthy",
 		"type": "postgres",
 		"updated_at": "2023-11-01T21:47:47.647428+02:00",
