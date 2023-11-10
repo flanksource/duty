@@ -57,6 +57,10 @@ table "people" {
     null = true
     type = timestamptz
   }
+  column "last_login" {
+    null = true
+    type = timestamptz
+  }
   primary_key {
     columns = [column.id]
   }
