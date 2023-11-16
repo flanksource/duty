@@ -78,8 +78,7 @@ ORDER BY
     configs.name;
 
 -- analysis_summary_by_component
-DROP VIEW IF EXISTS analysis_summary_by_component;
-
+DROP VIEW IF EXISTS analysis_summary_by_component CASCADE;
 CREATE OR REPLACE VIEW
   analysis_summary_by_component AS
 WITH
