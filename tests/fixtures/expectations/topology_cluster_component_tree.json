@@ -1,183 +1,205 @@
 {
-  "components": [
-    {
-      "agent_id": "00000000-0000-0000-0000-000000000000",
-      "components": [
+    "components": [
         {
-          "agent_id": "00000000-0000-0000-0000-000000000000",
-          "components": [
-            {
-              "agent_id": "00000000-0000-0000-0000-000000000000",
-              "components": [
-                {
-                  "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "icon": "icon-kubernetes-pod",
-                  "id": "018681ff-e578-a926-e366-d2dc0646eafa",
-                  "is_leaf": false,
-                  "name": "logistics-worker-79cb67d8f5-lr66n",
-                  "status": "healthy",
-                  "summary": {
-                    "healthy": 1
-                  },
-                  "type": "KubernetesPod"
-                }
-              ],
-              "icon": "icon-kubernetes-node",
-              "id": "018681ff-227e-4d71-b38e-0693cc862213",
-              "is_leaf": false,
-              "name": "node-b",
-              "status": "healthy",
-              "summary": {
-                "healthy": 1,
+            "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+            "agent_id": "00000000-0000-0000-0000-000000000000",
+            "external_id": "dummy/cluster",
+            "name": "cluster",
+            "status": "healthy",
+            "tooltip": "Kubernetes Cluster",
+            "icon": "icon-cluster",
+            "type": "KubernetesCluster",
+            "summary": {
+                "healthy": 2,
                 "insights": {
-                  "security": {
-                    "critical": 1
-                  }
+                    "security": {
+                        "critical": 1
+                    }
                 }
-              },
-              "type": "KubernetesNode"
             },
-            {
-              "agent_id": "00000000-0000-0000-0000-000000000000",
-              "components": [
+            "is_leaf": false,
+            "created_at": "2023-01-01T05:29:00+05:30",
+            "updated_at": "2023-01-01T05:29:00+05:30",
+            "components": [
                 {
-                  "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "icon": "icon-kubernetes-pod",
-                  "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
-                  "is_leaf": false,
-                  "name": "logistics-api-574dc95b5d-mp64w",
-                  "status": "healthy",
-                  "summary": {
-                    "healthy": 1
-                  },
-                  "type": "KubernetesPod"
+                    "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
+                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                    "external_id": "dummy/nodes",
+                    "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+                    "name": "Nodes",
+                    "status": "healthy",
+                    "tooltip": "Kubernetes Nodes",
+                    "icon": "icon-kubernetes-node",
+                    "type": "KubernetesNodes",
+                    "path": "018681fe-8156-4b91-d178-caf8b3c2818c",
+                    "summary": {
+                        "healthy": 2,
+                        "insights": {
+                            "security": {
+                                "critical": 1
+                            }
+                        }
+                    },
+                    "is_leaf": false,
+                    "created_at": "2023-01-01T05:29:00+05:30",
+                    "updated_at": "2023-01-01T05:29:00+05:30",
+                    "components": [
+                        {
+                            "id": "018681ff-227e-4d71-b38e-0693cc862213",
+                            "agent_id": "00000000-0000-0000-0000-000000000000",
+                            "name": "node-b",
+                            "status": "healthy",
+                            "icon": "icon-kubernetes-node",
+                            "type": "KubernetesNode",
+                            "summary": {
+                                "healthy": 1,
+                                "insights": {
+                                    "security": {
+                                        "critical": 1
+                                    }
+                                }
+                            },
+                            "is_leaf": false,
+                            "created_at": "0001-01-01T00:00:00Z",
+                            "updated_at": "0001-01-01T00:00:00Z",
+                            "components": [
+                                {
+                                    "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+                                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                                    "name": "logistics-worker-79cb67d8f5-lr66n",
+                                    "status": "healthy",
+                                    "icon": "icon-kubernetes-pod",
+                                    "type": "KubernetesPod",
+                                    "summary": {
+                                        "healthy": 1
+                                    },
+                                    "is_leaf": false,
+                                    "created_at": "0001-01-01T00:00:00Z",
+                                    "updated_at": "0001-01-01T00:00:00Z"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+                            "agent_id": "00000000-0000-0000-0000-000000000000",
+                            "name": "node-a",
+                            "status": "healthy",
+                            "icon": "icon-kubernetes-node",
+                            "type": "KubernetesNode",
+                            "summary": {
+                                "healthy": 2
+                            },
+                            "is_leaf": false,
+                            "created_at": "0001-01-01T00:00:00Z",
+                            "updated_at": "0001-01-01T00:00:00Z",
+                            "components": [
+                                {
+                                    "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+                                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                                    "name": "logistics-api-574dc95b5d-mp64w",
+                                    "status": "healthy",
+                                    "icon": "icon-kubernetes-pod",
+                                    "type": "KubernetesPod",
+                                    "summary": {
+                                        "healthy": 1
+                                    },
+                                    "is_leaf": false,
+                                    "created_at": "0001-01-01T00:00:00Z",
+                                    "updated_at": "0001-01-01T00:00:00Z"
+                                },
+                                {
+                                    "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+                                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                                    "name": "logistics-ui-676b85b87c-tjjcp",
+                                    "status": "healthy",
+                                    "icon": "icon-kubernetes-pod",
+                                    "type": "KubernetesPod",
+                                    "summary": {
+                                        "healthy": 1
+                                    },
+                                    "is_leaf": false,
+                                    "created_at": "0001-01-01T00:00:00Z",
+                                    "updated_at": "0001-01-01T00:00:00Z"
+                                }
+                            ]
+                        }
+                    ]
                 },
                 {
-                  "agent_id": "00000000-0000-0000-0000-000000000000",
-                  "icon": "icon-kubernetes-pod",
-                  "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
-                  "is_leaf": false,
-                  "name": "logistics-ui-676b85b87c-tjjcp",
-                  "status": "healthy",
-                  "summary": {
-                    "healthy": 1
-                  },
-                  "type": "KubernetesPod"
+                    "id": "018681ff-559f-7183-19d1-7d898b4e1413",
+                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                    "external_id": "dummy/pods",
+                    "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+                    "name": "Pods",
+                    "status": "healthy",
+                    "tooltip": "Kubernetes Pods",
+                    "icon": "icon-kubernetes-pod",
+                    "type": "KubernetesPods",
+                    "path": "018681fe-8156-4b91-d178-caf8b3c2818c",
+                    "summary": {
+                        "healthy": 3
+                    },
+                    "is_leaf": false,
+                    "created_at": "2023-01-01T05:29:00+05:30",
+                    "updated_at": "2023-01-01T05:29:00+05:30",
+                    "components": [
+                        {
+                            "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
+                            "agent_id": "00000000-0000-0000-0000-000000000000",
+                            "name": "logistics-api-574dc95b5d-mp64w",
+                            "status": "healthy",
+                            "icon": "icon-kubernetes-pod",
+                            "type": "KubernetesPod",
+                            "summary": {
+                                "healthy": 1
+                            },
+                            "is_leaf": false,
+                            "created_at": "0001-01-01T00:00:00Z",
+                            "updated_at": "0001-01-01T00:00:00Z"
+                        },
+                        {
+                            "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
+                            "agent_id": "00000000-0000-0000-0000-000000000000",
+                            "name": "logistics-ui-676b85b87c-tjjcp",
+                            "status": "healthy",
+                            "icon": "icon-kubernetes-pod",
+                            "type": "KubernetesPod",
+                            "summary": {
+                                "healthy": 1
+                            },
+                            "is_leaf": false,
+                            "created_at": "0001-01-01T00:00:00Z",
+                            "updated_at": "0001-01-01T00:00:00Z"
+                        },
+                        {
+                            "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+                            "agent_id": "00000000-0000-0000-0000-000000000000",
+                            "name": "logistics-worker-79cb67d8f5-lr66n",
+                            "status": "healthy",
+                            "icon": "icon-kubernetes-pod",
+                            "type": "KubernetesPod",
+                            "summary": {
+                                "healthy": 1
+                            },
+                            "is_leaf": false,
+                            "created_at": "0001-01-01T00:00:00Z",
+                            "updated_at": "0001-01-01T00:00:00Z"
+                        }
+                    ]
                 }
-              ],
-              "icon": "icon-kubernetes-node",
-              "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
-              "is_leaf": false,
-              "name": "node-a",
-              "status": "healthy",
-              "summary": {
-                "healthy": 2
-              },
-              "type": "KubernetesNode"
-            }
-          ],
-          "external_id": "dummy/nodes",
-          "icon": "icon-kubernetes-node",
-          "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
-          "is_leaf": false,
-          "name": "Nodes",
-          "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
-          "path": "018681fe-8156-4b91-d178-caf8b3c2818c",
-          "status": "healthy",
-          "summary": {
-            "healthy": 2,
-            "insights": {
-              "security": {
-                "critical": 1
-              }
-            }
-          },
-          "tooltip": "Kubernetes Nodes",
-          "type": "KubernetesNodes"
-        },
-        {
-          "agent_id": "00000000-0000-0000-0000-000000000000",
-          "components": [
-            {
-              "agent_id": "00000000-0000-0000-0000-000000000000",
-              "icon": "icon-kubernetes-pod",
-              "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
-              "is_leaf": false,
-              "name": "logistics-api-574dc95b5d-mp64w",
-              "status": "healthy",
-              "summary": {
-                "healthy": 1
-              },
-              "type": "KubernetesPod"
-            },
-            {
-              "agent_id": "00000000-0000-0000-0000-000000000000",
-              "icon": "icon-kubernetes-pod",
-              "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
-              "is_leaf": false,
-              "name": "logistics-ui-676b85b87c-tjjcp",
-              "status": "healthy",
-              "summary": {
-                "healthy": 1
-              },
-              "type": "KubernetesPod"
-            },
-            {
-              "agent_id": "00000000-0000-0000-0000-000000000000",
-              "icon": "icon-kubernetes-pod",
-              "id": "018681ff-e578-a926-e366-d2dc0646eafa",
-              "is_leaf": false,
-              "name": "logistics-worker-79cb67d8f5-lr66n",
-              "status": "healthy",
-              "summary": {
-                "healthy": 1
-              },
-              "type": "KubernetesPod"
-            }
-          ],
-          "external_id": "dummy/pods",
-          "icon": "icon-kubernetes-pod",
-          "id": "018681ff-559f-7183-19d1-7d898b4e1413",
-          "is_leaf": false,
-          "name": "Pods",
-          "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
-          "path": "018681fe-8156-4b91-d178-caf8b3c2818c",
-          "status": "healthy",
-          "summary": {
-            "healthy": 3
-          },
-          "tooltip": "Kubernetes Pods",
-          "type": "KubernetesPods"
+            ]
         }
-      ],
-      "external_id": "dummy/cluster",
-      "icon": "icon-cluster",
-      "id": "018681fe-8156-4b91-d178-caf8b3c2818c",
-      "is_leaf": false,
-      "name": "cluster",
-      "status": "healthy",
-      "summary": {
-        "healthy": 2,
-        "insights": {
-          "security": {
-            "critical": 1
-          }
-        }
-      },
-      "tooltip": "Kubernetes Cluster",
-      "type": "KubernetesCluster"
-    }
-  ],
-  "healthStatuses": [
-    "healthy"
-  ],
-  "tags": null,
-  "teams": [],
-  "types": [
-    "KubernetesCluster",
-    "KubernetesNode",
-    "KubernetesNodes",
-    "KubernetesPod",
-    "KubernetesPods"
-  ]
+    ],
+    "healthStatuses": [
+        "healthy"
+    ],
+    "teams": [],
+    "tags": null,
+    "types": [
+        "KubernetesCluster",
+        "KubernetesNode",
+        "KubernetesNodes",
+        "KubernetesPod",
+        "KubernetesPods"
+    ]
 }
