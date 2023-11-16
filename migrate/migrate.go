@@ -91,6 +91,17 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 			return err
 		}
 		logger.Debugf("Granted postgrest_api to %s", user)
+
+		grantQuery := `
+            GRANT SELECT, UPDATE, DELETE, INSERT ON ALL TABLES IN SCHEMA public TO postgrest_api;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, UPDATE, DELETE, INSERT ON TABLES TO postgrest_api;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgrest_api;
+        `
+		if _, err := pool.Exec(grantQuery); err != nil {
+			return err
+		}
+		logger.Debugf("Granted privileges to postgrest_api", user)
+
 	}
 
 	isPostgrestAnonGranted, err := checkIfRoleIsGranted(pool, "postgrest_anon", user)
