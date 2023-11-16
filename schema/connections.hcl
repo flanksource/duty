@@ -70,7 +70,7 @@ table "connections" {
   }
   index "connections_name_type_key" {
     unique  = true
-    columns = [column.type, column.name]
+    columns = [column.type, column.name, column.namespace]
   }
   foreign_key "connections_created_by_fkey" {
     columns     = [column.created_by]
