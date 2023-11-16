@@ -28,6 +28,7 @@ type Summary struct {
 	Info      int                       `json:"info,omitempty"`
 	Incidents map[string]map[string]int `json:"incidents,omitempty"`
 	Insights  map[string]map[string]int `json:"insights,omitempty"`
+	Checks    map[string]int            `json:"checks,omitempty"`
 
 	// processed is used to prevent from being caluclated twice
 	processed bool
@@ -94,6 +95,13 @@ func (s Summary) Add(b Summary, n string) Summary {
 		for sev, count := range details {
 			s.Incidents[typ][sev] += count
 		}
+	}
+
+	if s.Checks == nil {
+		s.Checks = make(map[string]int)
+	}
+	for status, count := range b.Checks {
+		s.Checks[status] += count
 	}
 
 	return s

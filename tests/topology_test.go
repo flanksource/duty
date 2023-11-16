@@ -1,7 +1,9 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
@@ -31,9 +33,25 @@ func prettytree(mytree []*models.Component) {
 	}
 }
 
+// For debugging
+// nolint
+func writeJSONToFile(filepath string, data any) error {
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(filepath, b, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func testTopologyJSON(opts query.TopologyOptions, path string) {
 	tree, err := query.Topology(testutils.DefaultContext, opts)
 	Expect(err).ToNot(HaveOccurred())
+
 	matcher.MatchFixture(path, tree, `del(.. | .created_at?, .updated_at?)`)
 }
 

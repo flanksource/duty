@@ -101,6 +101,7 @@ func (c *Component) Summarize() types.Summary {
 	var s types.Summary
 	s.Incidents = c.Summary.Incidents
 	s.Insights = c.Summary.Insights
+	s.Checks = c.Summary.Checks
 
 	if c.Components == nil {
 		switch c.Status {
@@ -113,8 +114,7 @@ func (c *Component) Summarize() types.Summary {
 		case types.ComponentStatusInfo:
 			s.Info++
 		}
-		s.Incidents = c.Summary.Incidents
-		s.Insights = c.Summary.Insights
+
 		s.SetProcessed(true)
 		return s
 	}

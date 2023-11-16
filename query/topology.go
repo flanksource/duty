@@ -309,8 +309,9 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		// TODO: Try https://stackoverflow.com/questions/30101603/merging-concatenating-jsonb-columns-in-query
 		c.Summary.Incidents = c.Incidents
 		c.Summary.Insights = c.Analysis
-		c.Analysis = nil
-		c.Incidents = nil
+		c.Summary.Checks = c.Checks
+
+		c.Analysis, c.Incidents, c.Checks = nil, nil, nil
 
 		if c.ParentId != nil {
 			if _, exists := compChildrenMap[c.ParentId.String()]; exists {
