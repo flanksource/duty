@@ -27,7 +27,7 @@ func extractConnectionNameType(connectionString string) (name, namespace, connec
 
 	connectionString = strings.TrimPrefix(connectionString, prefix)
 	parts := strings.Split(connectionString, "/")
-	if len(parts) > 3 || len(parts) < 1 {
+	if len(parts) > 3 || len(parts) < 2 {
 		return
 	}
 

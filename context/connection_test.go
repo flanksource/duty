@@ -37,10 +37,10 @@ func TestGetConnectionNameType(t *testing.T) {
 				connectionType string
 				found          bool
 			}{
-				name:           "mission_control//",
-				namespace:      "default",
-				connectionType: "db",
-				found:          true,
+				name:           "",
+				namespace:      "",
+				connectionType: "",
+				found:          false,
 			},
 		},
 		{
