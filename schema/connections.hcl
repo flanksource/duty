@@ -10,8 +10,9 @@ table "connections" {
     type = text
   }
   column "namespace" {
-    null = true
+    null = false
     type = text
+    default = "default"
   }
   column "type" {
     null    = false
@@ -68,7 +69,7 @@ table "connections" {
   primary_key {
     columns = [column.id]
   }
-  index "connections_name_type_key" {
+  index "connections_type_name_namespace_key" {
     unique  = true
     columns = [column.type, column.name, column.namespace]
   }

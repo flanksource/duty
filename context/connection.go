@@ -17,8 +17,8 @@ var (
 )
 
 // extractConnectionNameType extracts the name and connection type from a connection
-// string formatted as "connection://<type>/<name>".
-func extractConnectionNameType(connectionString string) (name string, connectionType string, found bool) {
+// string formatted as "connection://<type>/<namespace>/<name>".
+func extractConnectionNameType(connectionString string) (name, namespace, connectionType string, found bool) {
 	prefix := "connection://"
 
 	if !strings.HasPrefix(connectionString, prefix) {
@@ -26,8 +26,8 @@ func extractConnectionNameType(connectionString string) (name string, connection
 	}
 
 	connectionString = strings.TrimPrefix(connectionString, prefix)
-	parts := strings.SplitN(connectionString, "/", 2)
-	if len(parts) != 2 {
+	parts := strings.Split(connectionString, "/")
+	if len(parts) > 3 || len(parts) < 1 {
 		return
 	}
 
@@ -35,12 +35,20 @@ func extractConnectionNameType(connectionString string) (name string, connection
 		return
 	}
 
-	return parts[1], parts[0], true
+	if len(parts) == 3 {
+		name, namespace, connectionType = parts[2], parts[1], parts[0]
+		return name, namespace, connectionType, true
+	} else if len(parts) == 2 {
+		name, connectionType = parts[1], parts[0]
+		return name, "", connectionType, true
+	}
+
+	return
 }
 
 // HydrateConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be in one of the following forms:
-//   - connection://<type>/<name> or
+//   - connection://<type>/<name> or connection://<type>/<namespace>/<name>
 //   - the UUID of the connection.
 func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if connectionString == "" {
@@ -72,7 +80,7 @@ func IsValidConnectionURL(connectionString string) bool {
 	if _, err := uuid.Parse(connectionString); err == nil {
 		return true
 	}
-	_, _, found := extractConnectionNameType(connectionString)
+	_, _, _, found := extractConnectionNameType(connectionString)
 	return found
 }
 
@@ -87,24 +95,28 @@ func FindConnectionByURL(ctx Context, connectionString string) (*models.Connecti
 		return &connection, nil
 	}
 
-	name, connectionType, found := extractConnectionNameType(connectionString)
+	name, namespace, connectionType, found := extractConnectionNameType(connectionString)
 	if !found {
 		return nil, nil
 	}
 
-	connection, err := FindConnection(ctx, connectionType, name)
+	connection, err := FindConnection(ctx, connectionType, name, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find connection (type=%s, name=%s): %w", connectionType, name, err)
+		return nil, fmt.Errorf("failed to find connection (type=%s, name=%s, namespace=%s): %w", connectionType, name, namespace, err)
 	}
 
 	return connection, nil
 }
 
 // FindConnection returns the connection with the given type and name
-func FindConnection(ctx Context, connectionType, name string) (*models.Connection, error) {
+func FindConnection(ctx Context, connectionType, name, namespace string) (*models.Connection, error) {
 	var connection models.Connection
 
-	err := ctx.DB().Where("type = ? AND name = ?", connectionType, name).First(&connection).Error
+	if namespace == "" {
+		namespace = ctx.GetNamespace()
+	}
+
+	err := ctx.DB().Where("type = ? AND name = ? AND namespace = ?", connectionType, name, namespace).First(&connection).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -116,12 +128,12 @@ func FindConnection(ctx Context, connectionType, name string) (*models.Connectio
 	return &connection, nil
 }
 
-func (ctx Context) GetConnection(connectionType string, name string) (*models.Connection, error) {
-	return GetConnection(ctx, connectionType, name)
+func (ctx Context) GetConnection(connectionType, name, namespace string) (*models.Connection, error) {
+	return GetConnection(ctx, connectionType, name, namespace)
 }
 
-func GetConnection(ctx Context, connectionType string, name string) (*models.Connection, error) {
-	connection, err := FindConnection(ctx, connectionType, name)
+func GetConnection(ctx Context, connectionType, name, namespace string) (*models.Connection, error) {
+	connection, err := FindConnection(ctx, connectionType, name, namespace)
 	if err != nil {
 		return nil, err
 	}

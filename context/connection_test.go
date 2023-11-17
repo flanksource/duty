@@ -8,32 +8,37 @@ func TestGetConnectionNameType(t *testing.T) {
 		connection string
 		Expect     struct {
 			name           string
+			namespace      string
 			connectionType string
 			found          bool
 		}
 	}{
 		{
 			name:       "valid connection string",
-			connection: "connection://db/mission_control",
+			connection: "connection://db/default/mission_control",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "mission_control",
+				namespace:      "default",
 				connectionType: "db",
 				found:          true,
 			},
 		},
 		{
 			name:       "valid connection string | name has /",
-			connection: "connection://db/mission_control//",
+			connection: "connection://db/default/mission_control//",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "mission_control//",
+				namespace:      "default",
 				connectionType: "db",
 				found:          true,
 			},
@@ -43,10 +48,12 @@ func TestGetConnectionNameType(t *testing.T) {
 			connection: "connection:///type-only",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "",
+				namespace:      "",
 				connectionType: "",
 				found:          false,
 			},
@@ -56,10 +63,12 @@ func TestGetConnectionNameType(t *testing.T) {
 			connection: "invalid-connection-string",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "",
+				namespace:      "",
 				connectionType: "",
 				found:          false,
 			},
@@ -69,10 +78,12 @@ func TestGetConnectionNameType(t *testing.T) {
 			connection: "",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "",
+				namespace:      "",
 				connectionType: "",
 				found:          false,
 			},
@@ -82,10 +93,12 @@ func TestGetConnectionNameType(t *testing.T) {
 			connection: "connection://type-only",
 			Expect: struct {
 				name           string
+				namespace      string
 				connectionType string
 				found          bool
 			}{
 				name:           "",
+				namespace:      "",
 				connectionType: "",
 				found:          false,
 			},
@@ -94,9 +107,12 @@ func TestGetConnectionNameType(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			name, connectionType, found := extractConnectionNameType(tc.connection)
+			name, namespace, connectionType, found := extractConnectionNameType(tc.connection)
 			if name != tc.Expect.name {
 				t.Errorf("g.Expected name %q, but got %q", tc.Expect.name, name)
+			}
+			if namespace != tc.Expect.namespace {
+				t.Errorf("g.Expected namespace %q, but got %q", tc.Expect.namespace, namespace)
 			}
 			if connectionType != tc.Expect.connectionType {
 				t.Errorf("g.Expected connection type %q, but got %q", tc.Expect.connectionType, connectionType)
