@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -276,6 +277,54 @@ func (JSONMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 func (jm JSONMap) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := jm.MarshalJSON()
 	return gorm.Expr("?", string(data))
+}
+
+// NullString sets null in database on save for empty strings
+type NullString sql.NullString
+
+// Scan implements the Scanner interface.
+func (s *NullString) Scan(value any) error {
+	if value == nil {
+		s.String, s.Valid = "", false
+		return nil
+	}
+	s.Valid = true
+	s.String = fmt.Sprint(value)
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (s NullString) Value() (driver.Value, error) {
+	if !s.Valid {
+		return nil, nil
+	}
+	return s.String, nil
+}
+
+// MarshalJSON to output non base64 encoded []byte
+func (s NullString) MarshalJSON() ([]byte, error) {
+	if !s.Valid {
+		return []byte("null"), nil
+	}
+	if s.String == "\"\"" {
+		s.String = ""
+	}
+	return json.Marshal(s.String)
+}
+
+// UnmarshalJSON to deserialize []byte
+func (s *NullString) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" || string(b) == "" {
+		*s = NullString{
+			Valid: false,
+		}
+		return nil
+	}
+	*s = NullString{
+		String: string(b),
+		Valid:  true,
+	}
+	return nil
 }
 
 // GenericStructValue can be set as the Value() func for any json struct
