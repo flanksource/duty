@@ -2,7 +2,6 @@ package connection
 
 import (
 	gocontext "context"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -22,8 +21,8 @@ type Filesystem interface {
 
 type FilesystemRW interface {
 	Filesystem
-	Read(ctx gocontext.Context, fileID string) (io.Reader, error)
-	Write(ctx gocontext.Context, path string, data []byte) error
+	Read(ctx gocontext.Context, fileID string) (io.ReadCloser, error)
+	Write(ctx gocontext.Context, path string, data []byte) (os.FileInfo, error)
 }
 
 func GetFSForConnection(c models.Connection) (FilesystemRW, error) {
@@ -35,8 +34,7 @@ func GetFSForConnection(c models.Connection) (FilesystemRW, error) {
 		// TODO: Implement
 
 	case models.ConnectionTypeSFTP:
-		port := c.Properties["port"]
-		client, err := sshConnect(c.URL, port, c.Username, c.Password)
+		client, err := sshConnect(c.URL, c.Username, c.Password)
 		if err != nil {
 			return nil, err
 		}
@@ -60,12 +58,21 @@ type SMBSession struct {
 	*smb2.Share
 }
 
-func (s *SMBSession) Read(ctx gocontext.Context, fileID string) (io.Reader, error) {
-	return nil, nil
+func (s *SMBSession) Read(ctx gocontext.Context, fileID string) (io.ReadCloser, error) {
+	return s.Share.Open(fileID)
 }
 
-func (s *SMBSession) Write(ctx gocontext.Context, path string, data []byte) error {
-	return nil
+func (s *SMBSession) Write(ctx gocontext.Context, path string, data []byte) (os.FileInfo, error) {
+	f, err := s.Share.Create(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = f.Write(data); err != nil {
+		return nil, err
+	}
+
+	return f.Stat()
 }
 
 func (s *SMBSession) Close() error {
@@ -120,15 +127,24 @@ type sshFS struct {
 	*sftp.Client
 }
 
-func (s *sshFS) Read(ctx gocontext.Context, fileID string) (io.Reader, error) {
-	return nil, nil
+func (s *sshFS) Read(ctx gocontext.Context, fileID string) (io.ReadCloser, error) {
+	return s.Client.Open(fileID)
 }
 
-func (s *sshFS) Write(ctx gocontext.Context, path string, data []byte) error {
-	return nil
+func (s *sshFS) Write(ctx gocontext.Context, path string, data []byte) (os.FileInfo, error) {
+	f, err := s.Client.Create(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err = f.Write(data); err != nil {
+		return nil, err
+	}
+
+	return f.Stat()
 }
 
-func sshConnect(host, port, user, password string) (*sshFS, error) {
+func sshConnect(url, user, password string) (*sshFS, error) {
 	config := &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
@@ -137,7 +153,7 @@ func sshConnect(host, port, user, password string) (*sshFS, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", host, port), config)
+	conn, err := ssh.Dial("tcp", url, config)
 	if err != nil {
 		return nil, err
 	}
