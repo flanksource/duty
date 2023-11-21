@@ -22,7 +22,7 @@ table "artifacts" {
     type    = uuid
     comment = "provides the credential to connect to the file store (S3, GCP, SFTP, ...)"
   }
-  column "file_id" {
+  column "path" {
     null = false
     type = text
   }
@@ -30,9 +30,13 @@ table "artifacts" {
     null = false
     type = text
   }
+  column "content_type" {
+    null = true
+    type = text
+  }
   column "size" {
     null = false
-    type = text
+    type = integer
   }
   column "checksum" {
     null = false
@@ -58,10 +62,6 @@ table "artifacts" {
   }
   primary_key {
     columns = [column.id]
-  }
-  index "file_id_key" {
-    unique  = true
-    columns = [column.file_id]
   }
   foreign_key "artifacts_checks_fkey" {
     columns     = [column.check_id]
