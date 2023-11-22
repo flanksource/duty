@@ -87,6 +87,8 @@ type ConfigItem struct {
 	Tags          *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
 	CreatedAt     time.Time            `json:"created_at"`
 	UpdatedAt     time.Time            `json:"updated_at"`
+	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
+	DeleteReason  string               `json:"delete_reason,omitempty"`
 }
 
 func (ConfigItem) TableName() string {
