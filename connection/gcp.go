@@ -4,6 +4,7 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+// +kubebuilder:object:generate=true
 type GCPConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint and credentials.
 	ConnectionName string        `yaml:"connection,omitempty" json:"connection,omitempty"`

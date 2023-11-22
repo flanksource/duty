@@ -20,7 +20,7 @@ table "artifacts" {
   column "connection_id" {
     null    = true
     type    = uuid
-    comment = "provides the credential to connect to the file store (S3, GCP, SFTP, ...)"
+    comment = "provides the credential to connect to the file store (S3, GCS, SMB, SFTP, ...)"
   }
   column "path" {
     null = false
