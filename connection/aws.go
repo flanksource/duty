@@ -6,6 +6,7 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+// +kubebuilder:object:generate=true
 type AWSConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey.
 	ConnectionName string       `yaml:"connection,omitempty" json:"connection,omitempty"`
