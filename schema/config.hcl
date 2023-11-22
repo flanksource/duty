@@ -252,6 +252,10 @@ table "config_items" {
     null = true
     type = timestamptz
   }
+  column "delete_reason" {
+    null = true
+    type = text
+  }
   primary_key {
     columns = [column.id]
   }
