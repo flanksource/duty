@@ -307,7 +307,7 @@ func (s NullString) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 	if s.String == "\"\"" {
-		s.String = ""
+		return []byte(""), nil
 	}
 	return json.Marshal(s.String)
 }
@@ -320,8 +320,13 @@ func (s *NullString) UnmarshalJSON(b []byte) error {
 		}
 		return nil
 	}
+
+	var val string
+	if err := json.Unmarshal(b, &val); err != nil {
+		return err
+	}
 	*s = NullString{
-		String: string(b),
+		String: val,
 		Valid:  true,
 	}
 	return nil
