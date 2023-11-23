@@ -28,6 +28,7 @@ const (
 	ConnectionTypeDynatrace      = "dynatrace"
 	ConnectionTypeElasticSearch  = "elasticsearch"
 	ConnectionTypeEmail          = "email"
+	ConnectionTypeFolder         = "folder"
 	ConnectionTypeGCP            = "google_cloud"
 	ConnectionTypeGenericWebhook = "generic_webhook"
 	ConnectionTypeGit            = "git"
