@@ -15,6 +15,9 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 		err := query.RefreshCheckStatusSummary(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
+		err = query.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
+		Expect(err).ToNot(HaveOccurred())
+
 		result, err := query.CheckSummary(testutils.DefaultContext, query.OrderByName())
 		Expect(err).ToNot(HaveOccurred())
 
@@ -23,6 +26,9 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 
 	ginkgo.It("should return deleted checks", func() {
 		err := query.RefreshCheckStatusSummary(testutils.DefaultContext)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = query.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
 		year := time.Now().Add(-1 * 24 * 365 * time.Hour)
