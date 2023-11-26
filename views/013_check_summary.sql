@@ -43,7 +43,7 @@ CREATE OR REPLACE VIEW check_status_summary_hour as
     time > (NOW() at TIME ZONE 'utc' - Interval '1 hour')  GROUP BY
     check_id;
 
-CREATE OR REPLACE VIEW check_status_summary_aged as
+CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged as
   SELECT DISTINCT ON (check_id) check_id,
   duration AS p99,
   duration as p95,

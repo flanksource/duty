@@ -113,7 +113,12 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 	return results, nil
 }
 
-func RefreshCheckStatusSummary(ctx context.Context) error {
+func RefreshCheckStatusSummary(ctx context.Poolable) error {
 	_, err := ctx.Pool().Exec(gocontext.Background(), `REFRESH MATERIALIZED VIEW check_status_summary`)
+	return err
+}
+
+func RefreshCheckStatusSummaryAged(ctx context.Poolable) error {
+	_, err := ctx.Pool().Exec(gocontext.Background(), `REFRESH MATERIALIZED VIEW check_status_summary_aged`)
 	return err
 }

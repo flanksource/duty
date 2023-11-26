@@ -18,8 +18,3 @@ func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
 func QueryCheckSummary(ctx gocontext.Context, dbpool *pgxpool.Pool, opts ...query.CheckSummaryOptions) ([]models.CheckSummary, error) {
 	return query.CheckSummary(context.NewContext(ctx).WithDB(nil, dbpool), opts...)
 }
-
-// deprecated use query.RefreshCheckStatusSummary
-func RefreshCheckStatusSummary(dbpool *pgxpool.Pool) error {
-	return query.RefreshCheckStatusSummary(context.NewContext(gocontext.Background()).WithDB(nil, pool))
-}

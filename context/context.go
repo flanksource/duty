@@ -20,6 +20,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type Poolable interface {
+	Pool() *pgxpool.Pool
+}
+
+type Gormable interface {
+	DB() *gorm.DB
+}
+
 type Context struct {
 	commons.Context
 }
