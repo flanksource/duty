@@ -1,7 +1,17 @@
 DROP FUNCTION IF EXISTS check_summary_for_component;
 DROP VIEW IF EXISTS check_summary;
 DROP MATERIALIZED VIEW IF EXISTS check_status_summary;
-DROP VIEW IF EXISTS check_status_summary_aged;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT relname FROM pg_class where  relkind = 'm' AND relname = 'check_status_summary_aged') THEN
+    DROP MATERIALIZED VIEW check_status_summary_aged;
+  END IF;
+  IF EXISTS (SELECT relname FROM pg_class where  relkind = 'v' AND relname = 'check_status_summary_aged') THEN
+    DROP VIEW check_status_summary_aged;
+  END IF;
+END $$;
+
 DROP VIEW IF EXISTS check_status_summary_hour;
 
 CREATE OR REPLACE VIEW check_status_summary_hour as
@@ -43,7 +53,7 @@ CREATE OR REPLACE VIEW check_status_summary_hour as
     time > (NOW() at TIME ZONE 'utc' - Interval '1 hour')  GROUP BY
     check_id;
 
-CREATE OR REPLACE VIEW check_status_summary_aged as
+CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged as
   SELECT DISTINCT ON (check_id) check_id,
   duration AS p99,
   duration as p95,
