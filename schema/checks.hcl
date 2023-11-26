@@ -22,6 +22,10 @@ table "canaries" {
     null = true
     type = jsonb
   }
+  column "annotations" {
+    null = true
+    type = jsonb
+  }
   column "spec" {
     null = false
     type = jsonb
@@ -161,8 +165,8 @@ table "checks" {
     type = text
   }
   column "namespace" {
-    null    = true
-    type    = text
+    null = true
+    type = text
   }
   column "description" {
     null = true
