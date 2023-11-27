@@ -283,11 +283,19 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return components
 }
 
-func generateTree(components models.Components, compChildrenMap map[string]models.Components) []*models.Component {
+func generateTree(components models.Components, compChildrenMap map[string]models.Components, currentDepth, maxDepth int) []*models.Component {
 	var nodes models.Components
+
+	// We do this avoid infinite recursion
+	// There can be relationships where components reference
+	// parent nodes
+	if currentDepth >= maxDepth {
+		return nodes
+	}
+
 	for _, c := range components {
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			c.Components = generateTree(children, compChildrenMap)
+			c.Components = generateTree(children, compChildrenMap, currentDepth+1, maxDepth)
 		}
 		c.Summary = c.Summarize()
 
@@ -324,7 +332,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		}
 	}
 
-	tree := generateTree(components, compChildrenMap)
+	tree := generateTree(components, compChildrenMap, 0, 10)
 
 	var root models.Components
 	for _, c := range tree {
