@@ -66,6 +66,10 @@ type Component struct {
 	RelationshipID *uuid.UUID                `json:"relationship_id,omitempty" gorm:"-"`
 	Children       []string                  `json:"children,omitempty" gorm:"-"`
 	Parents        []string                  `json:"parents,omitempty" gorm:"-"`
+
+	// Mark it as true when the component is processed
+	// during topology tree creation
+	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
 func (c *Component) GetStatus() types.ComponentStatus {
