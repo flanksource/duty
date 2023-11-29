@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
@@ -247,11 +246,8 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	}
 	response.Components = applyDepthFilter(response.Components, params.Depth)
 
-	prettytree(response.Components)
-	logger.Infof("Before apply status is above")
 	// If ID is present, we do not apply any filters to the root component
 	response.Components = applyStatusFilter(response.Components, params.ID != "", params.Status...)
-	prettytree(response.Components)
 
 	response = updateMetadata(response)
 
@@ -287,24 +283,30 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return components
 }
 
-func generateTree(components models.Components, compChildrenMap map[string]models.Components, touchedIds []string) models.Components {
+func generateTree(components models.Components, compChildrenMap map[string]models.Components, touchedIDs []string) models.Components {
 	var nodes models.Components
 
 	for _, c := range components {
+		// If node is marked as procesed we can just
+		// return it as is since it's child tree is correct
 		if c.NodeProcessed {
 			nodes = append(nodes, c)
 			continue
 		}
 
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			var childtosend models.Components
-			for _, childComp := range children {
-				if !collections.Contains(touchedIds, childComp.ID.String()) {
-					childtosend = append(childtosend, childComp)
+			var childrenToProcess models.Components
+			for _, child := range children {
+				// If a child has already been part of the tree that
+				// can mean we are recursing for the same node again
+				// In this case, we skip the tree generation for that
+				// node since it already is part of the call stack
+				if !collections.Contains(touchedIDs, child.ID.String()) {
+					childrenToProcess = append(childrenToProcess, child)
 				}
 			}
-			touchedIds = append(touchedIds, c.ID.String())
-			c.Components = generateTree(childtosend, compChildrenMap, touchedIds)
+			touchedIDs = append(touchedIDs, c.ID.String())
+			c.Components = generateTree(childrenToProcess, compChildrenMap, touchedIDs)
 		}
 
 		c.Summary = c.Summarize()
@@ -471,20 +473,5 @@ func removeComponentFields(components models.Components) {
 		c.Incidents = nil
 		c.Analysis = nil
 		removeComponentFields(c.Components)
-	}
-}
-
-func prettytree(mytree []*models.Component) {
-	for _, c := range mytree {
-		fmt.Printf("- %s {analysis: %v}\n\n", c.Name, c.Summary)
-		for _, cc := range c.Components {
-			fmt.Printf("  |- %s {analysis: %v}\n\n", cc.Name, cc.Summary)
-			for _, ccc := range cc.Components {
-				fmt.Printf("    |- %s {analysis: %v}\n\n", ccc.Name, ccc.Summary)
-				for _, cccc := range ccc.Components {
-					fmt.Printf("      |- %s {analysis: %v}\n\n", cccc.Name, cccc.Summary)
-				}
-			}
-		}
 	}
 }
