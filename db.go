@@ -3,19 +3,14 @@ package duty
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"net"
 	"net/url"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
-	"cloud.google.com/go/cloudsqlconn"
 	"github.com/flanksource/commons/logger"
 	dutyContext "github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/drivers"
 	"github.com/flanksource/duty/migrate"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/sirupsen/logrus"
@@ -51,10 +46,11 @@ func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
 }
 
 func NewDB(connection string) (*sql.DB, error) {
-	if strings.Contains(connection, "cloudsql-instance-connection-name") {
-		parsed := parseParams(connection)
-		userPrivateIP, _ := strconv.ParseBool(parsed["use-private-ip"])
-		return cloudSQLConnect(context.TODO(), parsed["user"], parsed["db"], parsed["cloudsql-instance-connection-name"], userPrivateIP)
+	pgxConfig, err := drivers.ParseURL(connection)
+	if err != nil {
+		return nil, err
+	} else if pgxConfig != nil {
+		connection = stdlib.RegisterConnConfig(pgxConfig)
 	}
 
 	return sql.Open("pgx", connection)
@@ -160,49 +156,4 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 	}
 
 	return
-}
-
-func cloudSQLConnect(ctx context.Context, user, dbName, instanceConnectionName string, usePrivate bool) (*sql.DB, error) {
-	dialer, err := cloudsqlconn.NewDialer(ctx, cloudsqlconn.WithIAMAuthN())
-	if err != nil {
-		return nil, fmt.Errorf("cloudsqlconn.NewDialer: %w", err)
-	}
-
-	var opts []cloudsqlconn.DialOption
-	if usePrivate {
-		opts = append(opts, cloudsqlconn.WithPrivateIP())
-	}
-
-	dsn := fmt.Sprintf("user=%s database=%s", user, dbName)
-	config, err := pgx.ParseConfig(dsn)
-	if err != nil {
-		return nil, err
-	}
-
-	config.DialFunc = func(ctx context.Context, network, instance string) (net.Conn, error) {
-		return dialer.Dial(ctx, instanceConnectionName, opts...)
-	}
-	dbURI := stdlib.RegisterConnConfig(config)
-
-	dbPool, err := sql.Open("pgx", dbURI)
-	if err != nil {
-		return nil, fmt.Errorf("sql.Open: %w", err)
-	}
-
-	return dbPool, nil
-}
-
-// parseParams takes a string of key-value pairs separated by spaces and returns a map of parsed parameters.
-func parseParams(input string) map[string]string {
-	params := make(map[string]string)
-
-	pairs := strings.Fields(input)
-	for _, pair := range pairs {
-		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) == 2 {
-			params[parts[0]] = parts[1]
-		}
-	}
-
-	return params
 }
