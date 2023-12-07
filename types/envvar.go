@@ -55,6 +55,8 @@ func (e EnvVar) IsEmpty() bool {
 
 // +kubebuilder:object:generate=true
 type EnvVarSource struct {
+	// ServiceAccount specifies the service account whose token should be fetched
+	ServiceAccount  *string               `json:"serviceName,omitempty" yaml:"serviceName,omitempty" protobuf:"bytes,1,opt,name=serviceName"`
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,1,opt,name=configMapKeyRef"`
 	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,2,opt,name=secretKeyRef"`
 }
@@ -65,6 +67,9 @@ func (e EnvVarSource) String() string {
 	}
 	if e.SecretKeyRef != nil {
 		return "secret://" + e.SecretKeyRef.String()
+	}
+	if e.ServiceAccount != nil {
+		return "serviceaccount://" + *e.ServiceAccount
 	}
 	return ""
 }
@@ -140,6 +145,7 @@ func (e *EnvVar) Scan(value any) error {
 				}}
 			return nil
 		}
+
 		if strings.HasPrefix(v, "secret://") {
 			if len(strings.Split(v, "/")) != 4 {
 				return fmt.Errorf("invalid secret reference: %s", v)
@@ -155,6 +161,19 @@ func (e *EnvVar) Scan(value any) error {
 				}}
 			return nil
 		}
+
+		if strings.HasPrefix(v, "serviceaccount://") {
+			segments := strings.Split(v, "/")
+			if len(segments) != 3 || segments[2] == "" {
+				return fmt.Errorf("invalid service account reference: %s", v)
+			}
+			*e = EnvVar{
+				ValueFrom: &EnvVarSource{
+					ServiceAccount: &segments[2],
+				}}
+			return nil
+		}
+
 		*e = EnvVar{
 			ValueStatic: v,
 		}

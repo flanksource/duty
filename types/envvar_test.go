@@ -1,6 +1,10 @@
 package types
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/flanksource/commons/utils"
+)
 
 // test EnvVar implements the sql.Scanner interface correctly
 func TestEnvVarScanStatic(t *testing.T) {
@@ -37,6 +41,71 @@ func TestEnvVarScanSecret(t *testing.T) {
 	}
 	if envVar.ValueFrom.SecretKeyRef.Key != "bar" {
 		t.Errorf("failed to scan string: expected bar, got %s", envVar.ValueFrom.SecretKeyRef.Key)
+	}
+}
+
+func TestEnvVar_Scan(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		expected      *EnvVar
+		errorExpected bool
+	}{
+		{
+			name:  "valid service account reference",
+			input: "serviceaccount://my-service-account",
+			expected: &EnvVar{
+				ValueFrom: &EnvVarSource{
+					ServiceAccount: utils.Ptr("my-service-account"),
+				},
+			},
+			errorExpected: false,
+		},
+		{
+			name:          "invalid service account reference format",
+			input:         "serviceaccount://",
+			expected:      nil,
+			errorExpected: true,
+		},
+		{
+			name:          "invalid service account reference name",
+			input:         "serviceaccount:///invalid-name",
+			expected:      nil,
+			errorExpected: true,
+		},
+		{
+			name:          "non-service account reference prefix",
+			input:         "configmap://my-configmap",
+			expected:      nil,
+			errorExpected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var e EnvVar
+			err := e.Scan(tc.input)
+
+			if tc.errorExpected {
+				if err == nil {
+					t.Errorf("Expected error, but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if e.ValueStatic != "" {
+				t.Errorf("Expected service account reference, but got static value: %s", e.ValueStatic)
+			}
+
+			if e.ValueFrom == nil || e.ValueFrom.ServiceAccount == nil || *e.ValueFrom.ServiceAccount != *tc.expected.ValueFrom.ServiceAccount {
+				t.Errorf("Expected service account reference: %v, got: %v", tc.expected.ValueFrom.ServiceAccount, e.ValueFrom.ServiceAccount)
+			}
+		})
 	}
 }
 
