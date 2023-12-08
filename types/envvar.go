@@ -57,8 +57,9 @@ func (e EnvVar) IsEmpty() bool {
 type EnvVarSource struct {
 	// ServiceAccount specifies the service account whose token should be fetched
 	ServiceAccount  *string               `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty" protobuf:"bytes,1,opt,name=serviceAccount"`
-	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,1,opt,name=configMapKeyRef"`
-	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,2,opt,name=secretKeyRef"`
+	HelmRef         *HelmRefKeySelector   `json:"helmRef,omitempty" yaml:"helmRef,omitempty" protobuf:"bytes,2,opt,name=helmRef"`
+	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
+	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
 }
 
 func (e EnvVarSource) String() string {
@@ -71,7 +72,21 @@ func (e EnvVarSource) String() string {
 	if e.ServiceAccount != nil {
 		return "serviceaccount://" + *e.ServiceAccount
 	}
+	if e.HelmRef != nil {
+		return "helm://" + e.HelmRef.String()
+	}
 	return ""
+}
+
+// +kubebuilder:object:generate=true
+type HelmRefKeySelector struct {
+	LocalObjectReference `json:",inline" yaml:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
+	// Key is a JSONPath expression used to fetch the key from the merged JSON.
+	Key string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
+}
+
+func (c HelmRefKeySelector) String() string {
+	return c.Name + "/" + c.Key
 }
 
 // +kubebuilder:object:generate=true
@@ -153,6 +168,22 @@ func (e *EnvVar) Scan(value any) error {
 			*e = EnvVar{
 				ValueFrom: &EnvVarSource{
 					SecretKeyRef: &SecretKeySelector{
+						LocalObjectReference: LocalObjectReference{
+							Name: strings.Split(v, "/")[2],
+						},
+						Key: strings.Split(v, "/")[3],
+					},
+				}}
+			return nil
+		}
+
+		if strings.HasPrefix(v, "helm://") {
+			if len(strings.Split(v, "/")) != 4 {
+				return fmt.Errorf("invalid helm reference: %s", v)
+			}
+			*e = EnvVar{
+				ValueFrom: &EnvVarSource{
+					HelmRef: &HelmRefKeySelector{
 						LocalObjectReference: LocalObjectReference{
 							Name: strings.Split(v, "/")[2],
 						},

@@ -5,11 +5,13 @@ go 1.20
 require (
 	ariga.io/atlas v0.14.2
 	cloud.google.com/go/cloudsqlconn v1.5.1
+	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/fergusstrange/embedded-postgres v1.21.0
 	github.com/flanksource/commons v1.17.1
 	github.com/flanksource/gomplate/v3 v3.20.16
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.1
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.4.0
 	github.com/hashicorp/hcl/v2 v2.18.1
 	github.com/hexops/gotextdiff v1.0.3
@@ -18,6 +20,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/liamylian/jsontime/v2 v2.0.0
 	github.com/lib/pq v1.10.9
+	github.com/ohler55/ojg v1.20.3
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -75,7 +78,6 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/cel-go v0.18.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230323073829-e72429f035bd // indirect
 	github.com/google/s2a-go v0.1.7 // indirect

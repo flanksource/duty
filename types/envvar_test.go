@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/flanksource/commons/utils"
+	"github.com/google/go-cmp/cmp"
 )
 
 // test EnvVar implements the sql.Scanner interface correctly
@@ -79,6 +80,27 @@ func TestEnvVar_Scan(t *testing.T) {
 			expected:      nil,
 			errorExpected: true,
 		},
+		{
+			name:  "valid helm reference",
+			input: "helm://canary-checker/the-key",
+			expected: &EnvVar{
+				ValueFrom: &EnvVarSource{
+					HelmRef: &HelmRefKeySelector{
+						LocalObjectReference: LocalObjectReference{
+							Name: "canary-checker",
+						},
+						Key: "the-key",
+					},
+				},
+			},
+			errorExpected: false,
+		},
+		{
+			name:          "invalid helm reference",
+			input:         "helm:///canary-checker/the-key",
+			expected:      nil,
+			errorExpected: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -98,12 +120,8 @@ func TestEnvVar_Scan(t *testing.T) {
 				return
 			}
 
-			if e.ValueStatic != "" {
-				t.Errorf("Expected service account reference, but got static value: %s", e.ValueStatic)
-			}
-
-			if e.ValueFrom == nil || e.ValueFrom.ServiceAccount == nil || *e.ValueFrom.ServiceAccount != *tc.expected.ValueFrom.ServiceAccount {
-				t.Errorf("Expected service account reference: %v, got: %v", tc.expected.ValueFrom.ServiceAccount, e.ValueFrom.ServiceAccount)
+			if diff := cmp.Diff(&e, tc.expected); diff != "" {
+				t.Errorf("EnvVar mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

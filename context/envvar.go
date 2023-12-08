@@ -1,10 +1,16 @@
 package context
 
 import (
-	"context"
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/RaveNoX/go-jsonmerge"
+	"github.com/ohler55/ojg/jp"
 
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
@@ -16,6 +22,8 @@ import (
 // purges expired items every 10 minutes
 var envCache = cache.New(5*time.Minute, 10*time.Minute)
 
+const helmSecretType = "helm.sh/release.v1"
+
 func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (string, error) {
 	if namespace == "" {
 		namespace = ctx.GetNamespace()
@@ -24,16 +32,16 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (st
 		return input.ValueStatic, nil
 	}
 	if input.ValueFrom.SecretKeyRef != nil {
-		value, err := GetSecretFromCache(ctx, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
-		return value, err
+		return GetSecretFromCache(ctx, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
 	}
 	if input.ValueFrom.ConfigMapKeyRef != nil {
-		value, err := GetConfigMapFromCache(ctx, namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
-		return value, err
+		return GetConfigMapFromCache(ctx, namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
+	}
+	if input.ValueFrom.HelmRef != nil {
+		return GetHelmValueFromCache(ctx, namespace, input.ValueFrom.HelmRef.Name, input.ValueFrom.HelmRef.Key)
 	}
 	if input.ValueFrom.ServiceAccount != nil {
-		value, err := GetServiceAccountTokenFromCache(ctx, namespace, *input.ValueFrom.ServiceAccount)
-		return value, err
+		return GetServiceAccountTokenFromCache(ctx, namespace, *input.ValueFrom.ServiceAccount)
 	}
 
 	return "", nil
@@ -47,13 +55,81 @@ func GetEnvStringFromCache(ctx Context, env string, namespace string) (string, e
 	return GetEnvValueFromCache(ctx, envvar, namespace)
 }
 
+func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (string, error) {
+	id := fmt.Sprintf("helm/%s/%s/%s", namespace, releaseName, key)
+	if value, found := envCache.Get(id); found {
+		return value.(string), nil
+	}
+
+	keyJPExpr, err := jp.ParseString(key)
+	if err != nil {
+		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
+	}
+
+	secretList, err := ctx.Kubernetes().CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("type=%s", helmSecretType),
+		LabelSelector: fmt.Sprintf("status=deployed,name=%s", releaseName),
+		Limit:         1,
+	})
+	if err != nil {
+		return "", fmt.Errorf("could not get secrets in namespace: %s: %w", namespace, err)
+	}
+
+	if len(secretList.Items) == 0 {
+		return "", fmt.Errorf("a deployed helm secret was not found %s/%s", namespace, releaseName)
+	}
+	secret := secretList.Items[0]
+
+	if secret.Name == "" {
+		return "", fmt.Errorf("could not find helm secret %s/%s", namespace, releaseName)
+	}
+
+	release, err := base64.StdEncoding.DecodeString(string(secret.Data["release"]))
+	if err != nil {
+		return "", fmt.Errorf("could not base64 decode helm secret %s/%s: %w", namespace, secret.Name, err)
+	}
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(release))
+	if err != nil {
+		return "", fmt.Errorf("could not unzip helm secret %s/%s: %w", namespace, secret.Name, err)
+	}
+
+	var rawJson map[string]any
+	if err := json.NewDecoder(gzipReader).Decode(&rawJson); err != nil {
+		return "", fmt.Errorf("could not decode unzipped helm secret %s/%s: %w", namespace, secret.Name, err)
+	}
+
+	var chartValues any = map[string]any{}
+	if chart, ok := rawJson["chart"].(map[string]any); ok {
+		chartValues = chart["values"]
+	}
+
+	merged, info := jsonmerge.Merge(rawJson["config"], chartValues)
+	if len(info.Errors) != 0 {
+		return "", fmt.Errorf("could not merge helm config and values of helm secret %s/%s: %v", namespace, secret.Name, info.Errors)
+	}
+
+	results := keyJPExpr.Get(merged)
+	if len(results) == 0 {
+		return "", fmt.Errorf("could not find key %s in merged helm secret %s/%s: %w", key, namespace, secret.Name, err)
+	}
+
+	output, err := json.Marshal(results[0])
+	if err != nil {
+		return "", fmt.Errorf("could not marshal merged helm secret %s/%s: %w", namespace, secret.Name, err)
+	}
+
+	envCache.Set(id, string(output), 5*time.Minute)
+	return string(output), nil
+}
+
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
 	id := fmt.Sprintf("secret/%s/%s/%s", namespace, name, key)
 
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if secret == nil {
 		return "", fmt.Errorf("could not get contents of secret %s/%s: %w", namespace, name, err)
 	}
@@ -76,7 +152,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if configMap == nil {
 		return "", fmt.Errorf("could not get contents of configmap %s/%s: %w", namespace, name, err)
 	}

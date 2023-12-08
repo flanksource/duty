@@ -357,7 +357,7 @@ func GenericStructScan[T any](t *T, val any) error {
 	case string:
 		ba = []byte(v)
 	default:
-		return fmt.Errorf("Failed to unmarshal JSONB value: %v", val)
+		return fmt.Errorf("failed to unmarshal JSONB value: %v", val)
 	}
 	err := json.Unmarshal(ba, &t)
 	return err
