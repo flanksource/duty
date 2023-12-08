@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/cloudsqlconn v1.5.1
 	github.com/fergusstrange/embedded-postgres v1.21.0
 	github.com/flanksource/commons v1.17.1
+	github.com/flanksource/gomplate/v3 v3.20.16
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.1
 	github.com/google/uuid v1.4.0
@@ -56,7 +57,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
-	github.com/flanksource/gomplate/v3 v3.20.16 // indirect
 	github.com/flanksource/is-healthy v0.0.0-20231003215854-76c51e3a3ff7 // indirect
 	github.com/flanksource/mapstructure v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
