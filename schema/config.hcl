@@ -333,6 +333,62 @@ table "config_relationships" {
   }
 }
 
+table "check_config_relationships" {
+  schema = schema.public
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "check_id" {
+    null = false
+    type = uuid
+  }
+  column "canary_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  column "selector_id" {
+    null = true
+    type = text
+  }
+  foreign_key "check_config_relationships_canary_id_fkey" {
+    columns     = [column.canary_id]
+    ref_columns = [table.canaries.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  foreign_key "check_config_relationships_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  foreign_key "check_config_relationships_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  index "check_config_relationships_config_id_check_id_canary__key" {
+    unique  = true
+    columns = [column.config_id, column.check_id, column.canary_id, column.selector_id]
+  }
+}
+
 table "config_scrapers" {
   schema = schema.public
   column "id" {

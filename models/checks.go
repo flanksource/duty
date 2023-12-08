@@ -173,3 +173,17 @@ func (t *CheckSummary) TableName() string {
 func (t CheckSummary) AsMap(removeFields ...string) map[string]any {
 	return asMap(t, removeFields...)
 }
+
+type CheckConfigRelationship struct {
+	ConfigID   uuid.UUID  `json:"config_id,omitempty"`
+	CheckID    uuid.UUID  `json:"check_id,omitempty"`
+	CanaryID   uuid.UUID  `json:"canary_id,omitempty"`
+	SelectorID string     `json:"selector_id,omitempty"`
+	CreatedAt  time.Time  `json:"created_at,omitempty"`
+	UpdatedAt  time.Time  `json:"updated_at,omitempty"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (CheckConfigRelationship) TableName() string {
+	return "check_config_relationships"
+}
