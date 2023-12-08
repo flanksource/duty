@@ -56,7 +56,7 @@ func (e EnvVar) IsEmpty() bool {
 // +kubebuilder:object:generate=true
 type EnvVarSource struct {
 	// ServiceAccount specifies the service account whose token should be fetched
-	ServiceAccount  *string               `json:"serviceName,omitempty" yaml:"serviceName,omitempty" protobuf:"bytes,1,opt,name=serviceName"`
+	ServiceAccount  *string               `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty" protobuf:"bytes,1,opt,name=serviceAccount"`
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,1,opt,name=configMapKeyRef"`
 	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,2,opt,name=secretKeyRef"`
 }
