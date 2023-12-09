@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,6 +31,10 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (st
 		value, err := GetConfigMapFromCache(ctx, namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
 		return value, err
 	}
+	if input.ValueFrom.ServiceAccount != nil {
+		value, err := GetServiceAccountTokenFromCache(ctx, namespace, *input.ValueFrom.ServiceAccount)
+		return value, err
+	}
 
 	return "", nil
 }
@@ -50,7 +55,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	}
 	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if secret == nil {
-		return "", fmt.Errorf("could not get contents of secret %s/%s: %v", namespace, name, err)
+		return "", fmt.Errorf("could not get contents of secret %s/%s: %w", namespace, name, err)
 	}
 
 	value, ok := secret.Data[key]
@@ -73,7 +78,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	}
 	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if configMap == nil {
-		return "", fmt.Errorf("could not get contents of configmap %s/%s: %s", namespace, name, err)
+		return "", fmt.Errorf("could not get contents of configmap %s/%s: %w", namespace, name, err)
 	}
 
 	value, ok := configMap.Data[key]
@@ -86,4 +91,18 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	}
 	envCache.Set(id, string(value), 5*time.Minute)
 	return string(value), nil
+}
+
+func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount string) (string, error) {
+	id := fmt.Sprintf("sa-token/%s/%s", namespace, serviceAccount)
+	if value, found := envCache.Get(id); found {
+		return value.(string), nil
+	}
+	tokenRequest, err := ctx.Kubernetes().CoreV1().ServiceAccounts(namespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not get token for service account %s/%s: %w", namespace, serviceAccount, err)
+	}
+
+	envCache.Set(id, tokenRequest.Status.Token, time.Until(tokenRequest.Status.ExpirationTimestamp.Time))
+	return tokenRequest.Status.Token, nil
 }

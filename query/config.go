@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/xwb1989/sqlparser"
@@ -152,4 +153,8 @@ func query(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]
 	}
 
 	return results, nil
+}
+
+func FindConfigIDsByNameNamespaceType(ctx context.Context, namespace, name, configType string) ([]uuid.UUID, error) {
+	return lookupIDs(ctx, "config_items", namespace, name, configType)
 }

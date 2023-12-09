@@ -73,7 +73,11 @@ func (k Context) WithUser(user *models.Person) Context {
 }
 
 func (k Context) User() *models.Person {
-	return k.Value("user").(*models.Person)
+	v := k.Value("user")
+	if v == nil {
+		return nil
+	}
+	return v.(*models.Person)
 }
 
 func (k Context) WithKubernetes(client kubernetes.Interface) Context {

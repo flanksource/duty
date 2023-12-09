@@ -9,8 +9,10 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	dutyContext "github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/drivers"
 	"github.com/flanksource/duty/migrate"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/sirupsen/logrus"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -44,6 +46,13 @@ func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
 }
 
 func NewDB(connection string) (*sql.DB, error) {
+	pgxConfig, err := drivers.ParseURL(connection)
+	if err != nil {
+		return nil, err
+	} else if pgxConfig != nil {
+		connection = stdlib.RegisterConnConfig(pgxConfig)
+	}
+
 	return sql.Open("pgx", connection)
 }
 
