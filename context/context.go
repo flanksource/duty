@@ -105,7 +105,7 @@ func (k Context) DB() *gorm.DB {
 	if !ok {
 		return nil
 	}
-	return v
+	return v.WithContext(k)
 }
 
 func (k Context) Pool() *pgxpool.Pool {
