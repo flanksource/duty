@@ -16,7 +16,7 @@ func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int
 	for {
 		var checkStatuses []models.CheckStatus
 		if err := ctx.DB().Select("check_statuses.*").
-			Joins("Left JOIN checks ON checks.id = check_statuses.check_id").
+			Joins("LEFT JOIN checks ON checks.id = check_statuses.check_id").
 			Where("checks.agent_id = ?", uuid.Nil).
 			Where("check_statuses.is_pushed IS FALSE").
 			Limit(batchSize).
