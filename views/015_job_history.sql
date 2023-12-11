@@ -19,7 +19,8 @@ FROM
   AND job_history.created_at = latest_job_history.max_created_at;
 
 -- Topologies with job status
-DROP VIEW IF EXISTS topologies_with_status;
+DROP VIEW IF EXISTS topologies_with_status CASCADE;
+
 CREATE OR REPLACE VIEW
   topologies_with_status AS
 SELECT
@@ -104,7 +105,7 @@ WHERE
   teams.deleted_at IS NULL;
 
 -- Config scrapers View
-DROP VIEW IF EXISTS config_scrapers_with_status;
+DROP VIEW IF EXISTS config_scrapers_with_status CASCADE;
 
 CREATE OR REPLACE VIEW
   config_scrapers_with_status AS

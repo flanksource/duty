@@ -26,6 +26,10 @@ table "logging_backends" {
     null = true
     type = enum.source
   }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
   column "created_at" {
     null = true
     type = timestamptz
