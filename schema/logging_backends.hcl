@@ -1,6 +1,6 @@
 enum "source" {
   schema = schema.public
-  values = ["KubernetesCRD", "ConfigFile", "UI"]
+  values = ["KubernetesCRD", "ConfigFile", "UI", "Topology"]
 }
 
 table "logging_backends" {
