@@ -22,6 +22,11 @@ table "topologies" {
     null = true
     type = jsonb
   }
+  column "source" {
+    null = false
+    type = enum.source
+    default = "Topology"
+  }
   column "spec" {
     null = true
     type = jsonb

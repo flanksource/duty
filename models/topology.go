@@ -14,6 +14,7 @@ type Topology struct {
 	Name      string
 	Namespace string
 	Labels    types.JSONStringMap `json:"labels,omitempty"  gorm:"default:null"`
+	Source    string              `json:"source"`
 	Spec      types.JSON          `gorm:"default:null"`
 	Schedule  *string
 	CreatedAt *time.Time `json:"created_at,omitempty" time_format:"postgres_timestamp"`

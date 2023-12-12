@@ -1,6 +1,6 @@
 enum "source" {
   schema = schema.public
-  values = ["KubernetesCRD", "ConfigFile", "UI"]
+  values = ["KubernetesCRD", "ConfigFile", "UI", "Topology"]
 }
 
 table "logging_backends" {
@@ -25,6 +25,10 @@ table "logging_backends" {
   column "source" {
     null = true
     type = enum.source
+  }
+  column "agent_id" {
+    null = true
+    type = uuid
   }
   column "created_at" {
     null = true

@@ -9,6 +9,7 @@ var LogisticsTopology = models.Topology{
 	ID:        uuid.MustParse("df39086e-506b-4ad9-9af7-baf5275c382b"),
 	Name:      "logistics",
 	Namespace: "default",
+	Source:    models.SourceUI,
 }
 
 var AllDummyTopologies = []models.Topology{
