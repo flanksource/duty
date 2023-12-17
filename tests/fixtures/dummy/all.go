@@ -373,6 +373,7 @@ func GenerateDynamicDummyData() DummyData {
 		ID:        uuid.New(),
 		Name:      "logistics",
 		Namespace: "default",
+		Source:    models.SourceUI,
 	}
 
 	var topologies = []models.Topology{
