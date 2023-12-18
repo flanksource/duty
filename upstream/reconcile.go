@@ -56,12 +56,17 @@ func (t *upstreamReconciler) Sync(ctx context.Context, table string) error {
 func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) error {
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
 
-	// We find the item that falls just before the requested duration & begin from there.
-	var next string
-	if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("updated_at DESC").Limit(1).Scan(&next).Error; err != nil {
-		return err
-	}
+	// We find the item that falls just before the requested duration & begin from there
+	//var next string
+	//if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("id").Limit(1).Scan(&next).Error; err != nil {
+	//return err
+	//}
+	//if err := ctx.DB().Table(table).Select("id").Where("agent_id = ?", uuid.Nil).Where("NOW() - updated_at > ?", after).Order("id").Limit(1).Scan(&next).Error; err != nil {
+	//return err
+	//}
 
+	// We start with a nil UUID and calculate hash in batches
+	next := uuid.Nil.String()
 	return t.sync(ctx, table, next)
 }
 
@@ -76,7 +81,6 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error
 		if err != nil {
 			return fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
 		}
-		next = localStatus.Next
 
 		// Nothing left to push
 		if localStatus.Total == 0 {
@@ -89,6 +93,7 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error
 		}
 
 		if upstreamStatus.Hash == localStatus.Hash {
+			next = localStatus.Next
 			continue
 		}
 
