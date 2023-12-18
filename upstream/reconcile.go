@@ -74,7 +74,15 @@ func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after 
 // the upstream server and pushes any missing resources to the upstream.
 func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error {
 	var errorList []error
+	// We keep this counter to keep a track of attempts for a batch
+	counter := 0
+	maxBatchAttempts := 5
 	for {
+		if counter > maxBatchAttempts {
+			return fmt.Errorf("maximum retries exceeded for batch: table=%s,from=%s,size=%d", table, next, t.pageSize)
+		}
+
+		counter += 1
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
 		localStatus, err := GetPrimaryKeysHash(ctx, paginateRequest, uuid.Nil)
@@ -93,7 +101,10 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error
 		}
 
 		if upstreamStatus.Hash == localStatus.Hash {
+			// Only update the cursor when hash matches
 			next = localStatus.Next
+			// Reset counter as batch is processed
+			counter = 0
 			continue
 		}
 
