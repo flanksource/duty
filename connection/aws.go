@@ -11,6 +11,7 @@ type AWSConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey.
 	ConnectionName string       `yaml:"connection,omitempty" json:"connection,omitempty"`
 	AccessKey      types.EnvVar `yaml:"accessKey" json:"accessKey,omitempty"`
+	Bucket         string       `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	SecretKey      types.EnvVar `yaml:"secretKey" json:"secretKey,omitempty"`
 	SessionToken   types.EnvVar `yaml:"sessionToken,omitempty" json:"sessionToken,omitempty"`
 	Region         string       `yaml:"region,omitempty" json:"region,omitempty"`
@@ -34,6 +35,7 @@ func (t *AWSConnection) GetPassword() types.EnvVar {
 func (t *AWSConnection) GetProperties() map[string]string {
 	return map[string]string{
 		"region": t.Region,
+		"bucket": t.Bucket,
 	}
 }
 
