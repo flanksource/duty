@@ -1,5 +1,7 @@
-CREATE
-OR REPLACE VIEW integrations_with_status AS
+DROP VIEW IF EXISTS integrations_with_status;
+
+CREATE VIEW integrations_with_status AS
+WITH combined AS (
 SELECT
   id,
   NAME,
@@ -73,4 +75,6 @@ SELECT
   NULL,
   NULL
 FROM
-  logging_backends;
+  logging_backends
+)
+SELECT combined.*, people.name AS creator_name, people.avatar AS creator_avatar, people.title AS creator_title, people.email AS creator_email FROM combined LEFT JOIN people ON combined.created_by = people.id;
