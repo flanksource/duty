@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"context"
+	"crypto/sha1"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -33,8 +34,11 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	if err := row.Scan(&name); err != nil {
 		return fmt.Errorf("failed to get current database: %w", err)
 	}
-
 	logger.Infof("Migrating database %s", name)
+
+	if err := createMigrationLogTable(pool); err != nil {
+		return fmt.Errorf("failed to create migration log table: %w", err)
+	}
 
 	logger.Tracef("Getting functions")
 	funcs, err := functions.GetFunctions()
@@ -148,12 +152,44 @@ func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) e
 		filenames = append(filenames, name)
 	}
 	sort.Strings(filenames)
+
 	for _, file := range filenames {
+		content, ok := scripts[file]
+		if !ok {
+			continue
+		}
+
+		var currentHash string
+		if err := pool.QueryRow("SELECT hash FROM migration_logs WHERE path = $1", file).Scan(&currentHash); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		hash := sha1.Sum([]byte(content))
+		if string(hash[:]) == currentHash {
+			logger.Tracef("Skipping script %s", file)
+			continue
+		}
+
 		logger.Tracef("Running script %s", file)
 		if _, err := pool.Exec(scripts[file]); err != nil {
 			return fmt.Errorf("failed to run script %s: %w", file, err)
 		}
+
+		if _, err := pool.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
+			return fmt.Errorf("failed to save migration log %s: %w", file, err)
+		}
 	}
 
 	return nil
+}
+
+func createMigrationLogTable(pool *sql.DB) error {
+	query := `CREATE TABLE IF NOT EXISTS migration_logs (
+		path VARCHAR(255) NOT NULL,
+		hash bytea NOT NULL,
+		updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+		PRIMARY KEY (path)
+	)`
+	_, err := pool.Exec(query)
+	return err
 }
