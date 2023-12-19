@@ -52,6 +52,7 @@ const (
 	ConnectionTypeRedis          = "redis"
 	ConnectionTypeRestic         = "restic"
 	ConnectionTypeRocketchat     = "rocketchat"
+	ConnectionTypeS3             = "s3"
 	ConnectionTypeSFTP           = "sftp"
 	ConnectionTypeSlack          = "slack"
 	ConnectionTypeSlackWebhook   = "slackwebhook"
