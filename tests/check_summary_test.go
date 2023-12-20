@@ -3,6 +3,7 @@ package tests
 import (
 	"time"
 
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/matcher"
 	"github.com/flanksource/duty/testutils"
@@ -12,10 +13,10 @@ import (
 
 var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 	ginkgo.It("should return old and non deleted checks", func() {
-		err := query.RefreshCheckStatusSummary(testutils.DefaultContext)
+		err := job.RefreshCheckStatusSummary(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = query.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
+		err = job.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
 		result, err := query.CheckSummary(testutils.DefaultContext, query.OrderByName())
@@ -25,10 +26,10 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should return deleted checks", func() {
-		err := query.RefreshCheckStatusSummary(testutils.DefaultContext)
+		err := job.RefreshCheckStatusSummary(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = query.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
+		err = job.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
 		year := time.Now().Add(-1 * 24 * 365 * time.Hour)
