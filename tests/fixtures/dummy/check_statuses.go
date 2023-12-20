@@ -46,6 +46,7 @@ func AllDummyCheckStatuses() []models.CheckStatus {
 		},
 	)
 
+	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-15*time.Minute), 1, 1)[0])
 	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-2*time.Hour), 10, 2)...)
 
 	return statuses
