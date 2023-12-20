@@ -1,15 +1,21 @@
 CREATE EXTENSION IF NOT EXISTS hstore;
 
-CREATE
-OR REPLACE FUNCTION update_updated_at_column () RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_updated_at_column () RETURNS TRIGGER AS $$
 DECLARE
   changed_fields hstore;
+  oldrow hstore;
 BEGIN
   IF NOT (TG_WHEN = 'BEFORE' AND TG_OP = 'UPDATE') THEN
     RAISE EXCEPTION 'update_updated_at_column() should only run as a BEFORE UPDATE trigger';
   END IF;
 
-  changed_fields = hstore(NEW.*) - hstore(OLD.*);
+  oldrow = hstore(OLD.*);
+  -- If record belongs to agent updated_at should not be changed
+  IF exist(oldrow, 'agent_id') AND oldrow->'agent_id' != '00000000-0000-0000-0000-000000000000' THEN
+    RETURN NEW;
+  END IF;
+
+  changed_fields = hstore(NEW.*) - oldrow;
   IF TG_TABLE_NAME = 'canaries' AND NOT (changed_fields ? 'spec')  THEN
     RETURN NEW; -- For canaries, only spec column should be considered
   ELSIF changed_fields = hstore('') THEN
