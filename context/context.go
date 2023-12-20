@@ -6,16 +6,17 @@ import (
 	commons "github.com/flanksource/commons/context"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/patrickmn/go-cache"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"time"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 )
@@ -102,6 +103,29 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	return Context{
 		Context: k.WithValue("db", db).WithValue("pgxpool", pool),
 	}
+}
+
+var propertyCache = cache.New(time.Minute*15, time.Minute*15)
+
+// Properties returns a cached map of properties
+func (k Context) Properties() map[string]string {
+	// properties are currently global, but in future we might have context specific properties as well
+	if val, ok := propertyCache.Get("global"); ok {
+		return val.(map[string]string)
+	}
+
+	var props = make(map[string]string)
+	var rows []models.AppProperty
+	if err := k.DB().Find(&rows).Error; err != nil {
+		return props
+	}
+
+	for _, prop := range rows {
+		props[prop.Name] = prop.Value
+	}
+
+	propertyCache.Set("global", props, 0)
+	return props
 }
 
 func (k Context) DB() *gorm.DB {
