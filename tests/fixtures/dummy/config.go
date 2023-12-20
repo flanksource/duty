@@ -1,17 +1,17 @@
 package dummy
 
 import (
-	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
-	Type:        utils.Ptr("EKS::Cluster"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("EKS::Cluster"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "production",
 	}),
@@ -20,8 +20,8 @@ var EKSCluster = models.ConfigItem{
 var KubernetesCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
-	Type:        utils.Ptr("Kubernetes::Cluster"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Kubernetes::Cluster"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "development",
 	}),
@@ -30,8 +30,8 @@ var KubernetesCluster = models.ConfigItem{
 var KubernetesNodeA = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassNode,
-	Type:        utils.Ptr("Kubernetes::Node"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Kubernetes::Node"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"role":   "worker",
 		"region": "us-east-1",
 	}),
@@ -41,8 +41,8 @@ var KubernetesNodeA = models.ConfigItem{
 var KubernetesNodeB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassNode,
-	Type:        utils.Ptr("Kubernetes::Node"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Kubernetes::Node"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"role":           "worker",
 		"region":         "us-west-2",
 		"storageprofile": "managed",
@@ -53,8 +53,8 @@ var KubernetesNodeB = models.ConfigItem{
 var EC2InstanceA = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
-	Type:        utils.Ptr("EC2::Instance"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("EC2::Instance"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"environment": "testing",
 		"app":         "backend",
 	}),
@@ -63,8 +63,8 @@ var EC2InstanceA = models.ConfigItem{
 var EC2InstanceB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
-	Type:        utils.Ptr("EC2::Instance"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("EC2::Instance"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"environment": "production",
 		"app":         "frontend",
 	}),
@@ -73,8 +73,8 @@ var EC2InstanceB = models.ConfigItem{
 var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
-	Type:        utils.Ptr("Logistics::API::Deployment"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Logistics::API::Deployment"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-1",
@@ -85,8 +85,8 @@ var LogisticsAPIDeployment = models.ConfigItem{
 var LogisticsUIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
-	Type:        utils.Ptr("Logistics::UI::Deployment"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Logistics::UI::Deployment"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-2",
@@ -97,8 +97,8 @@ var LogisticsUIDeployment = models.ConfigItem{
 var LogisticsWorkerDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
-	Type:        utils.Ptr("Logistics::Worker::Deployment"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Logistics::Worker::Deployment"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-3",
@@ -109,8 +109,8 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 var LogisticsDBRDS = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDatabase,
-	Type:        utils.Ptr("Logistics::DB::RDS"),
-	Tags: utils.Ptr(types.JSONStringMap{
+	Type:        lo.ToPtr("Logistics::DB::RDS"),
+	Tags: lo.ToPtr(types.JSONStringMap{
 		"database":    "logistics",
 		"environment": "production",
 		"region":      "us-east-1",

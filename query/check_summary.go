@@ -98,16 +98,16 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 
 	var results []models.CheckSummary
 	for rows.Next() {
-		var summmaries []models.CheckSummary
+		var summaries []models.CheckSummary
 		if rows.RawValues()[0] == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &summmaries); err != nil {
+		if err := json.Unmarshal(rows.RawValues()[0], &summaries); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
 		}
 
-		results = append(results, summmaries...)
+		results = append(results, summaries...)
 	}
 
 	return results, nil

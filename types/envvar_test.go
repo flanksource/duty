@@ -3,8 +3,8 @@ package types
 import (
 	"testing"
 
-	"github.com/flanksource/commons/utils"
 	"github.com/google/go-cmp/cmp"
+	"github.com/samber/lo"
 )
 
 // test EnvVar implements the sql.Scanner interface correctly
@@ -57,7 +57,7 @@ func TestEnvVar_Scan(t *testing.T) {
 			input: "serviceaccount://my-service-account",
 			expected: &EnvVar{
 				ValueFrom: &EnvVarSource{
-					ServiceAccount: utils.Ptr("my-service-account"),
+					ServiceAccount: lo.ToPtr("my-service-account"),
 				},
 			},
 			errorExpected: false,

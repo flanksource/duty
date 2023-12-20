@@ -1,8 +1,6 @@
 package dummy
 
 import (
-	"time"
-
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 )
@@ -34,8 +32,8 @@ var FirstComment = models.Comment{
 	CreatedBy:  JohnWick.ID,
 	Comment:    "This is a comment",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var SecondComment = models.Comment{
@@ -43,8 +41,8 @@ var SecondComment = models.Comment{
 	CreatedBy:  JohnDoe.ID,
 	Comment:    "A comment by John Doe",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var ThirdComment = models.Comment{
@@ -52,8 +50,8 @@ var ThirdComment = models.Comment{
 	CreatedBy:  JohnDoe.ID,
 	Comment:    "Another comment by John Doe",
 	IncidentID: LogisticsAPIDownIncident.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var AllDummyComments = []models.Comment{FirstComment, SecondComment, ThirdComment}
@@ -64,8 +62,8 @@ var JiraResponder = models.Responder{
 	Type:       "Jira",
 	PersonID:   &JohnWick.ID,
 	CreatedBy:  JohnWick.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var GitHubIssueResponder = models.Responder{
@@ -74,8 +72,8 @@ var GitHubIssueResponder = models.Responder{
 	Type:       "GithubIssue",
 	PersonID:   &JohnDoe.ID,
 	CreatedBy:  JohnDoe.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var SlackResponder = models.Responder{
@@ -84,8 +82,8 @@ var SlackResponder = models.Responder{
 	Type:       "Slack",
 	TeamID:     &BackendTeam.ID,
 	CreatedBy:  JohnDoe.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var MsPlannerResponder = models.Responder{
@@ -94,8 +92,8 @@ var MsPlannerResponder = models.Responder{
 	Type:       "MSPlanner",
 	PersonID:   &JohnWick.ID,
 	CreatedBy:  JohnDoe.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var TelegramResponder = models.Responder{
@@ -104,8 +102,8 @@ var TelegramResponder = models.Responder{
 	Type:       "Telegram",
 	PersonID:   &JohnDoe.ID,
 	CreatedBy:  JohnDoe.ID,
-	CreatedAt:  time.Now(),
-	UpdatedAt:  time.Now(),
+	CreatedAt:  CurrentTime,
+	UpdatedAt:  CurrentTime,
 }
 
 var AllDummyResponders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder, MsPlannerResponder, TelegramResponder}
@@ -115,8 +113,8 @@ var BackendTeam = models.Team{
 	Name:      "Backend",
 	Icon:      "backend",
 	CreatedBy: JohnDoe.ID,
-	CreatedAt: time.Now(),
-	UpdatedAt: time.Now(),
+	CreatedAt: CurrentTime,
+	UpdatedAt: CurrentTime,
 }
 
 var FrontendTeam = models.Team{
@@ -124,8 +122,8 @@ var FrontendTeam = models.Team{
 	Name:      "Frontend",
 	Icon:      "frontend",
 	CreatedBy: JohnDoe.ID,
-	CreatedAt: time.Now(),
-	UpdatedAt: time.Now(),
+	CreatedAt: CurrentTime,
+	UpdatedAt: CurrentTime,
 }
 
 var AllDummyTeams = []models.Team{BackendTeam, FrontendTeam}

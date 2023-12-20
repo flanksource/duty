@@ -32,10 +32,10 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 		err = job.RefreshCheckStatusSummaryAged(testutils.DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		year := time.Now().Add(-1 * 24 * 365 * time.Hour)
+		month := time.Now().Add(-1 * 24 * 30 * time.Hour)
 		result, err := query.CheckSummary(testutils.DefaultContext, query.CheckSummaryOptions{
 			SortBy:     query.CheckSummarySortByName,
-			DeleteFrom: &year,
+			DeleteFrom: &month,
 		})
 		Expect(err).ToNot(HaveOccurred())
 
