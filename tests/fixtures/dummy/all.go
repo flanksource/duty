@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
+
+var CurrentTime = time.Now()
 
 type DummyData struct {
 	People []models.Person
@@ -287,7 +291,12 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	return nil
 }
 
-func GetStaticDummyData() DummyData {
+func GetStaticDummyData(db *gorm.DB) DummyData {
+
+	if err := db.Raw("Select now()").Scan(&CurrentTime).Error; err != nil {
+		logger.Fatalf("Cannot get current time from db: %v", err)
+	}
+
 	// we're appending here so we do not mutate the original slice.
 	d := DummyData{
 		People:                       append([]models.Person{}, AllDummyPeople...),
@@ -297,15 +306,15 @@ func GetStaticDummyData() DummyData {
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
-		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis...),
+		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),
 		ConfigComponentRelationships: append([]models.ConfigComponentRelationship{}, AllDummyConfigComponentRelationships...),
 		Teams:                        append([]models.Team{}, AllDummyTeams...),
 		Incidents:                    append([]models.Incident{}, AllDummyIncidents...),
 		Hypotheses:                   append([]models.Hypothesis{}, AllDummyHypotheses...),
 		Evidences:                    append([]models.Evidence{}, AllDummyEvidences...),
 		Canaries:                     append([]models.Canary{}, AllDummyCanaries...),
-		Checks:                       append([]models.Check{}, AllDummyChecks...),
-		CheckStatuses:                append([]models.CheckStatus{}, AllDummyCheckStatuses...),
+		Checks:                       append([]models.Check{}, AllDummyChecks()...),
+		CheckStatuses:                append([]models.CheckStatus{}, AllDummyCheckStatuses()...),
 		Responders:                   append([]models.Responder{}, AllDummyResponders...),
 		Comments:                     append([]models.Comment{}, AllDummyComments...),
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
@@ -316,10 +325,15 @@ func GetStaticDummyData() DummyData {
 
 // GenerateDynamicDummyData is similar to GetStaticDummyData()
 // except that the ids are randomly generated on call.
-func GenerateDynamicDummyData() DummyData {
+func GenerateDynamicDummyData(db *gorm.DB) DummyData {
+
+	if err := db.Raw("Select now()").Scan(&CurrentTime).Error; err != nil {
+		logger.Fatalf("Cannot get current time from db: %v", err)
+	}
+
 	var (
 		DummyCreatedAt   = time.Date(2022, time.December, 31, 23, 59, 0, 0, time.UTC)
-		DummyYearOldDate = time.Now().AddDate(-1, 0, 0)
+		DummyYearOldDate = CurrentTime.AddDate(-1, 0, 0)
 	)
 
 	// People
@@ -353,8 +367,8 @@ func GenerateDynamicDummyData() DummyData {
 		Name:      "Backend",
 		Icon:      "backend",
 		CreatedBy: JohnDoe.ID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: CurrentTime,
+		UpdatedAt: CurrentTime,
 	}
 
 	var FrontendTeam = models.Team{
@@ -362,8 +376,8 @@ func GenerateDynamicDummyData() DummyData {
 		Name:      "Frontend",
 		Icon:      "frontend",
 		CreatedBy: JohnDoe.ID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: CurrentTime,
+		UpdatedAt: CurrentTime,
 	}
 
 	var teams = []models.Team{BackendTeam, FrontendTeam}
@@ -617,9 +631,9 @@ func GenerateDynamicDummyData() DummyData {
 	}
 
 	// Check statuses
-	var t1 = currentTime.Add(-15 * time.Minute)
-	var t2 = currentTime.Add(-10 * time.Minute)
-	var t3 = currentTime.Add(-5 * time.Minute)
+	var t1 = CurrentTime.Add(-15 * time.Minute)
+	var t2 = CurrentTime.Add(-10 * time.Minute)
+	var t3 = CurrentTime.Add(-5 * time.Minute)
 
 	var LogisticsAPIHealthHTTPCheckStatus1 = models.CheckStatus{
 		CheckID:   LogisticsAPIHealthHTTPCheck.ID,
@@ -682,8 +696,8 @@ func GenerateDynamicDummyData() DummyData {
 	var EKSCluster = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassCluster,
-		Type:        utils.Ptr("EKS::Cluster"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("EKS::Cluster"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"telemetry":   "enabled",
 			"environment": "production",
 		}),
@@ -692,8 +706,8 @@ func GenerateDynamicDummyData() DummyData {
 	var KubernetesCluster = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassCluster,
-		Type:        utils.Ptr("Kubernetes::Cluster"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Kubernetes::Cluster"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"telemetry":   "enabled",
 			"environment": "development",
 		}),
@@ -702,8 +716,8 @@ func GenerateDynamicDummyData() DummyData {
 	var KubernetesNodeA = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassNode,
-		Type:        utils.Ptr("Kubernetes::Node"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Kubernetes::Node"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"role":   "worker",
 			"region": "us-east-1",
 		}),
@@ -713,8 +727,8 @@ func GenerateDynamicDummyData() DummyData {
 	var KubernetesNodeB = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassNode,
-		Type:        utils.Ptr("Kubernetes::Node"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Kubernetes::Node"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"role":           "worker",
 			"region":         "us-west-2",
 			"storageprofile": "managed",
@@ -725,8 +739,8 @@ func GenerateDynamicDummyData() DummyData {
 	var EC2InstanceA = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassVirtualMachine,
-		Type:        utils.Ptr("EC2::Instance"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("EC2::Instance"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"environment": "testing",
 			"app":         "backend",
 		}),
@@ -735,8 +749,8 @@ func GenerateDynamicDummyData() DummyData {
 	var EC2InstanceB = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassVirtualMachine,
-		Type:        utils.Ptr("EC2::Instance"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("EC2::Instance"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"environment": "production",
 			"app":         "frontend",
 		}),
@@ -745,8 +759,8 @@ func GenerateDynamicDummyData() DummyData {
 	var LogisticsAPIDeployment = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
-		Type:        utils.Ptr("Logistics::API::Deployment"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Logistics::API::Deployment"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-1",
@@ -757,8 +771,8 @@ func GenerateDynamicDummyData() DummyData {
 	var LogisticsUIDeployment = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
-		Type:        utils.Ptr("Logistics::UI::Deployment"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Logistics::UI::Deployment"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-2",
@@ -769,8 +783,8 @@ func GenerateDynamicDummyData() DummyData {
 	var LogisticsWorkerDeployment = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
-		Type:        utils.Ptr("Logistics::Worker::Deployment"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Logistics::Worker::Deployment"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-3",
@@ -781,8 +795,8 @@ func GenerateDynamicDummyData() DummyData {
 	var LogisticsDBRDS = models.ConfigItem{
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDatabase,
-		Type:        utils.Ptr("Logistics::DB::RDS"),
-		Tags: utils.Ptr(types.JSONStringMap{
+		Type:        lo.ToPtr("Logistics::DB::RDS"),
+		Tags: lo.ToPtr(types.JSONStringMap{
 			"database":    "logistics",
 			"environment": "production",
 			"region":      "us-east-1",
@@ -803,15 +817,13 @@ func GenerateDynamicDummyData() DummyData {
 		LogisticsDBRDS,
 	}
 
-	var currentTime = time.Now()
-
 	var LogisticsDBRDSAnalysis = models.ConfigAnalysis{
 		ID:            uuid.New(),
 		ConfigID:      LogisticsDBRDS.ID,
 		AnalysisType:  models.AnalysisTypeSecurity,
 		Severity:      "critical",
 		Message:       "Port exposed to public",
-		FirstObserved: &currentTime,
+		FirstObserved: &CurrentTime,
 		Status:        models.AnalysisStatusOpen,
 	}
 
@@ -821,7 +833,7 @@ func GenerateDynamicDummyData() DummyData {
 		AnalysisType:  models.AnalysisTypeSecurity,
 		Severity:      "critical",
 		Message:       "SSH key not rotated",
-		FirstObserved: &currentTime,
+		FirstObserved: &CurrentTime,
 		Status:        models.AnalysisStatusOpen,
 	}
 
@@ -919,8 +931,8 @@ func GenerateDynamicDummyData() DummyData {
 		CreatedBy:  JohnWick.ID,
 		Comment:    "This is a comment",
 		IncidentID: LogisticsAPIDownIncident.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var SecondComment = models.Comment{
@@ -928,8 +940,8 @@ func GenerateDynamicDummyData() DummyData {
 		CreatedBy:  JohnDoe.ID,
 		Comment:    "A comment by John Doe",
 		IncidentID: LogisticsAPIDownIncident.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var ThirdComment = models.Comment{
@@ -937,8 +949,8 @@ func GenerateDynamicDummyData() DummyData {
 		CreatedBy:  JohnDoe.ID,
 		Comment:    "Another comment by John Doe",
 		IncidentID: LogisticsAPIDownIncident.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var comments = []models.Comment{FirstComment, SecondComment, ThirdComment}
@@ -950,8 +962,8 @@ func GenerateDynamicDummyData() DummyData {
 		Type:       "Jira",
 		PersonID:   &JohnWick.ID,
 		CreatedBy:  JohnWick.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var GitHubIssueResponder = models.Responder{
@@ -960,8 +972,8 @@ func GenerateDynamicDummyData() DummyData {
 		Type:       "GithubIssue",
 		PersonID:   &JohnDoe.ID,
 		CreatedBy:  JohnDoe.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var SlackResponder = models.Responder{
@@ -970,8 +982,8 @@ func GenerateDynamicDummyData() DummyData {
 		Type:       "Slack",
 		TeamID:     &BackendTeam.ID,
 		CreatedBy:  JohnDoe.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var MsPlannerResponder = models.Responder{
@@ -980,8 +992,8 @@ func GenerateDynamicDummyData() DummyData {
 		Type:       "MSPlanner",
 		PersonID:   &JohnWick.ID,
 		CreatedBy:  JohnDoe.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var TelegramResponder = models.Responder{
@@ -990,8 +1002,8 @@ func GenerateDynamicDummyData() DummyData {
 		Type:       "Telegram",
 		PersonID:   &JohnDoe.ID,
 		CreatedBy:  JohnDoe.ID,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:  CurrentTime,
+		UpdatedAt:  CurrentTime,
 	}
 
 	var responders = []models.Responder{JiraResponder, GitHubIssueResponder, SlackResponder, MsPlannerResponder, TelegramResponder}

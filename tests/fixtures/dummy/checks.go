@@ -6,6 +6,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 var LogisticsAPIHealthHTTPCheck = models.Check{
@@ -41,33 +42,44 @@ var CartAPIHeathCheckAgent = models.Check{
 	Status:   models.CheckHealthStatus(types.ComponentStatusHealthy),
 }
 
-var DeletedCheck = models.Check{
-	ID:        uuid.MustParse("eed7bd6e-529b-4693-aca9-55177bcc5ff1"),
-	AgentID:   GCPAgent.ID,
-	CanaryID:  CartAPICanaryAgent.ID,
-	DeletedAt: &t1,
-	Name:      "cart-deleted",
-	Type:      "http",
-	Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
-}
+var DeletedCheck, DeletedCheck1h, DeletedCheckOld models.Check
 
-var old = time.Now().Add(1000 * time.Hour)
-var DeletedCheckOld = models.Check{
-	ID:        uuid.MustParse("eed8bd6e-529b-4693-aca9-55177bcc5ff1"),
-	AgentID:   GCPAgent.ID,
-	CanaryID:  CartAPICanaryAgent.ID,
-	CreatedAt: &old,
-	DeletedAt: &old,
-	Name:      "cart-deleted-old",
-	Type:      "http",
-	Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
-}
-
-var AllDummyChecks = []models.Check{
-	DeletedCheck,
-	DeletedCheckOld,
-	LogisticsAPIHealthHTTPCheck,
-	LogisticsAPIHomeHTTPCheck,
-	LogisticsDBCheck,
-	CartAPIHeathCheckAgent,
+func AllDummyChecks() []models.Check {
+	DeletedCheck = models.Check{
+		ID:        uuid.MustParse("eed7bd6e-529b-4693-aca9-55177bcc5ff1"),
+		AgentID:   GCPAgent.ID,
+		CanaryID:  CartAPICanaryAgent.ID,
+		CreatedAt: lo.ToPtr(CurrentTime.Add(-10 * time.Minute)),
+		DeletedAt: lo.ToPtr(CurrentTime.Add(-5 * time.Minute)),
+		Name:      "cart-deleted-5m-ago",
+		Type:      "http",
+		Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
+	}
+	DeletedCheck1h = models.Check{
+		ID:        uuid.MustParse("eed7bd6e-529b-4693-aca9-55177bcc5ff2"),
+		AgentID:   GCPAgent.ID,
+		CanaryID:  CartAPICanaryAgent.ID,
+		CreatedAt: lo.ToPtr(CurrentTime.Add(-120 * time.Minute)),
+		DeletedAt: lo.ToPtr(CurrentTime.Add(-100 * time.Minute)),
+		Name:      "cart-deleted-2h-ago",
+		Type:      "http",
+		Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
+	}
+	DeletedCheckOld = models.Check{
+		ID:        uuid.MustParse("eed8bd6e-529b-4693-aca9-55177bcc5ff1"),
+		AgentID:   GCPAgent.ID,
+		CanaryID:  CartAPICanaryAgent.ID,
+		CreatedAt: lo.ToPtr(CurrentTime.Add(-1000 * time.Hour)),
+		DeletedAt: lo.ToPtr(CurrentTime.Add(-999 * time.Hour)),
+		Name:      "cart-deleted-41h-ago",
+		Type:      "http",
+		Status:    models.CheckHealthStatus(types.ComponentStatusHealthy),
+	}
+	return []models.Check{
+		DeletedCheck, DeletedCheckOld, DeletedCheck1h,
+		LogisticsAPIHealthHTTPCheck,
+		LogisticsAPIHomeHTTPCheck,
+		LogisticsDBCheck,
+		CartAPIHeathCheckAgent,
+	}
 }

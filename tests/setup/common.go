@@ -47,7 +47,7 @@ func BeforeSuiteFn() {
 		testutils.DefaultContext = *ctx
 	}
 
-	dummyData = dummy.GetStaticDummyData()
+	dummyData = dummy.GetStaticDummyData(testutils.DefaultContext.DB())
 	err = dummyData.Populate(testutils.DefaultContext.DB())
 	Expect(err).ToNot(HaveOccurred())
 
