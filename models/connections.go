@@ -30,6 +30,7 @@ const (
 	ConnectionTypeEmail          = "email"
 	ConnectionTypeFolder         = "folder"
 	ConnectionTypeGCP            = "google_cloud"
+	ConnectionTypeGCS            = "gcs"
 	ConnectionTypeGenericWebhook = "generic_webhook"
 	ConnectionTypeGit            = "git"
 	ConnectionTypeGithub         = "github"

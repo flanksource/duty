@@ -9,7 +9,6 @@ import (
 type GCPConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint and credentials.
 	ConnectionName string        `yaml:"connection,omitempty" json:"connection,omitempty"`
-	Bucket         string        `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	Endpoint       string        `yaml:"endpoint" json:"endpoint,omitempty"`
 	Credentials    *types.EnvVar `yaml:"credentials" json:"credentials,omitempty"`
 }
@@ -18,6 +17,7 @@ func (g *GCPConnection) Validate() *GCPConnection {
 	if g == nil {
 		return &GCPConnection{}
 	}
+
 	return g
 }
 
@@ -43,10 +43,4 @@ func (t *GCPConnection) GetCertificate() types.EnvVar {
 
 func (t *GCPConnection) GetURL() types.EnvVar {
 	return types.EnvVar{ValueStatic: t.Endpoint}
-}
-
-func (t *GCPConnection) GetProperties() map[string]string {
-	return map[string]string{
-		"bucket": t.Bucket,
-	}
 }
