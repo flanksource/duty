@@ -6,6 +6,7 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 const (
@@ -62,6 +63,14 @@ func (h *JobHistory) End() *JobHistory {
 
 	h.evaluateStatus()
 	return h
+}
+
+func (h *JobHistory) Persist(db *gorm.DB) error {
+	// Delete jobs which did not process anything
+	if h.ID != uuid.Nil && (h.SuccessCount+h.ErrorCount) == 0 {
+		return db.Table("job_history").Delete(h).Error
+	}
+	return db.Table("job_history").Save(h).Error
 }
 
 func (h *JobHistory) AddError(err string) *JobHistory {
