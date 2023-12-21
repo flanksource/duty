@@ -96,7 +96,7 @@ func (j Job) Run() {
 
 	r.start()
 	defer r.end()
-	if !j.Singleton {
+	if j.Singleton {
 		if j.lock == nil {
 			j.lock = &sync.Mutex{}
 		}
