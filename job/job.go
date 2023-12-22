@@ -31,7 +31,7 @@ type Job struct {
 
 type JobRuntime struct {
 	context.Context
-	Job       Job
+	Job       *Job
 	Span      trace.Span
 	History   *models.JobHistory
 	Started   time.Time
@@ -86,12 +86,13 @@ func (j *Job) SetID(id string) *Job {
 	return j
 }
 
-func (j Job) Run() {
+func (j *Job) Run() {
 	ctx, span := j.StartSpan(j.Name)
 	defer span.End()
 	r := JobRuntime{
 		Context: ctx,
 		Job:     j,
+		Span:    span,
 	}
 
 	r.start()

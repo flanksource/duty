@@ -17,17 +17,17 @@ func RefreshCheckStatusSummaryAged(ctx context.Context) error {
 }
 
 func DeleteOldCheckStatuses(ctx context.Context, retention int) (error, int) {
-	tx := ctx.DB().Exec(`DELETE FROM check_statuses WHERE (NOW() - created_at) > INTERVAL '1 day' * ?`, retention)
+	tx := ctx.DB().Exec(`DELETE FROM check_statuses WHERE (NOW() - time) > INTERVAL '1 day' * ?`, retention)
 	return tx.Error, int(tx.RowsAffected)
 }
 
 func DeleteOldCheckStatuses1d(ctx context.Context, retention int) (error, int) {
-	tx := ctx.DB().Exec(`DELETE FROM check_statuses_1d WHERE (NOW() - created_at) > INTERVAL '1 day' * ?`, retention)
+	tx := ctx.DB().Exec(`DELETE FROM check_statuses_1d WHERE (NOW() - time) > INTERVAL '1 day' * ?`, retention)
 	return tx.Error, int(tx.RowsAffected)
 }
 
 func DeleteOldCheckStatuses1h(ctx context.Context, retention int) (error, int) {
-	tx := ctx.DB().Exec(`DELETE FROM check_statuses_1h WHERE (NOW() - created_at) > INTERVAL '1 day' * ?`, retention)
+	tx := ctx.DB().Exec(`DELETE FROM check_statuses_1h WHERE (NOW() - time) > INTERVAL '1 day' * ?`, retention)
 	return tx.Error, int(tx.RowsAffected)
 }
 
