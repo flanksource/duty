@@ -3,24 +3,33 @@ package duty
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/flanksource/commons/logger"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/drivers"
+	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/plugin/opentelemetry/tracing"
 )
 
 var pool *pgxpool.Pool
 
 var DefaultQueryTimeout = 30 * time.Second
+
+// LogLevel is the log level for gorm logger
+var LogLevel string
+
+func BindFlags(flags *pflag.FlagSet) {
+	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
+}
 
 func DefaultGormConfig() *gorm.Config {
 	return &gorm.Config{
@@ -28,7 +37,7 @@ func DefaultGormConfig() *gorm.Config {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		Logger: NewGormLogger(LogLevel),
+		Logger: dutyGorm.NewGormLogger(LogLevel),
 	}
 }
 
@@ -39,10 +48,19 @@ func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	return gorm.Open(
+	Gorm, err := gorm.Open(
 		gormpostgres.New(gormpostgres.Config{Conn: db}),
 		config,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := Gorm.Use(tracing.NewPlugin()); err != nil {
+		return nil, fmt.Errorf("error setting up tracing: %w", err)
+	}
+
+	return Gorm, nil
 }
 
 func NewDB(connection string) (*sql.DB, error) {
@@ -74,18 +92,6 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		config.MaxConns = 20
 	}
 
-	if logger.IsTraceEnabled() {
-		logrusLogger := &logrus.Logger{
-			Out:          os.Stderr,
-			Formatter:    new(logrus.TextFormatter),
-			Hooks:        make(logrus.LevelHooks),
-			Level:        logrus.DebugLevel,
-			ExitFunc:     os.Exit,
-			ReportCaller: false,
-		}
-		_ = logrusLogger
-		//config.ConnConfig.Logger = logrusadapter.NewLogger(logrusLogger)
-	}
 	pool, err = pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
