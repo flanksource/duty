@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestContexts(t *testing.T) {
+func TestDuty(t *testing.T) {
 	RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "Duty Suite")
 }

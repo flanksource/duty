@@ -11,6 +11,7 @@ import (
 
 func UpdateProperty(ctx context.Context, key, value string) error {
 	query := "INSERT INTO properties (name, value) VALUES (?,?) ON CONFLICT (name) DO UPDATE SET value = excluded.value"
+	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, key, value).Error
 }
 
@@ -26,6 +27,7 @@ func UpdateProperties(ctx context.Context, props map[string]string) error {
 		return nil
 	}
 	query := fmt.Sprintf("INSERT INTO properties (name, value) VALUES %s ON CONFLICT (name) DO UPDATE SET value = excluded.value", strings.Join(values, ","))
+	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, args...).Error
 }
 

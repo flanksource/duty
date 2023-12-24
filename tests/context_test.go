@@ -2,7 +2,6 @@ package tests
 
 import (
 	gocontext "context"
-	"testing"
 
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -11,13 +10,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/flanksource/duty/context"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var exporter *stdouttrace.Exporter
+var tracer trace.Tracer
 
-func init() {
-
+var _ = Describe("Context", func() {
 	var err error
 	exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
@@ -30,37 +30,32 @@ func init() {
 
 	tracer = provider.Tracer("example.com/basic")
 
-}
+	It("should record spans", func() {
+		c := context.NewContext(gocontext.Background()).WithObject(metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "default",
+			Annotations: map[string]string{"debug": "true"},
+		})
+		c.WithTracer(tracer)
 
-var tracer trace.Tracer
+		Expect(c.IsDebug()).To(BeTrue())
+		Expect(c.IsTrace()).To(BeFalse())
 
-func TestContext(t *testing.T) {
+		Expect(c.GetName()).To(Equal("test"))
+		Expect(c.GetNamespace()).To(Equal("default"))
 
-	RegisterTestingT(t)
-	c := context.NewContext(gocontext.Background()).WithObject(metav1.ObjectMeta{
-		Name:        "test",
-		Namespace:   "default",
-		Annotations: map[string]string{"debug": "true"},
+		ctx, span := c.StartSpan("test")
+		Expect(ctx.GetName()).To(Equal("test"))
+		Expect(ctx.GetNamespace()).To(Equal("default"))
+		inner := ctx.WithObject(metav1.ObjectMeta{
+			Name:        "jane",
+			Namespace:   "default",
+			Annotations: map[string]string{"trace": "true"},
+		})
+		Expect(inner.GetName()).To(Equal("jane"))
+		Expect(inner.GetNamespace()).To(Equal("default"))
+
+		Expect(inner.IsTrace()).To(BeTrue())
+		span.End()
 	})
-	c.WithTracer(tracer)
-
-	Expect(c.IsDebug()).To(BeTrue())
-	Expect(c.IsTrace()).To(BeFalse())
-
-	Expect(c.GetName()).To(Equal("test"))
-	Expect(c.GetNamespace()).To(Equal("default"))
-
-	ctx, span := c.StartSpan("test")
-	Expect(ctx.GetName()).To(Equal("test"))
-	Expect(ctx.GetNamespace()).To(Equal("default"))
-	inner := ctx.WithObject(metav1.ObjectMeta{
-		Name:        "jane",
-		Namespace:   "default",
-		Annotations: map[string]string{"trace": "true"},
-	})
-	Expect(inner.GetName()).To(Equal("jane"))
-	Expect(inner.GetNamespace()).To(Equal("default"))
-
-	Expect(inner.IsTrace()).To(BeTrue())
-	span.End()
-}
+})
