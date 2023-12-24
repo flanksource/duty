@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+type JobStatus string
+
 const (
 	StatusRunning  = "RUNNING"
 	StatusSuccess  = "SUCCESS"
@@ -31,6 +33,10 @@ type JobHistory struct {
 	TimeStart      time.Time
 	TimeEnd        *time.Time
 	Errors         []string `gorm:"-"`
+}
+
+func (j JobHistory) TableName() string {
+	return "job_history"
 }
 
 func NewJobHistory(name, resourceType, resourceID string) *JobHistory {
@@ -66,10 +72,6 @@ func (h *JobHistory) End() *JobHistory {
 }
 
 func (h *JobHistory) Persist(db *gorm.DB) error {
-	// Delete jobs which did not process anything
-	if h.ID != uuid.Nil && (h.SuccessCount+h.ErrorCount) == 0 {
-		return db.Table("job_history").Delete(h).Error
-	}
 	return db.Table("job_history").Save(h).Error
 }
 
