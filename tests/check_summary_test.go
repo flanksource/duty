@@ -23,7 +23,8 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// TODO: Test fails due to latency and uptime field
-		// Skipping this for now
+		// Skipping those fields for now
+		//
 		//        	"id": "0186b7a4-9338-7142-1b10-25dc49030218",
 		//     		"labels": {},
 		//     		"latency": {
@@ -61,6 +62,9 @@ var _ = ginkgo.Describe("Check summary", ginkgo.Ordered, func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
+		// TODO: Test fails due to latency and uptime field
+		// Skipping those fields for now
+		//
 		//        	"id": "eed7bd6e-529b-4693-aca9-55177bcc5ff2",
 		//     		"labels": {},
 		//     		"latency": {
