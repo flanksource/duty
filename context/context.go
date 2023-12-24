@@ -2,8 +2,12 @@ package context
 
 import (
 	gocontext "context"
+	"time"
 
 	commons "github.com/flanksource/commons/context"
+	dutyGorm "github.com/flanksource/duty/gorm"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/patrickmn/go-cache"
@@ -11,14 +15,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
-	"time"
-
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
-
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type Poolable interface {
@@ -105,7 +103,19 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	}
 }
 
+func (k Context) WithDBLogLevel(level string) Context {
+	db := k.DB()
+	db.Logger = dutyGorm.NewGormLogger(level)
+	return Context{
+		Context: k.WithValue("db", db),
+	}
+}
+
 var propertyCache = cache.New(time.Minute*15, time.Minute*15)
+
+func (k Context) ClearCache() {
+	propertyCache = cache.New(time.Minute*15, time.Minute*15)
+}
 
 // Properties returns a cached map of properties
 func (k Context) Properties() map[string]string {
@@ -129,7 +139,12 @@ func (k Context) Properties() map[string]string {
 }
 
 func (k Context) DB() *gorm.DB {
-	v, ok := k.Value("db").(*gorm.DB)
+	val := k.Value("db")
+	if val == nil {
+		return nil
+	}
+
+	v, ok := val.(*gorm.DB)
 	if !ok {
 		return nil
 	}
@@ -137,7 +152,11 @@ func (k Context) DB() *gorm.DB {
 }
 
 func (k Context) Pool() *pgxpool.Pool {
-	v, ok := k.Value("pgxpool").(*pgxpool.Pool)
+	val := k.Value("pgxpool")
+	if val == nil {
+		return nil
+	}
+	v, ok := val.(*pgxpool.Pool)
 	if !ok {
 		return nil
 	}

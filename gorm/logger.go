@@ -3,21 +3,18 @@ package duty
 import (
 	"context"
 	"errors"
+	"log"
+	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/spf13/pflag"
 	gLogger "gorm.io/gorm/logger"
 )
 
-// LogLevel is the log level for gorm logger
-var LogLevel string
-
-func BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
-}
+const Debug = "debug"
+const Trace = "trace"
 
 type gormLogger struct {
 	logger                    logger.Logger
@@ -26,6 +23,32 @@ type gormLogger struct {
 }
 
 func NewGormLogger(level string) gLogger.Interface {
+	if level == Trace {
+		return gLogger.New(
+			log.New(os.Stdout, "\r\n", log.Ldate|log.Ltime|log.Lshortfile), // io writer
+			gLogger.Config{
+				SlowThreshold:             time.Second,  // Slow SQL threshold
+				LogLevel:                  gLogger.Info, // Log level
+				IgnoreRecordNotFoundError: true,         // Ignore ErrRecordNotFound error for logger
+				ParameterizedQueries:      false,        // Don't include params in the SQL log
+				Colorful:                  true,         // Disable color,
+			},
+		)
+	}
+
+	if level == Debug {
+		return gLogger.New(
+			log.New(os.Stdout, "\r\n", log.Ldate|log.Ltime|log.Lshortfile), // io writer
+			gLogger.Config{
+				SlowThreshold:             time.Second,  // Slow SQL threshold
+				LogLevel:                  gLogger.Info, // Log level
+				IgnoreRecordNotFoundError: true,         // Ignore ErrRecordNotFound error for logger
+				ParameterizedQueries:      true,         // Don't include params in the SQL log
+				Colorful:                  true,         // Disable color
+			},
+		)
+	}
+
 	l := logrus.New()
 	l.SetFormatter(&logrus.TextFormatter{
 		ForceColors:  true,
@@ -34,7 +57,7 @@ func NewGormLogger(level string) gLogger.Interface {
 
 	currentGormLogger := logger.NewLogrusLogger(l)
 
-	switch LogLevel {
+	switch level {
 	case "trace":
 		currentGormLogger.SetLogLevel(2)
 	case "debug":
