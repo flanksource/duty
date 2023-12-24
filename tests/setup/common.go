@@ -2,10 +2,13 @@ package setup
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
+	"strings"
 
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/setup"
+	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/testutils"
 	"github.com/onsi/ginkgo/v2"
@@ -18,10 +21,23 @@ import (
 var postgresServer *embeddedPG.EmbeddedPostgres
 var dummyData dummy.DummyData
 
-const PgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
+var PgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
+var postgresDBUrl string
+var dbName string
+
+func execPostgres(connection, query string) error {
+	db, err := sql.Open("postgres", connection)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(query)
+	return err
+}
 
 func MustDB() *sql.DB {
-	db, err := setup.NewDB(PgUrl)
+	db, err := duty.NewDB(PgUrl)
 	if err != nil {
 		panic(err)
 	}
@@ -34,14 +50,25 @@ func BeforeSuiteFn() {
 	if postgresServer != nil {
 		return
 	}
-	config, _ := testutils.GetEmbeddedPGConfig("test", 9876)
-	postgresServer = embeddedPG.NewDatabase(config)
-	if err = postgresServer.Start(); err != nil {
-		ginkgo.Fail(err.Error())
+	url := os.Getenv("DUTY_DB_URL")
+	if url != "" {
+		postgresDBUrl = url
+		dbName = "duty_gingko"
+		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
+		_ = execPostgres(postgresDBUrl, "DROP DATABASE "+dbName)
+		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
+			ginkgo.Fail(fmt.Sprintf("Cannot create %s: %v", dbName, err))
+		}
+	} else {
+		config, _ := testutils.GetEmbeddedPGConfig("test", 9876)
+		postgresServer = embeddedPG.NewDatabase(config)
+		if err = postgresServer.Start(); err != nil {
+			ginkgo.Fail(err.Error())
+		}
+		logger.Infof("Started postgres on port 9876")
 	}
-	logger.Infof("Started postgres on port 9876")
 
-	if ctx, err := setup.InitDB(PgUrl, nil); err != nil {
+	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
 		ginkgo.Fail(err.Error())
 	} else {
 		testutils.DefaultContext = *ctx
@@ -69,19 +96,29 @@ func BeforeSuiteFn() {
 		}}))
 
 	testutils.DefaultContext = ctx
+	logger.StandardLogger().SetLogLevel(2)
+	logger.Infof("Created dummy data %v", len(dummyData.Checks))
 }
 
 func AfterSuiteFn() {
 	logger.Infof("Deleting dummy data")
-	testDB, err := setup.NewGorm(PgUrl, setup.DefaultGormConfig())
+	logger.StandardLogger().SetLogLevel(0)
+	testDB, err := duty.NewGorm(PgUrl, duty.DefaultGormConfig())
 	if err != nil {
 		ginkgo.Fail(err.Error())
 	}
 	if err := dummyData.Delete(testDB); err != nil {
 		ginkgo.Fail(err.Error())
 	}
-	logger.Infof("Stopping postgres")
-	if err := postgresServer.Stop(); err != nil {
-		ginkgo.Fail(err.Error())
+
+	if os.Getenv("DUTY_DB_URL") == "" {
+		logger.Infof("Stopping postgres")
+		if err := postgresServer.Stop(); err != nil {
+			ginkgo.Fail(err.Error())
+		}
+	} else {
+		if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
+			ginkgo.Fail(fmt.Sprintf("Cannot drop %s: %v", dbName, err))
+		}
 	}
 }
