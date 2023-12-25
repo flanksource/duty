@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Component struct {
@@ -72,6 +73,14 @@ type Component struct {
 	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
+func (c *Component) ObjectMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+		Labels:    c.Labels,
+	}
+}
+
 func (c *Component) GetStatus() types.ComponentStatus {
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
 		return types.ComponentStatusWarning
@@ -125,7 +134,7 @@ func (c *Component) Summarize() types.Summary {
 
 	for _, child := range c.Components {
 		childSummary := child.Summarize()
-		s = s.Add(childSummary, c.Name+"-"+child.Name)
+		s = s.Add(childSummary)
 	}
 	s.SetProcessed(true)
 	return s
@@ -181,6 +190,14 @@ func (component Component) IsHealthy() bool {
 	return s.Healthy > 0 && s.Unhealthy == 0 && s.Warning == 0
 }
 
+var ComponentID = func(c Component) string {
+	return c.ID.String()
+}
+
+var CheckID = func(c Check) string {
+	return c.ID.String()
+}
+
 type Components []*Component
 
 func (components Components) Map(fn func(c *Component)) {
@@ -213,7 +230,7 @@ func (components Components) Debug(prefix string) string {
 func (components Components) Summarize() types.Summary {
 	var s types.Summary
 	for _, component := range components {
-		s = s.Add(component.Summarize(), "TODO:")
+		s = s.Add(component.Summarize())
 	}
 
 	return s
@@ -445,6 +462,13 @@ type CheckComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (c *CheckComponentRelationship) Save(db *gorm.DB) error {
+	return db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "canary_id"}, {Name: "check_id"}, {Name: "component_id"}, {Name: "selector_id"}},
+		UpdateAll: true,
+	}).Create(c).Error
 }
 
 func (CheckComponentRelationship) TableName() string {

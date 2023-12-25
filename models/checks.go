@@ -6,6 +6,8 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CheckHealthStatus string
@@ -50,6 +52,15 @@ type Check struct {
 	Latency      types.Latency `json:"latency,omitempty"  gorm:"-"`
 	Statuses     []CheckStatus `json:"checkStatuses,omitempty"  gorm:"-"`
 	DisplayType  string        `json:"display_type,omitempty"  gorm:"-"`
+
+	// These are calculated for the selected date range
+	EarliestRuntime *time.Time `json:"earliestRuntime,omitempty" gorm:"-"`
+	LatestRuntime   *time.Time `json:"latestRuntime,omitempty" gorm:"-"`
+	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
+}
+
+func (c Check) TableName() string {
+	return "checks"
 }
 
 func (c Check) ToString() string {
@@ -182,6 +193,13 @@ type CheckConfigRelationship struct {
 	CreatedAt  time.Time  `json:"created_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at,omitempty"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (c *CheckConfigRelationship) Save(db *gorm.DB) error {
+	return db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "canary_id"}, {Name: "check_id"}, {Name: "config_id"}, {Name: "selector_id"}},
+		UpdateAll: true,
+	}).Create(c).Error
 }
 
 func (CheckConfigRelationship) TableName() string {

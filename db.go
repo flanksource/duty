@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/pflag"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
@@ -27,6 +28,18 @@ var DefaultQueryTimeout = 30 * time.Second
 
 // LogLevel is the log level for gorm logger
 var LogLevel string
+
+func Now() clause.Expr {
+	return gorm.Expr("NOW()")
+}
+
+func Delete(ctx dutyContext.Context, model Table) error {
+	return ctx.DB().Model(model).UpdateColumn("deleted_at", Now()).Error
+}
+
+type Table interface {
+	TableName() string
+}
 
 func BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")

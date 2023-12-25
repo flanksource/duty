@@ -31,6 +31,10 @@ type Context struct {
 	commons.Context
 }
 
+func New(opts ...commons.ContextOptions) Context {
+	return NewContext(gocontext.Background(), opts...)
+}
+
 func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Context {
 	baseOpts := []commons.ContextOptions{
 		commons.WithDebugFn(func(ctx commons.Context) bool {
