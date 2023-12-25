@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/flanksource/commons/logger"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/drivers"
@@ -87,6 +88,20 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
+	config.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithIncludeQueryParameters(),
+		// This option is required to enable the WithSpanNameFunc
+		otelpgx.WithTrimSQLInSpanName(),
+		otelpgx.WithSpanNameFunc(func(stmt string) string {
+			// Trim span name after 80 chars
+			maxL := 80
+			if len(stmt) < maxL {
+				maxL = len(stmt)
+			}
+			return stmt[:maxL]
+		}),
+	)
+
 	// prevent deadlocks from concurrent queries
 	if config.MaxConns < 20 {
 		config.MaxConns = 20
@@ -97,7 +112,7 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	row := pool.QueryRow(context.TODO(), "SELECT pg_size_pretty(pg_database_size($1));", config.ConnConfig.Database)
+	row := pool.QueryRow(context.Background(), "SELECT pg_size_pretty(pg_database_size($1));", config.ConnConfig.Database)
 	var size string
 	if err := row.Scan(&size); err != nil {
 		return nil, err
