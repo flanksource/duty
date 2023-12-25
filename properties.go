@@ -6,11 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 )
 
 func UpdateProperty(ctx context.Context, key, value string) error {
 	query := "INSERT INTO properties (name, value) VALUES (?,?) ON CONFLICT (name) DO UPDATE SET value = excluded.value"
+	logger.Debugf("Updated property %s = %s", key, value)
 	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, key, value).Error
 }
@@ -21,6 +23,7 @@ func UpdateProperties(ctx context.Context, props map[string]string) error {
 	for key, value := range props {
 		values = append(values, "(?, ?)")
 		args = append(args, key, value)
+		logger.Debugf("Updated property %s = %s", key, value)
 	}
 
 	if len(values) == 0 {
