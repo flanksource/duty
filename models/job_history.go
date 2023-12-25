@@ -17,6 +17,7 @@ const (
 	StatusWarning  = "WARNING"
 	StatusFinished = "FINISHED"
 	StatusFailed   = "FAILED"
+	StatusAborted  = "ABORTED"
 )
 
 type JobHistory struct {
@@ -62,17 +63,12 @@ func (h *JobHistory) End() *JobHistory {
 		"errors": h.Errors,
 	}
 
-	// Set success count if not set before
-	if h.SuccessCount == 0 && h.ErrorCount == 0 {
-		h.IncrSuccess()
-	}
-
 	h.evaluateStatus()
 	return h
 }
 
 func (h *JobHistory) Persist(db *gorm.DB) error {
-	return db.Table("job_history").Save(h).Error
+	return db.Save(h).Error
 }
 
 func (h *JobHistory) AddError(err string) *JobHistory {
@@ -91,6 +87,9 @@ func (h *JobHistory) IncrSuccess() *JobHistory {
 // EvaluateStatus updates the Status field of JobHistory based on the counts of
 // Success and Error in it.
 func (h *JobHistory) evaluateStatus() {
+	if h.Status != StatusRunning {
+		return
+	}
 	if h.SuccessCount == 0 {
 		if h.ErrorCount > 0 {
 			h.Status = StatusFailed

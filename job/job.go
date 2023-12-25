@@ -71,6 +71,7 @@ func (j *JobRuntime) start() {
 }
 
 func (j *JobRuntime) end() {
+	j.History.End()
 	if j.Job.JobHistory {
 		if err := j.History.Persist(j.DB()); err != nil {
 			logger.Warnf("%s failed to persist history: %v", j.ID(), err)
@@ -146,7 +147,7 @@ func (j *Job) cleanupHistory() int {
 		statuses []string
 	}{
 		{j.Retention.Success, []string{models.StatusSuccess, models.StatusFinished}},
-		{j.Retention.Failed, []string{models.StatusFailed, models.StatusWarning}},
+		{j.Retention.Failed, []string{models.StatusFailed, models.StatusWarning, models.StatusAborted}},
 		{j.Retention.Success, []string{models.StatusRunning}},
 	}
 	count := 0
@@ -181,7 +182,7 @@ func (j *Job) Run() {
 		r.runId = uuid.NewString()[0:8]
 	}
 	r.start()
-
+	defer r.end()
 	if j.Singleton {
 		ctx.Tracef("%s acquiring lock", r.ID())
 
@@ -189,14 +190,13 @@ func (j *Job) Run() {
 			j.lock = &sync.Mutex{}
 		}
 		if !j.lock.TryLock() {
+			r.History.Status = models.StatusAborted
 			ctx.Tracef("%s failed to acquire lock", r.ID())
 			r.Failf("%s concurrent job aborted", r.ID())
 			return
 		}
 		defer j.lock.Unlock()
 	}
-
-	defer r.end()
 
 	if j.Timeout > 0 {
 		var cancel gocontext.CancelFunc
@@ -283,10 +283,12 @@ func (j *Job) String() string {
 }
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
+	j.init()
 	if j.Schedule == "@never" {
-		logger.Infof("Skipping scheduling of %s", j.Name)
+		logger.Infof("[%s] skipping scheduling of %s", j.Name)
 		return nil
 	}
+	logger.Infof("[%s] scheduled %s", j.Name, j.Schedule)
 	entryID, err := cronRunner.AddJob(j.Schedule, j)
 	if err != nil {
 		return fmt.Errorf("failed to schedule job %s: %s", j.Name, err)
