@@ -3,8 +3,10 @@ package types
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 
+	"github.com/flanksource/commons/hash"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -21,6 +23,14 @@ type ConfigQuery struct {
 	Name       string            `json:"name,omitempty"`
 	Namespace  string            `json:"namespace,omitempty"`
 	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+func (c ConfigQuery) Hash() string {
+	hash, err := hash.JSONMD5Hash(c)
+	if err != nil {
+		return ""
+	}
+	return hash
 }
 
 func (c ConfigQuery) String() string {
@@ -55,4 +65,12 @@ func (t ConfigQueries) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 func (t ConfigQueries) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	return GormValue(t)
+}
+
+// ToJSONMap converts the struct to map[string]interface{}
+func (c ConfigQuery) ToJSONMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	b, _ := json.Marshal(&c)
+	_ = json.Unmarshal(b, &m)
+	return m
 }

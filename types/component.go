@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/flanksource/commons/hash"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -20,6 +21,26 @@ const (
 	ComponentStatusInfo      ComponentStatus = "info"
 )
 
+var (
+	ComponentStatusOrder = map[ComponentStatus]int{
+		ComponentStatusInfo:      0,
+		ComponentStatusHealthy:   1,
+		ComponentStatusUnhealthy: 2,
+		ComponentStatusWarning:   3,
+		ComponentStatusError:     4,
+	}
+)
+
+func (status ComponentStatus) Compare(other ComponentStatus) int {
+	if status == other {
+		return 0
+	}
+	if ComponentStatusOrder[status] > ComponentStatusOrder[other] {
+		return 1
+	}
+	return -1
+}
+
 // +kubebuilder:object:generate=true
 type Summary struct {
 	Healthy   int                       `json:"healthy,omitempty"`
@@ -31,7 +52,7 @@ type Summary struct {
 	Checks    map[string]int            `json:"checks,omitempty"`
 
 	// processed is used to prevent from being caluclated twice
-	processed bool
+	processed bool `json:"-"`
 }
 
 func (s *Summary) SetProcessed(val bool) {
@@ -58,7 +79,7 @@ func (s Summary) GetStatus() ComponentStatus {
 	return "unknown"
 }
 
-func (s Summary) Add(b Summary, n string) Summary {
+func (s Summary) Add(b Summary) Summary {
 	if b.Healthy > 0 && b.Unhealthy > 0 {
 		s.Warning += 1
 	} else if b.Unhealthy > 0 {
@@ -146,6 +167,14 @@ func (rs ResourceSelectors) Value() (driver.Value, error) {
 	return GenericStructValue(rs, true)
 }
 
+func (rs ResourceSelectors) Hash() string {
+	hash, err := hash.JSONMD5Hash(rs)
+	if err != nil {
+		return ""
+	}
+	return hash
+}
+
 // GormDataType gorm common data type
 func (rs ResourceSelectors) GormDataType() string {
 	return "resourceSelectors"
@@ -163,6 +192,14 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 type ComponentCheck struct {
 	Selector ResourceSelector `json:"selector,omitempty"`
 	Inline   *JSON            `json:"inline,omitempty"`
+}
+
+func (cs ComponentCheck) Hash() string {
+	hash, err := hash.JSONMD5Hash(cs)
+	if err != nil {
+		return ""
+	}
+	return hash
 }
 
 type ComponentChecks []ComponentCheck
