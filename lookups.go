@@ -113,7 +113,9 @@ func LookupComponents(ctx context.Context, lookup LookupSpec, labels map[string]
 		return nil, nil
 	}
 
-	logger.Tracef("Finding all components (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+	if ctx.IsTrace() {
+		logger.Tracef("Finding all components (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+	}
 	return query.FindComponentIDsByNameNamespaceType(ctx, lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
 }
 
@@ -125,6 +127,8 @@ func LookupConfigs(ctx context.Context, lookup LookupSpec, labels map[string]str
 		return nil, nil
 	}
 
-	logger.Tracef("Finding all config items (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+	if ctx.IsTrace() {
+		logger.Tracef("Finding all config items (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+	}
 	return query.FindConfigIDsByNameNamespaceType(ctx, lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
 }
