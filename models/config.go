@@ -101,7 +101,7 @@ func (ci *ConfigItem) SetParent(parent *ConfigItem) {
 }
 
 func (ci ConfigItem) String() string {
-	return fmt.Sprintf("%s/%s", ci.ConfigClass, ci.ID)
+	return fmt.Sprintf("%s{name=%s, id=%s}", ci.ConfigClass, *ci.Name, ci.ID)
 }
 
 func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
