@@ -9,14 +9,16 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
-	"github.com/flanksource/duty/testutils"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+var DefaultContext context.Context
 
 var postgresServer *embeddedPG.EmbeddedPostgres
 var dummyData dummy.DummyData
@@ -44,11 +46,11 @@ func MustDB() *sql.DB {
 	return db
 }
 
-func BeforeSuiteFn() {
+func BeforeSuiteFn() context.Context {
 	var err error
 
 	if postgresServer != nil {
-		return
+		return DefaultContext
 	}
 	url := os.Getenv("DUTY_DB_URL")
 	if url != "" {
@@ -60,7 +62,7 @@ func BeforeSuiteFn() {
 			ginkgo.Fail(fmt.Sprintf("Cannot create %s: %v", dbName, err))
 		}
 	} else {
-		config, _ := testutils.GetEmbeddedPGConfig("test", 9876)
+		config, _ := GetEmbeddedPGConfig("test", 9876)
 		postgresServer = embeddedPG.NewDatabase(config)
 		if err = postgresServer.Start(); err != nil {
 			ginkgo.Fail(err.Error())
@@ -71,14 +73,14 @@ func BeforeSuiteFn() {
 	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
 		ginkgo.Fail(err.Error())
 	} else {
-		testutils.DefaultContext = *ctx
+		DefaultContext = *ctx
 	}
 
-	dummyData = dummy.GetStaticDummyData(testutils.DefaultContext.DB())
-	err = dummyData.Populate(testutils.DefaultContext.DB())
+	dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
+	err = dummyData.Populate(DefaultContext.DB())
 	Expect(err).ToNot(HaveOccurred())
 
-	ctx := testutils.DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
+	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",
@@ -95,9 +97,9 @@ func BeforeSuiteFn() {
 			"foo": []byte("secret"),
 		}}))
 
-	testutils.DefaultContext = ctx
 	logger.StandardLogger().SetLogLevel(2)
 	logger.Infof("Created dummy data %v", len(dummyData.Checks))
+	return DefaultContext
 }
 
 func AfterSuiteFn() {
