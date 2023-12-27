@@ -17,6 +17,27 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var RetentionHour = Retention{
+	Success:  1,
+	Failed:   3,
+	Age:      time.Hour,
+	Interval: 5 * time.Minute,
+}
+
+var RetentionDay = Retention{
+	Success:  3,
+	Failed:   3,
+	Age:      time.Hour,
+	Interval: time.Hour * 24,
+}
+
+var Retention3Day = Retention{
+	Success:  3,
+	Failed:   3,
+	Age:      time.Hour * 24 * 3,
+	Interval: time.Hour * 4,
+}
+
 type Job struct {
 	context.Context
 	Name         string
@@ -106,9 +127,9 @@ func (j *Job) FindHistory(statuses ...string) ([]models.JobHistory, error) {
 	var items []models.JobHistory
 	var err error
 	if len(statuses) == 0 {
-		err = j.DB().Where("name = ?", j.Name).Find(&items).Error
+		err = j.DB().Where("name = ?", j.Name).Order("time_start DESC").Find(&items).Error
 	} else {
-		err = j.DB().Where("name = ? and status in ?", j.Name, statuses).Find(&items).Error
+		err = j.DB().Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
 	}
 	return items, err
 }

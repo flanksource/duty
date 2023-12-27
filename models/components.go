@@ -450,6 +450,14 @@ type ConfigComponentRelationship struct {
 	DeletedAt   *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 }
 
+var ConfigID = func(c ConfigComponentRelationship, i int) string {
+	return c.ConfigID.String()
+}
+
+var ConfigSelectorID = func(c ConfigComponentRelationship, i int) string {
+	return c.SelectorID
+}
+
 func (cr ConfigComponentRelationship) TableName() string {
 	return "config_component_relationships"
 }
