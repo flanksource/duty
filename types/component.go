@@ -3,9 +3,11 @@ package types
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 
 	"github.com/flanksource/commons/hash"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -153,6 +155,7 @@ func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 
 type ResourceSelectors []ResourceSelector
 
+// +kubebuilder:object:generate=true
 type ResourceSelector struct {
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
@@ -189,9 +192,13 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 	return GormValue(rs)
 }
 
+// +kubebuilder:object:generate=true
 type ComponentCheck struct {
 	Selector ResourceSelector `json:"selector,omitempty"`
-	Inline   *JSON            `json:"inline,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Inline json.RawMessage `json:"inline" gorm:"type:JSON"`
 }
 
 func (cs ComponentCheck) Hash() string {
@@ -224,4 +231,12 @@ func (ComponentChecks) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 func (cs ComponentChecks) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	return GormValue(cs)
+}
+
+type Incident struct {
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"`
+	Title       string    `json:"title"`
+	Severity    int       `json:"severity"`
+	Description string    `json:"description"`
 }
