@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -83,6 +84,16 @@ func (k Context) User() *models.Person {
 	return v.(*models.Person)
 }
 
+func (k Context) WithTrace() Context {
+	k.Context = k.Context.WithTrace()
+	return k
+}
+
+func (k Context) WithDebug() Context {
+	k.Context = k.Context.WithDebug()
+	return k
+}
+
 func (k Context) WithKubernetes(client kubernetes.Interface) Context {
 	return Context{
 		Context: k.WithValue("kubernetes", client),
@@ -142,6 +153,15 @@ func (k Context) Properties() map[string]string {
 	return props
 }
 
+// FastDB returns a db suitable for high-performance usage, with limited logging
+func (k Context) FastDB() *gorm.DB {
+	db := k.DB().Session(&gorm.Session{
+		NewDB: true,
+	})
+	db.Logger.LogMode(logger.Error)
+	return db
+}
+
 func (k Context) DB() *gorm.DB {
 	val := k.Value("db")
 	if val == nil {
@@ -149,7 +169,7 @@ func (k Context) DB() *gorm.DB {
 	}
 
 	v, ok := val.(*gorm.DB)
-	if !ok {
+	if !ok || v == nil {
 		return nil
 	}
 	return v.WithContext(k)
@@ -161,7 +181,7 @@ func (k Context) Pool() *pgxpool.Pool {
 		return nil
 	}
 	v, ok := val.(*pgxpool.Pool)
-	if !ok {
+	if !ok || v == nil {
 		return nil
 	}
 	return v
@@ -170,7 +190,7 @@ func (k Context) Pool() *pgxpool.Pool {
 
 func (k *Context) Kubernetes() kubernetes.Interface {
 	v, ok := k.Value("kubernetes").(kubernetes.Interface)
-	if !ok {
+	if !ok || v == nil {
 		return fake.NewSimpleClientset()
 	}
 	return v
@@ -178,7 +198,7 @@ func (k *Context) Kubernetes() kubernetes.Interface {
 
 func (k *Context) Kommons() *kommons.Client {
 	v, ok := k.Value("kommons").(*kommons.Client)
-	if !ok {
+	if !ok || v == nil {
 		return nil
 	}
 	return v

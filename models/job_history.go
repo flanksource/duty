@@ -1,9 +1,11 @@
 package models
 
 import (
+	"fmt"
 	"os"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -76,7 +78,15 @@ func (h *JobHistory) AddError(err string) *JobHistory {
 	if err != "" {
 		h.Errors = append(h.Errors, err)
 	}
+	logger.Errorf("%s %s", h, err)
 	return h
+}
+
+func (h *JobHistory) String() string {
+	if h.ResourceID != "" {
+		return fmt.Sprintf("%s{%s}", h.Name, h.End().ResourceID)
+	}
+	return h.Name
 }
 
 func (h *JobHistory) IncrSuccess() *JobHistory {
