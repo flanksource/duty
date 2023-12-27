@@ -31,7 +31,7 @@ type Component struct {
 	Labels          types.JSONStringMap     `json:"labels,omitempty" gorm:"default:null"`
 	Hidden          bool                    `json:"hidden,omitempty"`
 	Silenced        bool                    `json:"silenced,omitempty"`
-	Status          types.ComponentStatus   `json:"status,omitempty"`
+	Status          string                  `json:"status,omitempty"`
 	Description     string                  `json:"description,omitempty"`
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
@@ -117,7 +117,7 @@ func (c *Component) Summarize() types.Summary {
 	s.Checks = c.Summary.Checks
 
 	if c.Components == nil {
-		switch c.Status {
+		switch types.ComponentStatus(c.Status) {
 		case types.ComponentStatusHealthy:
 			s.Healthy++
 		case types.ComponentStatusUnhealthy:
@@ -215,9 +215,9 @@ func (components Components) Debug(prefix string) string {
 		status := component.Status
 
 		if component.IsHealthy() {
-			status = types.ComponentStatus(console.Greenf(string(status)))
+			status = console.Greenf(string(status))
 		} else {
-			status = types.ComponentStatus(console.Redf(string(status)))
+			status = console.Redf(string(status))
 		}
 
 		s += fmt.Sprintf("%s%s (id=%s, text=%s, name=%s) => %s\n", prefix, component, component.ID, component.Text, component.Name, status)
