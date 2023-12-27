@@ -9,7 +9,6 @@ import (
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/tests/matcher"
-	"github.com/flanksource/duty/testutils"
 	"github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +48,7 @@ func writeJSONToFile(filepath string, data any) error {
 }
 
 func testTopologyJSON(opts query.TopologyOptions, path string) {
-	tree, err := query.Topology(testutils.DefaultContext, opts)
+	tree, err := query.Topology(DefaultContext, opts)
 	Expect(err).ToNot(HaveOccurred())
 
 	matcher.MatchFixture(path, tree, `del(.. | .created_at?, .updated_at?)`)
