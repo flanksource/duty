@@ -3,6 +3,7 @@ package setup
 import (
 	"database/sql"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -23,7 +23,7 @@ var DefaultContext context.Context
 var postgresServer *embeddedPG.EmbeddedPostgres
 var dummyData dummy.DummyData
 
-var PgUrl = "postgres://postgres:postgres@localhost:9876/test?sslmode=disable"
+var PgUrl string
 var postgresDBUrl string
 var dbName string
 
@@ -52,33 +52,39 @@ func BeforeSuiteFn() context.Context {
 	if postgresServer != nil {
 		return DefaultContext
 	}
+
+	port := FreePort()
+
+	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/test?sslmode=disable", port)
 	url := os.Getenv("DUTY_DB_URL")
 	if url != "" {
 		postgresDBUrl = url
-		dbName = "duty_gingko"
+		dbName = fmt.Sprintf("duty_gingko%d", port)
 		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
 		_ = execPostgres(postgresDBUrl, "DROP DATABASE "+dbName)
 		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
-			ginkgo.Fail(fmt.Sprintf("Cannot create %s: %v", dbName, err))
+			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
 		}
 	} else {
-		config, _ := GetEmbeddedPGConfig("test", 9876)
+		config, _ := GetEmbeddedPGConfig("test", port)
 		postgresServer = embeddedPG.NewDatabase(config)
 		if err = postgresServer.Start(); err != nil {
-			ginkgo.Fail(err.Error())
+			panic(err.Error())
 		}
-		logger.Infof("Started postgres on port 9876")
+		logger.Infof("Started postgres on port %d", port)
 	}
 
 	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
-		ginkgo.Fail(err.Error())
+		panic(err.Error())
 	} else {
 		DefaultContext = *ctx
 	}
 
 	dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
 	err = dummyData.Populate(DefaultContext.DB())
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		panic(err.Error())
+	}
 
 	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -103,15 +109,15 @@ func BeforeSuiteFn() context.Context {
 }
 
 func AfterSuiteFn() {
-	logger.Infof("Deleting dummy data")
+	// logger.Infof("Deleting dummy data")
 	logger.StandardLogger().SetLogLevel(0)
-	testDB, err := duty.NewGorm(PgUrl, duty.DefaultGormConfig())
-	if err != nil {
-		ginkgo.Fail(err.Error())
-	}
-	if err := dummyData.Delete(testDB); err != nil {
-		ginkgo.Fail(err.Error())
-	}
+	// testDB, err := duty.NewGorm(PgUrl, duty.DefaultGormConfig())
+	// if err != nil {
+	// 	ginkgo.Fail(err.Error())
+	// }
+	// if err := dummyData.Delete(testDB); err != nil {
+	// 	ginkgo.Fail(err.Error())
+	// }
 
 	if os.Getenv("DUTY_DB_URL") == "" {
 		logger.Infof("Stopping postgres")
@@ -123,4 +129,18 @@ func AfterSuiteFn() {
 			ginkgo.Fail(fmt.Sprintf("Cannot drop %s: %v", dbName, err))
 		}
 	}
+}
+
+func FreePort() int {
+	// Bind to port 0 to let the OS choose a free port
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer listener.Close()
+
+	// Get the address of the listener
+	address := listener.Addr().(*net.TCPAddr)
+	return address.Port
 }

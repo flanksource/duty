@@ -31,7 +31,7 @@ type Component struct {
 	Labels          types.JSONStringMap     `json:"labels,omitempty" gorm:"default:null"`
 	Hidden          bool                    `json:"hidden,omitempty"`
 	Silenced        bool                    `json:"silenced,omitempty"`
-	Status          string                  `json:"status,omitempty"`
+	Status          types.ComponentStatus   `json:"status,omitempty"`
 	Description     string                  `json:"description,omitempty"`
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
@@ -212,12 +212,12 @@ func (components Components) Map(fn func(c *Component)) {
 func (components Components) Debug(prefix string) string {
 	var s string
 	for _, component := range components {
-		status := component.Status
+		status := string(component.Status)
 
 		if component.IsHealthy() {
-			status = console.Greenf(string(status))
+			status = console.Greenf("%s", status)
 		} else {
-			status = console.Redf(string(status))
+			status = console.Redf("%s", status)
 		}
 
 		s += fmt.Sprintf("%s%s (id=%s, text=%s, name=%s) => %s\n", prefix, component, component.ID, component.Text, component.Name, status)
