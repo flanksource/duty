@@ -123,11 +123,11 @@ func (EnvVar) GormDataType() string {
 func (EnvVar) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case SqliteType:
-		return Text
+		return TextType
 	case MysqlType:
-		return Text
+		return TextType
 	case PostgresType:
-		return Text
+		return TextType
 	}
 
 	return ""
