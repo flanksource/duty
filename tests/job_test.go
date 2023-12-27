@@ -8,7 +8,6 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/testutils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -19,7 +18,7 @@ var _ = Describe("Job", Ordered, func() {
 	var sampleJob *job.Job
 	It("Prevent concurrent execution", func() {
 		var counter = atomic.Int32{}
-		ctx = testutils.DefaultContext
+		ctx = DefaultContext
 		sampleJob = &job.Job{
 			Name:       "test",
 			Singleton:  true,

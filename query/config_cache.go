@@ -7,7 +7,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -48,10 +47,14 @@ func configQuery(db *gorm.DB, config types.ConfigQuery) *gorm.DB {
 
 var configCache = gocache.New(30*time.Minute, 1*time.Hour)
 
-func FindConfig(ctx context.Context, config types.ConfigQuery) (*models.ConfigItem, error) {
-	if ctx.DB() == nil {
-		logger.Debugf("Config lookup on %v will be ignored, db not initialized", config)
-		return nil, gorm.ErrRecordNotFound
+func FindConfigs(db *gorm.DB, config types.ConfigQuery) (items []models.ConfigItem, err error) {
+	err = configQuery(db, config).Find(&items).Error
+	return items, err
+}
+
+func FindConfig(db *gorm.DB, config types.ConfigQuery) (*models.ConfigItem, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db not initialized")
 	}
 
 	cacheKey := config.Hash()
@@ -68,7 +71,7 @@ func FindConfig(ctx context.Context, config types.ConfigQuery) (*models.ConfigIt
 	}
 
 	var item models.ConfigItem
-	query := configQuery(ctx.DB(), config)
+	query := configQuery(db, config)
 	tx := query.Limit(1).Find(&item)
 	if tx.Error != nil {
 		return nil, tx.Error
