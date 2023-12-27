@@ -6,6 +6,7 @@ require (
 	ariga.io/atlas v0.14.2
 	cloud.google.com/go/cloudsqlconn v1.5.1
 	github.com/RaveNoX/go-jsonmerge v1.0.0
+	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.21.0
 	github.com/flanksource/commons v1.19.3

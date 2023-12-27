@@ -14,7 +14,7 @@ import (
 type Uptime struct {
 	Passed   int        `json:"passed"`
 	Failed   int        `json:"failed"`
-	P100     float64    `json:"p100,omitempty"`
+	P100     *float64   `json:"p100,omitempty"`
 	LastPass *time.Time `json:"last_pass,omitempty"`
 	LastFail *time.Time `json:"last_fail,omitempty"`
 }

@@ -19,7 +19,7 @@ func generateStatus(check models.Check, t time.Time, count int, passingMod int) 
 			Status:    status,
 			CreatedAt: t,
 			Duration:  (1 + i) * 20,
-			Time:      t.Add(time.Minute * time.Duration(i)).Format(time.DateTime),
+			Time:      t.Add(-time.Minute * time.Duration(i)).Format(time.DateTime),
 		})
 	}
 	return statuses
