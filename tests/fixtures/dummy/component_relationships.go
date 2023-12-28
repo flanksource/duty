@@ -19,8 +19,15 @@ var LogisticsWorkerPodNodeBComponentRelationship = models.ComponentRelationship{
 	RelationshipID: NodeB.ID,
 }
 
+// Create a cyclic loop
+var FluxKustomizeFluxComponentRelationship = models.ComponentRelationship{
+	ComponentID:    FluxComponent.ID,
+	RelationshipID: KustomizeFluxComponent.ID,
+}
+
 var AllDummyComponentRelationships = []models.ComponentRelationship{
 	LogisticsAPIPodNodeAComponentRelationship,
 	LogisticsUIPodNodeAComponentRelationship,
 	LogisticsWorkerPodNodeBComponentRelationship,
+	FluxKustomizeFluxComponentRelationship,
 }
