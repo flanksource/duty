@@ -1,23 +1,58 @@
-package duty
+package context
 
 import (
 	"bufio"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/patrickmn/go-cache"
 )
 
-func UpdateProperty(ctx context.Context, key, value string) error {
+var Local map[string]string
+
+var propertyCache = cache.New(time.Minute*15, time.Minute*15)
+
+func (k Context) ClearCache() {
+	propertyCache = cache.New(time.Minute*15, time.Minute*15)
+}
+
+// Properties returns a cached map of properties
+func (k Context) Properties() map[string]string {
+	// properties are currently global, but in future we might have context specific properties as well
+	if val, ok := propertyCache.Get("global"); ok {
+		return val.(map[string]string)
+	}
+
+	var props = make(map[string]string)
+	var rows []models.AppProperty
+	if err := k.DB().Find(&rows).Error; err != nil {
+		return props
+	}
+
+	for _, prop := range rows {
+		props[prop.Name] = prop.Value
+	}
+
+	for k, v := range Local {
+		props[k] = v
+	}
+
+	propertyCache.Set("global", props, 0)
+	return props
+}
+
+func UpdateProperty(ctx Context, key, value string) error {
 	query := "INSERT INTO properties (name, value) VALUES (?,?) ON CONFLICT (name) DO UPDATE SET value = excluded.value"
 	logger.Debugf("Updated property %s = %s", key, value)
 	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, key, value).Error
 }
 
-func UpdateProperties(ctx context.Context, props map[string]string) error {
+func UpdateProperties(ctx Context, props map[string]string) error {
 	var values []string
 	var args []interface{}
 	for key, value := range props {
@@ -34,12 +69,18 @@ func UpdateProperties(ctx context.Context, props map[string]string) error {
 	return ctx.DB().Exec(query, args...).Error
 }
 
-func UpdatePropertiesFromFile(ctx context.Context, filename string) error {
+func LoadPropertiesFromFile(ctx Context, filename string) error {
+	logger.Infof("Loading properties from %s", filename)
 	props, err := ParsePropertiesFile(filename)
 	if err != nil {
 		return err
 	}
-	return UpdateProperties(ctx, props)
+	Local = props
+	for k, v := range Local {
+		logger.Infof("%s(local)=%s", k, v)
+	}
+	defer ctx.ClearCache()
+	return nil
 }
 
 func ParsePropertiesFile(filename string) (map[string]string, error) {

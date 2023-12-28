@@ -10,7 +10,6 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/patrickmn/go-cache"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -124,33 +123,6 @@ func (k Context) WithDBLogLevel(level string) Context {
 	return Context{
 		Context: k.WithValue("db", db),
 	}
-}
-
-var propertyCache = cache.New(time.Minute*15, time.Minute*15)
-
-func (k Context) ClearCache() {
-	propertyCache = cache.New(time.Minute*15, time.Minute*15)
-}
-
-// Properties returns a cached map of properties
-func (k Context) Properties() map[string]string {
-	// properties are currently global, but in future we might have context specific properties as well
-	if val, ok := propertyCache.Get("global"); ok {
-		return val.(map[string]string)
-	}
-
-	var props = make(map[string]string)
-	var rows []models.AppProperty
-	if err := k.DB().Find(&rows).Error; err != nil {
-		return props
-	}
-
-	for _, prop := range rows {
-		props[prop.Name] = prop.Value
-	}
-
-	propertyCache.Set("global", props, 0)
-	return props
 }
 
 // FastDB returns a db suitable for high-performance usage, with limited logging
