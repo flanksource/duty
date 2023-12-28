@@ -185,7 +185,7 @@ func (j *Job) cleanupHistory() int {
 
 func (j *Job) Run() {
 	j.init()
-	if j.lastRun != nil && time.Since(*j.lastRun) > j.Retention.Interval {
+	if j.lastRun == nil || time.Since(*j.lastRun) > j.Retention.Interval {
 		defer j.cleanupHistory()
 	}
 	j.lastRun = lo.ToPtr(time.Now())
@@ -229,6 +229,7 @@ func (j *Job) Run() {
 	ctx.Tracef("%s finished duration=%s, error=%s", r.ID(), time.Since(r.History.TimeStart), err)
 	if err != nil {
 		ctx.Error(err)
+		r.History.AddError(err.Error())
 	}
 }
 
@@ -259,6 +260,14 @@ func (j *Job) init() {
 
 	if trace, ok := properties[j.Name+".trace"]; ok {
 		j.Trace = trace == "true"
+	}
+
+	if interval, ok := properties[j.Name+".retention.interval"]; ok {
+		duration, err := time.ParseDuration(interval)
+		if err != nil {
+			logger.Warnf("Invalid timeout for %s: %s", j.Name, interval)
+		}
+		j.Retention.Interval = duration
 	}
 
 	if j.Retention.Interval.Nanoseconds() == 0 {
@@ -306,7 +315,7 @@ func (j *Job) String() string {
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	j.init()
 	if j.Schedule == "@never" {
-		logger.Infof("[%s] skipping scheduling of %s", j.Name)
+		logger.Infof("[%s] skipping scheduling", j.Name)
 		return nil
 	}
 	logger.Infof("[%s] scheduled %s", j.Name, j.Schedule)
@@ -316,7 +325,7 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	}
 	j.entryID = &entryID
 	if j.RunNow {
-		j.Run()
+		defer j.Run()
 	}
 	j.unschedule = func() {
 		cronRunner.Remove(*j.entryID)
