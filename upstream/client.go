@@ -38,7 +38,7 @@ func (t *UpstreamClient) Push(ctx context.Context, msg *PushData) error {
 
 	if !resp.IsOK() {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 	}
 
 	return nil

@@ -2,9 +2,9 @@ package upstream
 
 import (
 	gocontext "context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/flanksource/commons/http"
@@ -23,6 +23,14 @@ type PaginateResponse struct {
 	Hash  string `gorm:"column:sha256sum"`
 	Next  string `gorm:"column:last_id"`
 	Total int    `gorm:"column:total"`
+}
+
+func (p PaginateRequest) String() string {
+	return fmt.Sprintf("table=%s next=%s, size=%d", p.Table, p.From, p.Size)
+}
+
+func (p PaginateResponse) String() string {
+	return fmt.Sprintf("hash=%s, next=%s, count=%d", p.Hash, p.Next, p.Total)
 }
 
 // upstreamReconciler pushes missing resources from an agent to the upstream.
@@ -45,15 +53,15 @@ func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamR
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) Sync(ctx context.Context, table string) error {
+func (t *upstreamReconciler) Sync(ctx context.Context, table string) (int, error) {
 	logger.Debugf("Reconciling table %q with upstream", table)
 
 	// Empty starting cursor, so we sync everything
-	return t.sync(ctx, table, "")
+	return t.sync(ctx, table, uuid.Nil.String())
 }
 
 // SyncAfter pushes all the records of the given table that were updated in the given duration
-func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) error {
+func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) (int, error) {
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
 
 	// We find the item that falls just before the requested duration & begin from there
@@ -72,22 +80,16 @@ func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after 
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error {
+func (t *upstreamReconciler) sync(ctx context.Context, table, next string) (int, error) {
 	var errorList []error
 	// We keep this counter to keep a track of attempts for a batch
-	counter := 0
-	maxBatchAttempts := 5
+	pushed := 0
 	for {
-		if counter > maxBatchAttempts {
-			return fmt.Errorf("maximum retries exceeded for batch: table=%s,from=%s,size=%d", table, next, t.pageSize)
-		}
-
-		counter += 1
 		paginateRequest := PaginateRequest{From: next, Table: table, Size: t.pageSize}
 
 		localStatus, err := GetPrimaryKeysHash(ctx, paginateRequest, uuid.Nil)
 		if err != nil {
-			return fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
+			return 0, fmt.Errorf("failed to fetch hash of primary keys from local db: %w", err)
 		}
 
 		// Nothing left to push
@@ -95,38 +97,48 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) error
 			break
 		}
 
-		upstreamStatus, err := t.fetchUpstreamStatus(ctx, paginateRequest)
-		if err != nil {
-			return fmt.Errorf("failed to fetch upstream status: %w", err)
+		if localStatus.Hash == "" {
+			return 0, fmt.Errorf("empty row hash returned")
 		}
 
+		upstreamStatus, err := t.fetchUpstreamStatus(ctx, paginateRequest)
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch upstream status: %w", err)
+		}
+
+		next = localStatus.Next
+
 		if upstreamStatus.Hash == localStatus.Hash {
-			// Only update the cursor when hash matches
-			next = localStatus.Next
-			// Reset counter as batch is processed
-			counter = 0
+			logger.Debugf("[%s] pages matched,  local(%s) == upstream(%s)", paginateRequest, localStatus, upstreamStatus)
 			continue
 		}
+		logger.Debugf("[%s] local(%s) == upstream(%s)", paginateRequest, localStatus, upstreamStatus)
 
 		resp, err := t.fetchUpstreamResourceIDs(ctx, paginateRequest)
 		if err != nil {
-			return fmt.Errorf("failed to fetch upstream resource ids: %w", err)
+			return 0, fmt.Errorf("failed to fetch upstream resource ids: %w", err)
 		}
 
 		pushData, err := GetMissingResourceIDs(ctx, resp, paginateRequest)
 		if err != nil {
-			return fmt.Errorf("failed to fetch missing resource ids: %w", err)
+			return 0, fmt.Errorf("failed to fetch missing resource ids: %w", err)
 		}
 
-		logger.WithValues("table", table).Debugf("Pushing %d items to upstream. Next: %q", pushData.Count(), next)
+		if pushData != nil && pushData.Count() > 0 {
+			logger.WithValues("table", table).Debugf("Pushing %d items to upstream. Next: %q", pushData.Count(), next)
 
-		pushData.AgentName = t.upstreamConf.AgentName
-		if err := t.upstreamClient.Push(ctx, pushData); err != nil {
-			errorList = append(errorList, fmt.Errorf("failed to push missing resource ids: %w", err))
+			pushData.AgentName = t.upstreamConf.AgentName
+			if err := t.upstreamClient.Push(ctx, pushData); err != nil {
+				errorList = append(errorList, fmt.Errorf("failed to push missing resource ids: %w", err))
+			}
+			pushed += pushData.Length()
+		}
+		if upstreamStatus.Next == "" {
+			break
 		}
 	}
 
-	return errors.Join(errorList...)
+	return pushed, errors.Join(errorList...)
 }
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
@@ -137,16 +149,19 @@ func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, reque
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer httpResponse.Body.Close()
+
+	body, err := httpResponse.AsString()
+	if err != nil {
+		return nil, fmt.Errorf("error reading body: %w", err)
+	}
 
 	if !httpResponse.IsOK() {
-		respBody, _ := io.ReadAll(httpResponse.Body)
-		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, string(respBody))
+		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, parseResponse(body))
 	}
 
 	var response []string
-	if err := httpResponse.Into(&response); err != nil {
-		return nil, err
+	if err := json.Unmarshal([]byte(body), &response); err != nil {
+		return nil, fmt.Errorf("Invalid response format: %s", parseResponse(body))
 	}
 
 	return response, nil
@@ -158,16 +173,18 @@ func (t *upstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request 
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
-	defer httpResponse.Body.Close()
+	body, err := httpResponse.AsString()
+	if err != nil {
+		return nil, fmt.Errorf("error reading body: %w", err)
+	}
 
 	if !httpResponse.IsOK() {
-		respBody, _ := io.ReadAll(httpResponse.Body)
-		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, string(respBody))
+		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", httpResponse.StatusCode, parseResponse(body))
 	}
 
 	var response PaginateResponse
-	if err := httpResponse.Into(&response); err != nil {
-		return nil, err
+	if err := json.Unmarshal([]byte(body), &response); err != nil {
+		return nil, fmt.Errorf("Invalid response format: %s: %v", parseResponse(body), err)
 	}
 
 	return &response, nil
@@ -178,4 +195,11 @@ func (t *upstreamReconciler) createPaginateRequest(ctx gocontext.Context, reques
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).
 		QueryParam("size", fmt.Sprintf("%d", request.Size))
+}
+
+func parseResponse(body string) string {
+	if len(body) > 200 {
+		body = body[0:200]
+	}
+	return body
 }
