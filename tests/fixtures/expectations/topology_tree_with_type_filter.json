@@ -25,6 +25,9 @@
     ],
     "teams": [],
     "tags": {
+        "fluxcd.io/name": [
+            "flux"
+        ],
         "telemetry": [
             "enabled"
         ]
@@ -33,6 +36,8 @@
         "Application",
         "Database",
         "Entity",
+        "Flux",
+        "FluxKustomize",
         "KubernetesCluster",
         "KubernetesNode",
         "KubernetesNodes",

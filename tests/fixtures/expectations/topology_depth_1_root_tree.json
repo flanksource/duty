@@ -67,6 +67,26 @@
             "is_leaf": false,
             "created_at": "2023-01-01T05:29:00+05:30",
             "updated_at": "2023-01-01T05:29:00+05:30"
+        },
+        {
+            "id": "e24b678a-56b4-46ec-8995-8192142b7107",
+            "agent_id": "00000000-0000-0000-0000-000000000000",
+            "external_id": "dummy/flux",
+            "name": "flux",
+            "labels": {
+                "fluxcd.io/name": "flux"
+            },
+            "status": "healthy",
+            "type": "Flux",
+            "summary": {
+                "healthy": 1
+            },
+            "is_leaf": false,
+            "created_at": "2023-01-01T05:29:00+05:30",
+            "updated_at": "2023-01-01T05:29:00+05:30",
+            "parents": [
+                "a84340a6-e74e-49fb-b784-4378292a13ad"
+            ]
         }
     ],
     "healthStatuses": [
@@ -75,6 +95,9 @@
     ],
     "teams": [],
     "tags": {
+        "fluxcd.io/name": [
+            "flux"
+        ],
         "telemetry": [
             "enabled"
         ]
@@ -83,6 +106,8 @@
         "Application",
         "Database",
         "Entity",
+        "Flux",
+        "FluxKustomize",
         "KubernetesCluster",
         "KubernetesNode",
         "KubernetesNodes",

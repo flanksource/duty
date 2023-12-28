@@ -179,6 +179,39 @@ var PaymentsAPI = models.Component{
 	Status:     types.ComponentStatusHealthy,
 }
 
+var FluxComponent = models.Component{
+	ID:         uuid.MustParse("e24b678a-56b4-46ec-8995-8192142b7107"),
+	Name:       "flux",
+	ExternalId: "dummy/flux",
+	Type:       "Flux",
+	CreatedAt:  DummyCreatedAt,
+	Labels:     types.JSONStringMap{"fluxcd.io/name": "flux"},
+	Status:     types.ComponentStatusHealthy,
+}
+
+var KustomizeComponent = models.Component{
+	ID:         uuid.MustParse("938bb565-f200-455a-8127-c7222a7399c7"),
+	Name:       "kustomize-component",
+	ExternalId: "dummy/kustomize-component",
+	Type:       "FluxKustomize",
+	CreatedAt:  DummyCreatedAt,
+	ParentId:   &FluxComponent.ID,
+	Status:     types.ComponentStatusHealthy,
+}
+
+var KustomizeFluxComponent = models.Component{
+	ID:         uuid.MustParse("a84340a6-e74e-49fb-b784-4378292a13ad"),
+	Name:       "kustomize-flux-component",
+	ExternalId: "dummy/kustomize-flux-component",
+	Type:       "Application",
+	CreatedAt:  DummyCreatedAt,
+	Status:     types.ComponentStatusHealthy,
+	ParentId:   &KustomizeComponent.ID,
+	Selectors: types.ResourceSelectors{
+		{LabelSelector: "fluxcd.io/name=flux"},
+	},
+}
+
 // Order is important since ParentIDs refer to previous components
 var AllDummyComponents = []models.Component{
 	Logistics,
@@ -195,4 +228,7 @@ var AllDummyComponents = []models.Component{
 	LogisticsUIPod,
 	LogisticsWorkerPod,
 	PaymentsAPI,
+	FluxComponent,
+	KustomizeComponent,
+	KustomizeFluxComponent,
 }
