@@ -49,5 +49,9 @@ func AllDummyCheckStatuses() []models.CheckStatus {
 	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-15*time.Minute), 1, 1)[0])
 	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-2*time.Hour), 10, 2)...)
 
+	// Check statuses from 2022-01-01
+	// not dervied from current time for consistency
+	statuses = append(statuses, generateStatus(CartAPIHeathCheckAgent, time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC), 70, 5)...)
+
 	return statuses
 }

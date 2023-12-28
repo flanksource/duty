@@ -80,6 +80,10 @@ func BeforeSuiteFn() context.Context {
 		DefaultContext = *ctx
 	}
 
+	if err := DefaultContext.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
+		panic(err.Error())
+	}
+
 	dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
 	err = dummyData.Populate(DefaultContext.DB())
 	if err != nil {
