@@ -255,11 +255,11 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	root := response.Components
 	if len(root) == 1 {
 		for j := range root[0].Components {
-			removeComponentFields(root[0].Components[j].Components, params.Depth)
+			removeComponentFields(root[0].Components[j].Components)
 		}
 	} else {
 		for i := range root {
-			removeComponentFields(root[i].Components, params.Depth)
+			removeComponentFields(root[i].Components)
 		}
 	}
 	return &response, nil
@@ -290,7 +290,7 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return newComponents
 }
 
-func generateTree(components models.Components, compChildrenMap map[string]models.Components, touchedIDs []string) models.Components {
+func generateTree(components models.Components, compChildrenMap map[string]models.Components) models.Components {
 	var nodes models.Components
 
 	for _, c := range components {
@@ -303,22 +303,7 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 
 		c.NodeProcessed = true
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			var childrenToProcess models.Components
-			for _, child := range children {
-				// If a child has already been part of the tree that
-				// can mean we are recursing for the same node again
-				// In this case, we skip the tree generation for that
-				// node since it already is part of the call stack
-				if !collections.Contains(touchedIDs, child.ID.String()) {
-					childrenToProcess = append(childrenToProcess, child)
-				}
-			}
-
-			// TODO: Update fixtures and check that cyclic component must be added for L1
-			//touchedIDs = append(touchedIDs, c.ID.String())
-			touchedIDs = []string{}
-
-			c.Components = generateTree(childrenToProcess, compChildrenMap, touchedIDs)
+			c.Components = generateTree(children, compChildrenMap)
 		}
 
 		c.Summary = c.Summarize()
@@ -332,7 +317,6 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 func createComponentTree(params TopologyOptions, components models.Components) []*models.Component {
 	// ComponentID with its children
 	compChildrenMap := make(map[string]models.Components)
-
 	for _, c := range components {
 		compChildrenMap[c.ID.String()] = models.Components{}
 	}
@@ -352,6 +336,10 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 			}
 		}
 
+		for _, parentID := range c.Parents {
+			compChildrenMap[parentID] = append(compChildrenMap[parentID], c)
+		}
+
 		// Keep a track of the root components for the current context
 		// If params.ID is present only 1 root component can be there
 		// else all components without a parent are root
@@ -360,13 +348,9 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		} else if c.ParentId == nil {
 			rootComps = append(rootComps, c)
 		}
-
-		for _, parentID := range c.Parents {
-			compChildrenMap[parentID] = append(compChildrenMap[parentID], c)
-		}
 	}
 
-	tree := generateTree(rootComps, compChildrenMap, []string{})
+	tree := generateTree(rootComps, compChildrenMap)
 	return tree
 }
 
@@ -465,10 +449,7 @@ func GetComponent(ctx context.Context, id string) (*models.Component, error) {
 
 // removeComponentFields recursively removes some of the fields from components
 // and their children and so on.
-func removeComponentFields(components models.Components, depth int) {
-	if depth == 0 {
-		return
-	}
+func removeComponentFields(components models.Components) {
 	for i := range components {
 		c := components[i]
 
@@ -477,6 +458,6 @@ func removeComponentFields(components models.Components, depth int) {
 		c.Checks = nil
 		c.Incidents = nil
 		c.Analysis = nil
-		removeComponentFields(c.Components, depth-1)
+		removeComponentFields(c.Components)
 	}
 }
