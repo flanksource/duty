@@ -15,6 +15,7 @@ import (
 var _ = Describe("Job", Ordered, func() {
 	var ctx context.Context
 	var sampleJob *job.Job
+
 	It("Prevent concurrent execution", func() {
 		var counter = atomic.Int32{}
 		ctx = DefaultContext
@@ -45,6 +46,7 @@ var _ = Describe("Job", Ordered, func() {
 		time.Sleep(100 * time.Millisecond)
 		Expect(counter.Load()).To(Equal(current + 1))
 	})
+
 	It("Should clean up jobs", func() {
 		items, _ := sampleJob.FindHistory()
 
@@ -75,6 +77,5 @@ var _ = Describe("Job", Ordered, func() {
 			time.Sleep(time.Millisecond * 250)
 			return items
 		}, "10s").Should(HaveLen(2))
-
 	})
 })
