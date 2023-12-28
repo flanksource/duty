@@ -19,6 +19,29 @@ type UpstreamConfig struct {
 	Labels             []string
 }
 
+func (t UpstreamConfig) String() string {
+	var s []string
+
+	if t.Host != "" {
+		s = append(s, fmt.Sprintf("host=%s", t.Host))
+	}
+	if t.Username != "" {
+		s = append(s, fmt.Sprintf("user=%s", t.Username))
+	}
+
+	if t.Password != "" {
+		s = append(s, fmt.Sprintf("pass=%s***", t.Password[0:1]))
+	}
+
+	if t.AgentName != "" {
+		s = append(s, fmt.Sprintf("agent=%s", t.AgentName))
+	}
+	if len(t.Labels) > 0 {
+		s = append(s, fmt.Sprintf("labels=%v", t.Labels))
+	}
+	return strings.Join(s, " ")
+}
+
 func (t *UpstreamConfig) Valid() bool {
 	return t.Host != "" && t.Username != "" && t.Password != "" && t.AgentName != ""
 }
@@ -55,6 +78,23 @@ func (p *PushData) String() string {
 		result += fmt.Sprintf("%s=%s ", k, v)
 	}
 	return strings.TrimSpace(result)
+}
+
+func (p *PushData) Length() int {
+	count := 0
+	count += len(p.Topologies)
+	count += len(p.Canaries)
+	count += len(p.Checks)
+	count += len(p.Components)
+	count += len(p.ConfigAnalysis)
+	count += len(p.ConfigScrapers)
+	count += len(p.ConfigChanges)
+	count += len(p.ConfigItems)
+	count += len(p.CheckStatuses)
+	count += len(p.ConfigRelationships)
+	count += len(p.ConfigComponentRelationships)
+	count += len(p.ComponentRelationships)
+	return count
 }
 
 func (p *PushData) Attributes() map[string]any {
