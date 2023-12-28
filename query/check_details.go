@@ -178,7 +178,7 @@ ORDER BY time
 		args = []any{start, end, q.Check}
 	}
 	uptime := types.Uptime{}
-	latency := rolling.NewPointPolicy(rolling.NewWindow(100))
+	latencies := rolling.NewPointPolicy(rolling.NewWindow(100))
 
 	rows, err := ctx.Pool().Query(ctx, query, args...)
 	if err != nil {
@@ -195,12 +195,18 @@ ORDER BY time
 		}
 		uptime.Failed += datapoint.Failed
 		uptime.Passed += datapoint.Passed
-		latency.Append(float64(datapoint.Duration))
+		latencies.Append(float64(datapoint.Duration))
 		datapoint.Time = ts.Format(time.RFC3339)
 		results = append(results, datapoint)
 	}
 
-	return results, uptime, types.Latency{Percentile95: latency.Reduce(rolling.Percentile(95))}, nil
+	latency := types.Latency{
+		Percentile99: latencies.Reduce(rolling.Percentile(99)),
+		Percentile97: latencies.Reduce(rolling.Percentile(97)),
+		Percentile95: latencies.Reduce(rolling.Percentile(95)),
+	}
+
+	return results, uptime, latency, nil
 }
 
 func (q CheckQueryParams) String() string {
