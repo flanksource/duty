@@ -4,7 +4,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -30,8 +29,8 @@ var _ = Describe("Job", Ordered, func() {
 				return nil
 			},
 		}
-		_ = duty.UpdateProperty(ctx, "test.trace", "true")
-		_ = duty.UpdateProperty(ctx, "test.db.level", "trace")
+		_ = context.UpdateProperty(ctx, "test.trace", "true")
+		_ = context.UpdateProperty(ctx, "test.db.level", "trace")
 
 		sampleJob.Run()
 		Expect(sampleJob.Retention.Success).To(Equal(3))
