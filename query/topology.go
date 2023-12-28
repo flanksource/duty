@@ -343,8 +343,10 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		// Keep a track of the root components for the current context
 		// If params.ID is present only 1 root component can be there
 		// else all components without a parent are root
-		if params.ID == c.ID.String() && len(rootComps) == 0 {
-			rootComps = append(rootComps, c)
+		if params.ID != "" {
+			if params.ID == c.ID.String() && len(rootComps) == 0 {
+				rootComps = append(rootComps, c)
+			}
 		} else if c.ParentId == nil {
 			rootComps = append(rootComps, c)
 		}
