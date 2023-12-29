@@ -63,7 +63,6 @@
                     },
                     "is_leaf": false,
                     "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z",
                     "components": [
                         {
                             "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
@@ -75,8 +74,7 @@
                                 "healthy": 1
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         },
                         {
                             "id": "018681fe-4529-c50f-26fd-530fa9c57319",
@@ -102,8 +100,7 @@
                                 }
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         }
                     ]
                 }

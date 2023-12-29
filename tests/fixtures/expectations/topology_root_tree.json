@@ -62,7 +62,6 @@
                     },
                     "is_leaf": false,
                     "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z",
                     "components": [
                         {
                             "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
@@ -74,8 +73,7 @@
                                 "healthy": 1
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         },
                         {
                             "id": "018681fe-4529-c50f-26fd-530fa9c57319",
@@ -101,8 +99,7 @@
                                 }
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         }
                     ]
                 },
@@ -116,8 +113,7 @@
                         "healthy": 1
                     },
                     "is_leaf": false,
-                    "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z"
+                    "created_at": "0001-01-01T00:00:00Z"
                 }
             ]
         },
@@ -159,7 +155,6 @@
                     },
                     "is_leaf": false,
                     "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z",
                     "components": [
                         {
                             "id": "018681ff-227e-4d71-b38e-0693cc862213",
@@ -178,7 +173,6 @@
                             },
                             "is_leaf": false,
                             "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z",
                             "components": [
                                 {
                                     "id": "018681ff-e578-a926-e366-d2dc0646eafa",
@@ -191,8 +185,7 @@
                                         "healthy": 1
                                     },
                                     "is_leaf": false,
-                                    "created_at": "0001-01-01T00:00:00Z",
-                                    "updated_at": "0001-01-01T00:00:00Z"
+                                    "created_at": "0001-01-01T00:00:00Z"
                                 }
                             ]
                         },
@@ -208,7 +201,6 @@
                             },
                             "is_leaf": false,
                             "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z",
                             "components": [
                                 {
                                     "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
@@ -221,8 +213,7 @@
                                         "healthy": 1
                                     },
                                     "is_leaf": false,
-                                    "created_at": "0001-01-01T00:00:00Z",
-                                    "updated_at": "0001-01-01T00:00:00Z"
+                                    "created_at": "0001-01-01T00:00:00Z"
                                 },
                                 {
                                     "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
@@ -235,8 +226,7 @@
                                         "healthy": 1
                                     },
                                     "is_leaf": false,
-                                    "created_at": "0001-01-01T00:00:00Z",
-                                    "updated_at": "0001-01-01T00:00:00Z"
+                                    "created_at": "0001-01-01T00:00:00Z"
                                 }
                             ]
                         }
@@ -254,7 +244,6 @@
                     },
                     "is_leaf": false,
                     "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z",
                     "components": [
                         {
                             "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
@@ -267,8 +256,7 @@
                                 "healthy": 1
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         },
                         {
                             "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
@@ -281,8 +269,7 @@
                                 "healthy": 1
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         },
                         {
                             "id": "018681ff-e578-a926-e366-d2dc0646eafa",
@@ -295,8 +282,7 @@
                                 "healthy": 1
                             },
                             "is_leaf": false,
-                            "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z"
+                            "created_at": "0001-01-01T00:00:00Z"
                         }
                     ]
                 }
@@ -317,7 +303,7 @@
             "updated_at": "2023-01-01T05:29:00+05:30"
         },
         {
-            "id": "e24b678a-56b4-46ec-8995-8192142b7107",
+            "id": "018cb576-11e3-a43a-75fd-3cbf5c8c804a",
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/flux",
             "name": "flux",
@@ -334,7 +320,7 @@
             "updated_at": "2023-01-01T05:29:00+05:30",
             "components": [
                 {
-                    "id": "938bb565-f200-455a-8127-c7222a7399c7",
+                    "id": "018cb576-4c81-91da-e59d-f25464b8bf91",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "kustomize-component",
                     "status": "healthy",
@@ -344,10 +330,9 @@
                     },
                     "is_leaf": false,
                     "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z",
                     "components": [
                         {
-                            "id": "a84340a6-e74e-49fb-b784-4378292a13ad",
+                            "id": "018cb576-8036-10d8-edf1-cb49be2c0d93",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "kustomize-flux-component",
                             "status": "healthy",
@@ -357,10 +342,9 @@
                             },
                             "is_leaf": false,
                             "created_at": "0001-01-01T00:00:00Z",
-                            "updated_at": "0001-01-01T00:00:00Z",
                             "components": [
                                 {
-                                    "id": "e24b678a-56b4-46ec-8995-8192142b7107",
+                                    "id": "018cb576-11e3-a43a-75fd-3cbf5c8c804a",
                                     "agent_id": "00000000-0000-0000-0000-000000000000",
                                     "external_id": "dummy/flux",
                                     "name": "flux",
@@ -377,7 +361,7 @@
                                     "updated_at": "2023-01-01T05:29:00+05:30",
                                     "components": [
                                         {
-                                            "id": "938bb565-f200-455a-8127-c7222a7399c7",
+                                            "id": "018cb576-4c81-91da-e59d-f25464b8bf91",
                                             "agent_id": "00000000-0000-0000-0000-000000000000",
                                             "name": "kustomize-component",
                                             "status": "healthy",
@@ -386,8 +370,7 @@
                                                 "healthy": 1
                                             },
                                             "is_leaf": false,
-                                            "created_at": "0001-01-01T00:00:00Z",
-                                            "updated_at": "0001-01-01T00:00:00Z"
+                                            "created_at": "0001-01-01T00:00:00Z"
                                         }
                                     ]
                                 }
@@ -397,7 +380,7 @@
                 }
             ],
             "parents": [
-                "a84340a6-e74e-49fb-b784-4378292a13ad"
+                "018cb576-8036-10d8-edf1-cb49be2c0d93"
             ]
         }
     ],
