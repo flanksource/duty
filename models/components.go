@@ -428,13 +428,13 @@ func (p Properties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 }
 
 type ComponentRelationship struct {
-	ComponentID      uuid.UUID  `gorm:"column:component_id" json:"component_id,omitempty"`
-	RelationshipID   uuid.UUID  `gorm:"column:relationship_id" json:"relationship_id,omitempty"`
-	SelectorID       string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
-	RelationshipPath string     `gorm:"column:relationship_path" json:"relationship_path,omitempty"`
-	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
-	DeletedAt        *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
+	ComponentID      uuid.UUID  `json:"component_id,omitempty"`
+	RelationshipID   uuid.UUID  `json:"relationship_id,omitempty"`
+	SelectorID       string     `json:"selector_id,omitempty"`
+	RelationshipPath string     `json:"relationship_path,omitempty"`
+	CreatedAt        time.Time  `json:"created_at,omitempty"`
+	UpdatedAt        time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
+	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
 func (cr ComponentRelationship) TableName() string {
@@ -442,12 +442,12 @@ func (cr ComponentRelationship) TableName() string {
 }
 
 type ConfigComponentRelationship struct {
-	ComponentID uuid.UUID  `gorm:"column:component_id" json:"component_id,omitempty"`
-	ConfigID    uuid.UUID  `gorm:"column:config_id" json:"config_id,omitempty"`
-	SelectorID  string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
-	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
-	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
-	DeletedAt   *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
+	ComponentID uuid.UUID  `json:"component_id,omitempty"`
+	ConfigID    uuid.UUID  `json:"config_id,omitempty"`
+	SelectorID  string     `json:"selector_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
 var ConfigID = func(c ConfigComponentRelationship, i int) string {
