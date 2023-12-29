@@ -54,7 +54,7 @@ type Component struct {
 	CostTotal30d    float64                 `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
 	CreatedBy       *uuid.UUID              `json:"created_by,omitempty"`
 	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	UpdatedAt       time.Time               `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
+	UpdatedAt       time.Time               `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
@@ -433,7 +433,7 @@ type ComponentRelationship struct {
 	SelectorID       string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
 	RelationshipPath string     `gorm:"column:relationship_path" json:"relationship_path,omitempty"`
 	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
-	UpdatedAt        time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt        *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 }
 
@@ -446,7 +446,7 @@ type ConfigComponentRelationship struct {
 	ConfigID    uuid.UUID  `gorm:"column:config_id" json:"config_id,omitempty"`
 	SelectorID  string     `gorm:"column:selector_id" json:"selector_id,omitempty"`
 	CreatedAt   time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
-	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty"`
+	UpdatedAt   time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 }
 
@@ -468,7 +468,7 @@ type CheckComponentRelationship struct {
 	CanaryID    uuid.UUID  `json:"canary_id,omitempty"`
 	SelectorID  string     `json:"selector_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
-	UpdatedAt   time.Time  `json:"updated_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 

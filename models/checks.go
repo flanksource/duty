@@ -41,7 +41,7 @@ type Check struct {
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
 	CreatedAt          *time.Time          `json:"created_at,omitempty"`
-	UpdatedAt          *time.Time          `json:"updated_at,omitempty"`
+	UpdatedAt          *time.Time          `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
 
