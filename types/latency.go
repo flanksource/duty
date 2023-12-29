@@ -16,6 +16,7 @@ type Latency struct {
 	Percentile99 float64 `json:"p99,omitempty" db:"p99"`
 	Percentile97 float64 `json:"p97,omitempty" db:"p97"`
 	Percentile95 float64 `json:"p95,omitempty" db:"p95"`
+	Rolling1H    float64 `json:"rolling1h"`
 }
 
 func (l Latency) Value() (driver.Value, error) {
