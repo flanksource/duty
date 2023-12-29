@@ -244,7 +244,7 @@ table "config_items" {
     default = sql("now()")
   }
   column "updated_at" {
-    null    = false
+    null    = true
     type    = timestamptz
     default = sql("now()")
   }
@@ -426,9 +426,8 @@ table "config_scrapers" {
     default = sql("now()")
   }
   column "updated_at" {
-    null    = false
+    null    = true
     type    = timestamptz
-    default = sql("now()")
   }
   column "deleted_at" {
     null = true

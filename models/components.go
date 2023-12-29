@@ -54,7 +54,7 @@ type Component struct {
 	CostTotal30d    float64                 `json:"cost_total_30d,omitempty" gorm:"column:cost_total_30d"`
 	CreatedBy       *uuid.UUID              `json:"created_by,omitempty"`
 	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
-	UpdatedAt       time.Time               `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
+	UpdatedAt       *time.Time              `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
 	// Auxiliary fields
@@ -446,7 +446,7 @@ type ConfigComponentRelationship struct {
 	ConfigID    uuid.UUID  `json:"config_id,omitempty"`
 	SelectorID  string     `json:"selector_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
-	UpdatedAt   time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 

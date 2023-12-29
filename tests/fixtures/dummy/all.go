@@ -58,13 +58,14 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range t.Topologies {
+		c.UpdatedAt = &createTime
 		err = gormDB.Create(&c).Error
 		if err != nil {
 			return err
 		}
 	}
 	for _, c := range t.Components {
-		c.UpdatedAt = createTime
+		c.UpdatedAt = &createTime
 		err = gormDB.Create(&c).Error
 		if err != nil {
 			return err

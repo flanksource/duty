@@ -180,7 +180,7 @@ var PaymentsAPI = models.Component{
 }
 
 var FluxComponent = models.Component{
-	ID:         uuid.MustParse("e24b678a-56b4-46ec-8995-8192142b7107"),
+	ID:         uuid.MustParse("018cb576-11e3-a43a-75fd-3cbf5c8c804a"),
 	Name:       "flux",
 	ExternalId: "dummy/flux",
 	Type:       "Flux",
@@ -190,7 +190,7 @@ var FluxComponent = models.Component{
 }
 
 var KustomizeComponent = models.Component{
-	ID:         uuid.MustParse("938bb565-f200-455a-8127-c7222a7399c7"),
+	ID:         uuid.MustParse("018cb576-4c81-91da-e59d-f25464b8bf91"),
 	Name:       "kustomize-component",
 	ExternalId: "dummy/kustomize-component",
 	Type:       "FluxKustomize",
@@ -200,7 +200,7 @@ var KustomizeComponent = models.Component{
 }
 
 var KustomizeFluxComponent = models.Component{
-	ID:         uuid.MustParse("a84340a6-e74e-49fb-b784-4378292a13ad"),
+	ID:         uuid.MustParse("018cb576-8036-10d8-edf1-cb49be2c0d93"),
 	Name:       "kustomize-flux-component",
 	ExternalId: "dummy/kustomize-flux-component",
 	Type:       "Application",
