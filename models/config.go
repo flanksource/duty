@@ -158,13 +158,13 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigRelationship struct {
-	ConfigID   string     `gorm:"column:config_id" json:"config_id"`
-	RelatedID  string     `gorm:"column:related_id" json:"related_id"`
-	Relation   string     `gorm:"column:relation" json:"relation"`
-	SelectorID string     `gorm:"selector_id" json:"selector_id"`
-	CreatedAt  time.Time  `gorm:"column:created_at" json:"created_at,omitempty"`
-	UpdatedAt  time.Time  `gorm:"column:updated_at" json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
-	DeletedAt  *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
+	ConfigID   string     `json:"config_id"`
+	RelatedID  string     `json:"related_id"`
+	Relation   string     `json:"relation"`
+	SelectorID string     `json:"selector_id"`
+	CreatedAt  time.Time  `json:"created_at,omitempty"`
+	UpdatedAt  time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
 func (cr ConfigRelationship) TableName() string {
