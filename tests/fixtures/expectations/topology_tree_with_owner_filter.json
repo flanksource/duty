@@ -38,8 +38,7 @@
                         }
                     },
                     "is_leaf": false,
-                    "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z"
+                    "created_at": "0001-01-01T00:00:00Z"
                 },
                 {
                     "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
@@ -52,8 +51,7 @@
                         "healthy": 1
                     },
                     "is_leaf": false,
-                    "created_at": "0001-01-01T00:00:00Z",
-                    "updated_at": "0001-01-01T00:00:00Z"
+                    "created_at": "0001-01-01T00:00:00Z"
                 }
             ]
         }
