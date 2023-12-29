@@ -8,7 +8,7 @@ require (
 	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/exaring/otelpgx v0.5.2
-	github.com/fergusstrange/embedded-postgres v1.21.0
+	github.com/fergusstrange/embedded-postgres v1.25.0
 	github.com/flanksource/commons v1.19.3
 	github.com/flanksource/gomplate/v3 v3.20.16
 	github.com/flanksource/kommons v0.31.4

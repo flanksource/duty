@@ -50,7 +50,7 @@ jobs:
         run: ${{ env.migrate_command }}
     services:
       postgres:
-        image: postgres:14.1
+        image: postgres:15.5@sha256:ee2f170c46df225310c923010230434e269238a65307539f9aced9da6ca44fad
         ports:
           - 5432:5432
         env:
