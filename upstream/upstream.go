@@ -200,14 +200,14 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
-			SELECT id::TEXT, updated_at
+ 			SELECT id::TEXT, COALESCE(updated_at::text, '') as updated_at
 			FROM %s
 			WHERE id::TEXT > ? AND agent_id = ?
 			ORDER BY id
 			LIMIT ?
 		)
 		SELECT
-			encode(digest(string_agg(id::TEXT || updated_at::TEXT, ''), 'sha256'), 'hex') as sha256sum,
+			encode(digest(string_agg(id || updated_at, ''), 'sha256'), 'hex') as sha256sum,
 			MAX(id) as last_id,
 			COUNT(*) as total
 		FROM

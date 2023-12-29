@@ -86,7 +86,7 @@ type ConfigItem struct {
 	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
 	Tags          *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
 	CreatedAt     time.Time            `json:"created_at"`
-	UpdatedAt     time.Time            `json:"updated_at" gorm:"autoUpdateTime:false"`
+	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
 	DeleteReason  string               `json:"delete_reason,omitempty"`
 }
@@ -137,7 +137,7 @@ type ConfigScraper struct {
 	Source      string     `json:"source,omitempty"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"autoUpdateTime:false"`
+	UpdatedAt   *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 

@@ -276,7 +276,7 @@ table "components" {
     default = sql("now()")
   }
   column "updated_at" {
-    null    = false
+    null    = true
     type    = timestamptz
     default = sql("now()")
   }
@@ -390,7 +390,7 @@ table "config_component_relationships" {
     default = sql("now()")
   }
   column "updated_at" {
-    null    = false
+    null    = true
     type    = timestamptz
     default = sql("now()")
   }
