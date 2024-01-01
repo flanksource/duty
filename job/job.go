@@ -111,10 +111,12 @@ func (j *JobRuntime) Failf(message string, args ...interface{}) {
 
 func NewJob(ctx context.Context, name string, schedule string, fn func(ctx JobRuntime) error) *Job {
 	return &Job{
-		Context:  ctx,
-		Name:     name,
-		Schedule: schedule,
-		Fn:       fn,
+		Context:    ctx,
+		Retention:  Retention3Day,
+		JobHistory: true,
+		Name:       name,
+		Schedule:   schedule,
+		Fn:         fn,
 	}
 }
 
@@ -136,6 +138,11 @@ func (j *Job) FindHistory(statuses ...string) ([]models.JobHistory, error) {
 
 func (j *Job) RunOnStart() *Job {
 	j.RunNow = true
+	return j
+}
+
+func (j *Job) Retain(r Retention) *Job {
+	j.Retention = r
 	return j
 }
 
