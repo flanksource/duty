@@ -33,8 +33,8 @@ func (p PaginateResponse) String() string {
 	return fmt.Sprintf("hash=%s, next=%s, count=%d", p.Hash, p.Next, p.Total)
 }
 
-// upstreamReconciler pushes missing resources from an agent to the upstream.
-type upstreamReconciler struct {
+// UpstreamReconciler pushes missing resources from an agent to the upstream.
+type UpstreamReconciler struct {
 	upstreamConf   UpstreamConfig
 	upstreamClient *UpstreamClient
 
@@ -43,8 +43,8 @@ type upstreamReconciler struct {
 	pageSize int
 }
 
-func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamReconciler {
-	return &upstreamReconciler{
+func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *UpstreamReconciler {
+	return &UpstreamReconciler{
 		upstreamConf:   upstreamConf,
 		pageSize:       pageSize,
 		upstreamClient: NewUpstreamClient(upstreamConf),
@@ -53,7 +53,7 @@ func NewUpstreamReconciler(upstreamConf UpstreamConfig, pageSize int) *upstreamR
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) Sync(ctx context.Context, table string) (int, error) {
+func (t *UpstreamReconciler) Sync(ctx context.Context, table string) (int, error) {
 	logger.Debugf("Reconciling table %q with upstream", table)
 
 	// Empty starting cursor, so we sync everything
@@ -61,7 +61,7 @@ func (t *upstreamReconciler) Sync(ctx context.Context, table string) (int, error
 }
 
 // SyncAfter pushes all the records of the given table that were updated in the given duration
-func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) (int, error) {
+func (t *UpstreamReconciler) SyncAfter(ctx context.Context, table string, after time.Duration) (int, error) {
 	logger.WithValues("since", time.Now().Add(-after).Format(time.RFC3339Nano)).Debugf("Reconciling table %q with upstream", table)
 
 	// We find the item that falls just before the requested duration & begin from there
@@ -80,7 +80,7 @@ func (t *upstreamReconciler) SyncAfter(ctx context.Context, table string, after 
 
 // Sync compares all the resource of the given table against
 // the upstream server and pushes any missing resources to the upstream.
-func (t *upstreamReconciler) sync(ctx context.Context, table, next string) (int, error) {
+func (t *UpstreamReconciler) sync(ctx context.Context, table, next string) (int, error) {
 	var errorList []error
 	// We keep this counter to keep a track of attempts for a batch
 	pushed := 0
@@ -133,7 +133,7 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) (int,
 			}
 			pushed += pushData.Length()
 		}
-		if upstreamStatus.Next == "" {
+		if next == "" {
 			break
 		}
 	}
@@ -143,7 +143,7 @@ func (t *upstreamReconciler) sync(ctx context.Context, table, next string) (int,
 
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
-func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, request PaginateRequest) ([]string, error) {
+func (t *UpstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, request PaginateRequest) ([]string, error) {
 	httpReq := t.createPaginateRequest(ctx, request)
 	httpResponse, err := httpReq.Get(fmt.Sprintf("pull/%s", t.upstreamConf.AgentName))
 	if err != nil {
@@ -167,7 +167,7 @@ func (t *upstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, reque
 	return response, nil
 }
 
-func (t *upstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request PaginateRequest) (*PaginateResponse, error) {
+func (t *UpstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request PaginateRequest) (*PaginateResponse, error) {
 	httpReq := t.createPaginateRequest(ctx, request)
 	httpResponse, err := httpReq.Get(fmt.Sprintf("status/%s", t.upstreamConf.AgentName))
 	if err != nil {
@@ -190,7 +190,7 @@ func (t *upstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request 
 	return &response, nil
 }
 
-func (t *upstreamReconciler) createPaginateRequest(ctx gocontext.Context, request PaginateRequest) *http.Request {
+func (t *UpstreamReconciler) createPaginateRequest(ctx gocontext.Context, request PaginateRequest) *http.Request {
 	return t.upstreamClient.R(ctx).
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).

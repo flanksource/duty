@@ -2,46 +2,22 @@ package upstream
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/postq"
 )
 
 const EventPushQueueCreate = "push_queue.create"
 
-// NewPushQueueConsumer creates a new push queue consumer
-func NewPushQueueConsumer(config UpstreamConfig) postq.AsyncEventConsumer {
-	return postq.AsyncEventConsumer{
-		WatchEvents: []string{EventPushQueueCreate},
-		Consumer:    getPushUpstreamConsumer(config),
-		BatchSize:   50,
-		ConsumerOption: &postq.ConsumerOption{
-			NumConsumers: 5,
-			ErrorHandler: func(err error) bool {
-				logger.Errorf("error consuming upstream push_queue.create events: %v", err)
-				time.Sleep(time.Second)
-				return true
-			},
-		},
-	}
-}
-
 // getPushUpstreamConsumer acts as an adapter to supply PushToUpstream event consumer.
-func getPushUpstreamConsumer(config UpstreamConfig) func(ctx postq.Context, events postq.Events) postq.Events {
-	return func(ctx postq.Context, events postq.Events) postq.Events {
-		dbCtx, ok := ctx.(duty.DBContext)
-		if !ok {
-			return addErrorToFailedEvents(events, fmt.Errorf("invalid context type: %T. Need duty.DBContext", ctx))
-		}
-
-		return PushToUpstream(dbCtx, config, events)
+func NewPushUpstreamConsumer(config UpstreamConfig) func(ctx context.Context, events postq.Events) postq.Events {
+	return func(ctx context.Context, events postq.Events) postq.Events {
+		return PushToUpstream(ctx, config, events)
 	}
 }
 
 // PushToUpstream fetches records specified in events from this instance and sends them to the upstream instance.
-func PushToUpstream(ctx duty.DBContext, config UpstreamConfig, events []postq.Event) []postq.Event {
+func PushToUpstream(ctx context.Context, config UpstreamConfig, events []postq.Event) []postq.Event {
 	upstreamMsg := &PushData{
 		AgentName: config.AgentName,
 	}
@@ -134,18 +110,21 @@ func PushToUpstream(ctx duty.DBContext, config UpstreamConfig, events []postq.Ev
 	if len(events) == 1 {
 		errMsg := fmt.Errorf("failed to push to upstream: %w", err)
 		failedEvents = append(failedEvents, addErrorToFailedEvents(events, errMsg)...)
-		return failedEvents
 	} else {
 		// Error encountered while pushing could be an SQL or Application error
 		// Since we do not know which event in the bulk is failing
 		// Process each event individually since upsteam.Push is idempotent
-		var failedIndividualEvents []postq.Event
-		for _, e := range events {
-			failedIndividualEvents = append(failedIndividualEvents, PushToUpstream(ctx, config, []postq.Event{e})...)
-		}
 
-		return failedIndividualEvents
+		for _, e := range events {
+			failedEvents = append(failedEvents, PushToUpstream(ctx, config, []postq.Event{e})...)
+		}
 	}
+
+	if len(events) > 0 || len(failedEvents) > 0 {
+		ctx.Tracef("processed %d events, %d errors", len(events), len(failedEvents))
+	}
+	return failedEvents
+
 }
 
 func addErrorToFailedEvents(events []postq.Event, err error) []postq.Event {
