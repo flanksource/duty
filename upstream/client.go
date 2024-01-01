@@ -13,7 +13,7 @@ type UpstreamClient struct {
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
-	return &UpstreamClient{
+	client := UpstreamClient{
 		Client: http.NewClient().
 			Auth(config.Username, config.Password).
 			InsecureSkipVerify(config.InsecureSkipVerify).
@@ -22,6 +22,11 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 				QueryParam: true,
 			}),
 	}
+	for _, opt := range config.Options {
+		opt(client.Client)
+	}
+	return &client
+
 }
 
 // Push uploads the given push message to the upstream server.

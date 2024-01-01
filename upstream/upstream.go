@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/commons/http"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
@@ -17,6 +18,8 @@ type UpstreamConfig struct {
 	Username           string
 	Password           string
 	Labels             []string
+	Debug              bool
+	Options            []func(c *http.Client)
 }
 
 func (t UpstreamConfig) String() string {
@@ -75,7 +78,7 @@ type PushData struct {
 func (p *PushData) String() string {
 	result := ""
 	for k, v := range p.Attributes() {
-		result += fmt.Sprintf("%s=%s ", k, v)
+		result += fmt.Sprintf("%s=%v ", k, v)
 	}
 	return strings.TrimSpace(result)
 }

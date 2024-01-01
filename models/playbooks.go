@@ -20,6 +20,14 @@ const (
 	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
 )
 
+var (
+	PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
+		PlaybookRunStatusRunning,
+		PlaybookRunStatusScheduled,
+		PlaybookRunStatusCompleted,
+	}
+)
+
 type Playbook struct {
 	ID          uuid.UUID  `gorm:"default:generate_ulid()" json:"id"`
 	Name        string     `json:"name"`

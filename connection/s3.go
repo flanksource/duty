@@ -9,7 +9,7 @@ import (
 
 // +kubebuilder:object:generate=true
 type S3Connection struct {
-	AWSConnection `json:",inline" yaml:",inline"`
+	AWSConnection `json:",inline"`
 	Bucket        string `yaml:"bucket,omitempty" json:"bucket,omitempty"`
 	// glob path to restrict matches to a subset
 	ObjectPath string `yaml:"objectPath,omitempty" json:"objectPath,omitempty"`
