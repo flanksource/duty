@@ -2,8 +2,10 @@ package setup
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 
@@ -11,8 +13,14 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/postq"
+	"github.com/labstack/echo/v4"
 	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rodaine/table"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -26,6 +34,13 @@ var dummyData dummy.DummyData
 var PgUrl string
 var postgresDBUrl string
 var dbName string
+var trace bool
+var dbTrace bool
+
+func init() {
+	flag.BoolVar(&trace, "trace", false, "Use trace level logging")
+	flag.BoolVar(&dbTrace, "db-trace", false, "DB trace")
+}
 
 func execPostgres(connection, query string) error {
 	db, err := sql.Open("postgres", connection)
@@ -46,9 +61,20 @@ func MustDB() *sql.DB {
 	return db
 }
 
-func BeforeSuiteFn() context.Context {
-	var err error
+var WithoutDummyData = "without_dummy_data"
 
+func BeforeSuiteFn(args ...interface{}) context.Context {
+
+	var err error
+	importDummyData := true
+
+	for _, arg := range args {
+		if arg == WithoutDummyData {
+			importDummyData = false
+		}
+	}
+
+	logger.Infof("Initializing test db debug=%v db.trace=%v", trace, dbTrace)
 	if postgresServer != nil {
 		return DefaultContext
 	}
@@ -84,10 +110,17 @@ func BeforeSuiteFn() context.Context {
 		panic(err.Error())
 	}
 
-	dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
-	err = dummyData.Populate(DefaultContext.DB())
-	if err != nil {
-		panic(err.Error())
+	DefaultContext = context.Context{
+		Context: DefaultContext.WithValue("db_name", dbName).WithValue("db_url", PgUrl),
+	}
+
+	if importDummyData {
+		dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
+		err = dummyData.Populate(DefaultContext.DB())
+		if err != nil {
+			panic(err.Error())
+		}
+		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
 	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
@@ -107,8 +140,13 @@ func BeforeSuiteFn() context.Context {
 			"foo": []byte("secret"),
 		}}))
 
+	if dbTrace {
+		DefaultContext = DefaultContext.WithDBLogLevel("trace")
+	}
+	if trace {
+		DefaultContext = DefaultContext.WithTrace()
+	}
 	logger.StandardLogger().SetLogLevel(2)
-	logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	return DefaultContext
 }
 
@@ -135,6 +173,53 @@ func AfterSuiteFn() {
 	}
 }
 
+// NewDB creates a new database from an existing context, and
+// returns the new context and a function that be called to drop it
+func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
+	pgUrl := ctx.Value("db_url").(string)
+	pgDbName := ctx.Value("db_name").(string)
+	newName := pgDbName + name
+
+	if err := ctx.DB().Exec(fmt.Sprintf("CREATE DATABASE %s", newName)).Error; err != nil {
+		return nil, nil, err
+	}
+
+	newCtx, err := duty.InitDB(strings.ReplaceAll(pgUrl, pgDbName, newName), nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := newCtx.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
+		return nil, nil, err
+	}
+
+	return newCtx, func() {
+		if err := ctx.DB().Exec(fmt.Sprintf("DROP DATABASE  %s (FORCE)", newName)).Error; err != nil {
+			logger.Errorf("error cleaning up db: %v", err)
+		}
+	}, nil
+}
+
+func RunEcho(e *echo.Echo) (int, func()) {
+	port := FreePort()
+
+	listenAddr := fmt.Sprintf(":%d", port)
+	go func() {
+		defer ginkgo.GinkgoRecover() // Required by ginkgo, if an assertion is made in a goroutine.
+		if err := e.Start(listenAddr); err != nil {
+			if err == http.ErrServerClosed {
+				logger.Infof("Server closed")
+			} else {
+				ginkgo.Fail(fmt.Sprintf("Failed to start test server: %v", err))
+			}
+		}
+	}()
+	return port, func() {
+		defer ginkgo.GinkgoRecover() // Required by ginkgo, if an assertion is made in a goroutine.
+		Expect(e.Close()).To(BeNil())
+	}
+}
+
 func FreePort() int {
 	// Bind to port 0 to let the OS choose a free port
 	listener, err := net.Listen("tcp", ":0")
@@ -147,4 +232,28 @@ func FreePort() int {
 	// Get the address of the listener
 	address := listener.Addr().(*net.TCPAddr)
 	return address.Port
+}
+
+func ExpectJobToPass(j *job.Job) {
+	history, err := j.FindHistory()
+	Expect(err).To(BeNil())
+	Expect(len(history)).To(BeNumerically(">=", 1))
+	Expect(history[0].Status).To(BeElementOf(models.StatusFinished, models.StatusSuccess))
+}
+
+func DumpEventQueue(ctx context.Context) {
+	var events []postq.Event
+	Expect(ctx.DB().Find(&events).Error).To(BeNil())
+
+	table.DefaultHeaderFormatter = func(format string, vals ...interface{}) string {
+		return strings.ToUpper(fmt.Sprintf(format, vals...))
+	}
+
+	tbl := table.New("Event", "Created At", "Properties")
+
+	for _, event := range events {
+		tbl.AddRow(event.Name, event.CreatedAt, event.Properties)
+	}
+
+	tbl.Print()
 }
