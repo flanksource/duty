@@ -33,7 +33,7 @@ var dummyData dummy.DummyData
 
 var PgUrl string
 var postgresDBUrl string
-var dbName string
+var dbName = "test"
 var trace bool
 var dbTrace bool
 
@@ -64,7 +64,6 @@ func MustDB() *sql.DB {
 var WithoutDummyData = "without_dummy_data"
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
-
 	var err error
 	importDummyData := true
 
@@ -81,7 +80,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 
 	port := FreePort()
 
-	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/test?sslmode=disable", port)
+	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
 	url := os.Getenv("DUTY_DB_URL")
 	if url != "" {
 		postgresDBUrl = url
@@ -92,7 +91,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
 		}
 	} else {
-		config, _ := GetEmbeddedPGConfig("test", port)
+		config, _ := GetEmbeddedPGConfig(dbName, port)
 		postgresServer = embeddedPG.NewDatabase(config)
 		if err = postgresServer.Start(); err != nil {
 			panic(err.Error())
