@@ -58,6 +58,12 @@ table "config_analysis" {
     null = true
     type = timestamptz
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the check status has been pushed to upstream."
+  }
   primary_key {
     columns = [column.id]
   }
@@ -130,6 +136,12 @@ table "config_changes" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the check status has been pushed to upstream."
   }
   primary_key {
     columns = [column.id]

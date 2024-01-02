@@ -186,6 +186,8 @@ type ConfigChange struct {
 	Diff             string     `gorm:"column:diff;default:null" json:"diff,omitempty"`
 	Details          types.JSON `gorm:"column:details" json:"details,omitempty"`
 	CreatedAt        *time.Time `gorm:"column:created_at" json:"created_at"`
+	// IsPushed when set to true indicates that the check status has been pushed to upstream.
+	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
 func (c ConfigChange) TableName() string {
@@ -230,6 +232,8 @@ type ConfigAnalysis struct {
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
 	FirstObserved *time.Time    `gorm:"column:first_observed;<-:false" json:"first_observed"`
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
+	// IsPushed when set to true indicates that the check status has been pushed to upstream.
+	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
 func (a ConfigAnalysis) TableName() string {
