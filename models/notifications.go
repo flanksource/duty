@@ -6,6 +6,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/samber/lo"
 )
 
 // Notification represents the notifications table
@@ -36,6 +37,12 @@ func (n Notification) AsMap(removeFields ...string) map[string]any {
 	return asMap(n, removeFields...)
 }
 
+const (
+	NotificationStatusError   = "error"
+	NotificationStatusSent    = "sent"
+	NotificationStatusSending = "sending"
+)
+
 type NotificationSendHistory struct {
 	ID             uuid.UUID `json:"id,omitempty" gorm:"default:generate_ulid()"`
 	NotificationID uuid.UUID `json:"notification_id"`
@@ -43,6 +50,7 @@ type NotificationSendHistory struct {
 	Error          *string   `json:"error,omitempty"`
 	DurationMillis int64     `json:"duration_millis,omitempty"`
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
+	Status         string    `json:"status,omitempty"`
 
 	// Name of the original event that caused this notification
 	SourceEvent string `json:"source_event"`
@@ -69,6 +77,22 @@ func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHisto
 		NotificationID: notificationID,
 		timeStart:      time.Now(),
 	}
+}
+
+func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
+	t.Status = NotificationStatusSending
+	return t
+}
+
+func (t *NotificationSendHistory) Sent() *NotificationSendHistory {
+	t.Status = NotificationStatusSent
+	return t.End()
+}
+
+func (t *NotificationSendHistory) Failed(e error) *NotificationSendHistory {
+	t.Status = NotificationStatusError
+	t.Error = lo.ToPtr(e.Error())
+	return t.End()
 }
 
 func (t *NotificationSendHistory) End() *NotificationSendHistory {
