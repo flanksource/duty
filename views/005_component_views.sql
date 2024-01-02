@@ -1,6 +1,5 @@
 -- components by check
 DROP FUNCTION IF EXISTS lookup_components_by_check;
-
 CREATE OR REPLACE FUNCTION lookup_components_by_check (id uuid) RETURNS setof components AS
 $$
 SELECT * FROM components WHERE id IN (
@@ -20,8 +19,7 @@ $$ language plpgsql;
 -- lookup_components_by_config
 DROP FUNCTION IF EXISTS lookup_components_by_config;
 
-CREATE
-OR REPLACE function lookup_components_by_config (id text) returns table (
+CREATE OR REPLACE function lookup_components_by_config (id text) returns table (
   component_id UUID,
   name TEXT,
   type TEXT,
@@ -37,29 +35,30 @@ begin
 end;
 $$ language plpgsql;
 
-CREATE OR REPLACE VIEW
-  component_names AS
-SELECT
-  id,
-  path,
-  external_id,
-  type,
-  name,
-  created_at,
-  updated_at,
-  icon,
-  parent_id
-FROM
-  components
-WHERE
-  deleted_at is null
-  AND hidden != true
-ORDER BY
-  name,
-  external_id;
 
-CREATE OR REPLACE VIEW
-  component_names_all AS
+DROP VIEW IF EXISTS component_names;
+CREATE OR REPLACE VIEW component_names AS
+  SELECT
+    id,
+    path,
+    external_id,
+    type,
+    name,
+    created_at,
+    updated_at,
+    icon,
+    parent_id
+  FROM
+    components
+  WHERE
+    deleted_at is null
+    AND hidden != true
+  ORDER BY
+    name,
+    external_id;
+
+DROP VIEW IF EXISTS component_names_all;
+CREATE OR REPLACE VIEW component_names_all AS
 SELECT
   id,
   path,
@@ -79,42 +78,39 @@ ORDER BY
   name,
   external_id;
 
-CREATE OR REPLACE VIEW
-  component_labels AS
-SELECT
-  d.key,
-  d.value
-FROM
-  components
-  JOIN json_each_text(labels::json) d on true
-GROUP BY
-  d.key,
-  d.value
-ORDER BY
-  key,
-  value;
+CREATE OR REPLACE VIEW component_labels AS
+  SELECT
+    d.key,
+    d.value
+  FROM
+    components
+    JOIN json_each_text(labels::json) d on true
+  GROUP BY
+    d.key,
+    d.value
+  ORDER BY
+    key,
+    value;
 
 DROP VIEW IF EXISTS components_with_logs;
-
-CREATE OR REPLACE VIEW
-  components_with_logs AS
-SELECT
-  id,
-  name,
-  agent_id,
-  icon,
-  type
-FROM
-  components
-WHERE
-  deleted_at IS NULL
-  AND log_selectors IS NOT NULL;
+CREATE OR REPLACE VIEW components_with_logs AS
+  SELECT
+    id,
+    name,
+    agent_id,
+    icon,
+    type
+  FROM
+    components
+  WHERE
+    deleted_at IS NULL
+    AND log_selectors IS NOT NULL;
 
 -- TODO stop the recursion once max_depth is reached.level <= max_depth;
 DROP FUNCTION if exists lookup_component_children;
 
-CREATE
-OR REPLACE FUNCTION lookup_component_children (id text, max_depth int) RETURNS TABLE (child_id UUID, parent_id UUID, level int) AS $$
+CREATE OR REPLACE FUNCTION lookup_component_children (id text, max_depth int)
+RETURNS TABLE (child_id UUID, parent_id UUID, level int) AS $$
 BEGIN
     IF max_depth < 0 THEN
         max_depth = 10;
@@ -136,8 +132,8 @@ $$ language plpgsql;
 
 DROP FUNCTION if exists lookup_component_relations;
 
-CREATE
-OR REPLACE FUNCTION lookup_component_relations (component_id text) RETURNS TABLE (id UUID) AS $$
+CREATE OR REPLACE FUNCTION lookup_component_relations (component_id text)
+RETURNS TABLE (id UUID) AS $$
 BEGIN
     RETURN QUERY
         SELECT cr.relationship_id AS id FROM component_relationships cr WHERE cr.component_id = $1::UUID
