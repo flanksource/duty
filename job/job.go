@@ -89,7 +89,7 @@ func (j *JobRuntime) start() {
 	j.Context.Debugf("%s starting", j.ID())
 	j.History = models.NewJobHistory(j.Job.Name, "", "").Start()
 
-	if j.Job.JobHistory {
+	if j.Job.JobHistory && j.Job.Retention.Success > 0 {
 		if err := j.History.Persist(j.DB()); err != nil {
 			logger.Warnf("%s failed to persist history: %v", j.ID(), err)
 		}
@@ -98,7 +98,7 @@ func (j *JobRuntime) start() {
 
 func (j *JobRuntime) end() {
 	j.History.End()
-	if j.Job.JobHistory {
+	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) {
 		if err := j.History.Persist(j.DB()); err != nil {
 			logger.Warnf("%s failed to persist history: %v", j.ID(), err)
 		}
