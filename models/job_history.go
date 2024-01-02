@@ -73,6 +73,10 @@ func (h *JobHistory) Persist(db *gorm.DB) error {
 	return db.Save(h).Error
 }
 
+func (h *JobHistory) AddErrorf(msg string, args ...interface{}) *JobHistory {
+	return h.AddError(fmt.Sprintf(msg, args...))
+}
+
 func (h *JobHistory) AddError(err string) *JobHistory {
 	h.ErrorCount += 1
 	if err != "" {
