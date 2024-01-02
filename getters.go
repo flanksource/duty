@@ -136,7 +136,7 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 		if resourceSelector.LabelSelector != "" {
 			labelComponents, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, opts...)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting checks with label selectors[%s]: %v", resourceSelector.LabelSelector, err)
+				return nil, fmt.Errorf("error getting checks with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
 			uniqueComponents = append(uniqueComponents, labelComponents...)
 		}
@@ -151,17 +151,26 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Component, err error) {
 	var uniqueComponents []models.Component
 	for _, resourceSelector := range resourceSelectors {
+		if resourceSelector.Name != "" {
+			components, err := FindComponentsByName(ctx, resourceSelector.Name, opts...)
+			if err != nil {
+				return nil, fmt.Errorf("error getting components with name selectors[%s]: %w", resourceSelector.Name, err)
+			}
+			uniqueComponents = append(uniqueComponents, components...)
+		}
+
 		if resourceSelector.LabelSelector != "" {
 			labelComponents, err := FindComponentsByLabel(ctx, resourceSelector.LabelSelector, opts...)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting components with label selectors[%s]: %v", resourceSelector.LabelSelector, err)
+				return nil, fmt.Errorf("error getting components with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
 			uniqueComponents = append(uniqueComponents, labelComponents...)
 		}
+
 		if resourceSelector.FieldSelector != "" {
 			fieldComponents, err := FindComponentsByField(ctx, resourceSelector.FieldSelector, opts...)
 			if err != nil {
-				return nil, fmt.Errorf("Error getting components with field selectors[%s]: %v", resourceSelector.FieldSelector, err)
+				return nil, fmt.Errorf("error getting components with field selectors[%s]: %w", resourceSelector.FieldSelector, err)
 			}
 			uniqueComponents = append(uniqueComponents, fieldComponents...)
 		}
@@ -234,12 +243,28 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	for k, v := range matchLabels {
 		var comp []models.Component
 		//FIXME FindOptions not applied
-		ctx.DB().Raw("select * from lookup_component_by_property(?, ?)", k, v).Scan(&comp)
+		if err := ctx.DB().Raw("select * from lookup_component_by_property(?, ?)", k, v).Scan(&comp).Error; err != nil {
+			return nil, err
+		}
 		for _, c := range comp {
 			components[c.ID.String()] = c
 		}
 	}
 	return lo.Values(components), nil
+}
+
+func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) ([]models.Component, error) {
+	if name == "" {
+		return nil, nil
+	}
+
+	var comps []models.Component
+	tx := apply(ctx.DB().Where(LocalFilter).Where("name = ?", name), opts...)
+	if err := tx.Find(&comps).Error; err != nil {
+		return nil, err
+	}
+
+	return comps, nil
 }
 
 func FindChecksByLabel(ctx context.Context, labelSelector string, opts ...FindOption) (components []models.Check, err error) {
