@@ -85,8 +85,12 @@ table "event_queue" {
     unique  = true
     columns = [column.name, column.properties]
   }
-  index "event_queue_attempts_priority" {
-    columns = [column.attempts, column.priority]
+  index "event_queue_properties" {
+    type    = GIN
+    columns = [column.properties]
+  }
+  index "event_queue_pop" {
+    columns = [column.name, column.priority, column.created_at]
   }
 }
 

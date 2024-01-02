@@ -1,0 +1,103 @@
+[
+  {
+    "SuitePath": "/Users/moshe/go/src/github.com/flanksource/duty/query",
+    "SuiteDescription": "Config Query",
+    "SuiteLabels": [],
+    "SuiteSucceeded": true,
+    "SuiteHasProgrammaticFocus": false,
+    "SpecialSuiteFailureReasons": null,
+    "PreRunStats": {
+      "TotalSpecs": 1,
+      "SpecsThatWillRun": 1
+    },
+    "StartTime": "2023-12-29T13:21:30.000664+02:00",
+    "EndTime": "2023-12-29T13:21:30.001614+02:00",
+    "RunTime": 949542,
+    "SuiteConfig": {
+      "RandomSeed": 1703848878,
+      "RandomizeAllSpecs": false,
+      "FocusStrings": [
+        "Config Queries"
+      ],
+      "SkipStrings": null,
+      "FocusFiles": null,
+      "SkipFiles": null,
+      "LabelFilter": "",
+      "FailOnPending": false,
+      "FailFast": false,
+      "FlakeAttempts": 0,
+      "MustPassRepeatedly": 0,
+      "DryRun": false,
+      "PollProgressAfter": 0,
+      "PollProgressInterval": 0,
+      "Timeout": 3589388711000,
+      "EmitSpecProgress": false,
+      "OutputInterceptorMode": "",
+      "SourceRoots": null,
+      "GracePeriod": 30000000000,
+      "ParallelProcess": 1,
+      "ParallelTotal": 1,
+      "ParallelHost": ""
+    },
+    "SpecReports": [
+      {
+        "ContainerHierarchyTexts": [
+          "Config Queries"
+        ],
+        "ContainerHierarchyLocations": [
+          {
+            "FileName": "/Users/moshe/go/src/github.com/flanksource/duty/query/config_test.go",
+            "LineNumber": 8
+          }
+        ],
+        "ContainerHierarchyLabels": [
+          []
+        ],
+        "LeafNodeType": "It",
+        "LeafNodeLocation": {
+          "FileName": "/Users/moshe/go/src/github.com/flanksource/duty/query/config_test.go",
+          "LineNumber": 9
+        },
+        "LeafNodeLabels": [],
+        "LeafNodeText": "Should Validate",
+        "State": "passed",
+        "StartTime": "2023-12-29T13:21:30.000793+02:00",
+        "EndTime": "2023-12-29T13:21:30.0016+02:00",
+        "RunTime": 807125,
+        "ParallelProcess": 1,
+        "NumAttempts": 1,
+        "MaxFlakeAttempts": 0,
+        "MaxMustPassRepeatedly": 0,
+        "SpecEvents": [
+          {
+            "SpecEventType": "Node",
+            "CodeLocation": {
+              "FileName": "/Users/moshe/go/src/github.com/flanksource/duty/query/config_test.go",
+              "LineNumber": 9
+            },
+            "TimelineLocation": {
+              "Order": 1,
+              "Time": "2023-12-29T13:21:30.000839+02:00"
+            },
+            "Message": "Should Validate",
+            "NodeType": "It"
+          },
+          {
+            "SpecEventType": "Node (End)",
+            "CodeLocation": {
+              "FileName": "/Users/moshe/go/src/github.com/flanksource/duty/query/config_test.go",
+              "LineNumber": 9
+            },
+            "TimelineLocation": {
+              "Order": 3,
+              "Time": "2023-12-29T13:21:30.001598+02:00"
+            },
+            "Message": "Should Validate",
+            "Duration": 758958,
+            "NodeType": "It"
+          }
+        ]
+      }
+    ]
+  }
+]
