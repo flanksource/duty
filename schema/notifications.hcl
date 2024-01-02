@@ -102,6 +102,12 @@ table "notification_send_history" {
     null = false
     type = text
   }
+
+  column "status" {
+    null = true
+    type = text
+  }
+
   column "source_event" {
     null    = false
     type    = text
