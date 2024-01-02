@@ -8,8 +8,6 @@ BEGIN
     FROM information_schema.tables  t
     WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
       AND t.table_name IN (
-        'config_analysis',
-        'config_changes',
         'config_items'
       )
   LOOP 

@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	ResourceTypeComponent     = "components"
 	ResourceTypeCheckStatuses = "check_statuses"
+	ResourceTypeComponent     = "components"
+	ResourceTypeUpstream      = "upstream"
 )
 
 var RetentionHour = Retention{
