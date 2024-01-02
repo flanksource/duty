@@ -6,9 +6,9 @@ table "topologies" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "name" {
     null = false
@@ -23,8 +23,8 @@ table "topologies" {
     type = jsonb
   }
   column "source" {
-    null = false
-    type = enum.source
+    null    = false
+    type    = enum.source
     default = "Topology"
   }
   column "spec" {
@@ -32,13 +32,13 @@ table "topologies" {
     type = jsonb
   }
   column "created_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "updated_at" {
-    null = true
-    type = timestamptz
+    null    = true
+    type    = timestamptz
     default = sql("now()")
   }
   column "schedule" {
@@ -135,9 +135,9 @@ table "components" {
     default = sql("generate_ulid()")
   }
   column "agent_id" {
-    null = false
+    null    = false
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "topology_id" {
     null = true
@@ -252,19 +252,19 @@ table "components" {
   }
   column "cost_per_minute" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_1d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_7d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "cost_total_30d" {
     null = true
-    type = numeric(16,4)
+    type = numeric(16, 4)
   }
   column "created_by" {
     null = true
@@ -311,7 +311,10 @@ table "components" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-
+  index "idx_components_properties" {
+    columns = [column.properties]
+    type    = GIN
+  }
   index "components_topology_id_type_name_parent_id_key" {
     unique  = true
     columns = [column.topology_id, column.type, column.name, column.parent_id]
@@ -366,7 +369,7 @@ table "check_component_relationships" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
     on_update   = NO_ACTION
-    on_delete   = CASCADE 
+    on_delete   = CASCADE
   }
   index "check_component_relationships_component_id_check_id_canary__key" {
     unique  = true
