@@ -17,6 +17,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ResourceTypeComponent     = "components"
+	ResourceTypeCheckStatuses = "check_statuses"
+)
+
 var RetentionHour = Retention{
 	Success:  1,
 	Failed:   3,
