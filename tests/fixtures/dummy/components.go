@@ -197,6 +197,7 @@ var KustomizeComponent = models.Component{
 	CreatedAt:  DummyCreatedAt,
 	ParentId:   &FluxComponent.ID,
 	Status:     types.ComponentStatusHealthy,
+	Properties: []*models.Property{{Name: "name", Text: "kustomize"}},
 }
 
 var KustomizeFluxComponent = models.Component{
