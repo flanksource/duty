@@ -148,12 +148,17 @@ SELECT
   notifications.created_at,
   notifications.updated_at,
   notifications.created_by,
-  job_history_latest_status.status job_status,
-  job_history_latest_status.details job_details,
-  job_history_latest_status.duration_millis job_duration_millis,
-  job_history_latest_status.time_start job_time_start
+  COUNT (event_queue.id) AS pending,
+  ROUND(AVG(CASE WHEN notification_send_history.error IS NOT NULL THEN notification_send_history.duration_millis ELSE NULL END), 2) AS avg_duration_ms,
+  COUNT (CASE WHEN notification_send_history.error IS NOT NULL THEN 1 END) AS failed,
+  COUNT (CASE WHEN notification_send_history.error IS NULL THEN 1 END) AS sent,
+  mode() WITHIN GROUP (ORDER BY notification_send_history.error) AS most_common_error
 FROM
   notifications
-  LEFT JOIN job_history_latest_status ON notifications.id::TEXT = job_history_latest_status.resource_id
+  LEFT JOIN notification_send_history ON notifications.id = notification_send_history.notification_id
+  LEFT JOIN event_queue ON 
+    notifications.id::TEXT = event_queue.properties->>'notification_id' AND
+    event_queue.name = 'notification.send'
 WHERE
-  notifications.deleted_at IS NULL;
+  notifications.deleted_at IS NULL
+GROUP BY notifications.id;
