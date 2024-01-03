@@ -55,6 +55,8 @@ SELECT
   canaries.id,
   canaries.name,
   canaries.namespace,
+  canaries.spec->>'interval' AS interval,
+  canaries.spec->>'schedule' AS schedule,
   canaries.labels,
   canaries.source,
   canaries.created_by,
