@@ -187,20 +187,35 @@ AFTER UPDATE ON components
 FOR EACH ROW
 EXECUTE PROCEDURE insert_component_status_updates_in_event_queue();
 
-CREATE OR REPLACE VIEW failed_push_queue AS
+CREATE OR REPLACE VIEW push_queue_summary AS
 SELECT
   properties ->> 'table' AS "table",
-  COUNT(id) AS error_count,
+  COUNT(id) AS pending,
+  COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS failed,
   ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
-  MIN(created_at) AS first_failure,
-  MAX(last_attempt) AS latest_failure,
+  MIN(CASE WHEN error IS NOT NULL THEN created_at END) AS first_failure,
+  MAX(last_attempt) AS last_failure,
   mode() WITHIN GROUP (ORDER BY error) AS most_common_error
 FROM
   event_queue
 WHERE
-  error IS NOT NULL AND attempts > 0
+  name = 'push_queue.create'
 GROUP BY
   "table";
+
+CREATE OR REPLACE VIEW event_queue_summary AS
+SELECT
+  name,
+  COUNT(id) AS pending,
+  COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS failed,
+  ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
+  MIN(CASE WHEN error IS NOT NULL THEN created_at END) AS first_failure,
+  MAX(last_attempt) AS last_failure,
+  mode() WITHIN GROUP (ORDER BY error) AS most_common_error
+FROM
+  event_queue
+GROUP BY
+  name;
 
 CREATE OR REPLACE VIEW failed_events AS
 SELECT
