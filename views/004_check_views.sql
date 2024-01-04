@@ -29,10 +29,6 @@ ORDER BY
   key,
   value;
 
-DROP VIEW IF EXISTS check_summary_by_component;
-
-DROP VIEW IF EXISTS checks_by_component;
-
 CREATE OR REPLACE VIEW
   checks_by_component AS
 SELECT
