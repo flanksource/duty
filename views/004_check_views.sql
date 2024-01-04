@@ -29,9 +29,9 @@ ORDER BY
   key,
   value;
 
-DROP view if exists check_summary_by_component;
+DROP VIEW IF EXISTS check_summary_by_component;
 
-DROP view if exists checks_by_component;
+DROP VIEW IF EXISTS checks_by_component;
 
 CREATE OR REPLACE VIEW
   checks_by_component AS
@@ -51,11 +51,13 @@ WHERE
 -- check_summary_by_component
 CREATE OR REPLACE VIEW
   check_summary_by_component AS
-select
-  component_id,
-  json_build_object(status, count(*)) AS checks
-FROM
-  checks_by_component
-group by
-  component_id,
-  status;
+WITH cte as (
+    SELECT
+        component_id, status, COUNT(*) AS count
+    FROM
+      checks_by_component
+    GROUP BY
+      component_id, status
+)
+SELECT component_id, json_object_agg(status, count) AS checks
+FROM cte GROUP BY component_id;
