@@ -122,6 +122,14 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
+	if err, _ := job.AggregateCheckStatus1d(DefaultContext); err != nil {
+		panic(err.Error())
+	}
+
+	if err, _ := job.AggregateCheckStatus1h(DefaultContext); err != nil {
+		panic(err.Error())
+	}
+
 	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = ginkgo.Describe("CheckDetails", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("CheckDetails", ginkgo.Ordered, ginkgo.Focus, func() {
 	type testRecord struct {
 		since    string
 		statuses int
@@ -48,7 +48,7 @@ var _ = ginkgo.Describe("CheckDetails", ginkgo.Ordered, func() {
 			err = q.Init(urlParam)
 			Expect(err).To(BeNil())
 
-			ts, uptime, latency, err := q.ExecuteDetails(DefaultContext)
+			ts, uptime, latency, err := query.CheckStatuses(DefaultContext, q)
 			Expect(err).To(BeNil())
 
 			Expect(len(ts)).To(Equal(td.statuses), "unexpected number of results")
