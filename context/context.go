@@ -62,9 +62,22 @@ func (k Context) WithTimeout(timeout time.Duration) (Context, gocontext.CancelFu
 	}, cancelFunc
 }
 
+// WithAnyValue is a wrapper around WithValue
+func (k Context) WithAnyValue(key, val any) Context {
+	return Context{
+		Context: k.WithValue(key, val),
+	}
+}
+
 func (k Context) WithObject(object metav1.ObjectMeta) Context {
 	return Context{
 		Context: k.WithValue("object", object),
+	}
+}
+
+func (k Context) WithTopology(topology any) Context {
+	return Context{
+		Context: k.WithValue("topology", topology),
 	}
 }
 
@@ -174,6 +187,10 @@ func (k *Context) Kommons() *kommons.Client {
 		return nil
 	}
 	return v
+}
+
+func (k Context) Topology() any {
+	return k.Value("topology")
 }
 
 func (k Context) StartSpan(name string) (Context, trace.Span) {
