@@ -106,7 +106,10 @@ func (component Component) GetAsEnvironment() map[string]interface{} {
 	}
 }
 
-func (c *Component) Summarize() types.Summary {
+func (c *Component) Summarize(depth int) types.Summary {
+	if depth <= 0 {
+		return c.Summary
+	}
 	if c.Summary.IsProcessed() {
 		return c.Summary
 	}
@@ -133,7 +136,7 @@ func (c *Component) Summarize() types.Summary {
 	}
 
 	for _, child := range c.Components {
-		childSummary := child.Summarize()
+		childSummary := child.Summarize(depth - 1)
 		s = s.Add(childSummary)
 	}
 	s.SetProcessed(true)
@@ -186,7 +189,7 @@ func (component Component) String() string {
 }
 
 func (component Component) IsHealthy() bool {
-	s := component.Summarize()
+	s := component.Summarize(10)
 	return s.Healthy > 0 && s.Unhealthy == 0 && s.Warning == 0
 }
 
@@ -227,10 +230,10 @@ func (components Components) Debug(prefix string) string {
 	return s
 }
 
-func (components Components) Summarize() types.Summary {
+func (components Components) Summarize(depth int) types.Summary {
 	var s types.Summary
 	for _, component := range components {
-		s = s.Add(component.Summarize())
+		s = s.Add(component.Summarize(depth))
 	}
 
 	return s
