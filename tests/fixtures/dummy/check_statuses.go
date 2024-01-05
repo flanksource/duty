@@ -6,7 +6,7 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-func generateStatus(check models.Check, t time.Time, count int, passingMod int) []models.CheckStatus {
+func generateStatus(check models.Check, t time.Time, schedule time.Duration, count int, passingMod int) []models.CheckStatus {
 	var statuses = []models.CheckStatus{}
 
 	for i := 0; i < count; i++ {
@@ -27,9 +27,9 @@ func generateStatus(check models.Check, t time.Time, count int, passingMod int) 
 
 func AllDummyCheckStatuses() []models.CheckStatus {
 	statuses := append(
-		generateStatus(LogisticsAPIHealthHTTPCheck, CurrentTime, 70, 5),
-		generateStatus(DeletedCheck, CurrentTime, 1, 1)[0],
-		generateStatus(DeletedCheckOld, *DeletedCheckOld.CreatedAt, 1, 1)[0],
+		generateStatus(LogisticsAPIHealthHTTPCheck, CurrentTime, time.Minute, 70, 5),
+		generateStatus(DeletedCheck, CurrentTime, time.Minute, 1, 1)[0],
+		generateStatus(DeletedCheckOld, *DeletedCheckOld.CreatedAt, time.Minute, 1, 1)[0],
 		models.CheckStatus{
 			CheckID:   LogisticsAPIHomeHTTPCheck.ID,
 			Duration:  100,
@@ -46,12 +46,12 @@ func AllDummyCheckStatuses() []models.CheckStatus {
 		},
 	)
 
-	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-15*time.Minute), 1, 1)[0])
-	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-2*time.Hour), 10, 2)...)
+	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-15*time.Minute), time.Minute, 1, 1)[0])
+	statuses = append(statuses, generateStatus(DeletedCheck1h, CurrentTime.Add(-2*time.Hour), time.Minute, 10, 2)...)
 
 	// Check statuses from 2022-01-01
 	// not dervied from current time for consistency
-	statuses = append(statuses, generateStatus(CartAPIHeathCheckAgent, time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC), 70, 5)...)
+	statuses = append(statuses, generateStatus(CartAPIHeathCheckAgent, time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC), time.Minute*5, 1440, 5)...) // 1440 check statuses spanning 5 days
 
 	return statuses
 }

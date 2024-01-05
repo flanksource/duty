@@ -14,12 +14,32 @@ import (
 	"github.com/samber/lo"
 )
 
-var (
+const (
 	// Maximum number of past checks in the in-memory cache
 	DefaultCacheCount = 5
 
 	// Default search window
 	DefaultCheckQueryWindow = "1h"
+
+	// The number of data points that should be strived for
+	// when aggregating check statuses.
+	desiredNumOfCheckStatuses = 100
+)
+
+var (
+	// allowed list of window durations that are used when aggregating check statuses.
+	allowedWindows = []time.Duration{
+		time.Minute,        // 1m
+		time.Minute * 5,    // 5m
+		time.Minute * 15,   // 15m
+		time.Minute * 30,   // 30m
+		time.Hour,          // 1h
+		time.Hour * 3,      // 3h
+		time.Hour * 6,      // 6h
+		time.Hour * 12,     // 12h
+		time.Hour * 24,     // 24h
+		time.Hour * 24 * 7, // 1w
+	}
 )
 
 type Timeseries struct {
@@ -138,9 +158,83 @@ func (q CheckQueryParams) GetWhereClause() (string, map[string]interface{}, erro
 	return strings.TrimSpace(clause), args, nil
 }
 
-func (q CheckQueryParams) ExecuteDetails(ctx context.Context) ([]Timeseries, types.Uptime, types.Latency, error) {
+func getBestPartitioner(totalChecks int, rangeDuration time.Duration) time.Duration {
+	if totalChecks <= desiredNumOfCheckStatuses {
+		return 0 // No need to perform window aggregation
+	}
+
+	bestDelta := 100000000 // sufficiently large delta to begin with
+	bestWindow := allowedWindows[0]
+
+	for _, wp := range allowedWindows {
+		numWindows := int(rangeDuration / wp)
+		delta := abs(desiredNumOfCheckStatuses - numWindows)
+
+		if delta < bestDelta {
+			bestDelta = delta
+			bestWindow = wp
+		} else {
+			// as soon as we notice that the delta gets worse, we break the loop
+			break
+		}
+	}
+
+	numWindows := int(rangeDuration / bestWindow)
+	if abs(desiredNumOfCheckStatuses-totalChecks) <= abs(desiredNumOfCheckStatuses-numWindows) {
+		// If this best partition creates windows such that the resulting number of data points deviate more
+		// from the desired data points than the actual data points, then we do not aggregate.
+		// Example: if there are 144 checks for the duration of 6 days,
+		// then the best partition, 1 hour, would generate 144 data points.
+		// But the original data points (120) are closer to 100, so we do not aggregate.
+		return 0
+	}
+
+	return bestWindow
+}
+
+func optimalWindow(ctx context.Context, from, to time.Time) (time.Duration, error) {
+	var view string
+	timeRange := to.Sub(from)
+	if timeRange > time.Hour*24*21 {
+		view = "check_statuses_1d"
+	} else if timeRange > time.Hour*48 {
+		view = "check_statuses_1h"
+	} else {
+		return -1, nil //
+	}
+
+	q := fmt.Sprintf(`
+	SELECT
+		SUM(total) AS total,
+		MAX(created_at) AS latest,
+		MIN(created_at) AS earliest
+	FROM
+		%s
+	WHERE
+		created_at >= ? AND created_at <= ?;`, view)
+	var total *int
+	var latest, earliest *time.Time
+	if err := ctx.DB().Raw(q, from, to).Row().Scan(&total, &latest, &earliest); err != nil {
+		return 0, err
+	}
+	if total == nil {
+		return -1, nil //
+	}
+
+	return getBestPartitioner(*total, earliest.Sub(*latest)), nil
+}
+
+func CheckStatuses(ctx context.Context, q CheckQueryParams) ([]Timeseries, types.Uptime, types.Latency, error) {
 	start := q.GetStartTime().Format(time.RFC3339)
 	end := q.GetEndTime().Format(time.RFC3339)
+
+	// For the given ranges try to find the best window using check statuses summary
+	window, err := optimalWindow(ctx, *q.GetStartTime(), *q.GetEndTime())
+	if err != nil {
+		return nil, types.Uptime{}, types.Latency{}, err
+	} else if window >= 0 {
+		q.WindowDuration = window
+	}
 
 	query := `
 With grouped_by_window AS (
@@ -308,4 +402,15 @@ func parseDuration(d string, name string) (clause string, arg interface{}, err e
 		return ":" + name, timestamp, nil
 	}
 	return "", nil, fmt.Errorf("start time must be a duration or RFC3339 timestamp")
+}
+
+// abs returns the absolute value of i.
+// math.Abs only supports float64 and this avoids the needless type conversions
+// and ugly expression.
+func abs(n int) int {
+	if n > 0 {
+		return n
+	}
+
+	return -n
 }
