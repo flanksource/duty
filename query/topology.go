@@ -306,7 +306,10 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 			c.Components = generateTree(children, compChildrenMap)
 		}
 
-		c.Summary = c.Summarize()
+		// TODO: Depth is added to prevent cyclic stackoverflow
+		// Summary should be set after applyDepthFilter
+		// which dereferences pointer cycles
+		c.Summary = c.Summarize(10)
 		c.Status = c.GetStatus()
 
 		nodes = append(nodes, c)
