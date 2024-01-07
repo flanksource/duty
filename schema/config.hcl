@@ -62,7 +62,7 @@ table "config_analysis" {
     null    = false
     default = false
     type    = bool
-    comment = "is_pushed when set to true indicates that the check status has been pushed to upstream."
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
   }
   primary_key {
     columns = [column.id]
@@ -78,6 +78,10 @@ table "config_analysis" {
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "config_analysis_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
@@ -141,7 +145,7 @@ table "config_changes" {
     null    = false
     default = false
     type    = bool
-    comment = "is_pushed when set to true indicates that the check status has been pushed to upstream."
+    comment = "is_pushed when set to true indicates that the config changes has been pushed to upstream."
   }
   primary_key {
     columns = [column.id]
@@ -155,6 +159,10 @@ table "config_changes" {
   index "config_changes_config_id_external_change_id_key" {
     unique  = true
     columns = [column.config_id, column.external_change_id]
+  }
+  index "config_changes_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
