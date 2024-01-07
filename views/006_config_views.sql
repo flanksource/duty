@@ -362,3 +362,39 @@ CREATE OR REPLACE VIEW config_analysis_by_severity AS
   WHERE config_analysis.first_observed >= now() - INTERVAL '30 days'
   GROUP BY config_items.type, config_analysis.severity
   ORDER BY config_items.type, config_analysis.severity;
+
+CREATE OR REPLACE FUNCTION insert_config_create_update_delete_in_event_queue()
+RETURNS TRIGGER AS
+$$
+BEGIN
+    DECLARE
+      event_name TEXT;
+    BEGIN
+      CASE
+        WHEN TG_OP = 'INSERT' THEN
+          event_name := 'config.created';
+        WHEN TG_OP = 'UPDATE' THEN
+          event_name := 'config.updated';
+          IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
+            event_name := 'config.deleted';
+          END IF;
+        ELSE
+          RAISE EXCEPTION 'Unexpected operation in trigger: %', TG_OP;
+      END CASE;
+      
+      INSERT INTO event_queue(name, properties)
+      VALUES (event_name, jsonb_build_object('id', NEW.id))
+      ON CONFLICT (name, properties) DO UPDATE
+      SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    END;
+
+    RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_items_create_update_trigger
+AFTER INSERT OR UPDATE
+ON config_items
+FOR EACH ROW
+EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
