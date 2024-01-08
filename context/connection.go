@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/flanksource/commons/template"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -176,12 +176,12 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		"password":  connection.Password,
 		"domain":    domain,
 	}
-	templater := template.StructTemplater{
+	templater := gomplate.StructTemplater{
 		Values: data,
 		// access go values in template requires prefix everything with .
 		// to support $(username) instead of $(.username) we add a function for each var
 		ValueFunctions: true,
-		DelimSets: []template.Delims{
+		DelimSets: []gomplate.Delims{
 			{Left: "{{", Right: "}}"},
 			{Left: "$(", Right: ")"},
 		},
