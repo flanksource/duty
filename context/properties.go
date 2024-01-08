@@ -2,6 +2,7 @@ package context
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -85,7 +86,9 @@ func LoadPropertiesFromFile(ctx Context, filename string) error {
 
 func ParsePropertiesFile(filename string) (map[string]string, error) {
 	file, err := os.Open(filename)
-	if err != nil {
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	defer file.Close()
