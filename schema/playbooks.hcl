@@ -108,6 +108,11 @@ enum "playbook_run_status" {
   values = ["scheduled", "running", "cancelled", "completed", "failed", "pending", "sleeping"]
 }
 
+enum "playbook_action_status" {
+  schema = schema.public
+  values = ["completed", "running", "failed", "sleeping", "skipped"]
+}
+
 table "playbook_runs" {
   schema = schema.public
   column "id" {
@@ -230,7 +235,7 @@ table "playbook_run_actions" {
   }
   column "status" {
     null    = false
-    type    = enum.playbook_run_status
+    type    = enum.playbook_action_status
     default = "running"
   }
   column "playbook_run_id" {
