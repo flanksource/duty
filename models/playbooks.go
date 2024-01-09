@@ -20,6 +20,17 @@ const (
 	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
 )
 
+// PlaybookRunStatus are statuses for a playbook run and its actions.
+type PlaybookActionStatus string
+
+const (
+	PlaybookActionStatusCompleted PlaybookActionStatus = "completed"
+	PlaybookActionStatusFailed    PlaybookActionStatus = "failed"
+	PlaybookActionStatusRunning   PlaybookActionStatus = "running"
+	PlaybookActionStatusSkipped   PlaybookActionStatus = "skipped"
+	PlaybookActionStatusSleeping  PlaybookActionStatus = "sleeping"
+)
+
 var (
 	PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 		PlaybookRunStatusRunning,
@@ -66,15 +77,15 @@ func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
 }
 
 type PlaybookRunAction struct {
-	ID            uuid.UUID         `gorm:"default:generate_ulid()"`
-	Name          string            `json:"name" gorm:"not null"`
-	PlaybookRunID uuid.UUID         `json:"playbook_run_id"`
-	Status        PlaybookRunStatus `json:"status,omitempty"`
-	ScheduledTime time.Time         `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
-	StartTime     time.Time         `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
-	EndTime       *time.Time        `json:"end_time,omitempty" time_format:"postgres_timestamp"`
-	Result        types.JSON        `json:"result,omitempty" gorm:"default:null"`
-	Error         string            `json:"error,omitempty" gorm:"default:null"`
+	ID            uuid.UUID            `gorm:"default:generate_ulid()"`
+	Name          string               `json:"name" gorm:"not null"`
+	PlaybookRunID uuid.UUID            `json:"playbook_run_id"`
+	Status        PlaybookActionStatus `json:"status,omitempty"`
+	ScheduledTime time.Time            `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
+	StartTime     time.Time            `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
+	EndTime       *time.Time           `json:"end_time,omitempty" time_format:"postgres_timestamp"`
+	Result        types.JSON           `json:"result,omitempty" gorm:"default:null"`
+	Error         string               `json:"error,omitempty" gorm:"default:null"`
 }
 
 func (p PlaybookRunAction) AsMap(removeFields ...string) map[string]any {
