@@ -246,6 +246,10 @@ table "config_items" {
     null = true
     type = jsonb
   }
+  column "properties" {
+    null = true
+    type = jsonb
+  }
   column "parent_id" {
     null = true
     type = uuid
