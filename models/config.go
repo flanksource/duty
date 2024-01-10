@@ -85,6 +85,7 @@ type ConfigItem struct {
 	CostTotal7d   float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
 	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
 	Tags          *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
+	Properties    *types.Properties    `json:"properties,omitempty"`
 	CreatedAt     time.Time            `json:"created_at"`
 	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`

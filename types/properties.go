@@ -30,6 +30,7 @@ type Link struct {
 	Text `json:",inline"`
 }
 
+// +kubebuilder:object:generate=true
 // Property is a realized v1.Property without the lookup definition
 type Property struct {
 	Label    string `json:"label,omitempty"`
@@ -55,7 +56,26 @@ type Property struct {
 	Links          []Link `json:"links,omitempty"`
 }
 
+func (p Property) AsMap(removeFields ...string) map[string]any {
+	return asMap(p, removeFields...)
+}
+
 type Properties []*Property
+
+func (m Properties) MarshalJSON() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	t := ([]*Property)(m)
+	return json.Marshal(t)
+}
+
+func (m *Properties) UnmarshalJSON(b []byte) error {
+	t := []*Property{}
+	err := json.Unmarshal(b, &t)
+	*m = Properties(t)
+	return err
+}
 
 func (p Properties) AsJSON() []byte {
 	if len(p) == 0 {
