@@ -398,3 +398,27 @@ AFTER INSERT OR UPDATE
 ON config_items
 FOR EACH ROW
 EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
+
+CREATE OR REPLACE VIEW config_detail AS
+  SELECT
+    ci.*,
+    json_build_object(
+      'relationships', related.related_count,
+      'analysis', analysis.analysis_count,
+      'changes', config_changes.changes_count,
+      'playbook_runs', playbook_runs.playbook_runs_count
+    ) as summary
+  FROM config_items as ci
+    LEFT JOIN
+      (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
+      ON ci.id = related.config_id
+    LEFT JOIN
+      (SELECT config_id, count(*) as analysis_count FROM config_analysis GROUP BY config_id) as analysis
+      ON ci.id = analysis.config_id
+    LEFT JOIN 
+      (SELECT config_id, count(*) as changes_count FROM config_changes GROUP BY config_id) as config_changes 
+      ON ci.id = config_changes.config_id
+    LEFT JOIN 
+      (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs GROUP BY config_id) as playbook_runs
+      ON ci.id = playbook_runs.config_id
+  LIMIT 1
