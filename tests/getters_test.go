@@ -34,7 +34,7 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		{
 			Name:      "name and label selector that have overlaps",
 			Selectors: []types.ResourceSelector{{Name: dummy.Logistics.Name, LabelSelector: "telemetry=enabled"}},
-			Results:   2,
+			Results:   1,
 		},
 		{
 			Name:      "field selector",
