@@ -156,15 +156,17 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 }
 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Component, err error) {
-	var uniqueComponents []models.Component
+	var allComponents []models.Component
 	for _, resourceSelector := range resourceSelectors {
+		var uniqueComponents []models.Component
+		selectorOpts := opts
 		if resourceSelector.Name != "" {
 			nameComponents, err := FindComponentsByName(ctx, resourceSelector.Name, opts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with name selectors[%s]: %w", resourceSelector.Name, err)
 			}
 			uniqueComponents = nameComponents
-			opts = append(opts, WhereClause("id::text in ?", lo.Map(
+			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
 				nameComponents,
 				func(c models.Component, _ int) string { return c.ID.String() }),
 			))
@@ -172,27 +174,28 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 		}
 
 		if resourceSelector.LabelSelector != "" {
-			labelComponents, err := FindComponentsByLabel(ctx, resourceSelector.LabelSelector, opts...)
+			labelComponents, err := FindComponentsByLabel(ctx, resourceSelector.LabelSelector, selectorOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
 			uniqueComponents = labelComponents
-			opts = append(opts, WhereClause("id::text in ?", lo.Map(
+			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
 				labelComponents,
 				func(c models.Component, _ int) string { return c.ID.String() }),
 			))
 		}
 
 		if resourceSelector.FieldSelector != "" {
-			fieldComponents, err := FindComponentsByField(ctx, resourceSelector.FieldSelector, opts...)
+			fieldComponents, err := FindComponentsByField(ctx, resourceSelector.FieldSelector, selectorOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with field selectors[%s]: %w", resourceSelector.FieldSelector, err)
 			}
 			uniqueComponents = fieldComponents
 		}
+		allComponents = append(allComponents, uniqueComponents...)
 	}
 
-	return lo.UniqBy(uniqueComponents, models.ComponentID), nil
+	return lo.UniqBy(allComponents, models.ComponentID), nil
 }
 
 func getLabelsFromSelector(selector string) (matchLabels map[string]string) {
