@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -123,6 +124,12 @@ func PickColumns(columns ...string) FindOption {
 	}
 }
 
+func WhereClause(query any, args ...any) FindOption {
+	return func(db *gorm.DB) {
+		db.Where(query, args...)
+	}
+}
+
 func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
 	for _, opt := range opts {
 		opt(db)
@@ -152,11 +159,16 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 	var uniqueComponents []models.Component
 	for _, resourceSelector := range resourceSelectors {
 		if resourceSelector.Name != "" {
-			components, err := FindComponentsByName(ctx, resourceSelector.Name, opts...)
+			nameComponents, err := FindComponentsByName(ctx, resourceSelector.Name, opts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with name selectors[%s]: %w", resourceSelector.Name, err)
 			}
-			uniqueComponents = append(uniqueComponents, components...)
+			uniqueComponents = nameComponents
+			opts = append(opts, WhereClause("id::text in ?", lo.Map(
+				nameComponents,
+				func(c models.Component, _ int) string { return c.ID.String() }),
+			))
+
 		}
 
 		if resourceSelector.LabelSelector != "" {
@@ -164,7 +176,11 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
-			uniqueComponents = append(uniqueComponents, labelComponents...)
+			uniqueComponents = labelComponents
+			opts = append(opts, WhereClause("id::text in ?", lo.Map(
+				labelComponents,
+				func(c models.Component, _ int) string { return c.ID.String() }),
+			))
 		}
 
 		if resourceSelector.FieldSelector != "" {
@@ -172,7 +188,7 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with field selectors[%s]: %w", resourceSelector.FieldSelector, err)
 			}
-			uniqueComponents = append(uniqueComponents, fieldComponents...)
+			uniqueComponents = fieldComponents
 		}
 	}
 
@@ -238,19 +254,54 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	if fieldSelector == "" {
 		return nil, nil
 	}
-	var components = make(map[string]models.Component)
 	matchLabels := getLabelsFromSelector(fieldSelector)
+	allowedColumnsAsFields := []string{"type", "status", "topology_type", "owner", "agent_id", "namespace"}
+
+	columnWhereClauses := map[string]string{
+		"agent_id": uuid.Nil.String(),
+	}
+
+	var props models.Properties
 	for k, v := range matchLabels {
-		var comp []models.Component
-		//FIXME FindOptions not applied
-		if err := ctx.DB().Raw("select * from lookup_component_by_property(?, ?)", k, v).Scan(&comp).Error; err != nil {
-			return nil, err
-		}
-		for _, c := range comp {
-			components[c.ID.String()] = c
+		if collections.Contains(allowedColumnsAsFields, k) {
+			if k == "agent_id" {
+				switch v {
+				case "local":
+					columnWhereClauses["agent_id"] = uuid.Nil.String()
+				case "all":
+					delete(columnWhereClauses, "agent_id")
+				default:
+					if _, err := uuid.Parse(v); err == nil {
+						columnWhereClauses["agent_id"] = v
+					}
+				}
+			} else {
+				columnWhereClauses[k] = v
+			}
+		} else {
+			props = append(props, &models.Property{Name: k, Text: v})
 		}
 	}
-	return lo.Values(components), nil
+
+	// If 0 clauses then do not fire query
+	if len(columnWhereClauses) == 0 && len(props) == 0 {
+		return nil, nil
+	}
+
+	query := ctx.DB()
+	if len(columnWhereClauses) > 0 {
+		query = query.Where(columnWhereClauses)
+	}
+	if len(props) > 0 {
+		query = query.Where("properties @> ?", props)
+	}
+	var components []models.Component
+	if err := apply(query, opts...).
+		Find(&components).Error; err != nil {
+		return nil, fmt.Errorf("error querying components by fieldSelector[%s]: %w", fieldSelector, err)
+	}
+
+	return components, nil
 }
 
 func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) ([]models.Component, error) {
