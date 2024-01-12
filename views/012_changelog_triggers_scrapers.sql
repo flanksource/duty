@@ -13,7 +13,7 @@ BEGIN
   LOOP 
     EXECUTE format('
       CREATE OR REPLACE TRIGGER %1$I_change_to_event_queue
-      AFTER INSERT OR UPDATE ON %1$I
+      AFTER INSERT OR UPDATE OR DELETE ON %1$I
       FOR EACH ROW
       EXECUTE PROCEDURE push_changes_to_event_queue()',
       table_name
