@@ -161,7 +161,7 @@ func (t *UpstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, reque
 
 	var response []string
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
-		return nil, fmt.Errorf("Invalid response format: %s", parseResponse(body))
+		return nil, fmt.Errorf("invalid response format: %s", parseResponse(body))
 	}
 
 	return response, nil
@@ -184,7 +184,7 @@ func (t *UpstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request 
 
 	var response PaginateResponse
 	if err := json.Unmarshal([]byte(body), &response); err != nil {
-		return nil, fmt.Errorf("Invalid response format: %s: %v", parseResponse(body), err)
+		return nil, fmt.Errorf("invalid response format: %s: %v", parseResponse(body), err)
 	}
 
 	return &response, nil

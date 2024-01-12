@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	netHTTP "net/http"
 
 	"github.com/flanksource/commons/http"
 )
@@ -31,11 +32,25 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 
 // Push uploads the given push message to the upstream server.
 func (t *UpstreamClient) Push(ctx context.Context, msg *PushData) error {
+	return t.push(ctx, netHTTP.MethodPost, msg)
+}
+
+// Delete performs hard delete on the given items from the upstream server.
+func (t *UpstreamClient) Delete(ctx context.Context, msg *PushData) error {
+	return t.push(ctx, netHTTP.MethodDelete, msg)
+}
+
+func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData) error {
 	if msg.Count() == 0 {
 		return nil
 	}
 
-	resp, err := t.R(ctx).Post("push", msg)
+	req := t.R(ctx)
+	if err := req.Body(msg); err != nil {
+		return fmt.Errorf("error setting body: %w", err)
+	}
+
+	resp, err := req.Do(method, "push")
 	if err != nil {
 		return fmt.Errorf("error pushing to upstream: %w", err)
 	}

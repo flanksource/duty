@@ -39,6 +39,73 @@ func GetOrCreateAgent(ctx context.Context, name string) (*models.Agent, error) {
 	return a, nil
 }
 
+// DeleteOnUpstream deletes the given resources by agent on the upstream.
+func DeleteOnUpstream(ctx context.Context, req *PushData) error {
+	db := ctx.DB()
+
+	if len(req.Topologies) > 0 {
+		if err := db.Delete(req.Topologies).Error; err != nil {
+			return fmt.Errorf("error deleting topologies: %w", err)
+		}
+	}
+
+	if len(req.Canaries) > 0 {
+		if err := db.Delete(req.Canaries).Error; err != nil {
+			return fmt.Errorf("error deleting canaries: %w", err)
+		}
+	}
+
+	if len(req.Components) > 0 {
+		if err := db.Delete(req.Components).Error; err != nil {
+			logger.Errorf("error deleting components: %w", err)
+		}
+	}
+
+	if len(req.ComponentRelationships) > 0 {
+		if err := db.Delete(req.ComponentRelationships).Error; err != nil {
+			return fmt.Errorf("error deleting component_relationships: %w", err)
+		}
+	}
+
+	if len(req.ConfigScrapers) > 0 {
+		if err := db.Delete(req.ConfigScrapers).Error; err != nil {
+			return fmt.Errorf("error deleting config scrapers: %w", err)
+		}
+	}
+
+	if len(req.ConfigItems) > 0 {
+		if err := db.Delete(req.ConfigItems).Error; err != nil {
+			logger.Errorf("error deleting config items: %w", err)
+		}
+	}
+
+	if len(req.ConfigRelationships) > 0 {
+		if err := db.Delete(req.ConfigRelationships).Error; err != nil {
+			return fmt.Errorf("error deleting config_relationships: %w", err)
+		}
+	}
+
+	if len(req.ConfigComponentRelationships) > 0 {
+		if err := db.Delete(req.ConfigComponentRelationships).Error; err != nil {
+			return fmt.Errorf("error deleting config_component_relationships: %w", err)
+		}
+	}
+
+	if len(req.Checks) > 0 {
+		if err := db.Delete(req.Checks).Error; err != nil {
+			return fmt.Errorf("error deleting checks: %w", err)
+		}
+	}
+
+	if len(req.CheckStatuses) > 0 {
+		if err := db.Delete(req.CheckStatuses).Error; err != nil {
+			return fmt.Errorf("error deleting check_statuses: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	batchSize := 100
 	db := ctx.DB()

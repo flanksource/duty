@@ -92,6 +92,48 @@ func PushHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 	}
 }
 
+// PushHandler returns an echo handler that deletes the push data from the upstream.
+func DeleteHandler(agentIDCache *cache.Cache) func(echo.Context) error {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context().(context.Context)
+
+		var req PushData
+		err := json.NewDecoder(c.Request().Body).Decode(&req)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, api.HTTPError{Error: err.Error(), Message: "invalid json request"})
+		}
+
+		ctx.GetSpan().SetAttributes(attribute.String("action", "delete"), attribute.Int("upstream.push.msg-count", req.Count()))
+
+		req.AgentName = strings.TrimSpace(req.AgentName)
+		if req.AgentName == "" {
+			return c.JSON(http.StatusBadRequest, api.HTTPError{Error: "agent name is required", Message: "agent name is required"})
+		}
+
+		agentID, ok := agentIDCache.Get(req.AgentName)
+		if !ok {
+			agent, err := GetOrCreateAgent(ctx, req.AgentName)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, api.HTTPError{
+					Error:   err.Error(),
+					Message: "Error while creating/fetching agent",
+				})
+			}
+			agentID = agent.ID
+			agentIDCache.Set(req.AgentName, agentID, cache.DefaultExpiration)
+		}
+
+		req.PopulateAgentID(agentID.(uuid.UUID))
+
+		logger.Tracef("Deleting push data %s", req.String())
+		if err := DeleteOnUpstream(ctx, &req); err != nil {
+			return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
+		}
+
+		return nil
+	}
+}
+
 // StatusHandler returns a handler that returns the summary of all ids the upstream has received.
 func StatusHandler(allowedTables []string) func(echo.Context) error {
 	return func(c echo.Context) error {
