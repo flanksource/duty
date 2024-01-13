@@ -1,5 +1,3 @@
-DROP VIEW IF EXISTS topology; -- has dependencies on other views so we need to drop it first
-
 DROP TRIGGER if exists check_statuses_change_to_event_queue on check_statuses;
 
 CREATE OR REPLACE FUNCTION drop_push_queue_triggers () returns void as $$
