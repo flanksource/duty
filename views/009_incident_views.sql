@@ -33,24 +33,6 @@ CREATE OR REPLACE VIEW incidents_by_config AS
   INNER JOIN incidents on hypotheses.incident_id = incidents.id
   WHERE evidences.config_id is not null;
 
--- incident_summary_by_component
-DROP VIEW IF EXISTS incident_summary_by_component;
-CREATE OR REPLACE VIEW incident_summary_by_component AS
-  WITH type_summary AS (
-      SELECT summary.id, summary.type, json_object_agg(f.k, f.v) as json
-      FROM (
-          SELECT evidences.component_id AS id, incidents.type, json_build_object(severity, count(*)) AS severity_agg
-          FROM incidents
-          INNER JOIN hypotheses ON hypotheses.incident_id = incidents.id
-          INNER JOIN evidences ON evidences.hypothesis_id = hypotheses.id
-          WHERE (incidents.resolved IS NULL AND incidents.closed IS NULL and evidences.component_id IS NOT NULL
-      )
-      GROUP BY incidents.severity, incidents.type, evidences.component_id)
-      AS summary, json_each(summary.severity_agg) AS f(k,v) GROUP BY summary.type, summary.id
-  )
-
-  SELECT id, jsonb_object_agg(key, value) as incidents FROM (select id, json_object_agg(type,json) incidents from type_summary group by id, type) i, json_each(incidents) group by id;
-
 -- incident_summary VIEW
 DROP VIEW IF EXISTS incident_summary;
 CREATE OR REPLACE VIEW incident_summary AS 
