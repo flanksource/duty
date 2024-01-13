@@ -50,7 +50,7 @@ func (t *UpstreamConfig) Valid() bool {
 }
 
 func (t *UpstreamConfig) IsPartiallyFilled() bool {
-	return !t.Valid() && (t.Host != "" || t.Username != "" || t.Password != "" || t.AgentName != "")
+	return !t.Valid() && (t.Host != "" || t.Password != "" || t.AgentName != "")
 }
 
 func (t *UpstreamConfig) LabelsMap() map[string]string {
