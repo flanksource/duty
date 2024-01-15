@@ -29,6 +29,10 @@ table "playbooks" {
     null = false
     type = enum.source
   }
+  column "category" {
+    null = true
+    type = text
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
