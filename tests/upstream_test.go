@@ -21,7 +21,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 	var upstreamConf upstream.UpstreamConfig
 	const agentName = "my-agent"
 
-	ginkgo.It("prepare upstream database", func() {
+	ginkgo.BeforeAll(func() {
 		var err error
 		upstreamCtx, drop, err = setup.NewDB(DefaultContext, "upstream")
 		Expect(err).ToNot(HaveOccurred())
@@ -35,13 +35,10 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(analyses).To(Equal(0))
-
 		agent := models.Agent{Name: agentName}
 		err = upstreamCtx.DB().Create(&agent).Error
 		Expect(err).ToNot(HaveOccurred())
-	})
 
-	ginkgo.It("should setup upstream echo server", func() {
 		var port int
 		e := echo.New()
 		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -62,7 +59,6 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 			AgentName: agentName,
 		}
 	})
-
 	ginkgo.It("should push config items first to satisfy foregin keys for changes & analyses", func() {
 		reconciler := upstream.NewUpstreamReconciler(upstreamConf, 100)
 
@@ -127,11 +123,8 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		}
 	})
 
-	ginkgo.It("should stop echo server ", func() {
+	ginkgo.AfterAll(func() {
 		echoCloser()
-	})
-
-	ginkgo.It("should drop upstream database ", func() {
 		drop()
 	})
 })
