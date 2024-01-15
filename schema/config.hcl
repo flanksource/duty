@@ -305,6 +305,9 @@ table "config_items" {
     columns = [column.external_id]
     type    = GIN
   }
+  index "idx_config_items_name" {
+    columns = [column.agent_id, column.name, column.type, column.config_class]
+  }
 }
 
 table "config_relationships" {
@@ -450,8 +453,8 @@ table "config_scrapers" {
     default = sql("now()")
   }
   column "updated_at" {
-    null    = true
-    type    = timestamptz
+    null = true
+    type = timestamptz
   }
   column "deleted_at" {
     null = true
