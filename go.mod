@@ -9,7 +9,7 @@ require (
 	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.20.0
+	github.com/flanksource/commons v1.20.1
 	github.com/flanksource/gomplate/v3 v3.20.29
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.3
@@ -30,7 +30,6 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.39.0
-	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	github.com/zclconf/go-cty v1.14.1
@@ -129,6 +128,7 @@ require (
 	github.com/robertkrimen/otto v0.2.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
