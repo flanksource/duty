@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/flanksource/commons/logger"
 	gLogger "gorm.io/gorm/logger"
 )
@@ -49,13 +47,7 @@ func NewGormLogger(level string) gLogger.Interface {
 		)
 	}
 
-	l := logrus.New()
-	l.SetFormatter(&logrus.TextFormatter{
-		ForceColors:  true,
-		DisableQuote: true,
-	})
-
-	currentGormLogger := logger.NewLogrusLogger(l)
+	currentGormLogger := logger.StandardLogger().Named("db")
 
 	switch level {
 	case "trace":
