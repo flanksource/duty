@@ -11,6 +11,7 @@ import (
 
 	"github.com/RaveNoX/go-jsonmerge"
 	"github.com/ohler55/ojg/jp"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
@@ -130,6 +131,11 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 		return value.(string), nil
 	}
 	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+
+	if err != nil {
+		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
+	}
+
 	if secret == nil {
 		return "", fmt.Errorf("could not get contents of secret %s/%s: %w", namespace, name, err)
 	}
@@ -137,11 +143,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	value, ok := secret.Data[key]
 
 	if !ok {
-		names := []string{}
-		for k := range secret.Data {
-			names = append(names, k)
-		}
-		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(names, ", "))
+		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
 	envCache.Set(id, string(value), 5*time.Minute)
 	return string(value), nil
@@ -153,17 +155,17 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return value.(string), nil
 	}
 	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("could not get configmap %s/%s: %s", namespace, name, err)
+	}
 	if configMap == nil {
 		return "", fmt.Errorf("could not get contents of configmap %s/%s: %w", namespace, name, err)
 	}
 
 	value, ok := configMap.Data[key]
 	if !ok {
-		names := []string{}
-		for k := range configMap.Data {
-			names = append(names, k)
-		}
-		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name, strings.Join(names, ", "))
+		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
+			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
 	envCache.Set(id, string(value), 5*time.Minute)
 	return string(value), nil
