@@ -84,7 +84,7 @@ type PlaybookRunAction struct {
 	ScheduledTime time.Time            `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
 	StartTime     time.Time            `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time           `json:"end_time,omitempty" time_format:"postgres_timestamp"`
-	Result        types.JSON           `json:"result,omitempty" gorm:"default:null"`
+	Result        types.JSONMap        `json:"result,omitempty" gorm:"default:null"`
 	Error         string               `json:"error,omitempty" gorm:"default:null"`
 }
 
