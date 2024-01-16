@@ -420,5 +420,4 @@ CREATE OR REPLACE VIEW config_detail AS
       ON ci.id = config_changes.config_id
     LEFT JOIN 
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs GROUP BY config_id) as playbook_runs
-      ON ci.id = playbook_runs.config_id
-  LIMIT 1
+      ON ci.id = playbook_runs.config_id;
