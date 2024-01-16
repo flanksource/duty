@@ -403,7 +403,7 @@ CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,
     json_build_object(
-      'relationships', related.related_count,
+      'relationships', related.related_count + reverse_related.related_count,
       'analysis', analysis.analysis_count,
       'changes', config_changes.changes_count,
       'playbook_runs', playbook_runs.playbook_runs_count
@@ -412,6 +412,9 @@ CREATE OR REPLACE VIEW config_detail AS
     LEFT JOIN
       (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
       ON ci.id = related.config_id
+    LEFT JOIN
+      (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
+      ON ci.id = reverse_related.related_id
     LEFT JOIN
       (SELECT config_id, count(*) as analysis_count FROM config_analysis GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
