@@ -10,6 +10,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -94,6 +95,22 @@ func (k Context) User() *models.Person {
 		return nil
 	}
 	return v.(*models.Person)
+}
+
+// WithAgent sets the current session's agent in the context
+func (k Context) WithAgent(agent models.Agent) Context {
+	k.GetSpan().SetAttributes(attribute.String("agent-id", agent.ID.String()))
+	return Context{
+		Context: k.WithValue("agent", agent),
+	}
+}
+
+func (k Context) Agent() *models.Agent {
+	v := k.Value("agent")
+	if v == nil {
+		return nil
+	}
+	return lo.ToPtr(v.(models.Agent))
 }
 
 func (k Context) WithTrace() Context {

@@ -24,13 +24,18 @@ const (
 type PlaybookActionStatus string
 
 const (
-	PlaybookActionStatusPending   PlaybookActionStatus = "pending" // Waiting for a runner to pick it up
 	PlaybookActionStatusCompleted PlaybookActionStatus = "completed"
 	PlaybookActionStatusFailed    PlaybookActionStatus = "failed"
 	PlaybookActionStatusRunning   PlaybookActionStatus = "running"
 	PlaybookActionStatusSkipped   PlaybookActionStatus = "skipped"
 	PlaybookActionStatusSleeping  PlaybookActionStatus = "sleeping"
 )
+
+var PlaybookActionFinalStates = []PlaybookActionStatus{
+	PlaybookActionStatusFailed,
+	PlaybookActionStatusCompleted,
+	PlaybookActionStatusSkipped,
+}
 
 var (
 	PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
@@ -87,6 +92,8 @@ type PlaybookRunAction struct {
 	EndTime       *time.Time           `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Result        types.JSONMap        `json:"result,omitempty" gorm:"default:null"`
 	Error         string               `json:"error,omitempty" gorm:"default:null"`
+	IsPushed      bool                 `json:"is_pushed"`
+	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
 }
 
 func (p PlaybookRunAction) AsMap(removeFields ...string) map[string]any {
