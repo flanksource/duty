@@ -24,6 +24,7 @@ const (
 type PlaybookActionStatus string
 
 const (
+	PlaybookActionStatusPending   PlaybookActionStatus = "pending" // Waiting for a runner to pick it up
 	PlaybookActionStatusCompleted PlaybookActionStatus = "completed"
 	PlaybookActionStatusFailed    PlaybookActionStatus = "failed"
 	PlaybookActionStatusRunning   PlaybookActionStatus = "running"
