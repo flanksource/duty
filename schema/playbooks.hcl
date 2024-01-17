@@ -259,6 +259,17 @@ table "playbook_run_actions" {
     null = true
     type = jsonb
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
+  column "agent_id" {
+    null    = true
+    default = null
+    type    = uuid
+    comment = "id of the agent that ran this action"
+  }
   column "error" {
     null = true
     type = text

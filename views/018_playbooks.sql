@@ -35,6 +35,8 @@ FOR EACH ROW
 EXECUTE PROCEDURE notify_playbook_update();
 
 -- List of all the playbooks that can be run by an agent
+DROP VIEW IF EXISTS playbooks_for_agent;
+
 CREATE OR REPLACE VIEW 
 playbooks_for_agent AS
 WITH interim AS (
@@ -50,7 +52,7 @@ SELECT
   interim.agent_name,
   agents.person_id,
   agents.id as agent_id,
-  json_agg(interim.id) AS playbook_ids
+  jsonb_agg(interim.id) AS playbook_ids
 FROM
   interim
   INNER JOIN agents ON interim.agent_name :: TEXT = agents.name
