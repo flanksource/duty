@@ -73,6 +73,7 @@ type PushData struct {
 	ComponentRelationships       []models.ComponentRelationship       `json:"component_relationships,omitempty"`
 	ConfigComponentRelationships []models.ConfigComponentRelationship `json:"config_component_relationships,omitempty"`
 	Topologies                   []models.Topology                    `json:"topologies,omitempty"`
+	PlaybookActions              []models.PlaybookRunAction           `json:"playbook_actions,omitempty"`
 }
 
 func (p *PushData) String() string {
@@ -148,7 +149,7 @@ func (p *PushData) Attributes() map[string]any {
 func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
-		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) + len(t.Topologies)
+		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) + len(t.Topologies) + len(t.PlaybookActions)
 }
 
 // ReplaceTopologyID replaces the topology_id for all the components
