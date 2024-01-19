@@ -20,6 +20,7 @@ import (
 const (
 	ResourceTypeCheckStatuses = "check_statuses"
 	ResourceTypeComponent     = "components"
+	ResourceTypePlaybook      = "playbook"
 	ResourceTypeUpstream      = "upstream"
 )
 

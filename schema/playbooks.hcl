@@ -238,8 +238,9 @@ table "playbook_run_actions" {
     default = "running"
   }
   column "playbook_run_id" {
-    null = false
+    null = true
     type = uuid
+    comment = "a run id is mandatory except for an agent"
   }
   column "start_time" {
     null    = true
@@ -282,5 +283,12 @@ table "playbook_run_actions" {
     ref_columns = [table.playbook_runs.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  check "playbook_action_not_null_run_id" {
+    expr    = <<EOF
+    (playbook_run_id IS NULL AND agent_id IS NOT NULL) OR
+    (playbook_run_id IS NOT NULL)
+    EOF
+    comment = "a run id is mandatory except for an agent"
   }
 }

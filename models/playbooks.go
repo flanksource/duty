@@ -91,7 +91,7 @@ type PlaybookRunAction struct {
 	StartTime     time.Time            `json:"start_time,omitempty" time_format:"postgres_timestamp"  gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time           `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	Result        types.JSONMap        `json:"result,omitempty" gorm:"default:null"`
-	Error         string               `json:"error,omitempty" gorm:"default:null"`
+	Error         *string              `json:"error,omitempty" gorm:"default:null"`
 	IsPushed      bool                 `json:"is_pushed"`
 	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
 }
