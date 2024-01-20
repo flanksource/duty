@@ -10,6 +10,7 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
 )
 
@@ -47,9 +48,64 @@ func configQuery(db *gorm.DB, config types.ConfigQuery) *gorm.DB {
 
 var configCache = gocache.New(30*time.Minute, 1*time.Hour)
 
-func FindConfigs(db *gorm.DB, config types.ConfigQuery) (items []models.ConfigItem, err error) {
-	err = configQuery(db, config).Find(&items).Error
-	return items, err
+func FindConfigs(db *gorm.DB, config types.ConfigQuery) ([]models.ConfigItem, error) {
+	configHash := config.Hash()
+	if configHash == "" {
+		return nil, fmt.Errorf("error generating cacheKey for %s", config)
+	}
+	cacheKey := "FindConfigs" + configHash
+
+	if val, exists := configCache.Get(cacheKey); exists {
+		// If config items are not found, it is stored as nil
+		if val == nil {
+			return nil, nil
+		}
+		return val.([]models.ConfigItem), nil
+	}
+
+	var items []models.ConfigItem
+	tx := configQuery(db, config).Find(&items)
+	if tx.Error != nil {
+		return nil, fmt.Errorf("error querying config items with query(%v) err: %w", config, tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		// If config item is not found, stored as nil for a short duration
+		configCache.Set(cacheKey, nil, 10*time.Minute)
+		return nil, nil
+	}
+
+	configCache.Set(cacheKey, items, gocache.DefaultExpiration)
+	return items, nil
+}
+
+func FindConfigIDs(db *gorm.DB, config types.ConfigQuery) ([]uuid.UUID, error) {
+	configHash := config.Hash()
+	if configHash == "" {
+		return nil, fmt.Errorf("error generating cacheKey for %s", config)
+	}
+	cacheKey := "FindConfigIDs" + configHash
+
+	if val, exists := configCache.Get(cacheKey); exists {
+		// If config items are not found, it is stored as nil
+		if val == nil {
+			return nil, nil
+		}
+		return val.([]uuid.UUID), nil
+	}
+
+	var items []uuid.UUID
+	tx := configQuery(db, config).Select("id").Find(&items)
+	if tx.Error != nil {
+		return nil, fmt.Errorf("error querying config items with query(%v) err: %w", config, tx.Error)
+	}
+	if tx.RowsAffected == 0 {
+		// If config item is not found, stored as nil for a short duration
+		configCache.Set(cacheKey, nil, 10*time.Minute)
+		return nil, nil
+	}
+
+	configCache.Set(cacheKey, items, gocache.DefaultExpiration)
+	return items, nil
 }
 
 func FindConfig(db *gorm.DB, config types.ConfigQuery) (*models.ConfigItem, error) {
@@ -57,10 +113,11 @@ func FindConfig(db *gorm.DB, config types.ConfigQuery) (*models.ConfigItem, erro
 		return nil, fmt.Errorf("db not initialized")
 	}
 
-	cacheKey := config.Hash()
-	if cacheKey == "" {
+	configHash := config.Hash()
+	if configHash == "" {
 		return nil, fmt.Errorf("error generating cacheKey for %s", config)
 	}
+	cacheKey := "FindConfig" + configHash
 
 	if val, exists := configCache.Get(cacheKey); exists {
 		// If config item is not found, it is stored as nil
