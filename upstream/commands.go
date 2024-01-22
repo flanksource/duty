@@ -195,7 +195,11 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 			"error":    req.PlaybookActions[i].Error,
 		}
 		if err := db.Model(&models.PlaybookRunAction{}).Where("id = ?", req.PlaybookActions[i].ID).Updates(updates).Error; err != nil {
-			return fmt.Errorf("error updating playbook action [%s]: %w", req.PlaybookActions[i].ID.String(), err)
+			return fmt.Errorf("error updating playbook action [%s]: %w", req.PlaybookActions[i].ID, err)
+		}
+
+		if err := db.Exec("UPDATE playbook_runs SET status = ? WHERE id = (SELECT playbook_run_id FROM playbook_run_actions WHERE id = ?)", models.PlaybookRunStatusScheduled, req.PlaybookActions[i].ID).Error; err != nil {
+			return fmt.Errorf("error updating playbook run [%s]  status to %s : %w", req.PlaybookActions[i].PlaybookRunID, models.PlaybookRunStatusScheduled, err)
 		}
 	}
 
