@@ -403,10 +403,10 @@ CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,
     json_build_object(
-      'relationships', related.related_count + reverse_related.related_count,
-      'analysis', analysis.analysis_count,
-      'changes', config_changes.changes_count,
-      'playbook_runs', playbook_runs.playbook_runs_count
+      'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
+      'analysis', COALESCE(analysis.analysis_count, 0),
+      'changes', COALESCE(config_changes.changes_count, 0),
+      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0)
     ) as summary
   FROM config_items as ci
     LEFT JOIN
