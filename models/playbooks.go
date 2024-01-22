@@ -11,13 +11,14 @@ import (
 type PlaybookRunStatus string
 
 const (
-	PlaybookRunStatusPending   PlaybookRunStatus = "pending"
-	PlaybookRunStatusScheduled PlaybookRunStatus = "scheduled"
-	PlaybookRunStatusRunning   PlaybookRunStatus = "running"
 	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
-	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
 	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
+	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
+	PlaybookRunStatusPending   PlaybookRunStatus = "pending" // pending approval
+	PlaybookRunStatusRunning   PlaybookRunStatus = "running"
+	PlaybookRunStatusScheduled PlaybookRunStatus = "scheduled"
 	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
+	PlaybookRunStatusWaiting   PlaybookRunStatus = "waiting" // waiting for a consumer
 )
 
 // PlaybookRunStatus are statuses for a playbook run and its actions.
@@ -27,6 +28,7 @@ const (
 	PlaybookActionStatusCompleted PlaybookActionStatus = "completed"
 	PlaybookActionStatusFailed    PlaybookActionStatus = "failed"
 	PlaybookActionStatusRunning   PlaybookActionStatus = "running"
+	PlaybookActionStatusScheduled PlaybookActionStatus = "scheduled"
 	PlaybookActionStatusSkipped   PlaybookActionStatus = "skipped"
 	PlaybookActionStatusSleeping  PlaybookActionStatus = "sleeping"
 )
@@ -67,7 +69,7 @@ type PlaybookRun struct {
 	PlaybookID    uuid.UUID           `json:"playbook_id"`
 	Status        PlaybookRunStatus   `json:"status,omitempty"`
 	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	StartTime     time.Time           `json:"start_time,omitempty" time_format:"postgres_timestamp"`
+	StartTime     *time.Time          `json:"start_time,omitempty" time_format:"postgres_timestamp"`
 	ScheduledTime time.Time           `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
 	CreatedBy     *uuid.UUID          `json:"created_by,omitempty"`
@@ -110,4 +112,16 @@ type PlaybookApproval struct {
 
 func (p PlaybookApproval) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
+}
+
+type PlaybookActionAgentData struct {
+	ActionID   uuid.UUID  `json:"action_id"`
+	RunID      uuid.UUID  `json:"run_id"`
+	PlaybookID uuid.UUID  `json:"playbook_id"`
+	Spec       types.JSON `json:"spec"`
+	Env        types.JSON `json:"env,omitempty"`
+}
+
+func (t *PlaybookActionAgentData) TableName() string {
+	return "playbook_action_agent_data"
 }

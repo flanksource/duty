@@ -221,6 +221,41 @@ table "playbook_runs" {
   }
 }
 
+table "playbook_action_agent_data" {
+  schema  = schema.public
+  comment = "saves the necessary details for the agent to run a playbook action (eg: template env vars). Only applicable to agent runners."
+  column "action_id" {
+    null = false
+    type = uuid
+  }
+  column "playbook_id" {
+    comment = "saves the linked upstream playbook id"
+    null = false
+    type = uuid
+  }
+  column "run_id" {
+    comment = "saves the linked upstream playbook run id"
+    null = false
+    type = uuid
+  }
+  column "spec" {
+    comment = "Action spec provided by upstream"
+    null    = false
+    type    = jsonb
+  }
+  column "env" {
+    comment = "templateEnv for the action provided by the upstream"
+    null    = true
+    type    = jsonb
+  }
+  foreign_key "playbook_action_template_env_agent_action_id_fkey" {
+    columns     = [column.action_id]
+    ref_columns = [table.playbook_run_actions.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+}
+
 table "playbook_run_actions" {
   schema = schema.public
   column "id" {
@@ -238,14 +273,13 @@ table "playbook_run_actions" {
     default = "running"
   }
   column "playbook_run_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
     comment = "a run id is mandatory except for an agent"
   }
   column "start_time" {
-    null    = true
-    type    = timestamptz
-    default = sql("now()")
+    null = true
+    type = timestamptz
   }
   column "scheduled_time" {
     null    = false
