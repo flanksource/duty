@@ -1,18 +1,18 @@
 {
     "components": [
         {
-            "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
+            "id": "018681ff-559f-7183-19d1-7d898b4e1413",
             "agent_id": "00000000-0000-0000-0000-000000000000",
-            "external_id": "dummy/node-a",
-            "parent_id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
-            "name": "node-a",
+            "external_id": "dummy/pods",
+            "parent_id": "018681fe-8156-4b91-d178-caf8b3c2818c",
+            "name": "Pods",
             "status": "healthy",
-            "tooltip": "Node A",
-            "icon": "icon-kubernetes-node",
-            "type": "KubernetesNode",
-            "path": "018681fe-8156-4b91-d178-caf8b3c2818c.018681fe-b27e-7627-72c2-ad18e93f72f4",
+            "tooltip": "Kubernetes Pods",
+            "icon": "icon-kubernetes-pod",
+            "type": "KubernetesPods",
+            "path": "018681fe-8156-4b91-d178-caf8b3c2818c",
             "summary": {
-                "healthy": 2
+                "healthy": 3
             },
             "is_leaf": false,
             "created_at": "2023-01-01T05:29:00+05:30",
@@ -73,11 +73,35 @@
                     "parents": [
                         "018681fe-f5aa-37e9-83f7-47b5b0232d5e"
                     ]
+                },
+                {
+                    "id": "018681ff-e578-a926-e366-d2dc0646eafa",
+                    "agent_id": "00000000-0000-0000-0000-000000000000",
+                    "external_id": "dummy/logistics-worker-79cb67d8f5-lr66n",
+                    "parent_id": "018681ff-559f-7183-19d1-7d898b4e1413",
+                    "name": "logistics-worker-79cb67d8f5-lr66n",
+                    "status": "healthy",
+                    "tooltip": "Logistic Worker Pod",
+                    "icon": "icon-kubernetes-pod",
+                    "type": "KubernetesPod",
+                    "properties": [
+                        {
+                            "name": "memory",
+                            "value": 300,
+                            "unit": "bytes"
+                        }
+                    ],
+                    "path": "018681fe-8156-4b91-d178-caf8b3c2818c.018681ff-559f-7183-19d1-7d898b4e1413",
+                    "summary": {
+                        "healthy": 1
+                    },
+                    "is_leaf": false,
+                    "created_at": "2023-01-01T05:29:00+05:30",
+                    "updated_at": "2023-01-01T05:29:00+05:30",
+                    "parents": [
+                        "018681ff-227e-4d71-b38e-0693cc862213"
+                    ]
                 }
-            ],
-            "children": [
-                "018681ff-80ed-d10d-21ef-c74f152b085b",
-                "018681ff-b6c1-a14d-2fd4-8c7dac94cddd"
             ]
         }
     ],
@@ -87,7 +111,7 @@
     "teams": [],
     "tags": null,
     "types": [
-        "KubernetesNode",
-        "KubernetesPod"
+        "KubernetesPod",
+        "KubernetesPods"
     ]
 }

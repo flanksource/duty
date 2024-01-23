@@ -119,4 +119,10 @@ var _ = ginkgo.Describe("Topology behavior", func() {
 	ginkgo.It("Should test tree with agent ID filter", func() {
 		testTopologyJSON(query.TopologyOptions{AgentID: dummy.GCPAgent.ID.String()}, "fixtures/expectations/topology_tree_with_agent_id.json")
 	})
+
+	ginkgo.It("Should test tree with sort options", func() {
+		testTopologyJSON(query.TopologyOptions{ID: dummy.PodsComponent.ID.String(), SortBy: "field:memory"}, "fixtures/expectations/topology_tree_with_sort.json")
+
+		testTopologyJSON(query.TopologyOptions{ID: dummy.PodsComponent.ID.String(), SortBy: "field:memory", SortOrder: "desc"}, "fixtures/expectations/topology_tree_with_desc_sort.json")
+	})
 })
