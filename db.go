@@ -130,7 +130,7 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		config.MaxConns = 20
 	}
 
-	pool, err = pgxpool.New(context.Background(), config)
+	pool, err = pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
