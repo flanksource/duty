@@ -141,6 +141,7 @@ var LogisticsAPIPod = models.Component{
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
+	Properties: []*models.Property{{Name: "memory", Unit: "bytes", Value: 100}},
 }
 
 var LogisticsUIPod = models.Component{
@@ -154,6 +155,7 @@ var LogisticsUIPod = models.Component{
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
+	Properties: []*models.Property{{Name: "memory", Unit: "bytes", Value: 200}},
 }
 
 var LogisticsWorkerPod = models.Component{
@@ -167,6 +169,7 @@ var LogisticsWorkerPod = models.Component{
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
 	Path:       fmt.Sprintf("%s.%s", ClusterComponent.ID.String(), PodsComponent.ID.String()),
+	Properties: []*models.Property{{Name: "memory", Unit: "bytes", Value: 300}},
 }
 
 var PaymentsAPI = models.Component{

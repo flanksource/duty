@@ -11,9 +11,17 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
+	"github.com/samber/lo"
 )
 
 const DefaultDepth = 5
+
+type TopologyQuerySortBy string
+
+const (
+	TopologyQuerySortByName  TopologyQuerySortBy = "name"
+	TopologyQuerySortByField TopologyQuerySortBy = "field:"
+)
 
 type TopologyOptions struct {
 	ID      string
@@ -25,6 +33,9 @@ type TopologyOptions struct {
 	// TODO: Filter status and types in DB Query
 	Types  []string
 	Status []string
+
+	SortBy    TopologyQuerySortBy
+	SortOrder string
 
 	// when set to true, only the children (except the direct children) are returned.
 	// when set to false, the direct children & the parent itself is fetched.
@@ -253,16 +264,60 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 
 	// Remove fields from children that aren't required by the UI
 	root := response.Components
+
 	if len(root) == 1 {
 		for j := range root[0].Components {
 			removeComponentFields(root[0].Components[j].Components)
+		}
+
+		if params.SortBy != "" {
+			sortComponents(root[0].Components, params.SortBy, params.SortOrder != "desc")
 		}
 	} else {
 		for i := range root {
 			removeComponentFields(root[i].Components)
 		}
+
+		if params.SortBy != "" {
+			sortComponents(root, params.SortBy, params.SortOrder != "desc")
+		}
 	}
 	return &response, nil
+}
+
+func sortComponents(c models.Components, sortBy TopologyQuerySortBy, asc bool) {
+	switch {
+	case sortBy == TopologyQuerySortByName:
+		sort.Slice(c, func(i, j int) bool {
+			if !asc {
+				i, j = j, i
+			}
+			return c[i].Name < c[j].Name
+		})
+
+	case strings.HasPrefix(string(sortBy), string(TopologyQuerySortByField)):
+		field := strings.TrimPrefix(string(sortBy), string(TopologyQuerySortByField))
+		isTextProperty := lo.Reduce(c, func(val bool, comp *models.Component, _ int) bool {
+			return val && comp.Properties.Find(field).Text != ""
+		}, true)
+
+		sort.Slice(c, func(i, j int) bool {
+			if !asc {
+				i, j = j, i
+			}
+			propI := c[i].Properties.Find(field)
+			propJ := c[j].Properties.Find(field)
+			if propI == nil || propJ == nil {
+				return false
+			}
+
+			if isTextProperty {
+				return propI.Text < propJ.Text
+			} else {
+				return propI.Value < propJ.Value
+			}
+		})
+	}
 }
 
 // applyDepthFilter limits the tree size to the given depth and also
