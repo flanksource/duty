@@ -77,24 +77,34 @@ func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
 	return Gorm, nil
 }
 
-func NewDB(connection string) (*sql.DB, error) {
+func getConnection(connection string) (string, error) {
 	pgxConfig, err := drivers.ParseURL(connection)
 	if err != nil {
-		return nil, err
+		return connection, err
 	} else if pgxConfig != nil {
-		connection = stdlib.RegisterConnConfig(pgxConfig)
+		return stdlib.RegisterConnConfig(pgxConfig), nil
 	}
+	return connection, nil
+}
 
-	return sql.Open("pgx", connection)
+func NewDB(connection string) (*sql.DB, error) {
+	conn, err := getConnection(connection)
+	if err != nil {
+		return nil, err
+	}
+	return sql.Open("pgx", conn)
 }
 
 func NewPgxPool(connection string) (*pgxpool.Pool, error) {
-	pgUrl, err := url.Parse(connection)
+	connection, err := getConnection(connection)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Infof("Connecting to %s", pgUrl.Redacted())
+	pgUrl, err := url.Parse(connection)
+	if err == nil {
+		logger.Infof("Connecting to %s", pgUrl.Redacted())
+	}
 
 	config, err := pgxpool.ParseConfig(connection)
 	if err != nil {
@@ -120,7 +130,7 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		config.MaxConns = 20
 	}
 
-	pool, err = pgxpool.NewWithConfig(context.Background(), config)
+	pool, err = pgxpool.New(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
