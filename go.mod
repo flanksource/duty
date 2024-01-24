@@ -32,7 +32,7 @@ require (
 	github.com/samber/lo v1.39.0
 	github.com/spf13/pflag v1.0.5
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
-	github.com/zclconf/go-cty v1.14.1
+	github.com/zclconf/go-cty v1.14.2
 	go.opentelemetry.io/otel v1.21.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.21.0
 	go.opentelemetry.io/otel/sdk v1.21.0
