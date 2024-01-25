@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -36,6 +37,13 @@ type JobHistory struct {
 	TimeStart      time.Time
 	TimeEnd        *time.Time
 	Errors         []string `gorm:"-"`
+}
+
+func (j JobHistory) AsError() error {
+	if len(j.Errors) == 0 {
+		return nil
+	}
+	return fmt.Errorf(strings.Join(j.Errors, ","))
 }
 
 func (j JobHistory) TableName() string {
@@ -82,7 +90,7 @@ func (h *JobHistory) AddError(err string) *JobHistory {
 	if err != "" {
 		h.Errors = append(h.Errors, err)
 	}
-	logger.Errorf("%s %s", h, err)
+	logger.StandardLogger().WithSkipReportLevel(1).Errorf("%s %s", h, err)
 	return h
 }
 
