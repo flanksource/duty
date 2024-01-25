@@ -21,8 +21,18 @@ func (k Context) ClearCache() {
 	propertyCache = cache.New(time.Minute*15, time.Minute*15)
 }
 
+type Properties map[string]string
+
+func (p Properties) On(key string) bool {
+	return p[key] == "true" || p[key] == "off"
+}
+
+func (p Properties) Off(key string) bool {
+	return p[key] == "false" || p[key] == "disabled"
+}
+
 // Properties returns a cached map of properties
-func (k Context) Properties() map[string]string {
+func (k Context) Properties() Properties {
 	// properties are currently global, but in future we might have context specific properties as well
 	if val, ok := propertyCache.Get("global"); ok {
 		return val.(map[string]string)
