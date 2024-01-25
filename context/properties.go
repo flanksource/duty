@@ -39,13 +39,15 @@ func (k Context) Properties() Properties {
 	}
 
 	var props = make(map[string]string)
-	var rows []models.AppProperty
-	if err := k.DB().Find(&rows).Error; err != nil {
-		return props
-	}
+	if k.DB() != nil {
+		var rows []models.AppProperty
+		if err := k.DB().Find(&rows).Error; err != nil {
+			return props
+		}
 
-	for _, prop := range rows {
-		props[prop.Name] = prop.Value
+		for _, prop := range rows {
+			props[prop.Name] = prop.Value
+		}
 	}
 
 	for k, v := range Local {
