@@ -6,6 +6,7 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 // SyncCheckStatuses pushes check statuses, that haven't already been pushed, to upstream.
@@ -67,10 +68,7 @@ func SyncConfigChanges(ctx context.Context, config UpstreamConfig, batchSize int
 			return 0, fmt.Errorf("failed to push config_changes to upstream: %w", err)
 		}
 
-		ids := make([]string, len(configChanges))
-		for i := range configChanges {
-			ids[i] = configChanges[i].ID
-		}
+		ids := lo.Map(configChanges, func(c models.ConfigChange, _ int) string { return c.ID })
 		if err := ctx.DB().Model(&models.ConfigChange{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
 			return 0, fmt.Errorf("failed to update is_pushed on config_changes: %w", err)
 		}
@@ -103,14 +101,42 @@ func SyncConfigAnalyses(ctx context.Context, config UpstreamConfig, batchSize in
 			return 0, fmt.Errorf("failed to push config_analysis to upstream: %w", err)
 		}
 
-		ids := make([]uuid.UUID, len(analyses))
-		for i := range analyses {
-			ids[i] = analyses[i].ID
-		}
+		ids := lo.Map(analyses, func(a models.ConfigAnalysis, _ int) string { return a.ID.String() })
 		if err := ctx.DB().Model(&models.ConfigAnalysis{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
 			return 0, fmt.Errorf("failed to update is_pushed on config_analysis: %w", err)
 		}
 
 		count += len(analyses)
+	}
+}
+
+// SyncArtifacts pushes artifacts that haven't already been pushed to upstream.
+func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+	client := NewUpstreamClient(config)
+	count := 0
+	for {
+		var artifacts []models.Artifact
+		if err := ctx.DB().
+			Where("is_pushed IS FALSE").
+			Limit(batchSize).
+			Find(&artifacts).Error; err != nil {
+			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
+		}
+
+		if len(artifacts) == 0 {
+			return count, nil
+		}
+
+		ctx.Tracef("pushing %d artifacts to upstream", len(artifacts))
+		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, Artifacts: artifacts}); err != nil {
+			return 0, fmt.Errorf("failed to push playbook_runs to upstream: %w", err)
+		}
+
+		ids := lo.Map(artifacts, func(a models.Artifact, _ int) string { return a.ID.String() })
+		if err := ctx.DB().Model(&models.Artifact{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
+			return 0, fmt.Errorf("failed to update is_pushed on artifacts: %w", err)
+		}
+
+		count += len(artifacts)
 	}
 }

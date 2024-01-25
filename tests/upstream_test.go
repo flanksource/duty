@@ -123,6 +123,31 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		}
 	})
 
+	ginkgo.It("should push artifacts", func() {
+		var pushed int
+		err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.Artifact{}).Scan(&pushed).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pushed).To(BeZero())
+
+		var artifacts int
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(artifacts).To(BeZero())
+
+		count, err := upstream.SyncArtifacts(DefaultContext, upstreamConf, 10)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(artifacts).To(Equal(count))
+
+		var pending int
+		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Artifact{}).Scan(&pending).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pending).To(BeZero())
+
+	})
+
 	ginkgo.AfterAll(func() {
 		echoCloser()
 		drop()

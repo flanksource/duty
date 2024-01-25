@@ -170,6 +170,7 @@ table "playbook_runs" {
   }
   column "agent_id" {
     null = true
+    default = var.uuid_nil
     type = uuid
   }
   primary_key {
@@ -301,7 +302,7 @@ table "playbook_run_actions" {
   }
   column "agent_id" {
     null    = true
-    default = null
+    default = var.uuid_nil
     type    = uuid
     comment = "id of the agent that ran this action"
   }
