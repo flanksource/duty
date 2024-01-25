@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
+        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38 # v5.0.2
         with:
           branch: 'bump-duty-auto-pr'
           commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
