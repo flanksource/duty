@@ -63,6 +63,13 @@ func (k Context) WithTimeout(timeout time.Duration) (Context, gocontext.CancelFu
 	}, cancelFunc
 }
 
+func (k Context) WithDeadline(deadline time.Time) (Context, gocontext.CancelFunc) {
+	ctx, cancelFunc := k.Context.WithDeadline(deadline)
+	return Context{
+		Context: ctx,
+	}, cancelFunc
+}
+
 // WithAnyValue is a wrapper around WithValue
 func (k Context) WithAnyValue(key, val any) Context {
 	return Context{
@@ -87,6 +94,16 @@ func (k Context) WithUser(user *models.Person) Context {
 	return Context{
 		Context: k.WithValue("user", user),
 	}
+}
+
+func (k Context) WithoutName() Context {
+	k.Logger = k.Logger.WithoutName()
+	return k
+}
+
+func (k Context) WithName(name string) Context {
+	k.Logger = k.Logger.Named(name)
+	return k
 }
 
 func (k Context) User() *models.Person {
@@ -243,6 +260,7 @@ func (k Context) GetNamespace() string {
 	}
 	return ""
 }
+
 func (k Context) GetName() string {
 	return k.GetObjectMeta().Name
 }
