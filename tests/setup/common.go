@@ -2,7 +2,6 @@ package setup
 
 import (
 	"database/sql"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -38,8 +37,8 @@ var trace bool
 var dbTrace bool
 
 func init() {
-	flag.BoolVar(&trace, "trace", false, "Use trace level logging")
-	flag.BoolVar(&dbTrace, "db-trace", false, "DB trace")
+	logger.BindGoFlags()
+	duty.BindGoFlags()
 }
 
 func execPostgres(connection, query string) error {
@@ -64,6 +63,7 @@ func MustDB() *sql.DB {
 var WithoutDummyData = "without_dummy_data"
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
+	logger.UseZap()
 	var err error
 	importDummyData := true
 
@@ -145,21 +145,10 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 	if trace {
 		DefaultContext = DefaultContext.WithTrace()
 	}
-	logger.StandardLogger().SetLogLevel(2)
 	return DefaultContext
 }
 
 func AfterSuiteFn() {
-	// logger.Infof("Deleting dummy data")
-	logger.StandardLogger().SetLogLevel(0)
-	// testDB, err := duty.NewGorm(PgUrl, duty.DefaultGormConfig())
-	// if err != nil {
-	// 	ginkgo.Fail(err.Error())
-	// }
-	// if err := dummyData.Delete(testDB); err != nil {
-	// 	ginkgo.Fail(err.Error())
-	// }
-
 	if os.Getenv("DUTY_DB_URL") == "" {
 		logger.Infof("Stopping postgres")
 		if err := postgresServer.Stop(); err != nil {

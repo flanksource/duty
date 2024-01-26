@@ -3,6 +3,7 @@ package duty
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"net/url"
 	"time"
@@ -43,6 +44,10 @@ type Table interface {
 
 func BindFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
+}
+
+func BindGoFlags() {
+	flag.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 }
 
 func DefaultGormConfig() *gorm.Config {

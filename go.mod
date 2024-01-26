@@ -9,7 +9,7 @@ require (
 	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.21.1
+	github.com/flanksource/commons v1.21.2
 	github.com/flanksource/gomplate/v3 v3.20.29
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.3

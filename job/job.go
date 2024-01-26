@@ -90,7 +90,7 @@ func (j *JobRuntime) ID() string {
 
 func (j *JobRuntime) start() {
 	j.Tracef("starting")
-	j.History = models.NewJobHistory(j.Job.Name, "", "").Start()
+	j.History = models.NewJobHistory(j.Logger, j.Job.Name, "", "").Start()
 	j.Job.LastJob = j.History
 	if j.Job.ResourceID != "" {
 		j.History.ResourceID = j.Job.ResourceID
@@ -116,10 +116,10 @@ func (j *JobRuntime) end() {
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
 	err := fmt.Sprintf(message, args...)
-	j.Debugf(err)
+	j.Logger.WithSkipReportLevel(1).Debugf(err)
 	j.Span.SetStatus(codes.Error, err)
 	if j.History != nil {
-		j.History.AddError(err)
+		j.History.AddErrorWithSkipReportLevel(err, 1)
 	}
 }
 
@@ -166,7 +166,7 @@ func (j *Job) SetID(id string) *Job {
 }
 
 func (j *Job) cleanupHistory() int {
-	j.Context.Tracef("running cleanup: %v", j.Retention)
+	j.Context.Logger.V(4).Infof("running cleanup: %v", j.Retention)
 	db := j.Context.WithDBLogLevel("warn").DB()
 	if err := db.Exec("DELETE FROM job_history WHERE name = ? AND now() - created_at >  interval '1 minute' * ?", j.Name, j.Retention.Age.Minutes()).Error; err != nil {
 		j.Context.Warnf("failed to cleanup history %v", err)
@@ -199,7 +199,7 @@ func (j *Job) cleanupHistory() int {
 			j.Context.Warnf("failed to cleanup history: %v", tx.Error)
 		}
 	}
-	j.Context.Tracef("cleaned up %d records", count)
+	j.Context.Logger.V(3).Infof("cleaned up %d records", count)
 	return count
 }
 
@@ -226,14 +226,14 @@ func (j *Job) Run() {
 	r.start()
 	defer r.end()
 	if j.Singleton {
-		ctx.Tracef("%s acquiring lock", r.ID())
+		ctx.Logger.V(4).Infof("acquiring lock")
 
 		if j.lock == nil {
 			j.lock = &sync.Mutex{}
 		}
 		if !j.lock.TryLock() {
 			r.History.Status = models.StatusAborted
-			ctx.Tracef("%s failed to acquire lock", r.ID())
+			ctx.Tracef("failed to acquire lock")
 			r.Failf("%s concurrent job aborted", r.ID())
 			return
 		}
@@ -247,10 +247,9 @@ func (j *Job) Run() {
 	}
 
 	err := j.Fn(r)
-	ctx.Tracef("%s finished duration=%s, error=%s", r.ID(), time.Since(r.History.TimeStart), err)
+	ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
 	if err != nil {
-		ctx.Error(err)
-		r.History.AddError(err.Error())
+		r.History.AddErrorWithSkipReportLevel(err.Error(), 1)
 	}
 }
 
@@ -362,6 +361,7 @@ func (j *Job) String() string {
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	j.init()
+	cronRunner.Start()
 	schedule := j.Schedule
 	if override, ok := getProperty(j, j.Context.Properties(), "schedule"); ok {
 		schedule = override
