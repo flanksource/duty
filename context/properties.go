@@ -58,6 +58,10 @@ func (k Context) Properties() Properties {
 	return props
 }
 
+func SetLocalProperty(ctx Context, property, value string) {
+	Local[property] = value
+}
+
 func UpdateProperty(ctx Context, key, value string) error {
 	query := "INSERT INTO properties (name, value) VALUES (?,?) ON CONFLICT (name) DO UPDATE SET value = excluded.value"
 	logger.Debugf("Updated property %s = %s", key, value)

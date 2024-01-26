@@ -36,7 +36,8 @@ type JobHistory struct {
 	Status         string
 	TimeStart      time.Time
 	TimeEnd        *time.Time
-	Errors         []string `gorm:"-"`
+	Errors         []string      `gorm:"-"`
+	Logger         logger.Logger `gorm:"-"`
 }
 
 func (j JobHistory) AsError() error {
@@ -50,11 +51,12 @@ func (j JobHistory) TableName() string {
 	return "job_history"
 }
 
-func NewJobHistory(name, resourceType, resourceID string) *JobHistory {
+func NewJobHistory(log logger.Logger, name, resourceType, resourceID string) *JobHistory {
 	return &JobHistory{
 		Name:         name,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
+		Logger:       log,
 	}
 }
 
@@ -82,7 +84,13 @@ func (h *JobHistory) Persist(db *gorm.DB) error {
 }
 
 func (h *JobHistory) AddErrorf(msg string, args ...interface{}) *JobHistory {
-	return h.AddError(fmt.Sprintf(msg, args...))
+	err := fmt.Sprintf(msg, args...)
+	h.ErrorCount += 1
+	if err != "" {
+		h.Errors = append(h.Errors, err)
+	}
+	h.Logger.WithSkipReportLevel(1).Errorf("%s %s", h, err)
+	return h
 }
 
 func (h *JobHistory) AddError(err string) *JobHistory {
@@ -90,7 +98,16 @@ func (h *JobHistory) AddError(err string) *JobHistory {
 	if err != "" {
 		h.Errors = append(h.Errors, err)
 	}
-	logger.StandardLogger().WithSkipReportLevel(1).Errorf("%s %s", h, err)
+	h.Logger.WithSkipReportLevel(1).Errorf("%s %s", h, err)
+	return h
+}
+
+func (h *JobHistory) AddErrorWithSkipReportLevel(err string, level int) *JobHistory {
+	h.ErrorCount += 1
+	if err != "" {
+		h.Errors = append(h.Errors, err)
+	}
+	h.Logger.WithSkipReportLevel(level).Errorf("%s %s", h, err)
 	return h
 }
 
