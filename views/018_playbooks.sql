@@ -76,4 +76,16 @@ SELECT
 FROM
   interim
   INNER JOIN agents ON interim.agent_name :: TEXT = agents.name
-GROUP BY agent_name, agents.person_id, agent_id
+GROUP BY agent_name, agents.person_id, agent_id;
+
+DROP VIEW IF EXISTS playbook_names;
+CREATE OR REPLACE VIEW playbook_names AS
+  SELECT
+    id,
+    name,
+    category,
+    spec ->> icon AS icon
+  FROM
+    playbooks
+  ORDER BY
+    name;
