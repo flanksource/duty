@@ -9,7 +9,6 @@ import (
 // Artifact represents the artifacts table
 type Artifact struct {
 	ID                  uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
-	AgentID             uuid.UUID  `json:"agent_id"`
 	CheckID             *uuid.UUID `json:"check_id,omitempty"`
 	CheckTime           *time.Time `json:"check_time,omitempty" time_format:"postgres_timestamp"`
 	PlaybookRunActionID *uuid.UUID `json:"playbook_run_action_id,omitempty"`

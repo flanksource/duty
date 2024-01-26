@@ -168,9 +168,6 @@ func (t *PushData) PopulateAgentID(id uuid.UUID) {
 	for i := range t.Topologies {
 		t.Topologies[i].AgentID = id
 	}
-	for i := range t.Artifacts {
-		t.Artifacts[i].AgentID = id
-	}
 }
 
 // ApplyLabels injects additional labels to the suitable fields

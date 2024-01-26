@@ -129,7 +129,7 @@ func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (i
 
 		ctx.Tracef("pushing %d artifacts to upstream", len(artifacts))
 		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, Artifacts: artifacts}); err != nil {
-			return 0, fmt.Errorf("failed to push playbook_runs to upstream: %w", err)
+			return 0, fmt.Errorf("failed to push artifacts to upstream: %w", err)
 		}
 
 		ids := lo.Map(artifacts, func(a models.Artifact, _ int) string { return a.ID.String() })

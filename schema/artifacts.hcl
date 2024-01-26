@@ -5,11 +5,6 @@ table "artifacts" {
     type    = uuid
     default = sql("generate_ulid()")
   }
-  column "agent_id" {
-    null    = true
-    default = var.uuid_nil
-    type    = uuid
-  }
   column "check_id" {
     null = true
     type = uuid
@@ -81,7 +76,7 @@ table "artifacts" {
   }
   foreign_key "artifacts_playbook_run_action_fkey" {
     columns     = [column.playbook_run_action_id]
-    ref_columns = [table.playbook_runs.column.id]
+    ref_columns = [table.playbook_run_actions.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
