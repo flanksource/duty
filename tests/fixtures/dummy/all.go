@@ -40,6 +40,8 @@ type DummyData struct {
 	Checks                      []models.Check
 	CheckStatuses               []models.CheckStatus
 	CheckComponentRelationships []models.CheckComponentRelationship
+
+	Artifacts []models.Artifact
 }
 
 func (t *DummyData) Populate(gormDB *gorm.DB) error {
@@ -171,6 +173,12 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, a := range t.Artifacts {
+		err = gormDB.Create(&a).Error
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -206,6 +214,12 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	}
 	for _, c := range t.Incidents {
 		err = gormDB.Delete(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, a := range t.Artifacts {
+		err = gormDB.Delete(&a).Error
 		if err != nil {
 			return err
 		}
@@ -293,7 +307,6 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 }
 
 func GetStaticDummyData(db *gorm.DB) DummyData {
-
 	if err := db.Raw("Select now()").Scan(&CurrentTime).Error; err != nil {
 		logger.Fatalf("Cannot get current time from db: %v", err)
 	}
@@ -319,6 +332,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Responders:                   append([]models.Responder{}, AllDummyResponders...),
 		Comments:                     append([]models.Comment{}, AllDummyComments...),
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
+		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
 	}
 
 	return d

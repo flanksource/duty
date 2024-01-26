@@ -180,6 +180,12 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.Artifacts) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Artifacts, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting artifacts: %w", err)
+		}
+	}
+
 	if len(req.CheckStatuses) > 0 {
 		cols := []clause.Column{{Name: "check_id"}, {Name: "time"}}
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {

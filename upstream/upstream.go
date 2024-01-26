@@ -74,6 +74,7 @@ type PushData struct {
 	ConfigComponentRelationships []models.ConfigComponentRelationship `json:"config_component_relationships,omitempty"`
 	Topologies                   []models.Topology                    `json:"topologies,omitempty"`
 	PlaybookActions              []models.PlaybookRunAction           `json:"playbook_actions,omitempty"`
+	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
 }
 
 func (p *PushData) String() string {
@@ -82,23 +83,6 @@ func (p *PushData) String() string {
 		result += fmt.Sprintf("%s=%v ", k, v)
 	}
 	return strings.TrimSpace(result)
-}
-
-func (p *PushData) Length() int {
-	count := 0
-	count += len(p.Topologies)
-	count += len(p.Canaries)
-	count += len(p.Checks)
-	count += len(p.Components)
-	count += len(p.ConfigAnalysis)
-	count += len(p.ConfigScrapers)
-	count += len(p.ConfigChanges)
-	count += len(p.ConfigItems)
-	count += len(p.CheckStatuses)
-	count += len(p.ConfigRelationships)
-	count += len(p.ConfigComponentRelationships)
-	count += len(p.ComponentRelationships)
-	return count
 }
 
 func (p *PushData) Attributes() map[string]any {
@@ -142,6 +126,9 @@ func (p *PushData) Attributes() map[string]any {
 	if len(p.ConfigComponentRelationships) > 0 {
 		attrs["ConfigComponentRelationships"] = len(p.ConfigComponentRelationships)
 	}
+	if len(p.Artifacts) > 0 {
+		attrs["Artifacts"] = len(p.Artifacts)
+	}
 
 	return attrs
 }
@@ -149,7 +136,8 @@ func (p *PushData) Attributes() map[string]any {
 func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
-		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) + len(t.Topologies) + len(t.PlaybookActions)
+		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) +
+		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts)
 }
 
 // ReplaceTopologyID replaces the topology_id for all the components

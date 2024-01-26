@@ -13,7 +13,7 @@ table "artifacts" {
     null = true
     type = timestamptz
   }
-  column "playbook_run_id" {
+  column "playbook_run_action_id" {
     null = true
     type = uuid
   }
@@ -42,6 +42,11 @@ table "artifacts" {
     null = false
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -69,9 +74,9 @@ table "artifacts" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  foreign_key "artifacts_playbook_run_fkey" {
-    columns     = [column.playbook_run_id]
-    ref_columns = [table.playbook_runs.column.id]
+  foreign_key "artifacts_playbook_run_action_fkey" {
+    columns     = [column.playbook_run_action_id]
+    ref_columns = [table.playbook_run_actions.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
