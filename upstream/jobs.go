@@ -1,7 +1,11 @@
 package upstream
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -139,4 +143,93 @@ func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (i
 
 		count += len(artifacts)
 	}
+}
+
+// SyncArtifactItems pushes the actual artifacts.
+func SyncArtifactItems(ctx context.Context, config UpstreamConfig, artifactStoreLocalPath string, batchSize int) (int, error) {
+	client := NewUpstreamClient(config)
+	var count int
+
+	for {
+		var artifacts []models.Artifact
+		if err := ctx.DB().Where("is_data_pushed IS FALSE").Order("created_at").Limit(batchSize).Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").Find(&artifacts).Error; err != nil {
+			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
+		}
+
+		if len(artifacts) == 0 {
+			return count, nil
+		}
+
+		for _, artifact := range artifacts {
+			topLevelPath := filepath.Join(artifactStoreLocalPath, artifact.Path)
+			e, err := os.Open(topLevelPath)
+			if err != nil {
+				return 0, fmt.Errorf("failed to read local artifact store: %w", err)
+			}
+
+			path := filepath.Join(topLevelPath, e.Name())
+			archivedPath, err := zipDir(path)
+			if err != nil {
+				return 0, fmt.Errorf("failed to zip dir (%s): %w", e.Name(), err)
+			}
+
+			f, err := os.Open(archivedPath)
+			if err != nil {
+				return 0, fmt.Errorf("failed to open archived path (%s): %w", archivedPath, err)
+			}
+
+			if err := client.PushArtifacts(ctx, artifact.ID, f); err != nil {
+				return 0, fmt.Errorf("failed to push artifact (%s): %w", e.Name(), err)
+			}
+
+			// Send to upstream
+			count++
+		}
+	}
+}
+
+func zipDir(dirPath string) (string, error) {
+	outputPath := fmt.Sprintf("%s.zip", dirPath)
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return "", err
+	}
+	defer outputFile.Close()
+
+	w := zip.NewWriter(outputFile)
+	defer w.Close()
+
+	walker := func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", path, err)
+		}
+		defer file.Close()
+
+		relativename, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return fmt.Errorf("failed to generate relative path (%s, %s): %w", dirPath, path, err)
+		}
+
+		f, err := w.Create(relativename)
+		if err != nil {
+			return fmt.Errorf("failed to create %s on zip: %w", relativename, err)
+		}
+
+		if _, err = io.Copy(f, file); err != nil {
+			return fmt.Errorf("failed to write %s to zip: %w", relativename, err)
+		}
+
+		return nil
+	}
+
+	return outputPath, filepath.Walk(dirPath, walker)
 }

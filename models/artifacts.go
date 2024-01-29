@@ -14,6 +14,8 @@ type Artifact struct {
 	PlaybookRunActionID *uuid.UUID `json:"playbook_run_action_id,omitempty"`
 	ConnectionID        uuid.UUID  `json:"connection_id,omitempty"`
 	Path                string     `json:"path"`
+	IsPushed            bool       `json:"is_pushed"`
+	IsDataPushed        bool       `json:"is_data_pushed"`
 	Filename            string     `json:"filename"`
 	Size                int64      `json:"size"` // Size in bytes
 	ContentType         string     `json:"content_type,omitempty"`

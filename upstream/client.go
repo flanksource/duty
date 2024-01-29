@@ -7,6 +7,7 @@ import (
 	netHTTP "net/http"
 
 	"github.com/flanksource/commons/http"
+	"github.com/google/uuid"
 )
 
 type UpstreamClient struct {
@@ -28,6 +29,22 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 	}
 	return &client
 
+}
+
+// Push uploads the given push message to the upstream server.
+func (t *UpstreamClient) PushArtifacts(ctx context.Context, artifactID uuid.UUID, reader io.ReadCloser) error {
+	resp, err := t.R(ctx).Post("artifacts", reader)
+	if err != nil {
+		return fmt.Errorf("error pushing to upstream: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if !resp.IsOK() {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
+	}
+
+	return nil
 }
 
 // Push uploads the given push message to the upstream server.
