@@ -87,5 +87,7 @@ CREATE OR REPLACE VIEW playbook_names AS
     spec ->> icon AS icon
   FROM
     playbooks
+  WHERE
+    deleted_at IS NULL
   ORDER BY
     name;
