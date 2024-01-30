@@ -14,34 +14,6 @@ import (
 	"github.com/samber/lo"
 )
 
-const DefaultDepth = 5
-
-type TopologyQuerySortBy string
-
-const (
-	TopologyQuerySortByName  TopologyQuerySortBy = "name"
-	TopologyQuerySortByField TopologyQuerySortBy = "field:"
-)
-
-type TopologyOptions struct {
-	ID      string
-	Owner   string
-	Labels  map[string]string
-	AgentID string
-	Flatten bool
-	Depth   int
-	// TODO: Filter status and types in DB Query
-	Types  []string
-	Status []string
-
-	SortBy    TopologyQuerySortBy
-	SortOrder string
-
-	// when set to true, only the children (except the direct children) are returned.
-	// when set to false, the direct children & the parent itself is fetched.
-	nonDirectChildrenOnly bool
-}
-
 func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
 }
@@ -158,17 +130,6 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	}
 
 	return query, args
-}
-
-// Map of tag keys to the list of available values
-type Tags map[string][]string
-
-type TopologyResponse struct {
-	Components     models.Components `json:"components"`
-	HealthStatuses []string          `json:"healthStatuses"`
-	Teams          []string          `json:"teams"`
-	Tags           Tags              `json:"tags"`
-	Types          []string          `json:"types"`
 }
 
 func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyResponse, error) {
