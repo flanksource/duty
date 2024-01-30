@@ -12,6 +12,9 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
+
+	"github.com/eko/gocache/lib/v4/cache"
+	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 )
 
 func configQuery(db *gorm.DB, config types.ConfigQuery) *gorm.DB {
@@ -155,4 +158,95 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	var dbConfigObjects []models.ConfigItem
 	err := query.Find(&dbConfigObjects).Error
 	return dbConfigObjects, err
+}
+
+//var configRelationCacheStore = gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute))
+//var configRelationCache = cache.New[[]string](configRelationCacheStore)
+
+func FindConfigRelationships(ctx context.Context, configID string) ([]string, error) {
+	cacheKey := "configIDRelations:" + configID
+	if ids, err := configRelationCache.Get(ctx, cacheKey); err == nil {
+		return ids, nil
+	}
+
+	var relatedIDs []string
+	if err := ctx.DB().Table("config_relationships").
+		Select("related_id").
+		Where("config_id = ?", configID).
+		Find(&relatedIDs).
+		Error; err != nil {
+		return relatedIDs, err
+	}
+
+	_ = configRelationCache.Set(ctx, cacheKey, relatedIDs, nil)
+	return relatedIDs, nil
+}
+
+// <type> -> []ids
+var configItemTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+
+func configItemTypeCacheKey(typ string) string {
+	return "configType:" + typ
+}
+
+// <id> -> models.ConfigItem
+var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+
+func configItemCacheKey(id string) string {
+	return "configID:" + id
+}
+
+// <type> -> []ids
+var configRelationCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+
+func configRelationCacheKey(id string) string {
+	return "configRelatedIDs:" + id
+}
+
+var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
+
+func BuildConfigCache(ctx context.Context) {
+	var configItems []models.ConfigItem
+	// TODO Func singature if error
+	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, nil); err != nil {
+	}
+
+	for _, ci := range configItems {
+		configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci, nil)
+
+		if ci.Type != nil {
+			configTypeKey := configItemTypeCacheKey(*ci.Type)
+			val, _ := configItemTypeCache.Get(ctx, configTypeKey)
+			val = append(val, ci.ID.String())
+			configItemTypeCache.Set(ctx, configTypeKey, val, nil)
+		}
+	}
+
+	var configRelations []models.ConfigRelationship
+	// TODO Func singature if error
+	if err := ctx.DB().Table("config_relationships").Where(LocalFilter).FindInBatches(&configRelations, 5000, nil); err != nil {
+	}
+
+	relGroup := make(map[string][]string)
+	for _, ci := range configRelations {
+		relGroup[ci.ConfigID] = append(relGroup[ci.ConfigID], ci.RelatedID)
+	}
+
+	for ciD, relIDs := range relGroup {
+		configRelatedKey := "configRelatedIDs:" + ciD
+		configRelationCache.Set(ctx, configRelatedKey, relIDs, nil)
+	}
+
+}
+
+func ConfigIDsByTypeFromCache(ctx context.Context, typ string) ([]string, error) {
+	return configItemTypeCache.Get(ctx, configItemTypeCacheKey(typ))
+}
+
+func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, error) {
+	return configItemCache.Get(ctx, configItemCacheKey(id))
+}
+
+func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
+	return configRelationCache.Get(ctx, configRelationCacheKey(id))
 }
