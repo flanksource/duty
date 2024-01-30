@@ -31,9 +31,9 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 
 }
 
-// Push uploads the given push message to the upstream server.
+// PushArtifacts uploads the given artifact to the upstream server.
 func (t *UpstreamClient) PushArtifacts(ctx context.Context, artifactID uuid.UUID, reader io.ReadCloser) error {
-	resp, err := t.R(ctx).Post("artifacts", reader)
+	resp, err := t.R(ctx).Post(fmt.Sprintf("artifacts/%s", artifactID), reader)
 	if err != nil {
 		return fmt.Errorf("error pushing to upstream: %w", err)
 	}
