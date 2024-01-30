@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,9 +14,6 @@ import (
 )
 
 var (
-	// Maximum number of past checks in the in-memory cache
-	DefaultCacheCount = 5
-
 	// Default search window
 	DefaultCheckQueryWindow = "1h"
 )
@@ -210,22 +206,10 @@ ORDER BY time
 }
 
 func (q CheckQueryParams) String() string {
-	return fmt.Sprintf("check:=%s, start=%s, end=%s, count=%d", q.Check, q.Start, q.End, q.StatusCount)
+	return fmt.Sprintf("check:=%s, start=%s, end=%s", q.Check, q.Start, q.End)
 }
 
 func (q *CheckQueryParams) Init(queryParams url.Values) error {
-	count := queryParams.Get("count")
-	var cacheCount int
-	if count != "" {
-		if c, err := strconv.ParseInt(count, 10, 32); err != nil {
-			return fmt.Errorf("count must be a number: %s", count)
-		} else {
-			cacheCount = int(c)
-		}
-	} else {
-		cacheCount = DefaultCacheCount
-	}
-
 	since := queryParams.Get("since")
 	if since == "" {
 		since = queryParams.Get("start")
@@ -248,7 +232,6 @@ func (q *CheckQueryParams) Init(queryParams url.Values) error {
 		IncludeMessages: isTrue(queryParams.Get("includeMessages")),
 		IncludeDetails:  isTrue(queryParams.Get("includeDetails")),
 		Check:           queryParams.Get("check"),
-		StatusCount:     int(cacheCount),
 		Trace:           isTrue(queryParams.Get("trace")),
 		CanaryID:        queryParams.Get("canary_id"),
 	}
