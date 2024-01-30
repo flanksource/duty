@@ -7,6 +7,8 @@ require (
 	cloud.google.com/go/cloudsqlconn v1.5.1
 	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/asecurityteam/rolling v2.0.4+incompatible
+	github.com/eko/gocache/lib/v4 v4.1.5
+	github.com/eko/gocache/store/go_cache/v4 v4.2.1
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
 	github.com/flanksource/commons v1.21.2
@@ -62,8 +64,6 @@ require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/eko/gocache/lib/v4 v4.1.5 // indirect
-	github.com/eko/gocache/store/go_cache/v4 v4.2.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect

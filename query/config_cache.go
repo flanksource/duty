@@ -160,11 +160,11 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	return dbConfigObjects, err
 }
 
-// <type> -> []ids
-var configItemTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
+// <id>/<related_type> -> []related_ids
+var configItemRelatedTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
 
-func configItemTypeCacheKey(typ string) string {
-	return "configType:" + typ
+func configItemRelatedTypeCacheKey(id, typ string) string {
+	return "configRelatedType:" + id + typ
 }
 
 // <id> -> models.ConfigItem
@@ -190,20 +190,14 @@ func SyncConfigCache(ctx context.Context) error {
 	}
 
 	// We create a type group to always override type -> configIDs
-	typeGroup := make(map[string][]string)
+	configIDTypeMap := make(map[string]string)
 	for _, ci := range configItems {
 		if err := configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci); err != nil {
 			return fmt.Errorf("error setting config item in cache: %w", err)
 		}
 
 		if ci.Type != nil {
-			typeGroup[*ci.Type] = append(typeGroup[*ci.Type], ci.ID.String())
-		}
-	}
-
-	for typ, configIDs := range typeGroup {
-		if err := configItemTypeCache.Set(ctx, configItemTypeCacheKey(typ), configIDs); err != nil {
-			return fmt.Errorf("error setting config item in cache: %w", err)
+			configIDTypeMap[ci.ID.String()] = *ci.Type
 		}
 	}
 
@@ -217,20 +211,26 @@ func SyncConfigCache(ctx context.Context) error {
 		relGroup[ci.ConfigID] = append(relGroup[ci.ConfigID], ci.RelatedID)
 	}
 
-	// TODO: Acquire Lock ? Old relationships can persist
-	// configRelationCache.Clear(ctx)
-
-	for ciD, relIDs := range relGroup {
-		if err := configRelationCache.Set(ctx, configRelationCacheKey(ciD), relIDs); err != nil {
+	configIDRelatedTypeToRelatedIDs := make(map[string][]string)
+	for cID, relIDs := range relGroup {
+		if err := configRelationCache.Set(ctx, configRelationCacheKey(cID), relIDs); err != nil {
 			return fmt.Errorf("error setting config relationships in cache: %w", err)
+		}
+		for _, relID := range relIDs {
+			configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(cID, configIDTypeMap[relID])] = append(configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(cID, configIDTypeMap[relID])], relID)
 		}
 	}
 
+	for cacheKey, relatedIDs := range configIDRelatedTypeToRelatedIDs {
+		if err := configItemRelatedTypeCache.Set(ctx, cacheKey, relatedIDs); err != nil {
+			return fmt.Errorf("error setting config item in cache: %w", err)
+		}
+	}
 	return nil
 }
 
-func ConfigIDsByTypeFromCache(ctx context.Context, typ string) ([]string, error) {
-	return configItemTypeCache.Get(ctx, configItemTypeCacheKey(typ))
+func ConfigIDsByTypeFromCache(ctx context.Context, id, typ string) ([]string, error) {
+	return configItemRelatedTypeCache.Get(ctx, configItemRelatedTypeCacheKey(id, typ))
 }
 
 func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, error) {
