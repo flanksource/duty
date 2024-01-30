@@ -14,13 +14,13 @@ import (
 	"github.com/flanksource/duty/drivers"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
+	"github.com/flanksource/duty/tracing"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/pflag"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"gorm.io/plugin/opentelemetry/tracing"
 )
 
 var pool *pgxpool.Pool

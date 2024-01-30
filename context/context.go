@@ -7,6 +7,7 @@ import (
 	commons "github.com/flanksource/commons/context"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -172,12 +172,10 @@ func (k Context) WithDBLogLevel(level string) Context {
 	}
 }
 
-// FastDB returns a db suitable for high-performance usage, with limited logging
+// FastDB returns a db suitable for high-performance usage, with limited logging and tracing
 func (k Context) FastDB() *gorm.DB {
-	db := k.DB().Session(&gorm.Session{
-		NewDB: true,
-	})
-	db.Logger.LogMode(logger.Error)
+	db := k.WithAnyValue(tracing.TracePaused, true).DB()
+	db.Logger = dutyGorm.NewGormLogger("warn")
 	return db
 }
 

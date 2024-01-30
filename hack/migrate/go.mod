@@ -145,7 +145,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.5.3 // indirect
 	gorm.io/gorm v1.25.5 // indirect
-	gorm.io/plugin/opentelemetry v0.1.4 // indirect
 	k8s.io/api v0.28.2 // indirect
 	k8s.io/apiextensions-apiserver v0.24.4 // indirect
 	k8s.io/apimachinery v0.28.2 // indirect

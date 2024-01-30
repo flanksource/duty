@@ -29,6 +29,20 @@ var RetentionHour = Retention{
 	Interval: 5 * time.Minute,
 }
 
+var RetentionFailed = Retention{
+	Success:  0,
+	Failed:   1,
+	Age:      time.Hour,
+	Interval: 15 * time.Minute,
+}
+
+var RetentionShort = Retention{
+	Success:  1,
+	Failed:   1,
+	Age:      time.Hour,
+	Interval: 5 * time.Minute,
+}
+
 var RetentionDay = Retention{
 	Success:  3,
 	Failed:   3,
@@ -98,7 +112,7 @@ func (j *JobRuntime) start() {
 		j.History.ResourceType = j.Job.ResourceType
 	}
 	if j.Job.JobHistory && j.Job.Retention.Success > 0 {
-		if err := j.History.Persist(j.DB()); err != nil {
+		if err := j.History.Persist(j.FastDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
@@ -107,7 +121,7 @@ func (j *JobRuntime) start() {
 func (j *JobRuntime) end() {
 	j.History.End()
 	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) {
-		if err := j.History.Persist(j.DB()); err != nil {
+		if err := j.History.Persist(j.FastDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
@@ -166,9 +180,11 @@ func (j *Job) SetID(id string) *Job {
 
 func (j *Job) cleanupHistory() int {
 	j.Context.Logger.V(4).Infof("running cleanup: %v", j.Retention)
-	db := j.Context.WithDBLogLevel("warn").DB()
+	ctx, span := j.Context.StartSpan("CleanupHistory")
+	defer span.End()
+	db := ctx.FastDB()
 	if err := db.Exec("DELETE FROM job_history WHERE name = ? AND now() - created_at >  interval '1 minute' * ?", j.Name, j.Retention.Age.Minutes()).Error; err != nil {
-		j.Context.Warnf("failed to cleanup history %v", err)
+		ctx.Warnf("failed to cleanup history %v", err)
 	}
 	query := `WITH ordered_history AS (
       SELECT
@@ -195,10 +211,10 @@ func (j *Job) cleanupHistory() int {
 		tx := db.Exec(query, j.Name, r.statuses, r.count)
 		count += int(tx.RowsAffected)
 		if tx.Error != nil {
-			j.Context.Warnf("failed to cleanup history: %v", tx.Error)
+			ctx.Warnf("failed to cleanup history: %v", tx.Error)
 		}
 	}
-	j.Context.Logger.V(3).Infof("cleaned up %d records", count)
+	ctx.Logger.V(3).Infof("cleaned up %d records", count)
 	return count
 }
 
@@ -246,9 +262,11 @@ func (j *Job) Run() {
 	}
 
 	err := j.Fn(r)
-	ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
 	if err != nil {
+		ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
 		r.History.AddErrorWithSkipReportLevel(err.Error(), 1)
+	} else {
+		ctx.Tracef("finished duration=%s", time.Since(r.History.TimeStart))
 	}
 }
 
