@@ -330,8 +330,12 @@ func (j *Job) init() {
 	if obj.Annotations == nil {
 		obj.Annotations = make(map[string]string)
 	}
-	obj.Annotations["debug"] = lo.Ternary(j.Debug, "true", "false")
-	obj.Annotations["trace"] = lo.Ternary(j.Trace, "true", "false")
+	if _, exists := obj.Annotations["debug"]; !exists {
+		obj.Annotations["debug"] = lo.Ternary(j.Debug, "true", "false")
+	}
+	if _, exists := obj.Annotations["trace"]; !exists {
+		obj.Annotations["trace"] = lo.Ternary(j.Trace, "true", "false")
+	}
 
 	j.Context = j.Context.WithObject(obj)
 
