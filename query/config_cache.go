@@ -185,24 +185,25 @@ var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-00
 
 func SyncConfigCache(ctx context.Context) error {
 	var configItems []models.ConfigItem
-
 	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, func(*gorm.DB, int) error { return nil }).Error; err != nil {
 		return fmt.Errorf("error querying config items for cache: %w", err)
 	}
 
+	// We create a type group to always override type -> configIDs
+	typeGroup := make(map[string][]string)
 	for _, ci := range configItems {
 		configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci)
 
 		if ci.Type != nil {
-			configTypeKey := configItemTypeCacheKey(*ci.Type)
-			val, _ := configItemTypeCache.Get(ctx, configTypeKey)
-			val = append(val, ci.ID.String())
-			configItemTypeCache.Set(ctx, configTypeKey, val)
+			typeGroup[*ci.Type] = append(typeGroup[*ci.Type], ci.ID.String())
 		}
 	}
 
-	var configRelations []models.ConfigRelationship
+	for typ, configIDs := range typeGroup {
+		configItemTypeCache.Set(ctx, configItemTypeCacheKey(typ), configIDs)
+	}
 
+	var configRelations []models.ConfigRelationship
 	if err := ctx.DB().Table("config_relationships").Where("deleted_at IS NULL").FindInBatches(&configRelations, 5000, func(_ *gorm.DB, _ int) error { return nil }).Error; err != nil {
 		return fmt.Errorf("error querying config relationships for cache: %w", err)
 	}
@@ -212,7 +213,7 @@ func SyncConfigCache(ctx context.Context) error {
 		relGroup[ci.ConfigID] = append(relGroup[ci.ConfigID], ci.RelatedID)
 	}
 
-	// TODO: Acquire Lock ? Old config IDs can persist in type cache
+	// TODO: Acquire Lock ? Old relationships can persist
 	configRelationCache.Clear(ctx)
 
 	for ciD, relIDs := range relGroup {
