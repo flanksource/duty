@@ -13,7 +13,6 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -324,13 +323,17 @@ func (j *Job) init() {
 		j.Context = j.Context.WithoutName().WithName(j.Name)
 	}
 
-	j.Context = j.Context.WithObject(v1.ObjectMeta{
-		Name: j.Name,
-		Annotations: map[string]string{
-			"debug": lo.Ternary(j.Debug, "true", "false"),
-			"trace": lo.Ternary(j.Trace, "true", "false"),
-		},
-	})
+	obj := j.Context.GetObjectMeta()
+	if obj.Name == "" {
+		obj.Name = j.Name
+	}
+	if obj.Annotations == nil {
+		obj.Annotations = make(map[string]string)
+	}
+	obj.Annotations["debug"] = lo.Ternary(j.Debug, "true", "false")
+	obj.Annotations["trace"] = lo.Ternary(j.Trace, "true", "false")
+
+	j.Context = j.Context.WithObject(obj)
 
 	if dbLevel, ok := getProperty(j, properties, "db-log-level"); ok {
 		j.Context = j.Context.WithDBLogLevel(dbLevel)

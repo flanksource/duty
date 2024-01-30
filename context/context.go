@@ -242,7 +242,7 @@ func (k Context) StartSpan(name string) (Context, trace.Span) {
 func getObjectMeta(ctx commons.Context) metav1.ObjectMeta {
 	o := ctx.Value("object")
 	if o == nil {
-		return metav1.ObjectMeta{Annotations: map[string]string{}, Labels: map[string]string{}}
+		return metav1.ObjectMeta{Annotations: make(map[string]string), Labels: make(map[string]string)}
 	}
 	return o.(metav1.ObjectMeta)
 }
