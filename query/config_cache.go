@@ -160,44 +160,22 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	return dbConfigObjects, err
 }
 
-//var configRelationCacheStore = gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute))
-//var configRelationCache = cache.New[[]string](configRelationCacheStore)
-
-func FindConfigRelationships(ctx context.Context, configID string) ([]string, error) {
-	cacheKey := "configIDRelations:" + configID
-	if ids, err := configRelationCache.Get(ctx, cacheKey); err == nil {
-		return ids, nil
-	}
-
-	var relatedIDs []string
-	if err := ctx.DB().Table("config_relationships").
-		Select("related_id").
-		Where("config_id = ?", configID).
-		Find(&relatedIDs).
-		Error; err != nil {
-		return relatedIDs, err
-	}
-
-	_ = configRelationCache.Set(ctx, cacheKey, relatedIDs, nil)
-	return relatedIDs, nil
-}
-
 // <type> -> []ids
-var configItemTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+var configItemTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
 
 func configItemTypeCacheKey(typ string) string {
 	return "configType:" + typ
 }
 
 // <id> -> models.ConfigItem
-var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
 
 func configItemCacheKey(id string) string {
 	return "configID:" + id
 }
 
-// <type> -> []ids
-var configRelationCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(5*time.Minute, 10*time.Minute)))
+// <config_id> -> []related_ids
+var configRelationCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
 
 func configRelationCacheKey(id string) string {
 	return "configRelatedIDs:" + id
