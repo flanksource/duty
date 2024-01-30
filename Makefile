@@ -52,9 +52,13 @@ download-openapi-schemas:
 fmt_json:
 	ls fixtures/expectations/*.json | while read -r jf; do \
 		cat <<< $$(jq . $$jf) > $$jf; \
-	done; 
+	done;
 
 fmt_sql:
 	ls views/*.sql | while read -r sqlf; do \
 		sql-formatter -l postgresql --fix $$sqlf; \
 	done;
+
+tidy:
+	go mod tidy
+	cd hack/migrate && go mod tidy
