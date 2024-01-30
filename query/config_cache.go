@@ -205,26 +205,28 @@ func configRelationCacheKey(id string) string {
 
 var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
 
-func BuildConfigCache(ctx context.Context) {
+func SyncConfigCache(ctx context.Context) error {
 	var configItems []models.ConfigItem
-	// TODO Func singature if error
-	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, nil); err != nil {
+
+	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, func(*gorm.DB, int) error { return nil }).Error; err != nil {
+		return fmt.Errorf("error querying config items for cache: %w", err)
 	}
 
 	for _, ci := range configItems {
-		configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci, nil)
+		configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci)
 
 		if ci.Type != nil {
 			configTypeKey := configItemTypeCacheKey(*ci.Type)
 			val, _ := configItemTypeCache.Get(ctx, configTypeKey)
 			val = append(val, ci.ID.String())
-			configItemTypeCache.Set(ctx, configTypeKey, val, nil)
+			configItemTypeCache.Set(ctx, configTypeKey, val)
 		}
 	}
 
 	var configRelations []models.ConfigRelationship
-	// TODO Func singature if error
-	if err := ctx.DB().Table("config_relationships").Where(LocalFilter).FindInBatches(&configRelations, 5000, nil); err != nil {
+
+	if err := ctx.DB().Table("config_relationships").Where("deleted_at IS NULL").FindInBatches(&configRelations, 5000, func(_ *gorm.DB, _ int) error { return nil }).Error; err != nil {
+		return fmt.Errorf("error querying config relationships for cache: %w", err)
 	}
 
 	relGroup := make(map[string][]string)
@@ -232,11 +234,14 @@ func BuildConfigCache(ctx context.Context) {
 		relGroup[ci.ConfigID] = append(relGroup[ci.ConfigID], ci.RelatedID)
 	}
 
+	// TODO: Acquire Lock ? Old config IDs can persist in type cache
+	configRelationCache.Clear(ctx)
+
 	for ciD, relIDs := range relGroup {
-		configRelatedKey := "configRelatedIDs:" + ciD
-		configRelationCache.Set(ctx, configRelatedKey, relIDs, nil)
+		configRelationCache.Set(ctx, configRelationCacheKey(ciD), relIDs)
 	}
 
+	return nil
 }
 
 func ConfigIDsByTypeFromCache(ctx context.Context, typ string) ([]string, error) {

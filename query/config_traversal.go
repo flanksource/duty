@@ -9,26 +9,21 @@ import (
 	"github.com/samber/lo"
 )
 
-//         - gitops:
-//             repository:  "{{  catalog_traverse(.id, 'Kubernetes::Kustomization/Kubernetes::GitRepository').spec.repository }}"
-//             file: "{{  catalog_traverse(.id, 'Kubernetes::Kustomization').spec.path }}/{{ .config.annotations['config.kubernetes.io/origin'] | YAML | .path }}"
-
-// IN INIT (Setup cache via ID and type)SpecSpecSpecSpec
-
 func TraverseConfig(ctx context.Context, id, relationType string) (models.ConfigItem, error) {
 	var configItem models.ConfigItem
 
 	relationTypeList := strings.Split(relationType, "/")
-	relatedIDs, err := ConfigRelationsFromCache(ctx, id)
-	if err != nil {
-		return configItem, fmt.Errorf("no relations found for config[%s]: %w", id, err)
-	}
-
-	if len(relatedIDs) == 0 {
-		return configItem, fmt.Errorf("no relations found for config[%s]: %w", id, err)
-	}
 
 	for _, relType := range relationTypeList {
+		relatedIDs, err := ConfigRelationsFromCache(ctx, id)
+		if err != nil {
+			return configItem, fmt.Errorf("no relations found for config[%s] in cache: %w", id, err)
+		}
+
+		if len(relatedIDs) == 0 {
+			return configItem, fmt.Errorf("no relations found for config[%s]: %w", id, err)
+		}
+
 		typeIDs, err := ConfigIDsByTypeFromCache(ctx, relType)
 		if err != nil {
 			return configItem, fmt.Errorf("no type %s exists for any config: %w", relType, err)
@@ -39,14 +34,15 @@ func TraverseConfig(ctx context.Context, id, relationType string) (models.Config
 		})
 
 		if !ok {
-			return configItem, fmt.Errorf("no matching type %s found in relations for config[%s]: %w", relType, id, err)
+			return configItem, fmt.Errorf("no matching type %s found in relations for config[%s]", relType, id)
 		}
 
 		configItem, err = ConfigItemFromCache(ctx, configID)
 		if err != nil {
 			return configItem, fmt.Errorf("no config[%s] found in cache: %w", configID, err)
 		}
-		// Updating to set correct error message
+
+		// Updating for next loop iteration
 		id = configItem.ID.String()
 	}
 
