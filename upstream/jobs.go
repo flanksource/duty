@@ -151,7 +151,7 @@ func SyncArtifactItems(ctx context.Context, config UpstreamConfig, artifactStore
 
 	for {
 		var artifacts []models.Artifact
-		if err := ctx.DB().Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("is_data_pushed IS FALSE").Order("created_at").Limit(batchSize).Find(&artifacts).Error; err != nil {
+		if err := ctx.DB().Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("is_data_pushed IS FALSE").Where("is_pushed IS TRUE").Order("created_at").Limit(batchSize).Find(&artifacts).Error; err != nil {
 			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
 		}
 
