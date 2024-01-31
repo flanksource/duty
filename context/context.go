@@ -305,3 +305,63 @@ func (k Context) Wrap(ctx gocontext.Context) Context {
 		WithKommons(k.Kommons()).
 		WithNamespace(k.GetNamespace())
 }
+
+type Histogram struct {
+	Context Context
+	Name    string
+	Labels  map[string]string
+}
+
+type Counter struct {
+	Context Context
+	Name    string
+	Labels  map[string]string
+}
+
+func (h Histogram) Record(duration time.Duration) {
+	// noop
+}
+
+func (h Histogram) Since(s time.Time) {
+	h.Record(time.Since(s))
+}
+
+func (h Histogram) Label(k, v string) Histogram {
+	h.Labels[k] = v
+	return h
+}
+
+func (c Counter) Add(count int) {
+	c.AddFloat(float64(count))
+}
+
+func (c Counter) Label(k, v string) Counter {
+	c.Labels[k] = v
+	return c
+}
+func (c Counter) AddFloat(count float64) {
+	// noop
+}
+
+func stringSliceToMap(s []string) map[string]string {
+	m := make(map[string]string)
+	for i := 0; i < len(s)-1; i += 2 {
+		m[s[i]] = s[i+1]
+	}
+	return m
+}
+func (k Context) Histogram(name string, labels ...string) Histogram {
+	return Histogram{
+		Context: k,
+		Name:    name,
+		Labels:  stringSliceToMap(labels),
+	}
+}
+
+func (k Context) Counter(name string, labels ...string) Counter {
+	return Counter{
+		Context: k,
+		Name:    name,
+		Labels:  stringSliceToMap(labels),
+	}
+}

@@ -1,12 +1,13 @@
 package upstream
 
 import (
-	"context"
 	"fmt"
 	"io"
 	netHTTP "net/http"
+	"time"
 
 	"github.com/flanksource/commons/http"
+	"github.com/flanksource/duty/context"
 	"github.com/google/uuid"
 )
 
@@ -61,7 +62,9 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	if msg.Count() == 0 {
 		return nil
 	}
-
+	start := time.Now()
+	msg.AddMetrics(ctx.Counter("push_queue_records", "method", method, "agent", msg.AgentName))
+	histogram := ctx.Histogram("push_queue_batch", "method", method, "agent", msg.AgentName)
 	req := t.R(ctx)
 	if err := req.Body(msg); err != nil {
 		return fmt.Errorf("error setting body: %w", err)
@@ -69,14 +72,16 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 
 	resp, err := req.Do(method, "push")
 	if err != nil {
+		histogram.Label(StatusLabel, StatusError).Since(start)
 		return fmt.Errorf("error pushing to upstream: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if !resp.IsOK() {
+		histogram.Label(StatusLabel, StatusError).Since(start)
 		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 	}
-
+	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
 }
