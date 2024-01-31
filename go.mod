@@ -25,7 +25,7 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/liamylian/jsontime/v2 v2.0.0
 	github.com/lib/pq v1.10.9
-	github.com/ohler55/ojg v1.20.3
+	github.com/ohler55/ojg v1.21.0
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.29.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
