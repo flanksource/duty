@@ -46,6 +46,13 @@ table "artifacts" {
     null    = false
     default = false
     type    = bool
+    comment = "indicates whether the artifact record has been pushed to upstream."
+  }
+  column "is_data_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "indicates whether the artifact data itself has been pushed to upstream."
   }
   column "created_at" {
     null    = false
