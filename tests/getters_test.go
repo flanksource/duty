@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = ginkgo.Describe("FindChecks", func() {
+var _ = ginkgo.Describe("FindChecks", ginkgo.Focus, func() {
 	type testRecord struct {
 		Name      string
 		Selectors []types.ResourceSelector
@@ -48,7 +48,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		},
 		{
 			Name:      "agentID",
-			Selectors: []types.ResourceSelector{{AgentID: dummy.CartAPIHeathCheckAgent.AgentID.String()}},
+			Selectors: []types.ResourceSelector{{Agent: dummy.CartAPIHeathCheckAgent.AgentID.String()}},
 			Results:   4,
 		},
 		{
@@ -74,7 +74,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 	}
 })
 
-var _ = ginkgo.Describe("FindComponent", func() {
+var _ = ginkgo.Describe("FindComponent", ginkgo.Focus, func() {
 	type testRecord struct {
 		Name      string
 		Selectors []types.ResourceSelector
@@ -109,7 +109,7 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		},
 		{
 			Name:      "agentID",
-			Selectors: []types.ResourceSelector{{AgentID: dummy.PaymentsAPI.AgentID.String()}},
+			Selectors: []types.ResourceSelector{{Agent: dummy.PaymentsAPI.AgentID.String()}},
 			Results:   1,
 		},
 		{

@@ -157,9 +157,12 @@ func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 
 // +kubebuilder:object:generate=true
 type ResourceSelector struct {
+	// Agent can be the agent id or the name of the agent.
+	//  Additionally, the special "self" value can be used to select resources without an agent.
+	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
+
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
 	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	AgentID       string `yaml:"agentID,omitempty" json:"agentID,omitempty"`
 	Types         Items  `yaml:"types,omitempty" json:"types,omitempty"`
 	Statuses      Items  `yaml:"statuses,omitempty" json:"statuses,omitempty"`
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
@@ -169,17 +172,17 @@ type ResourceSelector struct {
 // Immutable returns true if the selector can be cached indefinitely
 func (c ResourceSelector) Immutable() bool {
 	if c.Name == "" {
-		// without a name, a selector isn't specific enough to be cache indefinitely
+		// without a name, a selector is never specific enough to be cached indefinitely
 		return false
+	}
+
+	if c.Namespace == "" {
+		return false // still not specific enough
 	}
 
 	if len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 {
 		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
 		return false
-	}
-
-	if c.Namespace == "" {
-		return false // still not specific enough to be mutated indefinitely
 	}
 
 	return true
@@ -189,7 +192,7 @@ func (c ResourceSelector) Hash() string {
 	items := []string{
 		c.Name,
 		c.Namespace,
-		c.AgentID,
+		c.Agent,
 		strings.Join(c.Types.Sort(), ","),
 		strings.Join(c.Statuses.Sort(), ","),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
