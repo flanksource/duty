@@ -6,16 +6,23 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/jackc/pgx/v5"
+	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
+}
+
+func ClearCache() {
+	topologyCache.Flush()
 }
 
 // selectClause returns the columns that should be selected from the topology view.
@@ -132,11 +139,34 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
 	return query, args
 }
 
+var topologyCache = gocache.New(1*time.Hour, 15*time.Minute)
+
 func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyResponse, error) {
 	// Fetch the children (with all the details)
-	// & the rest of the decendents (minimal details) in two separate queries
-
+	// & the rest of the descendants (minimal details) in two separate queries
 	var response TopologyResponse
+	var cacheKey string
+
+	ctx.GetSpan().SetAttributes(
+		attribute.String("query.id", params.ID),
+		attribute.String("query.agent_id", params.AgentID),
+		attribute.Int("query.depth", params.Depth),
+	)
+
+	if !params.NoCache {
+		cacheKey = params.CacheKey()
+		if cached, ok := topologyCache.Get(cacheKey); ok {
+			ctx.GetSpan().SetAttributes(
+				attribute.Bool("cache.hit", true),
+			)
+			ctx.Logger.V(3).Infof("cache hit: %v", params.String())
+			err := json.Unmarshal(cached.([]byte), &response)
+			return response, err
+		}
+	}
+	ctx.GetSpan().SetAttributes(
+		attribute.Bool("cache.hit", false),
+	)
 	query, args := generateQuery(params)
 	rows, err := ctx.Pool().Query(ctx, query, pgx.NamedArgs(args))
 	if err != nil {
@@ -192,15 +222,21 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 		}
 	}
 
+	if !params.NoCache {
+		data, _ := json.Marshal(response)
+		topologyCache.Set(cacheKey, data, ctx.Properties().Duration("topology.cache.age", time.Minute*5))
+	}
 	return response, nil
 }
 
 func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel gocontext.CancelFunc
-		ctx, cancel = ctx.WithTimeout(DefaultQueryTimeout)
+		ctx, cancel = ctx.WithTimeout(ctx.Properties().Duration("topology.query.timeout", DefaultQueryTimeout))
 		defer cancel()
 	}
+	ctx, span := ctx.StartSpan("TopologyQuery")
+	defer span.End()
 
 	response, err := fetchAllComponents(ctx, params)
 	if err != nil {
