@@ -54,7 +54,7 @@ func testTopologyJSON(opts query.TopologyOptions, path string) {
 	matcher.MatchFixture(path, tree, `del(.. | .created_at?, .updated_at?)`)
 }
 
-var _ = ginkgo.Describe("Topology behavior", func() {
+var _ = ginkgo.Describe("Topology", func() {
 	format.MaxLength = 0 // Do not truncate diffs
 
 	ginkgo.It("Should create root tree", func() {
