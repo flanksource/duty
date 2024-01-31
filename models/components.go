@@ -56,7 +56,6 @@ type Component struct {
 	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 	UpdatedAt       *time.Time              `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
-
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
 	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
@@ -268,6 +267,7 @@ type Text struct {
 	Label   string `json:"label,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
 type Link struct {
 	// e.g. documentation, support, playbook
 	Type string `json:"type,omitempty"`
@@ -276,6 +276,7 @@ type Link struct {
 }
 
 // Property is a realized v1.Property without the lookup definition
+// +kubebuilder:object:generate=true
 type Property struct {
 	Label    string `json:"label,omitempty"`
 	Name     string `json:"name,omitempty"`

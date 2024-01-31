@@ -22,6 +22,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object paths="./types/..."
 	$(CONTROLLER_GEN) object paths="./connection/..."
+	$(CONTROLLER_GEN) object paths="./models/..."
 
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
