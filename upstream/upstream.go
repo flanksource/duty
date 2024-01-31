@@ -77,6 +77,22 @@ type PushData struct {
 	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
 }
 
+func (p *PushData) AddMetrics(counter context.Counter) {
+	counter.Label("table", "artifacts").Add(len(p.Artifacts))
+	counter.Label("table", "canaries").Add(len(p.Canaries))
+	counter.Label("table", "check_statuses").Add(len(p.CheckStatuses))
+	counter.Label("table", "checks").Add(len(p.Checks))
+	counter.Label("table", "component_relationships").Add(len(p.ComponentRelationships))
+	counter.Label("table", "components").Add(len(p.Components))
+	counter.Label("table", "config_analysis").Add(len(p.ConfigAnalysis))
+	counter.Label("table", "config_changes").Add(len(p.ConfigChanges))
+	counter.Label("table", "config_component_relationships").Add(len(p.ConfigComponentRelationships))
+	counter.Label("table", "config_items").Add(len(p.ConfigItems))
+	counter.Label("table", "config_relationships").Add(len(p.ConfigRelationships))
+	counter.Label("table", "config_scrapers").Add(len(p.ConfigScrapers))
+	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
+	counter.Label("table", "topologies").Add(len(p.Topologies))
+}
 func (p *PushData) String() string {
 	result := ""
 	for k, v := range p.Attributes() {
