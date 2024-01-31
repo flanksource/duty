@@ -15,6 +15,9 @@ var LogisticsAPIHealthHTTPCheck = models.Check{
 	Name:     "logistics-api-health-check",
 	Type:     "http",
 	Status:   "healthy",
+	Labels: map[string]string{
+		"app": "logistics",
+	},
 }
 
 var LogisticsAPIHomeHTTPCheck = models.Check{
@@ -23,6 +26,9 @@ var LogisticsAPIHomeHTTPCheck = models.Check{
 	Name:     "logistics-api-home-check",
 	Type:     "http",
 	Status:   "healthy",
+	Labels: map[string]string{
+		"app": "logistics",
+	},
 }
 
 var LogisticsDBCheck = models.Check{
@@ -31,6 +37,9 @@ var LogisticsDBCheck = models.Check{
 	Name:     "logistics-db-check",
 	Type:     "postgres",
 	Status:   "unhealthy",
+	Labels: map[string]string{
+		"app": "logistics",
+	},
 }
 
 var CartAPIHeathCheckAgent = models.Check{

@@ -8,6 +8,72 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = ginkgo.Describe("FindChecks", func() {
+	type testRecord struct {
+		Name      string
+		Selectors []types.ResourceSelector
+		Results   int
+	}
+
+	testData := []testRecord{
+		{
+			Name:      "empty",
+			Selectors: []types.ResourceSelector{},
+			Results:   0,
+		},
+		{
+			Name:      "name",
+			Selectors: []types.ResourceSelector{{Name: dummy.LogisticsAPIHealthHTTPCheck.Name}},
+			Results:   1,
+		},
+		{
+			Name:      "names",
+			Selectors: []types.ResourceSelector{{Name: dummy.LogisticsAPIHealthHTTPCheck.Name}, {Name: dummy.LogisticsAPIHomeHTTPCheck.Name}, {Name: dummy.LogisticsDBCheck.Name}},
+			Results:   3,
+		},
+		{
+			Name:      "names but different namespace",
+			Selectors: []types.ResourceSelector{{Namespace: "kube-system", Name: dummy.LogisticsAPIHealthHTTPCheck.Name}, {Namespace: "kube-system", Name: dummy.LogisticsAPIHomeHTTPCheck.Name}},
+			Results:   0,
+		},
+		{
+			Name:      "types",
+			Selectors: []types.ResourceSelector{{Types: []string{dummy.LogisticsDBCheck.Type}}},
+			Results:   1,
+		},
+		{
+			Name:      "repeated (types) to test cache",
+			Selectors: []types.ResourceSelector{{Types: []string{dummy.LogisticsDBCheck.Type}}},
+			Results:   1,
+		},
+		{
+			Name:      "agentID",
+			Selectors: []types.ResourceSelector{{AgentID: dummy.CartAPIHeathCheckAgent.AgentID.String()}},
+			Results:   4,
+		},
+		{
+			Name:      "type & statuses",
+			Selectors: []types.ResourceSelector{{Types: []string{dummy.LogisticsDBCheck.Type}, Statuses: []string{string(dummy.LogisticsDBCheck.Status)}}},
+			Results:   1,
+		},
+		{
+			Name:      "label selector",
+			Selectors: []types.ResourceSelector{{LabelSelector: "app=logistics"}},
+			Results:   3,
+		},
+	}
+
+	for i := range testData {
+		td := testData[i]
+
+		ginkgo.It(td.Name, func() {
+			components, err := duty.FindChecks(DefaultContext, td.Selectors, duty.PickColumns("id"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(components)).To(Equal(td.Results))
+		})
+	}
+})
+
 var _ = ginkgo.Describe("FindComponent", func() {
 	type testRecord struct {
 		Name      string
@@ -25,6 +91,31 @@ var _ = ginkgo.Describe("FindComponent", func() {
 			Name:      "names",
 			Selectors: []types.ResourceSelector{{Name: dummy.Logistics.Name}, {Name: dummy.LogisticsAPI.Name}},
 			Results:   2,
+		},
+		{
+			Name:      "names but different namespace",
+			Selectors: []types.ResourceSelector{{Namespace: "kube-system", Name: dummy.Logistics.Name}, {Namespace: "kube-system", Name: dummy.LogisticsAPI.Name}},
+			Results:   0,
+		},
+		{
+			Name:      "types",
+			Selectors: []types.ResourceSelector{{Types: []string{dummy.Logistics.Type}}},
+			Results:   1,
+		},
+		{
+			Name:      "repeated (types) to test cache",
+			Selectors: []types.ResourceSelector{{Types: []string{dummy.Logistics.Type}}},
+			Results:   1,
+		},
+		{
+			Name:      "agentID",
+			Selectors: []types.ResourceSelector{{AgentID: dummy.PaymentsAPI.AgentID.String()}},
+			Results:   1,
+		},
+		{
+			Name:      "type & statuses",
+			Selectors: []types.ResourceSelector{{Types: []string{"KubernetesPod"}, Statuses: []string{string(types.ComponentStatusHealthy)}}},
+			Results:   3,
 		},
 		{
 			Name:      "empty",
