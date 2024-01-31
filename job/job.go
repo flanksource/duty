@@ -394,6 +394,11 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	if override, ok := getProperty(j, j.Context.Properties(), "schedule"); ok {
 		schedule = override
 	}
+
+	if schedule == "" {
+		return fmt.Errorf("job schedule cannot be empty")
+	}
+
 	if schedule == "@never" {
 		j.Context.Infof("skipping scheduling")
 		return nil
