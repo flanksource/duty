@@ -161,6 +161,7 @@ type ResourceSelector struct {
 	//  Additionally, the special "self" value can be used to select resources without an agent.
 	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
 
+	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
 	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 	Types         Items  `yaml:"types,omitempty" json:"types,omitempty"`
@@ -171,6 +172,10 @@ type ResourceSelector struct {
 
 // Immutable returns true if the selector can be cached indefinitely
 func (c ResourceSelector) Immutable() bool {
+	if c.ID != "" {
+		return true
+	}
+
 	if c.Name == "" {
 		// without a name, a selector is never specific enough to be cached indefinitely
 		return false
@@ -190,6 +195,7 @@ func (c ResourceSelector) Immutable() bool {
 
 func (c ResourceSelector) Hash() string {
 	items := []string{
+		c.ID,
 		c.Name,
 		c.Namespace,
 		c.Agent,

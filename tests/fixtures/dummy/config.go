@@ -29,6 +29,7 @@ var KubernetesCluster = models.ConfigItem{
 
 var KubernetesNodeA = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("node-a"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
 	Tags: lo.ToPtr(types.JSONStringMap{

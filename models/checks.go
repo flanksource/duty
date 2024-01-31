@@ -59,6 +59,14 @@ type Check struct {
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
 }
 
+func (c Check) Key() string {
+	return c.ID.String()
+}
+
+func (Check) LabelsColumn() string {
+	return "labels"
+}
+
 func (c Check) TableName() string {
 	return "checks"
 }

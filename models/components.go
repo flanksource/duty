@@ -72,6 +72,14 @@ type Component struct {
 	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
+func (Component) LabelsColumn() string {
+	return "labels"
+}
+
+func (c Component) Key() string {
+	return c.ID.String()
+}
+
 func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      c.Name,
