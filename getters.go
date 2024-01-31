@@ -182,7 +182,7 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 		}
 
 		if resourceSelector.LabelSelector != "" {
-			checks, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, selectorOpts...)
+			checks, err := findResourcesByLabels[models.Check](ctx, resourceSelector.LabelSelector, selectorOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting checks with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
@@ -239,7 +239,7 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 		}
 
 		if resourceSelector.LabelSelector != "" {
-			labelComponents, err := FindComponentsByLabel(ctx, resourceSelector.LabelSelector, selectorOpts...)
+			labelComponents, err := findResourcesByLabels[models.Component](ctx, resourceSelector.LabelSelector, selectorOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting components with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
@@ -271,6 +271,73 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 	return lo.UniqBy(allComponents, models.ComponentID), nil
 }
 
+func FindConfigs(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.ConfigItem, error) {
+	var allConfigs []models.ConfigItem
+	for _, resourceSelector := range resourceSelectors {
+		hash := "FindConfigs-CachePrefix" + resourceSelector.Hash()
+		cacheToUse := getterCache
+		if resourceSelector.Immutable() {
+			cacheToUse = immutableCache
+		}
+
+		if val, ok := cacheToUse.Get(hash); ok {
+			configs, err := FindConfigsByIDs(ctx, val.([]string), opts...)
+			if err != nil {
+				return nil, err
+			}
+
+			allConfigs = append(allConfigs, configs...)
+			continue
+		}
+
+		var uniqueConfigs []models.ConfigItem
+		selectorOpts := opts
+
+		if query := firstResourceSelectorQuery(ctx, "config_items", resourceSelector); query != nil {
+			var configs []models.ConfigItem
+			if err := apply(query, opts...).Find(&configs).Error; err != nil {
+				return nil, fmt.Errorf("error getting configs with selectors[%v]: %w", resourceSelector, err)
+			}
+
+			uniqueConfigs = configs
+			selectorOpts = append(selectorOpts, WhereClause("id::text in ?",
+				lo.Map(configs, func(c models.ConfigItem, _ int) string { return c.ID.String() }),
+			))
+		}
+
+		if resourceSelector.LabelSelector != "" {
+			configs, err := findResourcesByLabels[models.ConfigItem](ctx, resourceSelector.LabelSelector, selectorOpts...)
+			if err != nil {
+				return nil, fmt.Errorf("error getting configs with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
+			}
+			uniqueConfigs = configs
+			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
+				configs,
+				func(c models.ConfigItem, _ int) string { return c.ID.String() }),
+			))
+		}
+
+		if resourceSelector.FieldSelector != "" {
+			configs, err := FindConfigsByField(ctx, resourceSelector.FieldSelector, selectorOpts...)
+			if err != nil {
+				return nil, fmt.Errorf("error getting configs with field selectors[%s]: %w", resourceSelector.FieldSelector, err)
+			}
+			uniqueConfigs = configs
+		}
+
+		ids := lo.Map(uniqueConfigs, func(c models.ConfigItem, _ int) string { return c.ID.String() })
+		if len(ids) == 0 {
+			cacheToUse.Set(hash, ids, time.Minute) // if results weren't found cache it shortly even on the immutable cache
+		} else {
+			cacheToUse.SetDefault(hash, ids)
+		}
+
+		allConfigs = append(allConfigs, uniqueConfigs...)
+	}
+
+	return lo.UniqBy(allConfigs, func(c models.ConfigItem) string { return c.ID.String() }), nil
+}
+
 // firstResourceSelectorQuery returns an ANDed query from all the fields except the
 // label selectors & field selectors.
 func firstResourceSelectorQuery(ctx DBContext, table string, resourceSelector types.ResourceSelector) *gorm.DB {
@@ -279,6 +346,9 @@ func firstResourceSelectorQuery(ctx DBContext, table string, resourceSelector ty
 	}
 
 	query := ctx.DB()
+	if resourceSelector.ID != "" {
+		query = query.Where(fmt.Sprintf("%s.id = ?", table), resourceSelector.ID)
+	}
 	if resourceSelector.Name != "" {
 		query = query.Where(fmt.Sprintf("%s.name = ?", table), resourceSelector.Name)
 	}
@@ -305,43 +375,51 @@ func firstResourceSelectorQuery(ctx DBContext, table string, resourceSelector ty
 	return query
 }
 
-func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...FindOption) (components []models.Component, err error) {
+// LabelledTable is a table that has labels column.
+type LabelledTable interface {
+	Key() string
+	LabelsColumn() string
+}
+
+// findResourcesByLabels finds the records of the given table using the label selector.
+func findResourcesByLabels[T LabelledTable](ctx context.Context, labelSelector string, opts ...FindOption) ([]T, error) {
 	if labelSelector == "" {
 		return nil, nil
 	}
 
-	var items = make(map[string]models.Component)
+	var items = make(map[string]T)
 	matchLabels := collections.SelectorToMap(labelSelector)
-	var labels = make(map[string]string)
+	var tags = make(map[string]string)
 	var onlyKeys []string
 	for k, v := range matchLabels {
 		if v != "" {
-			labels[k] = v
+			tags[k] = v
 		} else {
 			onlyKeys = append(onlyKeys, k)
 		}
 	}
 
-	var comps []models.Component
+	var anon T
+	var configs []T
 	if err := apply(ctx.DB().Where(LocalFilter).
-		Where("labels @> ?", types.JSONStringMap(labels)), opts...).
-		Find(&comps).Error; err != nil {
+		Where(fmt.Sprintf("%s @> ?", anon.LabelsColumn()), types.JSONStringMap(tags)), opts...).
+		Find(&configs).Error; err != nil {
 		return nil, err
 	}
-	for _, c := range comps {
-		items[c.ID.String()] = c
+	for _, c := range configs {
+		items[c.Key()] = c
 	}
 
 	for _, k := range onlyKeys {
-		var comps []models.Component
+		var configs []T
 		if err := apply(ctx.DB().Where(LocalFilter).
-			Where("labels ?? ?", k), opts...).
-			Find(&comps).Error; err != nil {
+			Where(fmt.Sprintf("%s ?? ?", anon.LabelsColumn()), k), opts...).
+			Find(&configs).Error; err != nil {
 			return nil, err
 		}
 
-		for _, c := range comps {
-			items[c.ID.String()] = c
+		for _, c := range configs {
+			items[c.Key()] = c
 		}
 	}
 
@@ -354,29 +432,14 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	}
 
 	matchLabels := collections.SelectorToMap(fieldSelector)
-	allowedColumnsAsFields := []string{"type", "status", "topology_type", "owner", "agent_id", "namespace"}
+	allowedColumnsAsFields := []string{"topology_type", "owner"}
 
-	columnWhereClauses := map[string]string{
-		"agent_id": uuid.Nil.String(),
-	}
+	columnWhereClauses := map[string]string{}
 
 	var props models.Properties
 	for k, v := range matchLabels {
 		if collections.Contains(allowedColumnsAsFields, k) {
-			if k == "agent_id" {
-				switch v {
-				case "local":
-					columnWhereClauses["agent_id"] = uuid.Nil.String()
-				case "all":
-					delete(columnWhereClauses, "agent_id")
-				default:
-					if _, err := uuid.Parse(v); err == nil {
-						columnWhereClauses["agent_id"] = v
-					}
-				}
-			} else {
-				columnWhereClauses[k] = v
-			}
+			columnWhereClauses[k] = v
 		} else {
 			props = append(props, &models.Property{Name: k, Text: v})
 		}
@@ -403,6 +466,46 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	return components, nil
 }
 
+func FindConfigsByField(ctx context.Context, fieldSelector string, opts ...FindOption) ([]models.ConfigItem, error) {
+	if fieldSelector == "" {
+		return nil, nil
+	}
+
+	matchLabels := collections.SelectorToMap(fieldSelector)
+	allowedColumnsAsFields := []string{"config_class"}
+
+	columnWhereClauses := map[string]string{}
+
+	var props models.Properties
+	for k, v := range matchLabels {
+		if collections.Contains(allowedColumnsAsFields, k) {
+			columnWhereClauses[k] = v
+		} else {
+			props = append(props, &models.Property{Name: k, Text: v})
+		}
+	}
+
+	// If 0 clauses then do not fire query
+	if len(columnWhereClauses) == 0 && len(props) == 0 {
+		return nil, nil
+	}
+
+	query := ctx.DB()
+	if len(columnWhereClauses) > 0 {
+		query = query.Where(columnWhereClauses)
+	}
+	if len(props) > 0 {
+		query = query.Where("properties @> ?", props)
+	}
+	var configs []models.ConfigItem
+	if err := apply(query, opts...).
+		Find(&configs).Error; err != nil {
+		return nil, fmt.Errorf("error querying components by fieldSelector[%s]: %w", fieldSelector, err)
+	}
+
+	return configs, nil
+}
+
 func FindChecksByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.Check, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -423,6 +526,16 @@ func FindComponentsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]mod
 	return components, err
 }
 
+func FindConfigsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.ConfigItem, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var configs []models.ConfigItem
+	err := apply(ctx.DB().Where(LocalFilter).Where("id IN ?", ids), opts...).Find(&configs).Error
+	return configs, err
+}
+
 func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) ([]models.Component, error) {
 	if name == "" {
 		return nil, nil
@@ -435,46 +548,6 @@ func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) 
 	}
 
 	return comps, nil
-}
-
-func FindChecksByLabel(ctx context.Context, labelSelector string, opts ...FindOption) (components []models.Check, err error) {
-	if labelSelector == "" {
-		return nil, nil
-	}
-
-	var items = make(map[string]models.Check)
-	matchLabels := collections.SelectorToMap(labelSelector)
-	var labels = make(map[string]string)
-	var onlyKeys []string
-	for k, v := range matchLabels {
-		if v != "" {
-			labels[k] = v
-		} else {
-			onlyKeys = append(onlyKeys, k)
-		}
-	}
-	var comps []models.Check
-	if err := apply(ctx.DB().Where(LocalFilter).
-		Where("labels @> ?", types.JSONStringMap(labels)), opts...).
-		Find(&comps).Error; err != nil {
-		return nil, err
-	}
-	for _, c := range comps {
-		items[c.ID.String()] = c
-	}
-	for _, k := range onlyKeys {
-		var comps []models.Check
-		if err := apply(ctx.DB().Where(LocalFilter).
-			Where("labels ?? ?", k), opts...).
-			Find(&comps).Error; err != nil {
-			return nil, err
-		}
-
-		for _, c := range comps {
-			items[c.ID.String()] = c
-		}
-	}
-	return lo.Values(items), nil
 }
 
 func FindCachedComponent(ctx DBContext, id string) (*models.Component, error) {

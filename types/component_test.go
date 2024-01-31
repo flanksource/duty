@@ -17,6 +17,7 @@ func TestResourceSelector_Hash_Consistency(t *testing.T) {
 		{
 			name: "Test Case 1",
 			resourceSelect: ResourceSelector{
+				ID:            "4775d837-727a-4386-9225-1fa2c167cc96",
 				Name:          "example",
 				Namespace:     "default",
 				Agent:         "123",
@@ -25,7 +26,7 @@ func TestResourceSelector_Hash_Consistency(t *testing.T) {
 				LabelSelector: "app=example,env=production",
 				FieldSelector: "owner=admin,path=/,icon=example.png",
 			},
-			expectedHash: "a7b2305ad03c316162786170090e56ebd0d240b6e1e22c011b4d71b32adb0c4f",
+			expectedHash: "96db782c434227b234c636aa9bfac70f1590146414dfd04263b4dc38c2f13444",
 		},
 	}
 
