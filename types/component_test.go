@@ -19,7 +19,7 @@ func TestResourceSelector_Hash_Consistency(t *testing.T) {
 			resourceSelect: ResourceSelector{
 				Name:          "example",
 				Namespace:     "default",
-				AgentID:       "123",
+				Agent:         "123",
 				Types:         []string{"a", "b", "c"},
 				Statuses:      []string{"healthy", "unhealthy", "terminating"},
 				LabelSelector: "app=example,env=production",

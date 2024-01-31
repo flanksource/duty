@@ -168,7 +168,7 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 		var uniqueChecks []models.Check
 		selectorOpts := opts
 
-		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
+		if query := firstResourceSelectorQuery(ctx, "checks", resourceSelector); query != nil {
 			var checks []models.Check
 			if err := apply(query, opts...).Find(&checks).Error; err != nil {
 				return nil, fmt.Errorf("error getting checks with selectors[%v]: %w", resourceSelector, err)
@@ -225,7 +225,7 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 		var uniqueComponents []models.Component
 		selectorOpts := opts
 
-		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
+		if query := firstResourceSelectorQuery(ctx, "components", resourceSelector); query != nil {
 			var components []models.Component
 			if err := apply(query, opts...).Find(&components).Error; err != nil {
 				return nil, fmt.Errorf("error getting components with selectors[%v]: %w", resourceSelector, err)
@@ -273,26 +273,33 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 
 // firstResourceSelectorQuery returns an ANDed query from all the fields except the
 // label selectors & field selectors.
-func firstResourceSelectorQuery(ctx DBContext, resourceSelector types.ResourceSelector) *gorm.DB {
-	if resourceSelector.Name == "" && resourceSelector.Namespace == "" && resourceSelector.AgentID == "" && len(resourceSelector.Types) == 0 && len(resourceSelector.Statuses) == 0 {
+func firstResourceSelectorQuery(ctx DBContext, table string, resourceSelector types.ResourceSelector) *gorm.DB {
+	if resourceSelector.Name == "" && resourceSelector.Namespace == "" && resourceSelector.Agent == "" && len(resourceSelector.Types) == 0 && len(resourceSelector.Statuses) == 0 {
 		return nil
 	}
 
 	query := ctx.DB()
 	if resourceSelector.Name != "" {
-		query = query.Where("name = ?", resourceSelector.Name)
+		query = query.Where(fmt.Sprintf("%s.name = ?", table), resourceSelector.Name)
 	}
 	if resourceSelector.Namespace != "" {
-		query = query.Where("namespace = ?", resourceSelector.Namespace)
-	}
-	if resourceSelector.AgentID != "" {
-		query = query.Where("agent_id = ?", resourceSelector.AgentID)
+		query = query.Where(fmt.Sprintf("%s.namespace = ?", table), resourceSelector.Namespace)
 	}
 	if len(resourceSelector.Types) != 0 {
-		query = query.Where("type IN ?", resourceSelector.Types)
+		query = query.Where(fmt.Sprintf("%s.type IN ?", table), resourceSelector.Types)
 	}
 	if len(resourceSelector.Statuses) != 0 {
-		query = query.Where("status IN ?", resourceSelector.Statuses)
+		query = query.Where(fmt.Sprintf("%s.status IN ?", table), resourceSelector.Statuses)
+	}
+
+	if resourceSelector.Agent != "" {
+		if resourceSelector.Agent == "self" {
+			query = query.Where(fmt.Sprintf("%s.agent_id = ?", table), uuid.Nil)
+		} else if uid, err := uuid.Parse(resourceSelector.Agent); err == nil {
+			query = query.Where(fmt.Sprintf("%s.agent_id = ?", table), uid)
+		} else { // assume it's an agent name
+			query = query.Joins(fmt.Sprintf("LEFT JOIN agents ON %s.agent_id = agents.id", table)).Where("agents.name = ?", resourceSelector.Agent).Where(fmt.Sprintf("%s.agent_id = ?", table), uid)
+		}
 	}
 
 	return query
