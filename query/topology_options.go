@@ -52,7 +52,6 @@ func (opt TopologyOptions) CacheKey() string {
 // Map of tag keys to the list of available values
 type Tags map[string][]string
 
-// +kubebuilder:object:generate=true
 type TopologyResponse struct {
 	Components     models.Components `json:"components"`
 	HealthStatuses []string          `json:"healthStatuses"`

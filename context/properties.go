@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,30 @@ type Properties map[string]string
 
 func (p Properties) On(key string) bool {
 	return p[key] == "true" || p[key] == "off"
+}
+
+func (p Properties) Duration(key string, def time.Duration) time.Duration {
+	if d, ok := p[key]; !ok {
+		return def
+	} else if dur, err := time.ParseDuration(d); err != nil {
+		logger.Warnf("property[%s] invalid duration %s", key, d)
+		return def
+	} else if err == nil {
+		return dur
+	}
+	return def
+}
+
+func (p Properties) Int(key string, def int) int {
+	if d, ok := p[key]; !ok {
+		return def
+	} else if i, err := strconv.Atoi(d); err != nil {
+		logger.Warnf("property[%s] invalid int %s", key, d)
+		return def
+	} else if err == nil {
+		return i
+	}
+	return def
 }
 
 func (p Properties) Off(key string) bool {
