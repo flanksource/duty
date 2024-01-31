@@ -19,7 +19,7 @@ var (
 	// getterCache caches the results for all the getters in this file.
 	getterCache = cache.New(time.Second*90, time.Minute*5)
 
-	immutableCache = cache.New(cache.NoExpiration, cache.NoExpiration)
+	immutableCache = cache.New(cache.NoExpiration, time.Hour*12)
 )
 
 func cacheKey[T any](field, key string) string {
@@ -190,7 +190,12 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 			uniqueChecks = checks
 		}
 
-		cacheToUse.SetDefault(hash, lo.Map(uniqueChecks, func(c models.Check, _ int) string { return c.ID.String() }))
+		ids := lo.Map(uniqueChecks, func(c models.Check, _ int) string { return c.ID.String() })
+		if len(ids) == 0 {
+			cacheToUse.Set(hash, ids, time.Minute) // if results weren't found cache it shortly even on the immutable cache
+		} else {
+			cacheToUse.SetDefault(hash, ids)
+		}
 
 		allChecks = append(allChecks, uniqueChecks...)
 	}
@@ -253,7 +258,12 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 			uniqueComponents = fieldComponents
 		}
 
-		cacheToUse.SetDefault(hash, lo.Map(uniqueComponents, func(c models.Component, _ int) string { return c.ID.String() }))
+		ids := lo.Map(uniqueComponents, func(c models.Component, _ int) string { return c.ID.String() })
+		if len(ids) == 0 {
+			cacheToUse.Set(hash, ids, time.Minute) // if results weren't found cache it shortly even on the immutable cache
+		} else {
+			cacheToUse.SetDefault(hash, ids)
+		}
 
 		allComponents = append(allComponents, uniqueComponents...)
 	}
