@@ -3,7 +3,7 @@ module github.com/flanksource/duty/hack/migrate
 go 1.20
 
 require (
-	github.com/flanksource/commons v1.21.2
+	github.com/flanksource/commons v1.22.0
 	github.com/flanksource/duty v1.0.180
 	github.com/spf13/cobra v1.7.0
 )
