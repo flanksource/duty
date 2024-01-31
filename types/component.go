@@ -5,7 +5,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -153,14 +155,37 @@ func (s Summary) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	return GormValue(s)
 }
 
-type ResourceSelectors []ResourceSelector
-
 // +kubebuilder:object:generate=true
 type ResourceSelector struct {
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
+	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	AgentID       string `yaml:"agentID,omitempty" json:"agentID,omitempty"`
+	Types         Items  `yaml:"types,omitempty" json:"types,omitempty"`
+	Statuses      Items  `yaml:"statuses,omitempty" json:"statuses,omitempty"`
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 }
+
+// Immutable returns true if the selector can be cached indefinitely
+func (c ResourceSelector) Immutable() bool {
+	return len(c.Statuses) == 0 && len(c.LabelSelector) == 0 && len(c.FieldSelector) == 0
+}
+
+func (c ResourceSelector) Hash() string {
+	items := []string{
+		c.Name,
+		c.Namespace,
+		c.AgentID,
+		strings.Join(c.Types.Sort(), ","),
+		strings.Join(c.Statuses.Sort(), ","),
+		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
+		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
+	}
+
+	return hash.Sha256Hex(strings.Join(items, "|"))
+}
+
+type ResourceSelectors []ResourceSelector
 
 func (rs *ResourceSelectors) Scan(val any) error {
 	return GenericStructScan(&rs, val)

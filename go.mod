@@ -11,7 +11,7 @@ require (
 	github.com/eko/gocache/store/go_cache/v4 v4.2.1
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.21.2
+	github.com/flanksource/commons v1.22.0
 	github.com/flanksource/gomplate/v3 v3.20.29
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.3
@@ -191,3 +191,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+// replace "github.com/flanksource/commons" => ../commons

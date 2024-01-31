@@ -3,7 +3,6 @@ package duty
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/flanksource/commons/collections"
@@ -16,8 +15,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// getterCache caches the results for all the getters in this file.
-var getterCache = cache.New(time.Second*90, time.Minute*5)
+var (
+	// getterCache caches the results for all the getters in this file.
+	getterCache = cache.New(time.Second*90, time.Minute*5)
+
+	immutableCache = cache.New(cache.NoExpiration, cache.NoExpiration)
+)
 
 func cacheKey[T any](field, key string) string {
 	var v T
@@ -138,39 +141,94 @@ func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
 }
 
 func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Check, err error) {
-	var uniqueComponents []models.Check
-	for _, resourceSelector := range resourceSelectors {
-		if resourceSelector.LabelSelector != "" {
-			labelComponents, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, opts...)
-			if err != nil {
-				return nil, fmt.Errorf("error getting checks with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
-			}
-			uniqueComponents = append(uniqueComponents, labelComponents...)
-		}
-		if resourceSelector.FieldSelector != "" {
-			return nil, fmt.Errorf("fieldSelector not supported on checks")
+	for _, rs := range resourceSelectors {
+		if rs.FieldSelector != "" {
+			return nil, fmt.Errorf("field selector is not supported for checks (%s)", rs.FieldSelector)
 		}
 	}
 
-	return lo.UniqBy(uniqueComponents, models.CheckID), nil
+	var uniqueChecks []models.Check
+	for _, resourceSelector := range resourceSelectors {
+		hash := "FindChecks-CachePrefix" + resourceSelector.Hash()
+		cacheToUse := getterCache
+		if resourceSelector.Immutable() {
+			cacheToUse = immutableCache
+		}
+
+		if val, ok := cacheToUse.Get(hash); ok {
+			checks, err := FindChecksByIDs(ctx, val.([]string), opts...)
+			if err != nil {
+				return nil, err
+			}
+
+			uniqueChecks = append(uniqueChecks, checks...)
+			continue
+		}
+
+		if resourceSelector.LabelSelector != "" {
+			checks, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, opts...)
+			if err != nil {
+				return nil, fmt.Errorf("error getting checks with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
+			}
+
+			cacheToUse.SetDefault(hash, lo.Map(checks, func(c models.Check, _ int) string { return c.ID.String() }))
+			uniqueChecks = append(uniqueChecks, checks...)
+		}
+	}
+
+	return lo.UniqBy(uniqueChecks, models.CheckID), nil
 }
 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Component, err error) {
 	var allComponents []models.Component
 	for _, resourceSelector := range resourceSelectors {
+		hash := "FindComponents-CachePrefix" + resourceSelector.Hash()
+		cacheToUse := getterCache
+		if resourceSelector.Immutable() {
+			cacheToUse = immutableCache
+		}
+
+		if val, ok := cacheToUse.Get(hash); ok {
+			components, err := FindComponentsByIDs(ctx, val.([]string), opts...)
+			if err != nil {
+				return nil, err
+			}
+
+			allComponents = append(allComponents, components...)
+			continue
+		}
+
 		var uniqueComponents []models.Component
 		selectorOpts := opts
-		if resourceSelector.Name != "" {
-			nameComponents, err := FindComponentsByName(ctx, resourceSelector.Name, opts...)
-			if err != nil {
-				return nil, fmt.Errorf("error getting components with name selectors[%s]: %w", resourceSelector.Name, err)
+
+		if resourceSelector.Name != "" || resourceSelector.Namespace != "" || resourceSelector.AgentID != "" || len(resourceSelector.Types) != 0 || len(resourceSelector.Statuses) != 0 {
+			query := ctx.DB()
+			if resourceSelector.Name != "" {
+				query = query.Where("name = ?", resourceSelector.Name)
 			}
+			if resourceSelector.Namespace != "" {
+				query = query.Where("namespace = ?", resourceSelector.Namespace)
+			}
+			if resourceSelector.AgentID != "" {
+				query = query.Where("agent_id = ?", resourceSelector.AgentID)
+			}
+			if len(resourceSelector.Types) != 0 {
+				query = query.Where("type IN ?", resourceSelector.Types)
+			}
+			if len(resourceSelector.Statuses) != 0 {
+				query = query.Where("status IN ?", resourceSelector.Statuses)
+			}
+
+			var nameComponents []models.Component
+			if err := apply(query, opts...).Find(&components).Error; err != nil {
+				return nil, fmt.Errorf("error getting components with selectors[%v]: %w", resourceSelector, err)
+			}
+
 			uniqueComponents = nameComponents
 			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
 				nameComponents,
 				func(c models.Component, _ int) string { return c.ID.String() }),
 			))
-
 		}
 
 		if resourceSelector.LabelSelector != "" {
@@ -192,34 +250,22 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 			}
 			uniqueComponents = fieldComponents
 		}
+
+		cacheToUse.SetDefault(hash, lo.Map(uniqueComponents, func(c models.Component, _ int) string { return c.ID.String() }))
+
 		allComponents = append(allComponents, uniqueComponents...)
 	}
 
 	return lo.UniqBy(allComponents, models.ComponentID), nil
 }
 
-func getLabelsFromSelector(selector string) (matchLabels map[string]string) {
-	matchLabels = make(types.JSONStringMap)
-	labels := strings.Split(selector, ",")
-	for _, label := range labels {
-		if strings.Contains(label, "=") {
-			kv := strings.Split(label, "=")
-			if len(kv) == 2 {
-				matchLabels[kv[0]] = kv[1]
-			} else {
-				matchLabels[kv[0]] = ""
-			}
-		}
-	}
-	return
-}
-
 func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...FindOption) (components []models.Component, err error) {
 	if labelSelector == "" {
 		return nil, nil
 	}
+
 	var items = make(map[string]models.Component)
-	matchLabels := getLabelsFromSelector(labelSelector)
+	matchLabels := collections.SelectorToMap(labelSelector)
 	var labels = make(map[string]string)
 	var onlyKeys []string
 	for k, v := range matchLabels {
@@ -229,6 +275,7 @@ func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...Fi
 			onlyKeys = append(onlyKeys, k)
 		}
 	}
+
 	var comps []models.Component
 	if err := apply(ctx.DB().Where(LocalFilter).
 		Where("labels @> ?", types.JSONStringMap(labels)), opts...).
@@ -238,6 +285,7 @@ func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...Fi
 	for _, c := range comps {
 		items[c.ID.String()] = c
 	}
+
 	for _, k := range onlyKeys {
 		var comps []models.Component
 		if err := apply(ctx.DB().Where(LocalFilter).
@@ -250,6 +298,7 @@ func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...Fi
 			items[c.ID.String()] = c
 		}
 	}
+
 	return lo.Values(items), nil
 }
 
@@ -257,7 +306,8 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	if fieldSelector == "" {
 		return nil, nil
 	}
-	matchLabels := getLabelsFromSelector(fieldSelector)
+
+	matchLabels := collections.SelectorToMap(fieldSelector)
 	allowedColumnsAsFields := []string{"type", "status", "topology_type", "owner", "agent_id", "namespace"}
 
 	columnWhereClauses := map[string]string{
@@ -307,6 +357,26 @@ func FindComponentsByField(ctx context.Context, fieldSelector string, opts ...Fi
 	return components, nil
 }
 
+func FindChecksByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.Check, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var checks []models.Check
+	err := apply(ctx.DB().Where(LocalFilter).Where("id IN ?", ids), opts...).Find(&checks).Error
+	return checks, err
+}
+
+func FindComponentsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.Component, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var components []models.Component
+	err := apply(ctx.DB().Where(LocalFilter).Where("id IN ?", ids), opts...).Find(&components).Error
+	return components, err
+}
+
 func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) ([]models.Component, error) {
 	if name == "" {
 		return nil, nil
@@ -325,8 +395,9 @@ func FindChecksByLabel(ctx context.Context, labelSelector string, opts ...FindOp
 	if labelSelector == "" {
 		return nil, nil
 	}
+
 	var items = make(map[string]models.Check)
-	matchLabels := getLabelsFromSelector(labelSelector)
+	matchLabels := collections.SelectorToMap(labelSelector)
 	var labels = make(map[string]string)
 	var onlyKeys []string
 	for k, v := range matchLabels {
