@@ -2,14 +2,11 @@ package upstream
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"gorm.io/gorm/clause"
 )
 
 // SyncCheckStatuses pushes check statuses, that haven't already been pushed, to upstream.
@@ -141,40 +138,5 @@ func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (i
 		}
 
 		count += len(artifacts)
-	}
-}
-
-// SyncArtifactItems pushes the artifact data.
-func SyncArtifactItems(ctx context.Context, config UpstreamConfig, artifactStoreLocalPath string, batchSize int) (int, error) {
-	client := NewUpstreamClient(config)
-	var count int
-
-	for {
-		var artifacts []models.Artifact
-		if err := ctx.DB().Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("is_data_pushed IS FALSE").Where("is_pushed IS TRUE").Order("created_at").Limit(batchSize).Find(&artifacts).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
-		}
-
-		if len(artifacts) == 0 {
-			return count, nil
-		}
-
-		for _, artifact := range artifacts {
-			path := filepath.Join(artifactStoreLocalPath, artifact.Path)
-			f, err := os.Open(path)
-			if err != nil {
-				return count, fmt.Errorf("failed to read local artifact store: %w", err)
-			}
-
-			if err := client.PushArtifacts(ctx, artifact.ID, f); err != nil {
-				return count, fmt.Errorf("failed to push artifact (%s): %w", f.Name(), err)
-			}
-
-			if err := ctx.DB().Model(&models.Artifact{}).Where("id = ?", artifact.ID).Update("is_data_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed on artifacts: %w", err)
-			}
-
-			count++
-		}
 	}
 }

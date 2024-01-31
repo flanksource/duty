@@ -345,6 +345,9 @@ func (j *Job) init() {
 	if obj.Name == "" {
 		obj.Name = j.Name
 	}
+	if obj.Namespace == "" {
+		obj.Namespace = j.Context.GetNamespace()
+	}
 	if obj.Annotations == nil {
 		obj.Annotations = make(map[string]string)
 	}
