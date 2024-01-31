@@ -168,7 +168,21 @@ type ResourceSelector struct {
 
 // Immutable returns true if the selector can be cached indefinitely
 func (c ResourceSelector) Immutable() bool {
-	return len(c.Statuses) == 0 && len(c.LabelSelector) == 0 && len(c.FieldSelector) == 0
+	if c.Name == "" {
+		// without a name, a selector isn't specific enough to be cache indefinitely
+		return false
+	}
+
+	if len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 {
+		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
+		return false
+	}
+
+	if c.Namespace == "" {
+		return false // still not specific enough to be mutated indefinitely
+	}
+
+	return true
 }
 
 func (c ResourceSelector) Hash() string {
