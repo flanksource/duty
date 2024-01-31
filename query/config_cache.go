@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -161,21 +162,21 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 }
 
 // <id>/<related_type> -> []related_ids
-var configItemRelatedTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
+var configItemRelatedTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
 
 func configItemRelatedTypeCacheKey(id, typ string) string {
 	return "configRelatedType:" + id + typ
 }
 
 // <id> -> models.ConfigItem
-var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
+var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
 
 func configItemCacheKey(id string) string {
 	return "configID:" + id
 }
 
 // <config_id> -> []related_ids
-var configRelationCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(6*time.Hour, 6*time.Hour)))
+var configRelationCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
 
 func configRelationCacheKey(id string) string {
 	return "configRelatedIDs:" + id
@@ -239,4 +240,14 @@ func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, err
 
 func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
 	return configRelationCache.Get(ctx, configRelationCacheKey(id))
+}
+
+var SyncConfigCacheJob = &job.Job{
+	Name:       "SyncConfigCache",
+	Schedule:   "@every 5m",
+	JobHistory: true,
+	Retention:  job.RetentionHour,
+	Fn: func(ctx job.JobRuntime) error {
+		return SyncConfigCache(ctx.Context)
+	},
 }
