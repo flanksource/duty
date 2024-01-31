@@ -12,7 +12,7 @@ jobs:
       contents: write  # for codfish/semantic-release-action to create release tags
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - uses: codfish/semantic-release-action@ee5b4afec556c3bf8b9f0b9cd542aade9e486033 # v3.0.0
         id: semantic
         env:
@@ -28,7 +28,7 @@ jobs:
       matrix:
         repos: ['incident-commander', 'canary-checker', 'config-db', 'apm-hub']
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: flanksource/${{ matrix.repos }}
           token: ${{ secrets.FLANKBOT }}
