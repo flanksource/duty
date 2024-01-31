@@ -147,7 +147,7 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 		}
 	}
 
-	var uniqueChecks []models.Check
+	var allChecks []models.Check
 	for _, resourceSelector := range resourceSelectors {
 		hash := "FindChecks-CachePrefix" + resourceSelector.Hash()
 		cacheToUse := getterCache
@@ -161,22 +161,41 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 				return nil, err
 			}
 
-			uniqueChecks = append(uniqueChecks, checks...)
+			allChecks = append(allChecks, checks...)
 			continue
 		}
 
+		var uniqueChecks []models.Check
+		selectorOpts := opts
+
+		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
+			var checks []models.Check
+			if err := apply(query, opts...).Find(&checks).Error; err != nil {
+				return nil, fmt.Errorf("error getting checks with selectors[%v]: %w", resourceSelector, err)
+			}
+
+			uniqueChecks = checks
+			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
+				checks,
+				func(c models.Check, _ int) string { return c.ID.String() }),
+			))
+		}
+
 		if resourceSelector.LabelSelector != "" {
-			checks, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, opts...)
+			checks, err := FindChecksByLabel(ctx, resourceSelector.LabelSelector, selectorOpts...)
 			if err != nil {
 				return nil, fmt.Errorf("error getting checks with label selectors[%s]: %w", resourceSelector.LabelSelector, err)
 			}
 
-			cacheToUse.SetDefault(hash, lo.Map(checks, func(c models.Check, _ int) string { return c.ID.String() }))
-			uniqueChecks = append(uniqueChecks, checks...)
+			uniqueChecks = checks
 		}
+
+		cacheToUse.SetDefault(hash, lo.Map(uniqueChecks, func(c models.Check, _ int) string { return c.ID.String() }))
+
+		allChecks = append(allChecks, uniqueChecks...)
 	}
 
-	return lo.UniqBy(uniqueChecks, models.CheckID), nil
+	return lo.UniqBy(allChecks, models.CheckID), nil
 }
 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Component, err error) {
@@ -201,32 +220,15 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 		var uniqueComponents []models.Component
 		selectorOpts := opts
 
-		if resourceSelector.Name != "" || resourceSelector.Namespace != "" || resourceSelector.AgentID != "" || len(resourceSelector.Types) != 0 || len(resourceSelector.Statuses) != 0 {
-			query := ctx.DB()
-			if resourceSelector.Name != "" {
-				query = query.Where("name = ?", resourceSelector.Name)
-			}
-			if resourceSelector.Namespace != "" {
-				query = query.Where("namespace = ?", resourceSelector.Namespace)
-			}
-			if resourceSelector.AgentID != "" {
-				query = query.Where("agent_id = ?", resourceSelector.AgentID)
-			}
-			if len(resourceSelector.Types) != 0 {
-				query = query.Where("type IN ?", resourceSelector.Types)
-			}
-			if len(resourceSelector.Statuses) != 0 {
-				query = query.Where("status IN ?", resourceSelector.Statuses)
-			}
-
-			var nameComponents []models.Component
+		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
+			var components []models.Component
 			if err := apply(query, opts...).Find(&components).Error; err != nil {
 				return nil, fmt.Errorf("error getting components with selectors[%v]: %w", resourceSelector, err)
 			}
 
-			uniqueComponents = nameComponents
+			uniqueComponents = components
 			selectorOpts = append(selectorOpts, WhereClause("id::text in ?", lo.Map(
-				nameComponents,
+				components,
 				func(c models.Component, _ int) string { return c.ID.String() }),
 			))
 		}
@@ -257,6 +259,33 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 	}
 
 	return lo.UniqBy(allComponents, models.ComponentID), nil
+}
+
+// firstResourceSelectorQuery returns an ANDed query from all the fields except the
+// label selectors & field selectors.
+func firstResourceSelectorQuery(ctx DBContext, resourceSelector types.ResourceSelector) *gorm.DB {
+	if resourceSelector.Name == "" && resourceSelector.Namespace == "" && resourceSelector.AgentID == "" && len(resourceSelector.Types) == 0 && len(resourceSelector.Statuses) == 0 {
+		return nil
+	}
+
+	query := ctx.DB()
+	if resourceSelector.Name != "" {
+		query = query.Where("name = ?", resourceSelector.Name)
+	}
+	if resourceSelector.Namespace != "" {
+		query = query.Where("namespace = ?", resourceSelector.Namespace)
+	}
+	if resourceSelector.AgentID != "" {
+		query = query.Where("agent_id = ?", resourceSelector.AgentID)
+	}
+	if len(resourceSelector.Types) != 0 {
+		query = query.Where("type IN ?", resourceSelector.Types)
+	}
+	if len(resourceSelector.Statuses) != 0 {
+		query = query.Where("status IN ?", resourceSelector.Statuses)
+	}
+
+	return query
 }
 
 func FindComponentsByLabel(ctx context.Context, labelSelector string, opts ...FindOption) (components []models.Component, err error) {
