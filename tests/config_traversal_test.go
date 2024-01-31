@@ -32,19 +32,19 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		err = query.SyncConfigCache(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		got, err := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease")
-		Expect(err).ToNot(HaveOccurred())
+		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease")
+		Expect(got).ToNot(BeNil())
 		Expect(got.ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
 
-		got, err = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization")
-		Expect(err).ToNot(HaveOccurred())
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization")
+		Expect(got).ToNot(BeNil())
 		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
-		_, err = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod")
-		Expect(err).To(HaveOccurred())
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod")
+		Expect(got).To(BeNil())
 
-		_, err = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node")
-		Expect(err).To(HaveOccurred())
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node")
+		Expect(got).To(BeNil())
 
 		// Cleanup for normal tests to pass
 		err = ctx.DB().Where("config_id in ?", lo.Map(lo.Values(configItems), func(c models.ConfigItem, _ int) string { return c.ID.String() })).Delete(&models.ConfigRelationship{}).Error
