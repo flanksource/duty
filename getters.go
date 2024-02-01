@@ -52,12 +52,15 @@ func (t GetterOptions) IsSet(option GetterOption) bool {
 	return false
 }
 
-func FindCachedAgent(ctx DBContext, id string) (*models.Agent, error) {
-	if id == uuid.Nil.String() {
-		return nil, nil
+func FindCachedAgent(ctx context.Context, identifier string) (*models.Agent, error) {
+	var field string
+	if _, err := uuid.Parse(identifier); err == nil {
+		field = "id"
+	} else {
+		field = "name"
 	}
 
-	agent, err := findCachedEntity[models.Agent](ctx, id)
+	agent, err := findEntityByField[models.Agent](ctx, field, identifier)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +68,7 @@ func FindCachedAgent(ctx DBContext, id string) (*models.Agent, error) {
 	return agent, nil
 }
 
-func FindCachedCheck(ctx DBContext, id string) (*models.Check, error) {
+func FindCachedCheck(ctx context.Context, id string) (*models.Check, error) {
 	check, err := findCachedEntity[models.Check](ctx, id)
 	if err != nil {
 		return nil, err
@@ -74,7 +77,7 @@ func FindCachedCheck(ctx DBContext, id string) (*models.Check, error) {
 	return check, nil
 }
 
-func FindCachedCanary(ctx DBContext, id string) (*models.Canary, error) {
+func FindCachedCanary(ctx context.Context, id string) (*models.Canary, error) {
 	canary, err := findCachedEntity[models.Canary](ctx, id)
 	if err != nil {
 		return nil, err
@@ -86,7 +89,7 @@ func FindCachedCanary(ctx DBContext, id string) (*models.Canary, error) {
 // FindPerson looks up a person by the given identifier which can either be
 //   - UUID
 //   - email
-func FindPerson(ctx DBContext, identifier string, opts ...GetterOption) (*models.Person, error) {
+func FindPerson(ctx context.Context, identifier string, opts ...GetterOption) (*models.Person, error) {
 	var field string
 	if _, err := uuid.Parse(identifier); err == nil {
 		field = "id"
@@ -105,7 +108,7 @@ func FindPerson(ctx DBContext, identifier string, opts ...GetterOption) (*models
 // FindTeam looks up a team by the given identifier which can either be
 //   - UUID
 //   - team name
-func FindTeam(ctx DBContext, identifier string, opts ...GetterOption) (*models.Team, error) {
+func FindTeam(ctx context.Context, identifier string, opts ...GetterOption) (*models.Team, error) {
 	var field string
 	if _, err := uuid.Parse(identifier); err == nil {
 		field = "id"
@@ -183,7 +186,7 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 		var uniqueChecks []models.Check
 		selectorOpts := opts
 
-		if query := firstResourceSelectorQuery(ctx, "checks", resourceSelector); query != nil {
+		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
 			var checks []models.Check
 			if err := apply(query, opts...).Find(&checks).Error; err != nil {
 				return nil, fmt.Errorf("error getting checks with selectors[%v]: %w", resourceSelector, err)
@@ -248,7 +251,7 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 		var uniqueComponents []models.Component
 		selectorOpts := opts
 
-		if query := firstResourceSelectorQuery(ctx, "components", resourceSelector); query != nil {
+		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
 			var components []models.Component
 			if err := apply(query, opts...).Find(&components).Error; err != nil {
 				return nil, fmt.Errorf("error getting components with selectors[%v]: %w", resourceSelector, err)
@@ -324,7 +327,7 @@ func FindConfigs(ctx context.Context, resourceSelectors types.ResourceSelectors,
 		var uniqueConfigs []models.ConfigItem
 		selectorOpts := opts
 
-		if query := firstResourceSelectorQuery(ctx, "config_items", resourceSelector); query != nil {
+		if query := firstResourceSelectorQuery(ctx, resourceSelector); query != nil {
 			var configs []models.ConfigItem
 			if err := apply(query, opts...).Find(&configs).Error; err != nil {
 				return nil, fmt.Errorf("error getting configs with selectors[%v]: %w", resourceSelector, err)
@@ -371,35 +374,39 @@ func FindConfigs(ctx context.Context, resourceSelectors types.ResourceSelectors,
 
 // firstResourceSelectorQuery returns an ANDed query from all the fields except the
 // label selectors & field selectors.
-func firstResourceSelectorQuery(ctx DBContext, table string, resourceSelector types.ResourceSelector) *gorm.DB {
+func firstResourceSelectorQuery(ctx context.Context, resourceSelector types.ResourceSelector) *gorm.DB {
 	if resourceSelector.Name == "" && resourceSelector.Namespace == "" && resourceSelector.Agent == "" && len(resourceSelector.Types) == 0 && len(resourceSelector.Statuses) == 0 {
 		return nil
 	}
 
 	query := ctx.DB()
 	if resourceSelector.ID != "" {
-		query = query.Where(fmt.Sprintf("%s.id = ?", table), resourceSelector.ID)
+		query = query.Where("id = ?", resourceSelector.ID)
 	}
 	if resourceSelector.Name != "" {
-		query = query.Where(fmt.Sprintf("%s.name = ?", table), resourceSelector.Name)
+		query = query.Where("name = ?", resourceSelector.Name)
 	}
 	if resourceSelector.Namespace != "" {
-		query = query.Where(fmt.Sprintf("%s.namespace = ?", table), resourceSelector.Namespace)
+		query = query.Where("namespace = ?", resourceSelector.Namespace)
 	}
 	if len(resourceSelector.Types) != 0 {
-		query = query.Where(fmt.Sprintf("%s.type IN ?", table), resourceSelector.Types)
+		query = query.Where("type IN ?", resourceSelector.Types)
 	}
 	if len(resourceSelector.Statuses) != 0 {
-		query = query.Where(fmt.Sprintf("%s.status IN ?", table), resourceSelector.Statuses)
+		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
 
 	if resourceSelector.Agent != "" {
 		if resourceSelector.Agent == "self" {
-			query = query.Where(fmt.Sprintf("%s.agent_id = ?", table), uuid.Nil)
+			query = query.Where("agent_id = ?", uuid.Nil)
 		} else if uid, err := uuid.Parse(resourceSelector.Agent); err == nil {
-			query = query.Where(fmt.Sprintf("%s.agent_id = ?", table), uid)
+			query = query.Where("agent_id = ?", uid)
 		} else { // assume it's an agent name
-			query = query.Joins(fmt.Sprintf("LEFT JOIN agents ON %s.agent_id = agents.id", table)).Where("agents.name = ?", resourceSelector.Agent).Where(fmt.Sprintf("%s.agent_id = ?", table), uid)
+			agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
+			if err != nil {
+				return nil
+			}
+			query = query.Where("agent_id = ?", agent.ID)
 		}
 	}
 
@@ -537,7 +544,7 @@ func FindConfigsByField(ctx context.Context, fieldSelector string, opts ...FindO
 	return configs, nil
 }
 
-func FindChecksByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.Check, error) {
+func FindChecksByIDs(ctx context.Context, ids []string, opts ...FindOption) ([]models.Check, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -547,7 +554,7 @@ func FindChecksByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.
 	return checks, err
 }
 
-func FindComponentsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.Component, error) {
+func FindComponentsByIDs(ctx context.Context, ids []string, opts ...FindOption) ([]models.Component, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -557,7 +564,7 @@ func FindComponentsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]mod
 	return components, err
 }
 
-func FindConfigsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models.ConfigItem, error) {
+func FindConfigsByIDs(ctx context.Context, ids []string, opts ...FindOption) ([]models.ConfigItem, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -567,21 +574,7 @@ func FindConfigsByIDs(ctx DBContext, ids []string, opts ...FindOption) ([]models
 	return configs, err
 }
 
-func FindComponentsByName(ctx context.Context, name string, opts ...FindOption) ([]models.Component, error) {
-	if name == "" {
-		return nil, nil
-	}
-
-	var comps []models.Component
-	tx := apply(ctx.DB().Where(LocalFilter).Where("name = ?", name), opts...)
-	if err := tx.Find(&comps).Error; err != nil {
-		return nil, err
-	}
-
-	return comps, nil
-}
-
-func FindCachedComponent(ctx DBContext, id string) (*models.Component, error) {
+func FindCachedComponent(ctx context.Context, id string) (*models.Component, error) {
 	component, err := findCachedEntity[models.Component](ctx, id)
 	if err != nil {
 		return nil, err
@@ -590,7 +583,7 @@ func FindCachedComponent(ctx DBContext, id string) (*models.Component, error) {
 	return component, nil
 }
 
-func FindCachedConfig(ctx DBContext, id string) (*models.ConfigItem, error) {
+func FindCachedConfig(ctx context.Context, id string) (*models.ConfigItem, error) {
 	config, err := findCachedEntity[models.ConfigItem](ctx, id)
 	if err != nil {
 		return nil, err
@@ -599,7 +592,7 @@ func FindCachedConfig(ctx DBContext, id string) (*models.ConfigItem, error) {
 	return config, nil
 }
 
-func FindCachedIncident(ctx DBContext, id string) (*models.Incident, error) {
+func FindCachedIncident(ctx context.Context, id string) (*models.Incident, error) {
 	incident, err := findCachedEntity[models.Incident](ctx, id)
 	if err != nil {
 		return nil, err
@@ -608,11 +601,11 @@ func FindCachedIncident(ctx DBContext, id string) (*models.Incident, error) {
 	return incident, nil
 }
 
-func findCachedEntity[T any](ctx DBContext, id string) (*T, error) {
+func findCachedEntity[T any](ctx context.Context, id string) (*T, error) {
 	return findEntityByField[T](ctx, "id", id)
 }
 
-func findEntityByField[T any](ctx DBContext, field, key string, opts ...GetterOption) (*T, error) {
+func findEntityByField[T any](ctx context.Context, field, key string, opts ...GetterOption) (*T, error) {
 	if !GetterOptions(opts).IsSet(GetterOptionNoCache) {
 		if value, ok := getterCache.Get(cacheKey[T](field, key)); ok {
 			if cache, ok := value.(*T); ok {

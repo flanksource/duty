@@ -18,8 +18,8 @@ import (
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 )
 
-func configQuery(db *gorm.DB, config types.ConfigQuery) *gorm.DB {
-	query := db.Table("config_items").Where("agent_id = '00000000-0000-0000-0000-000000000000'")
+func configQuery(ctx context.Context, config types.ConfigQuery) *gorm.DB {
+	query := ctx.DB().Table("config_items").Where("agent_id = '00000000-0000-0000-0000-000000000000'")
 	if config.Class != "" {
 		query = query.Where("config_class = ?", config.Class)
 	}
@@ -52,7 +52,7 @@ func configQuery(db *gorm.DB, config types.ConfigQuery) *gorm.DB {
 
 var configCache = gocache.New(30*time.Minute, 1*time.Hour)
 
-func FindConfigs(db *gorm.DB, config types.ConfigQuery) ([]models.ConfigItem, error) {
+func FindConfigs(ctx context.Context, config types.ConfigQuery) ([]models.ConfigItem, error) {
 	configHash := config.Hash()
 	if configHash == "" {
 		return nil, fmt.Errorf("error generating cacheKey for %s", config)
@@ -68,7 +68,7 @@ func FindConfigs(db *gorm.DB, config types.ConfigQuery) ([]models.ConfigItem, er
 	}
 
 	var items []models.ConfigItem
-	tx := configQuery(db, config).Find(&items)
+	tx := configQuery(ctx, config).Find(&items)
 	if tx.Error != nil {
 		return nil, fmt.Errorf("error querying config items with query(%v) err: %w", config, tx.Error)
 	}
@@ -82,7 +82,7 @@ func FindConfigs(db *gorm.DB, config types.ConfigQuery) ([]models.ConfigItem, er
 	return items, nil
 }
 
-func FindConfigIDs(db *gorm.DB, config types.ConfigQuery) ([]uuid.UUID, error) {
+func FindConfigIDs(ctx context.Context, config types.ConfigQuery) ([]uuid.UUID, error) {
 	configHash := config.Hash()
 	if configHash == "" {
 		return nil, fmt.Errorf("error generating cacheKey for %s", config)
@@ -98,7 +98,7 @@ func FindConfigIDs(db *gorm.DB, config types.ConfigQuery) ([]uuid.UUID, error) {
 	}
 
 	var items []uuid.UUID
-	tx := configQuery(db, config).Select("id").Find(&items)
+	tx := configQuery(ctx, config).Select("id").Find(&items)
 	if tx.Error != nil {
 		return nil, fmt.Errorf("error querying config items with query(%v) err: %w", config, tx.Error)
 	}
@@ -112,11 +112,7 @@ func FindConfigIDs(db *gorm.DB, config types.ConfigQuery) ([]uuid.UUID, error) {
 	return items, nil
 }
 
-func FindConfig(db *gorm.DB, config types.ConfigQuery) (*models.ConfigItem, error) {
-	if db == nil {
-		return nil, fmt.Errorf("db not initialized")
-	}
-
+func FindConfig(ctx context.Context, config types.ConfigQuery) (*models.ConfigItem, error) {
 	configHash := config.Hash()
 	if configHash == "" {
 		return nil, fmt.Errorf("error generating cacheKey for %s", config)
@@ -132,7 +128,7 @@ func FindConfig(db *gorm.DB, config types.ConfigQuery) (*models.ConfigItem, erro
 	}
 
 	var item models.ConfigItem
-	query := configQuery(db, config)
+	query := configQuery(ctx, config)
 	tx := query.Limit(1).Find(&item)
 	if tx.Error != nil {
 		return nil, tx.Error

@@ -1,8 +1,6 @@
 package duty
 
 import (
-	gocontext "context"
-
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
@@ -10,11 +8,11 @@ import (
 )
 
 // deprecated use query.CheckSummaryByID
-func CheckSummary(ctx DBContext, checkID string) (*models.CheckSummary, error) {
-	return query.CheckSummaryByID(context.NewContext(ctx).WithDB(ctx.DB(), ctx.Pool()), checkID)
+func CheckSummary(ctx context.Context, checkID string) (*models.CheckSummary, error) {
+	return query.CheckSummaryByID(ctx, checkID)
 }
 
 // deprecated use query.CheckSummary
-func QueryCheckSummary(ctx gocontext.Context, dbpool *pgxpool.Pool, opts ...query.CheckSummaryOptions) ([]models.CheckSummary, error) {
-	return query.CheckSummary(context.NewContext(ctx).WithDB(nil, dbpool), opts...)
+func QueryCheckSummary(ctx context.Context, dbpool *pgxpool.Pool, opts ...query.CheckSummaryOptions) ([]models.CheckSummary, error) {
+	return query.CheckSummary(ctx, opts...)
 }
