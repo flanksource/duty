@@ -147,7 +147,11 @@ func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
 	return db
 }
 
-func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Check, err error) {
+func FindCheckIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.Check, error) {
+	return FindChecks(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+}
+
+func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.Check, error) {
 	for _, rs := range resourceSelectors {
 		if rs.FieldSelector != "" {
 			return nil, fmt.Errorf("field selector is not supported for checks (%s)", rs.FieldSelector)
@@ -210,7 +214,11 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 	return lo.UniqBy(allChecks, models.CheckID), nil
 }
 
-func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) (components []models.Component, err error) {
+func FindComponentIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.Component, error) {
+	return FindComponents(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+}
+
+func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.Component, error) {
 	var allComponents []models.Component
 	for _, resourceSelector := range resourceSelectors {
 		hash := "FindComponents-CachePrefix" + resourceSelector.Hash()
@@ -276,6 +284,10 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 	}
 
 	return lo.UniqBy(allComponents, models.ComponentID), nil
+}
+
+func FindConfigIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.ConfigItem, error) {
+	return FindConfigs(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
 }
 
 func FindConfigs(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.ConfigItem, error) {
