@@ -22,6 +22,13 @@ var (
 	immutableCache = cache.New(cache.NoExpiration, time.Hour*12)
 )
 
+// CleanCache flushes the getter caches.
+// Mainly used by unit tests.
+func CleanCache() {
+	getterCache.Flush()
+	immutableCache.Flush()
+}
+
 func cacheKey[T any](field, key string) string {
 	var v T
 	return fmt.Sprintf("%T:%s=%s", v, field, key)
