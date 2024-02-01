@@ -147,8 +147,12 @@ func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
 	return db
 }
 
-func FindCheckIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.Check, error) {
-	return FindChecks(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+func FindCheckIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]uuid.UUID, error) {
+	items, err := FindChecks(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(items, func(c models.Check, _ int) uuid.UUID { return c.ID }), nil
 }
 
 func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.Check, error) {
@@ -214,8 +218,12 @@ func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors, 
 	return lo.UniqBy(allChecks, models.CheckID), nil
 }
 
-func FindComponentIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.Component, error) {
-	return FindComponents(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+func FindComponentIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]uuid.UUID, error) {
+	items, err := FindComponents(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(items, func(c models.Component, _ int) uuid.UUID { return c.ID }), nil
 }
 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.Component, error) {
@@ -286,8 +294,12 @@ func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelecto
 	return lo.UniqBy(allComponents, models.ComponentID), nil
 }
 
-func FindConfigIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]models.ConfigItem, error) {
-	return FindConfigs(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+func FindConfigIDs(ctx context.Context, resourceSelector types.ResourceSelector) ([]uuid.UUID, error) {
+	items, err := FindConfigs(ctx, []types.ResourceSelector{resourceSelector}, PickColumns("id"))
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(items, func(c models.ConfigItem, _ int) uuid.UUID { return c.ID }), nil
 }
 
 func FindConfigs(ctx context.Context, resourceSelectors types.ResourceSelectors, opts ...FindOption) ([]models.ConfigItem, error) {
