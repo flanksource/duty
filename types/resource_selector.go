@@ -27,6 +27,13 @@ type ResourceSelector struct {
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 }
 
+func (c ResourceSelector) IsEmpty() bool {
+	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && len(c.Types) == 0 &&
+		len(c.Statuses) == 0 &&
+		len(c.LabelSelector) == 0 &&
+		len(c.FieldSelector) == 0
+}
+
 // Immutable returns true if the selector can be cached indefinitely
 func (c ResourceSelector) Immutable() bool {
 	if c.ID != "" {

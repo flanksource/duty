@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		{
 			Name:      "agentID",
 			Selectors: []types.ResourceSelector{{Agent: dummy.CartAPIHeathCheckAgent.AgentID.String()}},
-			Results:   4,
+			Results:   1,
 		},
 		{
 			Name:      "type & statuses",
@@ -68,7 +68,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindChecks(DefaultContext, td.Selectors, duty.PickColumns("id"))
+			components, err := duty.FindCheckIDs(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindConfigs(DefaultContext, td.Selectors, duty.PickColumns("id"))
+			components, err := duty.FindConfigIDs(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -195,7 +195,7 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindComponents(DefaultContext, td.Selectors, duty.PickColumns("id", "path"))
+			components, err := duty.FindComponentIDs(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
