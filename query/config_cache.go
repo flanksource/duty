@@ -36,8 +36,6 @@ func configRelationCacheKey(id string) string {
 	return "configRelatedIDs:" + id
 }
 
-var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
-
 func SyncConfigCache(ctx context.Context) error {
 	var configItems []models.ConfigItem
 	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, func(*gorm.DB, int) error { return nil }).Error; err != nil {
@@ -48,7 +46,7 @@ func SyncConfigCache(ctx context.Context) error {
 	configIDTypeMap := make(map[string]string)
 	for _, ci := range configItems {
 		if err := configItemCache.Set(ctx, configItemCacheKey(ci.ID.String()), ci); err != nil {
-			return fmt.Errorf("error setting config item in cache: %w", err)
+			return fmt.Errorf("error caching config(%s): %w", ci.ID, err)
 		}
 
 		if ci.Type != nil {

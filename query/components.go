@@ -15,13 +15,17 @@ var (
 )
 
 func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Component, error) {
-	if len(ids) == 0 {
-		return nil, nil
+	var components []models.Component
+	for i := range ids {
+		c, err := ComponentFromCache(ctx, ids[i].String())
+		if err != nil {
+			return nil, err
+		}
+
+		components = append(components, c)
 	}
 
-	var components []models.Component
-	err := ctx.DB().Where(LocalFilter).Where("id IN ?", ids).Find(&components).Error
-	return components, err
+	return components, nil
 }
 
 func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors) ([]models.Component, error) {
