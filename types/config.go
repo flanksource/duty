@@ -5,8 +5,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 
-	"github.com/flanksource/commons/hash"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -25,12 +25,28 @@ type ConfigQuery struct {
 	Tags       map[string]string `json:"tags,omitempty"`
 }
 
-func (c ConfigQuery) Hash() string {
-	hash, err := hash.JSONMD5Hash(c)
-	if err != nil {
-		return ""
+func (c ConfigQuery) ToResourceSelector() ResourceSelector {
+	var labelSelectors []string
+	for k, v := range c.Tags {
+		labelSelectors = append(labelSelectors, fmt.Sprintf("%s=%s", k, v))
 	}
-	return hash
+
+	var fieldSelectors []string
+	if c.ExternalID != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("external_id=%s", c.ExternalID))
+	}
+	if c.Class != "" {
+		fieldSelectors = append(fieldSelectors, fmt.Sprintf("config_class=%s", c.Class))
+	}
+
+	return ResourceSelector{
+		ID:            c.ID[0],
+		Types:         Items{c.Type},
+		Name:          c.Name,
+		Namespace:     c.Namespace,
+		FieldSelector: strings.Join(fieldSelectors, ","),
+		LabelSelector: strings.Join(labelSelectors, ","),
+	}
 }
 
 func (c ConfigQuery) String() string {

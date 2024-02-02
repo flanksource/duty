@@ -9,6 +9,7 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/types"
 )
 
 // Lookup specifies the type of lookup to perform.
@@ -116,7 +117,11 @@ func LookupComponents(ctx context.Context, lookup LookupSpec, labels map[string]
 	if ctx.IsTrace() {
 		logger.Tracef("Finding all components (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
 	}
-	return query.FindComponentIDsByNameNamespaceType(ctx, lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+	return query.FindComponentIDs(ctx, types.ResourceSelector{
+		Namespace: lookupResult.Namespace,
+		Name:      lookupResult.Name,
+		Types:     []string{lookupResult.Type},
+	})
 }
 
 func LookupConfigs(ctx context.Context, lookup LookupSpec, labels map[string]string, env map[string]any) ([]uuid.UUID, error) {
@@ -130,5 +135,10 @@ func LookupConfigs(ctx context.Context, lookup LookupSpec, labels map[string]str
 	if ctx.IsTrace() {
 		logger.Tracef("Finding all config items (namespace=%s) (name=%s) (type=%s)", lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
 	}
-	return query.FindConfigIDsByNameNamespaceType(ctx, lookupResult.Namespace, lookupResult.Name, lookupResult.Type)
+
+	return query.FindConfigIDsByResourceSelector(ctx, types.ResourceSelector{
+		Namespace: lookupResult.Namespace,
+		Name:      lookupResult.Name,
+		Types:     []string{lookupResult.Type},
+	})
 }

@@ -18,6 +18,12 @@ type ResourceSelector struct {
 	//  Additionally, the special "self" value can be used to select resources without an agent.
 	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
 
+	// Cache directives
+	//  'no-cache' (should not fetch from cache but can be cached)
+	//  'no-store' (should not cache)
+	//  'max-age=X' (cache for X duration)
+	Cache string
+
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
 	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
