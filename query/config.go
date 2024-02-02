@@ -4,7 +4,6 @@ import (
 	gocontext "context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -51,31 +50,12 @@ func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...t
 	var allConfigs []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		hash := "FindConfigs-CachePrefix" + resourceSelector.Hash()
-		cacheToUse := getterCache
-		if resourceSelector.Immutable() {
-			cacheToUse = immutableCache
+		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", "tags", allowedColumnFieldsInConfigs)
+		if err != nil {
+			return nil, err
 		}
 
-		if val, ok := cacheToUse.Get(hash); ok {
-			allConfigs = append(allConfigs, val.([]uuid.UUID)...)
-			continue
-		}
-
-		if query := resourceSelectorQuery(ctx, resourceSelector, "tags", allowedColumnFieldsInConfigs); query != nil {
-			var ids []uuid.UUID
-			if err := query.Model(&models.ConfigItem{}).Find(&ids).Error; err != nil {
-				return nil, fmt.Errorf("error getting configs with selectors[%v]: %w", resourceSelector, err)
-			}
-
-			if len(ids) == 0 {
-				cacheToUse.Set(hash, ids, time.Minute) // if results weren't found cache it shortly even on the immutable cache
-			} else {
-				cacheToUse.SetDefault(hash, ids)
-			}
-
-			allConfigs = append(allConfigs, ids...)
-		}
+		allConfigs = append(allConfigs, items...)
 	}
 
 	return allConfigs, nil

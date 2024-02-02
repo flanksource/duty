@@ -2,22 +2,37 @@ package query
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/patrickmn/go-cache"
 )
 
-// resourceSelectorQuery returns an ANDed query from all the fields
-func resourceSelectorQuery(ctx context.Context, resourceSelector types.ResourceSelector, labelsColumn string, allowedColumnsAsFields []string) *gorm.DB {
+// queryResourceSelector runs the given resourceSelector and returns the resource ids
+func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table, labelsColumn string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
 	if resourceSelector.IsEmpty() {
-		return nil
+		return nil, nil
 	}
 
-	query := ctx.DB().Debug().Select("id").Where("deleted_at IS NULL")
+	hash := fmt.Sprintf("%s-%s", table, resourceSelector.Hash())
+	cacheToUse := getterCache
+	if resourceSelector.Immutable() {
+		cacheToUse = immutableCache
+	}
+
+	if resourceSelector.Cache != "no-cache" {
+		if val, ok := cacheToUse.Get(hash); ok {
+			return val.([]uuid.UUID), nil
+		}
+	}
+
+	query := ctx.DB().Select("id").Where("deleted_at IS NULL").Table(table)
 
 	if resourceSelector.ID != "" {
 		query = query.Where("id = ?", resourceSelector.ID)
@@ -43,7 +58,7 @@ func resourceSelectorQuery(ctx context.Context, resourceSelector types.ResourceS
 		} else { // assume it's an agent name
 			agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
 			if err != nil {
-				return nil
+				return nil, err
 			}
 			query = query.Where("agent_id = ?", agent.ID)
 		}
@@ -86,5 +101,28 @@ func resourceSelectorQuery(ctx context.Context, resourceSelector types.ResourceS
 		}
 	}
 
-	return query
+	var output []uuid.UUID
+	if err := query.Find(&output).Error; err != nil {
+		return nil, err
+	}
+
+	if resourceSelector.Cache != "no-store" {
+		cacheDuration := cache.DefaultExpiration
+		if len(output) == 0 {
+			cacheDuration = time.Minute // if results weren't found, cache it shortly even on the immutable cache
+		}
+
+		if strings.HasPrefix(resourceSelector.Cache, "max-age=") {
+			d, err := duration.ParseDuration(strings.TrimPrefix(resourceSelector.Cache, "max-age="))
+			if err != nil {
+				return nil, err
+			}
+
+			cacheDuration = time.Duration(d)
+		}
+
+		cacheToUse.Set(hash, output, cacheDuration)
+	}
+
+	return output, nil
 }
