@@ -96,14 +96,6 @@ func (c ConfigItem) Key() string {
 	return c.ID.String()
 }
 
-func (ConfigItem) LabelsColumn() string {
-	return "tags"
-}
-
-func (ConfigItem) TableName() string {
-	return "config_items"
-}
-
 func (ci *ConfigItem) SetParent(parent *ConfigItem) {
 	ci.ParentID = &parent.ID
 	ci.Path = parent.Path + "." + ci.ID.String()
