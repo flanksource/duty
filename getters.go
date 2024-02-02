@@ -23,9 +23,9 @@ func WhereClause(query any, args ...any) FindOption {
 	}
 }
 
-func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
-	for _, opt := range opts {
-		opt(db)
-	}
-	return db
-}
+// func apply(db *gorm.DB, opts ...FindOption) *gorm.DB {
+// 	for _, opt := range opts {
+// 		opt(db)
+// 	}
+// 	return db
+// }
