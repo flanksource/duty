@@ -2,13 +2,84 @@ package query
 
 import (
 	gocontext "context"
+	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var allowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
+
+func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem, error) {
+	var configs []models.ConfigItem
+	for i := range ids {
+		config, err := ConfigItemFromCache(ctx, ids[i].String())
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, config)
+	}
+
+	return configs, nil
+}
+
+func FindConfigs(ctx context.Context, config types.ConfigQuery) ([]models.ConfigItem, error) {
+	return FindConfigsByResourceSelector(ctx, config.ToResourceSelector())
+}
+
+func FindConfigIDs(ctx context.Context, config types.ConfigQuery) ([]uuid.UUID, error) {
+	return FindConfigIDsByResourceSelector(ctx, config.ToResourceSelector())
+}
+
+func FindConfigsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItem, error) {
+	items, err := FindConfigIDsByResourceSelector(ctx, resourceSelectors...)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetConfigsByIDs(ctx, items)
+}
+
+func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	var allConfigs []uuid.UUID
+
+	for _, resourceSelector := range resourceSelectors {
+		hash := "FindConfigs-CachePrefix" + resourceSelector.Hash()
+		cacheToUse := getterCache
+		if resourceSelector.Immutable() {
+			cacheToUse = immutableCache
+		}
+
+		if val, ok := cacheToUse.Get(hash); ok {
+			allConfigs = append(allConfigs, val.([]uuid.UUID)...)
+			continue
+		}
+
+		if query := resourceSelectorQuery(ctx, resourceSelector, "tags", allowedColumnFieldsInConfigs); query != nil {
+			var ids []uuid.UUID
+			if err := query.Model(&models.ConfigItem{}).Find(&ids).Error; err != nil {
+				return nil, fmt.Errorf("error getting configs with selectors[%v]: %w", resourceSelector, err)
+			}
+
+			if len(ids) == 0 {
+				cacheToUse.Set(hash, ids, time.Minute) // if results weren't found cache it shortly even on the immutable cache
+			} else {
+				cacheToUse.SetDefault(hash, ids)
+			}
+
+			allConfigs = append(allConfigs, ids...)
+		}
+	}
+
+	return allConfigs, nil
+}
 
 // Query executes a SQL query against the "config_" tables in the database.
 func Config(ctx context.Context, sqlQuery string) ([]map[string]any, error) {
@@ -71,6 +142,16 @@ func query(ctx context.Context, conn *pgxpool.Pool, query string) ([]map[string]
 	return results, nil
 }
 
-func FindConfigIDsByNameNamespaceType(ctx context.Context, namespace, name, configType string) ([]uuid.UUID, error) {
-	return lookupIDs(ctx, "config_items", namespace, name, configType)
+func FindConfigForComponent(ctx context.Context, componentID, configType string) ([]models.ConfigItem, error) {
+	db := ctx.DB()
+	relationshipQuery := db.Table("config_component_relationships").
+		Select("config_id").
+		Where("component_id = ? AND deleted_at IS NULL", componentID)
+	query := db.Table("config_items").Where("id IN (?)", relationshipQuery)
+	if configType != "" {
+		query = query.Where("type = @config_type OR config_class = @config_type", sql.Named("config_type", configType))
+	}
+	var dbConfigObjects []models.ConfigItem
+	err := query.Find(&dbConfigObjects).Error
+	return dbConfigObjects, err
 }

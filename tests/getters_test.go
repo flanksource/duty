@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 	"github.com/onsi/ginkgo/v2"
@@ -68,7 +68,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindCheckIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindCheckIDs(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindConfigIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -195,7 +195,7 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := duty.FindComponentIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindComponentIDs(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
