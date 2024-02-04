@@ -16,7 +16,9 @@ import (
 
 var dbRowsAffected = attribute.Key("db.rows_affected")
 
-const TracePaused = "trace-paused"
+type paused string
+
+const TracePaused paused = "trace-paused"
 
 type otelPlugin struct {
 	provider         trace.TracerProvider

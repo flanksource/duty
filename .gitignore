@@ -1,2 +1,3 @@
 .bin
 *.out.json
+ginkgo.report

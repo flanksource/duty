@@ -125,6 +125,9 @@ table "component_relationships" {
     unique  = true
     columns = [column.component_id, column.relationship_id, column.selector_id]
   }
+  index "idx_component_relationships_deleted_at" {
+    columns = [column.deleted_at]
+  }
 }
 
 table "components" {
@@ -319,6 +322,18 @@ table "components" {
     unique  = true
     columns = [column.topology_id, column.type, column.name, column.parent_id]
   }
+
+  index "idx_components_deleted_at" {
+    columns = [column.deleted_at]
+  }
+
+  index "idx_components_agent" {
+    columns = [column.agent_id]
+  }
+
+  index "idx_components_parent_id" {
+    columns = [column.parent_id]
+  }
 }
 
 table "check_component_relationships" {
@@ -375,6 +390,11 @@ table "check_component_relationships" {
     unique  = true
     columns = [column.component_id, column.check_id, column.canary_id, column.selector_id]
   }
+
+  index "idx_check_component_relationships_deleted_at" {
+    columns = [column.deleted_at]
+  }
+
 }
 
 table "config_component_relationships" {
@@ -420,5 +440,8 @@ table "config_component_relationships" {
   index "config_component_relationships_component_id_config_id_key" {
     unique  = true
     columns = [column.component_id, column.config_id]
+  }
+  index "idx_config_component_relationships_deleted_at" {
+    columns = [column.deleted_at]
   }
 }

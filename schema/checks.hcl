@@ -254,6 +254,14 @@ table "checks" {
   index "checks_canary_id_transformed_idx" {
     columns = [column.canary_id, column.transformed]
   }
+
+  index "idx_checks_agent" {
+    columns = [column.agent_id]
+  }
+
+  index "idx_checks_deleted_at" {
+    columns = [column.deleted_at]
+  }
 }
 
 table "check_statuses_1h" {
