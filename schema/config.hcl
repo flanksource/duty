@@ -305,6 +305,14 @@ table "config_items" {
     columns = [column.external_id]
     type    = GIN
   }
+  index "idx_config_items_deleted_at" {
+    columns = [column.deleted_at]
+  }
+
+  index "idx_config_items_agent" {
+    columns = [column.agent_id]
+  }
+
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
@@ -357,6 +365,9 @@ table "config_relationships" {
   index "config_relationships_related_id_config_id_selector_id_key" {
     unique  = true
     columns = [column.related_id, column.config_id, column.selector_id]
+  }
+  index "idx_config_relationships_deleted_at" {
+    columns = [column.deleted_at]
   }
 }
 
