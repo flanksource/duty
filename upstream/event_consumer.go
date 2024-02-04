@@ -119,6 +119,8 @@ func NewPushUpstreamConsumer(config UpstreamConfig) func(ctx context.Context, ev
 
 // PushToUpstream fetches records specified in events from this instance and sends them to the upstream instance.
 func PushToUpstream(ctx context.Context, config UpstreamConfig, events []postq.Event) []postq.Event {
+	ctx, span := ctx.StartSpan("PushToUpstream")
+	defer span.End()
 	upstreamMsg := &PushData{
 		AgentName: config.AgentName,
 	}
