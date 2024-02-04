@@ -22,7 +22,7 @@ type ResourceSelector struct {
 	//  'no-cache' (should not fetch from cache but can be cached)
 	//  'no-store' (should not cache)
 	//  'max-age=X' (cache for X duration)
-	Cache string
+	Cache string `yaml:"cache,omitempty" json:"cache,omitempty"`
 
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
