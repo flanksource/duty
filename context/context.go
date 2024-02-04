@@ -179,6 +179,19 @@ func (k Context) FastDB() *gorm.DB {
 	return db
 }
 
+// Fast with limiting tracing and db logging
+func (k Context) Fast() Context {
+	return k.WithoutTracing().WithDBLogLevel("warn")
+}
+
+func (k Context) IsTracing() bool {
+	return k.Value(tracing.TracePaused) == nil
+}
+
+func (k Context) WithoutTracing() Context {
+	return k.WithAnyValue(tracing.TracePaused, "true")
+}
+
 func (k Context) DB() *gorm.DB {
 	val := k.Value("db")
 	if val == nil {
