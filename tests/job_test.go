@@ -32,12 +32,13 @@ var _ = Describe("Job", Ordered, func() {
 		}
 		_ = context.UpdateProperty(ctx, "test.trace", "true")
 		_ = context.UpdateProperty(ctx, "test.db.level", "trace")
+		_ = context.UpdateProperty(ctx, "job.eviction.period", "1s")
 
 		sampleJob.Run()
-		Expect(sampleJob.Retention.Success).To(Equal(3))
+		Expect(sampleJob.Retention.Success).To(Equal(1))
 		Expect(sampleJob.Retention.Failed).To(Equal(3))
-		Expect(sampleJob.Retention.Age).To(Equal(time.Hour * 24 * 30))
-		Expect(sampleJob.Retention.Interval).To(Equal(time.Hour))
+		Expect(sampleJob.Retention.Age).To(Equal(time.Hour * 24))
+		Expect(sampleJob.Retention.Interval).To(Equal(time.Hour * 4))
 
 		current := counter.Load()
 		go sampleJob.Run()
@@ -67,15 +68,12 @@ var _ = Describe("Job", Ordered, func() {
 		sampleJob.Singleton = false
 		sampleJob.Run()
 		sampleJob.Run()
-		sampleJob.Retention.Interval = time.Millisecond
-		sampleJob.Retention.Success = 1
-		sampleJob.Retention.Failed = 1
 		sampleJob.Run()
 
 		Eventually(func() []models.JobHistory {
 			items, _ := sampleJob.FindHistory()
 			time.Sleep(time.Millisecond * 250)
 			return items
-		}, "10s").Should(HaveLen(2))
+		}, "10s").Should(HaveLen(3))
 	})
 })
