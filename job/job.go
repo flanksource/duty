@@ -1,6 +1,7 @@
 package job
 
 import (
+	"container/ring"
 	gocontext "context"
 	"fmt"
 	"sync"
@@ -22,39 +23,56 @@ const (
 	ResourceTypeUpstream      = "upstream"
 )
 
+var evictedJobs chan uuid.UUID
+
+// deleteEvictedJobs deletes job_history rows from the DB every job.eviction.period(1m),
+// jobs send rows to be deleted by maintaining a circular buffer by status type
+func deleteEvictedJobs(ctx context.Context) {
+	period := ctx.Properties().Duration("job.eviction.period", time.Minute)
+	ctx.Infof("Cleaning up jobs every %v", period)
+	for {
+		items, _, _, _ := lo.BufferWithTimeout(evictedJobs, 32, 5*time.Second)
+		if len(items) == 0 {
+			time.Sleep(period)
+			continue
+		}
+		if tx := ctx.DB().Exec("DELETE FROM job_history WHERE id in ?", items); tx.Error != nil {
+			ctx.Errorf("Failed to delete job entries: %v", tx.Error)
+			time.Sleep(1 * time.Minute)
+		} else {
+			ctx.Tracef("Deleted %d job history items", tx.RowsAffected)
+		}
+	}
+}
+
 var RetentionHour = Retention{
-	Success:  1,
-	Failed:   3,
-	Age:      time.Hour,
-	Interval: 5 * time.Minute,
+	Success: 1,
+	Failed:  3,
+	Age:     time.Hour,
 }
 
 var RetentionFailed = Retention{
-	Success:  0,
-	Failed:   1,
-	Age:      time.Hour,
-	Interval: 15 * time.Minute,
+	Success: 0,
+	Failed:  1,
+	Age:     time.Hour * 24 * 2,
 }
 
 var RetentionShort = Retention{
-	Success:  1,
-	Failed:   1,
-	Age:      time.Hour,
-	Interval: 5 * time.Minute,
+	Success: 1,
+	Failed:  1,
+	Age:     time.Hour,
 }
 
 var RetentionDay = Retention{
-	Success:  3,
-	Failed:   3,
-	Age:      time.Hour,
-	Interval: time.Hour * 24,
+	Success: 3,
+	Failed:  3,
+	Age:     time.Hour * 24,
 }
 
 var Retention3Day = Retention{
-	Success:  3,
-	Failed:   3,
-	Age:      time.Hour * 24 * 3,
-	Interval: time.Hour * 4,
+	Success: 3,
+	Failed:  3,
+	Age:     time.Hour * 24 * 3,
 }
 
 type Job struct {
@@ -76,12 +94,60 @@ type Job struct {
 	LastJob                  *models.JobHistory
 	initialized              bool
 	unschedule               func()
+	statusRing               StatusRing
+}
+
+type StatusRing struct {
+	lock      sync.Mutex
+	rings     map[string]*ring.Ring
+	evicted   chan uuid.UUID
+	retention Retention
+}
+
+func newStatusRing(r Retention, evicted chan uuid.UUID) StatusRing {
+	return StatusRing{
+		lock:      sync.Mutex{},
+		retention: r,
+		rings:     make(map[string]*ring.Ring),
+		evicted:   evicted,
+	}
+}
+
+func (sr *StatusRing) Add(job *models.JobHistory) {
+	sr.lock.Lock()
+	defer sr.lock.Unlock()
+	var r *ring.Ring
+	var ok bool
+	if r, ok = sr.rings[job.Status]; !ok {
+		r = ring.New(sr.retention.Count(job.Status) + 1)
+		sr.rings[job.Status] = r
+	}
+	r.Value = job.ID
+	r = r.Next()
+
+	if r.Value != nil {
+		sr.evicted <- r.Value.(uuid.UUID)
+	}
+	sr.rings[job.Status] = r
 }
 
 type Retention struct {
 	Success, Failed int
 	Age             time.Duration
 	Interval        time.Duration
+	Data            bool
+}
+
+func (r Retention) Count(status string) int {
+	if status == models.StatusAborted || status == models.StatusFailed || status == models.StatusWarning {
+		return r.Failed
+	}
+	return r.Success
+}
+
+func (r Retention) WithData() Retention {
+	r.Data = true
+	return r
 }
 
 func (r Retention) String() string {
@@ -129,6 +195,7 @@ func (j *JobRuntime) end() {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
+	j.Job.statusRing.Add(j.History)
 }
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
@@ -224,7 +291,7 @@ func (j *Job) cleanupHistory() int {
 
 func (j *Job) Run() {
 	j.init()
-	if j.lastRun == nil || time.Since(*j.lastRun) > j.Retention.Interval {
+	if j.lastRun != nil && time.Since(*j.lastRun) > j.Retention.Interval {
 		defer j.cleanupHistory()
 	}
 	j.lastRun = lo.ToPtr(time.Now())
@@ -285,6 +352,10 @@ func getProperty(j *Job, properties map[string]string, property string) (string,
 }
 
 func (j *Job) init() {
+	if evictedJobs == nil {
+		evictedJobs = make(chan uuid.UUID, 1000)
+		go deleteEvictedJobs(j.Context)
+	}
 	if j.initialized {
 		return
 	}
@@ -318,27 +389,25 @@ func (j *Job) init() {
 		j.Debug = debug == "true"
 	}
 
+	if j.Retention.Age.Nanoseconds() == 0 {
+		j.Retention = Retention{
+			Success: 1, Failed: 3,
+			Age: time.Hour * 24,
+		}
+	}
+
 	if interval, ok := getProperty(j, properties, "retention.interval"); ok {
 		duration, err := time.ParseDuration(interval)
 		if err != nil {
 			j.Context.Warnf("invalid timeout %s", interval)
 		}
 		j.Retention.Interval = duration
+	} else {
+		j.Retention.Interval = 4 * time.Hour
 	}
 
-	if j.Retention.Interval.Nanoseconds() == 0 {
-		j.Retention = Retention{
-			Success: 3, Failed: 3,
-			Interval: time.Hour * 1,
-			Age:      time.Hour * 24 * 30,
-		}
-	}
-	if j.Retention.Age.Nanoseconds() == 0 {
-		j.Retention.Age = time.Hour * 24 * 7
-	}
-	if j.Retention.Interval.Nanoseconds() == 0 {
-		j.Retention.Interval = time.Hour
-	}
+	j.statusRing = newStatusRing(j.Retention, evictedJobs)
+
 	if j.ID != "" {
 		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ID))
 	} else {
