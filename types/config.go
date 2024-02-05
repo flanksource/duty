@@ -39,14 +39,20 @@ func (c ConfigQuery) ToResourceSelector() ResourceSelector {
 		fieldSelectors = append(fieldSelectors, fmt.Sprintf("config_class=%s", c.Class))
 	}
 
-	return ResourceSelector{
-		ID:            c.ID[0],
-		Types:         Items{c.Type},
+	rs := ResourceSelector{
 		Name:          c.Name,
 		Namespace:     c.Namespace,
 		FieldSelector: strings.Join(fieldSelectors, ","),
 		LabelSelector: strings.Join(labelSelectors, ","),
 	}
+	if len(c.ID) > 0 {
+		rs.ID = c.ID[0] // TODO: Add support for multiple ids in the resource selector (or remove multiple IDs from the config query)
+	}
+	if len(c.Type) > 0 {
+		rs.Types = Items{c.Type}
+	}
+
+	return rs
 }
 
 func (c ConfigQuery) String() string {

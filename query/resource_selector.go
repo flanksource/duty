@@ -50,18 +50,18 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
 
-	if resourceSelector.Agent != "" {
-		if resourceSelector.Agent == "self" {
-			query = query.Where("agent_id = ?", uuid.Nil)
-		} else if uid, err := uuid.Parse(resourceSelector.Agent); err == nil {
-			query = query.Where("agent_id = ?", uid)
-		} else { // assume it's an agent name
-			agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
-			if err != nil {
-				return nil, err
-			}
-			query = query.Where("agent_id = ?", agent.ID)
+	if resourceSelector.Agent == "" {
+		query = query.Where("agent_id = ?", uuid.Nil)
+	} else if resourceSelector.Agent == "all" {
+		// do nothing
+	} else if uid, err := uuid.Parse(resourceSelector.Agent); err == nil {
+		query = query.Where("agent_id = ?", uid)
+	} else { // assume it's an agent name
+		agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
+		if err != nil {
+			return nil, err
 		}
+		query = query.Where("agent_id = ?", agent.ID)
 	}
 
 	if len(resourceSelector.LabelSelector) > 0 {
