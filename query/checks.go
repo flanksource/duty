@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func FindChecks(ctx context.Context, resourceSelectors types.ResourceSelectors) ([]models.Check, error) {
+func FindChecks(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.Check, error) {
 	ids, err := FindCheckIDs(ctx, resourceSelectors...)
 	if err != nil {
 		return nil, err
