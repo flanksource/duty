@@ -19,6 +19,11 @@ var (
 	immutableCache = cache.New(cache.NoExpiration, time.Hour*12)
 )
 
+func FlushGettersCache() {
+	getterCache.Flush()
+	immutableCache.Flush()
+}
+
 type GetterOption uint8
 
 const (
