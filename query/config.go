@@ -29,6 +29,19 @@ func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem,
 	return configs, nil
 }
 
+func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigItem, error) {
+	res, err := FindConfigsByResourceSelector(ctx, query.ToResourceSelector())
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res) == 0 {
+		return nil, nil
+	}
+
+	return &res[0], nil
+}
+
 func FindConfigs(ctx context.Context, config types.ConfigQuery) ([]models.ConfigItem, error) {
 	return FindConfigsByResourceSelector(ctx, config.ToResourceSelector())
 }

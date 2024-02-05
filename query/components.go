@@ -25,7 +25,7 @@ func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Componen
 	return components, nil
 }
 
-func FindComponents(ctx context.Context, resourceSelectors types.ResourceSelectors) ([]models.Component, error) {
+func FindComponents(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.Component, error) {
 	items, err := FindComponentIDs(ctx, resourceSelectors...)
 	if err != nil {
 		return nil, err
