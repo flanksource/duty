@@ -8,7 +8,11 @@ import (
 )
 
 var (
-	allowedColumnFieldsInComponents = []string{"owner", "topology_type"}
+	allowedColumnFieldsInComponents = []string{
+		"owner",
+		"topology_type",
+		"type", // Deprecated. Use resource_selector.types instead
+	}
 )
 
 func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Component, error) {

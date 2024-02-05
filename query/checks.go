@@ -44,6 +44,6 @@ func GetChecksByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Check, error
 	}
 
 	var checks []models.Check
-	err := ctx.DB().Where(LocalFilter).Where("id IN ?", ids).Find(&checks).Error
+	err := ctx.DB().Where("deleted_at IS NULL").Where("id IN ?", ids).Find(&checks).Error
 	return checks, err
 }

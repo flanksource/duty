@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,8 +13,13 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 
 	"github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/store"
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 )
+
+func FlushConfigCache(ctx context.Context) error {
+	return configItemRelatedTypeCache.Clear(ctx)
+}
 
 // <id>/<related_type> -> []related_ids
 var configItemRelatedTypeCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
@@ -87,7 +93,22 @@ func ConfigIDsByTypeFromCache(ctx context.Context, id, typ string) ([]string, er
 }
 
 func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, error) {
-	return configItemCache.Get(ctx, configItemCacheKey(id))
+	c, err := configItemCache.Get(ctx, configItemCacheKey(id))
+	if err != nil {
+		var cacheErr *store.NotFound
+		if !errors.As(err, &cacheErr) {
+			return c, err
+		}
+
+		var ci models.ConfigItem
+		if err := ctx.DB().Where("id = ?", id).Where("deleted_at IS NULL").First(&ci).Error; err != nil {
+			return ci, err
+		}
+
+		return ci, configItemCache.Set(ctx, configItemCacheKey(id), ci)
+	}
+
+	return c, nil
 }
 
 func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
