@@ -212,14 +212,6 @@ table "playbook_runs" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  check "check_component_or_config_or_check" {
-    expr    = <<EOF
-    (component_id IS NOT NULL AND config_id IS NULL AND check_id IS NULL) OR
-    (component_id IS NULL AND config_id IS NOT NULL AND check_id IS NULL) OR
-    (component_id IS NULL AND config_id IS NULL AND check_id IS NOT NULL)
-    EOF
-    comment = "Need exactly one of the following: check id, component id, or config id."
-  }
 }
 
 table "playbook_action_agent_data" {
