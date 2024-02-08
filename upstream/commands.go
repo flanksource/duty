@@ -195,10 +195,11 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	for i := range req.PlaybookActions {
 		updates := map[string]any{
-			"result":   req.PlaybookActions[i].Result,
-			"end_time": req.PlaybookActions[i].EndTime,
-			"status":   req.PlaybookActions[i].Status,
-			"error":    req.PlaybookActions[i].Error,
+			"result":     req.PlaybookActions[i].Result,
+			"start_time": req.PlaybookActions[i].StartTime,
+			"end_time":   req.PlaybookActions[i].EndTime,
+			"status":     req.PlaybookActions[i].Status,
+			"error":      req.PlaybookActions[i].Error,
 		}
 		if err := db.Model(&models.PlaybookRunAction{}).Where("id = ?", req.PlaybookActions[i].ID).Updates(updates).Error; err != nil {
 			return fmt.Errorf("error updating playbook action [%s]: %w", req.PlaybookActions[i].ID, err)
