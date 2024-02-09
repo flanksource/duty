@@ -424,3 +424,19 @@ CREATE OR REPLACE VIEW config_detail AS
     LEFT JOIN 
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs GROUP BY config_id) as playbook_runs
       ON ci.id = playbook_runs.config_id;
+
+CREATE OR REPLACE VIEW config_analysis_items AS
+  SELECT
+    ca.*,
+    ci.type as config_type,
+    ci.config_class
+  FROM config_analysis as ca
+    LEFT JOIN config_items as ci ON ca.config_id = ci.id;
+
+CREATE OR REPLACE VIEW config_changes_items AS
+  SELECT
+    cc.*,
+    ci.type as config_type,
+    ci.config_class
+  FROM config_changes as cc
+    LEFT JOIN config_items as ci ON cc.config_id = ci.id;
