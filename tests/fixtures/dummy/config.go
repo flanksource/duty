@@ -140,3 +140,17 @@ var AzureConfigScraper = models.ConfigScraper{
 }
 
 var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper}
+
+var ClusterNodeARelationship = models.ConfigRelationship{
+	ConfigID:  KubernetesCluster.ID.String(),
+	RelatedID: KubernetesNodeA.ID.String(),
+	Relation:  "ClusterNode",
+}
+
+var ClusterNodeBRelationship = models.ConfigRelationship{
+	ConfigID:  KubernetesCluster.ID.String(),
+	RelatedID: KubernetesNodeB.ID.String(),
+	Relation:  "ClusterNode",
+}
+
+var AllConfigRelationships = []models.ConfigRelationship{ClusterNodeARelationship, ClusterNodeBRelationship}
