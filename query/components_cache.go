@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
 
 	"github.com/eko/gocache/lib/v4/cache"
@@ -24,15 +25,26 @@ const cacheJobBatchSize = 1000
 // <id> -> models.Component
 var componentCache = cache.New[models.Component](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
 
+// <name/type/parentID/topologyID> -> models.Component
+var componentNameTypeParentTopologyCache = cache.New[models.Component](gocache_store.NewGoCache(gocache.New(30*time.Minute, 30*time.Minute)))
+
 func componentCacheKey(id string) string {
 	return "componentID:" + id
 }
 
+func componentNameTypeParentTopologyCacheKey(name, typ string, parentID *uuid.UUID, topologyID string) string {
+	pID := uuid.Nil.String()
+	if parentID != nil {
+		pID = parentID.String()
+	}
+	return name + typ + pID + topologyID
+}
+
 func SyncComponentCache(ctx context.Context) error {
-	var next string
+	next := uuid.Nil.String()
 	for {
 		var components []models.Component
-		if err := ctx.DB().Where("deleted_at IS NULL").Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
+		if err := ctx.DB().Where("agent_id = ?", uuid.Nil).Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
 			return fmt.Errorf("error querying components for cache: %w", err)
 		}
 
@@ -40,9 +52,14 @@ func SyncComponentCache(ctx context.Context) error {
 			break
 		}
 
-		for _, ci := range components {
-			if err := componentCache.Set(ctx, componentCacheKey(ci.ID.String()), ci); err != nil {
-				return fmt.Errorf("error caching component(%s): %w", ci.ID, err)
+		for _, comp := range components {
+			if err := componentCache.Set(ctx, componentCacheKey(comp.ID.String()), comp); err != nil {
+				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
+			}
+
+			cacheKey := componentNameTypeParentTopologyCacheKey(comp.Name, comp.Type, comp.ParentId, comp.TopologyID.String())
+			if err := componentNameTypeParentTopologyCache.Set(ctx, cacheKey, comp); err != nil {
+				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
 			}
 		}
 
@@ -57,7 +74,7 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 	if err != nil {
 		var cacheErr *store.NotFound
 		if !errors.As(err, &cacheErr) {
-			return c, err
+			return c, fmt.Errorf("error fetching component[%s] from cache: %w", id, err)
 		}
 
 		var component models.Component
@@ -69,6 +86,11 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 	}
 
 	return c, nil
+}
+
+func ComponentFromByNameTypeParentTopology(ctx context.Context, name, typ string, parentID *uuid.UUID, topologyID string) (models.Component, error) {
+	cacheKey := componentNameTypeParentTopologyCacheKey(name, typ, parentID, topologyID)
+	return componentNameTypeParentTopologyCache.Get(ctx, cacheKey)
 }
 
 var SyncComponentCacheJob = &job.Job{
