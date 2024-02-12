@@ -32,19 +32,19 @@ func componentCacheKey(id string) string {
 	return "componentID:" + id
 }
 
-func componentNameTypeParentTopologyCacheKey(name, typ string, parentID *uuid.UUID, topologyID string) string {
+func componentNameTypeParentTopologyCacheKey(name, typ string, parentID *uuid.UUID, topologyID, agentID string) string {
 	pID := uuid.Nil.String()
 	if parentID != nil {
 		pID = parentID.String()
 	}
-	return name + typ + pID + topologyID
+	return name + typ + pID + topologyID + agentID
 }
 
 func SyncComponentCache(ctx context.Context) error {
 	next := uuid.Nil.String()
 	for {
 		var components []models.Component
-		if err := ctx.DB().Where("agent_id = ?", uuid.Nil).Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
+		if err := ctx.DB().Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
 			return fmt.Errorf("error querying components for cache: %w", err)
 		}
 
@@ -57,7 +57,7 @@ func SyncComponentCache(ctx context.Context) error {
 				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
 			}
 
-			cacheKey := componentNameTypeParentTopologyCacheKey(comp.Name, comp.Type, comp.ParentId, comp.TopologyID.String())
+			cacheKey := componentNameTypeParentTopologyCacheKey(comp.Name, comp.Type, comp.ParentId, comp.TopologyID.String(), comp.AgentID.String())
 			if err := componentNameTypeParentTopologyCache.Set(ctx, cacheKey, comp); err != nil {
 				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
 			}
@@ -88,8 +88,8 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 	return c, nil
 }
 
-func ComponentFromByNameTypeParentTopology(ctx context.Context, name, typ string, parentID *uuid.UUID, topologyID string) (models.Component, error) {
-	cacheKey := componentNameTypeParentTopologyCacheKey(name, typ, parentID, topologyID)
+func ComponentFromByNameTypeParentTopology(ctx context.Context, name, typ string, parentID *uuid.UUID, topologyID, agentID string) (models.Component, error) {
+	cacheKey := componentNameTypeParentTopologyCacheKey(name, typ, parentID, topologyID, agentID)
 	return componentNameTypeParentTopologyCache.Get(ctx, cacheKey)
 }
 
