@@ -440,3 +440,65 @@ CREATE OR REPLACE VIEW config_changes_items AS
     ci.config_class
   FROM config_changes as cc
     LEFT JOIN config_items as ci ON cc.config_id = ci.id;
+
+
+DROP FUNCTION IF EXISTS related_configs(UUID, BOOLEAN);
+
+CREATE FUNCTION related_configs (
+  config_id UUID,
+  include_deleted_configs BOOLEAN
+)
+RETURNS TABLE (
+  relation TEXT,
+  relation_type TEXT,
+  config JSONB
+) AS $$
+BEGIN
+  RETURN query
+    SELECT
+      config_relationships.relation,
+      'outgoing' AS relation_type,
+      jsonb_build_object(
+        'id', c.id,
+        'name', c.name, 
+        'type', c.type, 
+        'tags', c.tags, 
+        'changes', c.changes,
+        'analysis', c.analysis,
+        'cost_per_minute', c.cost_per_minute,
+        'cost_total_1d', c.cost_total_1d,
+        'cost_total_7d', c.cost_total_7d,
+        'cost_total_30d', c.cost_total_30d,
+        'created_at', c.created_at, 
+        'updated_at', c.updated_at
+      ) AS config
+    FROM config_relationships
+      INNER JOIN configs AS c ON config_relationships.related_id = c.id AND ($2 OR c.deleted_at IS NULL)
+    WHERE
+      config_relationships.deleted_at IS NULL
+      AND config_relationships.config_id = $1
+    UNION
+    SELECT
+      config_relationships.relation,
+      'incoming' AS relation_type,
+       jsonb_build_object(
+        'id', c.id,
+        'name', c.name, 
+        'type', c.type, 
+        'tags', c.tags, 
+        'changes', c.changes,
+        'analysis', c.analysis,
+        'cost_per_minute', c.cost_per_minute,
+        'cost_total_1d', c.cost_total_1d,
+        'cost_total_7d', c.cost_total_7d,
+        'cost_total_30d', c.cost_total_30d,
+        'created_at', c.created_at, 
+        'updated_at', c.updated_at
+      ) AS config
+    FROM config_relationships
+      INNER JOIN configs AS c ON config_relationships.config_id = c.id AND ($2 OR c.deleted_at IS NULL)
+    WHERE
+      config_relationships.deleted_at IS NULL
+      AND config_relationships.related_id = $1;
+END;
+$$ LANGUAGE plpgsql;

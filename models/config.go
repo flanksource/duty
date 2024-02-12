@@ -265,3 +265,16 @@ func (e ExternalID) CacheKey() string {
 func (e ExternalID) WhereClause(db *gorm.DB) *gorm.DB {
 	return db.Where("type = ? AND external_id  @> ?", e.ConfigType, pq.StringArray(e.ExternalID))
 }
+
+type RelatedConfigType string
+
+const (
+	RelatedConfigTypeIncoming RelatedConfigType = "incoming"
+	RelatedConfigTypeOutgoing RelatedConfigType = "outgoing"
+)
+
+type RelatedConfig struct {
+	Relation string            `json:"relation"`
+	Type     RelatedConfigType `json:"relation_type" gorm:"column:relation_type"`
+	Config   types.JSONMap     `json:"config"`
+}

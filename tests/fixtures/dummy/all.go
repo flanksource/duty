@@ -24,6 +24,7 @@ type DummyData struct {
 	ComponentRelationships []models.ComponentRelationship
 
 	Configs                      []models.ConfigItem
+	ConfigRelationships          []models.ConfigRelationship
 	ConfigScrapers               []models.ConfigScraper
 	ConfigChanges                []models.ConfigChange
 	ConfigAnalyses               []models.ConfigAnalysis
@@ -88,6 +89,13 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		}
 	}
 	for _, c := range t.Configs {
+		c.CreatedAt = createTime
+		err = gormDB.Create(&c).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, c := range t.ConfigRelationships {
 		c.CreatedAt = createTime
 		err = gormDB.Create(&c).Error
 		if err != nil {
@@ -320,6 +328,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
+		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
 		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),
 		ConfigComponentRelationships: append([]models.ConfigComponentRelationship{}, AllDummyConfigComponentRelationships...),
 		Teams:                        append([]models.Team{}, AllDummyTeams...),
@@ -832,6 +841,22 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		LogisticsDBRDS,
 	}
 
+	var ClusterNodeARelationship = models.ConfigRelationship{
+		ConfigID:  KubernetesCluster.ID.String(),
+		RelatedID: KubernetesNodeA.ID.String(),
+		Relation:  "ClusterNode",
+		CreatedAt: DummyCreatedAt,
+	}
+
+	var ClusterNodeBRelationship = models.ConfigRelationship{
+		ConfigID:  KubernetesCluster.ID.String(),
+		RelatedID: KubernetesNodeB.ID.String(),
+		Relation:  "ClusterNode",
+		CreatedAt: DummyCreatedAt,
+	}
+
+	var configRelationships = []models.ConfigRelationship{ClusterNodeARelationship, ClusterNodeBRelationship}
+
 	var LogisticsDBRDSAnalysis = models.ConfigAnalysis{
 		ID:            uuid.New(),
 		ConfigID:      LogisticsDBRDS.ID,
@@ -1106,6 +1131,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		Components:             components,
 		ComponentRelationships: componentRelationships,
 
+		ConfigRelationships:          configRelationships,
 		ConfigScrapers:               configScrapers,
 		Configs:                      configs,
 		ConfigChanges:                configChanges,

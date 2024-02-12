@@ -34,6 +34,7 @@ const (
 	ConnectionTypeGenericWebhook = "generic_webhook"
 	ConnectionTypeGit            = "git"
 	ConnectionTypeGithub         = "github"
+	ConnectionTypeGitlab         = "gitlab"
 	ConnectionTypeGoogleChat     = "google_chat"
 	ConnectionTypeHTTP           = "http"
 	ConnectionTypeIFTTT          = "ifttt"
