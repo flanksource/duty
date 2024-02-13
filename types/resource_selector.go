@@ -18,9 +18,6 @@ type ResourceSelector struct {
 	//  Additionally, the special "self" value can be used to select resources without an agent.
 	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
 
-	// Set this to "nil" to query it as NULL or give a uuid
-	ParentID string `yaml:"parent_id,omitempty" json:"parent_id,omitempty"`
-
 	// Cache directives
 	//  'no-cache' (should not fetch from cache but can be cached)
 	//  'no-store' (should not cache)

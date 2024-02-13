@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
 )
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
@@ -64,14 +65,6 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		query = query.Where("agent_id = ?", agent.ID)
 	}
 
-	if resourceSelector.ParentID != "" {
-		if resourceSelector.ParentID == "nil" {
-			query = query.Where("parent_id IS NULL")
-		} else {
-			query = query.Where("parent_id = ?", resourceSelector.ParentID)
-		}
-	}
-
 	if len(resourceSelector.LabelSelector) > 0 {
 		labels := collections.SelectorToMap(resourceSelector.LabelSelector)
 		var onlyKeys []string
@@ -90,11 +83,11 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 
 	if len(resourceSelector.FieldSelector) > 0 {
 		fields := collections.SelectorToMap(resourceSelector.FieldSelector)
-		columnWhereClauses := map[string]string{}
+		columnWhereClauses := map[string]any{}
 		var props models.Properties
 		for k, v := range fields {
 			if collections.Contains(allowedColumnsAsFields, k) {
-				columnWhereClauses[k] = v
+				columnWhereClauses[k] = lo.Ternary[any](v == "nil", nil, v)
 			} else {
 				props = append(props, &models.Property{Name: k, Text: v})
 			}
