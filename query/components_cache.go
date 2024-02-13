@@ -25,19 +25,8 @@ const cacheJobBatchSize = 1000
 // <id> -> models.Component
 var componentCache = cache.New[models.Component](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
 
-// <name/type/parentID/topologyID> -> models.Component
-var componentNameTypeParentTopologyCache = cache.New[models.Component](gocache_store.NewGoCache(gocache.New(30*time.Minute, 30*time.Minute)))
-
 func componentCacheKey(id string) string {
 	return "componentID:" + id
-}
-
-func componentNameTypeParentTopologyCacheKey(name, typ string, parentID *uuid.UUID, topologyID, agentID string) string {
-	pID := uuid.Nil.String()
-	if parentID != nil {
-		pID = parentID.String()
-	}
-	return name + typ + pID + topologyID + agentID
 }
 
 func SyncComponentCache(ctx context.Context) error {
@@ -54,11 +43,6 @@ func SyncComponentCache(ctx context.Context) error {
 
 		for _, comp := range components {
 			if err := componentCache.Set(ctx, componentCacheKey(comp.ID.String()), comp); err != nil {
-				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
-			}
-
-			cacheKey := componentNameTypeParentTopologyCacheKey(comp.Name, comp.Type, comp.ParentId, comp.TopologyID.String(), comp.AgentID.String())
-			if err := componentNameTypeParentTopologyCache.Set(ctx, cacheKey, comp); err != nil {
 				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
 			}
 		}
@@ -86,11 +70,6 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 	}
 
 	return c, nil
-}
-
-func ComponentFromByNameTypeParentTopology(ctx context.Context, name, typ string, parentID *uuid.UUID, topologyID, agentID string) (models.Component, error) {
-	cacheKey := componentNameTypeParentTopologyCacheKey(name, typ, parentID, topologyID, agentID)
-	return componentNameTypeParentTopologyCache.Get(ctx, cacheKey)
 }
 
 var SyncComponentCacheJob = &job.Job{

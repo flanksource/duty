@@ -64,6 +64,14 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		query = query.Where("agent_id = ?", agent.ID)
 	}
 
+	if resourceSelector.ParentID != "" {
+		if resourceSelector.ParentID == "nil" {
+			query = query.Where("parent_id IS NULL")
+		} else {
+			query = query.Where("parent_id = ?", resourceSelector.ParentID)
+		}
+	}
+
 	if len(resourceSelector.LabelSelector) > 0 {
 		labels := collections.SelectorToMap(resourceSelector.LabelSelector)
 		var onlyKeys []string
