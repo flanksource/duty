@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/query"
@@ -99,8 +100,10 @@ func PushHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 			return c.JSON(http.StatusBadRequest, api.HTTPError{Error: "agent name is required", Message: "agent name is required"})
 		}
 
-		agentID, ok := agentIDCache.Get(req.AgentName)
-		if !ok {
+		var agentID uuid.UUID
+		if val, ok := agentIDCache.Get(req.AgentName); ok {
+			agentID = val.(uuid.UUID)
+		} else {
 			agent, err := GetOrCreateAgent(ctx, req.AgentName)
 			if err != nil {
 				histogram.Label(StatusLabel, StatusAgentError)
@@ -113,8 +116,8 @@ func PushHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 			agentIDCache.Set(req.AgentName, agentID, cache.DefaultExpiration)
 		}
 
-		histogram = histogram.Label(AgentLabel, agentID.(uuid.UUID).String())
-		req.PopulateAgentID(agentID.(uuid.UUID))
+		histogram = histogram.Label(AgentLabel, agentID.String())
+		req.PopulateAgentID(agentID)
 
 		ctx.Tracef("Inserting push data %s", req.String())
 
@@ -123,7 +126,11 @@ func PushHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
 		}
 		histogram.Label(StatusLabel, StatusOK)
-		req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.(uuid.UUID).String()))
+		req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String()))
+
+		if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
+			logger.Errorf("failed to update agent last_received: %v", err)
+		}
 
 		return nil
 	}
@@ -150,9 +157,10 @@ func DeleteHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 			return c.JSON(http.StatusBadRequest, api.HTTPError{Error: "agent name is required", Message: "agent name is required"})
 		}
 
-		agentID, ok := agentIDCache.Get(req.AgentName)
-
-		if !ok {
+		var agentID uuid.UUID
+		if val, ok := agentIDCache.Get(req.AgentName); ok {
+			agentID = val.(uuid.UUID)
+		} else {
 			agent, err := GetOrCreateAgent(ctx, req.AgentName)
 			if err != nil {
 				histogram.Label(StatusLabel, StatusAgentError).Since(start)
@@ -164,8 +172,8 @@ func DeleteHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 			agentID = agent.ID
 			agentIDCache.Set(req.AgentName, agentID, cache.DefaultExpiration)
 		}
-		histogram = histogram.Label(AgentLabel, agentID.(uuid.UUID).String())
-		req.PopulateAgentID(agentID.(uuid.UUID))
+		histogram = histogram.Label(AgentLabel, agentID.String())
+		req.PopulateAgentID(agentID)
 
 		ctx.Logger.V(3).Infof("Deleting push data %s", req.String())
 		if err := DeleteOnUpstream(ctx, &req); err != nil {
@@ -174,7 +182,12 @@ func DeleteHandler(agentIDCache *cache.Cache) func(echo.Context) error {
 		}
 
 		histogram.Label(StatusLabel, StatusOK).Since(start)
-		req.AddMetrics(ctx.Counter("push_queue_delete_handler_records", AgentLabel, agentID.(uuid.UUID).String()))
+		req.AddMetrics(ctx.Counter("push_queue_delete_handler_records", AgentLabel, agentID.String()))
+
+		if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
+			logger.Errorf("failed to update agent last_received: %v", err)
+		}
+
 		return nil
 	}
 }
@@ -187,6 +200,7 @@ func StatusHandler(allowedTables []string) func(echo.Context) error {
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, api.HTTPError{Error: err.Error()})
 		}
+
 		start := time.Now()
 		ctx.GetSpan().SetAttributes(
 			attribute.String("request.table", req.Table),
@@ -219,5 +233,37 @@ func StatusHandler(allowedTables []string) func(echo.Context) error {
 
 		histogram.Label(StatusLabel, StatusOK).Since(start)
 		return c.JSON(http.StatusOK, response)
+	}
+}
+
+func PingHandler(agentIDCache *cache.Cache) func(echo.Context) error {
+	return func(c echo.Context) error {
+		start := time.Now()
+		ctx := c.Request().Context().(context.Context)
+		agentName := c.QueryParam("agent_name")
+		histogram := ctx.Histogram("push_queue_ping_handler")
+
+		var agentID uuid.UUID
+		if _, ok := agentIDCache.Get(agentName); !ok {
+			agent, err := GetOrCreateAgent(ctx, agentName)
+			if err != nil {
+				histogram.Label(StatusLabel, StatusAgentError)
+				return c.JSON(http.StatusInternalServerError, api.HTTPError{
+					Error:   err.Error(),
+					Message: "Error while creating/fetching agent",
+				})
+			}
+
+			agentID = agent.ID
+			agentIDCache.Set(agentName, agentID, cache.DefaultExpiration)
+		}
+
+		if err := UpdateAgentLastSeen(ctx, agentID); err != nil {
+			histogram.Label(StatusLabel, StatusError).Since(start)
+			return fmt.Errorf("failed to update agent last_seen: %w", err)
+		}
+
+		histogram.Label(StatusLabel, StatusOK).Since(start)
+		return nil
 	}
 }

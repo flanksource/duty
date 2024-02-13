@@ -7,6 +7,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -211,4 +212,15 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	return nil
+}
+
+func UpdateAgentLastSeen(ctx context.Context, id uuid.UUID) error {
+	return ctx.DB().Model(&models.Agent{}).Where("id = ?", id).Update("last_seen", "NOW()").Error
+}
+
+func UpdateAgentLastReceived(ctx context.Context, id uuid.UUID) error {
+	return ctx.DB().Model(&models.Agent{}).Where("id = ?", id).UpdateColumns(map[string]any{
+		"last_received": gorm.Expr("NOW()"),
+		"last_seen":     gorm.Expr("NOW()"),
+	}).Error
 }
