@@ -11,6 +11,8 @@ var (
 	allowedColumnFieldsInComponents = []string{
 		"owner",
 		"topology_type",
+		"topology_id",
+		"parent_id",
 		"type", // Deprecated. Use resource_selector.types instead
 	}
 )

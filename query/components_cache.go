@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
 
 	"github.com/eko/gocache/lib/v4/cache"
@@ -29,10 +30,10 @@ func componentCacheKey(id string) string {
 }
 
 func SyncComponentCache(ctx context.Context) error {
-	var next string
+	next := uuid.Nil.String()
 	for {
 		var components []models.Component
-		if err := ctx.DB().Where("deleted_at IS NULL").Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
+		if err := ctx.DB().Where("id > ?", next).Limit(cacheJobBatchSize).Find(&components).Error; err != nil {
 			return fmt.Errorf("error querying components for cache: %w", err)
 		}
 
@@ -40,9 +41,9 @@ func SyncComponentCache(ctx context.Context) error {
 			break
 		}
 
-		for _, ci := range components {
-			if err := componentCache.Set(ctx, componentCacheKey(ci.ID.String()), ci); err != nil {
-				return fmt.Errorf("error caching component(%s): %w", ci.ID, err)
+		for _, comp := range components {
+			if err := componentCache.Set(ctx, componentCacheKey(comp.ID.String()), comp); err != nil {
+				return fmt.Errorf("error caching component(%s): %w", comp.ID, err)
 			}
 		}
 
@@ -57,7 +58,7 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 	if err != nil {
 		var cacheErr *store.NotFound
 		if !errors.As(err, &cacheErr) {
-			return c, err
+			return c, fmt.Errorf("error fetching component[%s] from cache: %w", id, err)
 		}
 
 		var component models.Component
