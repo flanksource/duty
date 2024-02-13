@@ -21,6 +21,15 @@ type Agent struct {
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp"`
 	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp"`
+
+	// Cleanup when set to true will delete all the agent resources when the agent is deleted
+	Cleanup bool `json:"cleanup"`
+
+	// LastSeen is the timestamp the agent last sent a heartbeat
+	LastSeen *time.Time `json:"last_seen,omitempty" time_format:"postgres_timestamp"`
+
+	// LastReceived is the timestamp the agent last sent a push data
+	LastReceived *time.Time `json:"last_received,omitempty" time_format:"postgres_timestamp"`
 }
 
 func (t Agent) AsMap(removeFields ...string) map[string]any {
