@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -23,6 +24,8 @@ type ResourceSelector struct {
 	//  'no-store' (should not cache)
 	//  'max-age=X' (cache for X duration)
 	Cache string `yaml:"cache,omitempty" json:"cache,omitempty"`
+
+	IncludeDeleted bool `yaml:"includeDeleted" json:"includeDeleted"`
 
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -73,6 +76,7 @@ func (c ResourceSelector) Hash() string {
 		strings.Join(c.Statuses.Sort(), ","),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
+		fmt.Sprint(c.IncludeDeleted),
 	}
 
 	return hash.Sha256Hex(strings.Join(items, "|"))

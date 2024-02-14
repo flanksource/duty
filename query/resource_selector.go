@@ -33,7 +33,11 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		}
 	}
 
-	query := ctx.DB().Select("id").Where("deleted_at IS NULL").Table(table)
+	query := ctx.DB().Select("id").Table(table)
+
+	if !resourceSelector.IncludeDeleted {
+		query = query.Where("deleted_at IS NULL")
+	}
 
 	if resourceSelector.ID != "" {
 		query = query.Where("id = ?", resourceSelector.ID)
