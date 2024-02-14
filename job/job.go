@@ -20,6 +20,7 @@ const (
 	ResourceTypeCheckStatuses = "check_statuses"
 	ResourceTypeComponent     = "components"
 	ResourceTypePlaybook      = "playbook"
+	ResourceTypeScraper       = "config_scraper"
 	ResourceTypeUpstream      = "upstream"
 )
 
@@ -43,6 +44,12 @@ func deleteEvictedJobs(ctx context.Context) {
 			ctx.Tracef("Deleted %d job history items", tx.RowsAffected)
 		}
 	}
+}
+
+var RetentionMinutes = Retention{
+	Success: 1,
+	Failed:  3,
+	Age:     time.Minute * 15,
 }
 
 var RetentionHour = Retention{
@@ -132,10 +139,20 @@ func (sr *StatusRing) Add(job *models.JobHistory) {
 }
 
 type Retention struct {
-	Success, Failed int
-	Age             time.Duration
-	Interval        time.Duration
-	Data            bool
+	// Success is the number of finished/success job history to retain
+	Success int
+
+	// Failed is the number of unsuccessful job history to retain
+	Failed int
+
+	// Age is the maximum age of job history to retain
+	Age time.Duration
+
+	// Interval for job history cleanup
+	Interval time.Duration
+
+	// Data ...?
+	Data bool
 }
 
 func (r Retention) Count(status string) int {
