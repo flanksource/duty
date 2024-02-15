@@ -25,7 +25,7 @@ type ResourceSelector struct {
 	//  'max-age=X' (cache for X duration)
 	Cache string `yaml:"cache,omitempty" json:"cache,omitempty"`
 
-	IncludeDeleted bool `yaml:"includeDeleted" json:"includeDeleted"`
+	IncludeDeleted bool `yaml:"-" json:"-"`
 
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
