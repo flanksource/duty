@@ -47,3 +47,20 @@ FROM
     ) AS playbook_runs ON playbook_runs.agent_id = agents.id
 WHERE
   deleted_at IS NULL;
+
+-- Revoke access tokens of an agent when it's deleted
+CREATE OR REPLACE FUNCTION delete_access_tokens()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' OR (TG_OP = 'UPDATE' AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL) THEN
+    UPDATE access_tokens SET expires_at = NOW() WHERE person_id = (SELECT person_id FROM agents WHERE id = OLD.id);
+  END IF;
+
+  RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER delete_agent_access_tokens
+AFTER UPDATE OR DELETE ON agents
+FOR EACH ROW
+EXECUTE PROCEDURE delete_access_tokens();
