@@ -20,6 +20,7 @@ type Agent struct {
 	TLS         string              `json:"tls,omitempty"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp"`
+	DeletedAt   *time.Time          `json:"deleted_at" time_format:"postgres_timestamp"`
 	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp"`
 
 	// Cleanup when set to true will delete all the agent resources when the agent is deleted
