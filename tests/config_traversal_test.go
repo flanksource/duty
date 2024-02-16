@@ -13,7 +13,7 @@ import (
 )
 
 var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
-	ginkgo.FIt("should be able to traverse config relationships via types", func() {
+	ginkgo.It("should be able to traverse config relationships via types", func() {
 		configItems := map[string]models.ConfigItem{
 			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment")},
 			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease")},

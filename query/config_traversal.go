@@ -56,5 +56,5 @@ func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
 }
 
 func init() {
-	context.CelEnvFuncs = append(context.CelEnvFuncs, traverseConfigCELFunction())
+	context.CelEnvFuncs["catalog.traverse"] = traverseConfigCELFunction()
 }
