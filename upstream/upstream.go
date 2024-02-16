@@ -206,12 +206,17 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 }
 
 func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
+	var orderByClauses []string
+	if collections.Contains([]string{"components", "config_items"}, req.Table) {
+		orderByClauses = append(orderByClauses, "LENGTH(COALESCE(path, ''))")
+	}
+	orderByClauses = append(orderByClauses, "id")
 	query := fmt.Sprintf(`
 		WITH p_keys AS (
  			SELECT id::TEXT, COALESCE(updated_at::text, '') as updated_at
 			FROM %s
 			WHERE id::TEXT > ? AND agent_id = ?
-			ORDER BY id
+			ORDER BY %s
 			LIMIT ?
 		)
 		SELECT
@@ -219,7 +224,7 @@ func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.U
 			MAX(id) as last_id,
 			COUNT(*) as total
 		FROM
-			p_keys`, req.Table)
+			p_keys`, req.Table, strings.Join(orderByClauses, ","))
 
 	var resp PaginateResponse
 	err := ctx.DB().Raw(query, req.From, agentID, req.Size).Scan(&resp).Error
@@ -247,7 +252,7 @@ func GetMissingResourceIDs(ctx context.Context, ids []string, paginateReq Pagina
 		}
 
 	case "components":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Components).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("LENGTH(COALESCE(path, ''))").Order("id").Find(&pushData.Components).Error; err != nil {
 			return nil, fmt.Errorf("error fetching components: %w", err)
 		}
 
@@ -257,7 +262,7 @@ func GetMissingResourceIDs(ctx context.Context, ids []string, paginateReq Pagina
 		}
 
 	case "config_items":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigItems).Error; err != nil {
+		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("LENGTH(COALESCE(path, ''))").Order("id").Find(&pushData.ConfigItems).Error; err != nil {
 			return nil, fmt.Errorf("error fetching config items: %w", err)
 		}
 
