@@ -2,7 +2,6 @@ package upstream
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -208,7 +207,7 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 
 func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
 	var orderByClauses []string
-	if slices.Contains([]string{"components", "config_items"}, req.Table) {
+	if collections.Contains([]string{"components", "config_items"}, req.Table) {
 		orderByClauses = append(orderByClauses, "LENGTH(COALESCE(path, ''))")
 	}
 	orderByClauses = append(orderByClauses, "id")
