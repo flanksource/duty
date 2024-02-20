@@ -277,5 +277,4 @@ type RelatedConfig struct {
 	Relation string            `json:"relation"`
 	Type     RelatedConfigType `json:"relation_type" gorm:"column:relation_type"`
 	Config   types.JSONMap     `json:"config"`
-	Level    int               `json:"level"`
 }

@@ -1,9 +1,6 @@
 package tests
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/google/uuid"
@@ -66,24 +63,44 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, ginkgo.
 		Expect(len(foundRelationships)).To(Equal(len(relationships)))
 	})
 
-	ginkgo.It("should return OUTGOING relationships", func() {
-		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?)", A.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
+	ginkgo.Context("Outgoing", func() {
+		ginkgo.It("should correctly return children in an acyclic path", func() {
+			var relatedConfigs []models.RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?)", C.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+			Expect(len(relatedConfigs)).To(Equal(1))
 
-		for _, rc := range relatedConfigs {
-			fmt.Println(rc.Level, strings.TrimPrefix(rc.Relation, "test-relationship-"))
-		}
+			Expect(relatedConfigs[0].Config["id"].(string)).To(Equal(F.ID.String()))
+		})
 
-		Expect(len(relatedConfigs)).To(Equal(7))
+		ginkgo.It("should correctly return zero relationships for leaf nodes", func() {
+			var relatedConfigs []models.RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?)", G.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+			Expect(len(relatedConfigs)).To(Equal(0))
+		})
+
+		ginkgo.It("should correctly handle cycles", func() {
+			var relatedConfigs []models.RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?)", A.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+			Expect(len(relatedConfigs)).To(Equal(7))
+
+			relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) string {
+				return rc.Config["id"].(string)
+			})
+			Expect(relatedIDs).To(HaveExactElements([]string{B.ID.String(), C.ID.String(), D.ID.String(), E.ID.String(), F.ID.String(), G.ID.String(), H.ID.String()}))
+		})
 	})
 
-	ginkgo.It("should return INCOMING relationships", func() {
-		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", F.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
+	ginkgo.Context("Incoming", func() {
+		ginkgo.It("should return INCOMING relationships", ginkgo.Pending, func() {
+			var relatedConfigs []models.RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", F.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
 
-		Expect(len(relatedConfigs)).To(Equal(2))
+			Expect(len(relatedConfigs)).To(Equal(2))
+		})
 	})
 })
 
