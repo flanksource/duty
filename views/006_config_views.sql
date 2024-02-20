@@ -443,11 +443,12 @@ CREATE OR REPLACE VIEW config_changes_items AS
 
 
 -- related config ids
-DROP FUNCTION IF EXISTS related_config_ids(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS related_config_ids(UUID, TEXT, BOOLEAN);
 
 CREATE FUNCTION related_config_ids (
   config_id UUID,
-  include_deleted_configs BOOLEAN
+  type_filter TEXT DEFAULT 'all',
+  include_deleted_configs BOOLEAN DEFAULT false
 )
 RETURNS TABLE (
   relation TEXT,
@@ -461,29 +462,32 @@ BEGIN
       'outgoing' AS relation_type,
       c.id
     FROM config_relationships
-      INNER JOIN configs AS c ON config_relationships.related_id = c.id AND ($2 OR c.deleted_at IS NULL)
+      INNER JOIN configs AS c ON config_relationships.related_id = c.id AND (related_config_ids.include_deleted_configs OR c.deleted_at IS NULL)
     WHERE
       config_relationships.deleted_at IS NULL
-      AND config_relationships.config_id = $1
+      AND config_relationships.config_id = related_config_ids.config_id
+      AND (related_config_ids.type_filter = 'outgoing' OR related_config_ids.type_filter = 'all')
     UNION
     SELECT
       config_relationships.relation,
       'incoming' AS relation_type,
       c.id
     FROM config_relationships
-      INNER JOIN configs AS c ON config_relationships.config_id = c.id AND ($2 OR c.deleted_at IS NULL)
+      INNER JOIN configs AS c ON config_relationships.config_id = c.id AND (related_config_ids.include_deleted_configs OR c.deleted_at IS NULL)
     WHERE
       config_relationships.deleted_at IS NULL
-      AND config_relationships.related_id = $1;
+      AND config_relationships.related_id = related_config_ids.config_id
+      AND (related_config_ids.type_filter = 'incoming' OR related_config_ids.type_filter = 'all');
 END;
 $$ LANGUAGE plpgsql;
 
 -- related configs
-DROP FUNCTION IF EXISTS related_configs(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS related_configs(UUID, TEXT, BOOLEAN);
 
 CREATE FUNCTION related_configs (
   config_id UUID,
-  include_deleted_configs BOOLEAN
+  type_filter TEXT DEFAULT 'all',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
   relation TEXT,
@@ -509,7 +513,7 @@ BEGIN
         'created_at', c.created_at, 
         'updated_at', c.updated_at
       ) AS config
-    FROM related_config_ids($1, $2) as r
+    FROM related_config_ids($1, $2, $3) as r
     LEFT JOIN configs AS c ON r.id = c.id;
 END;
 $$ LANGUAGE plpgsql;

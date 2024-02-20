@@ -10,7 +10,7 @@ import (
 var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 	ginkgo.It("should return OUTGOING relationships", func() {
 		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, false)", dummy.KubernetesCluster.ID).Find(&relatedConfigs).Error
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?)", dummy.KubernetesCluster.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(2))
@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 	ginkgo.It("should return INCOOMING relationships", func() {
 		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, false)", dummy.KubernetesNodeA.ID).Find(&relatedConfigs).Error
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, 'all', false)", dummy.KubernetesNodeA.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(1))
