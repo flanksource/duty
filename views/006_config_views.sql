@@ -517,3 +517,63 @@ BEGIN
     LEFT JOIN configs AS c ON r.id = c.id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- related config ids recursively
+DROP FUNCTION IF EXISTS related_config_ids_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE OR REPLACE FUNCTION related_config_ids_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'outgoing',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (relation TEXT, relation_type TEXT, id UUID) AS $$
+BEGIN
+  RETURN query
+    WITH RECURSIVE all_related_configs AS (
+      SELECT
+        rci.relation,
+        rci.relation_type,
+        rci.id
+      FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
+      UNION
+      SELECT
+        rc.relation,
+        rc.relation_type,
+        rc.id
+      FROM all_related_configs arc
+        INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc ON true
+    )
+    SELECT * FROM all_related_configs;
+END;
+$$ LANGUAGE plpgsql;
+
+-- related configs
+DROP FUNCTION IF EXISTS related_configs_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_configs_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'all',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (relation TEXT, relation_type TEXT, config JSONB) AS $$
+BEGIN
+  RETURN query
+    SELECT
+      r.relation,
+      r.relation_type,
+      jsonb_build_object(
+        'id', c.id,
+        'name', c.name, 
+        'type', c.type, 
+        'tags', c.tags, 
+        'changes', c.changes,
+        'analysis', c.analysis,
+        'cost_per_minute', c.cost_per_minute,
+        'cost_total_1d', c.cost_total_1d,
+        'cost_total_7d', c.cost_total_7d,
+        'cost_total_30d', c.cost_total_30d,
+        'created_at', c.created_at, 
+        'updated_at', c.updated_at
+      ) AS config
+    FROM related_config_ids_recursive($1, $2, $3) as r
+    LEFT JOIN configs AS c ON r.id = c.id;
+END;
+$$ LANGUAGE plpgsql;
