@@ -519,26 +519,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- related config ids recursively
-DROP FUNCTION IF EXISTS related_config_ids_recursive(UUID, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS related_config_ids_recursive(UUID, TEXT, BOOLEAN, TEXT);
 
 CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   include_deleted_configs BOOLEAN DEFAULT FALSE
-) RETURNS TABLE (relation TEXT, relation_type TEXT, id UUID) AS $$
+) RETURNS TABLE (relation TEXT, relation_type TEXT, id UUID, r_visited TEXT) AS $$
 BEGIN
   RETURN query
     WITH RECURSIVE all_related_configs AS (
       SELECT
         rci.relation,
         rci.relation_type,
-        rci.id
+        rci.id,
+        config_id as visited
       FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
       UNION
       SELECT
         rc.relation,
         rc.relation_type,
-        rc.id
+        rc.id,
+        CONCAT(arc.id::TEXT , ',' , rc.id::TEXT) as visited
       FROM all_related_configs arc
         INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc ON true
     )
@@ -546,7 +548,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- related configs
+-- related configs recursively
 DROP FUNCTION IF EXISTS related_configs_recursive(UUID, TEXT, BOOLEAN);
 
 CREATE FUNCTION related_configs_recursive (

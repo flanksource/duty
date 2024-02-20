@@ -45,7 +45,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, ginkgo.
 		{ConfigID: C.ID.String(), RelatedID: F.ID.String(), Relation: "test-relationship-CF"},
 		{ConfigID: D.ID.String(), RelatedID: G.ID.String(), Relation: "test-relationship-DG"},
 		{ConfigID: D.ID.String(), RelatedID: H.ID.String(), Relation: "test-relationship-DH"},
-		// {ConfigID: H.ID.String(), RelatedID: A.ID.String(), Relation: "test-relationship-HA"},
+		{ConfigID: H.ID.String(), RelatedID: A.ID.String(), Relation: "test-relationship-HA"},
 	}
 
 	ginkgo.BeforeAll(func() {
@@ -72,7 +72,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, ginkgo.
 		Expect(err).To(BeNil())
 
 		for _, rc := range relatedConfigs {
-			fmt.Println(strings.TrimPrefix(rc.Relation, "test-relationship-"))
+			fmt.Println(rc.Level, strings.TrimPrefix(rc.Relation, "test-relationship-"))
 		}
 
 		Expect(len(relatedConfigs)).To(Equal(7))
