@@ -533,17 +533,17 @@ BEGIN
         rci.relation,
         type_filter as relation_type,
         rci.id,
-        ARRAY[config_id::TEXT] as visited
+        ARRAY[config_id] as visited
       FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
       UNION
       SELECT
         rc.relation,
         type_filter as relation_type,
         rc.id,
-        arc.visited || ARRAY[rc.id::TEXT] as visited
+        arc.visited || ARRAY[arc.id, rc.id] as visited
       FROM all_related_configs arc
         INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc 
-          ON rc.id::TEXT != ALL(arc.visited)
+          ON rc.id != ALL(arc.visited)
     )
     SELECT result.relation, result.relation_type, result.id FROM all_related_configs result;
 END;
