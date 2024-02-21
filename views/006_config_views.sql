@@ -442,11 +442,52 @@ CREATE OR REPLACE VIEW config_changes_items AS
     LEFT JOIN config_items as ci ON cc.config_id = ci.id;
 
 
-DROP FUNCTION IF EXISTS related_configs(UUID, BOOLEAN);
+-- related config ids
+DROP FUNCTION IF EXISTS related_config_ids(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_config_ids (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'all',
+  include_deleted_configs BOOLEAN DEFAULT false
+)
+RETURNS TABLE (
+  relation TEXT,
+  relation_type TEXT,
+  id UUID
+) AS $$
+BEGIN
+  RETURN query
+    SELECT
+      config_relationships.relation,
+      'outgoing' AS relation_type,
+      c.id
+    FROM config_relationships
+      INNER JOIN configs AS c ON config_relationships.related_id = c.id AND (related_config_ids.include_deleted_configs OR c.deleted_at IS NULL)
+    WHERE
+      config_relationships.deleted_at IS NULL
+      AND config_relationships.config_id = related_config_ids.config_id
+      AND (related_config_ids.type_filter = 'outgoing' OR related_config_ids.type_filter = 'all')
+    UNION
+    SELECT
+      config_relationships.relation,
+      'incoming' AS relation_type,
+      c.id
+    FROM config_relationships
+      INNER JOIN configs AS c ON config_relationships.config_id = c.id AND (related_config_ids.include_deleted_configs OR c.deleted_at IS NULL)
+    WHERE
+      config_relationships.deleted_at IS NULL
+      AND config_relationships.related_id = related_config_ids.config_id
+      AND (related_config_ids.type_filter = 'incoming' OR related_config_ids.type_filter = 'all');
+END;
+$$ LANGUAGE plpgsql;
+
+-- related configs
+DROP FUNCTION IF EXISTS related_configs(UUID, TEXT, BOOLEAN);
 
 CREATE FUNCTION related_configs (
   config_id UUID,
-  include_deleted_configs BOOLEAN
+  type_filter TEXT DEFAULT 'all',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE (
   relation TEXT,
@@ -456,8 +497,8 @@ RETURNS TABLE (
 BEGIN
   RETURN query
     SELECT
-      config_relationships.relation,
-      'outgoing' AS relation_type,
+      r.relation,
+      r.relation_type,
       jsonb_build_object(
         'id', c.id,
         'name', c.name, 
@@ -472,16 +513,56 @@ BEGIN
         'created_at', c.created_at, 
         'updated_at', c.updated_at
       ) AS config
-    FROM config_relationships
-      INNER JOIN configs AS c ON config_relationships.related_id = c.id AND ($2 OR c.deleted_at IS NULL)
-    WHERE
-      config_relationships.deleted_at IS NULL
-      AND config_relationships.config_id = $1
-    UNION
+    FROM related_config_ids($1, $2, $3) as r
+    LEFT JOIN configs AS c ON r.id = c.id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- related config ids recursively
+DROP FUNCTION IF EXISTS related_config_ids_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE OR REPLACE FUNCTION related_config_ids_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'outgoing',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (relation TEXT, relation_type TEXT, id UUID) AS $$
+BEGIN
+  RETURN query
+    WITH RECURSIVE all_related_configs AS (
+      SELECT
+        rci.relation,
+        type_filter as relation_type,
+        rci.id,
+        ARRAY[config_id] as visited
+      FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
+      UNION
+      SELECT
+        rc.relation,
+        type_filter as relation_type,
+        rc.id,
+        arc.visited || ARRAY[arc.id, rc.id] as visited
+      FROM all_related_configs arc
+        INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc 
+          ON rc.id != ALL(arc.visited)
+    )
+    SELECT result.relation, result.relation_type, result.id FROM all_related_configs result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- related configs recursively
+DROP FUNCTION IF EXISTS related_configs_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_configs_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'outgoing',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS TABLE (relation TEXT, relation_type TEXT, config JSONB) AS $$
+BEGIN
+  RETURN query
     SELECT
-      config_relationships.relation,
-      'incoming' AS relation_type,
-       jsonb_build_object(
+      r.relation,
+      r.relation_type,
+      jsonb_build_object(
         'id', c.id,
         'name', c.name, 
         'type', c.type, 
@@ -495,10 +576,30 @@ BEGIN
         'created_at', c.created_at, 
         'updated_at', c.updated_at
       ) AS config
-    FROM config_relationships
-      INNER JOIN configs AS c ON config_relationships.config_id = c.id AND ($2 OR c.deleted_at IS NULL)
-    WHERE
-      config_relationships.deleted_at IS NULL
-      AND config_relationships.related_id = $1;
+    FROM related_config_ids_recursive($1, $2, $3) as r
+    LEFT JOIN configs AS c ON r.id = c.id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- related config changes recursively
+DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_changes_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'downstream',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS SETOF config_changes AS $$
+BEGIN
+  RETURN query
+    SELECT * FROM config_changes cc WHERE
+      cc.config_id = related_changes_recursive.config_id
+      OR cc.config_id IN (
+        SELECT id FROM related_config_ids_recursive($1, 
+          CASE 
+            WHEN type_filter = 'upstream' THEN 'incoming'
+            ELSE 'outgoing'
+          END,
+          $3)
+      );
 END;
 $$ LANGUAGE plpgsql;
