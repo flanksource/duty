@@ -580,3 +580,26 @@ BEGIN
     LEFT JOIN configs AS c ON r.id = c.id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- related config changes recursively
+DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_changes_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'downstream',
+  include_deleted_configs BOOLEAN DEFAULT FALSE
+) RETURNS SETOF config_changes AS $$
+BEGIN
+  RETURN query
+    SELECT * FROM config_changes cc WHERE
+      cc.config_id = related_changes_recursive.config_id
+      OR cc.config_id IN (
+        SELECT id FROM related_config_ids_recursive($1, 
+          CASE 
+            WHEN type_filter = 'upstream' THEN 'incoming'
+            ELSE 'outgoing'
+          END,
+          $3)
+      );
+END;
+$$ LANGUAGE plpgsql;
