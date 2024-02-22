@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"fmt"
+
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
@@ -72,6 +74,21 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).To(HaveOccurred())
 		Expect(gotExpr).To(Equal(""))
+
+		// Testing struct templater
+		t := DefaultContext.NewStructTemplater(map[string]any{"id": configItems["deployment"].ID.String()}, "", nil)
+		inlineStruct := struct {
+			Name string
+			Type string
+		}{
+			Name: "Name is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Name }}",
+			Type: "Type is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Type }}",
+		}
+
+		err = t.Walk(&inlineStruct)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(inlineStruct.Name).To(Equal(fmt.Sprintf("Name is %s", *configItems["kustomize-of-helm-release"].Name)))
+		Expect(inlineStruct.Type).To(Equal(fmt.Sprintf("Type is %s", *configItems["kustomize-of-helm-release"].Type)))
 
 		// Cleanup for normal tests to pass
 		err = ctx.DB().Where("config_id in ?", lo.Map(lo.Values(configItems), func(c models.ConfigItem, _ int) string { return c.ID.String() })).Delete(&models.ConfigRelationship{}).Error

@@ -55,6 +55,15 @@ func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
 	}
 }
 
+func traverseConfigTemplateFunction() func(ctx context.Context) any {
+	return func(ctx context.Context) any {
+		return func(id, relationType string) *models.ConfigItem {
+			return TraverseConfig(ctx, id, relationType)
+		}
+	}
+}
+
 func init() {
 	context.CelEnvFuncs["catalog.traverse"] = traverseConfigCELFunction()
+	context.TemplateFuncs["catalog_traverse"] = traverseConfigTemplateFunction()
 }
