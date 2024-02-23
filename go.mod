@@ -21,6 +21,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.18.1
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/itchyny/gojq v0.12.14
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.5.1
 	github.com/json-iterator/go v1.1.12
 	github.com/labstack/echo/v4 v4.11.4

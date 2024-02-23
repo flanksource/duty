@@ -92,6 +92,10 @@ type ConfigItem struct {
 	DeleteReason  string               `json:"delete_reason,omitempty"`
 }
 
+func (t ConfigItem) PK() string {
+	return t.ID.String()
+}
+
 func (ConfigItem) TableName() string {
 	return "config_items"
 }

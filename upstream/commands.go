@@ -8,8 +8,14 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+const (
+	saveRetries = 3
 )
 
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
@@ -126,10 +132,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	// components are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
-	for _, c := range req.Components {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
-			logger.Errorf("error upserting component (id=%s): %v", c.ID, err)
-		}
+	if err := saveIndividuallyWithRetries(ctx, req.Components, saveRetries); err != nil {
+		return fmt.Errorf("error upserting components: %w", err)
 	}
 
 	if len(req.ComponentRelationships) > 0 {
@@ -146,10 +150,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	// config items are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
-	for _, ci := range req.ConfigItems {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&ci).Error; err != nil {
-			logger.Errorf("error upserting config item (id=%s): %v", ci.ID, err)
-		}
+	if err := saveIndividuallyWithRetries(ctx, req.ConfigItems, saveRetries); err != nil {
+		return fmt.Errorf("error upserting components: %w", err)
 	}
 
 	if len(req.ConfigRelationships) > 0 {
@@ -226,4 +228,41 @@ func UpdateAgentLastReceived(ctx context.Context, id uuid.UUID) error {
 		"last_received": gorm.Expr("NOW()"),
 		"last_seen":     gorm.Expr("NOW()"),
 	}).Error
+}
+
+type dbTable interface {
+	PK() string
+	TableName() string
+}
+
+// saveIndividuallyWithRetries saves the given records one by one and retries only on foreign key violation error.
+func saveIndividuallyWithRetries[T dbTable](ctx context.Context, items []T, maxRetries int) error {
+	var retries int
+	for {
+		var failed []T
+		for _, c := range items {
+			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+				var pgError *pgconn.PgError
+				if errors.As(err, &pgError) {
+					if pgError.Code == pgerrcode.ForeignKeyViolation {
+						failed = append(failed, c)
+					}
+				} else {
+					return fmt.Errorf("error upserting %s (id=%s) : %w", c.TableName(), c.PK(), err)
+				}
+			}
+		}
+
+		if len(failed) == 0 {
+			return nil
+		}
+
+		if retries > maxRetries {
+			return fmt.Errorf("failed to save %d items after %d retries", len(failed), maxRetries)
+		}
+
+		items = failed
+		retries++
+		ctx.Tracef("retrying %d times to save %d items", retries, len(failed))
+	}
 }
