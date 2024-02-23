@@ -129,37 +129,37 @@ func PushToUpstream(ctx context.Context, config UpstreamConfig, events []postq.E
 	for _, cl := range GroupChangelogsByTables(events) {
 		switch cl.TableName {
 		case "topologies":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Topologies).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Topologies).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching topologies: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}
 
 		case "components":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Components).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Components).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching components: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}
 
 		case "canaries":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Canaries).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Canaries).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching canaries: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}
 
 		case "checks":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Checks).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Checks).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching checks: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}
 
 		case "config_scrapers":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigScrapers).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigScrapers).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching config_scrapers: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}
 
 		case "config_items":
-			if err := ctx.DB().Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigItems).Error; err != nil {
+			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigItems).Error; err != nil {
 				errMsg := fmt.Errorf("error fetching config_items: %w", err)
 				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
 			}

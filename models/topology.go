@@ -9,17 +9,18 @@ import (
 
 // Topology represents the topologies database table
 type Topology struct {
-	ID        uuid.UUID `gorm:"default:generate_ulid()"`
-	AgentID   uuid.UUID `json:"agent_id,omitempty"`
-	Name      string
-	Namespace string
+	ID        uuid.UUID           `gorm:"default:generate_ulid()"`
+	AgentID   uuid.UUID           `json:"agent_id"`
+	Name      string              `json:"name"`
+	Namespace string              `json:"namespace"`
 	Labels    types.JSONStringMap `json:"labels,omitempty"  gorm:"default:null"`
 	Source    string              `json:"source"`
 	Spec      types.JSON          `gorm:"default:null"`
-	Schedule  *string
-	CreatedAt *time.Time `json:"created_at,omitempty" time_format:"postgres_timestamp"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+	Schedule  *string             `json:"schedule,omitempty"`
+	CreatedBy *uuid.UUID          `json:"created_by,omitempty"`
+	CreatedAt *time.Time          `json:"created_at,omitempty" time_format:"postgres_timestamp"`
+	UpdatedAt *time.Time          `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
+	DeletedAt *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
 func (Topology) TableName() string {
