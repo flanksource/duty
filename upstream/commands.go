@@ -117,14 +117,17 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.Canaries) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Canaries, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting canaries: %w", err)
+		// Save one by one (only for debugging purpose)
+		for _, c := range req.Canaries {
+			if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+				return fmt.Errorf("error upserting canaries: (id=%s): %w", c.ID, err)
+			}
 		}
 	}
 
 	// components are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
 	for _, c := range req.Components {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Components, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
 			logger.Errorf("error upserting component (id=%s): %v", c.ID, err)
 		}
 	}
@@ -144,7 +147,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	// config items are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
 	for _, ci := range req.ConfigItems {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(&ci, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&ci).Error; err != nil {
 			logger.Errorf("error upserting config item (id=%s): %v", ci.ID, err)
 		}
 	}
