@@ -1,17 +1,21 @@
 {
-  "$schema": "http://json-schema.org/draft-04/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/flanksource/canary-checker/api/v1/component",
   "$ref": "#/definitions/ComponentSpec",
-  "definitions": {
+  "$defs": {
     "AWSConnection": {
       "properties": {
         "connection": {
           "type": "string"
         },
         "accessKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "secretKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
         },
         "region": {
           "type": "string"
@@ -21,21 +25,12 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
-        },
-        "objectPath": {
-          "type": "string"
-        },
-        "usePathStyle": {
-          "type": "boolean"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "AlertManagerCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -43,34 +38,47 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
         },
-        "host": {
+        "url": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "alerts": {
           "items": {
@@ -86,6 +94,14 @@
           },
           "type": "object"
         },
+        "exclude_filters": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "ignore": {
           "items": {
             "type": "string"
@@ -94,29 +110,36 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "Artifact": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ]
     },
     "Authentication": {
-      "required": [
-        "username",
-        "password"
-      ],
       "properties": {
         "username": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "password": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "AwsConfigCheck": {
-      "required": [
-        "name",
-        "query"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -124,43 +147,69 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "query": {
           "type": "string"
         },
-        "awsConnection": {
-          "$ref": "#/definitions/AWSConnection"
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
         },
         "aggregatorName": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "query"
+      ]
     },
     "AwsConfigRuleCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -168,25 +217,32 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "ignoreRules": {
           "items": {
@@ -206,24 +262,53 @@
           },
           "type": "array"
         },
-        "awsConnection": {
-          "$ref": "#/definitions/AWSConnection"
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "AzureConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "clientID": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "tenantID": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "AzureDevopsCheck": {
-      "required": [
-        "name",
-        "organization",
-        "personalAccessToken",
-        "project",
-        "pipeline",
-        "variables",
-        "branch",
-        "thresholdMillis"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -231,25 +316,32 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
@@ -258,7 +350,7 @@
           "type": "string"
         },
         "personalAccessToken": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "project": {
           "type": "string"
@@ -285,270 +377,261 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "organization",
+        "personalAccessToken",
+        "project",
+        "pipeline",
+        "variables",
+        "branch",
+        "thresholdMillis"
+      ]
     },
     "CanarySpec": {
       "properties": {
+        "replicas": {
+          "type": "integer"
+        },
         "env": {
           "patternProperties": {
             ".*": {
-              "$schema": "http://json-schema.org/draft-04/schema#",
-              "$ref": "#/definitions/VarSource"
+              "$ref": "#/$defs/VarSource"
             }
           },
           "type": "object"
         },
         "http": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/HTTPCheck"
+            "$ref": "#/$defs/HTTPCheck"
           },
           "type": "array"
         },
         "dns": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/DNSCheck"
+            "$ref": "#/$defs/DNSCheck"
           },
           "type": "array"
         },
         "docker": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/DockerPullCheck"
+            "$ref": "#/$defs/DockerPullCheck"
           },
           "type": "array"
         },
         "dockerPush": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/DockerPushCheck"
+            "$ref": "#/$defs/DockerPushCheck"
           },
           "type": "array"
         },
         "containerd": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ContainerdPullCheck"
+            "$ref": "#/$defs/ContainerdPullCheck"
           },
           "type": "array"
         },
         "containerdPush": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ContainerdPushCheck"
+            "$ref": "#/$defs/ContainerdPushCheck"
           },
           "type": "array"
         },
         "s3": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/S3Check"
+            "$ref": "#/$defs/S3Check"
           },
           "type": "array"
         },
         "tcp": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/TCPCheck"
+            "$ref": "#/$defs/TCPCheck"
           },
           "type": "array"
         },
         "pod": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/PodCheck"
+            "$ref": "#/$defs/PodCheck"
           },
           "type": "array"
         },
         "ldap": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/LDAPCheck"
+            "$ref": "#/$defs/LDAPCheck"
           },
           "type": "array"
         },
         "icmp": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ICMPCheck"
+            "$ref": "#/$defs/ICMPCheck"
           },
           "type": "array"
         },
         "postgres": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/PostgresCheck"
+            "$ref": "#/$defs/PostgresCheck"
           },
           "type": "array"
         },
         "mssql": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/MssqlCheck"
+            "$ref": "#/$defs/MssqlCheck"
           },
           "type": "array"
         },
         "mysql": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/MysqlCheck"
+            "$ref": "#/$defs/MysqlCheck"
           },
           "type": "array"
         },
         "restic": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ResticCheck"
+            "$ref": "#/$defs/ResticCheck"
           },
           "type": "array"
         },
         "jmeter": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/JmeterCheck"
+            "$ref": "#/$defs/JmeterCheck"
           },
           "type": "array"
         },
         "junit": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/JunitCheck"
+            "$ref": "#/$defs/JunitCheck"
           },
           "type": "array"
         },
         "helm": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/HelmCheck"
+            "$ref": "#/$defs/HelmCheck"
           },
           "type": "array"
         },
         "namespace": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/NamespaceCheck"
+            "$ref": "#/$defs/NamespaceCheck"
           },
           "type": "array"
         },
         "redis": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/RedisCheck"
+            "$ref": "#/$defs/RedisCheck"
           },
           "type": "array"
         },
         "ec2": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/EC2Check"
+            "$ref": "#/$defs/EC2Check"
           },
           "type": "array"
         },
         "prometheus": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/PrometheusCheck"
+            "$ref": "#/$defs/PrometheusCheck"
           },
           "type": "array"
         },
         "mongodb": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/MongoDBCheck"
+            "$ref": "#/$defs/MongoDBCheck"
           },
           "type": "array"
         },
         "cloudwatch": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/CloudWatchCheck"
+            "$ref": "#/$defs/CloudWatchCheck"
           },
           "type": "array"
         },
         "github": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/GitHubCheck"
+            "$ref": "#/$defs/GitHubCheck"
+          },
+          "type": "array"
+        },
+        "gitProtocol": {
+          "items": {
+            "$ref": "#/$defs/GitProtocolCheck"
           },
           "type": "array"
         },
         "kubernetes": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/KubernetesCheck"
+            "$ref": "#/$defs/KubernetesCheck"
           },
           "type": "array"
         },
         "folder": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/FolderCheck"
+            "$ref": "#/$defs/FolderCheck"
           },
           "type": "array"
         },
         "exec": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ExecCheck"
+            "$ref": "#/$defs/ExecCheck"
           },
           "type": "array"
         },
         "awsConfig": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AwsConfigCheck"
+            "$ref": "#/$defs/AwsConfigCheck"
           },
           "type": "array"
         },
         "awsConfigRule": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AwsConfigRuleCheck"
+            "$ref": "#/$defs/AwsConfigRuleCheck"
           },
           "type": "array"
         },
         "databaseBackup": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/DatabaseBackupCheck"
+            "$ref": "#/$defs/DatabaseBackupCheck"
           },
           "type": "array"
         },
         "configDB": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ConfigDBCheck"
+            "$ref": "#/$defs/ConfigDBCheck"
+          },
+          "type": "array"
+        },
+        "opensearch": {
+          "items": {
+            "$ref": "#/$defs/OpenSearchCheck"
           },
           "type": "array"
         },
         "elasticsearch": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ElasticsearchCheck"
+            "$ref": "#/$defs/ElasticsearchCheck"
           },
           "type": "array"
         },
         "alertmanager": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AlertManagerCheck"
+            "$ref": "#/$defs/AlertManagerCheck"
           },
           "type": "array"
         },
         "dynatrace": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/DynatraceCheck"
+            "$ref": "#/$defs/DynatraceCheck"
           },
           "type": "array"
         },
         "azureDevops": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AzureDevopsCheck"
+            "$ref": "#/$defs/AzureDevopsCheck"
           },
           "type": "array"
+        },
+        "webhook": {
+          "$ref": "#/$defs/WebhookCheck"
         },
         "interval": {
           "type": "integer"
@@ -572,10 +655,25 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CheckRelationship": {
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/LookupSpec"
+          },
+          "type": "array"
+        },
+        "configs": {
+          "items": {
+            "$ref": "#/$defs/LookupSpec"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CloudWatchCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -583,25 +681,35 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
         "accessKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "secretKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
         },
         "region": {
           "type": "string"
@@ -612,31 +720,15 @@
         "skipTLSVerify": {
           "type": "boolean"
         },
-        "objectPath": {
-          "type": "string"
-        },
-        "usePathStyle": {
-          "type": "boolean"
-        },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
-        "filter": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/CloudWatchFilter"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "CloudWatchFilter": {
-      "properties": {
         "actionPrefix": {
           "type": "string"
         },
@@ -654,28 +746,27 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "Component": {
-      "required": [
-        "TypeMeta"
-      ],
       "properties": {
-        "TypeMeta": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/TypeMeta"
+        "kind": {
+          "type": "string"
+        },
+        "apiVersion": {
+          "type": "string"
         },
         "metadata": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ObjectMeta"
+          "$ref": "#/$defs/ObjectMeta"
         },
         "spec": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ComponentSpec"
+          "$ref": "#/$defs/ComponentSpec"
         },
         "status": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ComponentStatus"
+          "$ref": "#/$defs/ComponentStatus"
         }
       },
       "additionalProperties": false,
@@ -684,18 +775,27 @@
     "ComponentCheck": {
       "properties": {
         "selector": {
-          "$ref": "#/definitions/ResourceSelector"
+          "$ref": "#/$defs/ResourceSelector"
         },
         "inline": {
-          "$ref": "#/definitions/CanarySpec"
+          "$ref": "#/$defs/CanarySpec"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
+    "ComponentChecks": {
+      "items": {
+        "$ref": "#/$defs/ComponentCheck"
+      },
+      "type": "array"
+    },
     "ComponentSpec": {
       "properties": {
         "name": {
+          "type": "string"
+        },
+        "namespace": {
           "type": "string"
         },
         "tooltip": {
@@ -708,11 +808,21 @@
           "type": "string"
         },
         "id": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "order": {
           "type": "integer"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "hidden": {
+          "type": "boolean"
         },
         "type": {
           "type": "string"
@@ -722,57 +832,45 @@
         },
         "relationships": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/RelationshipSpec"
+            "$ref": "#/$defs/RelationshipSpec"
           },
           "type": "array"
         },
         "properties": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Property"
+            "$ref": "#/$defs/Property"
           },
           "type": "array"
         },
         "lookup": {
-          "$ref": "#/definitions/CanarySpec"
+          "$ref": "#/$defs/CanarySpec"
         },
         "components": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ComponentSpecObject"
+            "$ref": "#/$defs/ComponentSpecObject"
           },
           "type": "array"
         },
         "selectors": {
-          "items": {
-            "$ref": "#/definitions/ResourceSelector"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ResourceSelectors"
         },
         "checks": {
-          "items": {
-            "$ref": "#/definitions/ComponentCheck"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ComponentChecks"
         },
         "configs": {
-          "items": {
-            "$ref": "#/definitions/Config"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ConfigQueries"
         },
         "summary": {
-          "$ref": "#/definitions/Summary"
+          "$ref": "#/$defs/Summary"
         },
         "forEach": {
-          "$ref": "#/definitions/ForEach"
+          "$ref": "#/$defs/ForEach"
         },
         "logs": {
-          "items": {
-            "$ref": "#/definitions/LogSelector"
-          },
-          "type": "array"
+          "$ref": "#/$defs/LogSelectors"
+        },
+        "parentLookup": {
+          "$ref": "#/$defs/ParentLookup"
         }
       },
       "additionalProperties": false,
@@ -783,6 +881,9 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "tooltip": {
           "type": "string"
         },
@@ -793,10 +894,21 @@
           "type": "string"
         },
         "id": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "order": {
           "type": "integer"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "hidden": {
+          "type": "boolean"
         },
         "type": {
           "type": "string"
@@ -806,58 +918,45 @@
         },
         "relationships": {
           "items": {
-            "$ref": "#/definitions/RelationshipSpec"
+            "$ref": "#/$defs/RelationshipSpec"
           },
           "type": "array"
         },
         "properties": {
           "items": {
-            "$ref": "#/definitions/Property"
+            "$ref": "#/$defs/Property"
           },
           "type": "array"
         },
         "lookup": {
-          "$ref": "#/definitions/CanarySpec"
+          "$ref": "#/$defs/CanarySpec"
         },
         "components": {
           "items": {
-            "$ref": "#/definitions/ComponentSpecObject"
+            "$ref": "#/$defs/ComponentSpecObject"
           },
           "type": "array"
         },
         "selectors": {
-          "items": {
-            "$ref": "#/definitions/ResourceSelector"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ResourceSelectors"
         },
         "checks": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ComponentCheck"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ComponentChecks"
         },
         "configs": {
-          "items": {
-            "$ref": "#/definitions/Config"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ConfigQueries"
         },
         "summary": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Summary"
+          "$ref": "#/$defs/Summary"
         },
         "forEach": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ForEach"
+          "$ref": "#/$defs/ForEach"
         },
         "logs": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/LogSelector"
-          },
-          "type": "array"
+          "$ref": "#/$defs/LogSelectors"
+        },
+        "parentLookup": {
+          "$ref": "#/$defs/ParentLookup"
         }
       },
       "additionalProperties": false,
@@ -866,13 +965,101 @@
     "ComponentStatus": {
       "properties": {
         "status": {
-          "type": "string"
+          "$ref": "#/$defs/ComponentStatus"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "Config": {
+    "ConfigDBCheck": {
+      "properties": {
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
+        },
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "query"
+      ]
+    },
+    "ConfigLookup": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/ConfigQuery"
+        },
+        "field": {
+          "type": "string"
+        },
+        "display": {
+          "$ref": "#/$defs/Display"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ConfigMapKeySelector": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "key"
+      ]
+    },
+    "ConfigQueries": {
+      "items": {
+        "$ref": "#/$defs/ConfigQuery"
+      },
+      "type": "array"
+    },
+    "ConfigQuery": {
       "properties": {
         "id": {
           "items": {
@@ -881,6 +1068,12 @@
           "type": "array"
         },
         "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "external_id": {
           "type": "string"
         },
         "name": {
@@ -901,90 +1094,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ConfigDBCheck": {
-      "required": [
-        "name",
-        "query"
-      ],
-      "properties": {
-        "test": {
-          "$ref": "#/definitions/Template"
-        },
-        "display": {
-          "$ref": "#/definitions/Template"
-        },
-        "transform": {
-          "$ref": "#/definitions/Template"
-        },
-        "description": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "icon": {
-          "type": "string"
-        },
-        "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "query": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ConfigLookup": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "config": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Config"
-        },
-        "field": {
-          "type": "string"
-        },
-        "display": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Display"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "ConfigMapKeySelector": {
-      "required": [
-        "LocalObjectReference",
-        "key"
-      ],
-      "properties": {
-        "LocalObjectReference": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/LocalObjectReference"
-        },
-        "key": {
-          "type": "string"
-        },
-        "optional": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ContainerdPullCheck": {
-      "required": [
-        "name",
-        "image"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -992,22 +1102,29 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "image": {
           "type": "string"
         },
         "auth": {
-          "$ref": "#/definitions/Authentication"
+          "$ref": "#/$defs/Authentication"
         },
         "expectedDigest": {
           "type": "string"
@@ -1017,13 +1134,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "ContainerdPushCheck": {
+      "type": "object",
       "required": [
         "name",
         "image"
-      ],
+      ]
+    },
+    "ContainerdPushCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1031,16 +1148,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "image": {
           "type": "string"
@@ -1053,12 +1177,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "image"
+      ]
     },
     "DNSCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1066,16 +1191,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "server": {
           "type": "string"
@@ -1106,12 +1238,12 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "DatabaseBackupCheck": {
+      "type": "object",
       "required": [
         "name"
-      ],
+      ]
+    },
+    "DatabaseBackupCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1119,36 +1251,45 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "gcp": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/GCPDatabase"
+          "$ref": "#/$defs/GCPDatabase"
         },
         "maxAge": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "Display": {
       "properties": {
@@ -1169,10 +1310,6 @@
       "type": "object"
     },
     "DockerPullCheck": {
-      "required": [
-        "name",
-        "image"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1180,22 +1317,29 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "image": {
           "type": "string"
         },
         "auth": {
-          "$ref": "#/definitions/Authentication"
+          "$ref": "#/$defs/Authentication"
         },
         "expectedDigest": {
           "type": "string"
@@ -1205,13 +1349,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "DockerPushCheck": {
+      "type": "object",
       "required": [
         "name",
         "image"
-      ],
+      ]
+    },
+    "DockerPushCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1219,31 +1363,39 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "image": {
           "type": "string"
         },
         "auth": {
-          "$ref": "#/definitions/Authentication"
+          "$ref": "#/$defs/Authentication"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "image"
+      ]
     },
     "DynatraceCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1251,25 +1403,35 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
+        },
+        "connection": {
+          "type": "string"
         },
         "host": {
           "type": "string"
@@ -1278,19 +1440,16 @@
           "type": "string"
         },
         "apiKey": {
-          "$ref": "#/definitions/EnvVar"
-        },
-        "namespace": {
-          "type": "string"
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "EC2Check": {
+      "type": "object",
       "required": [
         "name"
-      ],
+      ]
+    },
+    "EC2Check": {
       "properties": {
         "description": {
           "type": "string"
@@ -1298,25 +1457,35 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
         "accessKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "secretKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
         },
         "region": {
           "type": "string"
@@ -1325,12 +1494,6 @@
           "type": "string"
         },
         "skipTLSVerify": {
-          "type": "boolean"
-        },
-        "objectPath": {
-          "type": "string"
-        },
-        "usePathStyle": {
           "type": "boolean"
         },
         "ami": {
@@ -1353,18 +1516,18 @@
         },
         "canaryRef": {
           "items": {
-            "$ref": "#/definitions/LocalObjectReference"
+            "$ref": "#/$defs/LocalObjectReference"
           },
           "type": "array"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "ElasticsearchCheck": {
+      "type": "object",
       "required": [
         "name"
-      ],
+      ]
+    },
+    "ElasticsearchCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1372,25 +1535,32 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
@@ -1398,8 +1568,11 @@
         "url": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "query": {
           "type": "string"
@@ -1412,7 +1585,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "EnvVar": {
       "properties": {
@@ -1423,8 +1599,7 @@
           "type": "string"
         },
         "valueFrom": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/EnvVarSource"
+          "$ref": "#/$defs/EnvVarSource"
         }
       },
       "additionalProperties": false,
@@ -1432,21 +1607,23 @@
     },
     "EnvVarSource": {
       "properties": {
+        "serviceAccount": {
+          "type": "string"
+        },
+        "helmRef": {
+          "$ref": "#/$defs/HelmRefKeySelector"
+        },
         "configMapKeyRef": {
-          "$ref": "#/definitions/ConfigMapKeySelector"
+          "$ref": "#/$defs/ConfigMapKeySelector"
         },
         "secretKeyRef": {
-          "$ref": "#/definitions/SecretKeySelector"
+          "$ref": "#/$defs/SecretKeySelector"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "ExecCheck": {
-      "required": [
-        "name",
-        "script"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1454,28 +1631,72 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "script": {
           "type": "string"
+        },
+        "connections": {
+          "$ref": "#/$defs/ExecConnections"
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "checkout": {
+          "$ref": "#/$defs/GitCheckout"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "script"
+      ]
+    },
+    "ExecConnections": {
+      "properties": {
+        "aws": {
+          "$ref": "#/$defs/AWSConnection"
+        },
+        "gcp": {
+          "$ref": "#/$defs/GCPConnection"
+        },
+        "azure": {
+          "$ref": "#/$defs/AzureConnection"
         }
       },
       "additionalProperties": false,
@@ -1487,10 +1708,6 @@
       "type": "object"
     },
     "FolderCheck": {
-      "required": [
-        "name",
-        "path"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1498,32 +1715,41 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "path": {
           "type": "string"
         },
+        "recursive": {
+          "type": "boolean"
+        },
         "filter": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/FolderFilter"
+          "$ref": "#/$defs/FolderFilter"
         },
         "minAge": {
           "type": "string"
@@ -1550,24 +1776,24 @@
           "type": "string"
         },
         "awsConnection": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/AWSConnection"
+          "$ref": "#/$defs/S3Connection"
         },
         "gcpConnection": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/GCPConnection"
+          "$ref": "#/$defs/GCSConnection"
         },
         "smbConnection": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/SMBConnection"
+          "$ref": "#/$defs/SMBConnection"
         },
         "sftpConnection": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/SFTPConnection"
+          "$ref": "#/$defs/SFTPConnection"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "path"
+      ]
     },
     "FolderFilter": {
       "properties": {
@@ -1575,6 +1801,9 @@
           "type": "string"
         },
         "maxAge": {
+          "type": "string"
+        },
+        "since": {
           "type": "string"
         },
         "minSize": {
@@ -1594,39 +1823,30 @@
       "properties": {
         "components": {
           "items": {
-            "$ref": "#/definitions/ComponentSpec"
+            "$ref": "#/$defs/ComponentSpec"
           },
           "type": "array"
         },
         "properties": {
-          "items": {
-            "$ref": "#/definitions/Property"
-          },
-          "type": "array"
+          "$ref": "#/$defs/Properties"
         },
         "configs": {
           "items": {
-            "$ref": "#/definitions/Config"
+            "$ref": "#/$defs/ConfigQuery"
           },
           "type": "array"
         },
         "selectors": {
-          "items": {
-            "$ref": "#/definitions/ResourceSelector"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ResourceSelectors"
         },
         "relationships": {
           "items": {
-            "$ref": "#/definitions/RelationshipSpec"
+            "$ref": "#/$defs/RelationshipSpec"
           },
           "type": "array"
         },
         "checks": {
-          "items": {
-            "$ref": "#/definitions/ComponentCheck"
-          },
-          "type": "array"
+          "$ref": "#/$defs/ComponentChecks"
         }
       },
       "additionalProperties": false,
@@ -1641,17 +1861,13 @@
           "type": "string"
         },
         "credentials": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "GCPDatabase": {
-      "required": [
-        "project",
-        "instance"
-      ],
       "properties": {
         "project": {
           "type": "string"
@@ -1660,17 +1876,59 @@
           "type": "string"
         },
         "gcpConnection": {
-          "$ref": "#/definitions/GCPConnection"
+          "$ref": "#/$defs/GCPConnection"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "project",
+        "instance"
+      ]
+    },
+    "GCSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "bucket": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GitCheckout": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "certificate": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "destination": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "GitHubCheck": {
-      "required": [
-        "name",
-        "query"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1678,25 +1936,32 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
@@ -1705,16 +1970,17 @@
           "type": "string"
         },
         "githubToken": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "HTTPCheck": {
+      "type": "object",
       "required": [
-        "name"
-      ],
+        "name",
+        "query"
+      ]
+    },
+    "GitProtocolCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1722,33 +1988,103 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "repository",
+        "username",
+        "password"
+      ]
+    },
+    "HTTPCheck": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
         },
-        "endpoint": {
+        "url": {
           "type": "string"
         },
-        "namespace": {
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "endpoint": {
           "type": "string"
         },
         "thresholdMillis": {
@@ -1764,8 +2100,7 @@
           "type": "string"
         },
         "responseJSONContent": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/JSONCheck"
+          "$ref": "#/$defs/JSONCheck"
         },
         "maxSSLExpiry": {
           "type": "integer"
@@ -1784,26 +2119,30 @@
         },
         "headers": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/EnvVar"
+            "$ref": "#/$defs/EnvVar"
           },
           "type": "array"
         },
-        "authentication": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Authentication"
-        },
         "templateBody": {
           "type": "boolean"
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "oauth2": {
+          "$ref": "#/$defs/Oauth2Config"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "HelmCheck": {
+      "type": "object",
       "required": [
         "name"
-      ],
+      ]
+    },
+    "HelmCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1811,16 +2150,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "chartmuseum": {
           "type": "string"
@@ -1829,19 +2175,34 @@
           "type": "string"
         },
         "auth": {
-          "$ref": "#/definitions/Authentication"
+          "$ref": "#/$defs/Authentication"
         },
         "cafile": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "ICMPCheck": {
+      "type": "object",
       "required": [
         "name"
-      ],
+      ]
+    },
+    "HelmRefKeySelector": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "key"
+      ]
+    },
+    "ICMPCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1849,16 +2210,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "endpoint": {
           "type": "string"
@@ -1874,13 +2242,12 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "JSONCheck": {
-      "required": [
-        "path",
-        "value"
-      ],
       "properties": {
         "path": {
           "type": "string"
@@ -1890,13 +2257,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "path",
+        "value"
+      ]
     },
     "JmeterCheck": {
-      "required": [
-        "name",
-        "jmx"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -1904,22 +2271,26 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
-          },
-          "type": "object"
+          "$ref": "#/$defs/Labels"
         },
-        "connection": {
+        "transformDeleteStrategy": {
           "type": "string"
         },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
         "jmx": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "host": {
           "type": "string"
@@ -1944,14 +2315,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "JunitCheck": {
+      "type": "object",
       "required": [
         "name",
-        "testResults",
-        "spec"
-      ],
+        "jmx"
+      ]
+    },
+    "JunitCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -1959,44 +2329,56 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "testResults": {
           "type": "string"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "timeout": {
           "type": "integer"
         },
-        "spec": {
-          "additionalProperties": true
+        "spec": true,
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "KubernetesCheck": {
+      "type": "object",
       "required": [
         "name",
-        "kind"
-      ],
+        "testResults",
+        "spec"
+      ]
+    },
+    "KubernetesCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -2004,32 +2386,38 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
-        "namespace": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ResourceSelector"
+        "namespaceSelector": {
+          "$ref": "#/$defs/ResourceSelector"
         },
         "resource": {
-          "$ref": "#/definitions/ResourceSelector"
+          "$ref": "#/$defs/ResourceSelector"
         },
         "ignore": {
           "items": {
@@ -2045,15 +2433,13 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
-    },
-    "LDAPCheck": {
+      "type": "object",
       "required": [
         "name",
-        "host",
-        "auth",
-        "bindDN"
-      ],
+        "kind"
+      ]
+    },
+    "LDAPCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -2061,25 +2447,35 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
-        "host": {
+        "url": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "bindDN": {
           "type": "string"
@@ -2092,12 +2488,21 @@
         }
       },
       "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "bindDN"
+      ]
+    },
+    "Labels": {
+      "patternProperties": {
+        ".*": {
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "Link": {
-      "required": [
-        "Text"
-      ],
       "properties": {
         "type": {
           "type": "string"
@@ -2105,9 +2510,17 @@
         "url": {
           "type": "string"
         },
-        "Text": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Text"
+        "tooltip": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -2142,6 +2555,42 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "LogSelectors": {
+      "items": {
+        "$ref": "#/$defs/LogSelector"
+      },
+      "type": "array"
+    },
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LookupSpec": {
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "type": {
+          "$ref": "#/$defs/Lookup"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ManagedFieldsEntry": {
       "properties": {
         "manager": {
@@ -2154,14 +2603,13 @@
           "type": "string"
         },
         "time": {
-          "$ref": "#/definitions/Time"
+          "$ref": "#/$defs/Time"
         },
         "fieldsType": {
           "type": "string"
         },
         "fieldsV1": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/FieldsV1"
+          "$ref": "#/$defs/FieldsV1"
         },
         "subresource": {
           "type": "string"
@@ -2170,11 +2618,49 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "MongoDBCheck": {
+    "MetricLabel": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "valueExpr": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
       "required": [
-        "name",
-        "connection"
-      ],
+        "name"
+      ]
+    },
+    "MetricLabels": {
+      "items": {
+        "$ref": "#/$defs/MetricLabel"
+      },
+      "type": "array"
+    },
+    "Metrics": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/MetricLabels"
+        },
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MongoDBCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -2182,32 +2668,44 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "MssqlCheck": {
-      "required": [
-        "name",
-        "connection"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2215,31 +2713,44 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "query": {
           "type": "string"
@@ -2249,13 +2760,12 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "MysqlCheck": {
-      "required": [
-        "name",
-        "connection"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2263,31 +2773,44 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "query": {
           "type": "string"
@@ -2297,13 +2820,12 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "NamespaceCheck": {
-      "required": [
-        "name",
-        "podSpec"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2311,16 +2833,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "namespaceNamePrefix": {
           "type": "string"
@@ -2391,12 +2920,36 @@
         }
       },
       "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "podSpec"
+      ]
+    },
+    "Oauth2Config": {
+      "properties": {
+        "scope": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tokenURL": {
+          "type": "string"
+        },
+        "params": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
       "type": "object"
     },
     "ObjectFieldSelector": {
-      "required": [
-        "fieldPath"
-      ],
       "properties": {
         "apiVersion": {
           "type": "string"
@@ -2406,7 +2959,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "fieldPath"
+      ]
     },
     "ObjectMeta": {
       "properties": {
@@ -2432,11 +2988,10 @@
           "type": "integer"
         },
         "creationTimestamp": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/Time"
+          "$ref": "#/$defs/Time"
         },
         "deletionTimestamp": {
-          "$ref": "#/definitions/Time"
+          "$ref": "#/$defs/Time"
         },
         "deletionGracePeriodSeconds": {
           "type": "integer"
@@ -2459,8 +3014,7 @@
         },
         "ownerReferences": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/OwnerReference"
+            "$ref": "#/$defs/OwnerReference"
           },
           "type": "array"
         },
@@ -2472,8 +3026,7 @@
         },
         "managedFields": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/ManagedFieldsEntry"
+            "$ref": "#/$defs/ManagedFieldsEntry"
           },
           "type": "array"
         }
@@ -2481,13 +3034,72 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "OwnerReference": {
+    "OpenSearchCheck": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "query": {
+          "type": "string"
+        },
+        "index": {
+          "type": "string"
+        },
+        "results": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
       "required": [
-        "apiVersion",
-        "kind",
         "name",
-        "uid"
-      ],
+        "query",
+        "index"
+      ]
+    },
+    "OwnerReference": {
       "properties": {
         "apiVersion": {
           "type": "string"
@@ -2509,12 +3121,30 @@
         }
       },
       "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "kind",
+        "name",
+        "uid"
+      ]
+    },
+    "ParentLookup": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
       "type": "object"
     },
     "PodCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2522,19 +3152,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
-          },
-          "type": "object"
+          "$ref": "#/$defs/Labels"
         },
-        "namespace": {
+        "transformDeleteStrategy": {
           "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
         },
         "spec": {
           "type": "string"
@@ -2586,16 +3220,18 @@
         },
         "priorityClass": {
           "type": "string"
+        },
+        "roundRobinNodes": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "PostgresCheck": {
-      "required": [
-        "name",
-        "connection"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2603,31 +3239,44 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "connection": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "query": {
           "type": "string"
@@ -2637,14 +3286,12 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "PrometheusCheck": {
-      "required": [
-        "name",
-        "host",
-        "query"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2652,38 +3299,64 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "test": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "display": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         },
         "transform": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
+        },
+        "host": {
+          "type": "string"
         },
         "connection": {
           "type": "string"
         },
-        "host": {
+        "url": {
           "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "query": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "query"
+      ]
+    },
+    "Properties": {
+      "items": {
+        "$ref": "#/$defs/Property"
+      },
+      "type": "array"
     },
     "Property": {
       "properties": {
@@ -2734,32 +3407,24 @@
         },
         "links": {
           "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Link"
+            "$ref": "#/$defs/Link"
           },
           "type": "array"
         },
         "lookup": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/CanarySpec"
+          "$ref": "#/$defs/CanarySpec"
         },
         "configLookup": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ConfigLookup"
+          "$ref": "#/$defs/ConfigLookup"
         },
         "summary": {
-          "$ref": "#/definitions/Template"
+          "$ref": "#/$defs/Template"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "RedisCheck": {
-      "required": [
-        "name",
-        "addr",
-        "db"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2767,32 +3432,48 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
-        "addr": {
+        "url": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "addr": {
+          "type": "string"
         },
         "db": {
           "type": "integer"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "RelationshipSpec": {
       "properties": {
@@ -2821,13 +3502,13 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ResourceSelectors": {
+      "items": {
+        "$ref": "#/$defs/ResourceSelector"
+      },
+      "type": "array"
+    },
     "ResticCheck": {
-      "required": [
-        "name",
-        "repository",
-        "password",
-        "maxAge"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2835,16 +3516,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
@@ -2856,7 +3544,7 @@
           "type": "string"
         },
         "password": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "maxAge": {
           "type": "string"
@@ -2865,22 +3553,25 @@
           "type": "boolean"
         },
         "accessKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "secretKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "caCert": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name",
+        "repository",
+        "password",
+        "maxAge"
+      ]
     },
     "S3Check": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -2888,25 +3579,35 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "connection": {
           "type": "string"
         },
         "accessKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
         },
         "secretKey": {
-          "$ref": "#/definitions/EnvVar"
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
         },
         "region": {
           "type": "string"
@@ -2916,6 +3617,9 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "bucket": {
+          "type": "string"
         },
         "objectPath": {
           "type": "string"
@@ -2928,13 +3632,48 @@
         }
       },
       "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "S3Connection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "objectPath": {
+          "type": "string"
+        },
+        "usePathStyle": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
       "type": "object"
     },
     "SFTPConnection": {
-      "required": [
-        "host",
-        "auth"
-      ],
       "properties": {
         "connection": {
           "type": "string"
@@ -2945,17 +3684,20 @@
         "host": {
           "type": "string"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "host"
+      ]
     },
     "SMBConnection": {
-      "required": [
-        "auth"
-      ],
       "properties": {
         "connection": {
           "type": "string"
@@ -2963,19 +3705,13 @@
         "port": {
           "type": "integer"
         },
-        "auth": {
-          "$ref": "#/definitions/Authentication"
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         },
         "domain": {
-          "type": "string"
-        },
-        "workstation": {
-          "type": "string"
-        },
-        "sharename": {
-          "type": "string"
-        },
-        "searchPath": {
           "type": "string"
         }
       },
@@ -2983,13 +3719,9 @@
       "type": "object"
     },
     "SecretKeySelector": {
-      "required": [
-        "LocalObjectReference",
-        "key"
-      ],
       "properties": {
-        "LocalObjectReference": {
-          "$ref": "#/definitions/LocalObjectReference"
+        "name": {
+          "type": "string"
         },
         "key": {
           "type": "string"
@@ -2999,7 +3731,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "key"
+      ]
     },
     "Summary": {
       "properties": {
@@ -3040,15 +3775,20 @@
             }
           },
           "type": "object"
+        },
+        "checks": {
+          "patternProperties": {
+            ".*": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
     "TCPCheck": {
-      "required": [
-        "name"
-      ],
       "properties": {
         "description": {
           "type": "string"
@@ -3056,16 +3796,23 @@
         "name": {
           "type": "string"
         },
+        "namespace": {
+          "type": "string"
+        },
         "icon": {
           "type": "string"
         },
         "labels": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
           },
-          "type": "object"
+          "type": "array"
         },
         "endpoint": {
           "type": "string"
@@ -3075,7 +3822,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "name"
+      ]
     },
     "Template": {
       "properties": {
@@ -3095,61 +3845,73 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Text": {
-      "properties": {
-        "tooltip": {
-          "type": "string"
-        },
-        "icon": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "Time": {
       "properties": {},
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "TypeMeta": {
-      "properties": {
-        "kind": {
-          "type": "string"
-        },
-        "apiVersion": {
-          "type": "string"
-        }
-      },
       "additionalProperties": false,
       "type": "object"
     },
     "VarSource": {
       "properties": {
         "fieldRef": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ObjectFieldSelector"
+          "$ref": "#/$defs/ObjectFieldSelector"
         },
         "value": {
           "type": "string"
         },
         "configMapKeyRef": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ConfigMapKeySelector"
+          "$ref": "#/$defs/ConfigMapKeySelector"
         },
         "secretKeyRef": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/SecretKeySelector"
+          "$ref": "#/$defs/SecretKeySelector"
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "WebhookCheck": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
+        },
+        "token": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
     }
   }
 }

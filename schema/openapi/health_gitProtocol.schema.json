@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/canary-checker/api/v1/database-backup-check",
-  "$ref": "#/$defs/DatabaseBackupCheck",
+  "$id": "https://github.com/flanksource/canary-checker/api/v1/git-protocol-check",
+  "$ref": "#/$defs/GitProtocolCheck",
   "$defs": {
     "ConfigMapKeySelector": {
       "properties": {
@@ -16,54 +16,6 @@
       "type": "object",
       "required": [
         "key"
-      ]
-    },
-    "DatabaseBackupCheck": {
-      "properties": {
-        "description": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "icon": {
-          "type": "string"
-        },
-        "labels": {
-          "$ref": "#/$defs/Labels"
-        },
-        "transformDeleteStrategy": {
-          "type": "string"
-        },
-        "metrics": {
-          "items": {
-            "$ref": "#/$defs/Metrics"
-          },
-          "type": "array"
-        },
-        "test": {
-          "$ref": "#/$defs/Template"
-        },
-        "display": {
-          "$ref": "#/$defs/Template"
-        },
-        "transform": {
-          "$ref": "#/$defs/Template"
-        },
-        "gcp": {
-          "$ref": "#/$defs/GCPDatabase"
-        },
-        "maxAge": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name"
       ]
     },
     "EnvVar": {
@@ -99,38 +51,61 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "GCPConnection": {
+    "GitProtocolCheck": {
       "properties": {
-        "connection": {
+        "description": {
           "type": "string"
         },
-        "endpoint": {
+        "name": {
           "type": "string"
         },
-        "credentials": {
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "username": {
           "$ref": "#/$defs/EnvVar"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "GCPDatabase": {
-      "properties": {
-        "project": {
-          "type": "string"
         },
-        "instance": {
-          "type": "string"
-        },
-        "gcpConnection": {
-          "$ref": "#/$defs/GCPConnection"
+        "password": {
+          "$ref": "#/$defs/EnvVar"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "project",
-        "instance"
+        "name",
+        "repository",
+        "username",
+        "password"
       ]
     },
     "HelmRefKeySelector": {
