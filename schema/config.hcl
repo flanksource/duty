@@ -301,6 +301,9 @@ table "config_items" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "idx_config_items_scraper_id" {
+    columns = [column.scraper_id]
+  }
   index "idx_config_items_external_id" {
     columns = [column.external_id]
     type    = GIN
