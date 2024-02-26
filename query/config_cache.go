@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -44,7 +42,7 @@ func configRelationCacheKey(id string) string {
 
 func SyncConfigCache(ctx context.Context) error {
 	var configItems []models.ConfigItem
-	if err := ctx.DB().Table("config_items").Where(LocalFilter).FindInBatches(&configItems, 1000, func(*gorm.DB, int) error { return nil }).Error; err != nil {
+	if err := ctx.DB().Table("config_items").Where(LocalFilter).Find(&configItems).Error; err != nil {
 		return fmt.Errorf("error querying config items for cache: %w", err)
 	}
 
@@ -61,7 +59,7 @@ func SyncConfigCache(ctx context.Context) error {
 	}
 
 	var configRelations []models.ConfigRelationship
-	if err := ctx.DB().Table("config_relationships").Where("deleted_at IS NULL").FindInBatches(&configRelations, 5000, func(*gorm.DB, int) error { return nil }).Error; err != nil {
+	if err := ctx.DB().Table("config_relationships").Where("deleted_at IS NULL").Find(&configRelations).Error; err != nil {
 		return fmt.Errorf("error querying config relationships for cache: %w", err)
 	}
 
