@@ -44,6 +44,9 @@ download-openapi-schemas:
 	# APM-Hub
 	git clone --depth=1 git@github.com:flanksource/apm-hub.git tmp/apm-hub && cp tmp/apm-hub/config/schemas/* schema/openapi/
 
+	# Mission control
+	git clone --depth=1 git@github.com:flanksource/mission-control.git tmp/mission-control && cp tmp/mission-control/config/schemas/* schema/openapi/
+
 	# create schemas for specs only
 	cat tmp/config-db/config/schemas/scrape_config.schema.json | jq '.["$$ref"] = "#/definitions/ScrapeConfigSpec"' > schema/openapi/scrape_config.spec.schema.json
 

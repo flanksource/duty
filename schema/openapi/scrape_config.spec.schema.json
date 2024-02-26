@@ -60,6 +60,9 @@
         "region"
       ],
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "accessKey": {
           "$schema": "http://json-schema.org/draft-04/schema#",
           "$ref": "#/definitions/EnvVar"
@@ -106,8 +109,7 @@
       "required": [
         "BaseScraper",
         "subscriptionID",
-        "organisation",
-        "tenantID"
+        "organisation"
       ],
       "properties": {
         "BaseScraper": {
@@ -130,6 +132,10 @@
         },
         "tenantID": {
           "type": "string"
+        },
+        "exclusions": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/AzureExclusions"
         }
       },
       "additionalProperties": false,
@@ -138,14 +144,15 @@
     "AzureDevops": {
       "required": [
         "BaseScraper",
-        "organization",
-        "personalAccessToken",
         "projects",
         "pipelines"
       ],
       "properties": {
         "BaseScraper": {
           "$ref": "#/definitions/BaseScraper"
+        },
+        "connection": {
+          "type": "string"
         },
         "organization": {
           "type": "string"
@@ -169,6 +176,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AzureExclusions": {
+      "properties": {
+        "activityLogs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BaseScraper": {
       "properties": {
         "id": {
@@ -181,6 +200,9 @@
           "type": "string"
         },
         "type": {
+          "type": "string"
+        },
+        "class": {
           "type": "string"
         },
         "transform": {
@@ -212,6 +234,40 @@
             }
           },
           "type": "object"
+        },
+        "properties": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/ConfigProperties"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ChangeMapping": {
+      "properties": {
+        "filter": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ChangeRetentionSpec": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "age": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -226,6 +282,24 @@
           "type": "array"
         },
         "max_age": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ConfigFieldExclusion": {
+      "required": [
+        "jsonpath"
+      ],
+      "properties": {
+        "types": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "jsonpath": {
           "type": "string"
         }
       },
@@ -247,79 +321,62 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ConfigScraper": {
+    "ConfigProperties": {
       "properties": {
-        "logLevel": {
+        "label": {
           "type": "string"
         },
-        "schedule": {
+        "name": {
           "type": "string"
         },
-        "aws": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AWS"
-          },
-          "type": "array"
+        "tooltip": {
+          "type": "string"
         },
-        "file": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/File"
-          },
-          "type": "array"
+        "icon": {
+          "type": "string"
         },
-        "kubernetes": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Kubernetes"
-          },
-          "type": "array"
+        "type": {
+          "type": "string"
         },
-        "kubernetesFile": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/KubernetesFile"
-          },
-          "type": "array"
+        "color": {
+          "type": "string"
         },
-        "azureDevops": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/AzureDevops"
-          },
-          "type": "array"
+        "order": {
+          "type": "integer"
         },
-        "githubActions": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/GitHubActions"
-          },
-          "type": "array"
-        },
-        "azure": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Azure"
-          },
-          "type": "array"
-        },
-        "sql": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/SQL"
-          },
-          "type": "array"
-        },
-        "trivy": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Trivy"
-          },
-          "type": "array"
-        },
-        "full": {
+        "headline": {
           "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "lastTransition": {
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Link"
+          },
+          "type": "array"
+        },
+        "filter": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -377,6 +434,13 @@
     },
     "EnvVarSource": {
       "properties": {
+        "serviceAccount": {
+          "type": "string"
+        },
+        "helmRef": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/HelmRefKeySelector"
+        },
         "configMapKeyRef": {
           "$schema": "http://json-schema.org/draft-04/schema#",
           "$ref": "#/definitions/ConfigMapKeySelector"
@@ -422,14 +486,8 @@
         },
         "icon": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Filter": {
-      "properties": {
-        "jsonpath": {
+        },
+        "connection": {
           "type": "string"
         }
       },
@@ -457,11 +515,29 @@
         "personalAccessToken": {
           "$ref": "#/definitions/EnvVar"
         },
+        "connection": {
+          "type": "string"
+        },
         "workflows": {
           "items": {
             "type": "string"
           },
           "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "HelmRefKeySelector": {
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -502,34 +578,98 @@
         "maxInflight": {
           "type": "integer"
         },
-        "exclusions": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "kubeconfig": {
           "$ref": "#/definitions/EnvVar"
         },
         "event": {
           "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/KubernetesEvent"
+          "$ref": "#/definitions/KubernetesEventConfig"
+        },
+        "exclusions": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/KubernetesExclusionConfig"
+        },
+        "relationships": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/KubernetesRelationshipSelectorTemplate"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "KubernetesEvent": {
+    "KubernetesEventConfig": {
       "properties": {
         "exclusions": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/KubernetesEventExclusions"
+        },
+        "severityKeywords": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/SeverityKeywords"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubernetesEventExclusions": {
+      "properties": {
+        "name": {
           "items": {
             "type": "string"
           },
           "type": "array"
         },
-        "severityKeywords": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/SeverityKeywords"
+        "namespace": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubernetesExclusionConfig": {
+      "required": [
+        "name",
+        "kind",
+        "namespace"
+      ],
+      "properties": {
+        "name": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "namespace": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -557,6 +697,45 @@
             "$ref": "#/definitions/PodFile"
           },
           "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubernetesRelationshipSelectorTemplate": {
+      "required": [
+        "kind",
+        "name",
+        "namespace"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "name": {
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "namespace": {
+          "$ref": "#/definitions/RelationshipLookup"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Link": {
+      "required": [
+        "Text"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "Text": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/Text"
         }
       },
       "additionalProperties": false,
@@ -593,22 +772,12 @@
     "Mask": {
       "properties": {
         "selector": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/MaskSelector"
+          "type": "string"
         },
         "jsonpath": {
           "type": "string"
         },
         "value": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "MaskSelector": {
-      "properties": {
-        "type": {
           "type": "string"
         }
       },
@@ -733,6 +902,67 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "RelationshipConfig": {
+      "required": [
+        "RelationshipSelectorTemplate"
+      ],
+      "properties": {
+        "RelationshipSelectorTemplate": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/RelationshipSelectorTemplate"
+        },
+        "expr": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RelationshipLookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RelationshipSelectorTemplate": {
+      "properties": {
+        "id": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "name": {
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "type": {
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "agent": {
+          "$ref": "#/definitions/RelationshipLookup"
+        },
+        "labels": {
+          "patternProperties": {
+            ".*": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ResourceSelector": {
       "properties": {
         "namespace": {
@@ -749,6 +979,26 @@
         },
         "fieldSelector": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RetentionSpec": {
+      "properties": {
+        "changes": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/ChangeRetentionSpec"
+          },
+          "type": "array"
+        },
+        "types": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/TypeRetentionSpec"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -793,7 +1043,7 @@
         },
         "spec": {
           "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ScrapeConfigSpec"
+          "$ref": "#/definitions/ScraperSpec"
         },
         "status": {
           "$schema": "http://json-schema.org/draft-04/schema#",
@@ -803,23 +1053,92 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ScrapeConfigSpec": {
-      "required": [
-        "ConfigScraper"
-      ],
+    "ScrapeConfigStatus": {
       "properties": {
-        "ConfigScraper": {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "$ref": "#/definitions/ConfigScraper"
+        "observedGeneration": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "ScrapeConfigStatus": {
+    "ScraperSpec": {
       "properties": {
-        "observedGeneration": {
-          "type": "integer"
+        "logLevel": {
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "aws": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/AWS"
+          },
+          "type": "array"
+        },
+        "file": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/File"
+          },
+          "type": "array"
+        },
+        "kubernetes": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Kubernetes"
+          },
+          "type": "array"
+        },
+        "kubernetesFile": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/KubernetesFile"
+          },
+          "type": "array"
+        },
+        "azureDevops": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/AzureDevops"
+          },
+          "type": "array"
+        },
+        "githubActions": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/GitHubActions"
+          },
+          "type": "array"
+        },
+        "azure": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Azure"
+          },
+          "type": "array"
+        },
+        "sql": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/SQL"
+          },
+          "type": "array"
+        },
+        "trivy": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/Trivy"
+          },
+          "type": "array"
+        },
+        "retention": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/RetentionSpec"
+        },
+        "full": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -858,6 +1177,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Text": {
+      "properties": {
+        "tooltip": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Time": {
       "properties": {},
       "additionalProperties": false,
@@ -877,16 +1214,10 @@
         "javascript": {
           "type": "string"
         },
-        "include": {
-          "items": {
-            "$schema": "http://json-schema.org/draft-04/schema#",
-            "$ref": "#/definitions/Filter"
-          },
-          "type": "array"
-        },
         "exclude": {
           "items": {
-            "$ref": "#/definitions/Filter"
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/ConfigFieldExclusion"
           },
           "type": "array"
         },
@@ -894,6 +1225,36 @@
           "items": {
             "$schema": "http://json-schema.org/draft-04/schema#",
             "$ref": "#/definitions/Mask"
+          },
+          "type": "array"
+        },
+        "relationship": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/RelationshipConfig"
+          },
+          "type": "array"
+        },
+        "changes": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "$ref": "#/definitions/TransformChange"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TransformChange": {
+      "properties": {
+        "mapping": {
+          "items": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "$ref": "#/definitions/ChangeMapping"
+          },
+          "type": "array"
+        },
+        "exclude": {
+          "items": {
+            "type": "string"
           },
           "type": "array"
         }
@@ -913,7 +1274,10 @@
           "type": "string"
         },
         "compliance": {
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "ignoredLicenses": {
           "items": {
@@ -928,10 +1292,22 @@
           "type": "boolean"
         },
         "severity": {
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "vulnType": {
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scanners": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "timeout": {
           "type": "string"
@@ -971,6 +1347,24 @@
           "type": "string"
         },
         "apiVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TypeRetentionSpec": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "createdAge": {
+          "type": "string"
+        },
+        "updatedAge": {
+          "type": "string"
+        },
+        "deletedAge": {
           "type": "string"
         }
       },
