@@ -11,14 +11,15 @@ import (
 type PlaybookRunStatus string
 
 const (
-	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
-	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
-	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
-	PlaybookRunStatusPending   PlaybookRunStatus = "pending" // pending approval
-	PlaybookRunStatusRunning   PlaybookRunStatus = "running"
-	PlaybookRunStatusScheduled PlaybookRunStatus = "scheduled"
-	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
-	PlaybookRunStatusWaiting   PlaybookRunStatus = "waiting" // waiting for a consumer
+	PlaybookRunStatusCancelled    PlaybookRunStatus = "cancelled"
+	PlaybookRunStatusCompleted    PlaybookRunStatus = "completed"
+	PlaybookRunStatusFailed       PlaybookRunStatus = "failed"
+	PlaybookRunStatusPending      PlaybookRunStatus = "pending" // pending approval
+	PlaybookRunStatusRunning      PlaybookRunStatus = "running"
+	PlaybookRunStatusScheduled    PlaybookRunStatus = "scheduled"
+	PlaybookRunStatusSleeping     PlaybookRunStatus = "sleeping"
+	PlaybookRunStatusWaiting      PlaybookRunStatus = "waiting" // waiting for a consumer
+	PlaybookRunStatusFilterFailed PlaybookRunStatus = "filter_failed"
 )
 
 // PlaybookRunStatus are statuses for a playbook run and its actions.
