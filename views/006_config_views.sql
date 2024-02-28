@@ -275,6 +275,7 @@ CREATE VIEW config_summary AS
     LEFT JOIN changes_per_type ON config_items.type = changes_per_type.type
     LEFT JOIN aggregated_analysis_counts ON config_items.type = aggregated_analysis_counts.type
     LEFT JOIN aggregated_analysis_severity_counts ON config_items.type = aggregated_analysis_severity_counts.type
+  WHERE config_items.deleted_at IS NULL
   GROUP BY
     config_items.type,
     changes_per_type.count,
