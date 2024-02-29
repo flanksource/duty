@@ -12,11 +12,13 @@ import (
 )
 
 type UpstreamClient struct {
+	AgentName string
 	*http.Client
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 	client := UpstreamClient{
+		AgentName: config.AgentName,
 		Client: http.NewClient().
 			Auth(config.Username, config.Password).
 			InsecureSkipVerify(config.InsecureSkipVerify).
@@ -49,8 +51,8 @@ func (t *UpstreamClient) PushArtifacts(ctx context.Context, artifactID uuid.UUID
 }
 
 // Ping sends a ping message to the upstream
-func (t *UpstreamClient) Ping(ctx context.Context, agentName string) error {
-	resp, err := t.Client.R(ctx).QueryParam("agent_name", agentName).Get("/ping")
+func (t *UpstreamClient) Ping(ctx context.Context) error {
+	resp, err := t.Client.R(ctx).QueryParam("agent_name", t.AgentName).Get("/ping")
 	if !resp.IsOK() {
 		return fmt.Errorf("upstream sent an unexpected response: %v", resp.StatusCode)
 	}
@@ -72,10 +74,11 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	if msg.Count() == 0 {
 		return nil
 	}
+
 	start := time.Now()
 	msg.AddMetrics(ctx.Counter("push_queue_records", "method", method, "agent", msg.AgentName))
 	histogram := ctx.Histogram("push_queue_batch", "method", method, "agent", msg.AgentName)
-	req := t.R(ctx)
+	req := t.R(ctx).QueryParam("agent_name", msg.AgentName)
 	if err := req.Body(msg); err != nil {
 		return fmt.Errorf("error setting body: %w", err)
 	}

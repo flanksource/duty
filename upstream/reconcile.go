@@ -185,6 +185,7 @@ func (t *UpstreamReconciler) createPaginateRequest(ctx gocontext.Context, reques
 	return t.upstreamClient.R(ctx).
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).
+		QueryParam("agent_name", t.upstreamConf.AgentName).
 		QueryParam("size", fmt.Sprintf("%d", request.Size))
 }
 
