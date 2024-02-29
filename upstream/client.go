@@ -11,6 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// AgentNameQueryParam is the name of the query param that's used to authenticate an
+// agent when using basic auth instead of access tokens.
+const AgentNameQueryParam = "agent_name"
+
 type UpstreamClient struct {
 	AgentName string
 	*http.Client
@@ -52,7 +56,7 @@ func (t *UpstreamClient) PushArtifacts(ctx context.Context, artifactID uuid.UUID
 
 // Ping sends a ping message to the upstream
 func (t *UpstreamClient) Ping(ctx context.Context) error {
-	resp, err := t.Client.R(ctx).QueryParam("agent_name", t.AgentName).Get("/ping")
+	resp, err := t.Client.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName).Get("/ping")
 	if !resp.IsOK() {
 		return fmt.Errorf("upstream sent an unexpected response: %v", resp.StatusCode)
 	}
@@ -78,7 +82,7 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	start := time.Now()
 	msg.AddMetrics(ctx.Counter("push_queue_records", "method", method, "agent", msg.AgentName))
 	histogram := ctx.Histogram("push_queue_batch", "method", method, "agent", msg.AgentName)
-	req := t.R(ctx).QueryParam("agent_name", msg.AgentName)
+	req := t.R(ctx).QueryParam(AgentNameQueryParam, msg.AgentName)
 	if err := req.Body(msg); err != nil {
 		return fmt.Errorf("error setting body: %w", err)
 	}

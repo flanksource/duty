@@ -37,7 +37,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 
 			histogram := ctx.Histogram("agent_auth_middleware")
 
-			agentName := c.QueryParam("agent_name")
+			agentName := c.QueryParam(AgentNameQueryParam)
 			if agentName == "" {
 				histogram.Label(StatusLabel, StatusAgentError)
 				return c.JSON(http.StatusBadRequest, api.HTTPError{Error: "agent name is required"})

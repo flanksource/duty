@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 
 		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
 
-		e.POST("/upstream/push", upstream.PushHandler())
+		e.POST("/upstream/push", upstream.PushHandler)
 		e.GET("/upstream/pull/:agent_name", upstream.PullHandler([]string{"config_scrapers", "config_items"}))
 		e.GET("/upstream/status/:agent_name", upstream.StatusHandler([]string{"config_scrapers", "config_items"}))
 
