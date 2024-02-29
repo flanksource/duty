@@ -116,18 +116,16 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	batchSize := 100
 	db := ctx.DB()
-	if len(req.Topologies) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Topologies, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting topologies: %w", err)
+
+	for _, c := range req.Topologies {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+			return fmt.Errorf("error upserting topology: (id=%s): %w", c.ID, err)
 		}
 	}
 
-	if len(req.Canaries) > 0 {
-		// Save one by one (only for debugging purpose)
-		for _, c := range req.Canaries {
-			if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
-				return fmt.Errorf("error upserting canaries: (id=%s): %w", c.ID, err)
-			}
+	for _, c := range req.Canaries {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+			return fmt.Errorf("error upserting canaries: (id=%s): %w", c.ID, err)
 		}
 	}
 
@@ -143,9 +141,9 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.ConfigScrapers) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ConfigScrapers, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config scrapers: %w", err)
+	for _, c := range req.ConfigScrapers {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+			return fmt.Errorf("error upserting config scraper: (id=%s): %w", c.ID, err)
 		}
 	}
 
