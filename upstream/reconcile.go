@@ -135,8 +135,8 @@ func (t *UpstreamReconciler) sync(ctx context.Context, table, next string) (int,
 // fetchUpstreamResourceIDs requests all the existing resource ids from the upstream
 // that were sent by this agent.
 func (t *UpstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, request PaginateRequest) ([]string, error) {
-	httpReq := t.createPaginateRequest(ctx, request)
-	httpResponse, err := httpReq.Get(fmt.Sprintf("pull/%s", t.upstreamConf.AgentName))
+	httpReq := t.createPaginateRequest(ctx, request).QueryParam(AgentNameQueryParam, t.upstreamConf.AgentName)
+	httpResponse, err := httpReq.Get("pull")
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
@@ -159,11 +159,12 @@ func (t *UpstreamReconciler) fetchUpstreamResourceIDs(ctx context.Context, reque
 }
 
 func (t *UpstreamReconciler) fetchUpstreamStatus(ctx gocontext.Context, request PaginateRequest) (*PaginateResponse, error) {
-	httpReq := t.createPaginateRequest(ctx, request)
-	httpResponse, err := httpReq.Get(fmt.Sprintf("status/%s", t.upstreamConf.AgentName))
+	httpReq := t.createPaginateRequest(ctx, request).QueryParam(AgentNameQueryParam, t.upstreamConf.AgentName)
+	httpResponse, err := httpReq.Get("status")
 	if err != nil {
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
+
 	body, err := httpResponse.AsString()
 	if err != nil {
 		return nil, fmt.Errorf("error reading body: %w", err)
@@ -185,7 +186,6 @@ func (t *UpstreamReconciler) createPaginateRequest(ctx gocontext.Context, reques
 	return t.upstreamClient.R(ctx).
 		QueryParam("table", request.Table).
 		QueryParam("from", request.From).
-		QueryParam("agent_name", t.upstreamConf.AgentName).
 		QueryParam("size", fmt.Sprintf("%d", request.Size))
 }
 
