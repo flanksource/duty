@@ -48,7 +48,7 @@ download-openapi-schemas:
 	git clone --depth=1 git@github.com:flanksource/mission-control.git tmp/mission-control && cp tmp/mission-control/config/schemas/* schema/openapi/
 
 	# create schemas for specs only
-	cat tmp/config-db/config/schemas/scrape_config.schema.json | jq '.["$$ref"] = "#/definitions/ScrapeConfigSpec"' > schema/openapi/scrape_config.spec.schema.json
+	cat tmp/config-db/config/schemas/scrape_config.schema.json | jq '.["$$ref"] = "#/definitions/ScraperSpec"' > schema/openapi/scrape_config.spec.schema.json
 
 	# Cleanup
 	rm -rf tmp
