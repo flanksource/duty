@@ -10,11 +10,18 @@ BEGIN
   END IF;
 
   oldrow = hstore(OLD.*);
+
   -- If record belongs to agent updated_at should not be changed
   IF exist(oldrow, 'agent_id') AND oldrow->'agent_id' != '00000000-0000-0000-0000-000000000000' THEN
     RETURN NEW;
   END IF;
 
+  IF to_jsonb(NEW) ? 'deleted_at' THEN
+    IF NEW.deleted_at IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  
   changed_fields = hstore(NEW.*) - oldrow;
   IF TG_TABLE_NAME = 'canaries' AND NOT (changed_fields ? 'spec')  THEN
     RETURN NEW; -- For canaries, only spec column should be considered
