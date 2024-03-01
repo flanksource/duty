@@ -13,8 +13,6 @@ DECLARE
         "checks": 10,
         "components": 10,
         "config_items": 10,
-        "config_analysis": 5,
-        "config_changes": 5,
         "config_component_relationships": 5,
         "component_relationships": 5,
         "config_relationships": 5
