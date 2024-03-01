@@ -29,7 +29,7 @@ func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int
 		}
 
 		ctx.Tracef("pushing %d check_statuses to upstream", len(checkStatuses))
-		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, CheckStatuses: checkStatuses}); err != nil {
+		if err := client.Push(ctx, &PushData{CheckStatuses: checkStatuses}); err != nil {
 			return 0, fmt.Errorf("failed to push check_statuses to upstream: %w", err)
 		}
 
@@ -64,7 +64,7 @@ func SyncConfigChanges(ctx context.Context, config UpstreamConfig, batchSize int
 		}
 
 		ctx.Tracef("pushing %d config_changes to upstream", len(configChanges))
-		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, ConfigChanges: configChanges}); err != nil {
+		if err := client.Push(ctx, &PushData{ConfigChanges: configChanges}); err != nil {
 			return 0, fmt.Errorf("failed to push config_changes to upstream: %w", err)
 		}
 
@@ -97,7 +97,7 @@ func SyncConfigAnalyses(ctx context.Context, config UpstreamConfig, batchSize in
 		}
 
 		ctx.Tracef("pushing %d config_analyses to upstream", len(analyses))
-		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, ConfigAnalysis: analyses}); err != nil {
+		if err := client.Push(ctx, &PushData{ConfigAnalysis: analyses}); err != nil {
 			return 0, fmt.Errorf("failed to push config_analysis to upstream: %w", err)
 		}
 
@@ -128,7 +128,7 @@ func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (i
 		}
 
 		ctx.Tracef("pushing %d artifacts to upstream", len(artifacts))
-		if err := client.Push(ctx, &PushData{AgentName: config.AgentName, Artifacts: artifacts}); err != nil {
+		if err := client.Push(ctx, &PushData{Artifacts: artifacts}); err != nil {
 			return 0, fmt.Errorf("failed to push artifacts to upstream: %w", err)
 		}
 
