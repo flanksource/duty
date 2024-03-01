@@ -51,8 +51,8 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
 
 		e.POST("/upstream/push", upstream.PushHandler)
-		e.GET("/upstream/pull/:agent_name", upstream.PullHandler([]string{"config_scrapers", "config_items"}))
-		e.GET("/upstream/status/:agent_name", upstream.StatusHandler([]string{"config_scrapers", "config_items"}))
+		e.GET("/upstream/pull", upstream.PullHandler([]string{"config_scrapers", "config_items"}))
+		e.GET("/upstream/status", upstream.StatusHandler([]string{"config_scrapers", "config_items"}))
 
 		port, echoCloser = setup.RunEcho(e)
 
@@ -61,6 +61,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 			AgentName: agentName,
 		}
 	})
+
 	ginkgo.It("should push config items first to satisfy foregin keys for changes & analyses", func() {
 		reconciler := upstream.NewUpstreamReconciler(upstreamConf, 100)
 

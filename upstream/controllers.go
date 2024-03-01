@@ -52,8 +52,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 				if err != nil {
 					histogram.Label(StatusLabel, StatusAgentError)
 					return c.JSON(http.StatusBadRequest, api.HTTPError{
-						Error:   err.Error(),
-						Message: "Error while creating/fetching agent",
+						Error: fmt.Errorf("failed to create/fetch agent: %w", err).Error(),
 					})
 				}
 
