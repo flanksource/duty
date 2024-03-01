@@ -23,6 +23,10 @@ type Topology struct {
 	DeletedAt *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (t Topology) PK() string {
+	return t.ID.String()
+}
+
 func (Topology) TableName() string {
 	return "topologies"
 }

@@ -102,3 +102,10 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
 }
+
+func parseResponse(body string) string {
+	if len(body) > 200 {
+		body = body[0:200]
+	}
+	return body
+}

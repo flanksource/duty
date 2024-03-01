@@ -147,6 +147,10 @@ type ConfigScraper struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (c ConfigScraper) PK() string {
+	return c.ID.String()
+}
+
 func (c ConfigScraper) TableName() string {
 	return "config_scrapers"
 }

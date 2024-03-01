@@ -25,3 +25,11 @@ type Artifact struct {
 	DeletedAt           *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 	ExpiresAt           *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty" time_format:"postgres_timestamp"`
 }
+
+func (t Artifact) TableName() string {
+	return "artifacts"
+}
+
+func (t Artifact) PK() string {
+	return t.ID.String()
+}

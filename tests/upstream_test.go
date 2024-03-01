@@ -49,10 +49,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		})
 
 		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
-
 		e.POST("/upstream/push", upstream.PushHandler)
-		e.GET("/upstream/pull", upstream.PullHandler([]string{"config_scrapers", "config_items"}))
-		e.GET("/upstream/status", upstream.StatusHandler([]string{"config_scrapers", "config_items"}))
 
 		port, echoCloser = setup.RunEcho(e)
 
@@ -63,9 +60,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 	})
 
 	ginkgo.It("should push config items first to satisfy foregin keys for changes & analyses", func() {
-		reconciler := upstream.NewUpstreamReconciler(upstreamConf, 100)
-
-		count, err := reconciler.Sync(DefaultContext, "config_items")
+		count, err := upstream.SyncIsPushedTable[models.ConfigItem](DefaultContext, upstreamConf, 100)
 		Expect(err).To(BeNil())
 		Expect(count).To(Not(BeZero()))
 	})
@@ -137,7 +132,7 @@ var _ = ginkgo.Describe("Config Changes & Analyses sync test", ginkgo.Ordered, f
 		Expect(err).ToNot(HaveOccurred())
 		Expect(artifacts).To(BeZero())
 
-		count, err := upstream.SyncArtifacts(DefaultContext, upstreamConf, 10)
+		count, err := upstream.SyncIsPushedTable[models.Artifact](DefaultContext, upstreamConf, 10)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error

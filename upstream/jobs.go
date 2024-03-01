@@ -110,33 +110,35 @@ func SyncConfigAnalyses(ctx context.Context, config UpstreamConfig, batchSize in
 	}
 }
 
-// SyncArtifacts pushes artifacts that haven't already been pushed to upstream.
-func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+func SyncIsPushedTable[T dbTable](ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	client := NewUpstreamClient(config)
-	count := 0
+	var anon T
+	table := anon.TableName()
+
+	var count int
 	for {
-		var artifacts []models.Artifact
+		var items []T
 		if err := ctx.DB().
 			Where("is_pushed IS FALSE").
 			Limit(batchSize).
-			Find(&artifacts).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
+			Find(&items).Error; err != nil {
+			return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
 		}
 
-		if len(artifacts) == 0 {
+		if len(items) == 0 {
 			return count, nil
 		}
 
-		ctx.Tracef("pushing %d artifacts to upstream", len(artifacts))
-		if err := client.Push(ctx, &PushData{Artifacts: artifacts}); err != nil {
-			return 0, fmt.Errorf("failed to push artifacts to upstream: %w", err)
+		ctx.Tracef("pushing %s %d to upstream", table, len(items))
+		if err := client.Push(ctx, NewPushData(items)); err != nil {
+			return 0, fmt.Errorf("failed to push %s to upstream: %w", table, err)
 		}
 
-		ids := lo.Map(artifacts, func(a models.Artifact, _ int) string { return a.ID.String() })
-		if err := ctx.DB().Model(&models.Artifact{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-			return 0, fmt.Errorf("failed to update is_pushed on artifacts: %w", err)
+		ids := lo.Map(items, func(a T, _ int) string { return a.PK() })
+		if err := ctx.DB().Model(anon).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
+			return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table, err)
 		}
 
-		count += len(artifacts)
+		count += len(items)
 	}
 }
