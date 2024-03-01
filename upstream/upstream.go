@@ -60,7 +60,6 @@ func (t *UpstreamConfig) LabelsMap() map[string]string {
 // PushData consists of data about changes to
 // components, configs, analysis.
 type PushData struct {
-	AgentName                    string                               `json:"agent_name,omitempty"`
 	Canaries                     []models.Canary                      `json:"canaries,omitempty"`
 	Checks                       []models.Check                       `json:"checks,omitempty"`
 	Components                   []models.Component                   `json:"components,omitempty"`
@@ -93,6 +92,7 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
 	counter.Label("table", "topologies").Add(len(p.Topologies))
 }
+
 func (p *PushData) String() string {
 	result := ""
 	for k, v := range p.Attributes() {
@@ -102,9 +102,7 @@ func (p *PushData) String() string {
 }
 
 func (p *PushData) Attributes() map[string]any {
-	attrs := map[string]any{
-		"name": p.AgentName,
-	}
+	attrs := map[string]any{}
 
 	if len(p.Topologies) > 0 {
 		attrs["Topologies"] = len(p.Topologies)

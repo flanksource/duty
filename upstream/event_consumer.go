@@ -26,9 +26,7 @@ func NewDeleteFromUpstreamConsumer(config UpstreamConfig) func(ctx context.Conte
 
 // DeleteFromUpstream sends a delete request to the upstream server for the given events.
 func DeleteFromUpstream(ctx context.Context, config UpstreamConfig, events []postq.Event) []postq.Event {
-	upstreamMsg := &PushData{
-		AgentName: config.AgentName,
-	}
+	upstreamMsg := &PushData{}
 
 	var failedEvents []postq.Event
 	for _, cl := range GroupChangelogsByTables(events) {
@@ -121,9 +119,7 @@ func NewPushUpstreamConsumer(config UpstreamConfig) func(ctx context.Context, ev
 func PushToUpstream(ctx context.Context, config UpstreamConfig, events []postq.Event) []postq.Event {
 	ctx, span := ctx.StartSpan("PushToUpstream")
 	defer span.End()
-	upstreamMsg := &PushData{
-		AgentName: config.AgentName,
-	}
+	upstreamMsg := &PushData{}
 
 	var failedEvents []postq.Event
 	for _, cl := range GroupChangelogsByTables(events) {

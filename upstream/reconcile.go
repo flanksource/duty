@@ -118,7 +118,6 @@ func (t *UpstreamReconciler) sync(ctx context.Context, table, next string) (int,
 		if pushData != nil && pushData.Count() > 0 {
 			logger.WithValues("table", table).Debugf("Pushing %d items to upstream. Next: %q", pushData.Count(), next)
 
-			pushData.AgentName = t.upstreamConf.AgentName
 			if err := t.upstreamClient.Push(ctx, pushData); err != nil {
 				errorList = append(errorList, fmt.Errorf("failed to push missing resource ids: %w", err))
 			}
