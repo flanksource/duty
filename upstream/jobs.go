@@ -34,13 +34,11 @@ func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int
 			return 0, fmt.Errorf("failed to push check_statuses to upstream: %w", err)
 		}
 
-		for i := range checkStatuses {
-			checkStatuses[i].IsPushed = true
+		ids := lo.Map(checkStatuses, func(a models.CheckStatus, _ int) []any { return []any{a.CheckID, a.Time} })
+		if err := ctx.DB().Model(&models.CheckStatus{}).Where("(check_id, time) IN ?", ids).Update("is_pushed", true).Error; err != nil {
+			return 0, fmt.Errorf("failed to update is_pushed for check_statuses: %w", err)
 		}
 
-		if err := ctx.DB().Save(&checkStatuses).Error; err != nil {
-			return 0, fmt.Errorf("failed to save check_statuses: %w", err)
-		}
 		count += len(checkStatuses)
 	}
 }
