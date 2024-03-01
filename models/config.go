@@ -200,6 +200,10 @@ type ConfigChange struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (c ConfigChange) PK() string {
+	return c.ID
+}
+
 func (c ConfigChange) TableName() string {
 	return "config_changes"
 }
@@ -244,6 +248,10 @@ type ConfigAnalysis struct {
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (a ConfigAnalysis) PK() string {
+	return a.ID.String()
 }
 
 func (a ConfigAnalysis) TableName() string {

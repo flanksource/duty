@@ -27,7 +27,7 @@ func (c Canary) GetCheckID(checkName string) string {
 }
 
 func (c Canary) PK() string {
-	return "canaries"
+	return c.ID.String()
 }
 
 func (c Canary) TableName() string {
