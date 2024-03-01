@@ -258,6 +258,11 @@ table "config_items" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -304,6 +309,10 @@ table "config_items" {
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "config_items_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
   index "idx_config_items_scraper_id" {
     columns = [column.scraper_id]
@@ -478,6 +487,11 @@ table "config_scrapers" {
     null = true
     type = timestamptz
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   primary_key {
     columns = [column.id]
   }
@@ -492,5 +506,9 @@ table "config_scrapers" {
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "config_scrapers_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }

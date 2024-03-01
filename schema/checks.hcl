@@ -34,6 +34,11 @@ table "canaries" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   column "created_at" {
     null    = true
     type    = timestamptz
@@ -70,6 +75,10 @@ table "canaries" {
   index "canaries_name_namespace_source_key" {
     unique  = true
     columns = [column.agent_id, column.name, column.namespace, column.source]
+  }
+  index "canaries_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
@@ -196,6 +205,11 @@ table "checks" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   column "transformed" {
     null = true
     type = boolean
@@ -253,6 +267,10 @@ table "checks" {
   }
   index "checks_canary_id_transformed_idx" {
     columns = [column.canary_id, column.transformed]
+  }
+  index "checks_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 
   index "idx_checks_agent" {

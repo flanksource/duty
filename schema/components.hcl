@@ -41,6 +41,11 @@ table "topologies" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   column "schedule" {
     null = true
     type = text
@@ -71,6 +76,10 @@ table "topologies" {
   index "topologies_name_namespace_key" {
     unique  = true
     columns = [column.agent_id, column.name, column.namespace]
+  }
+  index "topologies_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
@@ -183,6 +192,11 @@ table "components" {
     null    = false
     type    = boolean
     default = false
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
   }
   column "status" {
     null = false
@@ -321,6 +335,10 @@ table "components" {
   index "components_topology_id_type_name_parent_id_key" {
     unique  = true
     columns = [column.topology_id, column.type, column.name, column.parent_id]
+  }
+  index "components_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 
   index "idx_components_deleted_at" {
