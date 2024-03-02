@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/flanksource/canary-checker/api/v1/canary",
-  "$ref": "#/definitions/CanarySpec",
+  "$ref": "#/$defs/CanarySpec",
   "$defs": {
     "AWSConnection": {
       "properties": {

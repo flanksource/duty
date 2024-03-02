@@ -34,9 +34,9 @@ download-openapi-schemas:
 	git clone --depth=1 git@github.com:flanksource/canary-checker.git tmp/canary-checker && cp tmp/canary-checker/config/schemas/* schema/openapi/
 
 	# create schemas for specs only
-	cat tmp/canary-checker/config/schemas/canary.schema.json | jq '.["$$ref"] = "#/definitions/CanarySpec"' > schema/openapi/canary.spec.schema.json
-	cat tmp/canary-checker/config/schemas/component.schema.json | jq '.["$$ref"] = "#/definitions/ComponentSpec"' > schema/openapi/component.spec.schema.json
-	cat tmp/canary-checker/config/schemas/topology.schema.json | jq '.["$$ref"] = "#/definitions/TopologySpec"' > schema/openapi/topology.spec.schema.json
+	cat tmp/canary-checker/config/schemas/canary.schema.json | jq '.["$$ref"] = "#/$defs/CanarySpec"' > schema/openapi/canary.spec.schema.json
+	cat tmp/canary-checker/config/schemas/component.schema.json | jq '.["$$ref"] = "#/$defs/ComponentSpec"' > schema/openapi/component.spec.schema.json
+	cat tmp/canary-checker/config/schemas/topology.schema.json | jq '.["$$ref"] = "#/$defs/TopologySpec"' > schema/openapi/topology.spec.schema.json
 
 	# Config DB
 	git clone --depth=1 git@github.com:flanksource/config-db.git tmp/config-db && cp tmp/config-db/config/schemas/* schema/openapi/
