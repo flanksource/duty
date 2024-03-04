@@ -56,7 +56,6 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 	var count int
 	for _, table := range reconciledTables {
 		if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
-			ctx.Tracef("skipping reconciliation of table %s", table.TableName())
 			continue
 		}
 
