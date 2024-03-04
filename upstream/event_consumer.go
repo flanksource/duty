@@ -10,8 +10,6 @@ import (
 )
 
 const (
-	EventPushQueueCreate = "push_queue.create"
-
 	// EventPushQueueDelete is fired when a record, on one of the the tables we're tracking,
 	// is hard deleted.
 	EventPushQueueDelete = "push_queue.delete"
@@ -86,6 +84,14 @@ func DeleteFromUpstream(ctx context.Context, config UpstreamConfig, events []pos
 					SelectorID: cl.ItemIDs[i][2],
 				})
 			}
+
+		case "check_statuses":
+			for i := range cl.ItemIDs {
+				upstreamMsg.CheckStatuses = append(upstreamMsg.CheckStatuses, models.CheckStatus{
+					CheckID: uuid.MustParse(cl.ItemIDs[i][0]),
+					Time:    cl.ItemIDs[i][1],
+				})
+			}
 		}
 	}
 
@@ -103,106 +109,6 @@ func DeleteFromUpstream(ctx context.Context, config UpstreamConfig, events []pos
 				failedEvents = append(failedEvents, DeleteFromUpstream(ctx, config, []postq.Event{e})...)
 			}
 		}
-	}
-
-	return failedEvents
-}
-
-// getPushUpstreamConsumer acts as an adapter to supply PushToUpstream event consumer.
-func NewPushUpstreamConsumer(config UpstreamConfig) func(ctx context.Context, events postq.Events) postq.Events {
-	return func(ctx context.Context, events postq.Events) postq.Events {
-		return PushToUpstream(ctx, config, events)
-	}
-}
-
-// PushToUpstream fetches records specified in events from this instance and sends them to the upstream instance.
-func PushToUpstream(ctx context.Context, config UpstreamConfig, events []postq.Event) []postq.Event {
-	ctx, span := ctx.StartSpan("PushToUpstream")
-	defer span.End()
-	upstreamMsg := &PushData{}
-
-	var failedEvents []postq.Event
-	for _, cl := range GroupChangelogsByTables(events) {
-		switch cl.TableName {
-		case "topologies":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Topologies).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching topologies: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "components":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Components).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching components: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "canaries":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Canaries).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching canaries: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "checks":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.Checks).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching checks: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "config_scrapers":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigScrapers).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching config_scrapers: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "config_items":
-			if err := ctx.DB().Omit("created_by").Where("id IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigItems).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching config_items: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "config_component_relationships":
-			if err := ctx.DB().Where("(component_id, config_id) IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigComponentRelationships).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching config_component_relationships: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "component_relationships":
-			if err := ctx.DB().Where("(component_id, relationship_id, selector_id) IN ?", cl.ItemIDs).Find(&upstreamMsg.ComponentRelationships).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching component_relationships: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-
-		case "config_relationships":
-			if err := ctx.DB().Where("(related_id, config_id, selector_id) IN ?", cl.ItemIDs).Find(&upstreamMsg.ConfigRelationships).Error; err != nil {
-				errMsg := fmt.Errorf("error fetching config_relationships: %w", err)
-				failedEvents = append(failedEvents, addErrorToFailedEvents(cl.Events, errMsg)...)
-			}
-		}
-	}
-
-	upstreamMsg.ApplyLabels(config.LabelsMap())
-
-	upstreamClient := NewUpstreamClient(config)
-	err := upstreamClient.Push(ctx, upstreamMsg)
-	if err == nil {
-		return failedEvents
-	}
-
-	if len(events) == 1 {
-		errMsg := fmt.Errorf("failed to push to upstream: %w", err)
-		failedEvents = append(failedEvents, addErrorToFailedEvents(events, errMsg)...)
-	} else {
-		// Error encountered while pushing could be an SQL or Application error
-		// Since we do not know which event in the bulk is failing
-		// Process each event individually since upsteam.Push is idempotent
-
-		for _, e := range events {
-			failedEvents = append(failedEvents, PushToUpstream(ctx, config, []postq.Event{e})...)
-		}
-	}
-
-	if len(events) > 0 || len(failedEvents) > 0 {
-		ctx.Tracef("processed %d events, %d errors", len(events), len(failedEvents))
 	}
 
 	return failedEvents
@@ -237,6 +143,8 @@ func GroupChangelogsByTables(events []postq.Event) []GroupedPushEvents {
 			itemIDs = []string{cl.Properties["component_id"], cl.Properties["config_id"]}
 		case "config_relationships":
 			itemIDs = []string{cl.Properties["related_id"], cl.Properties["config_id"], cl.Properties["selector_id"]}
+		case "check_statuses":
+			itemIDs = []string{cl.Properties["check_id"], cl.Properties["time"]}
 		default:
 			itemIDs = []string{cl.Properties["id"]}
 		}
