@@ -28,7 +28,7 @@ func TestConfig_AsMap(t *testing.T) {
 				Namespace: ptr("canary"),
 				Name:      ptr("dummy-canary"),
 			},
-			removeFields: []string{"updated_at", "created_at", "config_class"},
+			removeFields: []string{"updated_at", "created_at", "config_class", "last_scraped_time"},
 			want: map[string]any{
 				"name":      "dummy-canary",
 				"namespace": "canary",
