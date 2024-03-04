@@ -34,10 +34,9 @@ func (p Properties) Duration(key string, def time.Duration) time.Duration {
 	} else if dur, err := time.ParseDuration(d); err != nil {
 		logger.Warnf("property[%s] invalid duration %s", key, d)
 		return def
-	} else if err == nil {
+	} else {
 		return dur
 	}
-	return def
 }
 
 func (p Properties) Int(key string, def int) int {
@@ -46,10 +45,9 @@ func (p Properties) Int(key string, def int) int {
 	} else if i, err := strconv.Atoi(d); err != nil {
 		logger.Warnf("property[%s] invalid int %s", key, d)
 		return def
-	} else if err == nil {
+	} else {
 		return i
 	}
-	return def
 }
 
 func (p Properties) Off(key string) bool {
@@ -84,7 +82,11 @@ func (k Context) Properties() Properties {
 	return props
 }
 
-func SetLocalProperty(ctx Context, property, value string) {
+func SetLocalProperty(property, value string) {
+	if Local == nil {
+		Local = make(map[string]string)
+	}
+
 	Local[property] = value
 }
 

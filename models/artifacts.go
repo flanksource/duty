@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // Artifact represents the artifacts table
@@ -24,4 +26,18 @@ type Artifact struct {
 	UpdatedAt           time.Time  `json:"updated_at" yaml:"updated_at" time_format:"postgres_timestamp"`
 	DeletedAt           *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 	ExpiresAt           *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (t Artifact) TableName() string {
+	return "artifacts"
+}
+
+func (t Artifact) PK() string {
+	return t.ID.String()
+}
+
+func (t Artifact) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Artifact
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Artifact, _ int) DBTable { return i }), err
 }

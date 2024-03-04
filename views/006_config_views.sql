@@ -401,6 +401,7 @@ FOR EACH ROW
 EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
 
 DROP VIEW IF EXISTS config_detail;
+
 CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,

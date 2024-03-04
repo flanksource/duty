@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -70,6 +71,12 @@ type Component struct {
 	// Mark it as true when the component is processed
 	// during topology tree creation
 	NodeProcessed bool `json:"-" gorm:"-"`
+}
+
+func (t Component) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Component
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Component, _ int) DBTable { return i }), err
 }
 
 func (c Component) PK() string {
@@ -449,7 +456,31 @@ type ComponentRelationship struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (cr ComponentRelationship) TableName() string {
+func (s ComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ComponentRelationship)
+		return []string{c.ComponentID.String(), c.RelationshipID.String(), c.SelectorID}
+	})
+
+	return db.Model(&ComponentRelationship{}).Where("(component_id, relationship_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (cr ComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ComponentRelationship
+	err := db.Select("component_relationships.*").
+		Joins("LEFT JOIN components c ON component_relationships.component_id = c.id").
+		Joins("LEFT JOIN components rel ON component_relationships.relationship_id = rel.id").
+		Where("c.agent_id = ? AND rel.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ComponentRelationship, _ int) DBTable { return i }), err
+}
+
+func (cr ComponentRelationship) PK() string {
+	return cr.ComponentID.String() + "," + cr.RelationshipID.String() + "," + cr.SelectorID
+}
+
+func (ComponentRelationship) TableName() string {
 	return "component_relationships"
 }
 
@@ -462,16 +493,40 @@ type ConfigComponentRelationship struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s ConfigComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ConfigComponentRelationship)
+		return []string{c.ComponentID.String(), c.ConfigID.String()}
+	})
+
+	return db.Model(&ConfigComponentRelationship{}).Where("(component_id, config_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (t ConfigComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigComponentRelationship
+	err := db.Select("config_component_relationships.*").
+		Joins("LEFT JOIN components c ON config_component_relationships.component_id = c.id").
+		Joins("LEFT JOIN config_items ci ON config_component_relationships.config_id = ci.id").
+		Where("c.agent_id = ? AND ci.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("config_component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ConfigComponentRelationship, _ int) DBTable { return i }), err
+}
+
+func (t ConfigComponentRelationship) PK() string {
+	return t.ComponentID.String() + "," + t.ConfigID.String()
+}
+
+func (ConfigComponentRelationship) TableName() string {
+	return "config_component_relationships"
+}
+
 var ConfigID = func(c ConfigComponentRelationship, i int) string {
 	return c.ConfigID.String()
 }
 
 var ConfigSelectorID = func(c ConfigComponentRelationship, i int) string {
 	return c.SelectorID
-}
-
-func (cr ConfigComponentRelationship) TableName() string {
-	return "config_component_relationships"
 }
 
 type CheckComponentRelationship struct {
@@ -484,11 +539,35 @@ type CheckComponentRelationship struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s CheckComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(CheckComponentRelationship)
+		return []string{c.ComponentID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
+	})
+
+	return db.Model(&CheckComponentRelationship{}).Where("(component_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (t CheckComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckComponentRelationship
+	err := db.Select("check_component_relationships.*").
+		Joins("LEFT JOIN components c ON check_component_relationships.component_id = c.id").
+		Joins("LEFT JOIN canaries ON check_component_relationships.canary_id = canaries.id").
+		Where("c.agent_id = ? AND canaries.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("check_component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckComponentRelationship, _ int) DBTable { return i }), err
+}
+
 func (c *CheckComponentRelationship) Save(db *gorm.DB) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "canary_id"}, {Name: "check_id"}, {Name: "component_id"}, {Name: "selector_id"}},
 		UpdateAll: true,
 	}).Create(c).Error
+}
+
+func (c CheckComponentRelationship) PK() string {
+	return c.ComponentID.String() + "," + c.CheckID.String() + "," + c.CanaryID.String() + "," + c.SelectorID
 }
 
 func (CheckComponentRelationship) TableName() string {

@@ -76,6 +76,48 @@ type PushData struct {
 	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
 }
 
+func NewPushData[T models.DBTable](records []T) *PushData {
+	var p PushData
+	if len(records) == 0 {
+		return &p
+	}
+
+	for i := range records {
+		switch t := any(records[i]).(type) {
+		case models.Canary:
+			p.Canaries = append(p.Canaries, t)
+		case models.Check:
+			p.Checks = append(p.Checks, t)
+		case models.Component:
+			p.Components = append(p.Components, t)
+		case models.ConfigScraper:
+			p.ConfigScrapers = append(p.ConfigScrapers, t)
+		case models.ConfigAnalysis:
+			p.ConfigAnalysis = append(p.ConfigAnalysis, t)
+		case models.ConfigChange:
+			p.ConfigChanges = append(p.ConfigChanges, t)
+		case models.ConfigItem:
+			p.ConfigItems = append(p.ConfigItems, t)
+		case models.CheckStatus:
+			p.CheckStatuses = append(p.CheckStatuses, t)
+		case models.ConfigRelationship:
+			p.ConfigRelationships = append(p.ConfigRelationships, t)
+		case models.ComponentRelationship:
+			p.ComponentRelationships = append(p.ComponentRelationships, t)
+		case models.ConfigComponentRelationship:
+			p.ConfigComponentRelationships = append(p.ConfigComponentRelationships, t)
+		case models.Topology:
+			p.Topologies = append(p.Topologies, t)
+		case models.PlaybookRunAction:
+			p.PlaybookActions = append(p.PlaybookActions, t)
+		case models.Artifact:
+			p.Artifacts = append(p.Artifacts, t)
+		}
+	}
+
+	return &p
+}
+
 func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "artifacts").Add(len(p.Artifacts))
 	counter.Label("table", "canaries").Add(len(p.Canaries))
@@ -201,92 +243,4 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	for i := range t.Topologies {
 		t.Topologies[i].Labels = collections.MergeMap(t.Topologies[i].Labels, labels)
 	}
-}
-
-func GetPrimaryKeysHash(ctx context.Context, req PaginateRequest, agentID uuid.UUID) (*PaginateResponse, error) {
-	var orderByClauses []string
-	if collections.Contains([]string{"components", "config_items"}, req.Table) {
-		orderByClauses = append(orderByClauses, "LENGTH(COALESCE(path, ''))")
-	}
-	orderByClauses = append(orderByClauses, "id")
-	query := fmt.Sprintf(`
-		WITH p_keys AS (
- 			SELECT id::TEXT, COALESCE(updated_at::text, '') as updated_at
-			FROM %s
-			WHERE id::TEXT > ? AND agent_id = ?
-			ORDER BY %s
-			LIMIT ?
-		)
-		SELECT
-			encode(digest(string_agg(id || updated_at, ''), 'sha256'), 'hex') as sha256sum,
-			MAX(id) as last_id,
-			COUNT(*) as total
-		FROM
-			p_keys`, req.Table, strings.Join(orderByClauses, ","))
-
-	var resp PaginateResponse
-	err := ctx.DB().Raw(query, req.From, agentID, req.Size).Scan(&resp).Error
-	return &resp, err
-}
-
-func GetMissingResourceIDs(ctx context.Context, ids []string, paginateReq PaginateRequest) (*PushData, error) {
-	var pushData PushData
-
-	tx := ctx.DB().Where("agent_id = ?", uuid.Nil)
-	switch paginateReq.Table {
-	case "topologies":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Topologies).Error; err != nil {
-			return nil, fmt.Errorf("error fetching topologies: %w", err)
-		}
-
-	case "canaries":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Canaries).Error; err != nil {
-			return nil, fmt.Errorf("error fetching canaries: %w", err)
-		}
-
-	case "checks":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.Checks).Error; err != nil {
-			return nil, fmt.Errorf("error fetching checks: %w", err)
-		}
-
-	case "components":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("LENGTH(COALESCE(path, ''))").Order("id").Find(&pushData.Components).Error; err != nil {
-			return nil, fmt.Errorf("error fetching components: %w", err)
-		}
-
-	case "config_scrapers":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("id").Find(&pushData.ConfigScrapers).Error; err != nil {
-			return nil, fmt.Errorf("error fetching config scrapers: %w", err)
-		}
-
-	case "config_items":
-		if err := tx.Not(ids).Where("id::TEXT > ?", paginateReq.From).Limit(paginateReq.Size).Order("LENGTH(COALESCE(path, ''))").Order("id").Find(&pushData.ConfigItems).Error; err != nil {
-			return nil, fmt.Errorf("error fetching config items: %w", err)
-		}
-
-	case "check_statuses":
-		parts := strings.Split(paginateReq.From, ",")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("%s is not a valid next cursor. It must consist of check_id and time separated by a comma", paginateReq.From)
-		}
-
-		tx := ctx.DB().Where("(check_id::TEXT, time::TEXT) > (?, ?)", parts[0], parts[1])
-
-		// Attach a Not IN query only if required
-		if len(ids) != 0 {
-			var pKeys = make([][]string, 0, len(ids))
-			for _, pkey := range ids {
-				parts := strings.Split(pkey, ",")
-				pKeys = append(pKeys, parts)
-			}
-
-			tx = tx.Where("(check_id::TEXT, time::TEXT) NOT IN (?)", pKeys)
-		}
-
-		if err := tx.Limit(paginateReq.Size).Order("check_id, time").Find(&pushData.CheckStatuses).Error; err != nil {
-			return nil, fmt.Errorf("error fetching config items: %w", err)
-		}
-	}
-
-	return &pushData, nil
 }

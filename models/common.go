@@ -26,3 +26,8 @@ func asMap(t any, removeFields ...string) map[string]any {
 
 	return m
 }
+
+type DBTable interface {
+	PK() string
+	TableName() string
+}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -59,6 +60,16 @@ type Check struct {
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
 }
 
+func (t Check) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Check
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Check, _ int) DBTable { return i }), err
+}
+
+func (c Check) PK() string {
+	return c.ID.String()
+}
+
 func (c Check) TableName() string {
 	return "checks"
 }
@@ -110,6 +121,29 @@ type CheckStatus struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (s CheckStatus) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []any {
+		c := any(a).(CheckStatus)
+		return []any{c.CheckID, c.Time}
+	})
+
+	return db.Model(&CheckStatus{}).Where("(check_id, time) IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (s CheckStatus) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckStatus
+	err := db.Select("check_statuses.*").
+		Joins("LEFT JOIN checks ON checks.id = check_statuses.check_id").
+		Where("checks.agent_id = ?", uuid.Nil).
+		Where("check_statuses.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckStatus, _ int) DBTable { return i }), err
+}
+
+func (s CheckStatus) PK() string {
+	return s.CheckID.String() + s.Time
 }
 
 func (s CheckStatus) GetTime() (time.Time, error) {
@@ -195,11 +229,34 @@ type CheckConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s CheckConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(CheckConfigRelationship)
+		return []string{c.ConfigID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
+	})
+
+	return db.Model(&CheckConfigRelationship{}).Where("(config_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (c CheckConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckConfigRelationship
+	err := db.Select("check_config_relationships.*").
+		Joins("LEFT JOIN config_items ci ON check_config_relationships.config_id = ci.id").
+		Where("ci.agent_id = ?", uuid.Nil).
+		Where("check_config_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckConfigRelationship, _ int) DBTable { return i }), err
+}
+
 func (c *CheckConfigRelationship) Save(db *gorm.DB) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "canary_id"}, {Name: "check_id"}, {Name: "config_id"}, {Name: "selector_id"}},
 		UpdateAll: true,
 	}).Create(c).Error
+}
+
+func (c CheckConfigRelationship) PK() string {
+	return c.ConfigID.String() + "," + c.CheckID.String() + "," + c.CanaryID.String() + "," + c.SelectorID
 }
 
 func (CheckConfigRelationship) TableName() string {

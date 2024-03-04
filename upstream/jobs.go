@@ -5,138 +5,100 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
-// SyncCheckStatuses pushes check statuses, that haven't already been pushed, to upstream.
-func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	client := NewUpstreamClient(config)
-	count := 0
-	for {
-		var checkStatuses []models.CheckStatus
-		if err := ctx.DB().Select("check_statuses.*").
-			Joins("LEFT JOIN checks ON checks.id = check_statuses.check_id").
-			Where("checks.agent_id = ?", uuid.Nil).
-			Where("check_statuses.is_pushed IS FALSE").
-			Limit(batchSize).
-			Find(&checkStatuses).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch check_statuses: %w", err)
-		}
-
-		if len(checkStatuses) == 0 {
-			return count, nil
-		}
-
-		ctx.Tracef("pushing %d check_statuses to upstream", len(checkStatuses))
-		if err := client.Push(ctx, &PushData{CheckStatuses: checkStatuses}); err != nil {
-			return 0, fmt.Errorf("failed to push check_statuses to upstream: %w", err)
-		}
-
-		for i := range checkStatuses {
-			checkStatuses[i].IsPushed = true
-		}
-
-		if err := ctx.DB().Save(&checkStatuses).Error; err != nil {
-			return 0, fmt.Errorf("failed to save check_statuses: %w", err)
-		}
-		count += len(checkStatuses)
-	}
+type pushableTable interface {
+	models.DBTable
+	GetUnpushed(db *gorm.DB) ([]models.DBTable, error)
 }
 
-// SyncConfigChanges pushes config changes, that haven't already been pushed, to upstream.
-func SyncConfigChanges(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	client := NewUpstreamClient(config)
-	count := 0
-	for {
-		var configChanges []models.ConfigChange
-		if err := ctx.DB().Select("config_changes.*").
-			Joins("LEFT JOIN config_items ON config_items.id = config_changes.config_id").
-			Where("config_items.agent_id = ?", uuid.Nil).
-			Where("config_changes.is_pushed IS FALSE").
-			Limit(batchSize).
-			Find(&configChanges).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch config_changes: %w", err)
-		}
-
-		if len(configChanges) == 0 {
-			return count, nil
-		}
-
-		ctx.Tracef("pushing %d config_changes to upstream", len(configChanges))
-		if err := client.Push(ctx, &PushData{ConfigChanges: configChanges}); err != nil {
-			return 0, fmt.Errorf("failed to push config_changes to upstream: %w", err)
-		}
-
-		ids := lo.Map(configChanges, func(c models.ConfigChange, _ int) string { return c.ID })
-		if err := ctx.DB().Model(&models.ConfigChange{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-			return 0, fmt.Errorf("failed to update is_pushed on config_changes: %w", err)
-		}
-
-		count += len(configChanges)
-	}
+type customIsPushedUpdater interface {
+	UpdateIsPushed(db *gorm.DB, items []models.DBTable) error
 }
 
-// SyncConfigAnalyses pushes config analyses, that haven't already been pushed, to upstream.
-func SyncConfigAnalyses(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	client := NewUpstreamClient(config)
-	count := 0
-	for {
-		var analyses []models.ConfigAnalysis
-		if err := ctx.DB().Select("config_analysis.*").
-			Joins("LEFT JOIN config_items ON config_items.id = config_analysis.config_id").
-			Where("config_items.agent_id = ?", uuid.Nil).
-			Where("config_analysis.is_pushed IS FALSE").
-			Limit(batchSize).
-			Find(&analyses).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch config_analysis: %w", err)
-		}
+var reconciledTables = []pushableTable{
+	models.Topology{},
+	models.ConfigScraper{},
+	models.Canary{},
+	models.Artifact{},
 
-		if len(analyses) == 0 {
-			return count, nil
-		}
+	models.ConfigItem{},
+	models.Check{},
+	models.Component{},
 
-		ctx.Tracef("pushing %d config_analyses to upstream", len(analyses))
-		if err := client.Push(ctx, &PushData{ConfigAnalysis: analyses}); err != nil {
-			return 0, fmt.Errorf("failed to push config_analysis to upstream: %w", err)
-		}
+	models.ConfigChange{},
+	models.ConfigAnalysis{},
+	models.CheckStatus{},
 
-		ids := lo.Map(analyses, func(a models.ConfigAnalysis, _ int) string { return a.ID.String() })
-		if err := ctx.DB().Model(&models.ConfigAnalysis{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-			return 0, fmt.Errorf("failed to update is_pushed on config_analysis: %w", err)
-		}
-
-		count += len(analyses)
-	}
+	models.CheckComponentRelationship{},
+	models.CheckConfigRelationship{},
+	models.ComponentRelationship{},
+	models.ConfigComponentRelationship{},
+	models.ConfigRelationship{},
 }
 
-// SyncArtifacts pushes artifacts that haven't already been pushed to upstream.
-func SyncArtifacts(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	client := NewUpstreamClient(config)
-	count := 0
-	for {
-		var artifacts []models.Artifact
-		if err := ctx.DB().
-			Where("is_pushed IS FALSE").
-			Limit(batchSize).
-			Find(&artifacts).Error; err != nil {
-			return 0, fmt.Errorf("failed to fetch artifacts: %w", err)
+func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+	if ctx.Properties().Off("upstream.reconcile.pre-check") {
+		return ReconcileSome(ctx, config, batchSize)
+	}
+
+	var tablesToReconcile []string
+	if err := ctx.DB().Table("unpushed_tables").Scan(&tablesToReconcile).Error; err != nil {
+		return 0, err
+	}
+
+	return ReconcileSome(ctx, config, batchSize, tablesToReconcile...)
+}
+
+func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, error) {
+	var count int
+	for _, table := range reconciledTables {
+		if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
+			continue
 		}
 
-		if len(artifacts) == 0 {
+		if c, err := reconcileTable(ctx, config, table, batchSize); err != nil {
+			return count, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
+		} else {
+			count += c
+		}
+	}
+
+	return count, nil
+}
+
+// ReconcileTable pushes all unpushed items in a table to upstream.
+func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, error) {
+	client := NewUpstreamClient(config)
+
+	var count int
+	for {
+		items, err := table.GetUnpushed(ctx.DB().Limit(batchSize))
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
+		}
+
+		if len(items) == 0 {
 			return count, nil
 		}
 
-		ctx.Tracef("pushing %d artifacts to upstream", len(artifacts))
-		if err := client.Push(ctx, &PushData{Artifacts: artifacts}); err != nil {
-			return 0, fmt.Errorf("failed to push artifacts to upstream: %w", err)
+		ctx.Tracef("pushing %s %d to upstream", table, len(items))
+		if err := client.Push(ctx, NewPushData(items)); err != nil {
+			return 0, fmt.Errorf("failed to push %s to upstream: %w", table, err)
 		}
+		count += len(items)
 
-		ids := lo.Map(artifacts, func(a models.Artifact, _ int) string { return a.ID.String() })
-		if err := ctx.DB().Model(&models.Artifact{}).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-			return 0, fmt.Errorf("failed to update is_pushed on artifacts: %w", err)
+		if c, ok := table.(customIsPushedUpdater); ok {
+			if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
+				return 0, fmt.Errorf("failed to update is_pushed for %s: %w", table, err)
+			}
+		} else {
+			ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
+			if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
+				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table, err)
+			}
 		}
-
-		count += len(artifacts)
 	}
 }

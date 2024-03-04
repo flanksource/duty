@@ -16,6 +16,13 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- If we're updating the `is_pushed` column, don't update the `updated_at` column
+  IF exist(oldrow, 'is_pushed') THEN
+    IF OLD.is_pushed != NEW.is_pushed THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
   IF to_jsonb(NEW) ? 'deleted_at' THEN
     IF NEW.deleted_at IS NOT NULL THEN
       RETURN NEW;
