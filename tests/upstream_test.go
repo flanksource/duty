@@ -22,6 +22,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 	const agentName = "my-agent"
 
 	ginkgo.BeforeAll(func() {
+		DefaultContext.ClearCache()
+		context.SetLocalProperty("upstream.reconcile.pre-check", "false")
+
 		var err error
 		upstreamCtx, drop, err = setup.NewDB(DefaultContext, "upstream")
 		Expect(err).ToNot(HaveOccurred())

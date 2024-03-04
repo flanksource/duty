@@ -10,9 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ReconcilePrecheck, when set, will do an index scan on is_pushed before reconciling
-var ReconcilePrecheck = true
-
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	var count int
 
@@ -192,7 +189,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 	var anon T
 	table := anon.TableName()
 
-	if ReconcilePrecheck {
+	if !ctx.Properties().Off("upstream.reconcile.pre-check") {
 		var unpushed float64
 		precheck := fmt.Sprintf(`SELECT reltuples FROM pg_class WHERE relname = '%s_is_pushed_idx'`, table)
 		if err := ctx.DB().Raw(precheck).Scan(&unpushed).Error; err != nil {
