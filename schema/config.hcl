@@ -366,6 +366,11 @@ table "config_relationships" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   foreign_key "config_relationships_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
@@ -384,6 +389,10 @@ table "config_relationships" {
   }
   index "idx_config_relationships_deleted_at" {
     columns = [column.deleted_at]
+  }
+  index "config_relationships_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 
@@ -419,6 +428,11 @@ table "check_config_relationships" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   foreign_key "check_config_relationships_canary_id_fkey" {
     columns     = [column.canary_id]
     ref_columns = [table.canaries.column.id]
@@ -440,6 +454,10 @@ table "check_config_relationships" {
   index "check_config_relationships_config_id_check_id_canary__key" {
     unique  = true
     columns = [column.config_id, column.check_id, column.canary_id, column.selector_id]
+  }
+  index "check_config_relationships_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }
 

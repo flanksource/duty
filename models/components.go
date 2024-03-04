@@ -449,7 +449,11 @@ type ComponentRelationship struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (cr ComponentRelationship) TableName() string {
+func (cr ComponentRelationship) PK() string {
+	return cr.ComponentID.String() + "," + cr.RelationshipID.String() + "," + cr.SelectorID
+}
+
+func (ComponentRelationship) TableName() string {
 	return "component_relationships"
 }
 
@@ -462,16 +466,20 @@ type ConfigComponentRelationship struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (t ConfigComponentRelationship) PK() string {
+	return t.ComponentID.String() + "," + t.ConfigID.String()
+}
+
+func (ConfigComponentRelationship) TableName() string {
+	return "config_component_relationships"
+}
+
 var ConfigID = func(c ConfigComponentRelationship, i int) string {
 	return c.ConfigID.String()
 }
 
 var ConfigSelectorID = func(c ConfigComponentRelationship, i int) string {
 	return c.SelectorID
-}
-
-func (cr ConfigComponentRelationship) TableName() string {
-	return "config_component_relationships"
 }
 
 type CheckComponentRelationship struct {
@@ -489,6 +497,10 @@ func (c *CheckComponentRelationship) Save(db *gorm.DB) error {
 		Columns:   []clause.Column{{Name: "canary_id"}, {Name: "check_id"}, {Name: "component_id"}, {Name: "selector_id"}},
 		UpdateAll: true,
 	}).Create(c).Error
+}
+
+func (c CheckComponentRelationship) PK() string {
+	return c.ComponentID.String() + "," + c.CheckID.String() + "," + c.CanaryID.String() + "," + c.SelectorID
 }
 
 func (CheckComponentRelationship) TableName() string {

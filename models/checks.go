@@ -210,6 +210,10 @@ func (c *CheckConfigRelationship) Save(db *gorm.DB) error {
 	}).Create(c).Error
 }
 
+func (c CheckConfigRelationship) PK() string {
+	return c.ConfigID.String() + "," + c.CheckID.String() + "," + c.CanaryID.String() + "," + c.SelectorID
+}
+
 func (CheckConfigRelationship) TableName() string {
 	return "check_config_relationships"
 }

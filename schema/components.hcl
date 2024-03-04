@@ -116,6 +116,11 @@ table "component_relationships" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
 
   foreign_key "component_relationships_component_id_fkey" {
     columns     = [column.component_id]
@@ -130,6 +135,10 @@ table "component_relationships" {
     on_delete   = CASCADE
   }
 
+  index "component_relationships_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
+  }
   index "component_relationships_component_id_relationship_id_select_key" {
     unique  = true
     columns = [column.component_id, column.relationship_id, column.selector_id]
@@ -386,6 +395,11 @@ table "check_component_relationships" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   foreign_key "check_component_relationships_canary_id_fkey" {
     columns     = [column.canary_id]
     ref_columns = [table.canaries.column.id]
@@ -408,7 +422,10 @@ table "check_component_relationships" {
     unique  = true
     columns = [column.component_id, column.check_id, column.canary_id, column.selector_id]
   }
-
+  index "check_component_relationships_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
+  }
   index "idx_check_component_relationships_deleted_at" {
     columns = [column.deleted_at]
   }
@@ -443,6 +460,11 @@ table "config_component_relationships" {
     null = true
     type = text
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   foreign_key "config_component_relationships_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
@@ -461,5 +483,9 @@ table "config_component_relationships" {
   }
   index "idx_config_component_relationships_deleted_at" {
     columns = [column.deleted_at]
+  }
+  index "config_component_relationships_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
   }
 }

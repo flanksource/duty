@@ -177,6 +177,10 @@ type ConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (cr ConfigRelationship) PK() string {
+	return cr.RelatedID + "," + cr.ConfigID + cr.SelectorID
+}
+
 func (cr ConfigRelationship) TableName() string {
 	return "config_relationships"
 }
