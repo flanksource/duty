@@ -25,6 +25,8 @@ BEGIN
   changed_fields = hstore(NEW.*) - oldrow;
   IF TG_TABLE_NAME = 'canaries' AND NOT (changed_fields ? 'spec')  THEN
     RETURN NEW; -- For canaries, only spec column should be considered
+  ELSIF TG_TABLE_NAME = 'config_items' AND NOT (changed_fields ? 'config')  THEN
+    RETURN NEW; -- For config_items, only config column should be considered
   ELSIF changed_fields = hstore('') THEN
     RETURN NEW; -- No columns have been updated.
   END IF;
