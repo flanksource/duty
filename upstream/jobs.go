@@ -43,6 +43,66 @@ func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int
 	}
 }
 
+func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+	var count int
+
+	if c, err := ReconcileTable[models.Topology](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := ReconcileTable[models.ConfigScraper](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := ReconcileTable[models.Canary](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := ReconcileTable[models.ConfigItem](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := ReconcileTable[models.Check](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := ReconcileTable[models.Component](ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := SyncCheckStatuses(ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := SyncConfigAnalyses(ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	if c, err := SyncConfigChanges(ctx, config, batchSize); err != nil {
+		return c, err
+	} else {
+		count += c
+	}
+
+	return count, nil
+}
+
 // ReconcileTable pushes all unpushed items in a table to upstream.
 func ReconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	return reconcileTable[T](ctx, config, nil, batchSize)
