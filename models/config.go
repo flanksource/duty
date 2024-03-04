@@ -66,30 +66,31 @@ const (
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
-	ScraperID     *string              `json:"scraper_id,omitempty"`
-	AgentID       uuid.UUID            `json:"agent_id,omitempty"`
-	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
-	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	Type          *string              `json:"type,omitempty"`
-	Status        *string              `json:"status,omitempty" gorm:"default:null"`
-	Name          *string              `json:"name,omitempty" faker:"name"  `
-	Namespace     *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
-	Description   *string              `json:"description,omitempty"`
-	Config        *string              `json:"config,omitempty"  `
-	Source        *string              `json:"source,omitempty"  `
-	ParentID      *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
-	Path          string               `json:"path,omitempty" faker:"-"`
-	CostPerMinute float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
-	CostTotal1d   float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
-	CostTotal7d   float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
-	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
-	Tags          *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
-	Properties    *types.Properties    `json:"properties,omitempty"`
-	CreatedAt     time.Time            `json:"created_at"`
-	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
-	DeleteReason  string               `json:"delete_reason,omitempty"`
+	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
+	ScraperID       *string              `json:"scraper_id,omitempty"`
+	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
+	ConfigClass     string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
+	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
+	Type            *string              `json:"type,omitempty"`
+	Status          *string              `json:"status,omitempty" gorm:"default:null"`
+	Name            *string              `json:"name,omitempty" faker:"name"  `
+	Namespace       *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
+	Description     *string              `json:"description,omitempty"`
+	Config          *string              `json:"config,omitempty"  `
+	Source          *string              `json:"source,omitempty"  `
+	ParentID        *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
+	Path            string               `json:"path,omitempty" faker:"-"`
+	CostPerMinute   float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
+	CostTotal1d     float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
+	CostTotal7d     float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
+	CostTotal30d    float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
+	Tags            *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
+	Properties      *types.Properties    `json:"properties,omitempty"`
+	LastScrapedTime *time.Time           `json:"last_scraped_time"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
+	DeleteReason    string               `json:"delete_reason,omitempty"`
 }
 
 func (t ConfigItem) PK() string {
