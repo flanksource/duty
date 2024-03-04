@@ -190,6 +190,15 @@ type ConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s ConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ConfigRelationship)
+		return []string{c.RelatedID, c.ConfigID, c.SelectorID}
+	})
+
+	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
 func (t ConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigRelationship
 	err := db.Select("config_relationships.*").

@@ -6,7 +6,17 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
+
+type pushableTable interface {
+	models.DBTable
+	GetUnpushed(db *gorm.DB) ([]models.DBTable, error)
+}
+
+type customIsPushedUpdater interface {
+	UpdateIsPushed(db *gorm.DB, items []models.DBTable) error
+}
 
 var reconciledTables = []pushableTable{
 	models.Topology{},
@@ -79,75 +89,17 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 		if err := client.Push(ctx, NewPushData(items)); err != nil {
 			return 0, fmt.Errorf("failed to push %s to upstream: %w", table, err)
 		}
+		count += len(items)
 
-		switch table.TableName() {
-		case "check_statuses":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []any {
-				c := any(a).(models.CheckStatus)
-				return []any{c.CheckID, c.Time}
-			})
-
-			if err := ctx.DB().Model(&models.CheckStatus{}).Where("(check_id, time) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for check_statuses: %w", err)
+		if c, ok := table.(customIsPushedUpdater); ok {
+			if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
+				return 0, fmt.Errorf("failed to update is_pushed for %s: %w", table, err)
 			}
-
-		case "component_relationships":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
-				c := any(a).(models.ComponentRelationship)
-				return []string{c.ComponentID.String(), c.RelationshipID.String(), c.SelectorID}
-			})
-
-			if err := ctx.DB().Model(&models.ComponentRelationship{}).Where("(component_id, relationship_id, selector_id) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for component_relationships: %w", err)
-			}
-
-		case "config_component_relationships":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
-				c := any(a).(models.ConfigComponentRelationship)
-				return []string{c.ComponentID.String(), c.ConfigID.String()}
-			})
-
-			if err := ctx.DB().Model(&models.ConfigComponentRelationship{}).Where("(component_id, config_id) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for config_component_relationships: %w", err)
-			}
-
-		case "config_relationships":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
-				c := any(a).(models.ConfigRelationship)
-				return []string{c.RelatedID, c.ConfigID, c.SelectorID}
-			})
-
-			if err := ctx.DB().Model(&models.ConfigRelationship{}).Where("(related_id, config_id, selector_id) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for config_component_relationships: %w", err)
-			}
-
-		case "check_config_relationships":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
-				c := any(a).(models.CheckConfigRelationship)
-				return []string{c.ConfigID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
-			})
-
-			if err := ctx.DB().Model(&models.CheckConfigRelationship{}).Where("(config_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for config_component_relationships: %w", err)
-			}
-
-		case "check_component_relationships":
-			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
-				c := any(a).(models.CheckComponentRelationship)
-				return []string{c.ComponentID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
-			})
-
-			if err := ctx.DB().Model(&models.CheckComponentRelationship{}).Where("(component_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for config_component_relationships: %w", err)
-			}
-
-		default:
+		} else {
 			ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
 			if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
 				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table, err)
 			}
 		}
-
-		count += len(items)
 	}
 }

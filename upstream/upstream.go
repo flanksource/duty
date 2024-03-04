@@ -76,7 +76,7 @@ type PushData struct {
 	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
 }
 
-func NewPushData[T dbTable](records []T) *PushData {
+func NewPushData[T models.DBTable](records []T) *PushData {
 	var p PushData
 	if len(records) == 0 {
 		return &p

@@ -228,19 +228,8 @@ func UpdateAgentLastReceived(ctx context.Context, id uuid.UUID) error {
 	}).Error
 }
 
-type dbTable interface {
-	PK() string
-	TableName() string
-}
-
-type pushableTable interface {
-	PK() string
-	TableName() string
-	GetUnpushed(db *gorm.DB) ([]models.DBTable, error)
-}
-
 // saveIndividuallyWithRetries saves the given records one by one and retries only on foreign key violation error.
-func saveIndividuallyWithRetries[T dbTable](ctx context.Context, items []T, maxRetries int) error {
+func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []T, maxRetries int) error {
 	var retries int
 	for {
 		var failed []T

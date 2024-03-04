@@ -456,6 +456,15 @@ type ComponentRelationship struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s ComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ComponentRelationship)
+		return []string{c.ComponentID.String(), c.RelationshipID.String(), c.SelectorID}
+	})
+
+	return db.Model(&ComponentRelationship{}).Where("(component_id, relationship_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+}
+
 func (cr ComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ComponentRelationship
 	err := db.Select("component_relationships.*").
@@ -482,6 +491,15 @@ type ConfigComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (s ConfigComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ConfigComponentRelationship)
+		return []string{c.ComponentID.String(), c.ConfigID.String()}
+	})
+
+	return db.Model(&ConfigComponentRelationship{}).Where("(component_id, config_id) IN ?", ids).Update("is_pushed", true).Error
 }
 
 func (t ConfigComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
@@ -519,6 +537,15 @@ type CheckComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (s CheckComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(CheckComponentRelationship)
+		return []string{c.ComponentID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
+	})
+
+	return db.Model(&CheckComponentRelationship{}).Where("(component_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
 }
 
 func (t CheckComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {

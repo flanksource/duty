@@ -123,6 +123,15 @@ type CheckStatus struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (s CheckStatus) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []any {
+		c := any(a).(CheckStatus)
+		return []any{c.CheckID, c.Time}
+	})
+
+	return db.Model(&CheckStatus{}).Where("(check_id, time) IN ?", ids).Update("is_pushed", true).Error
+}
+
 func (s CheckStatus) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []CheckStatus
 	err := db.Select("check_statuses.*").
@@ -218,6 +227,15 @@ type CheckConfigRelationship struct {
 	CreatedAt  time.Time  `json:"created_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at,omitempty"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (s CheckConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(CheckConfigRelationship)
+		return []string{c.ConfigID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
+	})
+
+	return db.Model(&CheckConfigRelationship{}).Where("(config_id, check_id, canary_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
 }
 
 func (c CheckConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
