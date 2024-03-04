@@ -116,6 +116,10 @@ type CheckStatus struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (s CheckStatus) PK() string {
+	return s.CheckID.String() + s.Time
+}
+
 func (s CheckStatus) GetTime() (time.Time, error) {
 	return time.Parse(time.DateTime, s.Time)
 }
