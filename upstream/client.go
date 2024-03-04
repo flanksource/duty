@@ -57,11 +57,15 @@ func (t *UpstreamClient) PushArtifacts(ctx context.Context, artifactID uuid.UUID
 // Ping sends a ping message to the upstream
 func (t *UpstreamClient) Ping(ctx context.Context) error {
 	resp, err := t.Client.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName).Get("/ping")
+	if err != nil {
+		return err
+	}
+
 	if !resp.IsOK() {
 		return fmt.Errorf("upstream sent an unexpected response: %v", resp.StatusCode)
 	}
 
-	return err
+	return nil
 }
 
 // Push uploads the given push message to the upstream server.
