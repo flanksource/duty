@@ -6,6 +6,7 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -57,6 +58,12 @@ type Check struct {
 	EarliestRuntime *time.Time `json:"earliestRuntime,omitempty" gorm:"-"`
 	LatestRuntime   *time.Time `json:"latestRuntime,omitempty" gorm:"-"`
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
+}
+
+func (t Check) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Check
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Check, _ int) DBTable { return i }), err
 }
 
 func (c Check) PK() string {
@@ -114,6 +121,16 @@ type CheckStatus struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (s CheckStatus) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckStatus
+	err := db.Select("check_statuses.*").
+		Joins("LEFT JOIN checks ON checks.id = check_statuses.check_id").
+		Where("checks.agent_id = ?", uuid.Nil).
+		Where("check_statuses.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckStatus, _ int) DBTable { return i }), err
 }
 
 func (s CheckStatus) PK() string {
@@ -201,6 +218,16 @@ type CheckConfigRelationship struct {
 	CreatedAt  time.Time  `json:"created_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at,omitempty"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (c CheckConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckConfigRelationship
+	err := db.Select("check_config_relationships.*").
+		Joins("LEFT JOIN config_items ci ON check_config_relationships.config_id = ci.id").
+		Where("ci.agent_id = ?", uuid.Nil).
+		Where("check_config_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckConfigRelationship, _ int) DBTable { return i }), err
 }
 
 func (c *CheckConfigRelationship) Save(db *gorm.DB) error {

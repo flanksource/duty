@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -70,6 +71,12 @@ type Component struct {
 	// Mark it as true when the component is processed
 	// during topology tree creation
 	NodeProcessed bool `json:"-" gorm:"-"`
+}
+
+func (t Component) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Component
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Component, _ int) DBTable { return i }), err
 }
 
 func (c Component) PK() string {
@@ -449,6 +456,17 @@ type ComponentRelationship struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (cr ComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ComponentRelationship
+	err := db.Select("component_relationships.*").
+		Joins("LEFT JOIN components c ON component_relationships.component_id = c.id").
+		Joins("LEFT JOIN components rel ON component_relationships.relationship_id = rel.id").
+		Where("c.agent_id = ? AND rel.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ComponentRelationship, _ int) DBTable { return i }), err
+}
+
 func (cr ComponentRelationship) PK() string {
 	return cr.ComponentID.String() + "," + cr.RelationshipID.String() + "," + cr.SelectorID
 }
@@ -464,6 +482,17 @@ type ConfigComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (t ConfigComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigComponentRelationship
+	err := db.Select("config_component_relationships.*").
+		Joins("LEFT JOIN components c ON config_component_relationships.component_id = c.id").
+		Joins("LEFT JOIN config_items ci ON config_component_relationships.config_id = ci.id").
+		Where("c.agent_id = ? AND ci.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("config_component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ConfigComponentRelationship, _ int) DBTable { return i }), err
 }
 
 func (t ConfigComponentRelationship) PK() string {
@@ -490,6 +519,17 @@ type CheckComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (t CheckComponentRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []CheckComponentRelationship
+	err := db.Select("check_component_relationships.*").
+		Joins("LEFT JOIN components c ON check_component_relationships.component_id = c.id").
+		Joins("LEFT JOIN canaries ON check_component_relationships.canary_id = canaries.id").
+		Where("c.agent_id = ? AND canaries.agent_id = ?", uuid.Nil, uuid.Nil).
+		Where("check_component_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i CheckComponentRelationship, _ int) DBTable { return i }), err
 }
 
 func (c *CheckComponentRelationship) Save(db *gorm.DB) error {

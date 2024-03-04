@@ -5,6 +5,8 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type Canary struct {
@@ -20,6 +22,12 @@ type Canary struct {
 	CreatedAt   time.Time           `json:"created_at" yaml:"created_at" time_format:"postgres_timestamp"`
 	UpdatedAt   *time.Time          `json:"updated_at" yaml:"updated_at" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (t Canary) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Canary
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Canary, _ int) DBTable { return i }), err
 }
 
 func (c Canary) GetCheckID(checkName string) string {

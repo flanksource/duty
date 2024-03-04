@@ -63,7 +63,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should push config items first to satisfy foregin keys for changes & analyses", func() {
-		count, err := upstream.ReconcileTable[models.ConfigItem](DefaultContext, upstreamConf, 100)
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_items")
 		Expect(err).To(BeNil())
 		Expect(count).To(Not(BeZero()))
 	})
@@ -81,7 +81,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(changes).To(BeZero())
 
-		count, err := upstream.SyncConfigChanges(DefaultContext, upstreamConf, 10)
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
 		Expect(err).ToNot(HaveOccurred())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigChange{}).Scan(&changes).Error
@@ -109,7 +109,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(analyses).To(BeZero())
 
-		count, err := upstream.SyncConfigAnalyses(DefaultContext, upstreamConf, 10)
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
 		Expect(err).ToNot(HaveOccurred())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
@@ -135,7 +135,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(artifacts).To(BeZero())
 
-		count, err := upstream.ReconcileTable[models.Artifact](DefaultContext, upstreamConf, 10)
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
 		Expect(err).ToNot(HaveOccurred())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error

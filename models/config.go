@@ -10,6 +10,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -93,6 +94,12 @@ type ConfigItem struct {
 	DeleteReason    string               `json:"delete_reason,omitempty"`
 }
 
+func (t ConfigItem) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigItem
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i ConfigItem, _ int) DBTable { return i }), err
+}
+
 func (t ConfigItem) PK() string {
 	return t.ID.String()
 }
@@ -147,6 +154,12 @@ type ConfigScraper struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (t ConfigScraper) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigScraper
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i ConfigScraper, _ int) DBTable { return i }), err
+}
+
 func (c ConfigScraper) PK() string {
 	return c.ID.String()
 }
@@ -177,6 +190,16 @@ type ConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (t ConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigRelationship
+	err := db.Select("config_relationships.*").
+		Joins("LEFT JOIN config_items ci ON config_relationships.config_id = ci.id").
+		Where("ci.agent_id = ?", uuid.Nil).
+		Where("config_relationships.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ConfigRelationship, _ int) DBTable { return i }), err
+}
+
 func (cr ConfigRelationship) PK() string {
 	return cr.RelatedID + "," + cr.ConfigID + cr.SelectorID
 }
@@ -202,6 +225,15 @@ type ConfigChange struct {
 	CreatedAt        *time.Time `gorm:"column:created_at" json:"created_at"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (t ConfigChange) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigChange
+	err := db.Select("config_changes.*").
+		Joins("LEFT JOIN config_items ON config_items.id = config_changes.config_id").
+		Where("config_items.agent_id = ?", uuid.Nil).
+		Where("config_changes.is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i ConfigChange, _ int) DBTable { return i }), err
 }
 
 func (c ConfigChange) PK() string {
@@ -252,6 +284,16 @@ type ConfigAnalysis struct {
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (ConfigAnalysis) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigAnalysis
+	err := db.Select("config_analysis.*").
+		Joins("LEFT JOIN config_items ON config_items.id = config_analysis.config_id").
+		Where("config_items.agent_id = ?", uuid.Nil).
+		Where("config_analysis.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ConfigAnalysis, _ int) DBTable { return i }), err
 }
 
 func (a ConfigAnalysis) PK() string {

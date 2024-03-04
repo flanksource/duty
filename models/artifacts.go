@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // Artifact represents the artifacts table
@@ -32,4 +34,10 @@ func (t Artifact) TableName() string {
 
 func (t Artifact) PK() string {
 	return t.ID.String()
+}
+
+func (t Artifact) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []Artifact
+	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	return lo.Map(items, func(i Artifact, _ int) DBTable { return i }), err
 }

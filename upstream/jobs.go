@@ -5,216 +5,70 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"gorm.io/gorm"
 )
 
+var reconciledTables = []pushableTable{
+	models.Topology{},
+	models.ConfigScraper{},
+	models.Canary{},
+	models.Artifact{},
+
+	models.ConfigItem{},
+	models.Check{},
+	models.Component{},
+
+	models.ConfigChange{},
+	models.ConfigAnalysis{},
+	models.CheckStatus{},
+
+	models.CheckComponentRelationship{},
+	models.CheckConfigRelationship{},
+	models.ComponentRelationship{},
+	models.ConfigComponentRelationship{},
+	models.ConfigRelationship{},
+}
+
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+	if ctx.Properties().Off("upstream.reconcile.pre-check") {
+		return ReconcileSome(ctx, config, batchSize)
+	}
+
+	var tablesToReconcile []string
+	if err := ctx.DB().Table("unpushed_tables").Scan(&tablesToReconcile).Error; err != nil {
+		return 0, err
+	}
+
+	return ReconcileSome(ctx, config, batchSize, tablesToReconcile...)
+}
+
+func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, error) {
 	var count int
+	for _, table := range reconciledTables {
+		if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
+			ctx.Tracef("skipping reconciliation of table %s", table.TableName())
+			continue
+		}
 
-	if c, err := ReconcileTable[models.Topology](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := ReconcileTable[models.ConfigScraper](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := ReconcileTable[models.Canary](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := ReconcileTable[models.ConfigItem](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := ReconcileTable[models.Check](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := ReconcileTable[models.Component](ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := SyncCheckStatuses(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := SyncConfigAnalyses(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := SyncConfigChanges(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := reconcileComponentRelationships(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := reconcileConfigComponentRelationship(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := reconcileCheckComponentRelationship(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := reconcileConfigRelationship(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
-	}
-
-	if c, err := reconcileCheckConfigRelationship(ctx, config, batchSize); err != nil {
-		return c, err
-	} else {
-		count += c
+		if c, err := reconcileTable(ctx, config, table, batchSize); err != nil {
+			return count, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
+		} else {
+			count += c
+		}
 	}
 
 	return count, nil
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
-func ReconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	return reconcileTable[T](ctx, config, nil, batchSize)
-}
-
-// SyncCheckStatuses pushes check statuses, that haven't already been pushed, to upstream.
-func SyncCheckStatuses(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("check_statuses.*").
-		Joins("LEFT JOIN checks ON checks.id = check_statuses.check_id").
-		Where("checks.agent_id = ?", uuid.Nil).
-		Where("check_statuses.is_pushed IS FALSE")
-
-	return reconcileTable[models.CheckStatus](ctx, config, fetcher, batchSize)
-}
-
-// SyncConfigChanges pushes config changes, that haven't already been pushed, to upstream.
-func SyncConfigChanges(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("config_changes.*").
-		Joins("LEFT JOIN config_items ON config_items.id = config_changes.config_id").
-		Where("config_items.agent_id = ?", uuid.Nil).
-		Where("config_changes.is_pushed IS FALSE")
-
-	return reconcileTable[models.ConfigChange](ctx, config, fetcher, batchSize)
-}
-
-// SyncConfigAnalyses pushes config analyses, that haven't already been pushed, to upstream.
-func SyncConfigAnalyses(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("config_analysis.*").
-		Joins("LEFT JOIN config_items ON config_items.id = config_analysis.config_id").
-		Where("config_items.agent_id = ?", uuid.Nil).
-		Where("config_analysis.is_pushed IS FALSE")
-
-	return reconcileTable[models.ConfigAnalysis](ctx, config, fetcher, batchSize)
-}
-
-func reconcileComponentRelationships(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("component_relationships.*").
-		Joins("LEFT JOIN components c ON component_relationships.component_id = c.id").
-		Joins("LEFT JOIN components rel ON component_relationships.relationship_id = rel.id").
-		Where("c.agent_id = ? AND rel.agent_id = ?", uuid.Nil, uuid.Nil).
-		Where("component_relationships.is_pushed IS FALSE")
-
-	return reconcileTable[models.ComponentRelationship](ctx, config, fetcher, batchSize)
-}
-
-func reconcileConfigComponentRelationship(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("config_component_relationships.*").
-		Joins("LEFT JOIN components c ON config_component_relationships.component_id = c.id").
-		Joins("LEFT JOIN config_items ci ON config_component_relationships.config_id = ci.id").
-		Where("c.agent_id = ? AND ci.agent_id = ?", uuid.Nil, uuid.Nil).
-		Where("config_component_relationships.is_pushed IS FALSE")
-
-	return reconcileTable[models.ConfigComponentRelationship](ctx, config, fetcher, batchSize)
-}
-
-func reconcileCheckComponentRelationship(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("check_component_relationships.*").
-		Joins("LEFT JOIN components c ON check_component_relationships.component_id = c.id").
-		Joins("LEFT JOIN canaries ON check_component_relationships.canary_id = canaries.id").
-		Where("c.agent_id = ? AND canaries.agent_id = ?", uuid.Nil, uuid.Nil).
-		Where("check_component_relationships.is_pushed IS FALSE")
-
-	return reconcileTable[models.CheckComponentRelationship](ctx, config, fetcher, batchSize)
-}
-
-func reconcileConfigRelationship(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("config_relationships.*").
-		Joins("LEFT JOIN config_items ci ON config_relationships.config_id = ci.id").
-		Where("ci.agent_id = ?", uuid.Nil, uuid.Nil).
-		Where("config_relationships.is_pushed IS FALSE")
-
-	return reconcileTable[models.ConfigRelationship](ctx, config, fetcher, batchSize)
-}
-
-func reconcileCheckConfigRelationship(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	fetcher := ctx.DB().Select("check_config_relationships.*").
-		Joins("LEFT JOIN config_items ci ON check_config_relationships.config_id = ci.id").
-		Where("ci.agent_id = ?", uuid.Nil, uuid.Nil).
-		Where("check_config_relationships.is_pushed IS FALSE")
-
-	return reconcileTable[models.CheckConfigRelationship](ctx, config, fetcher, batchSize)
-}
-
-// ReconcileTable pushes all unpushed items in a table to upstream.
-func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetcher *gorm.DB, batchSize int) (int, error) {
+func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, error) {
 	client := NewUpstreamClient(config)
-	var anon T
-	table := anon.TableName()
-
-	if !ctx.Properties().Off("upstream.reconcile.pre-check") {
-		var unpushed float64
-		precheck := fmt.Sprintf(`SELECT reltuples FROM pg_class WHERE relname = '%s_is_pushed_idx'`, table)
-		if err := ctx.DB().Raw(precheck).Scan(&unpushed).Error; err != nil {
-			return 0, fmt.Errorf("failed to check table %q is_pushed index: %w", table, err)
-		}
-
-		if unpushed == 0 {
-			return 0, nil
-		}
-	}
 
 	var count int
 	for {
-		var items []T
-		if fetcher != nil {
-			if err := fetcher.Limit(batchSize).Find(&items).Error; err != nil {
-				return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
-			}
-		} else {
-			if err := ctx.DB().
-				Where("is_pushed IS FALSE").
-				Limit(batchSize).
-				Find(&items).Error; err != nil {
-				return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
-			}
+		items, err := table.GetUnpushed(ctx.DB().Limit(batchSize))
+		if err != nil {
+			return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
 		}
 
 		if len(items) == 0 {
@@ -226,9 +80,9 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			return 0, fmt.Errorf("failed to push %s to upstream: %w", table, err)
 		}
 
-		switch table {
+		switch table.TableName() {
 		case "check_statuses":
-			ids := lo.Map(items, func(a T, _ int) []any {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []any {
 				c := any(a).(models.CheckStatus)
 				return []any{c.CheckID, c.Time}
 			})
@@ -238,7 +92,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		case "component_relationships":
-			ids := lo.Map(items, func(a T, _ int) []string {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
 				c := any(a).(models.ComponentRelationship)
 				return []string{c.ComponentID.String(), c.RelationshipID.String(), c.SelectorID}
 			})
@@ -248,7 +102,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		case "config_component_relationships":
-			ids := lo.Map(items, func(a T, _ int) []string {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
 				c := any(a).(models.ConfigComponentRelationship)
 				return []string{c.ComponentID.String(), c.ConfigID.String()}
 			})
@@ -258,7 +112,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		case "config_relationships":
-			ids := lo.Map(items, func(a T, _ int) []string {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
 				c := any(a).(models.ConfigRelationship)
 				return []string{c.RelatedID, c.ConfigID, c.SelectorID}
 			})
@@ -268,7 +122,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		case "check_config_relationships":
-			ids := lo.Map(items, func(a T, _ int) []string {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
 				c := any(a).(models.CheckConfigRelationship)
 				return []string{c.ConfigID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
 			})
@@ -278,7 +132,7 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		case "check_component_relationships":
-			ids := lo.Map(items, func(a T, _ int) []string {
+			ids := lo.Map(items, func(a models.DBTable, _ int) []string {
 				c := any(a).(models.CheckComponentRelationship)
 				return []string{c.ComponentID.String(), c.CheckID.String(), c.CanaryID.String(), c.SelectorID}
 			})
@@ -288,8 +142,8 @@ func reconcileTable[T dbTable](ctx context.Context, config UpstreamConfig, fetch
 			}
 
 		default:
-			ids := lo.Map(items, func(a T, _ int) string { return a.PK() })
-			if err := ctx.DB().Model(anon).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
+			ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
+			if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
 				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table, err)
 			}
 		}
