@@ -190,7 +190,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
 			Expect(rc.Relation).To(Equal("ClusterNode"))
-			Expect(rc.Type).To(Equal(models.RelatedConfigTypeOutgoing))
+			Expect(rc.RelationType).To(Equal(models.RelatedConfigTypeOutgoing))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		}
 	})
@@ -202,7 +202,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(1))
 		Expect(relatedConfigs[0].Relation).To(Equal("ClusterNode"))
-		Expect(relatedConfigs[0].Type).To(Equal(models.RelatedConfigTypeIncoming))
+		Expect(relatedConfigs[0].RelationType).To(Equal(models.RelatedConfigTypeIncoming))
 		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
 	})
 })
