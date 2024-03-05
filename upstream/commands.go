@@ -116,15 +116,14 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	batchSize := 100
 	db := ctx.DB()
-
 	for _, c := range req.Topologies {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
 			return fmt.Errorf("error upserting topology: (id=%s): %w", c.ID, err)
 		}
 	}
 
 	for _, c := range req.Canaries {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
 			return fmt.Errorf("error upserting canaries: (id=%s): %w", c.ID, err)
 		}
 	}
@@ -142,7 +141,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	for _, c := range req.ConfigScrapers {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
 			return fmt.Errorf("error upserting config scraper: (id=%s): %w", c.ID, err)
 		}
 	}
@@ -167,13 +166,13 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ConfigChanges) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ConfigChanges, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigChanges, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting config_changes: %w", err)
 		}
 	}
 
 	if len(req.ConfigAnalysis) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ConfigAnalysis, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigAnalysis, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting config_analysis: %w", err)
 		}
 	}
@@ -234,7 +233,7 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 	for {
 		var failed []T
 		for _, c := range items {
-			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&c).Error; err != nil {
+			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
 				var pgError *pgconn.PgError
 				if errors.As(err, &pgError) {
 					if pgError.Code == pgerrcode.ForeignKeyViolation {
