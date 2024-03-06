@@ -76,6 +76,7 @@ type PlaybookRun struct {
 	ComponentID   *uuid.UUID          `json:"component_id,omitempty"`
 	CheckID       *uuid.UUID          `json:"check_id,omitempty"`
 	ConfigID      *uuid.UUID          `json:"config_id,omitempty"`
+	Error         *string             `json:"error,omitempty"`
 	Parameters    types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
 	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
 }
