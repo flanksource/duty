@@ -173,6 +173,10 @@ table "playbook_runs" {
     default = var.uuid_nil
     type = uuid
   }
+  column "error" {
+    null = true
+    type = text
+  }
   primary_key {
     columns = [column.id]
   }
