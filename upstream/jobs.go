@@ -84,20 +84,20 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			return count, nil
 		}
 
-		ctx.Tracef("pushing %s %d to upstream", table, len(items))
+		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
 		if err := client.Push(ctx, NewPushData(items)); err != nil {
-			return 0, fmt.Errorf("failed to push %s to upstream: %w", table, err)
+			return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
 		}
 		count += len(items)
 
 		if c, ok := table.(customIsPushedUpdater); ok {
 			if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for %s: %w", table, err)
+				return 0, fmt.Errorf("failed to update is_pushed for %s: %w", table.TableName(), err)
 			}
 		} else {
 			ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
 			if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table, err)
+				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
 			}
 		}
 	}
