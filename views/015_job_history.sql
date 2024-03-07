@@ -38,11 +38,20 @@ SELECT
   job_history_latest_status.status job_status,
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
-  job_history_latest_status.created_at job_created_at
+  job_history_latest_status.created_at job_created_at,
+  lr.time_start job_last_failed
 FROM
   topologies
   LEFT JOIN job_history_latest_status ON topologies.id::TEXT = job_history_latest_status.resource_id
   AND job_history_latest_status.resource_type = 'topology'
+  LEFT JOIN (
+    SELECT 
+      resource_id,
+      MAX(time_start) as time_start
+    FROM job_history as js_last_failed
+    WHERE js_last_failed.status = 'FAILED' AND js_last_failed.resource_type = 'topology'
+    GROUP BY js_last_failed.resource_id
+  ) lr ON lr.resource_id = topologies.id::TEXT
 WHERE
   topologies.deleted_at IS NULL;
 
@@ -76,11 +85,20 @@ SELECT
   job_history_latest_status.status job_status,
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
-  job_history_latest_status.created_at job_created_at
+  job_history_latest_status.created_at job_created_at,
+  lr.time_start job_last_failed
 FROM
   canaries
   LEFT JOIN job_history_latest_status ON canaries.id::TEXT = job_history_latest_status.resource_id
   LEFT JOIN canaries_last_runtime ON canaries_last_runtime.canary_id = canaries.id
+  LEFT JOIN (
+    SELECT 
+      resource_id,
+      MAX(time_start) as time_start
+    FROM job_history as js_last_failed
+    WHERE js_last_failed.status = 'FAILED' AND js_last_failed.resource_type = 'canary'
+    GROUP BY js_last_failed.resource_id
+  ) lr ON lr.resource_id = canaries.id::TEXT
 WHERE
   canaries.deleted_at IS NULL;
 
@@ -101,11 +119,20 @@ SELECT
   job_history_latest_status.status job_status,
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
-  job_history_latest_status.created_at job_created_at
+  job_history_latest_status.created_at job_created_at,
+  lr.time_start job_last_failed
 FROM
   teams
   LEFT JOIN job_history_latest_status ON teams.id::TEXT = job_history_latest_status.resource_id
   AND job_history_latest_status.resource_type = 'team'
+  LEFT JOIN (
+    SELECT 
+      resource_id,
+      MAX(time_start) as time_start
+    FROM job_history as js_last_failed
+    WHERE js_last_failed.status = 'FAILED' AND js_last_failed.resource_type = 'team'
+    GROUP BY js_last_failed.resource_id 
+  ) lr ON lr.resource_id = teams.id::TEXT
 WHERE
   teams.deleted_at IS NULL;
 
@@ -126,10 +153,19 @@ SELECT
   job_history_latest_status.status job_status,
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
-  job_history_latest_status.created_at job_created_at
+  job_history_latest_status.created_at job_created_at,
+  lr.time_start job_last_failed
 FROM
   config_scrapers
   LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
+  LEFT JOIN (
+    SELECT 
+      resource_id,
+      MAX(time_start) as time_start
+    FROM job_history as js_last_failed
+    WHERE js_last_failed.status = 'FAILED' AND js_last_failed.resource_type = 'config_scraper'
+    GROUP BY js_last_failed.resource_id
+  ) lr ON lr.resource_id = config_scrapers.id::TEXT
 WHERE
   config_scrapers.deleted_at IS NULL;
 
@@ -192,7 +228,8 @@ SELECT
   job_status,
   job_time_start,
   job_time_end,
-  job_created_at
+  job_created_at,
+  job_last_failed
 FROM
   config_scrapers_with_status
 UNION
@@ -217,7 +254,8 @@ SELECT
   job_status,
   job_time_start,
   job_time_end,
-  job_created_at
+  job_created_at,
+  job_last_failed
 FROM
   topologies_with_status
 UNION
@@ -240,6 +278,7 @@ SELECT
   0,
   NULL,
   '',
+  NULL,
   NULL,
   NULL,
   NULL
