@@ -4,13 +4,17 @@ import (
 	gocontext "context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/timberio/go-datemath"
 )
 
 var allowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
@@ -147,4 +151,79 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	var dbConfigObjects []models.ConfigItem
 	err := query.Find(&dbConfigObjects).Error
 	return dbConfigObjects, err
+}
+
+type CatalogChangesSearchRequest struct {
+	CatalogID uuid.UUID `query:"id"`
+	// 'upstream' | 'downstream'
+	Recursive  string `query:"recursive"`
+	ConfigType string `query:"config_type"`
+	ChangeType string `query:"type"`
+	From       string `query:"from"`
+
+	fromParsed time.Time
+}
+
+func (t *CatalogChangesSearchRequest) Validate() error {
+	if t.CatalogID == uuid.Nil {
+		return fmt.Errorf("catalog id is required")
+	}
+
+	if t.Recursive != "" && t.Recursive != "upstream" && t.Recursive != "downstream" {
+		return fmt.Errorf("recursive must be either 'upstream' or 'downstream'")
+	}
+
+	if expr, err := datemath.Parse(t.From); err != nil {
+		return fmt.Errorf("invalid 'from' param: %w", err)
+	} else {
+		t.fromParsed = expr.Time()
+	}
+
+	return nil
+}
+
+type CatalogChangesSearchResponse struct {
+	Summary map[string]int        `json:"summary,omitempty"`
+	Changes []models.ConfigChange `json:"changes,omitempty"`
+}
+
+func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*CatalogChangesSearchResponse, error) {
+	if err := req.Validate(); err != nil {
+		return nil, api.Errorf(api.EINVALID, "bad request: %v", err)
+	}
+
+	args := map[string]any{
+		"catalog_id": req.CatalogID,
+		"recursive":  req.Recursive,
+	}
+
+	var clauses []string
+	query := "SELECT cc.* FROM related_changes_recursive(@catalog_id, @recursive) cc"
+
+	if req.ConfigType != "" {
+		query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
+		clauses = append(clauses, "config_items.type = @config_type")
+		args["config_type"] = req.ConfigType
+	}
+
+	if req.ChangeType != "" {
+		clauses = append(clauses, "cc.type = @change_type")
+		args["change_type"] = req.ChangeType
+	}
+
+	if !req.fromParsed.IsZero() {
+		clauses = append(clauses, "cc.created_at >= @from")
+		args["from"] = req.fromParsed
+	}
+
+	if len(clauses) > 0 {
+		query += fmt.Sprintf(" WHERE %s", strings.Join(clauses, " AND "))
+	}
+
+	var output CatalogChangesSearchResponse
+	if err := ctx.DB().Raw(query, args).Find(&output.Changes).Error; err != nil {
+		return nil, err
+	}
+
+	return &output, nil
 }

@@ -219,8 +219,8 @@ func (cr ConfigRelationship) TableName() string {
 
 // ConfigChange represents the config change database table
 type ConfigChange struct {
-	ExternalID       string     `gorm:"-"`
-	ConfigType       string     `gorm:"-"`
+	ExternalID       string     `gorm:"-" json:"-"`
+	ConfigType       string     `gorm:"-" json:"-"`
 	ExternalChangeId string     `gorm:"column:external_change_id" json:"external_change_id"`
 	ID               string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
