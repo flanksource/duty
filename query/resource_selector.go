@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
@@ -81,7 +82,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 
 		query = query.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap(labels))
 		for _, k := range onlyKeys {
-			query = query.Where(fmt.Sprintf("%s ?? ?", labelsColumn), k)
+			query = query.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), k)
 		}
 	}
 
