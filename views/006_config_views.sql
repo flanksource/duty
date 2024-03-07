@@ -491,33 +491,44 @@ CREATE FUNCTION related_configs (
   config_id UUID,
   type_filter TEXT DEFAULT 'all',
   include_deleted_configs BOOLEAN DEFAULT FALSE
-)
-RETURNS TABLE (
+) RETURNS TABLE (
   relation TEXT,
   relation_type TEXT,
-  config JSONB
-) AS $$
+  id uuid,
+  NAME TEXT,
+  TYPE TEXT,
+  tags jsonb,
+  changes json,
+  analysis json,
+  cost_per_minute NUMERIC(16, 4),
+  cost_total_1d NUMERIC(16, 4),
+  cost_total_7d NUMERIC(16, 4),
+  cost_total_30d NUMERIC(16, 4),
+  created_at TIMESTAMP WITH TIME ZONE,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  agent_id uuid
+)
+  AS $$
 BEGIN
   RETURN query
     SELECT
       r.relation,
       r.relation_type,
-      jsonb_build_object(
-        'id', c.id,
-        'name', c.name, 
-        'type', c.type, 
-        'tags', c.tags, 
-        'changes', c.changes,
-        'analysis', c.analysis,
-        'cost_per_minute', c.cost_per_minute,
-        'cost_total_1d', c.cost_total_1d,
-        'cost_total_7d', c.cost_total_7d,
-        'cost_total_30d', c.cost_total_30d,
-        'created_at', c.created_at, 
-        'updated_at', c.updated_at
-      ) AS config
+      configs.id,
+      configs.name,
+      configs.type,
+      configs.tags,
+      configs.changes,
+      configs.analysis,
+      configs.cost_per_minute,
+      configs.cost_total_1d,
+      configs.cost_total_7d,
+      configs.cost_total_30d,
+      configs.created_at,
+      configs.updated_at,
+      configs.agent_id
     FROM related_config_ids($1, $2, $3) as r
-    LEFT JOIN configs AS c ON r.id = c.id;
+    LEFT JOIN configs ON r.id = configs.id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -559,28 +570,43 @@ CREATE FUNCTION related_configs_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   include_deleted_configs BOOLEAN DEFAULT FALSE
-) RETURNS TABLE (relation TEXT, relation_type TEXT, config JSONB) AS $$
+) RETURNS TABLE (
+    relation TEXT,
+    relation_type TEXT,
+    id uuid,
+    name TEXT,
+    type TEXT,
+    tags jsonb,
+    changes json,
+    analysis json,
+    cost_per_minute NUMERIC(16, 4),
+    cost_total_1d NUMERIC(16, 4),
+    cost_total_7d NUMERIC(16, 4),
+    cost_total_30d NUMERIC(16, 4),
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    agent_id uuid
+) AS $$
 BEGIN
   RETURN query
     SELECT
       r.relation,
       r.relation_type,
-      jsonb_build_object(
-        'id', c.id,
-        'name', c.name, 
-        'type', c.type, 
-        'tags', c.tags, 
-        'changes', c.changes,
-        'analysis', c.analysis,
-        'cost_per_minute', c.cost_per_minute,
-        'cost_total_1d', c.cost_total_1d,
-        'cost_total_7d', c.cost_total_7d,
-        'cost_total_30d', c.cost_total_30d,
-        'created_at', c.created_at, 
-        'updated_at', c.updated_at
-      ) AS config
+      configs.id,
+      configs.name,
+      configs.type,
+      configs.tags,
+      configs.changes,
+      configs.analysis,
+      configs.cost_per_minute,
+      configs.cost_total_1d,
+      configs.cost_total_7d,
+      configs.cost_total_30d,
+      configs.created_at,
+      configs.updated_at,
+      configs.agent_id
     FROM related_config_ids_recursive($1, $2, $3) as r
-    LEFT JOIN configs AS c ON r.id = c.id;
+    LEFT JOIN configs ON r.id = configs.id;
 END;
 $$ LANGUAGE plpgsql;
 

@@ -104,7 +104,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(err).To(BeNil())
 				Expect(len(relatedConfigs)).To(Equal(1))
 
-				Expect(relatedConfigs[0].Config["id"].(string)).To(Equal(F.ID.String()))
+				Expect(relatedConfigs[0].ID.String()).To(Equal(F.ID.String()))
 			})
 
 			ginkgo.It("should correctly return zero relationships for leaf nodes", func() {
@@ -120,7 +120,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(err).To(BeNil())
 				Expect(len(relatedConfigs)).To(Equal(7))
 
-				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return uuid.MustParse(rc.Config["id"].(string)) })
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(HaveExactElements([]uuid.UUID{B.ID, C.ID, D.ID, E.ID, F.ID, G.ID, H.ID}))
 			})
 		})
@@ -132,7 +132,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(err).To(BeNil())
 
 				Expect(len(relatedConfigs)).To(Equal(5))
-				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return uuid.MustParse(rc.Config["id"].(string)) })
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(HaveExactElements([]uuid.UUID{C.ID, A.ID, H.ID, D.ID, B.ID}))
 			})
 
@@ -141,7 +141,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", G.ID).Find(&relatedConfigs).Error
 				Expect(err).To(BeNil())
 
-				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return uuid.MustParse(rc.Config["id"].(string)) })
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(HaveExactElements([]uuid.UUID{D.ID, B.ID, A.ID, H.ID}))
 			})
 		})
@@ -155,7 +155,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(err).To(BeNil())
 				Expect(len(relatedConfigs)).To(Equal(5))
 
-				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return uuid.MustParse(rc.Config["id"].(string)) })
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(HaveExactElements([]uuid.UUID{V.ID, W.ID, X.ID, Y.ID, Z.ID}))
 			})
 		})
@@ -174,7 +174,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(err).To(BeNil())
 				Expect(len(relatedConfigs)).To(Equal(3))
 
-				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return uuid.MustParse(rc.Config["id"].(string)) })
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(HaveExactElements([]uuid.UUID{X.ID, V.ID, U.ID}))
 			})
 		})
@@ -190,8 +190,8 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
 			Expect(rc.Relation).To(Equal("ClusterNode"))
-			Expect(rc.Type).To(Equal(models.RelatedConfigTypeOutgoing))
-			Expect(rc.Config["id"]).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
+			Expect(rc.RelationType).To(Equal(models.RelatedConfigTypeOutgoing))
+			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		}
 	})
 
@@ -202,7 +202,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(1))
 		Expect(relatedConfigs[0].Relation).To(Equal("ClusterNode"))
-		Expect(relatedConfigs[0].Type).To(Equal(models.RelatedConfigTypeIncoming))
-		Expect(relatedConfigs[0].Config["id"]).To(Equal(dummy.KubernetesCluster.ID.String()))
+		Expect(relatedConfigs[0].RelationType).To(Equal(models.RelatedConfigTypeIncoming))
+		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
 	})
 })
