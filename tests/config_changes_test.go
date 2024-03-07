@@ -1,7 +1,10 @@
 package tests
 
 import (
+	"time"
+
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query"
 	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,12 +24,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	// Create a list of ConfigItems
 	var (
-		U = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("U")}
-		V = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("V")}
-		W = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("W")}
-		X = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("X")}
-		Y = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("Y")}
-		Z = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Name: lo.ToPtr("Z")}
+		U = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U")}
+		V = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V")}
+		W = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W")}
+		X = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X")}
+		Y = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y")}
+		Z = models.ConfigItem{ID: uuid.New(), Namespace: lo.ToPtr("test-changes"), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z")}
 	)
 	configItems := []models.ConfigItem{U, V, W, X, Y, Z}
 
@@ -41,14 +44,15 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	// Create changes for each config
 	var (
-		UChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: U.ID.String(), Summary: ".name.U", Source: "test-changes"}
-		VChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: V.ID.String(), Summary: ".name.V", Source: "test-changes"}
-		WChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: W.ID.String(), Summary: ".name.W", Source: "test-changes"}
-		XChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: X.ID.String(), Summary: ".name.X", Source: "test-changes"}
-		YChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: Y.ID.String(), Summary: ".name.Y", Source: "test-changes"}
-		ZChange = models.ConfigChange{ID: uuid.New().String(), ConfigID: Z.ID.String(), Summary: ".name.Z", Source: "test-changes"}
+		UChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now()), ConfigID: U.ID.String(), Summary: ".name.U", ChangeType: "RegisterNode", Source: "test-changes"}
+		VChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour)), ConfigID: V.ID.String(), Summary: ".name.V", ChangeType: "diff", Source: "test-changes"}
+		WChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 2)), ConfigID: W.ID.String(), Summary: ".name.W", ChangeType: "Pulled", Source: "test-changes"}
+		XChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 3)), ConfigID: X.ID.String(), Summary: ".name.X", ChangeType: "diff", Source: "test-changes"}
+		YChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 4)), ConfigID: Y.ID.String(), Summary: ".name.Y", ChangeType: "diff", Source: "test-changes"}
+		ZChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), ConfigID: Z.ID.String(), Summary: ".name.Z", ChangeType: "Pulled", Source: "test-changes"}
+
+		changes = []models.ConfigChange{UChange, VChange, WChange, XChange, YChange, ZChange}
 	)
-	changes := []models.ConfigChange{UChange, VChange, WChange, XChange, YChange, ZChange}
 
 	ginkgo.BeforeAll(func() {
 		// Save configs
@@ -88,6 +92,19 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 		err = DefaultContext.DB().Where("namespace = 'test-changes'").Delete(&models.ConfigItem{}).Error
 		Expect(err).To(BeNil())
+	})
+
+	ginkgo.Context("Both ways", func() {
+		ginkgo.It("should return changes upstream and downstream", func() {
+			var relatedChanges []models.ConfigChange
+			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'both')", X.ID).Find(&relatedChanges).Error
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges)).To(Equal(4))
+
+			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
+		})
 	})
 
 	ginkgo.Context("Downstream", func() {
@@ -135,6 +152,118 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID}))
+		})
+	})
+
+	ginkgo.Context("FindCatalogChanges func", func() {
+		ginkgo.It("should return changes when recursive is turned off", func() {
+			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID,
+			})
+			Expect(err).To(BeNil())
+			Expect(len(response.Changes)).To(Equal(1))
+			Expect(response.Summary[UChange.ChangeType]).To(Equal(1))
+		})
+
+		ginkgo.Context("Config type filter", func() {
+			ginkgo.It("IN", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID:  U.ID,
+					Recursive:  query.CatalogChangeRecursiveDownstream,
+					ConfigType: "Kubernetes::Pod,Kubernetes::ReplicaSet",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(3))
+				Expect(response.Summary["Pulled"]).To(Equal(2))
+				Expect(response.Summary["diff"]).To(Equal(1))
+			})
+
+			ginkgo.It("NOT IN", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID:  U.ID,
+					Recursive:  query.CatalogChangeRecursiveDownstream,
+					ConfigType: "!Kubernetes::ReplicaSet",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(5))
+				Expect(response.Summary["diff"]).To(Equal(2))
+				Expect(response.Summary["Pulled"]).To(Equal(2))
+				Expect(response.Summary["RegisterNode"]).To(Equal(1))
+			})
+		})
+
+		ginkgo.Context("Change type filter", func() {
+			ginkgo.It("IN", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID:  X.ID,
+					Recursive:  query.CatalogChangeRecursiveBoth,
+					ChangeType: "diff",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(2))
+				Expect(response.Summary["diff"]).To(Equal(2))
+			})
+
+			ginkgo.It("NOT IN", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID:  U.ID,
+					Recursive:  query.CatalogChangeRecursiveDownstream,
+					ChangeType: "!diff,!Pulled",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(1))
+				Expect(response.Summary["RegisterNode"]).To(Equal(1))
+			})
+		})
+
+		ginkgo.Context("recursive mode", func() {
+			ginkgo.It("upstream", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: W.ID,
+					Recursive: query.CatalogChangeRecursiveUpstream,
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(2))
+				Expect(response.Summary[UChange.ChangeType]).To(Equal(1))
+				Expect(response.Summary[WChange.ChangeType]).To(Equal(1))
+			})
+
+			ginkgo.It(query.CatalogChangeRecursiveDownstream, func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: V.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(4))
+				Expect(response.Summary["diff"]).To(Equal(3))
+				Expect(response.Summary["Pulled"]).To(Equal(1))
+			})
+
+			ginkgo.It(query.CatalogChangeRecursiveBoth, func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: V.ID,
+					Recursive: query.CatalogChangeRecursiveBoth,
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(5))
+				Expect(response.Summary["diff"]).To(Equal(3))
+				Expect(response.Summary["Pulled"]).To(Equal(1))
+				Expect(response.Summary["RegisterNode"]).To(Equal(1))
+			})
+		})
+
+		ginkgo.Context("datemath", func() {
+			ginkgo.It(query.CatalogChangeRecursiveDownstream, func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: U.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+					From:      "now-65m",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(2))
+				Expect(response.Summary["diff"]).To(Equal(1))
+				Expect(response.Summary["RegisterNode"]).To(Equal(1))
+			})
 		})
 	})
 })

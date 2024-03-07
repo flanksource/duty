@@ -94,9 +94,13 @@ require (
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/labstack/echo/v4 v4.11.4 // indirect
+	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/liamylian/jsontime/v2 v2.0.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -129,8 +133,11 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.0.4 // indirect
+	github.com/timberio/go-datemath v0.1.0 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 // indirect
 	github.com/yuin/gopher-lua v1.1.0 // indirect
