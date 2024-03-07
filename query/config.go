@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -169,14 +170,16 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		return fmt.Errorf("catalog id is required")
 	}
 
-	if t.Recursive != "" && t.Recursive != "upstream" && t.Recursive != "downstream" {
+	if t.Recursive == "" || (t.Recursive != "upstream" && t.Recursive != "downstream") {
 		return fmt.Errorf("recursive must be either 'upstream' or 'downstream'")
 	}
 
-	if expr, err := datemath.Parse(t.From); err != nil {
-		return fmt.Errorf("invalid 'from' param: %w", err)
-	} else {
-		t.fromParsed = expr.Time()
+	if t.From != "" {
+		if expr, err := datemath.Parse(t.From); err != nil {
+			return fmt.Errorf("invalid 'from' param: %w", err)
+		} else {
+			t.fromParsed = expr.Time()
+		}
 	}
 
 	return nil
@@ -202,13 +205,16 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	if req.ConfigType != "" {
 		query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
-		clauses = append(clauses, "config_items.type = @config_type")
-		args["config_type"] = req.ConfigType
+
+		_clauses, _args := parseAndBuildFilteringQuery(req.ConfigType, "config_items.type")
+		clauses = append(clauses, _clauses...)
+		args = collections.MergeMap(args, _args)
 	}
 
 	if req.ChangeType != "" {
-		clauses = append(clauses, "cc.type = @change_type")
-		args["change_type"] = req.ChangeType
+		_clauses, _args := parseAndBuildFilteringQuery(req.ChangeType, "cc.change_type")
+		clauses = append(clauses, _clauses...)
+		args = collections.MergeMap(args, _args)
 	}
 
 	if !req.fromParsed.IsZero() {
