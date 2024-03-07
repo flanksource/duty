@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 )
 
@@ -155,12 +156,13 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 }
 
 type CatalogChangesSearchRequest struct {
-	CatalogID uuid.UUID `query:"id"`
-	// 'upstream' | 'downstream'
-	Recursive  string `query:"recursive"`
-	ConfigType string `query:"config_type"`
-	ChangeType string `query:"type"`
-	From       string `query:"from"`
+	CatalogID  uuid.UUID `query:"id"`
+	ConfigType string    `query:"config_type"`
+	ChangeType string    `query:"type"`
+	From       string    `query:"from"`
+
+	// upstream | downstream | both
+	Recursive string `query:"recursive"`
 
 	fromParsed time.Time
 }
@@ -170,8 +172,8 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		return fmt.Errorf("catalog id is required")
 	}
 
-	if t.Recursive == "" || (t.Recursive != "upstream" && t.Recursive != "downstream") {
-		return fmt.Errorf("recursive must be either 'upstream' or 'downstream'")
+	if t.Recursive != "" && !lo.Contains([]string{"upstream", "downstream", "both"}, t.Recursive) {
+		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'both'")
 	}
 
 	if t.From != "" {
@@ -190,6 +192,13 @@ type CatalogChangesSearchResponse struct {
 	Changes []models.ConfigChange `json:"changes,omitempty"`
 }
 
+func (t *CatalogChangesSearchResponse) Summarize() {
+	t.Summary = make(map[string]int)
+	for _, c := range t.Changes {
+		t.Summary[c.ChangeType]++
+	}
+}
+
 func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*CatalogChangesSearchResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, api.Errorf(api.EINVALID, "bad request: %v", err)
@@ -202,6 +211,10 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	var clauses []string
 	query := "SELECT cc.* FROM related_changes_recursive(@catalog_id, @recursive) cc"
+	if req.Recursive == "" {
+		query = "SELECT cc.* FROM config_changes cc"
+		clauses = append(clauses, "cc.config_id = @catalog_id")
+	}
 
 	if req.ConfigType != "" {
 		query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
@@ -231,5 +244,6 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		return nil, err
 	}
 
+	output.Summarize()
 	return &output, nil
 }

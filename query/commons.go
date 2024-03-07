@@ -27,11 +27,11 @@ func parseFilteringQuery(query string) (in, notIN, prefix, suffix []string) {
 	return
 }
 
-func parseAndBuildFilteringQuery(val string, field string) ([]string, map[string]any) {
+func parseAndBuildFilteringQuery(query string, field string) ([]string, map[string]any) {
 	var clauses []string
 	var args = map[string]any{}
 
-	in, notIN, prefixes, suffixes := parseFilteringQuery(val)
+	in, notIN, prefixes, suffixes := parseFilteringQuery(query)
 	if len(in) > 0 {
 		clauses = append(clauses, fmt.Sprintf("%s IN @field_in", field))
 		args["field_in"] = in
@@ -43,12 +43,12 @@ func parseAndBuildFilteringQuery(val string, field string) ([]string, map[string
 	}
 
 	for i, p := range prefixes {
-		clauses = append(clauses, fmt.Sprintf("%s LIKE @prefix_%d", field, i))
+		clauses = append(clauses, fmt.Sprintf("%s LIKE @%s_prefix_%d", field, field, i))
 		args[fmt.Sprintf("prefix_%d", i)] = fmt.Sprintf("%s%%", p)
 	}
 
 	for i, s := range suffixes {
-		clauses = append(clauses, fmt.Sprintf("%s LIKE @suffix_%d", field, i))
+		clauses = append(clauses, fmt.Sprintf("%s LIKE @%s_suffix_%d", field, field, i))
 		args[fmt.Sprintf("suffix_%d", i)] = fmt.Sprintf("%%%s", s)
 	}
 

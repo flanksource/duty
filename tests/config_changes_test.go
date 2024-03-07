@@ -90,6 +90,19 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 	})
 
+	ginkgo.Context("Both ways", func() {
+		ginkgo.It("should return changes upstream and downstream", func() {
+			var relatedChanges []models.ConfigChange
+			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'both')", X.ID).Find(&relatedChanges).Error
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges)).To(Equal(4))
+
+			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
+		})
+	})
+
 	ginkgo.Context("Downstream", func() {
 		ginkgo.It("should return changes of a root node", func() {
 			var relatedChanges []models.ConfigChange
