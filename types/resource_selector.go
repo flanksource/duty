@@ -82,6 +82,50 @@ func (c ResourceSelector) Hash() string {
 	return hash.Sha256Hex(strings.Join(items, "|"))
 }
 
+func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
+	if rs.ID != "" && rs.ID != s.GetID() {
+		return false
+	}
+	if rs.Name != "" && rs.Name != s.GetName() {
+		return false
+	}
+	if rs.Namespace != "" && rs.Namespace != s.GetNamespace() {
+		return false
+	}
+	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
+		return false
+	}
+	if len(rs.Statuses) > 0 && !rs.Types.Contains(s.GetStatus()) {
+		return false
+	}
+
+	if len(rs.LabelSelector) > 0 {
+		for k, v := range collections.SelectorToMap(rs.LabelSelector) {
+			if sVal, exists := s.GetLabels()[k]; exists {
+				if v != "" && v != sVal {
+					return false
+				}
+			} else {
+				return false
+			}
+		}
+	}
+
+	if len(rs.FieldSelector) > 0 {
+		for k, v := range collections.SelectorToMap(rs.FieldSelector) {
+			if sVal, exists := s.GetFields()[k]; exists {
+				if v != "" && v != sVal {
+					return false
+				}
+			} else {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 type ResourceSelectors []ResourceSelector
 
 func (rs *ResourceSelectors) Scan(val any) error {
@@ -112,4 +156,14 @@ func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string
 
 func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	return GormValue(rs)
+}
+
+type ResourceSelectable interface {
+	GetID() string
+	GetName() string
+	GetNamespace() string
+	GetType() string
+	GetStatus() string
+	GetLabels() map[string]string
+	GetFields() map[string]string
 }
