@@ -140,6 +140,55 @@ func (c ConfigItem) GetSelectorID() string {
 	return selectorID
 }
 
+func (c ConfigItem) GetID() string {
+	return c.ID.String()
+}
+
+func (c ConfigItem) GetName() string {
+	if c.Name == nil {
+		return ""
+	}
+	return *c.Name
+}
+
+func (c ConfigItem) GetNamespace() string {
+	if c.Namespace == nil {
+		return ""
+	}
+	return *c.Namespace
+}
+
+func (c ConfigItem) GetType() string {
+	if c.Type == nil {
+		return ""
+	}
+	return *c.Type
+}
+
+func (c ConfigItem) GetStatus() string {
+	if c.Status == nil {
+		return ""
+	}
+	return *c.Status
+}
+
+func (c ConfigItem) GetLabels() map[string]string {
+	m := make(map[string]string)
+	if c.Tags == nil {
+		return m
+	}
+	for k, v := range *c.Tags {
+		m[k] = v
+	}
+	return m
+}
+
+func (c ConfigItem) GetFields() map[string]string {
+	return map[string]string{
+		"config_class": c.ConfigClass,
+	}
+}
+
 // ConfigScraper represents the config_scrapers database table
 type ConfigScraper struct {
 	ID          uuid.UUID  `json:"id"`
