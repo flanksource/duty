@@ -7,9 +7,9 @@ import (
 
 var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
 
-// parseFilteringQuery parses a filtering query string.
+// ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
-func parseFilteringQuery(query string) (in, notIN, prefix, suffix []string) {
+func ParseFilteringQuery(query string) (in, notIN, prefix, suffix []string) {
 	items := strings.Split(query, ",")
 
 	for _, item := range items {
@@ -31,7 +31,7 @@ func parseAndBuildFilteringQuery(query string, field string) ([]string, map[stri
 	var clauses []string
 	var args = map[string]any{}
 
-	in, notIN, prefixes, suffixes := parseFilteringQuery(query)
+	in, notIN, prefixes, suffixes := ParseFilteringQuery(query)
 	if len(in) > 0 {
 		clauses = append(clauses, fmt.Sprintf("%s IN @field_in", field))
 		args["field_in"] = in
