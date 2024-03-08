@@ -999,6 +999,9 @@
             "$ref": "#/definitions/TypeRetentionSpec"
           },
           "type": "array"
+        },
+        "staleItemAge": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
