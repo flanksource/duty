@@ -20,6 +20,8 @@ const (
 	CatalogChangeRecursiveBoth       = "both"
 )
 
+var allowedConfigChangesSortColumns = []string{"change_type", "summary", "source", "created_at"}
+
 type CatalogChangesSearchRequest struct {
 	CatalogID             uuid.UUID `query:"id"`
 	ConfigType            string    `query:"config_type"`
@@ -32,9 +34,10 @@ type CatalogChangesSearchRequest struct {
 	// To date in datemath format
 	To string `query:"to"`
 
-	PageSize int    `query:"page_size"`
-	Page     int    `query:"page"`
-	SortBy   string `query:"sort_by"`
+	PageSize  int    `query:"page_size"`
+	Page      int    `query:"page"`
+	SortBy    string `query:"sort_by"`
+	sortOrder string
 
 	// upstream | downstream | both
 	Recursive string `query:"recursive"`
@@ -84,6 +87,17 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 
 	if !t.fromParsed.IsZero() && !t.toParsed.IsZero() && !t.fromParsed.Before(t.toParsed) {
 		return fmt.Errorf("'from' must be before 'to'")
+	}
+
+	if t.SortBy != "" {
+		if strings.HasPrefix(t.SortBy, "-") {
+			t.sortOrder = "desc"
+			t.SortBy = strings.TrimPrefix(t.SortBy, "-")
+		}
+
+		if !lo.Contains(allowedConfigChangesSortColumns, t.SortBy) {
+			return fmt.Errorf("invalid 'sort_by' param: %s. allowed sort fields are: %s", t.SortBy, strings.Join(allowedConfigChangesSortColumns, ", "))
+		}
 	}
 
 	return nil
@@ -155,22 +169,15 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if req.SortBy != "" {
-		var sortOrder = "ASC"
-		if strings.HasPrefix(string(req.SortBy), "-") {
-			sortOrder = "DESC"
-			req.SortBy = strings.TrimPrefix(string(req.SortBy), "-")
-		}
-
-		query += fmt.Sprintf(" ORDER BY @sortby %s", sortOrder)
-		args["sortby"] = req.SortBy
+		query += fmt.Sprintf(" ORDER BY %s %s", req.SortBy, req.sortOrder)
 	}
 
-	query += " LIMIT @page_size OFFSET @page_number"
+	query += " LIMIT @page_size OFFSET @offset"
 	args["page_size"] = req.PageSize
-	args["page_number"] = (req.Page - 1) * req.PageSize
+	args["offset"] = (req.Page - 1) * req.PageSize
 
 	var output CatalogChangesSearchResponse
-	if err := ctx.DB().Raw(query, args).Find(&output.Changes).Error; err != nil {
+	if err := ctx.DB().Debug().Raw(query, args).Find(&output.Changes).Error; err != nil {
 		return nil, err
 	}
 
