@@ -110,6 +110,7 @@ type ConfigChangeRow struct {
 
 type CatalogChangesSearchResponse struct {
 	Summary map[string]int    `json:"summary,omitempty"`
+	Total   int               `json:"total,omitempty"`
 	Changes []ConfigChangeRow `json:"changes,omitempty"`
 }
 
@@ -132,14 +133,18 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		"include_deleted_configs": req.IncludeDeletedConfigs,
 	}
 
-	var clauses []string
-	query := "SELECT cc.*, config_items.name as catalog_name FROM related_changes_recursive(@catalog_id, @recursive, @include_deleted_configs) cc"
+	var (
+		clauses       []string
+		selectColumns = "cc.*, config_items.name as catalog_name"
+		from          = "related_changes_recursive(@catalog_id, @recursive, @include_deleted_configs) cc"
+	)
+
 	if req.Recursive == "" {
-		query = "SELECT cc.*, config_items.name as catalog_name FROM config_changes cc"
+		from = "config_changes cc"
 		clauses = append(clauses, "cc.config_id = @catalog_id")
 	}
 
-	query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
+	from += " LEFT JOIN config_items ON cc.config_id = config_items.id"
 
 	if req.ConfigType != "" {
 		_clauses, _args := parseAndBuildFilteringQuery(req.ConfigType, "config_items.type")
@@ -169,6 +174,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		args["to"] = req.toParsed
 	}
 
+	query := fmt.Sprintf(`SELECT %s FROM %s`, selectColumns, from)
 	if len(clauses) > 0 {
 		query += fmt.Sprintf(" WHERE %s", strings.Join(clauses, " AND "))
 	}
@@ -184,6 +190,17 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	var output CatalogChangesSearchResponse
 	if err := ctx.DB().Raw(query, args).Find(&output.Changes).Error; err != nil {
 		return nil, err
+	}
+
+	{
+		totalQuery := fmt.Sprintf(`SELECT count(*) FROM %s`, from)
+		if len(clauses) > 0 {
+			totalQuery += fmt.Sprintf(" WHERE %s", strings.Join(clauses, " AND "))
+		}
+
+		if err := ctx.DB().Raw(totalQuery, args).Find(&output.Total).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	output.Summarize()
