@@ -20,7 +20,7 @@ const (
 	CatalogChangeRecursiveBoth       = "both"
 )
 
-var allowedConfigChangesSortColumns = []string{"change_type", "summary", "source", "created_at"}
+var allowedConfigChangesSortColumns = []string{"catalog_name", "change_type", "summary", "source", "created_at"}
 
 type CatalogChangesSearchRequest struct {
 	CatalogID             uuid.UUID `query:"id"`
@@ -103,9 +103,14 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 	return nil
 }
 
+type ConfigChangeRow struct {
+	models.ConfigChange `json:",inline"`
+	CatalogName         string `json:"catalog_name"`
+}
+
 type CatalogChangesSearchResponse struct {
-	Summary map[string]int        `json:"summary,omitempty"`
-	Changes []models.ConfigChange `json:"changes,omitempty"`
+	Summary map[string]int    `json:"summary,omitempty"`
+	Changes []ConfigChangeRow `json:"changes,omitempty"`
 }
 
 func (t *CatalogChangesSearchResponse) Summarize() {
@@ -128,15 +133,15 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	var clauses []string
-	query := "SELECT cc.* FROM related_changes_recursive(@catalog_id, @recursive, @include_deleted_configs) cc"
+	query := "SELECT cc.*, config_items.name as catalog_name FROM related_changes_recursive(@catalog_id, @recursive, @include_deleted_configs) cc"
 	if req.Recursive == "" {
-		query = "SELECT cc.* FROM config_changes cc"
+		query = "SELECT cc.*, config_items.name as catalog_name FROM config_changes cc"
 		clauses = append(clauses, "cc.config_id = @catalog_id")
 	}
 
-	if req.ConfigType != "" {
-		query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
+	query += " LEFT JOIN config_items ON cc.config_id = config_items.id"
 
+	if req.ConfigType != "" {
 		_clauses, _args := parseAndBuildFilteringQuery(req.ConfigType, "config_items.type")
 		clauses = append(clauses, _clauses...)
 		args = collections.MergeMap(args, _args)
@@ -177,7 +182,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	args["offset"] = (req.Page - 1) * req.PageSize
 
 	var output CatalogChangesSearchResponse
-	if err := ctx.DB().Debug().Raw(query, args).Find(&output.Changes).Error; err != nil {
+	if err := ctx.DB().Raw(query, args).Find(&output.Changes).Error; err != nil {
 		return nil, err
 	}
 

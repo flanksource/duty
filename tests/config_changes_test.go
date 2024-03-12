@@ -238,7 +238,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(2))
-				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.Summary })
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.Summary })
 				Expect(changes).To(Equal([]string{".name.U", ".name.V"}))
 			})
 
@@ -252,7 +252,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(2))
-				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.Summary })
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.Summary })
 				Expect(changes).To(Equal([]string{".name.W", ".name.X"}))
 			})
 		})
@@ -266,7 +266,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(6))
-				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.ChangeType })
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.ChangeType })
 				Expect(changes).To(Equal([]string{"diff", "diff", "diff", "Pulled", "Pulled", "RegisterNode"}))
 			})
 
@@ -274,12 +274,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: U.ID,
 					Recursive: query.CatalogChangeRecursiveDownstream,
-					SortBy:    "-change_type",
+					SortBy:    "-catalog_name",
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(6))
-				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.ChangeType })
-				Expect(changes).To(Equal([]string{"RegisterNode", "Pulled", "Pulled", "diff", "diff", "diff"}))
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.CatalogName })
+				Expect(changes).To(Equal([]string{"Z", "Y", "X", "W", "V", "U"}))
 			})
 		})
 
