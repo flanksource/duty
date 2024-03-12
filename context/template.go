@@ -29,7 +29,7 @@ func (k Context) NewStructTemplater(vals map[string]any, requiredTag string, fun
 		RequiredTag:    requiredTag,
 		DelimSets: []gomplate.Delims{
 			{Left: "{{", Right: "}}"},
-			{Left: "$(", Right: ")"},
+			{Left: "$((", Right: "))"},
 		},
 	}
 }
