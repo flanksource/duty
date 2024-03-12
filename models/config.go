@@ -127,6 +127,19 @@ func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 	return m, err
 }
 
+func (ci ConfigItem) TemplateEnv() (map[string]any, error) {
+	env := ci.AsMap()
+	if ci.Config == nil {
+		return env, nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(*ci.Config), &m); err != nil {
+		return env, err
+	}
+	env["config"] = m
+	return env, nil
+}
+
 func (c ConfigItem) GetSelectorID() string {
 	if c.Config == nil || *c.Config == "" {
 		return ""
