@@ -33,13 +33,13 @@ func parseAndBuildFilteringQuery(query string, field string) ([]string, map[stri
 
 	in, notIN, prefixes, suffixes := ParseFilteringQuery(query)
 	if len(in) > 0 {
-		clauses = append(clauses, fmt.Sprintf("%s IN @field_in", field))
-		args["field_in"] = in
+		clauses = append(clauses, fmt.Sprintf("%s IN @%s_field_in", field, field))
+		args[fmt.Sprintf("%s_field_in", field)] = in
 	}
 
 	if len(notIN) > 0 {
-		clauses = append(clauses, fmt.Sprintf("%s NOT IN @field_not_in", field))
-		args["field_not_in"] = notIN
+		clauses = append(clauses, fmt.Sprintf("%s NOT IN @%s_field_not_in", field, field))
+		args[fmt.Sprintf("%s_field_not_in", field)] = notIN
 	}
 
 	for i, p := range prefixes {
