@@ -44,12 +44,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	// Create changes for each config
 	var (
-		UChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now()), ConfigID: U.ID.String(), Summary: ".name.U", ChangeType: "RegisterNode", Source: "test-changes"}
-		VChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour)), ConfigID: V.ID.String(), Summary: ".name.V", ChangeType: "diff", Source: "test-changes"}
-		WChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 2)), ConfigID: W.ID.String(), Summary: ".name.W", ChangeType: "Pulled", Source: "test-changes"}
-		XChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 3)), ConfigID: X.ID.String(), Summary: ".name.X", ChangeType: "diff", Source: "test-changes"}
-		YChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 4)), ConfigID: Y.ID.String(), Summary: ".name.Y", ChangeType: "diff", Source: "test-changes"}
-		ZChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), ConfigID: Z.ID.String(), Summary: ".name.Z", ChangeType: "Pulled", Source: "test-changes"}
+		UChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now()), Severity: "info", ConfigID: U.ID.String(), Summary: ".name.U", ChangeType: "RegisterNode", Source: "test-changes"}
+		VChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour)), Severity: "warn", ConfigID: V.ID.String(), Summary: ".name.V", ChangeType: "diff", Source: "test-changes"}
+		WChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 2)), Severity: "low", ConfigID: W.ID.String(), Summary: ".name.W", ChangeType: "Pulled", Source: "test-changes"}
+		XChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 3)), Severity: "info", ConfigID: X.ID.String(), Summary: ".name.X", ChangeType: "diff", Source: "test-changes"}
+		YChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 4)), Severity: "warn", ConfigID: Y.ID.String(), Summary: ".name.Y", ChangeType: "diff", Source: "test-changes"}
+		ZChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: Z.ID.String(), Summary: ".name.Z", ChangeType: "Pulled", Source: "test-changes"}
 
 		changes = []models.ConfigChange{UChange, VChange, WChange, XChange, YChange, ZChange}
 	)
@@ -216,6 +216,73 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			})
 		})
 
+		ginkgo.It("Severity filter", func() {
+			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID,
+				Recursive: query.CatalogChangeRecursiveDownstream,
+				Severity:  "!info",
+			})
+			Expect(err).To(BeNil())
+			Expect(len(response.Changes)).To(Equal(3))
+			Expect(response.Summary["Pulled"]).To(Equal(1))
+			Expect(response.Summary["diff"]).To(Equal(2))
+		})
+
+		ginkgo.Context("Pagination", func() {
+			ginkgo.It("Page size", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: U.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+					SortBy:    "summary",
+					PageSize:  2,
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(2))
+				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.Summary })
+				Expect(changes).To(Equal([]string{".name.U", ".name.V"}))
+			})
+
+			ginkgo.It("Page number", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: U.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+					SortBy:    "summary",
+					PageSize:  2,
+					Page:      2,
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(2))
+				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.Summary })
+				Expect(changes).To(Equal([]string{".name.W", ".name.X"}))
+			})
+		})
+
+		ginkgo.Context("Sorting", func() {
+			ginkgo.It("Ascending", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: U.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+					SortBy:    "change_type",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(6))
+				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.ChangeType })
+				Expect(changes).To(Equal([]string{"diff", "diff", "diff", "Pulled", "Pulled", "RegisterNode"}))
+			})
+
+			ginkgo.It("Descending", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					CatalogID: U.ID,
+					Recursive: query.CatalogChangeRecursiveDownstream,
+					SortBy:    "-change_type",
+				})
+				Expect(err).To(BeNil())
+				Expect(len(response.Changes)).To(Equal(6))
+				changes := lo.Map(response.Changes, func(c models.ConfigChange, _ int) string { return c.ChangeType })
+				Expect(changes).To(Equal([]string{"RegisterNode", "Pulled", "Pulled", "diff", "diff", "diff"}))
+			})
+		})
+
 		ginkgo.Context("recursive mode", func() {
 			ginkgo.It("upstream", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
@@ -258,6 +325,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					CatalogID: U.ID,
 					Recursive: query.CatalogChangeRecursiveDownstream,
 					From:      "now-65m",
+					To:        "now-1s",
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(2))
