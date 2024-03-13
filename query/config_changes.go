@@ -105,7 +105,10 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 
 type ConfigChangeRow struct {
 	models.ConfigChange `json:",inline"`
-	CatalogName         string `json:"catalog_name"`
+	CatalogID           uuid.UUID `json:"catalog_id"`
+	CatalogName         string    `json:"catalog_name,omitempty"`
+	CatalogType         string    `json:"catalog_type"`
+	CatalogClass        string    `json:"catalog_class"`
 }
 
 type CatalogChangesSearchResponse struct {
@@ -135,7 +138,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	var (
 		clauses       []string
-		selectColumns = "cc.*, config_items.name as catalog_name"
+		selectColumns = "cc.*, config_items.id as catalog_id, config_items.name as catalog_name, config_items.type as catalog_type, config_items.config_class as catalog_class"
 		from          = "related_changes_recursive(@catalog_id, @recursive, @include_deleted_configs) cc"
 	)
 
