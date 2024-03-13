@@ -53,6 +53,10 @@ download-openapi-schemas:
 	# Cleanup
 	rm -rf tmp
 
+
+cp-playbook-schema:
+	cp ../incident-commander/config/schemas/playbook-spec.schema.json schema/
+
 fmt_json:
 	ls fixtures/expectations/*.json | while read -r jf; do \
 		cat <<< $$(jq . $$jf) > $$jf; \
