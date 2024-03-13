@@ -194,7 +194,7 @@ require (
 	google.golang.org/genproto v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/flanksource/yaml.v3 v3.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
