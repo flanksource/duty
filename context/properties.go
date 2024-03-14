@@ -50,6 +50,13 @@ func (p Properties) Int(key string, def int) int {
 	}
 }
 
+func (p Properties) String(key string, def string) string {
+	if d, ok := p[key]; ok {
+		return d
+	}
+	return def
+}
+
 func (p Properties) Off(key string) bool {
 	return p[key] == "false" || p[key] == "disabled"
 }
