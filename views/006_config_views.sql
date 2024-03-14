@@ -541,25 +541,32 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   include_deleted_configs BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (relation_type TEXT, id UUID) AS $$
 BEGIN
-  RETURN query
-    WITH RECURSIVE all_related_configs AS (
-      SELECT
-        rci.relation,
-        type_filter as relation_type,
-        rci.id,
-        ARRAY[config_id] as visited
-      FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
+  IF type_filter = 'incoming' OR type_filter = 'outgoing' THEN
+    RETURN query
+      WITH RECURSIVE all_related_configs AS (
+        SELECT
+          rci.relation,
+          type_filter as relation_type,
+          rci.id,
+          ARRAY[config_id] as visited
+        FROM related_config_ids(config_id, type_filter, include_deleted_configs) rci
+        UNION
+        SELECT
+          rc.relation,
+          type_filter as relation_type,
+          rc.id,
+          arc.visited || ARRAY[arc.id, rc.id] as visited
+        FROM all_related_configs arc
+          INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc 
+            ON rc.id != ALL(arc.visited)
+      )
+      SELECT DISTINCT result.relation_type, result.id FROM all_related_configs result;
+  ELSE
+    RETURN query
+      SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', include_deleted_configs)
       UNION
-      SELECT
-        rc.relation,
-        type_filter as relation_type,
-        rc.id,
-        arc.visited || ARRAY[arc.id, rc.id] as visited
-      FROM all_related_configs arc
-        INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc 
-          ON rc.id != ALL(arc.visited)
-    )
-    SELECT DISTINCT result.relation_type, result.id FROM all_related_configs result;
+      SELECT * FROM related_config_ids_recursive(config_id, 'incoming', include_deleted_configs);
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -613,14 +620,14 @@ DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
 
 CREATE FUNCTION related_changes_recursive (
   config_id UUID,
-  type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'both'
+  type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'all'
   include_deleted_configs BOOLEAN DEFAULT FALSE
 ) RETURNS SETOF config_changes AS $$
 BEGIN
   RETURN query
     SELECT * FROM config_changes cc WHERE
       cc.config_id = related_changes_recursive.config_id
-      OR (($2 = 'downstream' OR $2 = 'both') AND cc.config_id IN (SELECT id FROM related_config_ids_recursive($1, 'outgoing', $3)))
-      OR (($2 = 'upstream' OR $2 = 'both') AND cc.config_id IN (SELECT id FROM related_config_ids_recursive($1, 'incoming', $3)));
+      OR (($2 = 'downstream' OR $2 = 'all') AND cc.config_id IN (SELECT id FROM related_config_ids_recursive($1, 'outgoing', $3)))
+      OR (($2 = 'upstream' OR $2 = 'all') AND cc.config_id IN (SELECT id FROM related_config_ids_recursive($1, 'incoming', $3)));
 END;
 $$ LANGUAGE plpgsql;

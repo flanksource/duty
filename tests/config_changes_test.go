@@ -97,7 +97,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	ginkgo.Context("Both ways", func() {
 		ginkgo.It("should return changes upstream and downstream", func() {
 			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'both')", X.ID).Find(&relatedChanges).Error
+			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'all')", X.ID).Find(&relatedChanges).Error
 			Expect(err).To(BeNil())
 
 			Expect(len(relatedChanges)).To(Equal(4))
@@ -199,7 +199,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			ginkgo.It("IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID:  X.ID,
-					Recursive:  query.CatalogChangeRecursiveBoth,
+					Recursive:  query.CatalogChangeRecursiveAll,
 					ChangeType: "diff",
 				})
 				Expect(err).To(BeNil())
@@ -290,10 +290,10 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(response.Summary["Pulled"]).To(Equal(1))
 			})
 
-			ginkgo.It(query.CatalogChangeRecursiveBoth, func() {
+			ginkgo.It(query.CatalogChangeRecursiveAll, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: V.ID,
-					Recursive: query.CatalogChangeRecursiveBoth,
+					Recursive: query.CatalogChangeRecursiveAll,
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(5))

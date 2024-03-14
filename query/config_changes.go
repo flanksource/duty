@@ -17,7 +17,7 @@ import (
 const (
 	CatalogChangeRecursiveUpstream   = "upstream"
 	CatalogChangeRecursiveDownstream = "downstream"
-	CatalogChangeRecursiveBoth       = "both"
+	CatalogChangeRecursiveAll        = "all"
 )
 
 var allowedConfigChangesSortColumns = []string{"catalog_name", "change_type", "summary", "source", "created_at"}
@@ -65,8 +65,8 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		return fmt.Errorf("catalog id is required")
 	}
 
-	if t.Recursive != "" && !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveBoth}, t.Recursive) {
-		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'both'")
+	if t.Recursive != "" && !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
+		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
 	}
 
 	if t.From != "" {
