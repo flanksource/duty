@@ -140,6 +140,15 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 			relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{P.ID, M.ID, N.ID, O.ID}))
 		})
+
+		ginkgo.It("recursive both ways", func() {
+			var relatedConfigs []models.RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'all')", G.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+
+			relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) string { return rc.Name })
+			Expect(relatedIDs).To(ConsistOf([]string{*D.Name, *B.Name, *H.Name, *A.Name}))
+		})
 	})
 
 	ginkgo.Context("Cyclic Graph", func() {
@@ -189,6 +198,17 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 
 				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) uuid.UUID { return rc.ID })
 				Expect(relatedIDs).To(ConsistOf([]uuid.UUID{D.ID, B.ID, A.ID, H.ID}))
+			})
+		})
+
+		ginkgo.Context("Both", func() {
+			ginkgo.It("should return parents of a leaf node in a cyclic path", func() {
+				var relatedConfigs []models.RelatedConfig
+				err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'all')", F.ID).Find(&relatedConfigs).Error
+				Expect(err).To(BeNil())
+
+				relatedIDs := lo.Map(relatedConfigs, func(rc models.RelatedConfig, _ int) string { return rc.Name })
+				Expect(relatedIDs).To(ConsistOf([]string{*A.Name, *C.Name, *H.Name, *D.Name, *B.Name}))
 			})
 		})
 	})
