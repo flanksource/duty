@@ -539,7 +539,7 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   include_deleted_configs BOOLEAN DEFAULT FALSE
-) RETURNS TABLE (relation TEXT, relation_type TEXT, id UUID) AS $$
+) RETURNS TABLE (relation_type TEXT, id UUID) AS $$
 BEGIN
   RETURN query
     WITH RECURSIVE all_related_configs AS (
@@ -559,7 +559,7 @@ BEGIN
         INNER JOIN related_config_ids(arc.id, type_filter, include_deleted_configs) rc 
           ON rc.id != ALL(arc.visited)
     )
-    SELECT result.relation, result.relation_type, result.id FROM all_related_configs result;
+    SELECT DISTINCT result.relation_type, result.id FROM all_related_configs result;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -571,7 +571,6 @@ CREATE FUNCTION related_configs_recursive (
   type_filter TEXT DEFAULT 'outgoing',
   include_deleted_configs BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (
-    relation TEXT,
     relation_type TEXT,
     id uuid,
     name TEXT,
@@ -590,7 +589,6 @@ CREATE FUNCTION related_configs_recursive (
 BEGIN
   RETURN query
     SELECT
-      r.relation,
       r.relation_type,
       configs.id,
       configs.name,
