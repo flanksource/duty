@@ -83,6 +83,9 @@ func (c ResourceSelector) Hash() string {
 }
 
 func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
+	if rs.IsEmpty() {
+		return false
+	}
 	if rs.ID != "" && rs.ID != s.GetID() {
 		return false
 	}
