@@ -91,7 +91,7 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 		return err
 	}
 	if !isPostgrestAPIGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_api TO %s`, user)); err != nil {
+		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_api TO "%s"`, user)); err != nil {
 			return err
 		}
 		logger.Debugf("Granted postgrest_api to %s", user)
@@ -113,7 +113,7 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 		return err
 	}
 	if !isPostgrestAnonGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_anon TO %s`, user)); err != nil {
+		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_anon TO "%s"`, user)); err != nil {
 			return err
 		}
 		logger.Debugf("Granted postgrest_anon to %s", user)
