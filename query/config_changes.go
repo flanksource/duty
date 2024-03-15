@@ -19,7 +19,7 @@ const (
 	CatalogChangeRecursiveAll        = "all"
 )
 
-var allowedConfigChangesSortColumns = []string{"catalog_name", "change_type", "summary", "source", "created_at"}
+var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
 
 type CatalogChangesSearchRequest struct {
 	CatalogID             uuid.UUID `query:"id"`
@@ -159,8 +159,8 @@ type ConfigChangeRow struct {
 	Source           string     `gorm:"column:source" json:"source"`
 	Summary          string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
 	CreatedAt        *time.Time `gorm:"column:created_at" json:"created_at"`
-	ConfigName       string     `json:"name,omitempty"`
-	ConfigType       string     `json:"type,omitempty"`
+	ConfigName       string     `gorm:"column:name" json:"name,omitempty"`
+	ConfigType       string     `gorm:"column:type" json:"type,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
@@ -198,7 +198,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if !req.fromParsed.IsZero() {
-		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: req.toParsed})
+		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: req.fromParsed})
 	}
 
 	if !req.toParsed.IsZero() {
@@ -208,8 +208,12 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	table := ctx.DB().Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
 
 	var output CatalogChangesSearchResponse
-	if err := table.Count(&output.Total).Error; err != nil {
+	if err := table.Clauses(clauses...).Count(&output.Total).Error; err != nil {
 		return nil, err
+	}
+
+	if output.Total == 0 {
+		return &output, nil
 	}
 
 	if req.SortBy != "" {

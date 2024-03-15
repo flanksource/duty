@@ -419,6 +419,10 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
 ) RETURNS TABLE (id UUID,related_id UUID,relation_type TEXT,direction TEXT, depth INT) AS $$
 BEGIN
 
+IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
+  RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
+END IF;
+
 IF type_filter = 'outgoing' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, depth) AS (
@@ -435,7 +439,8 @@ IF type_filter = 'outgoing' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id,cte.related_id, cte.relation,type_filter,cte.depth
-      FROM cte
+      FROM cte WHERE
+      cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
    ELSEIF type_filter = 'incoming'  THEN
 	RETURN query
@@ -453,7 +458,8 @@ IF type_filter = 'outgoing' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation,type_filter,cte.depth
-      FROM cte
+      FROM cte WHERE
+      cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
    ELSE
   	 RETURN query
@@ -582,12 +588,26 @@ CREATE FUNCTION related_changes_recursive (
     agent_id uuid
 ) AS $$
 BEGIN
+  IF type_filter NOT IN ('upstream', 'downstream', 'all') THEN
+    RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all''';
+  END IF;
+
   RETURN query
     SELECT cc.id, cc.config_id, c.name, c.type,  cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary,cc.created_by,c.agent_id
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id
     WHERE cc.config_id = lookup_id
-      OR cc.config_id IN (SELECT related_config_ids_recursive.id FROM related_config_ids_recursive(lookup_id, $2, $4))
-     ;
+      OR cc.config_id IN (
+        SELECT related_config_ids_recursive.id 
+        FROM related_config_ids_recursive(
+          lookup_id,
+          CASE
+            WHEN type_filter = 'upstream' THEN 'incoming'
+            WHEN type_filter = 'downstream' THEN 'outgoing'
+            ELSE type_filter
+          END,
+          max_depth
+        )
+      );
 END;
 $$ LANGUAGE plpgsql;
