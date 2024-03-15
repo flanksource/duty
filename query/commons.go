@@ -1,15 +1,16 @@
 package query
 
 import (
-	"fmt"
 	"strings"
+
+	"gorm.io/gorm/clause"
 )
 
 var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
 
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
-func ParseFilteringQuery(query string) (in, notIN, prefix, suffix []string) {
+func ParseFilteringQuery(query string) (in []interface{}, notIN []interface{}, prefix, suffix []string) {
 	items := strings.Split(query, ",")
 
 	for _, item := range items {
@@ -27,30 +28,33 @@ func ParseFilteringQuery(query string) (in, notIN, prefix, suffix []string) {
 	return
 }
 
-func parseAndBuildFilteringQuery(query string, field string) ([]string, map[string]any) {
-	var clauses []string
-	var args = map[string]any{}
+func parseAndBuildFilteringQuery(query string, field string) []clause.Expression {
+	var clauses []clause.Expression
 
 	in, notIN, prefixes, suffixes := ParseFilteringQuery(query)
 	if len(in) > 0 {
-		clauses = append(clauses, fmt.Sprintf("%s IN @%s_field_in", field, field))
-		args[fmt.Sprintf("%s_field_in", field)] = in
+		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: in})
 	}
 
 	if len(notIN) > 0 {
-		clauses = append(clauses, fmt.Sprintf("%s NOT IN @%s_field_not_in", field, field))
-		args[fmt.Sprintf("%s_field_not_in", field)] = notIN
+		clauses = append(clauses, clause.NotConditions{
+			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Name: field}, Values: notIN}},
+		})
 	}
 
-	for i, p := range prefixes {
-		clauses = append(clauses, fmt.Sprintf("%s LIKE @%s_prefix_%d", field, field, i))
-		args[fmt.Sprintf("prefix_%d", i)] = fmt.Sprintf("%s%%", p)
+	for _, p := range prefixes {
+		clauses = append(clauses, clause.Like{
+			Column: clause.Column{Name: field},
+			Value:  p + "%",
+		})
 	}
 
-	for i, s := range suffixes {
-		clauses = append(clauses, fmt.Sprintf("%s LIKE @%s_suffix_%d", field, field, i))
-		args[fmt.Sprintf("suffix_%d", i)] = fmt.Sprintf("%%%s", s)
+	for _, s := range suffixes {
+		clauses = append(clauses, clause.Like{
+			Column: clause.Column{Name: field},
+			Value:  "%" + s,
+		})
 	}
 
-	return clauses, args
+	return clauses
 }
