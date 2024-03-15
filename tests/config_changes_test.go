@@ -55,6 +55,9 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	)
 
 	ginkgo.BeforeAll(func() {
+
+		DefaultContext = DefaultContext.WithDBLogLevel("debug").WithTrace()
+
 		// Save configs
 		err := DefaultContext.DB().Create(&configItems).Error
 		Expect(err).To(BeNil())
@@ -94,76 +97,75 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 	})
 
+	var findChanges = func(id uuid.UUID, filter string, deleted bool) (*query.CatalogChangesSearchResponse, error) {
+		return query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+			CatalogID:             id,
+			IncludeDeletedConfigs: deleted,
+			Recursive:             filter,
+		})
+	}
 	ginkgo.Context("Both ways", func() {
 		ginkgo.It("should return changes upstream and downstream", func() {
-			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'all')", X.ID).Find(&relatedChanges).Error
+			relatedChanges, err := findChanges(X.ID, "all", false)
+
 			Expect(err).To(BeNil())
 
-			Expect(len(relatedChanges)).To(Equal(4))
+			Expect(len(relatedChanges.Changes)).To(Equal(4))
 
-			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
 		})
 	})
 
 	ginkgo.Context("Downstream", func() {
 		ginkgo.It("should return changes of a root node", func() {
-			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?)", U.ID).Find(&relatedChanges).Error
+			relatedChanges, err := findChanges(X.ID, "outgoing", false)
 			Expect(err).To(BeNil())
 
-			Expect(len(relatedChanges)).To(Equal(6))
+			Expect(len(relatedChanges.Changes)).To(Equal(6))
 
-			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID}))
 		})
 
 		ginkgo.It("should return changes of a leaf node", func() {
-			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?)", Z.ID).Find(&relatedChanges).Error
+			relatedChanges, err := findChanges(Z.ID, "all", false)
 			Expect(err).To(BeNil())
+			Expect(len(relatedChanges.Changes)).To(Equal(1))
 
-			Expect(len(relatedChanges)).To(Equal(1))
-
-			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{ZChange.ID}))
 		})
 	})
 
 	ginkgo.Context("Upstream", func() {
 		ginkgo.It("should return changes for a root node", func() {
-			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'upstream')", U.ID).Find(&relatedChanges).Error
+			relatedChanges, err := findChanges(U.ID, "all", false)
 			Expect(err).To(BeNil())
+			Expect(len(relatedChanges.Changes)).To(Equal(1))
 
-			Expect(len(relatedChanges)).To(Equal(1))
-
-			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID}))
 		})
 
 		ginkgo.It("should return changes of a non-root node", func() {
-			var relatedChanges []models.ConfigChange
-			err := DefaultContext.DB().Raw("SELECT * FROM related_changes_recursive(?, 'upstream')", X.ID).Find(&relatedChanges).Error
+			relatedChanges, err := findChanges(X.ID, "all", false)
 			Expect(err).To(BeNil())
+			Expect(len(relatedChanges.Changes)).To(Equal(3))
 
-			Expect(len(relatedChanges)).To(Equal(3))
-
-			relatedIDs := lo.Map(relatedChanges, func(rc models.ConfigChange, _ int) string { return rc.ID })
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
 			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID}))
 		})
 	})
 
 	ginkgo.Context("FindCatalogChanges func", func() {
 		ginkgo.It("should return changes when recursive is turned off", func() {
-			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-				CatalogID: U.ID,
-			})
+			relatedChanges, err := findChanges(U.ID, "", false)
 			Expect(err).To(BeNil())
-			Expect(len(response.Changes)).To(Equal(1))
-			Expect(response.Total).To(Equal(1))
-			Expect(response.Summary[UChange.ChangeType]).To(Equal(1))
+
+			Expect(len(relatedChanges.Changes)).To(Equal(1))
+			Expect(relatedChanges.Total).To(Equal(1))
+			Expect(relatedChanges.Summary[UChange.ChangeType]).To(Equal(1))
 		})
 
 		ginkgo.Context("Config type filter", func() {
@@ -330,7 +332,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(6))
 				Expect(response.Total).To(Equal(6))
-				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.CatalogName })
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.ConfigName })
 				Expect(changes).To(Equal([]string{"Z", "Y", "X", "W", "V", "U"}))
 			})
 
@@ -343,7 +345,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(err).To(BeNil())
 				Expect(response.Total).To(Equal(6))
 				Expect(len(response.Changes)).To(Equal(6))
-				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.CatalogName })
+				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.ConfigName })
 				Expect(changes).To(Equal([]string{"U", "V", "W", "X", "Y", "Z"}))
 			})
 		})
