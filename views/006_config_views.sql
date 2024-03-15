@@ -433,14 +433,15 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
           AND deleted_at IS NULL
       UNION ALL
         SELECT
-          child.related_id, parent.config_id as related_id, child.relation, parent.depth +1
-          FROM config_relationships child,  cte parent
+          child.related_id, parent.config_id as related_id, child.relation, parent.depth + 1
+          FROM config_relationships child, cte parent
           WHERE child.config_id = parent.config_id
             AND parent.depth <= max_depth
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
       FROM cte
+      WHERE cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
   ELSIF type_filter = 'incoming'  THEN
     RETURN query
@@ -459,6 +460,7 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation,type_filter,cte.depth
       FROM cte
+      WHERE cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
   ELSE
     RETURN query
