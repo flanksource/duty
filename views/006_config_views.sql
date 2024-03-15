@@ -558,3 +558,36 @@ BEGIN
     SELECT * from related_configs_recursive(config_id, type_filter, include_deleted_configs, 1);
 END;
 $$ LANGUAGE plpgsql;
+
+-- related config changes recursively
+DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
+
+CREATE FUNCTION related_changes_recursive (
+  lookup_id UUID,
+  type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'all'
+  include_deleted_configs BOOLEAN DEFAULT FALSE,
+  max_depth INTEGER DEFAULT 5
+) RETURNS TABLE (
+    id uuid,
+    config_id uuid,
+    name TEXT,
+    type TEXT,
+    external_created_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE,
+    severity TEXT,
+    change_type TEXT,
+    source TEXT,
+    summary TEXT,
+    created_by uuid,
+    agent_id uuid
+) AS $$
+BEGIN
+  RETURN query
+    SELECT cc.id, cc.config_id, c.name, c.type,  cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary,cc.created_by,c.agent_id
+    FROM config_changes cc
+    LEFT JOIN config_items c on c.id = cc.config_id
+    WHERE cc.config_id = lookup_id
+      OR cc.config_id IN (SELECT related_config_ids_recursive.id FROM related_config_ids_recursive(lookup_id, $2, $4))
+     ;
+END;
+$$ LANGUAGE plpgsql;
