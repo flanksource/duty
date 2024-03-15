@@ -416,17 +416,22 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   max_depth INT DEFAULT 5
-) RETURNS TABLE (id UUID,related_id UUID,relation_type TEXT,direction TEXT, depth INT) AS $$
-BEGIN
-
-IF type_filter = 'outgoing' THEN
-	RETURN query
+) RETURNS TABLE (
+  id UUID,
+  related_id UUID,
+  relation_type TEXT,
+  direction TEXT,
+  depth INT
+) AS $$
+  BEGIN
+  IF type_filter = 'outgoing' THEN
+    RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, depth) AS (
         SELECT parent.related_id, parent.config_id as related_id, parent.relation, 1::int
         FROM config_relationships parent
         WHERE parent.config_id = related_config_ids_recursive.config_id
           AND deleted_at IS NULL
-       UNION ALL
+      UNION ALL
         SELECT
           child.related_id, parent.config_id as related_id, child.relation, parent.depth +1
           FROM config_relationships child,  cte parent
@@ -434,17 +439,17 @@ IF type_filter = 'outgoing' THEN
             AND parent.depth <= max_depth
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.config_id,cte.related_id, cte.relation,type_filter,cte.depth
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
       FROM cte
       ORDER BY cte.depth asc;
-   ELSEIF type_filter = 'incoming'  THEN
-	RETURN query
+  ELSIF type_filter = 'incoming'  THEN
+    RETURN query
       WITH RECURSIVE cte (config_id,related_id,  relation,depth) AS (
         SELECT parent.config_id, parent.related_id as related_id, parent.relation, 1::int
         FROM config_relationships parent
         WHERE parent.related_id = related_config_ids_recursive.config_id
           AND deleted_at IS NULL
-       UNION ALL
+      UNION ALL
         SELECT
           child.config_id, child.related_id as related_id, child.relation, parent.depth +1
           FROM config_relationships child, cte parent
@@ -455,13 +460,13 @@ IF type_filter = 'outgoing' THEN
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation,type_filter,cte.depth
       FROM cte
       ORDER BY cte.depth asc;
-   ELSE
-  	 RETURN query
-   		SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth)
-   		UNION
-   		SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth);
-   END IF;
-END;
+  ELSE
+    RETURN query
+      SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth)
+      UNION
+      SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth);
+  END IF;
+END
 $$ LANGUAGE plpgsql;
 
 -- related configs recursively
