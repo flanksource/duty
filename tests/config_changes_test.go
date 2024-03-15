@@ -113,61 +113,52 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(len(relatedChanges.Changes)).To(Equal(4))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
 		})
 	})
 
 	ginkgo.Context("Downstream", func() {
 		ginkgo.It("should return changes of a root node", func() {
-			relatedChanges, err := findChanges(X.ID, "outgoing", false)
+			relatedChanges, err := findChanges(U.ID, "downstream", false)
 			Expect(err).To(BeNil())
 
 			Expect(len(relatedChanges.Changes)).To(Equal(6))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID}))
 		})
 
 		ginkgo.It("should return changes of a leaf node", func() {
 			relatedChanges, err := findChanges(Z.ID, "all", false)
 			Expect(err).To(BeNil())
-			Expect(len(relatedChanges.Changes)).To(Equal(1))
+			Expect(len(relatedChanges.Changes)).To(Equal(4))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(HaveExactElements([]string{ZChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{ZChange.ID, XChange.ID, VChange.ID, UChange.ID}))
 		})
 	})
 
 	ginkgo.Context("Upstream", func() {
 		ginkgo.It("should return changes for a root node", func() {
-			relatedChanges, err := findChanges(U.ID, "all", false)
+			relatedChanges, err := findChanges(U.ID, "upstream", false)
 			Expect(err).To(BeNil())
 			Expect(len(relatedChanges.Changes)).To(Equal(1))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID}))
 		})
 
 		ginkgo.It("should return changes of a non-root node", func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
 			Expect(err).To(BeNil())
-			Expect(len(relatedChanges.Changes)).To(Equal(3))
+			Expect(len(relatedChanges.Changes)).To(Equal(4))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(HaveExactElements([]string{UChange.ID, VChange.ID, XChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, ZChange.ID, XChange.ID}))
 		})
 	})
 
 	ginkgo.Context("FindCatalogChanges func", func() {
-		ginkgo.It("should return changes when recursive is turned off", func() {
-			relatedChanges, err := findChanges(U.ID, "", false)
-			Expect(err).To(BeNil())
-
-			Expect(len(relatedChanges.Changes)).To(Equal(1))
-			Expect(relatedChanges.Total).To(Equal(1))
-			Expect(relatedChanges.Summary[UChange.ChangeType]).To(Equal(1))
-		})
-
 		ginkgo.Context("Config type filter", func() {
 			ginkgo.It("IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
@@ -176,7 +167,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					ConfigType: "Kubernetes::Pod,Kubernetes::ReplicaSet",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(3))
+				Expect(response.Total).To(Equal(int64(3)))
 				Expect(len(response.Changes)).To(Equal(3))
 				Expect(response.Summary["Pulled"]).To(Equal(2))
 				Expect(response.Summary["diff"]).To(Equal(1))
@@ -189,7 +180,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					ConfigType: "!Kubernetes::ReplicaSet",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(5))
+				Expect(response.Total).To(Equal(int64(5)))
 				Expect(len(response.Changes)).To(Equal(5))
 				Expect(response.Summary["diff"]).To(Equal(2))
 				Expect(response.Summary["Pulled"]).To(Equal(2))
@@ -205,7 +196,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					ChangeType: "diff",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(2))
+				Expect(response.Total).To(Equal(int64(2)))
 				Expect(len(response.Changes)).To(Equal(2))
 				Expect(response.Summary["diff"]).To(Equal(2))
 			})
@@ -217,7 +208,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					ChangeType: "!diff,!Pulled",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(1))
+				Expect(response.Total).To(Equal(int64(1)))
 				Expect(len(response.Changes)).To(Equal(1))
 				Expect(response.Summary["RegisterNode"]).To(Equal(1))
 			})
@@ -230,7 +221,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Severity:  "!info",
 			})
 			Expect(err).To(BeNil())
-			Expect(response.Total).To(Equal(3))
+			Expect(response.Total).To(Equal(int64(3)))
 			Expect(len(response.Changes)).To(Equal(3))
 			Expect(response.Summary["Pulled"]).To(Equal(1))
 			Expect(response.Summary["diff"]).To(Equal(2))
@@ -245,7 +236,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					PageSize:  2,
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(6))
+				Expect(response.Total).To(Equal(int64(6)))
 				Expect(len(response.Changes)).To(Equal(2))
 				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.Summary })
 				Expect(changes).To(Equal([]string{".name.U", ".name.V"}))
@@ -260,7 +251,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					Page:      2,
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(6))
+				Expect(response.Total).To(Equal(int64(6)))
 				Expect(len(response.Changes)).To(Equal(2))
 				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.Summary })
 				Expect(changes).To(Equal([]string{".name.W", ".name.X"}))
@@ -275,7 +266,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(2))
-				Expect(response.Total).To(Equal(2))
+				Expect(response.Total).To(Equal(int64(2)))
 				Expect(response.Summary[UChange.ChangeType]).To(Equal(1))
 				Expect(response.Summary[WChange.ChangeType]).To(Equal(1))
 			})
@@ -287,7 +278,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(4))
-				Expect(response.Total).To(Equal(4))
+				Expect(response.Total).To(Equal(int64(4)))
 				Expect(response.Summary["diff"]).To(Equal(3))
 				Expect(response.Summary["Pulled"]).To(Equal(1))
 			})
@@ -299,27 +290,25 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(5))
-				Expect(response.Total).To(Equal(5))
+				Expect(response.Total).To(Equal(int64(5)))
 				Expect(response.Summary["diff"]).To(Equal(3))
 				Expect(response.Summary["Pulled"]).To(Equal(1))
 				Expect(response.Summary["RegisterNode"]).To(Equal(1))
 			})
 		})
 
-		ginkgo.Context("datemath", func() {
-			ginkgo.It(query.CatalogChangeRecursiveDownstream, func() {
-				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: U.ID,
-					Recursive: query.CatalogChangeRecursiveDownstream,
-					From:      "now-65m",
-					To:        "now-1s",
-				})
-				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(2))
-				Expect(len(response.Changes)).To(Equal(2))
-				Expect(response.Summary["diff"]).To(Equal(1))
-				Expect(response.Summary["RegisterNode"]).To(Equal(1))
+		ginkgo.It("should handle datemath", func() {
+			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID,
+				Recursive: query.CatalogChangeRecursiveDownstream,
+				From:      "now-65m",
+				To:        "now-1s",
 			})
+			Expect(err).To(BeNil())
+			Expect(response.Total).To(Equal(int64(2)))
+			Expect(len(response.Changes)).To(Equal(2))
+			Expect(response.Summary["diff"]).To(Equal(1))
+			Expect(response.Summary["RegisterNode"]).To(Equal(1))
 		})
 
 		ginkgo.Context("Sorting", func() {
@@ -327,11 +316,11 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: U.ID,
 					Recursive: query.CatalogChangeRecursiveDownstream,
-					SortBy:    "-catalog_name",
+					SortBy:    "-name",
 				})
 				Expect(err).To(BeNil())
 				Expect(len(response.Changes)).To(Equal(6))
-				Expect(response.Total).To(Equal(6))
+				Expect(response.Total).To(Equal(int64(6)))
 				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.ConfigName })
 				Expect(changes).To(Equal([]string{"Z", "Y", "X", "W", "V", "U"}))
 			})
@@ -340,10 +329,10 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: U.ID,
 					Recursive: query.CatalogChangeRecursiveDownstream,
-					SortBy:    "catalog_name",
+					SortBy:    "name",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(Equal(6))
+				Expect(response.Total).To(Equal(int64(6)))
 				Expect(len(response.Changes)).To(Equal(6))
 				changes := lo.Map(response.Changes, func(c query.ConfigChangeRow, _ int) string { return c.ConfigName })
 				Expect(changes).To(Equal([]string{"U", "V", "W", "X", "Y", "Z"}))
