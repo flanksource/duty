@@ -250,12 +250,11 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 	ginkgo.It("should return OUTGOING relationships", func() {
 		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?)", dummy.KubernetesCluster.ID).Find(&relatedConfigs).Error
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, 'outgoing')", dummy.KubernetesCluster.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
-			Expect(rc.Relation).To(Equal("ClusterNode"))
 			Expect(rc.RelationType).To(Equal(models.RelatedConfigTypeOutgoing))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		}
@@ -263,11 +262,10 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 	ginkgo.It("should return INCOMING relationships", func() {
 		var relatedConfigs []models.RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, 'all', false)", dummy.KubernetesNodeA.ID).Find(&relatedConfigs).Error
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, 'incoming', false)", dummy.KubernetesNodeA.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(1))
-		Expect(relatedConfigs[0].Relation).To(Equal("ClusterNode"))
 		Expect(relatedConfigs[0].RelationType).To(Equal(models.RelatedConfigTypeIncoming))
 		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
 	})

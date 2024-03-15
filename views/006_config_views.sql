@@ -416,7 +416,7 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   max_depth INT DEFAULT 5
-) RETURNS TABLE (id UUID,related_id UUID,relation_type TEXT,direction TEXT, depth INT) AS $$
+) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
 BEGIN
 
 IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
@@ -426,7 +426,7 @@ END IF;
 IF type_filter = 'outgoing' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, depth) AS (
-        SELECT parent.related_id, parent.config_id as related_id, parent.relation, 1::int
+        SELECT parent.related_id, parent.config_id as related_id, 'outgoing', 1::int
         FROM config_relationships parent
         WHERE parent.config_id = related_config_ids_recursive.config_id
           AND deleted_at IS NULL
@@ -444,8 +444,8 @@ IF type_filter = 'outgoing' THEN
       ORDER BY cte.depth asc;
    ELSEIF type_filter = 'incoming'  THEN
 	RETURN query
-      WITH RECURSIVE cte (config_id,related_id,  relation,depth) AS (
-        SELECT parent.config_id, parent.related_id as related_id, parent.relation, 1::int
+      WITH RECURSIVE cte (config_id, related_id,relation, depth) AS (
+        SELECT parent.config_id, parent.related_id as related_id, 'incoming', 1::int
         FROM config_relationships parent
         WHERE parent.related_id = related_config_ids_recursive.config_id
           AND deleted_at IS NULL
@@ -593,7 +593,7 @@ BEGIN
   END IF;
 
   RETURN query
-    SELECT cc.id, cc.config_id, c.name, c.type,  cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary,cc.created_by,c.agent_id
+    SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id
     WHERE cc.config_id = lookup_id
