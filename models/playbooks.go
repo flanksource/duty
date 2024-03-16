@@ -54,6 +54,7 @@ type Playbook struct {
 	Description string     `json:"description,omitempty"`
 	Spec        types.JSON `json:"spec"`
 	Source      string     `json:"source"`
+	Category    string     `json:"category"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt   time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
