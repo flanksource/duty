@@ -534,7 +534,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- related configs
-DROP FUNCTION IF EXISTS related_configs;
+DROP FUNCTION IF EXISTS related_configs(config_id uuid, include_deleted_configs boolean);
+DROP FUNCTION IF EXISTS related_configs(config_id uuid, type_filter text, include_deleted_configs boolean);
 
 CREATE FUNCTION related_configs (
   config_id UUID,
@@ -567,6 +568,7 @@ $$ LANGUAGE plpgsql;
 
 -- related config changes recursively
 DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS related_changes_recursive;
 
 CREATE FUNCTION related_changes_recursive (
   lookup_id UUID,
@@ -598,7 +600,7 @@ BEGIN
     LEFT JOIN config_items c on c.id = cc.config_id
     WHERE cc.config_id = lookup_id
       OR cc.config_id IN (
-        SELECT related_config_ids_recursive.id 
+        SELECT related_config_ids_recursive.id
         FROM related_config_ids_recursive(
           lookup_id,
           CASE
