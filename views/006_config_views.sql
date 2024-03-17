@@ -568,6 +568,7 @@ $$ LANGUAGE plpgsql;
 
 -- related config changes recursively
 DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS related_changes_recursive;
 
 CREATE FUNCTION related_changes_recursive (
   lookup_id UUID,
