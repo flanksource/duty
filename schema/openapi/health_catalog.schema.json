@@ -1,72 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/canary-checker/api/v1/kubernetes",
-  "$ref": "#/$defs/Kubernetes",
+  "$id": "https://github.com/flanksource/canary-checker/api/v1/catalog-check",
+  "$ref": "#/$defs/CatalogCheck",
   "$defs": {
-    "ConfigMapKeySelector": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "key"
-      ]
-    },
-    "EnvVar": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "valueFrom": {
-          "$ref": "#/$defs/EnvVarSource"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "EnvVarSource": {
-      "properties": {
-        "serviceAccount": {
-          "type": "string"
-        },
-        "helmRef": {
-          "$ref": "#/$defs/HelmRefKeySelector"
-        },
-        "configMapKeyRef": {
-          "$ref": "#/$defs/ConfigMapKeySelector"
-        },
-        "secretKeyRef": {
-          "$ref": "#/$defs/SecretKeySelector"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "HelmRefKeySelector": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "key"
-      ]
-    },
-    "Kubernetes": {
+    "CatalogCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -101,34 +38,22 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
-        "namespaceSelector": {
-          "$ref": "#/$defs/ResourceSelector"
-        },
-        "resource": {
-          "$ref": "#/$defs/ResourceSelector"
-        },
-        "kubeconfig": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "ignore": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "kind": {
-          "type": "string"
-        },
-        "ready": {
-          "type": "boolean"
+        "selector": {
+          "$ref": "#/$defs/ResourceSelectors"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
         "name",
-        "kind"
+        "selector"
       ]
+    },
+    "Items": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "Labels": {
       "patternProperties": {
@@ -182,8 +107,26 @@
     },
     "ResourceSelector": {
       "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
         },
         "labelSelector": {
           "type": "string"
@@ -195,20 +138,11 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "SecretKeySelector": {
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        }
+    "ResourceSelectors": {
+      "items": {
+        "$ref": "#/$defs/ResourceSelector"
       },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "key"
-      ]
+      "type": "array"
     },
     "Template": {
       "properties": {
