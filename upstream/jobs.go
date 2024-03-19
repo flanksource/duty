@@ -40,16 +40,7 @@ var reconciledTables = []pushableTable{
 }
 
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
-	if ctx.Properties().Off("upstream.reconcile.pre-check") {
-		return ReconcileSome(ctx, config, batchSize)
-	}
-
-	var tablesToReconcile []string
-	if err := ctx.DB().Table("unpushed_tables").Scan(&tablesToReconcile).Error; err != nil {
-		return 0, err
-	}
-
-	return ReconcileSome(ctx, config, batchSize, tablesToReconcile...)
+	return ReconcileSome(ctx, config, batchSize)
 }
 
 func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, error) {
