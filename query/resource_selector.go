@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/duty/context"
@@ -15,6 +17,84 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
+
+type SearchResourcesRequest struct {
+	Checks     []types.ResourceSelector `json:"checks"`
+	Components []types.ResourceSelector `json:"components"`
+	Configs    []types.ResourceSelector `json:"configs"`
+}
+
+type SelectedResourceType string
+
+const (
+	SelectedResourceTypeCheck     SelectedResourceType = "check"
+	SelectedResourceTypeComponent SelectedResourceType = "component"
+	SelectedResourceTypeConfig    SelectedResourceType = "config"
+)
+
+type SelectedResources struct {
+	ID   string               `json:"id"`
+	Icon string               `json:"icon"`
+	Name string               `json:"name"`
+	Type SelectedResourceType `json:"type"`
+}
+
+func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResources, error) {
+	var output []SelectedResources
+
+	eg, _ := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if items, err := FindConfigsByResourceSelector(ctx, req.Configs...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output = append(output, SelectedResources{
+					ID:   items[i].GetID(),
+					Name: items[i].GetName(),
+					Type: SelectedResourceTypeConfig,
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		if items, err := FindChecks(ctx, req.Checks...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output = append(output, SelectedResources{
+					ID:   items[i].ID.String(),
+					Name: items[i].Name,
+					Icon: items[i].Icon,
+					Type: SelectedResourceTypeCheck,
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		if items, err := FindComponents(ctx, req.Components...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output = append(output, SelectedResources{
+					ID:   items[i].ID.String(),
+					Name: items[i].Name,
+					Icon: items[i].Icon,
+					Type: SelectedResourceTypeComponent,
+				})
+			}
+		}
+
+		return nil
+	})
+
+	return output, eg.Wait()
+}
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
 func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table, labelsColumn string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
