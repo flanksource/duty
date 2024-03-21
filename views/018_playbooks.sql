@@ -83,7 +83,8 @@ CREATE OR REPLACE VIEW playbook_names AS
   SELECT
     id,
     name,
-    category,
+    description,
+    spec ->> 'category' AS category,
     spec ->> 'icon' AS icon
   FROM
     playbooks
