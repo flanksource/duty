@@ -98,7 +98,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
 		return false
 	}
-	if len(rs.Statuses) > 0 && !rs.Types.Contains(s.GetStatus()) {
+	if len(rs.Statuses) > 0 && !rs.Statuses.Contains(s.GetStatus()) {
 		return false
 	}
 
