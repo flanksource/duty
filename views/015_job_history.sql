@@ -189,6 +189,7 @@ SELECT
   notifications.created_at,
   notifications.updated_at,
   notifications.created_by,
+  notifications.source,
   COUNT (event_queue.id) AS pending,
   ROUND(AVG(CASE WHEN notification_send_history.error IS NOT NULL THEN notification_send_history.duration_millis ELSE NULL END), 2) AS avg_duration_ms,
   COUNT (CASE WHEN notification_send_history.error IS NOT NULL THEN 1 END) AS failed,
