@@ -24,6 +24,11 @@ table "connections" {
     type    = text
     comment = "A raw value or encrypted value prefixed with 'enc:' or a configmap key in the format 'config:namespace/name/key' or secret in the format 'secret:namespace/name/key', the url can include $(password) and $(username) which will be replaced with the password and username respectively."
   }
+  column "source" {
+    null    = true
+    type    = enum.source
+    comment = "Where the connection was created from."
+  }
   column "username" {
     null    = true
     type    = text

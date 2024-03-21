@@ -19,6 +19,7 @@ type Notification struct {
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
 	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
+	Source         string              `json:"source"`
 	CustomServices types.JSON          `json:"custom_services,omitempty" gorm:"column:custom_services"`
 	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
 	UpdatedAt      time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`

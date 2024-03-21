@@ -14,6 +14,7 @@ var _ = Describe("Connection", Ordered, func() {
 			Namespace: "default",
 			Username:  "configmap://test-cm/foo",
 			Password:  "secret://test-secret/foo",
+			Source:    models.SourceCRD,
 			URL:       "sql://db?user=$(username)&password=$(password)",
 		})
 		Expect(tx.Error).ToNot(HaveOccurred())
