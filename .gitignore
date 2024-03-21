@@ -2,4 +2,3 @@
 *.out.json
 ginkgo.report
 .vscode
-tests/
