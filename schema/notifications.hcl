@@ -55,6 +55,11 @@ table "notifications" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "source" {
+    null    = true
+    type    = enum.source
+    comment = "Where the notification was created from."
+  }
   column "updated_at" {
     null    = false
     type    = timestamptz
