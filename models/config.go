@@ -13,6 +13,8 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // Config classes
@@ -185,21 +187,62 @@ func (c ConfigItem) GetStatus() string {
 	return *c.Status
 }
 
-func (c ConfigItem) GetLabels() map[string]string {
-	m := make(map[string]string)
-	if c.Tags == nil {
-		return m
-	}
-	for k, v := range *c.Tags {
-		m[k] = v
-	}
-	return m
+func (c ConfigItem) GetLabelsMatcher() labels.Labels {
+	return configLabels{c}
 }
 
-func (c ConfigItem) GetFields() map[string]string {
-	return map[string]string{
-		"config_class": c.ConfigClass,
+func (c ConfigItem) GetFieldsMatcher() fields.Fields {
+	return configFields{c}
+}
+
+type configFields struct {
+	ConfigItem
+}
+
+var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
+
+func (c configFields) Get(key string) string {
+	if lo.Contains(AllowedColumnFieldsInConfigs, key) {
+		return fmt.Sprintf("%v", c.AsMap()[key])
 	}
+
+	v := c.Properties.Find(key)
+	if v == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%v", v.GetValue())
+}
+
+func (c configFields) Has(key string) bool {
+	if lo.Contains(AllowedColumnFieldsInConfigs, key) {
+		_, ok := c.AsMap()[key]
+		return ok
+	}
+
+	v := c.Properties.Find(key)
+	return v != nil
+}
+
+type configLabels struct {
+	ConfigItem
+}
+
+func (c configLabels) Get(key string) string {
+	if c.Tags == nil || len(*c.Tags) == 0 {
+		return ""
+	}
+
+	return (*c.Tags)[key]
+}
+
+func (c configLabels) Has(key string) bool {
+	if c.Tags == nil || len(*c.Tags) == 0 {
+		return false
+	}
+
+	_, ok := (*c.Tags)[key]
+	return ok
 }
 
 // ConfigScraper represents the config_scrapers database table

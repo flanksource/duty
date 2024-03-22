@@ -13,8 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var allowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
-
 func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem, error) {
 	var configs []models.ConfigItem
 	for i := range ids {
@@ -63,7 +61,7 @@ func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...t
 	var allConfigs []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", "tags", allowedColumnFieldsInConfigs)
+		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", "tags", models.AllowedColumnFieldsInConfigs)
 		if err != nil {
 			return nil, err
 		}
