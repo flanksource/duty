@@ -7,12 +7,13 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
+
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/flanksource/duty/api"
@@ -154,37 +155,40 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	if len(resourceSelector.LabelSelector) > 0 {
-		labels := collections.SelectorToMap(resourceSelector.LabelSelector)
-		var onlyKeys []string
-		for k, v := range labels {
-			if v == "" {
-				onlyKeys = append(onlyKeys, k)
-				delete(labels, k)
-			}
-		}
-
-		query = query.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap(labels))
-		for _, k := range onlyKeys {
-			query = query.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), k)
-		}
+		// parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
+		// if err != nil {
+		// 	return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+		// }
+		// requirements, selectable := parsedLabelSelector.Requirements()
+		// if selectable {
+		// 	for _, r := range requirements {
+		// 		var onlyKeys []string
+		// 		onlyKeys = append(onlyKeys, k)
+		// 		delete(labelsMap, k)
+		// 	}
+		//
+		// 	query = query.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap(labelsMap))
+		// 	for _, k := range onlyKeys {
+		// 		query = query.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), k)
+		// 	}
+		// }
 	}
 
 	if len(resourceSelector.FieldSelector) > 0 {
-		parsedFieldSelector, err := fields.ParseSelector(resourceSelector.FieldSelector)
+		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
 		}
 
+		requirements, _ := parsedFieldSelector.Requirements()
 		var props models.Properties
-		for _, r := range parsedFieldSelector.Requirements() {
-			sqlOP := selectorOpToSQLOp(r.Operator)
-			if collections.Contains(allowedColumnsAsFields, r.Field) {
-				query = query.Where(
-					fmt.Sprintf("%s %s ?", r.Field, sqlOP),
-					lo.Ternary[any](r.Value == "nil", nil, r.Value),
-				)
+		for _, r := range requirements {
+			if collections.Contains(allowedColumnsAsFields, r.Key()) {
+				query = requirementToSQLClause(query, r)
 			} else {
-				props = append(props, &models.Property{Name: r.Field, Text: r.Value})
+				for v := range r.Values() {
+					props = append(props, &models.Property{Name: r.Key(), Text: v})
+				}
 			}
 		}
 
@@ -219,13 +223,26 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	return output, nil
 }
 
-func selectorOpToSQLOp(operator selection.Operator) string {
-	switch operator {
+// requirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func requirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
-		return "="
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s = ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
 	case selection.NotEquals:
-		return "<>"
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s <> ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
+	case selection.DoesNotExist:
+	case selection.In:
+		q = q.Where(fmt.Sprintf("%s IN ?", r.Key()), collections.MapKeys(r.Values()))
+	case selection.NotIn:
+		q = q.Where(fmt.Sprintf("%s NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
+	case selection.Exists:
+	case selection.GreaterThan:
+	case selection.LessThan:
 	}
 
-	return "" // we don't reach this point
+	return q
 }
