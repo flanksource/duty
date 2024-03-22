@@ -36,6 +36,10 @@ var KubernetesNodeA = models.ConfigItem{
 		"role":   "worker",
 		"region": "us-east-1",
 	}),
+	Properties: &types.Properties{
+		{Name: "memory", Value: 64},
+		{Name: "region", Text: "eu-west-1"},
+	},
 	CostTotal30d: 1,
 }
 
@@ -48,6 +52,10 @@ var KubernetesNodeB = models.ConfigItem{
 		"region":         "us-west-2",
 		"storageprofile": "managed",
 	}),
+	Properties: &types.Properties{
+		{Name: "memory", Value: 32},
+		{Name: "region", Text: "eu-west-2"},
+	},
 	CostTotal30d: 1.5,
 }
 

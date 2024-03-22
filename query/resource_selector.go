@@ -36,15 +36,15 @@ const (
 	SelectedResourceTypeConfig    SelectedResourceType = "config"
 )
 
-type SelectedResources struct {
+type SelectedResource struct {
 	ID   string               `json:"id"`
 	Icon string               `json:"icon"`
 	Name string               `json:"name"`
 	Type SelectedResourceType `json:"type"`
 }
 
-func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResources, error) {
-	var output []SelectedResources
+func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResource, error) {
+	var output []SelectedResource
 
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -52,7 +52,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].GetID(),
 					Name: items[i].GetName(),
 					Type: SelectedResourceTypeConfig,
@@ -68,7 +68,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].ID.String(),
 					Name: items[i].Name,
 					Icon: items[i].Icon,
@@ -85,7 +85,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].ID.String(),
 					Name: items[i].Name,
 					Icon: items[i].Icon,
