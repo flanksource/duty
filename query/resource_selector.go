@@ -155,23 +155,14 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	if len(resourceSelector.LabelSelector) > 0 {
-		// parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
-		// if err != nil {
-		// 	return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
-		// }
-		// requirements, selectable := parsedLabelSelector.Requirements()
-		// if selectable {
-		// 	for _, r := range requirements {
-		// 		var onlyKeys []string
-		// 		onlyKeys = append(onlyKeys, k)
-		// 		delete(labelsMap, k)
-		// 	}
-		//
-		// 	query = query.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap(labelsMap))
-		// 	for _, k := range onlyKeys {
-		// 		query = query.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), k)
-		// 	}
-		// }
+		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+		}
+		requirements, _ := parsedLabelSelector.Requirements()
+		for _, r := range requirements {
+			query = labelSelectorRequirementToSQLClause(query, labelsColumn, r)
+		}
 	}
 
 	if len(resourceSelector.FieldSelector) > 0 {
@@ -184,7 +175,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		var props models.Properties
 		for _, r := range requirements {
 			if collections.Contains(allowedColumnsAsFields, r.Key()) {
-				query = requirementToSQLClause(query, r)
+				query = fieldSelectorRequirementToSQLClause(query, r)
 			} else {
 				for v := range r.Values() {
 					props = append(props, &models.Property{Name: r.Key(), Text: v})
@@ -223,8 +214,44 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	return output, nil
 }
 
-// requirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func requirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+// labelSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func labelSelectorRequirementToSQLClause(q *gorm.DB, labelsColumn string, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
+	case selection.Equals, selection.DoubleEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap{r.Key(): val})
+		}
+	case selection.NotEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' != ?", labelsColumn, r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
+	case selection.In:
+		q = q.Where(fmt.Sprintf("%s->>'%s' IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+	case selection.NotIn:
+		q = q.Where(fmt.Sprintf("%s->>'%s' NOT IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+	case selection.DoesNotExist:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", labelsColumn, val))
+		}
+	case selection.Exists:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), val)
+		}
+	case selection.GreaterThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", labelsColumn, r.Key()), val)
+		}
+	case selection.LessThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' < ?", labelsColumn, r.Key()), val)
+		}
+	}
+
+	return q
+}
+
+// fieldSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
 	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
 		for val := range r.Values() {
@@ -234,14 +261,20 @@ func requirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
 		for val := range r.Values() {
 			q = q.Where(fmt.Sprintf("%s <> ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
 		}
-	case selection.DoesNotExist:
 	case selection.In:
 		q = q.Where(fmt.Sprintf("%s IN ?", r.Key()), collections.MapKeys(r.Values()))
 	case selection.NotIn:
 		q = q.Where(fmt.Sprintf("%s NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
-	case selection.Exists:
 	case selection.GreaterThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s > ?", r.Key()), val)
+		}
 	case selection.LessThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s < ?", r.Key()), val)
+		}
+	case selection.Exists, selection.DoesNotExist:
+		// not applicable
 	}
 
 	return q
