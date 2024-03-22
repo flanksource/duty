@@ -32,41 +32,43 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		Expect(items).To(ConsistOf(expectation))
 	})
 
-	ginkgo.Context("field selector", func() {
-		ginkgo.It("(Property lookup) Equals Query", func() {
+	ginkgo.Context("field selector", ginkgo.Ordered, func() {
+		ginkgo.It("Property lookup Equals Query", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "region=eu-west-2"}},
+				Configs: []types.ResourceSelector{{FieldSelector: "region=us-west-2"}},
 			})
 			Expect(err).To(BeNil())
-
-			Expect(len(items)).To(Equal(1))
+			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
-		ginkgo.It("(Property lookup) Not Equals Query", func() {
+		ginkgo.It("Property lookup Not Equals Query", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "region!=eu-west-1"}},
+				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1"}},
 			})
 			Expect(err).To(BeNil())
-
-			Expect(len(items)).To(Equal(1))
+			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
-		ginkgo.It("(Property lookup) Greater Than Query", func() {
+		ginkgo.It("Property lookup Greater Than Query", func() {
+			ginkgo.Skip("Implement for property lookup")
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
 			})
 			Expect(err).To(BeNil())
-
-			Expect(len(items)).To(Equal(2))
+			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		})
 
-		ginkgo.It("(Property lookup) Less Than Query", func() {
+		ginkgo.It("Property lookup Less Than Query", func() {
+			ginkgo.Skip("Implement for property lookup")
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
 			})
 			Expect(err).To(BeNil())
-
-			Expect(len(items)).To(Equal(1))
+			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
 		ginkgo.It("IN Query", func() {

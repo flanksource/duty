@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
+	"github.com/flanksource/commons/logger"
 
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 )
 
@@ -172,19 +172,12 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		}
 
 		requirements, _ := parsedFieldSelector.Requirements()
-		var props models.Properties
 		for _, r := range requirements {
 			if collections.Contains(allowedColumnsAsFields, r.Key()) {
 				query = fieldSelectorRequirementToSQLClause(query, r)
 			} else {
-				for v := range r.Values() {
-					props = append(props, &models.Property{Name: r.Key(), Text: v})
-				}
+				query = propertySelectorRequirementToSQLClause(query, r)
 			}
-		}
-
-		if len(props) > 0 {
-			query = query.Where("properties @> ?", props)
 		}
 	}
 
@@ -275,6 +268,24 @@ func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm
 		}
 	case selection.Exists, selection.DoesNotExist:
 		// not applicable
+	}
+
+	return q
+}
+
+// propertySelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
+	case selection.Equals, selection.DoubleEquals:
+		for val := range r.Values() {
+			q = q.Where("properties @> ?", types.Properties{{Name: r.Key(), Text: val}})
+		}
+	case selection.NotEquals:
+		for val := range r.Values() {
+			q = q.Where("NOT (properties @> ?)", types.Properties{{Name: r.Key(), Text: val}})
+		}
+	case selection.GreaterThan, selection.LessThan, selection.In, selection.NotIn, selection.Exists, selection.DoesNotExist:
+		logger.Warnf("TODO: Implement %s for property lookup", r.Operator())
 	}
 
 	return q

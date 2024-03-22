@@ -38,7 +38,7 @@ var KubernetesNodeA = models.ConfigItem{
 	}),
 	Properties: &types.Properties{
 		{Name: "memory", Value: 64},
-		{Name: "region", Text: "eu-west-1"},
+		{Name: "region", Text: "us-east-1"},
 	},
 	CostTotal30d: 1,
 }
@@ -54,7 +54,7 @@ var KubernetesNodeB = models.ConfigItem{
 	}),
 	Properties: &types.Properties{
 		{Name: "memory", Value: 32},
-		{Name: "region", Text: "eu-west-2"},
+		{Name: "region", Text: "us-west-2"},
 	},
 	CostTotal30d: 1.5,
 }
