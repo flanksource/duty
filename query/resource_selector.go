@@ -5,17 +5,20 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/selection"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 type SearchResourcesRequest struct {
@@ -167,19 +170,22 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	if len(resourceSelector.FieldSelector) > 0 {
-		fields := collections.SelectorToMap(resourceSelector.FieldSelector)
-		columnWhereClauses := map[string]any{}
-		var props models.Properties
-		for k, v := range fields {
-			if collections.Contains(allowedColumnsAsFields, k) {
-				columnWhereClauses[k] = lo.Ternary[any](v == "nil", nil, v)
-			} else {
-				props = append(props, &models.Property{Name: k, Text: v})
-			}
+		parsedFieldSelector, err := fields.ParseSelector(resourceSelector.FieldSelector)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
 		}
 
-		if len(columnWhereClauses) > 0 {
-			query = query.Where(columnWhereClauses)
+		var props models.Properties
+		for _, r := range parsedFieldSelector.Requirements() {
+			sqlOP := selectorOpToSQLOp(r.Operator)
+			if collections.Contains(allowedColumnsAsFields, r.Field) {
+				query = query.Where(
+					fmt.Sprintf("%s %s ?", r.Field, sqlOP),
+					lo.Ternary[any](r.Value == "nil", nil, r.Value),
+				)
+			} else {
+				props = append(props, &models.Property{Name: r.Field, Text: r.Value})
+			}
 		}
 
 		if len(props) > 0 {
@@ -211,4 +217,15 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	return output, nil
+}
+
+func selectorOpToSQLOp(operator selection.Operator) string {
+	switch operator {
+	case selection.Equals, selection.DoubleEquals:
+		return "="
+	case selection.NotEquals:
+		return "<>"
+	}
+
+	return "" // we don't reach this point
 }
