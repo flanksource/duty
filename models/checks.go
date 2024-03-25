@@ -86,6 +86,38 @@ func (c Check) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
 
+func (c Check) GetID() string {
+	return c.ID.String()
+}
+
+func (c Check) GetName() string {
+	return c.Name
+}
+
+func (c Check) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c Check) GetType() string {
+	return c.Type
+}
+
+func (c Check) GetStatus() string {
+	return string(c.Status)
+}
+
+func (c Check) GetLabels() map[string]string {
+	m := make(map[string]string)
+	for k, v := range c.Labels {
+		m[k] = v
+	}
+	return m
+}
+
+func (c Check) GetFields() map[string]string {
+	return map[string]string{}
+}
+
 type Checks []*Check
 
 func (c Checks) Len() int {

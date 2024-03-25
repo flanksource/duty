@@ -95,17 +95,17 @@ func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	}
 }
 
-func (c *Component) GetStatus() types.ComponentStatus {
+func (c Component) GetStatus() string {
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return types.ComponentStatusWarning
+		return string(types.ComponentStatusWarning)
 	} else if c.Summary.Unhealthy > 0 {
-		return types.ComponentStatusUnhealthy
+		return string(types.ComponentStatusUnhealthy)
 	} else if c.Summary.Warning > 0 {
-		return types.ComponentStatusWarning
+		return string(types.ComponentStatusWarning)
 	} else if c.Summary.Healthy > 0 {
-		return types.ComponentStatusHealthy
+		return string(types.ComponentStatusHealthy)
 	} else {
-		return types.ComponentStatusInfo
+		return string(types.ComponentStatusInfo)
 	}
 }
 
@@ -205,6 +205,34 @@ func (component Component) String() string {
 func (component Component) IsHealthy() bool {
 	s := component.Summarize(10)
 	return s.Healthy > 0 && s.Unhealthy == 0 && s.Warning == 0
+}
+
+func (c Component) GetID() string {
+	return c.ID.String()
+}
+
+func (c Component) GetName() string {
+	return c.Name
+}
+
+func (c Component) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c Component) GetType() string {
+	return c.Type
+}
+
+func (c Component) GetLabels() map[string]string {
+	m := make(map[string]string)
+	for k, v := range c.Labels {
+		m[k] = v
+	}
+	return m
+}
+
+func (c Component) GetFields() map[string]string {
+	return map[string]string{}
 }
 
 var ComponentID = func(c Component) string {
