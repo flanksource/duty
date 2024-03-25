@@ -127,5 +127,15 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.EC2InstanceA.ID.String()}))
 		})
+
+		ginkgo.It("Exists Query", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{LabelSelector: "telemetry,environment"}},
+			})
+			Expect(err).To(BeNil())
+			Expect(len(items)).To(Equal(2))
+			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(ids).To(ConsistOf([]string{dummy.EKSCluster.ID.String(), dummy.KubernetesCluster.ID.String()}))
+		})
 	})
 })

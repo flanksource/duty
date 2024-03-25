@@ -227,9 +227,7 @@ func labelSelectorRequirementToSQLClause(q *gorm.DB, labelsColumn string, r labe
 			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", labelsColumn, val))
 		}
 	case selection.Exists:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), val)
-		}
+		q = q.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), r.Key())
 	case selection.GreaterThan:
 		for val := range r.Values() {
 			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", labelsColumn, r.Key()), val)
@@ -267,7 +265,7 @@ func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm
 			q = q.Where(fmt.Sprintf("%s < ?", r.Key()), val)
 		}
 	case selection.Exists, selection.DoesNotExist:
-		// not applicable
+		logger.Warnf("Operators %s is not supported for property lookup", r.Operator())
 	}
 
 	return q
