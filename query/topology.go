@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/jackc/pgx/v5"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
@@ -362,7 +363,7 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 		// Summary should be set after applyDepthFilter
 		// which dereferences pointer cycles
 		c.Summary = c.Summarize(10)
-		c.Status = c.GetStatus()
+		c.Status = types.ComponentStatus(c.GetStatus())
 
 		nodes = append(nodes, c)
 	}
