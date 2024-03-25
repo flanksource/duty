@@ -17,7 +17,17 @@ import (
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
+
+var AllowedColumnFieldsInComponents = []string{
+	"owner",
+	"topology_type",
+	"topology_id",
+	"parent_id",
+	"type", // Deprecated. Use resource_selector.types instead
+}
 
 type Component struct {
 	ID              uuid.UUID               `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
@@ -223,16 +233,52 @@ func (c Component) GetType() string {
 	return c.Type
 }
 
-func (c Component) GetLabels() map[string]string {
-	m := make(map[string]string)
-	for k, v := range c.Labels {
-		m[k] = v
-	}
-	return m
+func (c Component) GetLabelsMatcher() labels.Labels {
+	return componentLabelsProvider{c}
 }
 
-func (c Component) GetFields() map[string]string {
-	return map[string]string{}
+func (c Component) GetFieldsMatcher() fields.Fields {
+	return componentFieldsProvider{c}
+}
+
+type componentLabelsProvider struct {
+	Component
+}
+
+func (c componentLabelsProvider) Get(key string) string {
+	return c.Labels[key]
+}
+
+func (c componentLabelsProvider) Has(key string) bool {
+	_, ok := c.Labels[key]
+	return ok
+}
+
+type componentFieldsProvider struct {
+	Component
+}
+
+func (c componentFieldsProvider) Get(key string) string {
+	if lo.Contains(AllowedColumnFieldsInComponents, key) {
+		return fmt.Sprintf("%v", c.AsMap()[key])
+	}
+
+	v := c.Properties.Find(key)
+	if v == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%v", v.GetValue())
+}
+
+func (c componentFieldsProvider) Has(key string) bool {
+	if lo.Contains(AllowedColumnFieldsInComponents, key) {
+		_, ok := c.AsMap()[key]
+		return ok
+	}
+
+	v := c.Properties.Find(key)
+	return v != nil
 }
 
 var ComponentID = func(c Component) string {

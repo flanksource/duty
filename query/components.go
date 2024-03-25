@@ -7,16 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var (
-	allowedColumnFieldsInComponents = []string{
-		"owner",
-		"topology_type",
-		"topology_id",
-		"parent_id",
-		"type", // Deprecated. Use resource_selector.types instead
-	}
-)
-
 func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Component, error) {
 	var components []models.Component
 	for i := range ids {
@@ -43,7 +33,7 @@ func FindComponents(ctx context.Context, resourceSelectors ...types.ResourceSele
 func FindComponentIDs(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
 	var allComponents []uuid.UUID
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "components", "labels", allowedColumnFieldsInComponents)
+		items, err := queryResourceSelector(ctx, resourceSelector, "components", "labels", models.AllowedColumnFieldsInComponents)
 		if err != nil {
 			return nil, err
 		}
