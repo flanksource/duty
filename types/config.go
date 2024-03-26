@@ -16,19 +16,28 @@ import (
 // ConfigQuery is used to look up and associate
 // config items with a component.
 type ConfigQuery struct {
-	ID         []string          `json:"id,omitempty"`
-	Type       string            `json:"type,omitempty"`
-	Class      string            `json:"class,omitempty"`
-	ExternalID string            `json:"external_id,omitempty"`
-	Name       string            `json:"name,omitempty"`
-	Namespace  string            `json:"namespace,omitempty"`
-	Tags       map[string]string `json:"tags,omitempty"`
+	ResourceSelector `json:",inline"`
+
+	// Deprecated. Use `fieldSelector (config_class=)`
+	Class string `json:"class,omitempty"`
+	// Deprecated. Use `fieldSelector (external_id=)`
+	ExternalID string `json:"external_id,omitempty"`
+	// Deprecated. Use `labelSelector`
+	Tags map[string]string `json:"tags,omitempty"`
+	// Deprecated. Use `types`
+	Type string `json:"type,omitempty"`
 }
 
 func (c ConfigQuery) ToResourceSelector() ResourceSelector {
 	var labelSelectors []string
 	for k, v := range c.Tags {
 		labelSelectors = append(labelSelectors, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	if c.ResourceSelector.LabelSelector != "" {
+		c.ResourceSelector.LabelSelector += strings.Join(labelSelectors, ",")
+	} else {
+		c.ResourceSelector.LabelSelector = strings.Join(labelSelectors, ",")
 	}
 
 	var fieldSelectors []string
@@ -39,20 +48,17 @@ func (c ConfigQuery) ToResourceSelector() ResourceSelector {
 		fieldSelectors = append(fieldSelectors, fmt.Sprintf("config_class=%s", c.Class))
 	}
 
-	rs := ResourceSelector{
-		Name:          c.Name,
-		Namespace:     c.Namespace,
-		FieldSelector: strings.Join(fieldSelectors, ","),
-		LabelSelector: strings.Join(labelSelectors, ","),
-	}
-	if len(c.ID) > 0 {
-		rs.ID = c.ID[0] // TODO: Add support for multiple ids in the resource selector (or remove multiple IDs from the config query)
-	}
-	if len(c.Type) > 0 {
-		rs.Types = Items{c.Type}
+	if c.ResourceSelector.FieldSelector != "" {
+		c.ResourceSelector.FieldSelector += strings.Join(fieldSelectors, ",")
+	} else {
+		c.ResourceSelector.FieldSelector = strings.Join(fieldSelectors, ",")
 	}
 
-	return rs
+	if len(c.Type) > 0 {
+		c.ResourceSelector.Types = append(c.ResourceSelector.Types, c.Type)
+	}
+
+	return c.ResourceSelector
 }
 
 func (c ConfigQuery) String() string {
