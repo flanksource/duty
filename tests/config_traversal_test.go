@@ -26,8 +26,8 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		configRelations := []models.ConfigRelationship{
-			{ConfigID: configItems["deployment"].ID.String(), RelatedID: configItems["helm-release-of-deployment"].ID.String(), Relation: "HelmReleaseDeployment"},
-			{ConfigID: configItems["helm-release-of-deployment"].ID.String(), RelatedID: configItems["kustomize-of-helm-release"].ID.String(), Relation: "KustomizationHelmRelease"},
+			{ConfigID: configItems["helm-release-of-deployment"].ID.String(), RelatedID: configItems["deployment"].ID.String(), Relation: "HelmReleaseDeployment"},
+			{ConfigID: configItems["kustomize-of-helm-release"].ID.String(), RelatedID: configItems["helm-release-of-deployment"].ID.String(), Relation: "KustomizationHelmRelease"},
 		}
 		err = ctx.DB().Clauses(clause.OnConflict{DoNothing: true}).Save(configRelations).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -38,6 +38,10 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease")
 		Expect(got).ToNot(BeNil())
 		Expect(got.ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+
+		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization")
+		Expect(got).ToNot(BeNil())
+		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization")
 		Expect(got).ToNot(BeNil())

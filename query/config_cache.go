@@ -74,7 +74,7 @@ func SyncConfigCache(ctx context.Context) error {
 			return fmt.Errorf("error setting config relationships in cache: %w", err)
 		}
 		for _, relID := range relIDs {
-			configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(cID, configIDTypeMap[relID])] = append(configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(cID, configIDTypeMap[relID])], relID)
+			configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(relID, configIDTypeMap[cID])] = append(configIDRelatedTypeToRelatedIDs[configItemRelatedTypeCacheKey(relID, configIDTypeMap[cID])], cID)
 		}
 	}
 
