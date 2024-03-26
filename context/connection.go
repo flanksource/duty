@@ -184,6 +184,14 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		return nil, err
 	}
 
+	for k, v := range connection.Properties {
+		if v, err = GetEnvStringFromCache(ctx, v, connection.Namespace); err != nil {
+			return nil, err
+		} else {
+			connection.Properties[k] = v
+		}
+	}
+
 	domain := ""
 	parts := strings.Split(connection.Username, "@")
 	if len(parts) == 2 {
@@ -191,12 +199,13 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 	}
 
 	data := map[string]interface{}{
-		"name":      connection.Name,
-		"type":      connection.Type,
-		"namespace": connection.Namespace,
-		"username":  connection.Username,
-		"password":  connection.Password,
-		"domain":    domain,
+		"name":       connection.Name,
+		"type":       connection.Type,
+		"namespace":  connection.Namespace,
+		"username":   connection.Username,
+		"password":   connection.Password,
+		"domain":     domain,
+		"properties": connection.Properties,
 	}
 	templater := gomplate.StructTemplater{
 		Values: data,
