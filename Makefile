@@ -8,7 +8,7 @@ fmt:
 lint:
 	golangci-lint run
 
-CONTROLLER_TOOLS_VERSION ?= v0.10.0
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
 LOCALBIN ?= $(shell pwd)/.bin
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
