@@ -9,6 +9,8 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type CheckHealthStatus string
@@ -106,16 +108,37 @@ func (c Check) GetStatus() string {
 	return string(c.Status)
 }
 
-func (c Check) GetLabels() map[string]string {
-	m := make(map[string]string)
-	for k, v := range c.Labels {
-		m[k] = v
-	}
-	return m
+func (c Check) GetLabelsMatcher() labels.Labels {
+	return checkLabelsProvider{c}
 }
 
-func (c Check) GetFields() map[string]string {
-	return map[string]string{}
+func (c Check) GetFieldsMatcher() fields.Fields {
+	return checkFieldsProvider{c}
+}
+
+type checkLabelsProvider struct {
+	Check
+}
+
+func (c checkLabelsProvider) Get(key string) string {
+	return c.Labels[key]
+}
+
+func (c checkLabelsProvider) Has(key string) bool {
+	_, ok := c.Labels[key]
+	return ok
+}
+
+type checkFieldsProvider struct {
+	Check
+}
+
+func (c checkFieldsProvider) Get(key string) string {
+	return ""
+}
+
+func (c checkFieldsProvider) Has(key string) bool {
+	return false // field selector not applicalbe for checks
 }
 
 type Checks []*Check

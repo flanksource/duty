@@ -5,17 +5,21 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
+	"github.com/flanksource/commons/logger"
+
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 )
 
 type SearchResourcesRequest struct {
@@ -32,15 +36,15 @@ const (
 	SelectedResourceTypeConfig    SelectedResourceType = "config"
 )
 
-type SelectedResources struct {
+type SelectedResource struct {
 	ID   string               `json:"id"`
 	Icon string               `json:"icon"`
 	Name string               `json:"name"`
 	Type SelectedResourceType `json:"type"`
 }
 
-func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResources, error) {
-	var output []SelectedResources
+func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResource, error) {
+	var output []SelectedResource
 
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -48,7 +52,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].GetID(),
 					Name: items[i].GetName(),
 					Type: SelectedResourceTypeConfig,
@@ -64,7 +68,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].ID.String(),
 					Name: items[i].Name,
 					Icon: items[i].Icon,
@@ -81,7 +85,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResources{
+				output = append(output, SelectedResource{
 					ID:   items[i].ID.String(),
 					Name: items[i].Name,
 					Icon: items[i].Icon,
@@ -151,39 +155,29 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	if len(resourceSelector.LabelSelector) > 0 {
-		labels := collections.SelectorToMap(resourceSelector.LabelSelector)
-		var onlyKeys []string
-		for k, v := range labels {
-			if v == "" {
-				onlyKeys = append(onlyKeys, k)
-				delete(labels, k)
-			}
+		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
 		}
-
-		query = query.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap(labels))
-		for _, k := range onlyKeys {
-			query = query.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), k)
+		requirements, _ := parsedLabelSelector.Requirements()
+		for _, r := range requirements {
+			query = labelSelectorRequirementToSQLClause(query, labelsColumn, r)
 		}
 	}
 
 	if len(resourceSelector.FieldSelector) > 0 {
-		fields := collections.SelectorToMap(resourceSelector.FieldSelector)
-		columnWhereClauses := map[string]any{}
-		var props models.Properties
-		for k, v := range fields {
-			if collections.Contains(allowedColumnsAsFields, k) {
-				columnWhereClauses[k] = lo.Ternary[any](v == "nil", nil, v)
+		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
+		}
+
+		requirements, _ := parsedFieldSelector.Requirements()
+		for _, r := range requirements {
+			if collections.Contains(allowedColumnsAsFields, r.Key()) {
+				query = fieldSelectorRequirementToSQLClause(query, r)
 			} else {
-				props = append(props, &models.Property{Name: k, Text: v})
+				query = propertySelectorRequirementToSQLClause(query, r)
 			}
-		}
-
-		if len(columnWhereClauses) > 0 {
-			query = query.Where(columnWhereClauses)
-		}
-
-		if len(props) > 0 {
-			query = query.Where("properties @> ?", props)
 		}
 	}
 
@@ -211,4 +205,86 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	return output, nil
+}
+
+// labelSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func labelSelectorRequirementToSQLClause(q *gorm.DB, labelsColumn string, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
+	case selection.Equals, selection.DoubleEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap{r.Key(): val})
+		}
+	case selection.NotEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' != ?", labelsColumn, r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
+	case selection.In:
+		q = q.Where(fmt.Sprintf("%s->>'%s' IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+	case selection.NotIn:
+		q = q.Where(fmt.Sprintf("%s->>'%s' NOT IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+	case selection.DoesNotExist:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", labelsColumn, val))
+		}
+	case selection.Exists:
+		q = q.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), r.Key())
+	case selection.GreaterThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", labelsColumn, r.Key()), val)
+		}
+	case selection.LessThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s->>'%s' < ?", labelsColumn, r.Key()), val)
+		}
+	}
+
+	return q
+}
+
+// fieldSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
+	case selection.Equals, selection.DoubleEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s = ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
+	case selection.NotEquals:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s <> ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+		}
+	case selection.In:
+		q = q.Where(fmt.Sprintf("%s IN ?", r.Key()), collections.MapKeys(r.Values()))
+	case selection.NotIn:
+		q = q.Where(fmt.Sprintf("%s NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
+	case selection.GreaterThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s > ?", r.Key()), val)
+		}
+	case selection.LessThan:
+		for val := range r.Values() {
+			q = q.Where(fmt.Sprintf("%s < ?", r.Key()), val)
+		}
+	case selection.Exists, selection.DoesNotExist:
+		logger.Warnf("Operators %s is not supported for property lookup", r.Operator())
+	}
+
+	return q
+}
+
+// propertySelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
+func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+	switch r.Operator() {
+	case selection.Equals, selection.DoubleEquals:
+		for val := range r.Values() {
+			q = q.Where("properties @> ?", types.Properties{{Name: r.Key(), Text: val}})
+		}
+	case selection.NotEquals:
+		for val := range r.Values() {
+			q = q.Where("NOT (properties @> ?)", types.Properties{{Name: r.Key(), Text: val}})
+		}
+	case selection.GreaterThan, selection.LessThan, selection.In, selection.NotIn, selection.Exists, selection.DoesNotExist:
+		logger.Warnf("TODO: Implement %s for property lookup", r.Operator())
+	}
+
+	return q
 }

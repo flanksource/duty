@@ -8,9 +8,12 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
+	"github.com/flanksource/commons/logger"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // +kubebuilder:object:generate=true
@@ -103,26 +106,22 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	}
 
 	if len(rs.LabelSelector) > 0 {
-		for k, v := range collections.SelectorToMap(rs.LabelSelector) {
-			if sVal, exists := s.GetLabels()[k]; exists {
-				if v != "" && v != sVal {
-					return false
-				}
-			} else {
-				return false
-			}
+		parsed, err := labels.Parse(rs.LabelSelector)
+		if err != nil {
+			logger.Errorf("bad label selector: %v", err)
+			return false
+		} else if !parsed.Matches(s.GetLabelsMatcher()) {
+			return false
 		}
 	}
 
 	if len(rs.FieldSelector) > 0 {
-		for k, v := range collections.SelectorToMap(rs.FieldSelector) {
-			if sVal, exists := s.GetFields()[k]; exists {
-				if v != "" && v != sVal {
-					return false
-				}
-			} else {
-				return false
-			}
+		parsed, err := labels.Parse(rs.FieldSelector)
+		if err != nil {
+			logger.Errorf("bad field selector: %v", err)
+			return false
+		} else if !parsed.Matches(s.GetFieldsMatcher()) {
+			return false
 		}
 	}
 
@@ -162,11 +161,12 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 }
 
 type ResourceSelectable interface {
+	GetFieldsMatcher() fields.Fields
+	GetLabelsMatcher() labels.Labels
+
 	GetID() string
 	GetName() string
 	GetNamespace() string
 	GetType() string
 	GetStatus() string
-	GetLabels() map[string]string
-	GetFields() map[string]string
 }

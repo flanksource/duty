@@ -124,7 +124,7 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 		},
 		{
-			name: "Labels",
+			name: "Types",
 			resourceSelector: types.ResourceSelector{
 				Types: []string{"Kubernetes::Pod"},
 			},
@@ -159,6 +159,27 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 		},
 		{
+			name: "Label selector IN query",
+			resourceSelector: types.ResourceSelector{
+				Namespace:     "default",
+				LabelSelector: "env in (production)",
+			},
+			selectable: models.ConfigItem{
+				Namespace:   lo.ToPtr("default"),
+				ConfigClass: "Cluster",
+				Tags: lo.ToPtr(types.JSONStringMap{
+					"env": "production",
+				}),
+			},
+			unselectable: models.ConfigItem{
+				Namespace:   lo.ToPtr("default"),
+				ConfigClass: "Cluster",
+				Tags: lo.ToPtr(types.JSONStringMap{
+					"env": "dev",
+				}),
+			},
+		},
+		{
 			name: "Field selector",
 			resourceSelector: types.ResourceSelector{
 				Namespace:     "default",
@@ -171,6 +192,53 @@ func TestResourceSelector_Matches(t *testing.T) {
 			unselectable: models.ConfigItem{
 				Namespace:   lo.ToPtr("default"),
 				ConfigClass: "VirtualMachine",
+			},
+		},
+		{
+			name: "Field selector NOT IN query",
+			resourceSelector: types.ResourceSelector{
+				Namespace:     "default",
+				FieldSelector: "config_class notin (Cluster)",
+			},
+			selectable: models.ConfigItem{
+				Namespace:   lo.ToPtr("default"),
+				ConfigClass: "VirtualMachine",
+			},
+			unselectable: models.ConfigItem{
+				Namespace:   lo.ToPtr("default"),
+				ConfigClass: "Cluster",
+			},
+		},
+		{
+			name: "Field selector property matcher (text)",
+			resourceSelector: types.ResourceSelector{
+				FieldSelector: "color=red",
+			},
+			selectable: models.ConfigItem{
+				Properties: &types.Properties{
+					{Name: "color", Text: "red"},
+				},
+			},
+			unselectable: models.ConfigItem{
+				Properties: &types.Properties{
+					{Name: "color", Text: "green"},
+				},
+			},
+		},
+		{
+			name: "Field selector property matcher (value)",
+			resourceSelector: types.ResourceSelector{
+				FieldSelector: "memory>50",
+			},
+			selectable: models.ConfigItem{
+				Properties: &types.Properties{
+					{Name: "memory", Value: 64},
+				},
+			},
+			unselectable: models.ConfigItem{
+				Properties: &types.Properties{
+					{Name: "memory", Value: 32},
+				},
 			},
 		},
 	}
