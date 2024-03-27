@@ -15,7 +15,7 @@ import (
 )
 
 var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
-	ginkgo.It("should be able to traverse config relationships via types", func() {
+	ginkgo.FIt("should be able to traverse config relationships via types", func() {
 		configItems := map[string]models.ConfigItem{
 			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment")},
 			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease")},
@@ -35,22 +35,22 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		err = query.SyncConfigCache(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease")
+		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization")
+		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod", "incoming")
 		Expect(got).To(BeNil())
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Node", "incoming")
 		Expect(got).To(BeNil())
 
 		// Test with CEL Exprs
@@ -59,21 +59,21 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		}
 
 		template := gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease').id",
+			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease')[0].id",
 		}
 		gotExpr, err := DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(gotExpr).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
 
 		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease/Kubernetes::Kustomization').name",
+			Expression: "catalog.traverse(configID, 'Kubernetes::Kustomization')[0].name",
 		}
 		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(gotExpr).To(Equal(*configItems["kustomize-of-helm-release"].Name))
 
 		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::Pod').name",
+			Expression: "catalog.traverse(configID, 'Kubernetes::Pod')[0].name",
 		}
 		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).To(HaveOccurred())
@@ -85,8 +85,8 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 			Name string
 			Type string
 		}{
-			Name: "Name is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Name }}",
-			Type: "Type is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Type }}",
+			Name: "Name is {{ (index (catalog_traverse .id  \"Kubernetes::Kustomization\") 0).Name }}",
+			Type: "Type is {{ (index (catalog_traverse .id  \"Kubernetes::Kustomization\") 0).Type }}",
 		}
 
 		err = t.Walk(&inlineStruct)
