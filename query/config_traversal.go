@@ -1,6 +1,8 @@
 package query
 
 import (
+	"strings"
+
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3/conv"
@@ -12,23 +14,56 @@ import (
 func TraverseConfig(ctx context.Context, id, relationType, direction string) []models.ConfigItem {
 	var configItems []models.ConfigItem
 
-	q := `SELECT id, depth FROM related_configs(?, ?) WHERE type = ?`
+	targetRelType := relationType
+	relationTypes := strings.Split(relationType, "/")
+	relMap := make(map[string]bool)
+
+	q := ctx.DB().Table("related_configs(?, ?)", id, direction).Select("id", "depth", "type")
+	if len(relationTypes) == 1 {
+		q = q.Where("type = ?", relationTypes[0])
+	} else {
+		targetRelType = relationTypes[len(relationTypes)-1]
+		for i, rt := range relationTypes {
+			q = q.Or("type = ? AND depth = ?", rt, i+1)
+			relMap[rt] = false
+		}
+	}
+
 	var rows []struct {
 		ID    string
+		Type  string
 		Depth int
 	}
-	if err := ctx.DB().Raw(q, id, direction, relationType).Scan(&rows).Error; err != nil {
+	if err := q.Scan(&rows).Error; err != nil {
 		ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
 		return nil
 	}
 
 	for _, row := range rows {
+		// Mark the paths as touched
+		if len(relationTypes) > 1 {
+			relMap[row.Type] = true
+		}
+
+		if row.Type != targetRelType {
+			continue
+		}
+
 		configItem, err := ConfigItemFromCache(ctx, row.ID)
 		if err != nil {
 			ctx.Tracef("no config[%s] found in cache: %v", row.ID, err)
 			continue
 		}
 		configItems = append(configItems, configItem)
+	}
+
+	// Make sure all the paths have matched
+	if len(relationTypes) > 1 {
+		for _, v := range relMap {
+			if !v {
+				return nil
+			}
+		}
 	}
 
 	return configItems

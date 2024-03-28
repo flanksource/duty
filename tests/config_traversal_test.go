@@ -43,6 +43,10 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		Expect(got).ToNot(BeNil())
 		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization", "incoming")
+		Expect(got).ToNot(BeNil())
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
 		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
@@ -51,6 +55,9 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		Expect(got).To(BeNil())
 
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Node", "incoming")
+		Expect(got).To(BeNil())
+
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node", "incoming")
 		Expect(got).To(BeNil())
 
 		// TODO Fix these
