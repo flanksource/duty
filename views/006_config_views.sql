@@ -21,6 +21,7 @@ CREATE or REPLACE VIEW configs AS
     ci.cost_total_7d,
     ci.cost_total_30d,
     ci.agent_id,
+    ci.status,
     analysis,
     changes
   FROM config_items as ci
@@ -495,7 +496,8 @@ CREATE FUNCTION related_configs_recursive (
     cost_total_30d NUMERIC(16, 4),
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
-    agent_id uuid
+    agent_id uuid,
+    status TEXT
 ) AS $$
 BEGIN
   RETURN query
@@ -516,7 +518,8 @@ BEGIN
       configs.cost_total_30d,
       configs.created_at,
       configs.updated_at,
-      configs.agent_id
+      configs.agent_id,
+      configs.status
    FROM (
    	SELECT
    	  r.id::uuid,
@@ -558,7 +561,8 @@ CREATE FUNCTION related_configs (
     cost_total_30d NUMERIC(16, 4),
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
-    agent_id uuid
+    agent_id uuid,
+    status TEXT
 ) AS $$
 BEGIN
   RETURN query
