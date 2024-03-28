@@ -12,42 +12,60 @@ import (
 
 var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	ginkgo.It("should find all 3 resources", func() {
-		items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+		response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 			Configs:    []types.ResourceSelector{{ID: dummy.EKSCluster.ID.String()}},
 			Components: []types.ResourceSelector{{ID: dummy.Logistics.ID.String()}},
 			Checks:     []types.ResourceSelector{{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
 		})
 		Expect(err).To(BeNil())
 
-		expectation := []query.SelectedResource{
-			{ID: dummy.EKSCluster.ID.String(), Name: lo.FromPtr(dummy.EKSCluster.Name), Type: query.SelectedResourceTypeConfig},
-			{
-				ID:   dummy.LogisticsAPIHealthHTTPCheck.ID.String(),
-				Icon: dummy.LogisticsAPIHealthHTTPCheck.Icon,
-				Name: dummy.LogisticsAPIHealthHTTPCheck.Name,
-				Type: query.SelectedResourceTypeCheck,
-			},
-			{ID: dummy.Logistics.ID.String(), Icon: dummy.Logistics.Icon, Name: dummy.Logistics.Name, Type: query.SelectedResourceTypeComponent},
+		expectation := &query.SearchResourcesResponse{
+			Configs: []query.SelectedResource{{
+				ID:        dummy.EKSCluster.ID.String(),
+				Agent:     dummy.EKSCluster.AgentID.String(),
+				Labels:    lo.FromPtr(dummy.EKSCluster.Tags),
+				Name:      lo.FromPtr(dummy.EKSCluster.Name),
+				Namespace: lo.FromPtr(dummy.EKSCluster.Namespace),
+				Type:      lo.FromPtr(dummy.EKSCluster.Type),
+			}},
+			Checks: []query.SelectedResource{{
+				ID:        dummy.LogisticsAPIHealthHTTPCheck.ID.String(),
+				Agent:     dummy.LogisticsAPIHealthHTTPCheck.AgentID.String(),
+				Icon:      dummy.LogisticsAPIHealthHTTPCheck.Icon,
+				Labels:    dummy.LogisticsAPIHealthHTTPCheck.Labels,
+				Name:      dummy.LogisticsAPIHealthHTTPCheck.Name,
+				Namespace: dummy.LogisticsAPIHealthHTTPCheck.Namespace,
+				Type:      dummy.LogisticsAPIHealthHTTPCheck.Type,
+			}},
+			Components: []query.SelectedResource{{
+				ID:        dummy.Logistics.ID.String(),
+				Agent:     dummy.Logistics.AgentID.String(),
+				Icon:      dummy.Logistics.Icon,
+				Labels:    dummy.Logistics.Labels,
+				Name:      dummy.Logistics.Name,
+				Namespace: dummy.Logistics.Namespace,
+				Type:      dummy.Logistics.Type,
+			}},
 		}
-		Expect(items).To(ConsistOf(expectation))
+		Expect(response).To(Equal(expectation))
 	})
 
 	ginkgo.Context("field selector", ginkgo.Ordered, func() {
 		ginkgo.It("Property lookup Equals Query", func() {
-			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+			response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{FieldSelector: "region=us-west-2"}},
 			})
 			Expect(err).To(BeNil())
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			ids := lo.Map(response.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
 		ginkgo.It("Property lookup Not Equals Query", func() {
-			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+			response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1"}},
 			})
 			Expect(err).To(BeNil())
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			ids := lo.Map(response.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
@@ -57,7 +75,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
 			})
 			Expect(err).To(BeNil())
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			ids := lo.Map(items.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		})
 
@@ -67,7 +85,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
 			})
 			Expect(err).To(BeNil())
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			ids := lo.Map(items.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.KubernetesNodeB.ID.String()}))
 		})
 
@@ -77,7 +95,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			})
 			Expect(err).To(BeNil())
 
-			Expect(len(items)).To(Equal(2), "should have returned 2 for EKS and Kubernetes Cluster")
+			Expect(len(items.Configs)).To(Equal(2), "should have returned 2 for EKS and Kubernetes Cluster")
 		})
 
 		ginkgo.It("NOT IN Query", func() {
@@ -85,7 +103,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{FieldSelector: "config_class notin (Node,Deployment,Database,Pod,Cluster)"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(2), "should have returned 2 for the Virtual Machine configs")
+			Expect(len(items.Configs)).To(Equal(2), "should have returned 2 for the Virtual Machine configs")
 		})
 	})
 
@@ -95,8 +113,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{LabelSelector: "telemetry=enabled,environment=production"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(1))
-			Expect(items[0].ID).To(Equal(dummy.EKSCluster.ID.String()))
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.EKSCluster.ID.String()))
 		})
 
 		ginkgo.It("Not Equals Query", func() {
@@ -104,8 +122,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{LabelSelector: "telemetry=enabled,environment!=production"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(1))
-			Expect(items[0].ID).To(Equal(dummy.KubernetesCluster.ID.String()))
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesCluster.ID.String()))
 		})
 
 		ginkgo.It("IN Query", func() {
@@ -113,8 +131,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{LabelSelector: "app in (frontend,backend)"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(2))
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(len(items.Configs)).To(Equal(2))
+			ids := lo.Map(items.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.EC2InstanceA.ID.String(), dummy.EC2InstanceB.ID.String()}))
 		})
 
@@ -123,8 +141,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{LabelSelector: "app notin (frontend,logistics)"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(1))
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(len(items.Configs)).To(Equal(1))
+			ids := lo.Map(items.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.EC2InstanceA.ID.String()}))
 		})
 
@@ -133,8 +151,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{LabelSelector: "telemetry,environment"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items)).To(Equal(2))
-			ids := lo.Map(items, func(item query.SelectedResource, _ int) string { return item.ID })
+			Expect(len(items.Configs)).To(Equal(2))
+			ids := lo.Map(items.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
 			Expect(ids).To(ConsistOf([]string{dummy.EKSCluster.ID.String(), dummy.KubernetesCluster.ID.String()}))
 		})
 	})
