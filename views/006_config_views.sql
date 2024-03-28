@@ -442,7 +442,7 @@ IF type_filter = 'outgoing' THEN
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
-   ELSEIF type_filter = 'incoming'  THEN
+   ELSEIF type_filter = 'incoming' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id,relation, depth) AS (
         SELECT parent.config_id, parent.related_id as related_id, 'incoming', 1::int

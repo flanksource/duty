@@ -35,49 +35,70 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		err = query.SyncConfigCache(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease")
+		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization")
+		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
-		Expect(got.ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod", "incoming")
 		Expect(got).To(BeNil())
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node")
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Node", "incoming")
 		Expect(got).To(BeNil())
+
+		// TODO Fix these
+		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Deployment", "outgoing")
+		Expect(got).ToNot(BeNil())
+		Expect(got[0].ID.String()).To(Equal(configItems["deployment"].ID.String()))
+
+		got = query.TraverseConfig(DefaultContext, configItems["kustomize-of-helm-release"].ID.String(), "Kubernetes::HelmRelease", "outgoing")
+		Expect(got).ToNot(BeNil())
+		Expect(got[0].ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+
+		got = query.TraverseConfig(DefaultContext, configItems["kustomize-of-helm-release"].ID.String(), "Kubernetes::Deployment", "outgoing")
+		Expect(got).ToNot(BeNil())
+		Expect(got[0].ID.String()).To(Equal(configItems["deployment"].ID.String()))
 
 		// Test with CEL Exprs
 		templateEnv := map[string]any{
-			"configID": configItems["deployment"].ID.String(),
+			"configID":          configItems["deployment"].ID.String(),
+			"configIDKustomize": configItems["kustomize-of-helm-release"].ID.String(),
 		}
 
 		template := gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease').id",
+			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease', 'incoming')[0].id",
 		}
 		gotExpr, err := DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(gotExpr).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
 
 		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease/Kubernetes::Kustomization').name",
+			Expression: "catalog.traverse(configID, 'Kubernetes::Kustomization', 'incoming')[0].name",
 		}
 		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(gotExpr).To(Equal(*configItems["kustomize-of-helm-release"].Name))
 
 		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::Pod').name",
+			Expression: "catalog.traverse(configID, 'Kubernetes::Pod', 'incoming')[0].name",
 		}
 		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
 		Expect(err).To(HaveOccurred())
 		Expect(gotExpr).To(Equal(""))
+
+		template = gomplate.Template{
+			Expression: "catalog.traverse(configIDKustomize, 'Kubernetes::Deployment', 'outgoing')[0].name",
+		}
+		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(gotExpr).To(Equal(*configItems["deployment"].Name))
 
 		// Testing struct templater
 		t := DefaultContext.NewStructTemplater(map[string]any{"id": configItems["deployment"].ID.String()}, "", nil)
@@ -85,8 +106,8 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 			Name string
 			Type string
 		}{
-			Name: "Name is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Name }}",
-			Type: "Type is {{ (catalog_traverse .id  \"Kubernetes::HelmRelease/Kubernetes::Kustomization\").Type }}",
+			Name: "Name is {{ (index (catalog_traverse .id  \"Kubernetes::Kustomization\" \"incoming\") 0).Name }}",
+			Type: "Type is {{ (index (catalog_traverse .id  \"Kubernetes::Kustomization\" \"incoming\") 0).Type }}",
 		}
 
 		err = t.Walk(&inlineStruct)
