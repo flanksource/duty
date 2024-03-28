@@ -28,23 +28,24 @@ type SearchResourcesRequest struct {
 	Configs    []types.ResourceSelector `json:"configs"`
 }
 
-type SelectedResourceType string
-
-const (
-	SelectedResourceTypeCheck     SelectedResourceType = "check"
-	SelectedResourceTypeComponent SelectedResourceType = "component"
-	SelectedResourceTypeConfig    SelectedResourceType = "config"
-)
-
-type SelectedResource struct {
-	ID   string               `json:"id"`
-	Icon string               `json:"icon"`
-	Name string               `json:"name"`
-	Type SelectedResourceType `json:"type"`
+type SearchResourcesResponse struct {
+	Checks     []SelectedResource `json:"checks,omitempty"`
+	Components []SelectedResource `json:"components,omitempty"`
+	Configs    []SelectedResource `json:"configs,omitempty"`
 }
 
-func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]SelectedResource, error) {
-	var output []SelectedResource
+type SelectedResource struct {
+	ID        string            `json:"id"`
+	Agent     string            `json:"agent"`
+	Icon      string            `json:"icon,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Type      string            `json:"type"`
+}
+
+func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
+	var output SearchResourcesResponse
 
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -52,10 +53,13 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResource{
-					ID:   items[i].GetID(),
-					Name: items[i].GetName(),
-					Type: SelectedResourceTypeConfig,
+				output.Configs = append(output.Configs, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     items[i].AgentID.String(),
+					Labels:    lo.FromPtr(items[i].Tags),
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
 				})
 			}
 		}
@@ -68,11 +72,14 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResource{
-					ID:   items[i].ID.String(),
-					Name: items[i].Name,
-					Icon: items[i].Icon,
-					Type: SelectedResourceTypeCheck,
+				output.Checks = append(output.Checks, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     items[i].AgentID.String(),
+					Icon:      items[i].Icon,
+					Labels:    items[i].Labels,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
 				})
 			}
 		}
@@ -85,11 +92,14 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 			return err
 		} else {
 			for i := range items {
-				output = append(output, SelectedResource{
-					ID:   items[i].ID.String(),
-					Name: items[i].Name,
-					Icon: items[i].Icon,
-					Type: SelectedResourceTypeComponent,
+				output.Components = append(output.Components, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     items[i].AgentID.String(),
+					Icon:      items[i].Icon,
+					Labels:    items[i].Labels,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
 				})
 			}
 		}
@@ -97,7 +107,11 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) ([]Selecte
 		return nil
 	})
 
-	return output, eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &output, nil
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
