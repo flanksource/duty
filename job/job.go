@@ -522,7 +522,8 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	}
 	j.entryID = &entryID
 	if j.RunNow {
-		defer j.Run()
+		// Run in a goroutine since AddToScheduler should be non-blocking
+		defer func() { go j.Run() }()
 	}
 	j.unschedule = func() {
 		cronRunner.Remove(*j.entryID)
