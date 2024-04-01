@@ -1,6 +1,8 @@
 package query
 
 import (
+	"strings"
+
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3/conv"
@@ -9,29 +11,45 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-func TraverseConfig(ctx context.Context, id, relationType, direction string) []models.ConfigItem {
+func TraverseConfig(ctx context.Context, configID, relationType, direction string) []models.ConfigItem {
 	var configItems []models.ConfigItem
 
-	q := `SELECT id, depth FROM related_configs(?, ?) WHERE type = ?`
-	var rows []struct {
-		ID    string
-		Depth int
-	}
-	if err := ctx.DB().Raw(q, id, direction, relationType).Scan(&rows).Error; err != nil {
-		ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
-		return nil
+	ids := []string{configID}
+	for _, typ := range strings.Split(relationType, "/") {
+		ids = getRelatedTypeConfigID(ctx, ids, typ, direction)
 	}
 
-	for _, row := range rows {
-		configItem, err := ConfigItemFromCache(ctx, row.ID)
+	for _, id := range ids {
+		configItem, err := ConfigItemFromCache(ctx, id)
 		if err != nil {
-			ctx.Tracef("no config[%s] found in cache: %v", row.ID, err)
+			ctx.Tracef("no config[%s] found in cache: %v", id, err)
 			continue
 		}
 		configItems = append(configItems, configItem)
 	}
 
 	return configItems
+}
+
+// Fetch config IDs which match the type and direction upto max depth (5)
+func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string) []string {
+	var allIDs []string
+	for _, id := range ids {
+		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id", "depth", "type").Where("type = ?", relatedType)
+		var rows []struct {
+			ID    string
+			Type  string
+			Depth int
+		}
+		if err := q.Scan(&rows).Error; err != nil {
+			ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
+			return nil
+		}
+		for _, r := range rows {
+			allIDs = append(allIDs, r.ID)
+		}
+	}
+	return allIDs
 }
 
 func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
