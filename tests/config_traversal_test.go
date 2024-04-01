@@ -20,6 +20,7 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment")},
 			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease")},
 			"kustomize-of-helm-release":  {ID: uuid.New(), Name: utils.Ptr("aws-demo-infra"), Type: utils.Ptr("Kubernetes::Kustomization")},
+			"kustomize-of-kustomize":     {ID: uuid.New(), Name: utils.Ptr("aws-demo-bootstrap"), Type: utils.Ptr("Kubernetes::Kustomization")},
 		}
 		ctx := DefaultContext
 		err := ctx.DB().Save(lo.Values(configItems)).Error
@@ -28,6 +29,7 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		configRelations := []models.ConfigRelationship{
 			{ConfigID: configItems["helm-release-of-deployment"].ID.String(), RelatedID: configItems["deployment"].ID.String(), Relation: "HelmReleaseDeployment"},
 			{ConfigID: configItems["kustomize-of-helm-release"].ID.String(), RelatedID: configItems["helm-release-of-deployment"].ID.String(), Relation: "KustomizationHelmRelease"},
+			{ConfigID: configItems["kustomize-of-kustomize"].ID.String(), RelatedID: configItems["kustomize-of-helm-release"].ID.String(), Relation: "KustomizationKustomization"},
 		}
 		err = ctx.DB().Clauses(clause.OnConflict{DoNothing: true}).Save(configRelations).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -41,15 +43,28 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 
 		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
+		Expect(len(got)).To(Equal(2))
 		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
 
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
+		Expect(len(got)).To(Equal(2))
 		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
 
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
+		Expect(len(got)).To(Equal(2))
 		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
+		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
+
+		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization/Kubernetes::Kustomization", "incoming")
+		Expect(got).ToNot(BeNil())
+		// This should only return 1 object since we are
+		// passing explicit path for the boostrap kustomization
+		Expect(len(got)).To(Equal(1))
+		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
 
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod", "incoming")
 		Expect(got).To(BeNil())
@@ -60,7 +75,6 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node", "incoming")
 		Expect(got).To(BeNil())
 
-		// TODO Fix these
 		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Deployment", "outgoing")
 		Expect(got).ToNot(BeNil())
 		Expect(got[0].ID.String()).To(Equal(configItems["deployment"].ID.String()))
