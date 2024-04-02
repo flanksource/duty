@@ -67,6 +67,8 @@ const (
 	AnalysisTypeTechDebt       AnalysisType = "technical_debt"
 )
 
+var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
 	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
@@ -87,6 +89,7 @@ type ConfigItem struct {
 	CostTotal7d     float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
 	CostTotal30d    float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
 	Labels          *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
+	Tags            types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
 	Properties      *types.Properties    `json:"properties,omitempty"`
 	LastScrapedTime *time.Time           `json:"last_scraped_time,omitempty"`
 	CreatedAt       time.Time            `json:"created_at"`
@@ -166,10 +169,7 @@ func (c ConfigItem) GetName() string {
 }
 
 func (c ConfigItem) GetNamespace() string {
-	if c.Labels == nil {
-		return ""
-	}
-	return (*c.Labels)["namespace"]
+	return c.Tags["namespace"]
 }
 
 func (c ConfigItem) GetType() string {
@@ -186,6 +186,10 @@ func (c ConfigItem) GetStatus() string {
 	return *c.Status
 }
 
+func (c ConfigItem) GetTagsMatcher() labels.Labels {
+	return configTags{c}
+}
+
 func (c ConfigItem) GetLabelsMatcher() labels.Labels {
 	return configLabels{c}
 }
@@ -194,11 +198,22 @@ func (c ConfigItem) GetFieldsMatcher() fields.Fields {
 	return configFields{c}
 }
 
-type configFields struct {
+type configTags struct {
 	ConfigItem
 }
 
-var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
+func (c configTags) Get(key string) string {
+	return c.Tags[key]
+}
+
+func (c configTags) Has(key string) bool {
+	_, ok := c.Tags[key]
+	return ok
+}
+
+type configFields struct {
+	ConfigItem
+}
 
 func (c configFields) Get(key string) string {
 	if lo.Contains(AllowedColumnFieldsInConfigs, key) {

@@ -107,6 +107,26 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		})
 	})
 
+	ginkgo.Context("Tag selector", func() {
+		ginkgo.It("Equals Query", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{TagSelector: "cluster=aws"}},
+			})
+			Expect(err).To(BeNil())
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.EKSCluster.ID.String()))
+		})
+
+		ginkgo.It("Not Equals Query", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{TagSelector: "cluster!=aws"}},
+			})
+			Expect(err).To(BeNil())
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesCluster.ID.String()))
+		})
+	})
+
 	ginkgo.Context("Label selector", func() {
 		ginkgo.It("Equals Query", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{

@@ -11,6 +11,9 @@ var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("EKS::Cluster"),
+	Tags: types.JSONStringMap{
+		"cluster": "aws",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "production",
@@ -21,6 +24,9 @@ var KubernetesCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
+	Tags: types.JSONStringMap{
+		"cluster": "demo",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "development",
