@@ -100,22 +100,19 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 	if t.From == "" && t.To == "" {
 		t.From = "now-2d"
 	}
-	if t.Recursive == "" || t.Recursive == "none" {
-		t.Depth = -1
-	} else if t.Depth == 0 {
+
+	if t.Recursive == "" {
+		t.Recursive = CatalogChangeRecursiveDownstream
+	}
+
+	if t.Depth <= 0 {
 		t.Depth = 5
 	}
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
-	if t.Recursive != "" {
-		if t.CatalogID == uuid.Nil {
-			return fmt.Errorf("recursive must be used with a catalog id")
-		}
-
-		if !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
-			return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
-		}
+	if !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
+		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
 	}
 
 	if t.From != "" {
