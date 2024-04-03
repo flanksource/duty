@@ -22,7 +22,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/itchyny/gojq v0.12.14
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
-	github.com/jackc/pgx/v5 v5.5.1
+	github.com/jackc/pgx/v5 v5.5.4
 	github.com/json-iterator/go v1.1.12
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/liamylian/jsontime/v2 v2.0.0
@@ -194,7 +194,7 @@ require (
 	google.golang.org/genproto v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/flanksource/yaml.v3 v3.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
