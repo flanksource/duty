@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-      - uses: codfish/semantic-release-action@ee5b4afec556c3bf8b9f0b9cd542aade9e486033 # v3.0.0
+      - uses: codfish/semantic-release-action@b9aa6f1730e80caa17d80b40f4659b5d3584114c # v3.1.1
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
