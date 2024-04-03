@@ -104,6 +104,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Recursive:             filter,
 		})
 	}
+
 	ginkgo.Context("Both ways", func() {
 		ginkgo.It("should return changes upstream and downstream", func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
@@ -159,6 +160,18 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.Context("FindCatalogChanges func", func() {
+		ginkgo.It("Without catalog id", func() {
+			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				ConfigType: "Kubernetes::Pod,Kubernetes::ReplicaSet",
+			})
+			Expect(err).To(BeNil())
+
+			Expect(response.Total).To(Equal(int64(3)))
+			Expect(len(response.Changes)).To(Equal(3))
+			Expect(response.Summary["Pulled"]).To(Equal(2))
+			Expect(response.Summary["diff"]).To(Equal(1))
+		})
+
 		ginkgo.Context("Config type filter", func() {
 			ginkgo.It("IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
