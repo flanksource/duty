@@ -366,35 +366,6 @@ AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
   EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
 
-DROP VIEW IF EXISTS config_detail;
-
-CREATE OR REPLACE VIEW config_detail AS
-  SELECT
-    ci.*,
-    json_build_object(
-      'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
-      'analysis', COALESCE(analysis.analysis_count, 0),
-      'changes', COALESCE(config_changes.changes_count, 0),
-      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0)
-    ) as summary
-  FROM config_items as ci
-    LEFT JOIN
-      (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
-      ON ci.id = related.config_id
-    LEFT JOIN
-      (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
-      ON ci.id = reverse_related.related_id
-    LEFT JOIN
-      (SELECT config_id, count(*) as analysis_count FROM config_analysis GROUP BY config_id) as analysis
-      ON ci.id = analysis.config_id
-    LEFT JOIN
-      (SELECT config_id, count(*) as changes_count FROM config_changes GROUP BY config_id) as config_changes
-      ON ci.id = config_changes.config_id
-    LEFT JOIN
-      (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
-        WHERE start_time > NOW() - interval '30 days' 
-        GROUP BY config_id) as playbook_runs
-      ON ci.id = playbook_runs.config_id;
 
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
@@ -573,10 +544,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- related config changes recursively
-DROP FUNCTION IF EXISTS related_changes_recursive(UUID, TEXT, BOOLEAN);
-DROP FUNCTION IF EXISTS related_changes_recursive;
-
-CREATE FUNCTION related_changes_recursive (
+CREATE OR REPLACE FUNCTION related_changes_recursive (
   lookup_id UUID,
   type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'all'
   include_deleted_configs BOOLEAN DEFAULT FALSE,
@@ -625,4 +593,40 @@ DROP VIEW IF EXISTS catalog_changes;
 CREATE OR REPLACE VIEW catalog_changes AS
   SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
   FROM config_changes cc
-  LEFT JOIN config_items c on c.id = cc.config_id
+  LEFT JOIN config_items c on c.id = cc.config_id;
+
+DROP VIEW IF EXISTS config_detail;
+
+CREATE OR REPLACE VIEW config_detail AS
+  SELECT
+    ci.*,
+    json_build_object(
+      'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
+      'analysis', COALESCE(analysis.analysis_count, 0),
+      'changes', COALESCE(config_changes.changes_count, 0),
+      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0)
+    ) as summary
+  FROM config_items as ci
+    LEFT JOIN
+      (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
+      ON ci.id = related.config_id
+    LEFT JOIN
+      (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
+      ON ci.id = reverse_related.related_id
+    LEFT JOIN
+      (SELECT config_id, count(*) as analysis_count FROM config_analysis
+        WHERE first_observed > NOW() - interval '2 days'
+        GROUP BY config_id) as analysis
+      ON ci.id = analysis.config_id
+    LEFT JOIN
+      (SELECT config_items.id as config_id, count(rcr.id) as changes_count
+        FROM config_items
+        LEFT JOIN LATERAL related_changes_recursive(config_items.id) rcr ON true
+        WHERE config_items.deleted_at IS NOT NULL AND rcr.created_at > NOW() - interval '2 days'
+        GROUP BY config_items.id) as config_changes
+      ON ci.id = config_changes.config_id
+    LEFT JOIN
+      (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
+        WHERE start_time > NOW() - interval '30 days' 
+        GROUP BY config_id) as playbook_runs
+      ON ci.id = playbook_runs.config_id;
