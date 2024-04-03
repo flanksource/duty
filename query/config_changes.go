@@ -100,19 +100,18 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 	if t.From == "" && t.To == "" {
 		t.From = "now-2d"
 	}
-	if t.Recursive == "" || t.Recursive == "none" {
-		t.Depth = -1
-	} else if t.Depth == 0 {
+
+	if t.Recursive == "" {
+		t.Recursive = CatalogChangeRecursiveDownstream
+	}
+
+	if t.Depth <= 0 {
 		t.Depth = 5
 	}
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
-	if t.CatalogID == uuid.Nil {
-		return fmt.Errorf("catalog id is required")
-	}
-
-	if t.Recursive != "" && !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
+	if !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
 		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
 	}
 
@@ -206,6 +205,9 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	table := ctx.DB().Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+	if req.CatalogID == uuid.Nil {
+		table = ctx.DB().Table("catalog_changes")
+	}
 
 	var output CatalogChangesSearchResponse
 	if err := table.Clauses(clauses...).Count(&output.Total).Error; err != nil {
@@ -228,10 +230,8 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		clause.Limit{Limit: lo.ToPtr(req.PageSize), Offset: (req.Page - 1) * req.PageSize},
 	)
 
-	if req.CatalogID != uuid.Nil {
-		if err := table.Clauses(clauses...).Find(&output.Changes).Error; err != nil {
-			return nil, err
-		}
+	if err := table.Clauses(clauses...).Find(&output.Changes).Error; err != nil {
+		return nil, err
 	}
 
 	output.Summarize()
