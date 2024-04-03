@@ -391,7 +391,9 @@ CREATE OR REPLACE VIEW config_detail AS
       (SELECT config_id, count(*) as changes_count FROM config_changes GROUP BY config_id) as config_changes
       ON ci.id = config_changes.config_id
     LEFT JOIN
-      (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs GROUP BY config_id) as playbook_runs
+      (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
+        WHERE start_time > NOW() - interval '30 days' 
+        GROUP BY config_id) as playbook_runs
       ON ci.id = playbook_runs.config_id;
 
 CREATE OR REPLACE VIEW config_analysis_items AS
