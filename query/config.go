@@ -61,7 +61,7 @@ func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...t
 	var allConfigs []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", "tags", models.AllowedColumnFieldsInConfigs)
+		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", models.AllowedColumnFieldsInConfigs)
 		if err != nil {
 			return nil, err
 		}

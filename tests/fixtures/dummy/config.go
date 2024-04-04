@@ -11,7 +11,7 @@ var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("EKS::Cluster"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "production",
 	}),
@@ -21,7 +21,7 @@ var KubernetesCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"telemetry":   "enabled",
 		"environment": "development",
 	}),
@@ -32,7 +32,7 @@ var KubernetesNodeA = models.ConfigItem{
 	Name:        lo.ToPtr("node-a"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"role":   "worker",
 		"region": "us-east-1",
 	}),
@@ -47,7 +47,7 @@ var KubernetesNodeB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"role":           "worker",
 		"region":         "us-west-2",
 		"storageprofile": "managed",
@@ -63,7 +63,7 @@ var EC2InstanceA = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Type:        lo.ToPtr("EC2::Instance"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"environment": "testing",
 		"app":         "backend",
 	}),
@@ -73,7 +73,7 @@ var EC2InstanceB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Type:        lo.ToPtr("EC2::Instance"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"environment": "production",
 		"app":         "frontend",
 	}),
@@ -83,7 +83,7 @@ var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
 	Type:        lo.ToPtr("Logistics::API::Deployment"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-1",
@@ -95,7 +95,7 @@ var LogisticsUIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
 	Type:        lo.ToPtr("Logistics::UI::Deployment"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-2",
@@ -107,7 +107,7 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
 	Type:        lo.ToPtr("Logistics::Worker::Deployment"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
 		"owner":       "team-3",
@@ -119,7 +119,7 @@ var LogisticsDBRDS = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDatabase,
 	Type:        lo.ToPtr("Logistics::DB::RDS"),
-	Tags: lo.ToPtr(types.JSONStringMap{
+	Labels: lo.ToPtr(types.JSONStringMap{
 		"database":    "logistics",
 		"environment": "production",
 		"region":      "us-east-1",

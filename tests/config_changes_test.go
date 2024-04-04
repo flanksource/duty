@@ -25,12 +25,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	// Create a list of ConfigItems
 	var (
-		U = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U")}
-		V = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V")}
-		W = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W")}
-		X = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X")}
-		Y = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y")}
-		Z = models.ConfigItem{ID: uuid.New(), Tags: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z")}
+		U = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U")}
+		V = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V")}
+		W = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W")}
+		X = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X")}
+		Y = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y")}
+		Z = models.ConfigItem{ID: uuid.New(), Labels: lo.ToPtr(types.JSONStringMap{"namespace": "test-changes"}), Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z")}
 	)
 	configItems := []models.ConfigItem{U, V, W, X, Y, Z}
 
@@ -64,7 +64,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 
 		var foundConfigs []models.ConfigItem
-		err = DefaultContext.DB().Select("id").Where("tags->>'namespace' = 'test-changes'").Find(&foundConfigs).Error
+		err = DefaultContext.DB().Select("id").Where("labels->>'namespace' = 'test-changes'").Find(&foundConfigs).Error
 		Expect(err).To(BeNil())
 		Expect(len(foundConfigs)).To(Equal(len(configItems)))
 
@@ -94,7 +94,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		err = DefaultContext.DB().Where("source = 'test-changes'").Delete(&models.ConfigChange{}).Error
 		Expect(err).To(BeNil())
 
-		err = DefaultContext.DB().Where("tags->>'namespace' = 'test-changes'").Delete(&models.ConfigItem{}).Error
+		err = DefaultContext.DB().Where("labels->>'namespace' = 'test-changes'").Delete(&models.ConfigItem{}).Error
 		Expect(err).To(BeNil())
 	})
 

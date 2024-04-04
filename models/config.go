@@ -86,7 +86,7 @@ type ConfigItem struct {
 	CostTotal1d     float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
 	CostTotal7d     float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
 	CostTotal30d    float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
-	Tags            *types.JSONStringMap `json:"tags,omitempty" faker:"tags"`
+	Labels          *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
 	Properties      *types.Properties    `json:"properties,omitempty"`
 	LastScrapedTime *time.Time           `json:"last_scraped_time,omitempty"`
 	CreatedAt       time.Time            `json:"created_at"`
@@ -166,10 +166,10 @@ func (c ConfigItem) GetName() string {
 }
 
 func (c ConfigItem) GetNamespace() string {
-	if c.Tags == nil {
+	if c.Labels == nil {
 		return ""
 	}
-	return (*c.Tags)["namespace"]
+	return (*c.Labels)["namespace"]
 }
 
 func (c ConfigItem) GetType() string {
@@ -228,19 +228,19 @@ type configLabels struct {
 }
 
 func (c configLabels) Get(key string) string {
-	if c.Tags == nil || len(*c.Tags) == 0 {
+	if c.Labels == nil || len(*c.Labels) == 0 {
 		return ""
 	}
 
-	return (*c.Tags)[key]
+	return (*c.Labels)[key]
 }
 
 func (c configLabels) Has(key string) bool {
-	if c.Tags == nil || len(*c.Tags) == 0 {
+	if c.Labels == nil || len(*c.Labels) == 0 {
 		return false
 	}
 
-	_, ok := (*c.Tags)[key]
+	_, ok := (*c.Labels)[key]
 	return ok
 }
 
@@ -455,7 +455,7 @@ type RelatedConfig struct {
 	ID            uuid.UUID           `json:"id"`
 	Name          string              `json:"name"`
 	Type          string              `json:"type"`
-	Tags          types.JSONStringMap `json:"tags"`
+	Labels        types.JSONStringMap `json:"labels"`
 	Changes       types.JSON          `json:"changes,omitempty"`
 	Analysis      types.JSON          `json:"analysis,omitempty"`
 	CostPerMinute *float64            `json:"cost_per_minute,omitempty"`

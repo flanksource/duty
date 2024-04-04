@@ -33,7 +33,7 @@ func FindComponents(ctx context.Context, resourceSelectors ...types.ResourceSele
 func FindComponentIDs(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
 	var allComponents []uuid.UUID
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "components", "labels", models.AllowedColumnFieldsInComponents)
+		items, err := queryResourceSelector(ctx, resourceSelector, "components", models.AllowedColumnFieldsInComponents)
 		if err != nil {
 			return nil, err
 		}

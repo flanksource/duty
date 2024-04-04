@@ -8,10 +8,10 @@ CREATE or REPLACE VIEW configs AS
     ci.external_id,
     ci.type,
     ci.name,
-    ci.tags->>'namespace' as namespace,
+    ci.labels->>'namespace' as namespace,
     ci.description,
     ci.source,
-    ci.tags,
+    ci.labels,
     ci.created_by,
     ci.created_at,
     ci.updated_at,
@@ -162,11 +162,11 @@ FROM config_changes
 ORDER BY
     config_changes.created_at DESC;
 
--- config_tags
-DROP VIEW IF EXISTS config_tags;
-CREATE OR REPLACE VIEW config_tags AS
+-- config_labels
+DROP VIEW IF EXISTS config_labels;
+CREATE OR REPLACE VIEW config_labels AS
   SELECT d.key, d.value
-  FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+  FROM configs JOIN json_each_text(labels::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
 
 
 -- config_type_summary
@@ -459,7 +459,7 @@ CREATE FUNCTION related_configs_recursive (
     direction TEXT,
     related_id uuid,
     depth INTEGER,
-    tags jsonb,
+    labels jsonb,
     changes json,
     analysis json,
     cost_per_minute NUMERIC(16, 4),
@@ -481,7 +481,7 @@ BEGIN
       r.direction,
       r.related_id,
       r.depth,
-      configs.tags,
+      configs.labels,
       configs.changes,
       configs.analysis,
       configs.cost_per_minute,
@@ -524,7 +524,7 @@ CREATE FUNCTION related_configs (
     direction TEXT,
     related_id uuid,
     depth INTEGER,
-    tags jsonb,
+    labels jsonb,
     changes json,
     analysis json,
     cost_per_minute NUMERIC(16, 4),

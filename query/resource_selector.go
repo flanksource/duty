@@ -56,7 +56,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 				output.Configs = append(output.Configs, SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
-					Labels:    lo.FromPtr(items[i].Tags),
+					Labels:    lo.FromPtr(items[i].Labels),
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
@@ -115,7 +115,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
-func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table, labelsColumn string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
+func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
 	if resourceSelector.IsEmpty() {
 		return nil, nil
 	}
@@ -147,7 +147,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	if resourceSelector.Namespace != "" {
 		switch table {
 		case "config_items":
-			query = query.Where("tags->>'namespace' = ?", resourceSelector.Namespace)
+			query = query.Where("labels->>'namespace' = ?", resourceSelector.Namespace)
 		default:
 			query = query.Where("namespace = ?", resourceSelector.Namespace)
 		}
@@ -180,7 +180,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
-			query = labelSelectorRequirementToSQLClause(query, labelsColumn, r)
+			query = labelSelectorRequirementToSQLClause(query, r)
 		}
 	}
 
@@ -227,33 +227,33 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 }
 
 // labelSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func labelSelectorRequirementToSQLClause(q *gorm.DB, labelsColumn string, r labels.Requirement) *gorm.DB {
+func labelSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
 	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s @> ?", labelsColumn), types.JSONStringMap{r.Key(): val})
+			q = q.Where("labels @> ?", types.JSONStringMap{r.Key(): val})
 		}
 	case selection.NotEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' != ?", labelsColumn, r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			q = q.Where(fmt.Sprintf("labels->>'%s' != ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
 		}
 	case selection.In:
-		q = q.Where(fmt.Sprintf("%s->>'%s' IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+		q = q.Where(fmt.Sprintf("labels->>'%s' IN ?", r.Key()), collections.MapKeys(r.Values()))
 	case selection.NotIn:
-		q = q.Where(fmt.Sprintf("%s->>'%s' NOT IN ?", labelsColumn, r.Key()), collections.MapKeys(r.Values()))
+		q = q.Where(fmt.Sprintf("labels->>'%s' NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
 	case selection.DoesNotExist:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", labelsColumn, val))
+			q = q.Where(fmt.Sprintf("labels->>'%s' IS NULL", val))
 		}
 	case selection.Exists:
-		q = q.Where(fmt.Sprintf("%s ? ?", labelsColumn), gorm.Expr("?"), r.Key())
+		q = q.Where("labels ? ?", gorm.Expr("?"), r.Key())
 	case selection.GreaterThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", labelsColumn, r.Key()), val)
+			q = q.Where(fmt.Sprintf("labels->>'%s' > ?", r.Key()), val)
 		}
 	case selection.LessThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' < ?", labelsColumn, r.Key()), val)
+			q = q.Where(fmt.Sprintf("labels->>'%s' < ?", r.Key()), val)
 		}
 	}
 

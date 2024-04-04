@@ -234,7 +234,7 @@ table "config_items" {
     null = true
     type = text
   }
-  column "tags" {
+  column "labels" {
     null = true
     type = jsonb
   }

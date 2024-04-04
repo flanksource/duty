@@ -62,7 +62,7 @@ func TestResourceSelector_Matches(t *testing.T) {
 			selectable:       nil,
 			unselectable: models.ConfigItem{
 				Name: lo.ToPtr("silverbullet"),
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 			},
@@ -89,13 +89,13 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 			selectable: models.ConfigItem{
 				Name: lo.ToPtr("airsonic"),
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 			},
 			unselectable: models.ConfigItem{
 				Name: lo.ToPtr("silverbullet"),
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 			},
@@ -121,13 +121,13 @@ func TestResourceSelector_Matches(t *testing.T) {
 				Statuses:  []string{"healthy"},
 			},
 			selectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				Status: lo.ToPtr("healthy"),
 			},
 			unselectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				Status: lo.ToPtr("unhealthy"),
@@ -155,14 +155,14 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 			selectable: models.ConfigItem{
 				ConfigClass: "Cluster",
-				Tags: lo.ToPtr(types.JSONStringMap{
+				Labels: lo.ToPtr(types.JSONStringMap{
 					"env":       "production",
 					"namespace": "default",
 				}),
 			},
 			unselectable: models.ConfigItem{
 				ConfigClass: "Cluster",
-				Tags: lo.ToPtr(types.JSONStringMap{
+				Labels: lo.ToPtr(types.JSONStringMap{
 					"env":       "dev",
 					"namespace": "default",
 				}),
@@ -176,14 +176,14 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 			selectable: models.ConfigItem{
 				ConfigClass: "Cluster",
-				Tags: lo.ToPtr(types.JSONStringMap{
+				Labels: lo.ToPtr(types.JSONStringMap{
 					"env":       "production",
 					"namespace": "default",
 				}),
 			},
 			unselectable: models.ConfigItem{
 				ConfigClass: "Cluster",
-				Tags: lo.ToPtr(types.JSONStringMap{
+				Labels: lo.ToPtr(types.JSONStringMap{
 					"env":       "dev",
 					"namespace": "default",
 				}),
@@ -196,13 +196,13 @@ func TestResourceSelector_Matches(t *testing.T) {
 				FieldSelector: "config_class=Cluster",
 			},
 			selectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				ConfigClass: "Cluster",
 			},
 			unselectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				ConfigClass: "VirtualMachine",
@@ -215,13 +215,13 @@ func TestResourceSelector_Matches(t *testing.T) {
 				FieldSelector: "config_class notin (Cluster)",
 			},
 			selectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				ConfigClass: "VirtualMachine",
 			},
 			unselectable: models.ConfigItem{
-				Tags: &types.JSONStringMap{
+				Labels: &types.JSONStringMap{
 					"namespace": "default",
 				},
 				ConfigClass: "Cluster",
