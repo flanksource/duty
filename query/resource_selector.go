@@ -145,7 +145,12 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 		query = query.Where("name = ?", resourceSelector.Name)
 	}
 	if resourceSelector.Namespace != "" {
-		query = query.Where("namespace = ?", resourceSelector.Namespace)
+		switch table {
+		case "config_items":
+			query = query.Where("tags->>'namespace' = ?", resourceSelector.Namespace)
+		default:
+			query = query.Where("namespace = ?", resourceSelector.Namespace)
+		}
 	}
 	if len(resourceSelector.Types) != 0 {
 		query = query.Where("type IN ?", resourceSelector.Types)

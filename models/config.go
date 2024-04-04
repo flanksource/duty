@@ -77,7 +77,6 @@ type ConfigItem struct {
 	Type            *string              `json:"type,omitempty"`
 	Status          *string              `json:"status,omitempty" gorm:"default:null"`
 	Name            *string              `json:"name,omitempty" faker:"name"  `
-	Namespace       *string              `json:"namespace,omitempty" faker:"oneof: default, demo, prod, staging" `
 	Description     *string              `json:"description,omitempty"`
 	Config          *string              `json:"config,omitempty"  `
 	Source          *string              `json:"source,omitempty"  `
@@ -167,10 +166,10 @@ func (c ConfigItem) GetName() string {
 }
 
 func (c ConfigItem) GetNamespace() string {
-	if c.Namespace == nil {
+	if c.Tags == nil {
 		return ""
 	}
-	return *c.Namespace
+	return (*c.Tags)["namespace"]
 }
 
 func (c ConfigItem) GetType() string {

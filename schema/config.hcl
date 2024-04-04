@@ -222,15 +222,7 @@ table "config_items" {
     null = true
     type = text
   }
-  column "namespace" {
-    null = true
-    type = text
-  }
   column "description" {
-    null = true
-    type = text
-  }
-  column "account" {
     null = true
     type = text
   }

@@ -8,7 +8,7 @@ CREATE or REPLACE VIEW configs AS
     ci.external_id,
     ci.type,
     ci.name,
-    ci.namespace,
+    ci.tags->>'namespace' as namespace,
     ci.description,
     ci.source,
     ci.tags,
@@ -365,7 +365,6 @@ CREATE OR REPLACE TRIGGER config_items_create_update_trigger
 AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
   EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
-
 
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
