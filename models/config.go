@@ -470,7 +470,7 @@ type RelatedConfig struct {
 	ID            uuid.UUID           `json:"id"`
 	Name          string              `json:"name"`
 	Type          string              `json:"type"`
-	Labels        types.JSONStringMap `json:"labels"`
+	Tags          types.JSONStringMap `json:"tags"`
 	Changes       types.JSON          `json:"changes,omitempty"`
 	Analysis      types.JSON          `json:"analysis,omitempty"`
 	CostPerMinute *float64            `json:"cost_per_minute,omitempty"`

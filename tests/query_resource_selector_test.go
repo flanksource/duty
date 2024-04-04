@@ -23,7 +23,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []query.SelectedResource{{
 				ID:        dummy.EKSCluster.ID.String(),
 				Agent:     dummy.EKSCluster.AgentID.String(),
-				Labels:    lo.FromPtr(dummy.EKSCluster.Labels),
+				Tags:      dummy.EKSCluster.Tags,
 				Name:      lo.FromPtr(dummy.EKSCluster.Name),
 				Namespace: dummy.EKSCluster.GetNamespace(),
 				Type:      lo.FromPtr(dummy.EKSCluster.Type),
