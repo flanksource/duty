@@ -35,18 +35,13 @@ type SearchResourcesResponse struct {
 }
 
 type SelectedResource struct {
-	ID        string `json:"id"`
-	Agent     string `json:"agent"`
-	Icon      string `json:"icon,omitempty"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Type      string `json:"type"`
-
-	// Components & checks return labels
-	Labels map[string]string `json:"labels,omitempty"`
-
-	// Configs return tags
-	Tags map[string]string `json:"tags,omitempty"`
+	ID        string            `json:"id"`
+	Agent     string            `json:"agent"`
+	Icon      string            `json:"icon,omitempty"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Type      string            `json:"type"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
 
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
@@ -81,7 +76,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Icon:      items[i].Icon,
-					Labels:    items[i].Labels,
+					Tags:      items[i].Labels,
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
@@ -101,7 +96,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Icon:      items[i].Icon,
-					Labels:    items[i].Labels,
+					Tags:      items[i].Labels,
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
