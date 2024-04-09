@@ -345,7 +345,7 @@ func (j *Job) Run() {
 		defer cancel()
 	}
 
-	if shouldCleanupHistory(j.lastHistoryCleanup, j.Retention.Age) {
+	if shouldCleanupHistory(j.Context, j.lastHistoryCleanup, j.Retention.Age) {
 		defer func() {
 			j.cleanupHistory()
 			j.lastHistoryCleanup = time.Now()
@@ -361,7 +361,7 @@ func (j *Job) Run() {
 	}
 }
 
-func shouldCleanupHistory(lastCleanup time.Time, retentionAge time.Duration) bool {
+func shouldCleanupHistory(ctx context.Context, lastCleanup time.Time, retentionAge time.Duration) bool {
 	cleanupInterval := time.Hour * 6
 
 	// If retention is more than a day, cleanup every half a day
@@ -374,6 +374,7 @@ func shouldCleanupHistory(lastCleanup time.Time, retentionAge time.Duration) boo
 		cleanupInterval = time.Hour
 	}
 
+	cleanupInterval = ctx.Properties().Duration("job.history.cleanup.interval", cleanupInterval)
 	return time.Since(lastCleanup) >= cleanupInterval
 }
 
