@@ -8,9 +8,10 @@ CREATE or REPLACE VIEW configs AS
     ci.external_id,
     ci.type,
     ci.name,
-    ci.namespace,
+    ci.tags->>'namespace' as namespace,
     ci.description,
     ci.source,
+    ci.labels,
     ci.tags,
     ci.created_by,
     ci.created_at,
@@ -168,6 +169,11 @@ CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
   FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
 
+-- config_labels
+DROP VIEW IF EXISTS config_labels;
+CREATE OR REPLACE VIEW config_labels AS
+  SELECT d.key, d.value
+  FROM configs JOIN json_each_text(labels::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
 
 -- config_type_summary
 DROP VIEW IF EXISTS config_summary;
@@ -365,7 +371,6 @@ CREATE OR REPLACE TRIGGER config_items_create_update_trigger
 AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
   EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
-
 
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT

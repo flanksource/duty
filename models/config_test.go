@@ -24,16 +24,14 @@ func TestConfig_AsMap(t *testing.T) {
 		{
 			name: "remove single field",
 			canary: ConfigItem{
-				ID:        id,
-				Namespace: ptr("canary"),
-				Name:      ptr("dummy-canary"),
+				ID:   id,
+				Name: ptr("dummy-canary"),
 			},
 			removeFields: []string{"updated_at", "created_at", "config_class", "last_scraped_time"},
 			want: map[string]any{
-				"name":      "dummy-canary",
-				"namespace": "canary",
-				"agent_id":  "00000000-0000-0000-0000-000000000000",
-				"id":        id.String(),
+				"name":     "dummy-canary",
+				"agent_id": "00000000-0000-0000-0000-000000000000",
+				"id":       id.String(),
 			},
 		},
 	}

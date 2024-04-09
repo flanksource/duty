@@ -721,7 +721,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassCluster,
 		Type:        lo.ToPtr("EKS::Cluster"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"telemetry":   "enabled",
 			"environment": "production",
 		}),
@@ -731,7 +731,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassCluster,
 		Type:        lo.ToPtr("Kubernetes::Cluster"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"telemetry":   "enabled",
 			"environment": "development",
 		}),
@@ -741,7 +741,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassNode,
 		Type:        lo.ToPtr("Kubernetes::Node"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"role":   "worker",
 			"region": "us-east-1",
 		}),
@@ -752,7 +752,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassNode,
 		Type:        lo.ToPtr("Kubernetes::Node"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"role":           "worker",
 			"region":         "us-west-2",
 			"storageprofile": "managed",
@@ -764,7 +764,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassVirtualMachine,
 		Type:        lo.ToPtr("EC2::Instance"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"environment": "testing",
 			"app":         "backend",
 		}),
@@ -774,7 +774,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassVirtualMachine,
 		Type:        lo.ToPtr("EC2::Instance"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"environment": "production",
 			"app":         "frontend",
 		}),
@@ -784,7 +784,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
 		Type:        lo.ToPtr("Logistics::API::Deployment"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-1",
@@ -796,7 +796,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
 		Type:        lo.ToPtr("Logistics::UI::Deployment"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-2",
@@ -808,7 +808,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDeployment,
 		Type:        lo.ToPtr("Logistics::Worker::Deployment"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"app":         "logistics",
 			"environment": "production",
 			"owner":       "team-3",
@@ -820,7 +820,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:          uuid.New(),
 		ConfigClass: models.ConfigClassDatabase,
 		Type:        lo.ToPtr("Logistics::DB::RDS"),
-		Tags: lo.ToPtr(types.JSONStringMap{
+		Labels: lo.ToPtr(types.JSONStringMap{
 			"database":    "logistics",
 			"environment": "production",
 			"region":      "us-east-1",

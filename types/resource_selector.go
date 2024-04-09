@@ -35,6 +35,7 @@ type ResourceSelector struct {
 	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 	Types         Items  `yaml:"types,omitempty" json:"types,omitempty"`
 	Statuses      Items  `yaml:"statuses,omitempty" json:"statuses,omitempty"`
+	TagSelector   string `yaml:"tagSelector,omitempty" json:"tagSelector,omitempty"`
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 }
@@ -42,6 +43,7 @@ type ResourceSelector struct {
 func (c ResourceSelector) IsEmpty() bool {
 	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
+		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
 		len(c.FieldSelector) == 0
 }
@@ -61,7 +63,7 @@ func (c ResourceSelector) Immutable() bool {
 		return false // still not specific enough
 	}
 
-	if len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 {
+	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 {
 		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
 		return false
 	}
@@ -77,6 +79,7 @@ func (c ResourceSelector) Hash() string {
 		c.Agent,
 		strings.Join(c.Types.Sort(), ","),
 		strings.Join(c.Statuses.Sort(), ","),
+		collections.SortedMap(collections.SelectorToMap(c.TagSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
 		fmt.Sprint(c.IncludeDeleted),
@@ -103,6 +106,18 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	}
 	if len(rs.Statuses) > 0 && !rs.Statuses.Contains(s.GetStatus()) {
 		return false
+	}
+
+	if len(rs.TagSelector) > 0 {
+		if tagsMatcher, ok := s.(TagsMatchable); ok {
+			parsed, err := labels.Parse(rs.TagSelector)
+			if err != nil {
+				logger.Errorf("bad tag selector: %v", err)
+				return false
+			} else if !parsed.Matches(tagsMatcher.GetTagssMatcher()) {
+				return false
+			}
+		}
 	}
 
 	if len(rs.LabelSelector) > 0 {
@@ -158,6 +173,10 @@ func (ResourceSelectors) GormDBDataType(db *gorm.DB, field *schema.Field) string
 
 func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	return GormValue(rs)
+}
+
+type TagsMatchable interface {
+	GetTagssMatcher() labels.Labels
 }
 
 type ResourceSelectable interface {

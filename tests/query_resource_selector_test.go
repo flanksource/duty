@@ -23,16 +23,16 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []query.SelectedResource{{
 				ID:        dummy.EKSCluster.ID.String(),
 				Agent:     dummy.EKSCluster.AgentID.String(),
-				Labels:    lo.FromPtr(dummy.EKSCluster.Tags),
+				Tags:      dummy.EKSCluster.Tags,
 				Name:      lo.FromPtr(dummy.EKSCluster.Name),
-				Namespace: lo.FromPtr(dummy.EKSCluster.Namespace),
+				Namespace: dummy.EKSCluster.GetNamespace(),
 				Type:      lo.FromPtr(dummy.EKSCluster.Type),
 			}},
 			Checks: []query.SelectedResource{{
 				ID:        dummy.LogisticsAPIHealthHTTPCheck.ID.String(),
 				Agent:     dummy.LogisticsAPIHealthHTTPCheck.AgentID.String(),
 				Icon:      dummy.LogisticsAPIHealthHTTPCheck.Icon,
-				Labels:    dummy.LogisticsAPIHealthHTTPCheck.Labels,
+				Tags:      dummy.LogisticsAPIHealthHTTPCheck.Labels,
 				Name:      dummy.LogisticsAPIHealthHTTPCheck.Name,
 				Namespace: dummy.LogisticsAPIHealthHTTPCheck.Namespace,
 				Type:      dummy.LogisticsAPIHealthHTTPCheck.Type,
@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				ID:        dummy.Logistics.ID.String(),
 				Agent:     dummy.Logistics.AgentID.String(),
 				Icon:      dummy.Logistics.Icon,
-				Labels:    dummy.Logistics.Labels,
+				Tags:      dummy.Logistics.Labels,
 				Name:      dummy.Logistics.Name,
 				Namespace: dummy.Logistics.Namespace,
 				Type:      dummy.Logistics.Type,
@@ -104,6 +104,26 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			})
 			Expect(err).To(BeNil())
 			Expect(len(items.Configs)).To(Equal(2), "should have returned 2 for the Virtual Machine configs")
+		})
+	})
+
+	ginkgo.Context("Tag selector", func() {
+		ginkgo.It("Equals Query", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{TagSelector: "cluster=aws"}},
+			})
+			Expect(err).To(BeNil())
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.EKSCluster.ID.String()))
+		})
+
+		ginkgo.It("Not Equals Query", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{TagSelector: "cluster!=aws"}},
+			})
+			Expect(err).To(BeNil())
+			Expect(len(items.Configs)).To(Equal(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesCluster.ID.String()))
 		})
 	})
 

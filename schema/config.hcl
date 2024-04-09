@@ -222,15 +222,7 @@ table "config_items" {
     null = true
     type = text
   }
-  column "namespace" {
-    null = true
-    type = text
-  }
   column "description" {
-    null = true
-    type = text
-  }
-  column "account" {
     null = true
     type = text
   }
@@ -242,9 +234,14 @@ table "config_items" {
     null = true
     type = text
   }
+  column "labels" {
+    null = true
+    type = jsonb
+  }
   column "tags" {
     null = true
     type = jsonb
+    comment = "contains a list of tags"
   }
   column "properties" {
     null = true
@@ -324,11 +321,13 @@ table "config_items" {
   index "idx_config_items_deleted_at" {
     columns = [column.deleted_at]
   }
-
+  index "idx_config_items_tags" {
+    columns = [column.tags]
+    type    = GIN
+  }
   index "idx_config_items_agent" {
     columns = [column.agent_id]
   }
-
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }

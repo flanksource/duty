@@ -27,7 +27,7 @@ func FindCheckIDs(ctx context.Context, resourceSelectors ...types.ResourceSelect
 
 	var allChecks []uuid.UUID
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "checks", "labels", nil)
+		items, err := queryResourceSelector(ctx, resourceSelector, "checks", nil)
 		if err != nil {
 			return nil, err
 		}
