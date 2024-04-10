@@ -22,7 +22,7 @@ func (opt TopologyOptions) String() string {
 	return fmt.Sprintf("%#v", opt)
 }
 
-func ClearCache() {
+func FlushTopologyCache() {
 	topologyCache.Flush()
 }
 
