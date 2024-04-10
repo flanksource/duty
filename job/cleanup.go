@@ -8,9 +8,23 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string) error {
+func CleanupStaleHistoryJob(age time.Duration, name, resourceID string) *Job {
+	return &Job{
+		Name:       "CleanupStaleJobHistory",
+		Schedule:   "@every 24h",
+		Singleton:  true,
+		JobHistory: true,
+		Retention:  Retention3Day,
+		RunNow:     true,
+		Fn: func(ctx JobRuntime) error {
+			return cleanupStaleHistory(ctx.Context, age, name, resourceID)
+		},
+	}
+}
+
+func cleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string) error {
 	ctx = ctx.WithName(fmt.Sprintf("job=%s", name)).WithName(fmt.Sprintf("resourceID=%s", resourceID))
-	query := ctx.DB().Where("NOW() - time_start >= %s", age)
+	query := ctx.DB().Debug().Where("NOW() - time_start >= ?", age)
 	if name != "" {
 		query = query.Where("name = ?", name)
 	}

@@ -50,37 +50,31 @@ func deleteEvictedJobs(ctx context.Context) {
 var RetentionMinutes = Retention{
 	Success: 1,
 	Failed:  3,
-	Age:     time.Minute * 15,
 }
 
 var RetentionHour = Retention{
 	Success: 1,
 	Failed:  3,
-	Age:     time.Hour,
 }
 
 var RetentionFailed = Retention{
 	Success: 0,
 	Failed:  1,
-	Age:     time.Hour * 24 * 2,
 }
 
 var RetentionShort = Retention{
 	Success: 1,
 	Failed:  1,
-	Age:     time.Hour,
 }
 
 var RetentionDay = Retention{
 	Success: 3,
 	Failed:  3,
-	Age:     time.Hour * 24,
 }
 
 var Retention3Day = Retention{
 	Success: 3,
 	Failed:  3,
-	Age:     time.Hour * 24 * 3,
 }
 
 type Job struct {
@@ -161,12 +155,6 @@ type Retention struct {
 	// Failed is the number of unsuccessful job history to retain
 	Failed int
 
-	// Age is the maximum age of job history to retain
-	Age time.Duration
-
-	// Interval for job history cleanup
-	Interval time.Duration
-
 	// Data ...?
 	Data bool
 }
@@ -184,7 +172,11 @@ func (r Retention) WithData() Retention {
 }
 
 func (r Retention) String() string {
-	return fmt.Sprintf("age=%s, interval=%s, success=%d, failed=%d", r.Age, r.Interval, r.Success, r.Failed)
+	return fmt.Sprintf("success=%d, failed=%d", r.Success, r.Failed)
+}
+
+func (r Retention) Empty() bool {
+	return r.Success == 0 && r.Failed == 0
 }
 
 type JobRuntime struct {
@@ -298,7 +290,7 @@ func (j *Job) Run() {
 	}
 
 	if err := j.init(); err != nil {
-		r.Failf("%s concurrent job aborted", r.ID())
+		r.Failf("failed to initialize job: %s", r.ID())
 		return
 	}
 
@@ -386,21 +378,11 @@ func (j *Job) init() error {
 	}
 
 	// Set default retention if it is unset
-	if j.Retention.Age.Nanoseconds() == 0 {
+	if j.Retention.Empty() {
 		j.Retention = Retention{
-			Success: 1, Failed: 3,
-			Age: time.Hour * 24,
+			Success: 1,
+			Failed:  3,
 		}
-	}
-
-	if interval, ok := getProperty(j, properties, "retention.interval"); ok {
-		duration, err := time.ParseDuration(interval)
-		if err != nil {
-			j.Context.Warnf("invalid timeout %s", interval)
-		}
-		j.Retention.Interval = duration
-	} else {
-		j.Retention.Interval = 4 * time.Hour
 	}
 
 	if j.ID != "" {

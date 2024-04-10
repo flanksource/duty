@@ -37,8 +37,6 @@ var _ = Describe("Job", Ordered, func() {
 		sampleJob.Run()
 		Expect(sampleJob.Retention.Success).To(Equal(1))
 		Expect(sampleJob.Retention.Failed).To(Equal(3))
-		Expect(sampleJob.Retention.Age).To(Equal(time.Hour * 24))
-		Expect(sampleJob.Retention.Interval).To(Equal(time.Hour * 4))
 
 		current := counter.Load()
 		go sampleJob.Run()
