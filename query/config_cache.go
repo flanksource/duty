@@ -117,7 +117,7 @@ var SyncConfigCacheJob = &job.Job{
 	Name:       "SyncConfigCache",
 	Schedule:   "@every 5m",
 	JobHistory: true,
-	Retention:  job.RetentionHour,
+	Retention:  job.RetentionFew,
 	Fn: func(ctx job.JobRuntime) error {
 		return SyncConfigCache(ctx.Context)
 	},

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
@@ -47,34 +46,24 @@ func deleteEvictedJobs(ctx context.Context) {
 	}
 }
 
-var RetentionMinutes = Retention{
-	Success: 1,
-	Failed:  3,
-}
-
-var RetentionHour = Retention{
+var RetentionFew = Retention{
 	Success: 1,
 	Failed:  3,
 }
 
 var RetentionFailed = Retention{
 	Success: 0,
-	Failed:  1,
+	Failed:  3,
 }
 
-var RetentionShort = Retention{
-	Success: 1,
-	Failed:  1,
-}
-
-var RetentionDay = Retention{
+var RetentionBalanced = Retention{
 	Success: 3,
 	Failed:  3,
 }
 
-var Retention3Day = Retention{
+var RetentionHigh = Retention{
 	Success: 3,
-	Failed:  3,
+	Failed:  6,
 }
 
 type Job struct {
@@ -112,7 +101,7 @@ func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string
 	if err := ctx.DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
 		return err
 	}
-	logger.Infof("Found %d histories for %s %s", len(existingHistories), name, resourceID)
+	ctx.Logger.V(4).Infof("found %d histories for %s %s", len(existingHistories), name, resourceID)
 
 	for _, h := range existingHistories {
 		t.Add(&h)
@@ -235,7 +224,7 @@ func (j *JobRuntime) Failf(message string, args ...interface{}) {
 func NewJob(ctx context.Context, name string, schedule string, fn func(ctx JobRuntime) error) *Job {
 	return &Job{
 		Context:    ctx,
-		Retention:  Retention3Day,
+		Retention:  RetentionBalanced,
 		JobHistory: true,
 		Name:       name,
 		Schedule:   schedule,

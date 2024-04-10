@@ -76,7 +76,7 @@ var SyncComponentCacheJob = &job.Job{
 	Name:       "SyncComponentCache",
 	Schedule:   "@every 5m",
 	JobHistory: true,
-	Retention:  job.RetentionHour,
+	Retention:  job.RetentionFew,
 	Fn: func(ctx job.JobRuntime) error {
 		return SyncComponentCache(ctx.Context)
 	},

@@ -14,7 +14,7 @@ func CleanupStaleHistoryJob(age time.Duration, name, resourceID string) *Job {
 		Schedule:   "@every 24h",
 		Singleton:  true,
 		JobHistory: true,
-		Retention:  Retention3Day,
+		Retention:  RetentionFew,
 		RunNow:     true,
 		Fn: func(ctx JobRuntime) error {
 			return cleanupStaleHistory(ctx.Context, age, name, resourceID)
