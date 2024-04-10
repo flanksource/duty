@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
@@ -109,6 +110,21 @@ type StatusRing struct {
 	rings     map[string]*ring.Ring
 	evicted   chan uuid.UUID
 	retention Retention
+}
+
+// populateFromDB syncs the status ring with the existing job histories in db
+func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string) error {
+	var existingHistories []models.JobHistory
+	if err := ctx.DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
+		return err
+	}
+	logger.Infof("Found %d histories for %s %s", len(existingHistories), name, resourceID)
+
+	for _, h := range existingHistories {
+		t.Add(&h)
+	}
+
+	return nil
 }
 
 func newStatusRing(r Retention, evicted chan uuid.UUID) StatusRing {
@@ -266,51 +282,10 @@ func (j *Job) SetID(id string) *Job {
 	return j
 }
 
-func (j *Job) cleanupHistory() int {
-	j.Context.Logger.V(4).Infof("running cleanup: %v", j.Retention)
-	ctx, span := j.Context.StartSpan("CleanupHistory")
-	defer span.End()
-	db := ctx.FastDB()
-	if err := db.Exec("DELETE FROM job_history WHERE name = ? AND resource_id = ? AND now() - created_at >  interval '1 minute' * ?", j.Name, j.ResourceID, j.Retention.Age.Minutes()).Error; err != nil {
-		ctx.Warnf("failed to cleanup history %v", err)
-	}
-	query := `WITH ordered_history AS (
-      SELECT
-        id,
-        status,
-        ROW_NUMBER() OVER (PARTITION by resource_id, name, status ORDER BY created_at DESC)
-      FROM job_history
-			WHERE name = ? AND resource_id = ? AND status IN ?
-    )
-    DELETE FROM job_history WHERE id IN (
-      SELECT id FROM ordered_history WHERE row_number > ?
-    )`
-
-	policies := []struct {
-		count    int
-		statuses []string
-	}{
-		{j.Retention.Success, []string{models.StatusSuccess, models.StatusFinished}},
-		{j.Retention.Failed, []string{models.StatusFailed, models.StatusWarning, models.StatusAborted}},
-		{j.Retention.Success, []string{models.StatusRunning}},
-	}
-	count := 0
-	for _, r := range policies {
-		tx := db.Exec(query, j.Name, j.ResourceID, r.statuses, r.count)
-		count += int(tx.RowsAffected)
-		if tx.Error != nil {
-			ctx.Warnf("failed to cleanup history: %v", tx.Error)
-		}
-	}
-	ctx.Logger.V(3).Infof("cleaned up %d records", count)
-	return count
-}
-
 func (j *Job) Run() {
-	j.init()
 	ctx, span := j.Context.StartSpan(j.Name)
-
 	defer span.End()
+
 	r := JobRuntime{
 		Context: ctx,
 		Span:    span,
@@ -320,6 +295,11 @@ func (j *Job) Run() {
 		r.runId = span.SpanContext().SpanID().String()[0:8]
 	} else {
 		r.runId = uuid.NewString()[0:8]
+	}
+
+	if err := j.init(); err != nil {
+		r.Failf("%s concurrent job aborted", r.ID())
+		return
 	}
 
 	r.start()
@@ -345,13 +325,6 @@ func (j *Job) Run() {
 		defer cancel()
 	}
 
-	if shouldCleanupHistory(j.Context, j.lastHistoryCleanup, j.Retention.Age) {
-		defer func() {
-			j.cleanupHistory()
-			j.lastHistoryCleanup = time.Now()
-		}()
-	}
-
 	err := j.Fn(r)
 	if err != nil {
 		ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
@@ -359,23 +332,6 @@ func (j *Job) Run() {
 	} else {
 		ctx.Tracef("finished duration=%s", time.Since(r.History.TimeStart))
 	}
-}
-
-func shouldCleanupHistory(ctx context.Context, lastCleanup time.Time, retentionAge time.Duration) bool {
-	cleanupInterval := time.Hour * 6
-
-	// If retention is more than a day, cleanup every half a day
-	if retentionAge >= (24 * time.Hour) {
-		cleanupInterval = 12 * time.Hour
-	}
-
-	// If retention is less than an hour, cleanup every hour
-	if retentionAge <= (time.Hour) {
-		cleanupInterval = time.Hour
-	}
-
-	cleanupInterval = ctx.Properties().Duration("job.history.cleanup.interval", cleanupInterval)
-	return time.Since(lastCleanup) >= cleanupInterval
 }
 
 func getProperty(j *Job, properties map[string]string, property string) (string, bool) {
@@ -388,13 +344,14 @@ func getProperty(j *Job, properties map[string]string, property string) (string,
 	return "", false
 }
 
-func (j *Job) init() {
+func (j *Job) init() error {
 	if evictedJobs == nil {
 		evictedJobs = make(chan uuid.UUID, 1000)
 		go deleteEvictedJobs(j.Context)
 	}
+
 	if j.initialized {
-		return
+		return nil
 	}
 
 	j.lastHistoryCleanup = time.Now()
@@ -446,12 +403,10 @@ func (j *Job) init() {
 		j.Retention.Interval = 4 * time.Hour
 	}
 
-	j.statusRing = newStatusRing(j.Retention, evictedJobs)
-
 	if j.ID != "" {
 		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ID))
 	} else {
-		j.Context = j.Context.WithoutName().WithName(j.Name)
+		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ResourceID))
 	}
 
 	obj := j.Context.GetObjectMeta()
@@ -478,8 +433,14 @@ func (j *Job) init() {
 	}
 
 	j.Context.Tracef("initalized %v", j.String())
-	j.initialized = true
 
+	j.statusRing = newStatusRing(j.Retention, evictedJobs)
+	if err := j.statusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
+		return fmt.Errorf("error populating status ring: %w", err)
+	}
+
+	j.initialized = true
+	return nil
 }
 
 func (j *Job) Label() string {
@@ -501,7 +462,6 @@ func (j *Job) String() string {
 }
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
-	j.init()
 	cronRunner.Start()
 	schedule := j.Schedule
 	if override, ok := getProperty(j, j.Context.Properties(), "schedule"); ok {
