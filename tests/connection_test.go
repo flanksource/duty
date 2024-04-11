@@ -7,16 +7,31 @@ import (
 )
 
 var _ = Describe("Connection", Ordered, func() {
+	var azureconnection = models.Connection{
+		Name:      "azure-dev",
+		Type:      "postgresql",
+		Namespace: "mission-control",
+		Username:  "username",
+		Password:  "password",
+		Source:    models.SourceCRD,
+		URL:       "sql://db?user=$(username)&password=$(password)",
+	}
+
+	var testConnection = models.Connection{
+		Name:      "test",
+		Type:      "test",
+		Namespace: "default",
+		Username:  "configmap://test-cm/foo",
+		Password:  "secret://test-secret/foo",
+		Source:    models.SourceCRD,
+		URL:       "sql://db?user=$(username)&password=$(password)",
+	}
+
 	BeforeAll(func() {
-		tx := DefaultContext.DB().Save(&models.Connection{
-			Name:      "test",
-			Type:      "test",
-			Namespace: "default",
-			Username:  "configmap://test-cm/foo",
-			Password:  "secret://test-secret/foo",
-			Source:    models.SourceCRD,
-			URL:       "sql://db?user=$(username)&password=$(password)",
-		})
+		tx := DefaultContext.DB().Save(&testConnection)
+		Expect(tx.Error).ToNot(HaveOccurred())
+
+		tx = DefaultContext.DB().Save(&azureconnection)
 		Expect(tx.Error).ToNot(HaveOccurred())
 	})
 
@@ -30,10 +45,37 @@ var _ = Describe("Connection", Ordered, func() {
 		Expect(val).To(Equal("bar"))
 	})
 
+	Describe("fetching", func() {
+		It("old format for backward compatibility", func() {
+			connectionString := "connection://postgresql/azure-dev"
+			con, err := DefaultContext.HydrateConnectionByURL(connectionString)
+			Expect(err).To(BeNil())
+			Expect(con).To(Not(BeNil()))
+
+			Expect(con.ID).To(Equal(azureconnection.ID))
+		})
+
+		It("new format with namespace", func() {
+			connectionString := "connection://mission-control/azure-dev"
+			con, err := DefaultContext.HydrateConnectionByURL(connectionString)
+			Expect(err).To(BeNil())
+			Expect(con).To(Not(BeNil()))
+			Expect(con.ID).To(Equal(azureconnection.ID))
+		})
+
+		It("new format with just the name", func() {
+			connectionString := "connection://azure-dev"
+			con, err := DefaultContext.WithNamespace("mission-control").HydrateConnectionByURL(connectionString)
+			Expect(err).To(BeNil())
+			Expect(con).To(Not(BeNil()))
+			Expect(con.ID).To(Equal(azureconnection.ID))
+		})
+	})
+
 	var connection *models.Connection
 	var err error
 	It("should be retrieved successfully", func() {
-		connection, err = DefaultContext.GetConnection("test", "test", "default")
+		connection, err = DefaultContext.GetConnection("test", "default")
 		Expect(err).ToNot(HaveOccurred())
 	})
 

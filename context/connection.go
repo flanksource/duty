@@ -10,10 +10,12 @@ import (
 	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/store"
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
 
@@ -22,30 +24,43 @@ var (
 )
 
 // extractConnectionNameType extracts the name and connection type from a connection
-// string formatted as "connection://<type>/<namespace>/<name>".
-func extractConnectionNameType(connectionString string) (name, namespace, connectionType string, found bool) {
+// string formatted as
+//
+//	(Deprecated) "connection://<type>/<namespace>/<name>").
+//	"connection://<namespace>/<name>".
+//	"connection://<name>".
+func extractConnectionNameType(connectionString string) (name, namespace string, found bool) {
 	prefix := "connection://"
 
 	if !strings.HasPrefix(connectionString, prefix) {
 		return
 	}
 
+	found = true
+
 	connectionString = strings.TrimPrefix(connectionString, prefix)
 	parts := strings.Split(connectionString, "/")
-	if len(parts) > 3 || len(parts) < 2 {
-		return
+	parts = lo.Map(parts, func(item string, _ int) string {
+		return strings.TrimSpace(item)
+	})
+
+	switch len(parts) {
+	case 3:
+		name, namespace = parts[2], parts[1]
+
+	case 2:
+		name, namespace = parts[1], parts[0]
+
+	case 1:
+		name = parts[0]
+
+	default:
+		found = false
 	}
 
-	if parts[0] == "" || parts[1] == "" {
-		return
-	}
-
-	if len(parts) == 3 {
-		name, namespace, connectionType = parts[2], parts[1], parts[0]
-		return name, namespace, connectionType, true
-	} else if len(parts) == 2 {
-		name, connectionType = parts[1], parts[0]
-		return name, "", connectionType, true
+	// namespace can be left unspecified but name is mandatory.
+	if name == "" {
+		found = false
 	}
 
 	return
@@ -59,7 +74,7 @@ func getConnectionCacheKey(connString, ctxNamespace string) string {
 
 // HydrateConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be in one of the following forms:
-//   - connection://<type>/<name> or connection://<type>/<namespace>/<name>
+//   - connection://<namespace>/<name> or connection://<name>
 //   - the UUID of the connection.
 func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if connectionString == "" {
@@ -77,7 +92,7 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 			return models.ConnectionFromURL(*_url), nil
 		}
 
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connection://<type>/<name> , uuid or URL", connectionString)
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string, uuid or URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -102,12 +117,14 @@ func IsValidConnectionURL(connectionString string) bool {
 	if _, err := uuid.Parse(connectionString); err == nil {
 		return true
 	}
-	_, _, _, found := extractConnectionNameType(connectionString)
+	_, _, found := extractConnectionNameType(connectionString)
 	return found
 }
 
 // FindConnectionByURL retrieves a connection from the given connection string.
-// The connection string is expected to be of the form: connection://<type>/<name>
+// The connection string is expected to be in one of the following forms:
+//   - connection://<namespace>/<name> or connection://<name>
+//   - the UUID of the connection.
 func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
@@ -117,45 +134,53 @@ func FindConnectionByURL(ctx Context, connectionString string) (*models.Connecti
 		return &connection, nil
 	}
 
-	name, namespace, connectionType, found := extractConnectionNameType(connectionString)
+	name, namespace, found := extractConnectionNameType(connectionString)
 	if !found {
 		return nil, nil
 	}
 
-	connection, err := FindConnection(ctx, connectionType, name, namespace)
+	connection, err := FindConnection(ctx, name, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find connection (type=%s, name=%s, namespace=%s): %w", connectionType, name, namespace, err)
+		return nil, fmt.Errorf("failed to find connection (name=%s, namespace=%s): %w", name, namespace, err)
 	}
 
 	return connection, nil
 }
 
 // FindConnection returns the connection with the given type and name
-func FindConnection(ctx Context, connectionType, name, namespace string) (*models.Connection, error) {
+func FindConnection(ctx Context, name, namespace string) (*models.Connection, error) {
 	var connection models.Connection
 
 	if namespace == "" {
 		namespace = ctx.GetNamespace()
 	}
 
-	err := ctx.DB().Where("type = ? AND name = ? AND namespace = ?", connectionType, name, namespace).First(&connection).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-
+	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).
+		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
+	}
+
+	if connection.ID == uuid.Nil {
+		// NOTE: For backward compatibility reason we use the namespace as the connection type
+		// Before: connection://<type>/<name>
+		// Now: connection://<namespace>/<name.
+		if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+			First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		} else if connection.ID != uuid.Nil {
+			logger.Warnf("connection format connection://<type>/<name> has been deprecated. Use connection://<namespace>/<name> or connection://<name>")
+		}
 	}
 
 	return &connection, nil
 }
 
-func (ctx Context) GetConnection(connectionType, name, namespace string) (*models.Connection, error) {
-	return GetConnection(ctx, connectionType, name, namespace)
+func (ctx Context) GetConnection(name, namespace string) (*models.Connection, error) {
+	return GetConnection(ctx, name, namespace)
 }
 
-func GetConnection(ctx Context, connectionType, name, namespace string) (*models.Connection, error) {
-	connection, err := FindConnection(ctx, connectionType, name, namespace)
+func GetConnection(ctx Context, name, namespace string) (*models.Connection, error) {
+	connection, err := FindConnection(ctx, name, namespace)
 	if err != nil {
 		return nil, err
 	}

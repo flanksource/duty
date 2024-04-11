@@ -8,8 +8,9 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-func CleanupStaleHistoryJob(age time.Duration, name, resourceID string) *Job {
+func CleanupStaleHistoryJob(ctx context.Context, age time.Duration, name, resourceID string) *Job {
 	return &Job{
+		Context:    ctx,
 		Name:       "CleanupStaleJobHistory",
 		Schedule:   "@every 24h",
 		Singleton:  true,
@@ -17,14 +18,20 @@ func CleanupStaleHistoryJob(age time.Duration, name, resourceID string) *Job {
 		Retention:  RetentionFew,
 		RunNow:     true,
 		Fn: func(ctx JobRuntime) error {
-			return cleanupStaleHistory(ctx.Context, age, name, resourceID)
+			count, err := cleanupStaleHistory(ctx.Context, age, name, resourceID)
+			if err != nil {
+				return err
+			}
+
+			ctx.History.SuccessCount = count
+			return nil
 		},
 	}
 }
 
-func cleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string) error {
+func cleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string) (int, error) {
 	ctx = ctx.WithName(fmt.Sprintf("job=%s", name)).WithName(fmt.Sprintf("resourceID=%s", resourceID))
-	query := ctx.DB().Debug().Where("NOW() - time_start >= ?", age)
+	query := ctx.DB().Where("NOW() - time_start >= ?", age)
 	if name != "" {
 		query = query.Where("name = ?", name)
 	}
@@ -33,9 +40,8 @@ func cleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceI
 	}
 	res := query.Delete(&models.JobHistory{})
 	if res.Error != nil {
-		return res.Error
+		return 0, res.Error
 	}
 
-	ctx.Logger.V(1).Infof("Cleaned up %d stale history", res.RowsAffected)
-	return nil
+	return int(res.RowsAffected), nil
 }

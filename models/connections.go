@@ -67,8 +67,13 @@ const (
 	ConnectionTypeZulipChat      = "zulip_chat"
 )
 
+// looking for a substring that starts with a space,
+// 'password=', then any non-whitespace characters,
+// until an ending space
+var passwordRegexp = regexp.MustCompile(`password=([^;]*)`)
+
 type Connection struct {
-	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
+	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id" faker:"uuid_hyphenated"  `
 	Name        string              `gorm:"column:name" json:"name" faker:"name"  `
 	Namespace   string              `gorm:"column:namespace" json:"namespace"`
 	Source      string              `json:"source"`
@@ -110,11 +115,8 @@ func (c Connection) String() string {
 			connection = _url.String()
 		}
 	}
-	//looking for a substring that starts with a space,
-	//'password=', then any non-whitespace characters,
-	//until an ending space
-	re := regexp.MustCompile(`password=([^;]*)`)
-	return re.ReplaceAllString(connection, "password=###")
+
+	return passwordRegexp.ReplaceAllString(connection, "password=###")
 }
 
 func (c Connection) AsMap(removeFields ...string) map[string]any {
