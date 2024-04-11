@@ -74,9 +74,9 @@ table "connections" {
   primary_key {
     columns = [column.id]
   }
-  index "connections_type_name_namespace_key" {
+  index "connections_name_namespace_key" {
     unique  = true
-    columns = [column.type, column.name, column.namespace]
+    columns = [column.name, column.namespace]
   }
   foreign_key "connections_created_by_fkey" {
     columns     = [column.created_by]

@@ -33,7 +33,7 @@ var _ = Describe("Connection", Ordered, func() {
 	var connection *models.Connection
 	var err error
 	It("should be retrieved successfully", func() {
-		connection, err = DefaultContext.GetConnection("test", "test", "default")
+		connection, err = DefaultContext.GetConnection("test", "default")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
