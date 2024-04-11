@@ -73,7 +73,7 @@ func getConnectionCacheKey(connString, ctxNamespace string) string {
 
 // HydrateConnectionByURL retrieves a connection from the given connection string.
 // The connection string is expected to be in one of the following forms:
-//   - connection://<type>/<name> or connection://<type>/<namespace>/<name>
+//   - connection://<namespace>/<name> or connection://<name>
 //   - the UUID of the connection.
 func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if connectionString == "" {
@@ -91,7 +91,7 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 			return models.ConnectionFromURL(*_url), nil
 		}
 
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connection://<type>/<name> , uuid or URL", connectionString)
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connetion string, uuid or URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -121,7 +121,9 @@ func IsValidConnectionURL(connectionString string) bool {
 }
 
 // FindConnectionByURL retrieves a connection from the given connection string.
-// The connection string is expected to be of the form: connection://<type>/<name>
+// The connection string is expected to be in one of the following forms:
+//   - connection://<namespace>/<name> or connection://<name>
+//   - the UUID of the connection.
 func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
