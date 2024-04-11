@@ -10,6 +10,7 @@ import (
 	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/store"
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
@@ -154,22 +155,21 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		namespace = ctx.GetNamespace()
 	}
 
-	// NOTE: For backward compatibility reason we use the namespace as the connection type
-	// Before: connection://<type>/<name>
-	// Now: connection://<namespace>/<name.
-	if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).
 		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
-	} else if connection.ID != uuid.Nil {
-		return &connection, nil
 	}
 
-	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).First(&connection).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+	if connection.ID == uuid.Nil {
+		// NOTE: For backward compatibility reason we use the namespace as the connection type
+		// Before: connection://<type>/<name>
+		// Now: connection://<namespace>/<name.
+		if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+			First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		} else if connection.ID != uuid.Nil {
+			logger.Warnf("connection format connection://<type>/<name> has been deprecated. Use connection://<namespace>/<name> or connection://<name>")
 		}
-
-		return nil, err
 	}
 
 	return &connection, nil
