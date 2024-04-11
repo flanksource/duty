@@ -91,7 +91,7 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 			return models.ConnectionFromURL(*_url), nil
 		}
 
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connetion string, uuid or URL", connectionString)
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string, uuid or URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -154,8 +154,17 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		namespace = ctx.GetNamespace()
 	}
 
-	err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).First(&connection).Error
-	if err != nil {
+	// NOTE: For backward compatibility reason we use the namespace as the connection type
+	// Before: connection://<type>/<name>
+	// Now: connection://<namespace>/<name.
+	if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	} else if connection.ID != uuid.Nil {
+		return &connection, nil
+	}
+
+	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).First(&connection).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}

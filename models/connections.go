@@ -73,7 +73,7 @@ const (
 var passwordRegexp = regexp.MustCompile(`password=([^;]*)`)
 
 type Connection struct {
-	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id" json:"id" faker:"uuid_hyphenated"  `
+	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id" faker:"uuid_hyphenated"  `
 	Name        string              `gorm:"column:name" json:"name" faker:"name"  `
 	Namespace   string              `gorm:"column:namespace" json:"namespace"`
 	Source      string              `json:"source"`
