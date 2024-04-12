@@ -325,9 +325,6 @@ table "config_items" {
     columns = [column.tags]
     type    = GIN
   }
-  index "idx_config_items_agent" {
-    columns = [column.agent_id]
-  }
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
