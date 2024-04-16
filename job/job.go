@@ -432,6 +432,14 @@ func (j *Job) String() string {
 	)
 }
 
+func (j *Job) GetResourcedName() string {
+	if j.ID != "" {
+		return fmt.Sprintf("%s [%s]", j.Name, j.ID)
+	}
+
+	return j.Name
+}
+
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	cronRunner.Start()
 	schedule := j.Schedule
@@ -447,7 +455,8 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 		j.Context.Infof("skipping scheduling")
 		return nil
 	}
-	j.Context.Infof("[%s] scheduled %s", j.Label(), schedule)
+
+	j.Context.Logger.Named(j.GetResourcedName()).V(1).Infof("scheduled %s", schedule)
 	entryID, err := cronRunner.AddJob(schedule, j)
 	if err != nil {
 		return fmt.Errorf("[%s] failed to schedule job: %s", j.Label(), err)
