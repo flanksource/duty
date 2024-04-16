@@ -33,7 +33,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 				return next(c)
 			}
 
-			histogram := ctx.Histogram("agent_auth_middleware")
+			histogram := ctx.Histogram("agent_auth_middleware", StatusLabel, "")
 
 			agentName := c.QueryParam(AgentNameQueryParam)
 			if agentName == "" {
@@ -69,7 +69,7 @@ func PushHandler(c echo.Context) error {
 	ctx := c.Request().Context().(context.Context)
 	var req PushData
 	start := time.Now()
-	histogram := ctx.Histogram("push_queue_create_handler")
+	histogram := ctx.Histogram("push_queue_create_handler", StatusLabel, "", AgentLabel, "")
 	defer func() {
 		histogram.Since(start)
 	}()
@@ -92,7 +92,7 @@ func PushHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
 	}
 	histogram.Label(StatusLabel, StatusOK)
-	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String()))
+	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String(), "table", ""))
 
 	if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
 		logger.Errorf("failed to update agent last_received: %v", err)
@@ -107,7 +107,7 @@ func DeleteHandler(c echo.Context) error {
 	start := time.Now()
 	var req PushData
 	err := json.NewDecoder(c.Request().Body).Decode(&req)
-	histogram := ctx.Histogram("push_queue_delete_handler")
+	histogram := ctx.Histogram("push_queue_delete_handler", StatusLabel, "", AgentLabel, "")
 	if err != nil {
 		histogram.Label(StatusLabel, StatusAgentError).Since(start)
 		return c.JSON(http.StatusBadRequest, api.HTTPError{Error: err.Error(), Message: "invalid json request"})
@@ -139,8 +139,7 @@ func PingHandler(c echo.Context) error {
 	start := time.Now()
 	ctx := c.Request().Context().(context.Context)
 
-	histogram := ctx.Histogram("push_queue_ping_handler")
-	histogram = histogram.Label(AgentLabel, ctx.Agent().ID.String())
+	histogram := ctx.Histogram("push_queue_ping_handler", StatusLabel, "", AgentLabel, ctx.Agent().ID.String())
 
 	if err := UpdateAgentLastSeen(ctx, ctx.Agent().ID); err != nil {
 		histogram.Label(StatusLabel, StatusError).Since(start)

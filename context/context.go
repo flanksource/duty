@@ -2,6 +2,8 @@ package context
 
 import (
 	gocontext "context"
+	"slices"
+	"strings"
 	"time"
 
 	commons "github.com/flanksource/commons/context"
@@ -11,9 +13,11 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/exp/maps"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -319,43 +323,6 @@ func (k Context) Wrap(ctx gocontext.Context) Context {
 		WithNamespace(k.GetNamespace())
 }
 
-type Histogram struct {
-	Context Context
-	Name    string
-	Labels  map[string]string
-}
-
-type Counter struct {
-	Context Context
-	Name    string
-	Labels  map[string]string
-}
-
-func (h Histogram) Record(duration time.Duration) {
-	// noop
-}
-
-func (h Histogram) Since(s time.Time) {
-	h.Record(time.Since(s))
-}
-
-func (h Histogram) Label(k, v string) Histogram {
-	h.Labels[k] = v
-	return h
-}
-
-func (c Counter) Add(count int) {
-	c.AddFloat(float64(count))
-}
-
-func (c Counter) Label(k, v string) Counter {
-	c.Labels[k] = v
-	return c
-}
-func (c Counter) AddFloat(count float64) {
-	// noop
-}
-
 func stringSliceToMap(s []string) map[string]string {
 	m := make(map[string]string)
 	for i := 0; i < len(s)-1; i += 2 {
@@ -363,18 +330,177 @@ func stringSliceToMap(s []string) map[string]string {
 	}
 	return m
 }
+
+type Histogram struct {
+	Context   Context
+	Name      string
+	Histogram *prometheus.HistogramVec
+	Labels    map[string]string
+}
+
+var ctxHistograms = make(map[string]*prometheus.HistogramVec)
+
 func (k Context) Histogram(name string, labels ...string) Histogram {
+	labelMap := stringSliceToMap(labels)
+	labelKeys := maps.Keys(labelMap)
+	slices.Sort(labelKeys)
+	key := strings.Join(append(labelKeys, name), ".")
+
+	if histo, exists := ctxHistograms[key]; exists {
+		return Histogram{
+			Context:   k,
+			Histogram: histo,
+			Name:      name,
+			Labels:    labelMap,
+		}
+	}
+
+	histo := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: name,
+	}, labelKeys)
+
+	if err := prometheus.Register(histo); err != nil {
+		k.Errorf("error registering histogram[%s/%v]: %v", name, labels, err)
+	}
+
+	ctxHistograms[key] = histo
+
 	return Histogram{
-		Context: k,
-		Name:    name,
-		Labels:  stringSliceToMap(labels),
+		Context:   k,
+		Histogram: histo,
+		Name:      name,
+		Labels:    stringSliceToMap(labels),
 	}
 }
 
+func (h *Histogram) Label(k, v string) Histogram {
+	h.Labels[k] = v
+	return *h
+}
+
+func (h Histogram) Record(duration time.Duration) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.Context.Errorf("error observe to histogram[%s/%v]: %v", h.Name, h.Labels, r)
+		}
+	}()
+
+	h.Histogram.With(prometheus.Labels(h.Labels)).Observe(float64(duration))
+}
+
+func (h Histogram) Since(s time.Time) {
+	h.Record(time.Since(s))
+}
+
+type Counter struct {
+	Context Context
+	Name    string
+	Labels  map[string]string
+	Counter *prometheus.CounterVec
+}
+
+var ctxCounters = make(map[string]*prometheus.CounterVec)
+
 func (k Context) Counter(name string, labels ...string) Counter {
+	labelMap := stringSliceToMap(labels)
+	labelKeys := maps.Keys(labelMap)
+	slices.Sort(labelKeys)
+	key := strings.Join(append(labelKeys, name), ".")
+
+	if counter, exists := ctxCounters[key]; exists {
+		return Counter{
+			Context: k,
+			Counter: counter,
+			Name:    name,
+			Labels:  labelMap,
+		}
+	}
+
+	counter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: name,
+	}, labelKeys)
+
+	if err := prometheus.Register(counter); err != nil {
+		k.Errorf("error registering counter[%s/%v]: %v", name, labels, err)
+	}
+
+	ctxCounters[key] = counter
 	return Counter{
 		Context: k,
+		Counter: counter,
 		Name:    name,
-		Labels:  stringSliceToMap(labels),
+		Labels:  labelMap,
 	}
+}
+
+func (c Counter) Add(count int) {
+	c.AddFloat(float64(count))
+}
+
+func (c Counter) AddFloat(count float64) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.Context.Errorf("error adding to counter[%s/%v]: %v", c.Name, c.Labels, r)
+		}
+	}()
+
+	c.Counter.With(prometheus.Labels(c.Labels)).Add(count)
+}
+
+func (c *Counter) Label(k, v string) Counter {
+	c.Labels[k] = v
+	return *c
+}
+
+type Gauge struct {
+	Context Context
+	Name    string
+	Labels  map[string]string
+	Gauge   *prometheus.GaugeVec
+}
+
+var ctxGauges = make(map[string]*prometheus.GaugeVec)
+
+func (k Context) Gauge(name string, labels ...string) Gauge {
+	labelMap := stringSliceToMap(labels)
+	labelKeys := maps.Keys(labelMap)
+	slices.Sort(labelKeys)
+	key := strings.Join(append(labelKeys, name), ".")
+
+	if gauge, exists := ctxGauges[key]; exists {
+		return Gauge{
+			Context: k,
+			Gauge:   gauge,
+			Name:    name,
+			Labels:  labelMap,
+		}
+	}
+
+	gauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: name,
+	}, labelKeys)
+
+	if err := prometheus.Register(gauge); err != nil {
+		k.Errorf("error registering gauge[%s/%v]: %v", name, labels, err)
+	}
+
+	ctxGauges[key] = gauge
+	return Gauge{
+		Context: k,
+		Gauge:   gauge,
+		Name:    name,
+		Labels:  labelMap,
+	}
+}
+
+func (g Gauge) Set(count float64) {
+	g.Gauge.With(prometheus.Labels(g.Labels)).Set(count)
+}
+
+func (g Gauge) Add(count float64) {
+	g.Gauge.With(prometheus.Labels(g.Labels)).Add(count)
+}
+
+func (g Gauge) Sub(count float64) {
+	g.Gauge.With(prometheus.Labels(g.Labels)).Sub(count)
 }
