@@ -373,6 +373,11 @@ func (k Context) Histogram(name string, labels ...string) Histogram {
 	}
 }
 
+func (h *Histogram) Label(k, v string) Histogram {
+	h.Labels[k] = v
+	return *h
+}
+
 func (h Histogram) Record(duration time.Duration) {
 	h.Histogram.With(prometheus.Labels(h.Labels)).Observe(float64(duration))
 }
@@ -428,6 +433,11 @@ func (c Counter) Add(count int) {
 
 func (c Counter) AddFloat(count float64) {
 	c.Counter.With(prometheus.Labels(c.Labels)).Add(count)
+}
+
+func (c *Counter) Label(k, v string) Counter {
+	c.Labels[k] = v
+	return *c
 }
 
 type Gauge struct {
