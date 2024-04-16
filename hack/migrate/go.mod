@@ -1,6 +1,6 @@
 module github.com/flanksource/duty/hack/migrate
 
-go 1.20
+go 1.22
 
 require (
 	github.com/flanksource/commons v1.22.1
