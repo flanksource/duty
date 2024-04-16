@@ -379,6 +379,12 @@ func (h *Histogram) Label(k, v string) Histogram {
 }
 
 func (h Histogram) Record(duration time.Duration) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.Context.Errorf("error observe to histogram[%s/%v]: %v", h.Name, h.Labels, r)
+		}
+	}()
+
 	h.Histogram.With(prometheus.Labels(h.Labels)).Observe(float64(duration))
 }
 
@@ -432,6 +438,12 @@ func (c Counter) Add(count int) {
 }
 
 func (c Counter) AddFloat(count float64) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.Context.Errorf("error adding to counter[%s/%v]: %v", c.Name, c.Labels, r)
+		}
+	}()
+
 	c.Counter.With(prometheus.Labels(c.Labels)).Add(count)
 }
 
