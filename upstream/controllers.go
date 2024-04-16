@@ -92,7 +92,7 @@ func PushHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
 	}
 	histogram.Label(StatusLabel, StatusOK)
-	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String()))
+	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String(), "table", ""))
 
 	if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
 		logger.Errorf("failed to update agent last_received: %v", err)
