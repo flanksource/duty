@@ -31,6 +31,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.29.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.39.0
@@ -46,6 +47,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.21.0
 	go.opentelemetry.io/otel/sdk v1.22.0
 	go.opentelemetry.io/otel/trace v1.22.0
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/sync v0.6.0
 	google.golang.org/grpc v1.60.1
 	gorm.io/driver/postgres v1.5.3
@@ -146,7 +148,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
@@ -181,7 +182,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.15.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
