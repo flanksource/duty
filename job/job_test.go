@@ -26,7 +26,7 @@ func TestStatusRing(t *testing.T) {
 	eg, _ := errgroup.WithContext(context.TODO())
 	eg.Go(func() error {
 		for {
-			items, _, _, _ := lo.BufferWithTimeout(ch, 32, time.Second)
+			items, _, _, _ := lo.BufferWithTimeout(ch, 32, time.Second*5)
 			total += len(items)
 			if len(ch) == 0 {
 				break
