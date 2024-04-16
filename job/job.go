@@ -183,7 +183,7 @@ func (j *JobRuntime) ID() string {
 
 func (j *JobRuntime) start() {
 	j.Tracef("starting")
-	j.Context.Counter("job_started", "name", j.Job.Name).Add(1)
+	j.Context.Counter("job_started", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType).Add(1)
 	j.History = models.NewJobHistory(j.Logger, j.Job.Name, "", "").Start()
 	j.Job.LastJob = j.History
 	if j.Job.ResourceID != "" {
@@ -200,9 +200,6 @@ func (j *JobRuntime) start() {
 }
 
 func (j *JobRuntime) end() {
-	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
-	j.Context.Histogram("job_duration", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
-
 	j.History.End()
 	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) {
 		if err := j.History.Persist(j.FastDB()); err != nil {
@@ -210,6 +207,9 @@ func (j *JobRuntime) end() {
 		}
 	}
 	j.Job.statusRing.Add(j.History)
+
+	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
+	j.Context.Histogram("job_duration", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
 }
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
@@ -447,7 +447,7 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 		j.Context.Infof("skipping scheduling")
 		return nil
 	}
-	j.Context.Infof("scheduled %s", schedule)
+	j.Context.Infof("[%s] scheduled %s", j.Label(), schedule)
 	entryID, err := cronRunner.AddJob(schedule, j)
 	if err != nil {
 		return fmt.Errorf("[%s] failed to schedule job: %s", j.Label(), err)
