@@ -1,6 +1,6 @@
 module github.com/flanksource/duty
 
-go 1.22
+go 1.22.0
 
 require (
 	ariga.io/atlas v0.14.2
