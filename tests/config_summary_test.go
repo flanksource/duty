@@ -30,6 +30,24 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		Expect(types).To(ConsistOf(expected))
 	})
 
+	ginkgo.It("should not fetch analysis and changes if not requested", func() {
+		request := query.ConfigSummaryRequest{}
+		response, err := query.ConfigSummary(DefaultContext, request)
+		Expect(err).To(BeNil())
+
+		var output []map[string]any
+		err = json.Unmarshal(response, &output)
+		Expect(err).To(BeNil())
+
+		for _, o := range output {
+			_, ok := o["analysis"]
+			Expect(ok).To(BeFalse())
+
+			_, ok = o["changes"]
+			Expect(ok).To(BeFalse())
+		}
+	})
+
 	ginkgo.It("should filter by labels", func() {
 		request := query.ConfigSummaryRequest{
 			Filter: map[string]string{
@@ -53,6 +71,44 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			return lo.FromPtr(item.Type)
 		}))
 		Expect(types).To(ConsistOf(expected))
+	})
+
+	ginkgo.Context("should query changes by range", func() {
+		ginkgo.It("small range", func() {
+			request := query.ConfigSummaryRequest{
+				Changes: query.ConfigSummaryRequestChanges{
+					Since: "7d",
+				},
+				Filter: lo.FromPtr(dummy.EKSCluster.Labels),
+			}
+			response, err := query.ConfigSummary(DefaultContext, request)
+			Expect(err).To(BeNil())
+
+			var output []map[string]any
+			err = json.Unmarshal(response, &output)
+			Expect(err).To(BeNil())
+			Expect(len(output)).To(Equal(1))
+			Expect(output[0]["type"].(string)).To(Equal(lo.FromPtr(dummy.EKSCluster.Type)))
+			Expect(output[0]["changes"].(float64)).To(Equal(float64(2)))
+		})
+
+		ginkgo.It("large range", func() {
+			request := query.ConfigSummaryRequest{
+				Changes: query.ConfigSummaryRequestChanges{
+					Since: "5y",
+				},
+				Filter: lo.FromPtr(dummy.EKSCluster.Labels),
+			}
+			response, err := query.ConfigSummary(DefaultContext, request)
+			Expect(err).To(BeNil())
+
+			var output []map[string]any
+			err = json.Unmarshal(response, &output)
+			Expect(err).To(BeNil())
+			Expect(len(output)).To(Equal(1))
+			Expect(output[0]["type"].(string)).To(Equal(lo.FromPtr(dummy.EKSCluster.Type)))
+			Expect(output[0]["changes"].(float64)).To(Equal(float64(3)))
+		})
 	})
 
 	ginkgo.It("should return queried tags as columns", func() {
