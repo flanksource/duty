@@ -6,6 +6,7 @@ require (
 	ariga.io/atlas v0.14.2
 	cloud.google.com/go/cloudsqlconn v1.5.1
 	github.com/RaveNoX/go-jsonmerge v1.0.0
+	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.0
 	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/eko/gocache/lib/v4 v4.1.5
 	github.com/eko/gocache/store/go_cache/v4 v4.2.1
@@ -66,7 +67,6 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/TomOnTime/utfutil v0.0.0-20210710122150-437f72b26edf // indirect
-	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.0 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect

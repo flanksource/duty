@@ -243,7 +243,6 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 
 	var res []types.JSON
 	if err := ctx.DB().
-		Debug().
 		Clauses(changesGrouped).
 		Clauses(analysisGrouped).
 		Clauses(aggregatedAnalysisGrouped).
