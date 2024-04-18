@@ -80,7 +80,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			return ok && val != ""
 		})
 		expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
-			val, _ := lo.FromPtr(item.Labels)["cluster"]
+			val, _ := lo.FromPtr(item.Labels)["cluster"] //nolint: gosimple
 			return val
 		}))
 
@@ -110,7 +110,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			return ok && val != ""
 		})
 		expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
-			val, _ := lo.FromPtr(item.Labels)["account"]
+			val, _ := lo.FromPtr(item.Labels)["account"] //nolint: gosimple
 			return val
 		}))
 		Expect(got).To(ConsistOf(expected))

@@ -110,7 +110,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	ginkgo.Context("Tag selector", func() {
 		ginkgo.It("Equals Query", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{TagSelector: "cluster=aws"}},
+				Configs: []types.ResourceSelector{{Types: []string{"EKS::Cluster"}, TagSelector: "cluster=aws,account=flanksource"}},
 			})
 			Expect(err).To(BeNil())
 			Expect(len(items.Configs)).To(Equal(1))
