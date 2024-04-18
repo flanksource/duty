@@ -136,4 +136,25 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 
 		Expect(types).To(ConsistOf([]string{"EC2::Instance", "EKS::Cluster", "Kubernetes::Node", "Kubernetes::Cluster"}))
 	})
+
+	ginkgo.It("should fetch health summary", func() {
+		request := query.ConfigSummaryRequest{
+			Filter: map[string]string{
+				"role": "worker",
+			},
+		}
+		response, err := query.ConfigSummary(DefaultContext, request)
+		Expect(err).To(BeNil())
+
+		var output []map[string]any
+		err = json.Unmarshal(response, &output)
+		Expect(err).To(BeNil())
+
+		Expect(len(output)).To(Equal(1))
+		Expect(output[0]["type"].(string)).To(Equal("Kubernetes::Node"))
+
+		summary, ok := output[0]["health_summary"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(summary["Healthy"]).To(Equal(float64(2)))
+	})
 })

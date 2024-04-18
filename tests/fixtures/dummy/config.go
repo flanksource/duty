@@ -44,6 +44,7 @@ var KubernetesNodeA = models.ConfigItem{
 	Name:        lo.ToPtr("node-a"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	Status:      lo.ToPtr("Healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -65,6 +66,7 @@ var KubernetesNodeB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	Status:      lo.ToPtr("Healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
