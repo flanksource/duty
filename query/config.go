@@ -14,6 +14,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ConfigSummaryRequestChanges struct {
@@ -78,7 +79,18 @@ func (t *ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []strin
 	return append(t.GroupBy, appendSelect...)
 }
 
-func (t *ConfigSummaryRequest) selectClause(appendSelect ...string) []string {
+func (t *ConfigSummaryRequest) summarySelectClause() []string {
+	cols := []string{
+		fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost),
+		"changes_grouped.count AS changes",
+		"aggregated_analysis_count.analysis AS analysis",
+		"COUNT(*) AS total_configs",
+	}
+
+	return t.baseSelectClause(cols...)
+}
+
+func (t *ConfigSummaryRequest) baseSelectClause(appendSelect ...string) []string {
 	var output []string
 	for _, g := range t.GroupBy {
 		switch g {
@@ -87,6 +99,10 @@ func (t *ConfigSummaryRequest) selectClause(appendSelect ...string) []string {
 		default:
 			output = append(output, fmt.Sprintf("config_items.tags->>'%s' as %s", g, g))
 		}
+	}
+
+	for _, tag := range t.Tags {
+		output = append(output, fmt.Sprintf("config_items.tags->>'%s' as %s", tag, tag))
 	}
 
 	if len(output) == 0 {
@@ -106,6 +122,10 @@ func (t *ConfigSummaryRequest) groupBy() []string {
 		default:
 			output = append(output, fmt.Sprintf("config_items.tags->>'%s'", g))
 		}
+	}
+
+	for _, tag := range t.Tags {
+		output = append(output, fmt.Sprintf("config_items.tags->>'%s'", tag))
 	}
 
 	return output
@@ -142,7 +162,30 @@ func (t *ConfigSummaryRequest) Parse() error {
 		t.Analysis.sinceParsed = time.Duration(val)
 	}
 
+	switch t.Cost {
+	case "1d", "7d", "30d":
+	// do nothing
+	default:
+		return fmt.Errorf("Cost range is not allowed. allowed (1d, 7d, 30d)")
+	}
+
 	return nil
+}
+
+func (t *ConfigSummaryRequest) configDeleteClause() string {
+	if !t.Deleted {
+		return "config_items.deleted_at IS NULL"
+	}
+
+	return ""
+}
+
+func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
+	for k, v := range t.Filter {
+		q = q.Where("config_items.labels @> ?", types.JSONStringMap{k: v})
+	}
+
+	return q
 }
 
 func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, error) {
@@ -151,26 +194,28 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		return nil, api.Errorf(api.EINVALID, err.Error())
 	}
 
-	ctx.DB().Use(extraClausePlugin.New())
+	_ = ctx.DB().Use(extraClausePlugin.New())
 
 	groupBy := strings.Join(req.groupBy(), ",")
 
 	changesGrouped := exclause.NewWith(
 		"changes_grouped",
-		ctx.DB().Select(req.selectClause("COUNT(*) AS count")).
+		ctx.DB().Select(req.baseSelectClause("COUNT(*) AS count")).
 			Model(&models.ConfigChange{}).
 			Joins("LEFT JOIN config_items ON config_changes.config_id = config_items.id").
-			Where("config_items.deleted_at IS NULL").
+			Where(req.configDeleteClause()).
+			Where(req.filterClause(ctx.DB())).
 			Where("NOW() - config_changes.created_at <= ?", req.Changes.sinceParsed).
 			Group(groupBy),
 	)
 
 	analysisGrouped := exclause.NewWith(
 		"analysis_grouped",
-		ctx.DB().Select(req.selectClause("config_analysis.analysis_type", "COUNT(*) AS count")).
+		ctx.DB().Select(req.baseSelectClause("config_analysis.analysis_type", "COUNT(*) AS count")).
 			Model(&models.ConfigAnalysis{}).
 			Joins("LEFT JOIN config_items ON config_analysis.config_id = config_items.id").
-			Where("config_items.deleted_at IS NULL").
+			Where(req.configDeleteClause()).
+			Where(req.filterClause(ctx.DB())).
 			Where("NOW() - config_analysis.first_observed <= ?", req.Analysis.sinceParsed).
 			Group(groupBy).Group("config_analysis.analysis_type"),
 	)
@@ -185,11 +230,12 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 	final := exclause.NewWith(
 		"summary",
 		ctx.DB().
-			Select(req.selectClause("changes_grouped.count AS changes", "aggregated_analysis_count.analysis AS analysis", "COUNT(*) AS total_configs")).
+			Select(req.summarySelectClause()).
 			Model(&models.ConfigItem{}).
 			Joins(req.changesJoin()).
 			Joins(req.analysisJoin()).
-			Where("config_items.deleted_at IS NULL").
+			Where(req.configDeleteClause()).
+			Where(req.filterClause(ctx.DB())).
 			Group(groupBy).
 			Group("changes_grouped.count, aggregated_analysis_count.analysis").
 			Order(req.OrderBy()),
