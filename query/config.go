@@ -30,7 +30,7 @@ type ConfigSummaryRequestAnalysis struct {
 type ConfigSummaryRequest struct {
 	Changes  ConfigSummaryRequestChanges  `json:"changes"`
 	Analysis ConfigSummaryRequestAnalysis `json:"analysis"`
-	Cost     string                       `json:"string"`
+	Cost     string                       `json:"cost"`
 	Deleted  bool                         `json:"deleted"`
 	Filter   map[string]string            `json:"filter"` // Filter by labels
 	GroupBy  []string                     `json:"groupBy"`
@@ -96,9 +96,12 @@ func (t *ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []strin
 
 func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	cols := []string{
-		fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost),
 		"aggregated_status_count.health_summary AS health_summary",
 		"COUNT(*) AS total_configs",
+	}
+
+	if t.Cost != "" {
+		cols = append(cols, fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost))
 	}
 
 	if t.Changes.Since != "" {
@@ -156,10 +159,6 @@ func (t *ConfigSummaryRequest) groupBy() []string {
 }
 
 func (t *ConfigSummaryRequest) SetDefaults() {
-	if t.Cost == "" {
-		t.Cost = "30d"
-	}
-
 	if len(t.GroupBy) == 0 {
 		t.GroupBy = []string{"type"}
 	}
@@ -183,8 +182,8 @@ func (t *ConfigSummaryRequest) Parse() error {
 	}
 
 	switch t.Cost {
-	case "1d", "7d", "30d":
-	// do nothing
+	case "1d", "7d", "30d", "":
+		// do nothing
 	default:
 		return fmt.Errorf("Cost range is not allowed. allowed (1d, 7d, 30d)")
 	}
