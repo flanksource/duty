@@ -13,10 +13,13 @@ var EKSCluster = models.ConfigItem{
 	Type:        lo.ToPtr("EKS::Cluster"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
+		"account": "flanksource",
 	},
 	Labels: lo.ToPtr(types.JSONStringMap{
-		"telemetry":   "enabled",
+		"account":     "flanksource",
+		"cluster":     "aws",
 		"environment": "production",
+		"telemetry":   "enabled",
 	}),
 }
 
@@ -26,10 +29,13 @@ var KubernetesCluster = models.ConfigItem{
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
 	Tags: types.JSONStringMap{
 		"cluster": "demo",
+		"account": "flanksource",
 	},
 	Labels: lo.ToPtr(types.JSONStringMap{
-		"telemetry":   "enabled",
+		"account":     "flanksource",
+		"cluster":     "demo",
 		"environment": "development",
+		"telemetry":   "enabled",
 	}),
 }
 
@@ -38,9 +44,16 @@ var KubernetesNodeA = models.ConfigItem{
 	Name:        lo.ToPtr("node-a"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	Status:      lo.ToPtr("Healthy"),
+	Tags: types.JSONStringMap{
+		"cluster": "aws",
+		"account": "flanksource",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
-		"role":   "worker",
-		"region": "us-east-1",
+		"cluster": "aws",
+		"account": "flanksource",
+		"role":    "worker",
+		"region":  "us-east-1",
 	}),
 	Properties: &types.Properties{
 		{Name: "memory", Value: 64},
@@ -53,7 +66,14 @@ var KubernetesNodeB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	Status:      lo.ToPtr("Healthy"),
+	Tags: types.JSONStringMap{
+		"cluster": "aws",
+		"account": "flanksource",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
+		"cluster":        "aws",
+		"account":        "flanksource",
 		"role":           "worker",
 		"region":         "us-west-2",
 		"storageprofile": "managed",
@@ -69,7 +89,11 @@ var EC2InstanceA = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Type:        lo.ToPtr("EC2::Instance"),
+	Tags: types.JSONStringMap{
+		"account": "flanksource",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
+		"account":     "flanksource",
 		"environment": "testing",
 		"app":         "backend",
 	}),
@@ -79,7 +103,11 @@ var EC2InstanceB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Type:        lo.ToPtr("EC2::Instance"),
+	Tags: types.JSONStringMap{
+		"account": "flanksource",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
+		"account":     "flanksource",
 		"environment": "production",
 		"app":         "frontend",
 	}),
