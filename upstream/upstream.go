@@ -49,8 +49,24 @@ func (t *UpstreamConfig) Valid() bool {
 	return t.Host != "" && t.Username != "" && t.Password != "" && t.AgentName != ""
 }
 
-func (t *UpstreamConfig) IsPartiallyFilled() bool {
-	return !t.Valid() && (t.Host != "" || t.Password != "" || t.AgentName != "")
+func (t *UpstreamConfig) IsPartiallyFilled() (bool, error) {
+	isPartial := !t.Valid() && (t.Host != "" || t.Password != "" || t.AgentName != "")
+	if !isPartial {
+		return false, nil
+	}
+
+	var errorMsg string
+	if t.Host == "" {
+		errorMsg += "UPSTREAM_HOST is empty."
+	}
+	if t.Password == "" {
+		errorMsg += "UPSTREAM_PASSWORD is empty."
+	}
+	if t.AgentName == "" {
+		errorMsg += "AGENT_NAME is empty."
+	}
+
+	return true, fmt.Errorf("%s", errorMsg)
 }
 
 func (t *UpstreamConfig) LabelsMap() map[string]string {
