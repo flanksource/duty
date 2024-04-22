@@ -78,6 +78,8 @@ type ConfigItem struct {
 	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
 	Type            *string              `json:"type,omitempty"`
 	Status          *string              `json:"status,omitempty" gorm:"default:null"`
+	Ready           bool                 `json:"ready"`
+	Health          *Health              `json:"health"`
 	Name            *string              `json:"name,omitempty" faker:"name"  `
 	Description     *string              `json:"description,omitempty"`
 	Config          *string              `json:"config,omitempty"  `
