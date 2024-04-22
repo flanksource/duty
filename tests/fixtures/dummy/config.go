@@ -49,6 +49,7 @@ var KubernetesNodeA = models.ConfigItem{
 		"cluster": "aws",
 		"account": "flanksource",
 	},
+	Health: lo.ToPtr(models.HealthHealthy),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -71,6 +72,7 @@ var KubernetesNodeB = models.ConfigItem{
 		"cluster": "aws",
 		"account": "flanksource",
 	},
+	Health: lo.ToPtr(models.HealthHealthy),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"cluster":        "aws",
 		"account":        "flanksource",
