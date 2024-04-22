@@ -42,7 +42,7 @@ func AggregateCheckStatus1d(ctx context.Context) (int, error) {
 		SUM(duration) AS duration
 	FROM check_statuses
 	LEFT JOIN checks ON check_statuses.check_id = checks.id
-	WHERE checks.created_at > NOW() - INTERVAL '1 hour' * ?
+	WHERE check_statuses.time > NOW() - INTERVAL '1 hour' * ?
 	GROUP BY 1, 2
 	ORDER BY 1,	2 DESC`
 
@@ -84,7 +84,7 @@ func AggregateCheckStatus1h(ctx context.Context) (int, error) {
 		SUM(duration) AS duration
 	FROM check_statuses
 	LEFT JOIN checks ON check_statuses.check_id = checks.id
-	WHERE checks.created_at > NOW() - INTERVAL '1 hour' * ?
+	WHERE check_statuses.time  > NOW() - INTERVAL '1 hour' * ?
 	GROUP BY 1, 2
 	ORDER BY 1,	2 DESC`
 
