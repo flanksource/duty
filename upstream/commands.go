@@ -50,24 +50,6 @@ func GetOrCreateAgent(ctx context.Context, name string) (*models.Agent, error) {
 func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 	db := ctx.DB()
 
-	if len(req.Topologies) > 0 {
-		if err := db.Delete(req.Topologies).Error; err != nil {
-			return fmt.Errorf("error deleting topologies: %w", err)
-		}
-	}
-
-	if len(req.Canaries) > 0 {
-		if err := db.Delete(req.Canaries).Error; err != nil {
-			return fmt.Errorf("error deleting canaries: %w", err)
-		}
-	}
-
-	if len(req.Components) > 0 {
-		if err := db.Delete(req.Components).Error; err != nil {
-			logger.Errorf("error deleting components: %w", err)
-		}
-	}
-
 	if len(req.ComponentRelationships) > 0 {
 		if err := db.Delete(req.ComponentRelationships).Error; err != nil {
 			return fmt.Errorf("error deleting component_relationships: %w", err)
@@ -80,12 +62,6 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.ConfigItems) > 0 {
-		if err := db.Delete(req.ConfigItems).Error; err != nil {
-			logger.Errorf("error deleting config items: %w", err)
-		}
-	}
-
 	if len(req.ConfigRelationships) > 0 {
 		if err := db.Delete(req.ConfigRelationships).Error; err != nil {
 			return fmt.Errorf("error deleting config_relationships: %w", err)
@@ -94,7 +70,25 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 
 	if len(req.ConfigComponentRelationships) > 0 {
 		if err := db.Delete(req.ConfigComponentRelationships).Error; err != nil {
-			return fmt.Errorf("error deleting config_component_relationships: %w", err)
+			return fmt.Errorf("error deleting config_component_relationships: %w: %+v", err, req.ConfigComponentRelationships)
+		}
+	}
+
+	if len(req.Components) > 0 {
+		if err := db.Delete(req.Components).Error; err != nil {
+			logger.Errorf("error deleting components: %w", err)
+		}
+	}
+
+	if len(req.ConfigItems) > 0 {
+		if err := db.Delete(req.ConfigItems).Error; err != nil {
+			logger.Errorf("error deleting config items: %w", err)
+		}
+	}
+
+	if len(req.CheckStatuses) > 0 {
+		if err := db.Delete(req.CheckStatuses).Error; err != nil {
+			return fmt.Errorf("error deleting check_statuses: %w", err)
 		}
 	}
 
@@ -104,9 +98,15 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.CheckStatuses) > 0 {
-		if err := db.Delete(req.CheckStatuses).Error; err != nil {
-			return fmt.Errorf("error deleting check_statuses: %w", err)
+	if len(req.Canaries) > 0 {
+		if err := db.Delete(req.Canaries).Error; err != nil {
+			return fmt.Errorf("error deleting canaries: %w", err)
+		}
+	}
+
+	if len(req.Topologies) > 0 {
+		if err := db.Delete(req.Topologies).Error; err != nil {
+			return fmt.Errorf("error deleting topologies: %w", err)
 		}
 	}
 
