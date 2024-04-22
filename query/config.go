@@ -46,14 +46,14 @@ func (t *ConfigSummaryRequest) OrderBy() string {
 }
 
 func (t *ConfigSummaryRequest) healthSummaryJoin() string {
-	output := "LEFT JOIN aggregated_status_count ON "
+	output := "LEFT JOIN aggregated_health_count ON "
 	var clauses []string
 	for _, g := range t.GroupBy {
 		switch g {
 		case "type":
-			clauses = append(clauses, "aggregated_status_count .type = config_items.type")
+			clauses = append(clauses, "aggregated_health_count.type = config_items.type")
 		default:
-			clauses = append(clauses, fmt.Sprintf("aggregated_status_count.%s = config_items.tags->>'%s'", g, g))
+			clauses = append(clauses, fmt.Sprintf("aggregated_health_count.%s = config_items.tags->>'%s'", g, g))
 		}
 	}
 
@@ -96,8 +96,10 @@ func (t *ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []strin
 
 func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	cols := []string{
-		"aggregated_status_count.health_summary AS health_summary",
-		"COUNT(*) AS total_configs",
+		"aggregated_health_count.health AS health",
+		"MAX(config_items.created_at) as created_at",
+		"MAX(config_items.updated_at) as updated_at",
+		"COUNT(*) AS count",
 	}
 
 	if t.Cost != "" {
@@ -217,21 +219,21 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 
 	groupBy := strings.Join(req.groupBy(), ",")
 
-	statusGrouped := exclause.NewWith(
-		"status_grouped",
-		ctx.DB().Select(req.baseSelectClause("status, COUNT(status) AS count")).
+	healthGrouped := exclause.NewWith(
+		"health_grouped",
+		ctx.DB().Select(req.baseSelectClause("health, COUNT(health) AS count")).
 			Model(&models.ConfigItem{}).
-			Where("status IS NOT NULL").
+			Where("health IS NOT NULL").
 			Where(req.configDeleteClause()).
 			Where(req.filterClause(ctx.DB())).
 			Group(groupBy).
-			Group("status"),
+			Group("health"),
 	)
 
-	statusAggregated := exclause.NewWith(
-		"aggregated_status_count",
-		ctx.DB().Select(req.plainSelectClause("jsonb_object_agg(status_grouped.status, count)::jsonb AS health_summary")).
-			Table("status_grouped").
+	healthAggregated := exclause.NewWith(
+		"aggregated_health_count",
+		ctx.DB().Select(req.plainSelectClause("jsonb_object_agg(health_grouped.health, count)::jsonb AS health")).
+			Table("health_grouped").
 			Group(strings.Join(req.GroupBy, ",")),
 	)
 
@@ -242,11 +244,11 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Where(req.configDeleteClause()).
 		Where(req.filterClause(ctx.DB())).
 		Group(groupBy).
-		Group("aggregated_status_count.health_summary").
+		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
 
 	finalQuery := ctx.DB().
-		Clauses(statusGrouped).Clauses(statusAggregated).
+		Clauses(healthGrouped).Clauses(healthAggregated).
 		Select("json_agg(row_to_json(summary))").
 		Table("summary")
 
