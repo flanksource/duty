@@ -3,6 +3,7 @@ package duty
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -15,6 +16,8 @@ import (
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/tracing"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/pflag"
@@ -205,4 +208,13 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 	}
 
 	return
+}
+
+func IsForeignKeyError(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgerrcode.ForeignKeyViolation
+	}
+
+	return false
 }

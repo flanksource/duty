@@ -10,6 +10,10 @@ import (
 type HTTPError struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
+
+	// Data for machine-machine communication.
+	// usually contains a JSON data.
+	Data string `json:"data,omitempty"`
 }
 
 type HTTPSuccess struct {
@@ -18,13 +22,13 @@ type HTTPSuccess struct {
 }
 
 func WriteError(c echo.Context, err error) error {
-	code, message := ErrorCode(err), ErrorMessage(err)
+	code, message, data := ErrorCode(err), ErrorMessage(err), ErrorData(err)
 
 	if debugInfo := ErrorDebugInfo(err); debugInfo != "" {
 		logger.WithValues("code", code, "error", message).Errorf(debugInfo)
 	}
 
-	return c.JSON(ErrorStatusCode(code), &HTTPError{Error: message})
+	return c.JSON(ErrorStatusCode(code), &HTTPError{Error: message, Data: data})
 }
 
 // ErrorStatusCode returns the associated HTTP status code for an application error code.

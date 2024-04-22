@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -17,6 +18,11 @@ import (
 const (
 	saveRetries = 3
 )
+
+type PushFKError struct {
+	Table string   `json:"table"`
+	IDs   []string `json:"ids"`
+}
 
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
 	var t models.Agent
@@ -167,7 +173,24 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	if len(req.ConfigChanges) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigChanges, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_changes: %w", err)
+			if !duty.IsForeignKeyError(err) {
+				return fmt.Errorf("error upserting config_changes: %w", err)
+			}
+
+			// If foreign key error, try inserting one by one and return the ones that fail
+			var conflicted []string
+			for i := range req.ConfigChanges {
+				cc := req.ConfigChanges[i]
+				if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&cc).Error; err != nil {
+					if duty.IsForeignKeyError(err) {
+						conflicted = append(conflicted, cc.ConfigID)
+					} else {
+						return fmt.Errorf("error upserting config change (%s): %w", cc.ID, err)
+					}
+				}
+			}
+
+			return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{Table: "config_changes", IDs: lo.Uniq(conflicted)})
 		}
 	}
 
@@ -234,11 +257,8 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		var failed []T
 		for _, c := range items {
 			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
-				var pgError *pgconn.PgError
-				if errors.As(err, &pgError) {
-					if pgError.Code == pgerrcode.ForeignKeyViolation {
-						failed = append(failed, c)
-					}
+				if duty.IsForeignKeyError(err) {
+					failed = append(failed, c)
 				} else {
 					return fmt.Errorf("error upserting %s (id=%s) : %w", c.TableName(), c.PK(), err)
 				}

@@ -1,8 +1,10 @@
 package upstream
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
@@ -39,6 +41,23 @@ var reconciledTables = []pushableTable{
 	models.ConfigRelationship{},
 }
 
+// TODO: Handle tables with multiple parents
+var reconciledTablesParents = map[string][]pushableTable{
+	"config_item": {models.ConfigScraper{}},
+	"check":       {models.Canary{}},
+	"component":   {models.Topology{}},
+
+	"config_changes":  {models.ConfigItem{}},
+	"config_analyses": {models.ConfigItem{}},
+	"check_status":    {models.Check{}},
+
+	"check_component_relationships":  {models.Check{}, models.Component{}},
+	"check_config_relationships":     {models.Check{}},
+	"component_relationships":        {models.Topology{}},
+	"config_component_relationships": {models.Topology{}},
+	"config_relationships":           {models.Topology{}},
+}
+
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	return ReconcileSome(ctx, config, batchSize)
 }
@@ -51,6 +70,17 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 		}
 
 		if c, err := reconcileTable(ctx, config, table, batchSize); err != nil {
+			if a := api.FromError(err); a != nil && a.Data != "" {
+				var foreignKeyErr PushFKError
+				if err := json.Unmarshal([]byte(a.Data), &foreignKeyErr); err == nil {
+					if parent, ok := reconciledTablesParents[foreignKeyErr.Table]; ok {
+						if err := ctx.DB().Debug().Model(parent).Where("id IN ?", foreignKeyErr.IDs).Update("is_pushed", false).Error; err != nil {
+							return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
+						}
+					}
+				}
+			}
+
 			return count, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
 		} else {
 			count += c

@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
 
+	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/setup"
@@ -62,7 +65,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		}
 	})
 
-	ginkgo.It("should push config items first to satisfy foregin keys for changes & analyses", func() {
+	ginkgo.It("should push config items first to satisfy foreign keys for changes & analyses", func() {
 		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_items")
 		Expect(err).To(BeNil())
 		Expect(count).To(Not(BeZero()))
@@ -146,7 +149,60 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Artifact{}).Scan(&pending).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pending).To(BeZero())
+	})
 
+	ginkgo.It("should deal with fk constraint errors", func() {
+		airsonic := models.ConfigItem{
+			Name:        lo.ToPtr("airsonic"),
+			Type:        lo.ToPtr("Kubernetes::Pod"),
+			Config:      lo.ToPtr("{}"),
+			ConfigClass: "Pod",
+		}
+		err := DefaultContext.DB().Create(&airsonic).Error
+		Expect(err).To(BeNil())
+
+		navidrome := models.ConfigItem{
+			Name:        lo.ToPtr("navidrome"),
+			Type:        lo.ToPtr("Kubernetes::Pod"),
+			Config:      lo.ToPtr("{}"),
+			ConfigClass: "Pod",
+		}
+		err = DefaultContext.DB().Create(&navidrome).Error
+		Expect(err).To(BeNil())
+
+		airsonicchange := models.ConfigChange{
+			ConfigID:         airsonic.ID.String(),
+			ExternalChangeId: utils.RandomString(10),
+			ChangeType:       "Pending",
+		}
+		err = DefaultContext.DB().Create(&airsonicchange).Error
+		Expect(err).To(BeNil())
+
+		navidromeChange := models.ConfigChange{
+			ConfigID:         navidrome.ID.String(),
+			ExternalChangeId: utils.RandomString(10),
+			ChangeType:       "Running",
+		}
+		err = DefaultContext.DB().Create(&navidromeChange).Error
+		Expect(err).To(BeNil())
+
+		// Pretend that these config items have been pushed already even though
+		// they haven't been
+		err = DefaultContext.DB().Model(&models.ConfigItem{}).
+			Where("id IN ?", []uuid.UUID{airsonic.ID, navidrome.ID}).UpdateColumn("is_pushed", true).Error
+		Expect(err).To(BeNil())
+
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
+		Expect(err).To(HaveOccurred())
+		Expect(count).To(Equal(0))
+
+		// After reconciliation, those config items should have been marked as unpushed.
+		var unpushed int
+		err = DefaultContext.DB().Model(&models.ConfigItem{}).Select("COUNT(*)").
+			Where("id IN ?", []uuid.UUID{airsonic.ID, navidrome.ID}).
+			Where("is_pushed", false).Scan(&unpushed).Error
+		Expect(err).To(BeNil())
+		Expect(unpushed).To(Equal(2))
 	})
 
 	ginkgo.AfterAll(func() {

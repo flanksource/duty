@@ -71,7 +71,7 @@ var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated"`
+	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
 	ScraperID       *string              `json:"scraper_id,omitempty"`
 	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
 	ConfigClass     string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
@@ -343,7 +343,7 @@ type ConfigChange struct {
 	ExternalID       string     `gorm:"-" json:"-"`
 	ConfigType       string     `gorm:"-" json:"-"`
 	ExternalChangeId string     `gorm:"column:external_change_id" json:"external_change_id"`
-	ID               string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ID               string     `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
 	ChangeType       string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
 	Severity         Severity   `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`

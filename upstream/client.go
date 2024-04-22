@@ -1,12 +1,14 @@
 package upstream
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	netHTTP "net/http"
 	"time"
 
 	"github.com/flanksource/commons/http"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/google/uuid"
 )
@@ -101,6 +103,12 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	if !resp.IsOK() {
 		histogram.Label(StatusLabel, StatusError).Since(start)
 		respBody, _ := io.ReadAll(resp.Body)
+
+		var upstreamError api.Error
+		if json.Unmarshal(respBody, &upstreamError) == nil {
+			return &upstreamError
+		}
+
 		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 	}
 	histogram.Label(StatusLabel, StatusOK).Since(start)
