@@ -20,6 +20,10 @@ type customIsPushedUpdater interface {
 	UpdateIsPushed(db *gorm.DB, items []models.DBTable) error
 }
 
+type parentIsPushedUpdater interface {
+	UpdateParentsIsPushed(ctx *gorm.DB, items []models.DBTable) error
+}
+
 var reconciledTables = []pushableTable{
 	models.Topology{},
 	models.ConfigScraper{},
@@ -41,22 +45,23 @@ var reconciledTables = []pushableTable{
 	models.ConfigRelationship{},
 }
 
-// TODO: Handle tables with multiple parents
-var reconciledTablesParents = map[string][]pushableTable{
-	"config_item": {models.ConfigScraper{}},
-	"check":       {models.Canary{}},
-	"component":   {models.Topology{}},
-
-	"config_changes":  {models.ConfigItem{}},
-	"config_analyses": {models.ConfigItem{}},
-	"check_status":    {models.Check{}},
-
-	"check_component_relationships":  {models.Check{}, models.Component{}},
-	"check_config_relationships":     {models.Check{}},
-	"component_relationships":        {models.Topology{}},
-	"config_component_relationships": {models.Topology{}},
-	"config_relationships":           {models.Topology{}},
-}
+//
+// // TODO: Handle tables with multiple parents
+// var reconciledTablesParents = map[string][]pushableTable{
+// 	"config_item": {models.ConfigScraper{}},
+// 	"check":       {models.Canary{}},
+// 	"component":   {models.Topology{}},
+//
+// 	"config_changes":  {models.ConfigItem{}},
+// 	"config_analyses": {models.ConfigItem{}},
+// 	"check_status":    {models.Check{}},
+//
+// 	"check_component_relationships":  {models.Check{}, models.Component{}},
+// 	"check_config_relationships":     {models.Check{}},
+// 	"component_relationships":        {models.Topology{}},
+// 	"config_component_relationships": {models.Topology{}},
+// 	"config_relationships":           {models.Topology{}},
+// }
 
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	return ReconcileSome(ctx, config, batchSize)
@@ -70,17 +75,6 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 		}
 
 		if c, err := reconcileTable(ctx, config, table, batchSize); err != nil {
-			if a := api.FromError(err); a != nil && a.Data != "" {
-				var foreignKeyErr PushFKError
-				if err := json.Unmarshal([]byte(a.Data), &foreignKeyErr); err == nil {
-					if parent, ok := reconciledTablesParents[foreignKeyErr.Table]; ok {
-						if err := ctx.DB().Debug().Model(parent).Where("id IN ?", foreignKeyErr.IDs).Update("is_pushed", false).Error; err != nil {
-							return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
-						}
-					}
-				}
-			}
-
 			return count, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
 		} else {
 			count += c
@@ -107,6 +101,27 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 
 		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
 		if err := client.Push(ctx, NewPushData(items)); err != nil {
+			if a := api.FromError(err); a != nil && a.Data != "" {
+				var foreignKeyErr PushFKError
+				if err := json.Unmarshal([]byte(a.Data), &foreignKeyErr); err == nil {
+					failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
+						return item, struct{}{}
+					})
+					failedItems := lo.Filter(items, func(item models.DBTable, _ int) bool {
+						_, ok := failedOnes[item.PK()]
+						return ok
+					})
+
+					if c, ok := table.(parentIsPushedUpdater); ok && len(failedItems) > 0 {
+						if err := c.UpdateParentsIsPushed(ctx.DB(), failedItems); err != nil {
+							return 0, fmt.Errorf("failed to mark parents as unpushed: %w", err)
+						}
+					}
+
+					count += len(items) - len(failedItems)
+				}
+			}
+
 			return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
 		}
 		count += len(items)

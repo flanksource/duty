@@ -20,8 +20,7 @@ const (
 )
 
 type PushFKError struct {
-	Table string   `json:"table"`
-	IDs   []string `json:"ids"`
+	IDs []string `json:"ids"`
 }
 
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
@@ -160,7 +159,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	if len(req.ConfigRelationships) > 0 {
 		cols := []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "selector_id"}}
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_relationships: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.ConfigRelationships, func(i models.ConfigRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -173,30 +172,13 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	if len(req.ConfigChanges) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigChanges, batchSize).Error; err != nil {
-			if !duty.IsForeignKeyError(err) {
-				return fmt.Errorf("error upserting config_changes: %w", err)
-			}
-
-			// If foreign key error, try inserting one by one and return the ones that fail
-			var conflicted []string
-			for i := range req.ConfigChanges {
-				cc := req.ConfigChanges[i]
-				if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&cc).Error; err != nil {
-					if duty.IsForeignKeyError(err) {
-						conflicted = append(conflicted, cc.ConfigID)
-					} else {
-						return fmt.Errorf("error upserting config change (%s): %w", cc.ID, err)
-					}
-				}
-			}
-
-			return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{Table: "config_changes", IDs: lo.Uniq(conflicted)})
+			return handleUpsertError(ctx, lo.Map(req.ConfigChanges, func(i models.ConfigChange, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.ConfigAnalysis) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigAnalysis, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_analysis: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.ConfigAnalysis, func(i models.ConfigAnalysis, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -237,6 +219,26 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	return nil
+}
+
+func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err error) error {
+	if !duty.IsForeignKeyError(err) {
+		return fmt.Errorf("error upserting config_changes: %w", err)
+	}
+
+	// If foreign key error, try inserting one by one and return the ones that fail
+	var conflicted []string
+	for _, item := range items {
+		if err := ctx.DB().Debug().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
+			if duty.IsForeignKeyError(err) {
+				conflicted = append(conflicted, item.PK())
+			} else {
+				return fmt.Errorf("error upserting config change (%s): %w", item.PK(), err)
+			}
+		}
+	}
+
+	return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{IDs: lo.Uniq(conflicted)})
 }
 
 func UpdateAgentLastSeen(ctx context.Context, id uuid.UUID) error {

@@ -311,6 +311,26 @@ type ConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (c ConfigRelationship) Value() any {
+	return &c
+}
+
+func (c ConfigRelationship) PKCols() []clause.Column {
+	return []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "selector_id"}}
+}
+
+func (t ConfigRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigRelationship).ConfigID
+	})
+
+	relatedIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigRelationship).RelatedID
+	})
+
+	return db.Model(&ConfigItem{}).Where("id IN ?", append(parentIDs, relatedIDs...)).Update("is_pushed", false).Error
+}
+
 func (s ConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	ids := lo.Map(items, func(a DBTable, _ int) []string {
 		c := any(a).(ConfigRelationship)
@@ -357,6 +377,14 @@ type ConfigChange struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (t ConfigChange) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigChange).ConfigID
+	})
+
+	return db.Model(&ConfigItem{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 func (t ConfigChange) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigChange
 	err := db.Select("config_changes.*").
@@ -364,6 +392,14 @@ func (t ConfigChange) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 		Where("config_items.agent_id = ?", uuid.Nil).
 		Where("config_changes.is_pushed IS FALSE").Find(&items).Error
 	return lo.Map(items, func(i ConfigChange, _ int) DBTable { return i }), err
+}
+
+func (c ConfigChange) PKCols() []clause.Column {
+	return []clause.Column{{Name: "id"}}
+}
+
+func (c ConfigChange) Value() any {
+	return &c
 }
 
 func (c ConfigChange) PK() string {
@@ -397,7 +433,7 @@ func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigAnalysis struct {
-	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
 	ExternalID    string        `gorm:"-"`
 	ConfigType    string        `gorm:"-"`
 	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
@@ -416,6 +452,14 @@ type ConfigAnalysis struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (t ConfigAnalysis) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigAnalysis).ConfigID.String()
+	})
+
+	return db.Model(&ConfigItem{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 func (ConfigAnalysis) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigAnalysis
 	err := db.Select("config_analysis.*").
@@ -424,6 +468,14 @@ func (ConfigAnalysis) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 		Where("config_analysis.is_pushed IS FALSE").
 		Find(&items).Error
 	return lo.Map(items, func(i ConfigAnalysis, _ int) DBTable { return i }), err
+}
+
+func (c ConfigAnalysis) PKCols() []clause.Column {
+	return []clause.Column{{Name: "id"}}
+}
+
+func (c ConfigAnalysis) Value() any {
+	return &c
 }
 
 func (a ConfigAnalysis) PK() string {
