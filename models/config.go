@@ -94,7 +94,7 @@ type ConfigItem struct {
 	Tags            types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
 	Properties      *types.Properties    `json:"properties,omitempty"`
 	LastScrapedTime *time.Time           `json:"last_scraped_time,omitempty"`
-	CreatedAt       time.Time            `json:"created_at"`
+	CreatedAt       time.Time            `json:"created_at" gorm:"<-:false"`
 	UpdatedAt       *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
 	DeleteReason    string               `json:"delete_reason,omitempty"`
@@ -270,7 +270,7 @@ type ConfigScraper struct {
 	Spec        string     `json:"spec,omitempty"`
 	Source      string     `json:"source,omitempty"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"<-:false"`
 	UpdatedAt   *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
