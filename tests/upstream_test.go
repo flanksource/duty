@@ -151,104 +151,200 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(pending).To(BeZero())
 	})
 
-	ginkgo.Context("should deal with fk constraint errors", func() {
-		deployment := models.ConfigItem{
-			ID:          uuid.New(),
-			Name:        lo.ToPtr("airsonic"),
-			Type:        lo.ToPtr("Kubernetes::Deployment"),
-			Config:      lo.ToPtr("{}"),
-			ConfigClass: "Deployment",
-		}
+	ginkgo.Describe("should deal with fk constraint errors", func() {
+		ginkgo.Context("full fk constraint error", func() {
+			deployment := models.ConfigItem{
+				ID:          uuid.New(),
+				Name:        lo.ToPtr("airsonic"),
+				Type:        lo.ToPtr("Kubernetes::Deployment"),
+				Config:      lo.ToPtr("{}"),
+				ConfigClass: "Deployment",
+			}
 
-		pod := models.ConfigItem{
-			ID:          uuid.New(),
-			Name:        lo.ToPtr("airsonic"),
-			Type:        lo.ToPtr("Kubernetes::Pod"),
-			Config:      lo.ToPtr("{}"),
-			ConfigClass: "Pod",
-		}
+			pod := models.ConfigItem{
+				ID:          uuid.New(),
+				Name:        lo.ToPtr("airsonic"),
+				Type:        lo.ToPtr("Kubernetes::Pod"),
+				Config:      lo.ToPtr("{}"),
+				ConfigClass: "Pod",
+			}
 
-		deploymentChange := models.ConfigChange{
-			ID:               uuid.New().String(),
-			ConfigID:         deployment.ID.String(),
-			ExternalChangeId: utils.RandomString(10),
-			ChangeType:       "Pending",
-		}
+			deploymentChange := models.ConfigChange{
+				ID:               uuid.New().String(),
+				ConfigID:         deployment.ID.String(),
+				ExternalChangeId: utils.RandomString(10),
+				ChangeType:       "Pending",
+			}
 
-		podChange := models.ConfigChange{
-			ID:               uuid.New().String(),
-			ConfigID:         pod.ID.String(),
-			ExternalChangeId: utils.RandomString(10),
-			ChangeType:       "Running",
-		}
+			podChange := models.ConfigChange{
+				ID:               uuid.New().String(),
+				ConfigID:         pod.ID.String(),
+				ExternalChangeId: utils.RandomString(10),
+				ChangeType:       "Running",
+			}
 
-		deploymentAnalysis := models.ConfigAnalysis{
-			ID:       uuid.New(),
-			ConfigID: deployment.ID,
-			Severity: models.SeverityCritical,
-			Analyzer: "Trivy",
-		}
+			deploymentAnalysis := models.ConfigAnalysis{
+				ID:       uuid.New(),
+				ConfigID: deployment.ID,
+				Severity: models.SeverityCritical,
+				Analyzer: "Trivy",
+			}
 
-		podAnalysis := models.ConfigAnalysis{
-			ID:       uuid.New(),
-			ConfigID: pod.ID,
-			Severity: models.SeverityCritical,
-			Analyzer: "Trivy",
-		}
+			podAnalysis := models.ConfigAnalysis{
+				ID:       uuid.New(),
+				ConfigID: pod.ID,
+				Severity: models.SeverityCritical,
+				Analyzer: "Trivy",
+			}
 
-		deploymentPodRelationship := models.ConfigRelationship{
-			ConfigID:   deployment.ID.String(),
-			RelatedID:  pod.ID.String(),
-			SelectorID: utils.RandomString(10),
-		}
+			deploymentPodRelationship := models.ConfigRelationship{
+				ConfigID:   deployment.ID.String(),
+				RelatedID:  pod.ID.String(),
+				SelectorID: utils.RandomString(10),
+			}
 
-		ginkgo.BeforeAll(func() {
-			err := DefaultContext.DB().Create(&deployment).Error
-			Expect(err).To(BeNil())
+			ginkgo.BeforeAll(func() {
+				err := DefaultContext.DB().Create(&deployment).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&pod).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&pod).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&deploymentChange).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&deploymentChange).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&podChange).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&podChange).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&podChange).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&podChange).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&deploymentAnalysis).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&deploymentAnalysis).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&podAnalysis).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&podAnalysis).Error
+				Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&deploymentPodRelationship).Error
-			Expect(err).To(BeNil())
+				err = DefaultContext.DB().Create(&deploymentPodRelationship).Error
+				Expect(err).To(BeNil())
+			})
+
+			for _, t := range []string{"config_changes", "config_analysis", "config_relationships"} {
+				ginkgo.It(t, func() {
+					// Pretend that these config items have been pushed already even though
+					// they haven't been
+					err := DefaultContext.DB().Model(&models.ConfigItem{}).
+						Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
+					Expect(err).To(BeNil())
+
+					count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
+					Expect(err).To(HaveOccurred())
+					Expect(count).To(Equal(0))
+
+					// After reconciliation, those config items should have been marked as unpushed.
+					var unpushed int
+					err = DefaultContext.DB().Model(&models.ConfigItem{}).Select("COUNT(*)").
+						Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).
+						Where("is_pushed", false).Scan(&unpushed).Error
+					Expect(err).To(BeNil())
+					Expect(unpushed).To(Equal(2))
+				})
+			}
 		})
 
-		for _, t := range []string{"config_changes", "config_analysis", "config_relationships"} {
-			ginkgo.It(t, func() {
-				// Pretend that these config items have been pushed already even though
-				// they haven't been
-				err := DefaultContext.DB().Model(&models.ConfigItem{}).
-					Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
+		ginkgo.Context("partial fk constraint error", ginkgo.Ordered, func() {
+			httpCanary := models.Canary{
+				ID:        uuid.New(),
+				Name:      "http checks",
+				Namespace: "Default",
+				Spec:      []byte("{}"),
+			}
+
+			httpChecks := models.Check{
+				ID:       uuid.New(),
+				CanaryID: httpCanary.ID,
+				Type:     "http",
+				Name:     "http check",
+			}
+
+			tcpCanary := models.Canary{
+				ID:        uuid.New(),
+				Name:      "tcp checks",
+				Namespace: "Default",
+				Spec:      []byte("{}"),
+			}
+
+			tcpCheck := models.Check{
+				ID:       uuid.New(),
+				CanaryID: tcpCanary.ID,
+				Type:     "tcp",
+				Name:     "tcp check",
+			}
+
+			ginkgo.BeforeAll(func() {
+				err := DefaultContext.DB().Create(&httpCanary).Error
 				Expect(err).To(BeNil())
 
-				count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
-				Expect(err).To(HaveOccurred())
-				Expect(count).To(Equal(0))
-
-				// After reconciliation, those config items should have been marked as unpushed.
-				var unpushed int
-				err = DefaultContext.DB().Model(&models.ConfigItem{}).Select("COUNT(*)").
-					Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).
-					Where("is_pushed", false).Scan(&unpushed).Error
+				err = DefaultContext.DB().Create(&tcpCanary).Error
 				Expect(err).To(BeNil())
-				Expect(unpushed).To(Equal(2))
+
+				err = DefaultContext.DB().Create(&httpChecks).Error
+				Expect(err).To(BeNil())
+
+				err = DefaultContext.DB().Create(&tcpCheck).Error
+				Expect(err).To(BeNil())
 			})
-		}
+
+			ginkgo.It("should reconcile the above canary & checks", func() {
+				_, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
+				Expect(err).To(BeNil())
+
+				var canaryCount int
+				err = DefaultContext.DB().Model(&models.Canary{}).Select("Count(*)").Where("id IN ?", []uuid.UUID{httpCanary.ID, tcpCanary.ID}).Where("is_pushed = ?", true).Scan(&canaryCount).Error
+				Expect(err).To(BeNil())
+				Expect(canaryCount).To(Equal(2))
+
+				var checkCount int
+				err = DefaultContext.DB().Model(&models.Check{}).Select("Count(*)").Where("id IN ?", []uuid.UUID{httpChecks.ID, tcpCheck.ID}).Where("is_pushed = ?", true).Scan(&checkCount).Error
+				Expect(err).To(BeNil())
+				Expect(checkCount).To(Equal(2))
+			})
+
+			ginkgo.Context("simulate partial fk error", func() {
+				ginkgo.It("delete the TCP canary from upstream & try to reconcile the checks again", func() {
+					err := upstreamCtx.DB().Delete(tcpCanary).Error
+					Expect(err).To(BeNil())
+
+					err = DefaultContext.DB().Model(&models.Check{}).Where("id IN ?", []uuid.UUID{httpChecks.ID, tcpCheck.ID}).Update("is_pushed", false).Error
+					Expect(err).To(BeNil())
+
+					_, err = upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
+					Expect(err).To(Not(BeNil()))
+
+					// We expect the http check to have been marked as pushed
+					// while the tcp check & its canary to have been marked as unpushed
+					var httpCheckPushed bool
+					err = DefaultContext.DB().Model(&models.Check{}).Select("is_pushed").Where("id = ?", httpChecks.ID).Scan(&httpCheckPushed).Error
+					Expect(err).To(BeNil())
+					Expect(httpCheckPushed).To(BeTrue())
+
+					var tcpCanaryPushed bool
+					err = DefaultContext.DB().Model(&models.Canary{}).Select("is_pushed").Where("id = ?", tcpCanary.ID).Scan(&tcpCanaryPushed).Error
+					Expect(err).To(BeNil())
+					Expect(tcpCanaryPushed).To(BeFalse())
+
+					var tcpCheckPushed bool
+					err = DefaultContext.DB().Model(&models.Check{}).Select("is_pushed").Where("id = ?", tcpCheck.ID).Scan(&tcpCheckPushed).Error
+					Expect(err).To(BeNil())
+					Expect(tcpCheckPushed).To(BeFalse())
+				})
+
+				ginkgo.It("The next round of reconciliation should have no error", func() {
+					_, err := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
+					Expect(err).To(BeNil())
+				})
+			})
+		})
 	})
 
 	ginkgo.AfterAll(func() {

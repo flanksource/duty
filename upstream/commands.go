@@ -156,7 +156,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ConfigRelationships) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigComponentRelationship{}.PKCols()}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigRelationship{}.PKCols()}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
 			return handleUpsertError(ctx, lo.Map(req.ConfigRelationships, func(i models.ConfigRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
