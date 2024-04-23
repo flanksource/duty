@@ -61,12 +61,6 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.ConfigScrapers) > 0 {
-		if err := db.Delete(req.ConfigScrapers).Error; err != nil {
-			return fmt.Errorf("error deleting config scrapers: %w", err)
-		}
-	}
-
 	if len(req.ConfigRelationships) > 0 {
 		if err := db.Delete(req.ConfigRelationships).Error; err != nil {
 			return fmt.Errorf("error deleting config_relationships: %w", err)
@@ -76,6 +70,24 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 	if len(req.ConfigComponentRelationships) > 0 {
 		if err := db.Delete(req.ConfigComponentRelationships).Error; err != nil {
 			return fmt.Errorf("error deleting config_component_relationships: %w: %+v", err, req.ConfigComponentRelationships)
+		}
+	}
+
+	if len(req.ConfigChanges) > 0 {
+		if err := db.Delete(req.ConfigChanges).Error; err != nil {
+			return fmt.Errorf("error deleting config changes: %w", err)
+		}
+	}
+
+	if len(req.ConfigAnalysis) > 0 {
+		if err := db.Delete(req.ConfigAnalysis).Error; err != nil {
+			return fmt.Errorf("error deleting config analysis: %w", err)
+		}
+	}
+
+	if len(req.CheckStatuses) > 0 {
+		if err := db.Delete(req.CheckStatuses).Error; err != nil {
+			return fmt.Errorf("error deleting check_statuses: %w", err)
 		}
 	}
 
@@ -91,15 +103,15 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.CheckStatuses) > 0 {
-		if err := db.Delete(req.CheckStatuses).Error; err != nil {
-			return fmt.Errorf("error deleting check_statuses: %w", err)
-		}
-	}
-
 	if len(req.Checks) > 0 {
 		if err := db.Delete(req.Checks).Error; err != nil {
 			return fmt.Errorf("error deleting checks: %w", err)
+		}
+	}
+
+	if len(req.ConfigScrapers) > 0 {
+		if err := db.Delete(req.ConfigScrapers).Error; err != nil {
+			return fmt.Errorf("error deleting config scrapers: %w", err)
 		}
 	}
 
