@@ -152,7 +152,15 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.Context("should deal with fk constraint errors", func() {
-		airsonic := models.ConfigItem{
+		deployment := models.ConfigItem{
+			ID:          uuid.New(),
+			Name:        lo.ToPtr("airsonic"),
+			Type:        lo.ToPtr("Kubernetes::Deployment"),
+			Config:      lo.ToPtr("{}"),
+			ConfigClass: "Deployment",
+		}
+
+		pod := models.ConfigItem{
 			ID:          uuid.New(),
 			Name:        lo.ToPtr("airsonic"),
 			Type:        lo.ToPtr("Kubernetes::Pod"),
@@ -160,71 +168,63 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 			ConfigClass: "Pod",
 		}
 
-		navidrome := models.ConfigItem{
-			ID:          uuid.New(),
-			Name:        lo.ToPtr("navidrome"),
-			Type:        lo.ToPtr("Kubernetes::Pod"),
-			Config:      lo.ToPtr("{}"),
-			ConfigClass: "Pod",
-		}
-
-		airsonicchange := models.ConfigChange{
+		deploymentChange := models.ConfigChange{
 			ID:               uuid.New().String(),
-			ConfigID:         airsonic.ID.String(),
+			ConfigID:         deployment.ID.String(),
 			ExternalChangeId: utils.RandomString(10),
 			ChangeType:       "Pending",
 		}
 
-		navidromeChange := models.ConfigChange{
+		podChange := models.ConfigChange{
 			ID:               uuid.New().String(),
-			ConfigID:         navidrome.ID.String(),
+			ConfigID:         pod.ID.String(),
 			ExternalChangeId: utils.RandomString(10),
 			ChangeType:       "Running",
 		}
 
-		airsonicAnalysis := models.ConfigAnalysis{
+		deploymentAnalysis := models.ConfigAnalysis{
 			ID:       uuid.New(),
-			ConfigID: airsonic.ID,
+			ConfigID: deployment.ID,
 			Severity: models.SeverityCritical,
 			Analyzer: "Trivy",
 		}
 
-		navidromeAnalysis := models.ConfigAnalysis{
+		podAnalysis := models.ConfigAnalysis{
 			ID:       uuid.New(),
-			ConfigID: navidrome.ID,
+			ConfigID: pod.ID,
 			Severity: models.SeverityCritical,
 			Analyzer: "Trivy",
 		}
 
-		airsonicNavidromeRelationship := models.ConfigRelationship{
-			ConfigID:   airsonic.ID.String(),
-			RelatedID:  navidrome.ID.String(),
+		deploymentPodRelationship := models.ConfigRelationship{
+			ConfigID:   deployment.ID.String(),
+			RelatedID:  pod.ID.String(),
 			SelectorID: utils.RandomString(10),
 		}
 
 		ginkgo.BeforeAll(func() {
-			err := DefaultContext.DB().Create(&airsonic).Error
+			err := DefaultContext.DB().Create(&deployment).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&navidrome).Error
+			err = DefaultContext.DB().Create(&pod).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&airsonicchange).Error
+			err = DefaultContext.DB().Create(&deploymentChange).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&navidromeChange).Error
+			err = DefaultContext.DB().Create(&podChange).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&navidromeChange).Error
+			err = DefaultContext.DB().Create(&podChange).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&airsonicAnalysis).Error
+			err = DefaultContext.DB().Create(&deploymentAnalysis).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&navidromeAnalysis).Error
+			err = DefaultContext.DB().Create(&podAnalysis).Error
 			Expect(err).To(BeNil())
 
-			err = DefaultContext.DB().Create(&airsonicNavidromeRelationship).Error
+			err = DefaultContext.DB().Create(&deploymentPodRelationship).Error
 			Expect(err).To(BeNil())
 		})
 
@@ -233,7 +233,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				// Pretend that these config items have been pushed already even though
 				// they haven't been
 				err := DefaultContext.DB().Model(&models.ConfigItem{}).
-					Where("id IN ?", []uuid.UUID{airsonic.ID, navidrome.ID}).UpdateColumn("is_pushed", true).Error
+					Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
 				Expect(err).To(BeNil())
 
 				count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
@@ -243,7 +243,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				// After reconciliation, those config items should have been marked as unpushed.
 				var unpushed int
 				err = DefaultContext.DB().Model(&models.ConfigItem{}).Select("COUNT(*)").
-					Where("id IN ?", []uuid.UUID{airsonic.ID, navidrome.ID}).
+					Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).
 					Where("is_pushed", false).Scan(&unpushed).Error
 				Expect(err).To(BeNil())
 				Expect(unpushed).To(Equal(2))

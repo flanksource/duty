@@ -99,31 +99,35 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 
 		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
 		if err := client.Push(ctx, NewPushData(items)); err != nil {
-			if a := api.FromError(err); a != nil && a.Data != "" {
-				var foreignKeyErr PushFKError
-				if err := json.Unmarshal([]byte(a.Data), &foreignKeyErr); err == nil {
-					failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
-						return item, struct{}{}
-					})
-					failedItems := lo.Filter(items, func(item models.DBTable, _ int) bool {
-						_, ok := failedOnes[item.PK()]
-						return ok
-					})
+			apiErr := api.FromError(err)
+			if apiErr == nil || apiErr.Data == "" {
+				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
+			}
 
-					if c, ok := table.(parentIsPushedUpdater); ok && len(failedItems) > 0 {
-						if err := c.UpdateParentsIsPushed(ctx.DB(), failedItems); err != nil {
-							return 0, fmt.Errorf("failed to mark parents as unpushed: %w", err)
-						}
-					}
+			var foreignKeyErr PushFKError
+			if err := json.Unmarshal([]byte(apiErr.Data), &foreignKeyErr); err != nil {
+				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
+			}
 
-					count += len(items) - len(failedItems)
-					return count, fmt.Errorf("failed to push %s to upstream %w", table.TableName(), err)
+			failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
+				return item, struct{}{}
+			})
+			failedItems := lo.Filter(items, func(item models.DBTable, _ int) bool {
+				_, ok := failedOnes[item.PK()]
+				return ok
+			})
+
+			if c, ok := table.(parentIsPushedUpdater); ok && len(failedItems) > 0 {
+				if err := c.UpdateParentsIsPushed(ctx.DB(), failedItems); err != nil {
+					return 0, fmt.Errorf("failed to mark parents as unpushed: %w", err)
 				}
 			}
 
-			return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
+			count += len(items) - len(failedItems)
+			items = lo.Without(items, failedItems...)
+		} else {
+			count += len(items)
 		}
-		count += len(items)
 
 		if c, ok := table.(customIsPushedUpdater); ok {
 			if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
