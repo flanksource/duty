@@ -139,9 +139,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ComponentRelationships) > 0 {
-		cols := []clause.Column{{Name: "component_id"}, {Name: "relationship_id"}, {Name: "selector_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ComponentRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting component_relationships: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ComponentRelationship{}.PKCols()}).CreateInBatches(req.ComponentRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ComponentRelationships, func(i models.ComponentRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -157,16 +156,14 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ConfigRelationships) > 0 {
-		cols := []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "selector_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigComponentRelationship{}.PKCols()}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
 			return handleUpsertError(ctx, lo.Map(req.ConfigRelationships, func(i models.ConfigRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.ConfigComponentRelationships) > 0 {
-		cols := []clause.Column{{Name: "component_id"}, {Name: "config_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ConfigComponentRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_component_relationships: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigComponentRelationship{}.PKCols()}).CreateInBatches(req.ConfigComponentRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ConfigComponentRelationships, func(i models.ConfigComponentRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -184,7 +181,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	if len(req.Checks) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Checks, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting checks: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.Checks, func(i models.Check, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -195,9 +192,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.CheckStatuses) > 0 {
-		cols := []clause.Column{{Name: "check_id"}, {Name: "time"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting check_statuses: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.CheckStatus{}.PKCols()}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.CheckStatuses, func(i models.CheckStatus, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -223,7 +219,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err error) error {
 	if !duty.IsForeignKeyError(err) {
-		return fmt.Errorf("error upserting config_changes: %w", err)
+		return fmt.Errorf("error upserting: %w", err)
 	}
 
 	// If foreign key error, try inserting one by one and return the ones that fail

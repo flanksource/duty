@@ -24,6 +24,22 @@ type parentIsPushedUpdater interface {
 	UpdateParentsIsPushed(ctx *gorm.DB, items []models.DBTable) error
 }
 
+// Compile time check to ensure that tables with parent implement this interface.
+var (
+	_ parentIsPushedUpdater = (*models.ConfigItem)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigChange)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigChange)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigAnalysis)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigRelationship)(nil)
+
+	_ parentIsPushedUpdater = (*models.Component)(nil)
+	_ parentIsPushedUpdater = (*models.ComponentRelationship)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigComponentRelationship)(nil)
+
+	_ parentIsPushedUpdater = (*models.Check)(nil)
+	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
+)
+
 var reconciledTables = []pushableTable{
 	models.Topology{},
 	models.ConfigScraper{},
@@ -44,24 +60,6 @@ var reconciledTables = []pushableTable{
 	models.ConfigComponentRelationship{},
 	models.ConfigRelationship{},
 }
-
-//
-// // TODO: Handle tables with multiple parents
-// var reconciledTablesParents = map[string][]pushableTable{
-// 	"config_item": {models.ConfigScraper{}},
-// 	"check":       {models.Canary{}},
-// 	"component":   {models.Topology{}},
-//
-// 	"config_changes":  {models.ConfigItem{}},
-// 	"config_analyses": {models.ConfigItem{}},
-// 	"check_status":    {models.Check{}},
-//
-// 	"check_component_relationships":  {models.Check{}, models.Component{}},
-// 	"check_config_relationships":     {models.Check{}},
-// 	"component_relationships":        {models.Topology{}},
-// 	"config_component_relationships": {models.Topology{}},
-// 	"config_relationships":           {models.Topology{}},
-// }
 
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
 	return ReconcileSome(ctx, config, batchSize)
@@ -119,6 +117,7 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 					}
 
 					count += len(items) - len(failedItems)
+					return count, fmt.Errorf("failed to push %s to upstream %w", table.TableName(), err)
 				}
 			}
 

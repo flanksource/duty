@@ -100,6 +100,14 @@ type ConfigItem struct {
 	DeleteReason    string               `json:"delete_reason,omitempty"`
 }
 
+func (t ConfigItem) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return lo.FromPtr(item.(ConfigItem).ScraperID)
+	})
+
+	return db.Model(&ConfigScraper{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 func (t ConfigItem) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigItem
 	err := db.Where("is_pushed IS FALSE").Find(&items).Error
