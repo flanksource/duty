@@ -20,7 +20,7 @@ type Topology struct {
 	Spec      types.JSON          `gorm:"default:null"`
 	Schedule  *string             `json:"schedule,omitempty"`
 	CreatedBy *uuid.UUID          `json:"created_by,omitempty"`
-	CreatedAt *time.Time          `json:"created_at,omitempty" time_format:"postgres_timestamp"`
+	CreatedAt *time.Time          `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt *time.Time          `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }

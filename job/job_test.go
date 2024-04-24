@@ -22,13 +22,14 @@ func TestStatusRing(t *testing.T) {
 		{Success: 3, Failed: 3},
 	}
 	var total int
+	var expected = 2000 - (5 * 6 * 2)
 
 	eg, _ := errgroup.WithContext(context.TODO())
 	eg.Go(func() error {
 		for {
 			items, _, _, _ := lo.BufferWithTimeout(ch, 32, time.Second*5)
 			total += len(items)
-			if len(ch) == 0 {
+			if total >= expected {
 				break
 			}
 		}
@@ -56,7 +57,6 @@ func TestStatusRing(t *testing.T) {
 	// we have added 2000 job  history to the status rings
 	// based on retention, 5*6*2 jobs remain in the status rings
 	// while the rest of them should have been moved to the evicted channel
-	expected := 2000 - (5 * 6 * 2)
 	if total != expected {
 		t.Fatalf("Expected %d job ids in the channel. Got %d", expected, total)
 	}

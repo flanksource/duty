@@ -43,7 +43,7 @@ type Check struct {
 	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
 	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
-	CreatedAt          *time.Time          `json:"created_at,omitempty"`
+	CreatedAt          *time.Time          `json:"created_at,omitempty" gorm:"<-:false"`
 	UpdatedAt          *time.Time          `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
 	SilencedAt         *time.Time          `json:"silenced_at,omitempty"`
@@ -173,7 +173,7 @@ type CheckStatus struct {
 	Message   string    `json:"message,omitempty"`
 	Error     string    `json:"error,omitempty"`
 	Detail    any       `json:"-" gorm:"-"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty" gorm:"<-:false"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
