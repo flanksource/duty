@@ -45,6 +45,7 @@ func TestSelectorParse(t *testing.T) {
 		"!x",
 		"x>1",
 		"x>1,z<5",
+		"aws/iam-role=arn:aws:iam::12345678910:role/AmazonEKSVPCCNIRole",
 	}
 	testBadStrings := []string{
 		"x=a||y=b",
@@ -467,30 +468,6 @@ func TestRequirementConstructor(t *testing.T) {
 					Type:     field.ErrorTypeInvalid,
 					Field:    "key",
 					BadValue: strings.Repeat("a", 254),
-				},
-			},
-		},
-		{
-			Key:  "x16",
-			Op:   selection.Equals,
-			Vals: sets.NewString(strings.Repeat("a", 254)),
-			WantErr: field.ErrorList{
-				&field.Error{
-					Type:     field.ErrorTypeInvalid,
-					Field:    "values[0][x16]",
-					BadValue: strings.Repeat("a", 254),
-				},
-			},
-		},
-		{
-			Key:  "x17",
-			Op:   selection.Equals,
-			Vals: sets.NewString("a b"),
-			WantErr: field.ErrorList{
-				&field.Error{
-					Type:     field.ErrorTypeInvalid,
-					Field:    "values[0][x17]",
-					BadValue: "a b",
 				},
 			},
 		},
@@ -969,17 +946,6 @@ func TestValidatedSelectorFromSet(t *testing.T) {
 					key:       "key",
 					operator:  selection.Equals,
 					strValues: []string{"val"},
-				},
-			},
-		},
-		{
-			name:  "Invalid Set, value too long",
-			input: Set{"Key": "axahm2EJ8Phiephe2eixohbee9eGeiyees1thuozi1xoh0GiuH3diewi8iem7Nui"},
-			expectedError: field.ErrorList{
-				&field.Error{
-					Type:     field.ErrorTypeInvalid,
-					Field:    "values[0][Key]",
-					BadValue: "axahm2EJ8Phiephe2eixohbee9eGeiyees1thuozi1xoh0GiuH3diewi8iem7Nui",
 				},
 			},
 		},
