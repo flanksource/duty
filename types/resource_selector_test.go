@@ -272,7 +272,7 @@ func TestResourceSelector_Matches(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.selectable != nil && !tt.resourceSelector.Matches(tt.selectable) {
-				t.Errorf("expected to match")
+				t.Errorf("failed[%s] expected to match", tt.name)
 			}
 
 			if tt.unselectable != nil && tt.resourceSelector.Matches(tt.unselectable) {
