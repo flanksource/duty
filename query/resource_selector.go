@@ -14,11 +14,11 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/types"
 )
 
