@@ -269,7 +269,7 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 		}
 
 		if params.SortBy != "" {
-			sortComponents(root[0].Components, params.SortBy, params.SortOrder != "desc")
+			SortComponentsByField(root[0].Components, params.SortBy, params.SortOrder != "desc")
 		}
 	} else {
 		for i := range root {
@@ -277,13 +277,18 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 		}
 
 		if params.SortBy != "" {
-			sortComponents(root, params.SortBy, params.SortOrder != "desc")
+			SortComponentsByField(root, params.SortBy, params.SortOrder != "desc")
 		}
 	}
 	return &response, nil
 }
 
-func sortComponents(c models.Components, sortBy TopologyQuerySortBy, asc bool) {
+func isZeroVal[T string | int64](v T) bool {
+	var z T
+	return v == z
+}
+
+func SortComponentsByField(c models.Components, sortBy TopologyQuerySortBy, asc bool) {
 	switch {
 	case sortBy == TopologyQuerySortByName:
 		sort.Slice(c, func(i, j int) bool {
@@ -309,9 +314,25 @@ func sortComponents(c models.Components, sortBy TopologyQuerySortBy, asc bool) {
 				return false
 			}
 
+			// Zero values should always be pushed to the end
+			// Since order is dependent on `asc` we negate it
 			if isTextProperty {
+				if isZeroVal(propI.Text) {
+					return !asc
+				}
+				if isZeroVal(propJ.Text) {
+					return asc
+				}
+
 				return propI.Text < propJ.Text
 			} else {
+				if isZeroVal(propI.Value) {
+					return !asc
+				}
+				if isZeroVal(propJ.Value) {
+					return asc
+				}
+
 				return propI.Value < propJ.Value
 			}
 		})
