@@ -105,12 +105,12 @@ func (p Properties) Find(name string) *Property {
 	return nil
 }
 
-func (p Property) GetValue() interface{} {
+func (p Property) GetValue() any {
 	if p.Text != "" {
 		return p.Text
 	}
 	if p.Value != nil {
-		return p.Value
+		return *p.Value
 	}
 	return nil
 }
