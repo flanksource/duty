@@ -13,6 +13,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"github.com/samber/lo"
 )
 
 // For debugging
@@ -129,25 +130,28 @@ var _ = ginkgo.Describe("Topology", func() {
 
 var _ = ginkgo.Describe("Check topology sort", func() {
 	components := models.Components{
-		&models.Component{Name: "Zero", Properties: models.Properties{&models.Property{Name: "size", Value: 0}}},
-		&models.Component{Name: "Highest", Properties: models.Properties{&models.Property{Name: "size", Value: 50}}},
-		&models.Component{Name: "Lowest", Properties: models.Properties{&models.Property{Name: "size", Value: 5}}},
-		&models.Component{Name: "Zero", Properties: models.Properties{&models.Property{Name: "size", Value: 0}}},
+		&models.Component{Name: "Zero", Properties: models.Properties{&models.Property{Name: "size", Value: nil}}},
+		&models.Component{Name: "Highest", Properties: models.Properties{&models.Property{Name: "size", Value: lo.ToPtr(int64(50))}}},
+		&models.Component{Name: "Lowest", Properties: models.Properties{&models.Property{Name: "size", Value: lo.ToPtr(int64(-5))}}},
+		&models.Component{Name: "Medium", Properties: models.Properties{&models.Property{Name: "size", Value: lo.ToPtr(int64(0))}}},
+		&models.Component{Name: "Zero", Properties: models.Properties{&models.Property{Name: "size", Value: nil}}},
 	}
 
 	ginkgo.It("Should sort components in ascending order", func() {
 		query.SortComponentsByField(components, query.TopologyQuerySortBy("field:size"), true)
 		Expect(components[0].Name).To(Equal("Lowest"))
-		Expect(components[1].Name).To(Equal("Highest"))
-		Expect(components[2].Name).To(Equal("Zero"))
+		Expect(components[1].Name).To(Equal("Medium"))
+		Expect(components[2].Name).To(Equal("Highest"))
 		Expect(components[3].Name).To(Equal("Zero"))
+		Expect(components[4].Name).To(Equal("Zero"))
 	})
 
 	ginkgo.It("Should sort components in descending order", func() {
 		query.SortComponentsByField(components, query.TopologyQuerySortBy("field:size"), false)
 		Expect(components[0].Name).To(Equal("Highest"))
-		Expect(components[1].Name).To(Equal("Lowest"))
-		Expect(components[2].Name).To(Equal("Zero"))
+		Expect(components[1].Name).To(Equal("Medium"))
+		Expect(components[2].Name).To(Equal("Lowest"))
 		Expect(components[3].Name).To(Equal("Zero"))
+		Expect(components[4].Name).To(Equal("Zero"))
 	})
 })

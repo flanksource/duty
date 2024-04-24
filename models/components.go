@@ -372,6 +372,8 @@ type Link struct {
 	Text `json:",inline"`
 }
 
+// TODO: Duplicate exists in types/properties.go
+
 // Property is a realized v1.Property without the lookup definition
 // +kubebuilder:object:generate=true
 type Property struct {
@@ -386,12 +388,12 @@ type Property struct {
 
 	// Either text or value is required, but not both.
 	Text  string `json:"text,omitempty"`
-	Value int64  `json:"value,omitempty"`
+	Value *int64 `json:"value,omitempty"`
 
 	// e.g. milliseconds, bytes, millicores, epoch etc.
 	Unit string `json:"unit,omitempty"`
 	Max  *int64 `json:"max,omitempty"`
-	Min  int64  `json:"min,omitempty"`
+	Min  *int64 `json:"min,omitempty"`
 
 	Status         string `json:"status,omitempty"`
 	LastTransition string `json:"lastTransition,omitempty"`
@@ -402,7 +404,7 @@ func (p Property) GetValue() any {
 	if p.Text != "" {
 		return p.Text
 	}
-	if p.Value != 0 {
+	if p.Value != nil {
 		return p.Value
 	}
 	return nil
@@ -413,7 +415,7 @@ func (p *Property) String() string {
 	if p.Text != "" {
 		s += fmt.Sprintf("text=%s ", p.Text)
 	}
-	if p.Value != 0 {
+	if p.Value != nil {
 		s += fmt.Sprintf("value=%d ", p.Value)
 	}
 	if p.Unit != "" {
@@ -422,7 +424,7 @@ func (p *Property) String() string {
 	if p.Max != nil {
 		s += fmt.Sprintf("max=%d ", *p.Max)
 	}
-	if p.Min != 0 {
+	if p.Min != nil {
 		s += fmt.Sprintf("min=%d ", p.Min)
 	}
 	if p.Status != "" {
@@ -439,7 +441,7 @@ func (p *Property) Merge(other *Property) {
 	if other.Text != "" {
 		p.Text = other.Text
 	}
-	if other.Value != 0 {
+	if other.Value != nil {
 		p.Value = other.Value
 	}
 	if other.Unit != "" {
@@ -448,7 +450,7 @@ func (p *Property) Merge(other *Property) {
 	if other.Max != nil {
 		p.Max = other.Max
 	}
-	if other.Min != 0 {
+	if other.Min != nil {
 		p.Min = other.Min
 	}
 	if other.Order > 0 {

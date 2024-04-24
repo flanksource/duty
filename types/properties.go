@@ -44,7 +44,7 @@ type Property struct {
 
 	// Either text or value is required, but not both.
 	Text  string `json:"text,omitempty"`
-	Value int64  `json:"value,omitempty"`
+	Value *int64 `json:"value,omitempty"`
 
 	// e.g. milliseconds, bytes, millicores, epoch etc.
 	Unit string `json:"unit,omitempty"`
@@ -109,7 +109,7 @@ func (p Property) GetValue() interface{} {
 	if p.Text != "" {
 		return p.Text
 	}
-	if p.Value != 0 {
+	if p.Value != nil {
 		return p.Value
 	}
 	return nil
@@ -120,7 +120,7 @@ func (p *Property) String() string {
 	if p.Text != "" {
 		s += fmt.Sprintf("text=%s ", p.Text)
 	}
-	if p.Value != 0 {
+	if p.Value != nil {
 		s += fmt.Sprintf("value=%d ", p.Value)
 	}
 	if p.Unit != "" {
@@ -146,7 +146,7 @@ func (p *Property) Merge(other *Property) {
 	if other.Text != "" {
 		p.Text = other.Text
 	}
-	if other.Value != 0 {
+	if other.Value != nil {
 		p.Value = other.Value
 	}
 	if other.Unit != "" {
