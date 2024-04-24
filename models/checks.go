@@ -62,6 +62,22 @@ type Check struct {
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
 }
 
+func (t Check) Value() any {
+	return &t
+}
+
+func (t Check) PKCols() []clause.Column {
+	return []clause.Column{{Name: "id"}}
+}
+
+func (t Check) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(Check).CanaryID.String()
+	})
+
+	return db.Model(&Canary{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 func (t Check) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []Check
 	err := db.Where("is_pushed IS FALSE").Find(&items).Error
@@ -176,6 +192,22 @@ type CheckStatus struct {
 	CreatedAt time.Time `json:"created_at,omitempty" gorm:"<-:false"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (t CheckStatus) Value() any {
+	return &t
+}
+
+func (t CheckStatus) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(CheckStatus).CheckID.String()
+	})
+
+	return db.Model(&Check{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
+func (s CheckStatus) PKCols() []clause.Column {
+	return []clause.Column{{Name: "check_id"}, {Name: "time"}}
 }
 
 func (s CheckStatus) UpdateIsPushed(db *gorm.DB, items []DBTable) error {

@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -17,6 +18,10 @@ import (
 const (
 	saveRetries = 3
 )
+
+type PushFKError struct {
+	IDs []string `json:"ids"`
+}
 
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
 	var t models.Agent
@@ -50,39 +55,9 @@ func GetOrCreateAgent(ctx context.Context, name string) (*models.Agent, error) {
 func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 	db := ctx.DB()
 
-	if len(req.Topologies) > 0 {
-		if err := db.Delete(req.Topologies).Error; err != nil {
-			return fmt.Errorf("error deleting topologies: %w", err)
-		}
-	}
-
-	if len(req.Canaries) > 0 {
-		if err := db.Delete(req.Canaries).Error; err != nil {
-			return fmt.Errorf("error deleting canaries: %w", err)
-		}
-	}
-
-	if len(req.Components) > 0 {
-		if err := db.Delete(req.Components).Error; err != nil {
-			logger.Errorf("error deleting components: %w", err)
-		}
-	}
-
 	if len(req.ComponentRelationships) > 0 {
 		if err := db.Delete(req.ComponentRelationships).Error; err != nil {
 			return fmt.Errorf("error deleting component_relationships: %w", err)
-		}
-	}
-
-	if len(req.ConfigScrapers) > 0 {
-		if err := db.Delete(req.ConfigScrapers).Error; err != nil {
-			return fmt.Errorf("error deleting config scrapers: %w", err)
-		}
-	}
-
-	if len(req.ConfigItems) > 0 {
-		if err := db.Delete(req.ConfigItems).Error; err != nil {
-			logger.Errorf("error deleting config items: %w", err)
 		}
 	}
 
@@ -94,7 +69,37 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 
 	if len(req.ConfigComponentRelationships) > 0 {
 		if err := db.Delete(req.ConfigComponentRelationships).Error; err != nil {
-			return fmt.Errorf("error deleting config_component_relationships: %w", err)
+			return fmt.Errorf("error deleting config_component_relationships: %w: %+v", err, req.ConfigComponentRelationships)
+		}
+	}
+
+	if len(req.ConfigChanges) > 0 {
+		if err := db.Delete(req.ConfigChanges).Error; err != nil {
+			return fmt.Errorf("error deleting config changes: %w", err)
+		}
+	}
+
+	if len(req.ConfigAnalysis) > 0 {
+		if err := db.Delete(req.ConfigAnalysis).Error; err != nil {
+			return fmt.Errorf("error deleting config analysis: %w", err)
+		}
+	}
+
+	if len(req.CheckStatuses) > 0 {
+		if err := db.Delete(req.CheckStatuses).Error; err != nil {
+			return fmt.Errorf("error deleting check_statuses: %w", err)
+		}
+	}
+
+	if len(req.Components) > 0 {
+		if err := db.Delete(req.Components).Error; err != nil {
+			logger.Errorf("error deleting components: %w", err)
+		}
+	}
+
+	if len(req.ConfigItems) > 0 {
+		if err := db.Delete(req.ConfigItems).Error; err != nil {
+			logger.Errorf("error deleting config items: %w", err)
 		}
 	}
 
@@ -104,9 +109,21 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.CheckStatuses) > 0 {
-		if err := db.Delete(req.CheckStatuses).Error; err != nil {
-			return fmt.Errorf("error deleting check_statuses: %w", err)
+	if len(req.ConfigScrapers) > 0 {
+		if err := db.Delete(req.ConfigScrapers).Error; err != nil {
+			return fmt.Errorf("error deleting config scrapers: %w", err)
+		}
+	}
+
+	if len(req.Canaries) > 0 {
+		if err := db.Delete(req.Canaries).Error; err != nil {
+			return fmt.Errorf("error deleting canaries: %w", err)
+		}
+	}
+
+	if len(req.Topologies) > 0 {
+		if err := db.Delete(req.Topologies).Error; err != nil {
+			return fmt.Errorf("error deleting topologies: %w", err)
 		}
 	}
 
@@ -134,9 +151,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ComponentRelationships) > 0 {
-		cols := []clause.Column{{Name: "component_id"}, {Name: "relationship_id"}, {Name: "selector_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ComponentRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting component_relationships: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ComponentRelationship{}.PKCols()}).CreateInBatches(req.ComponentRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ComponentRelationships, func(i models.ComponentRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -152,34 +168,32 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ConfigRelationships) > 0 {
-		cols := []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "selector_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_relationships: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigRelationship{}.PKCols()}).CreateInBatches(req.ConfigRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ConfigRelationships, func(i models.ConfigRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.ConfigComponentRelationships) > 0 {
-		cols := []clause.Column{{Name: "component_id"}, {Name: "config_id"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.ConfigComponentRelationships, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_component_relationships: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigComponentRelationship{}.PKCols()}).CreateInBatches(req.ConfigComponentRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ConfigComponentRelationships, func(i models.ConfigComponentRelationship, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.ConfigChanges) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigChanges, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_changes: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.ConfigChanges, func(i models.ConfigChange, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.ConfigAnalysis) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.ConfigAnalysis, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_analysis: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.ConfigAnalysis, func(i models.ConfigAnalysis, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
 	if len(req.Checks) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Checks, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting checks: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.Checks, func(i models.Check, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -190,9 +204,8 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.CheckStatuses) > 0 {
-		cols := []clause.Column{{Name: "check_id"}, {Name: "time"}}
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: cols}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting check_statuses: %w", err)
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.CheckStatus{}.PKCols()}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.CheckStatuses, func(i models.CheckStatus, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
@@ -216,6 +229,26 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	return nil
 }
 
+func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err error) error {
+	if !duty.IsForeignKeyError(err) {
+		return fmt.Errorf("error upserting: %w", err)
+	}
+
+	// If foreign key error, try inserting one by one and return the ones that fail
+	var conflicted []string
+	for _, item := range items {
+		if err := ctx.DB().Debug().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
+			if duty.IsForeignKeyError(err) {
+				conflicted = append(conflicted, item.PK())
+			} else {
+				return fmt.Errorf("error upserting config change (%s): %w", item.PK(), err)
+			}
+		}
+	}
+
+	return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{IDs: lo.Uniq(conflicted)})
+}
+
 func UpdateAgentLastSeen(ctx context.Context, id uuid.UUID) error {
 	return ctx.DB().Model(&models.Agent{}).Where("id = ?", id).Update("last_seen", "NOW()").Error
 }
@@ -234,11 +267,8 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		var failed []T
 		for _, c := range items {
 			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
-				var pgError *pgconn.PgError
-				if errors.As(err, &pgError) {
-					if pgError.Code == pgerrcode.ForeignKeyViolation {
-						failed = append(failed, c)
-					}
+				if duty.IsForeignKeyError(err) {
+					failed = append(failed, c)
 				} else {
 					return fmt.Errorf("error upserting %s (id=%s) : %w", c.TableName(), c.PK(), err)
 				}

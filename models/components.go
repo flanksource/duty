@@ -83,6 +83,14 @@ type Component struct {
 	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
+func (t Component) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(Component).TopologyID.String()
+	})
+
+	return db.Model(&Topology{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 func (t Component) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []Component
 	err := db.Where("is_pushed IS FALSE").Find(&items).Error
@@ -530,6 +538,26 @@ type ComponentRelationship struct {
 	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (s ComponentRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	componentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ComponentRelationship).ComponentID.String()
+	})
+
+	relatedIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ComponentRelationship).RelationshipID.String()
+	})
+
+	return db.Model(&Component{}).Where("id IN ?", append(componentIDs, relatedIDs...)).Update("is_pushed", false).Error
+}
+
+func (s ComponentRelationship) Value() any {
+	return &s
+}
+
+func (s ComponentRelationship) PKCols() []clause.Column {
+	return []clause.Column{{Name: "component_id"}, {Name: "relationship_id"}, {Name: "selector_id"}}
+}
+
 func (s ComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	ids := lo.Map(items, func(a DBTable, _ int) []string {
 		c := any(a).(ComponentRelationship)
@@ -565,6 +593,28 @@ type ConfigComponentRelationship struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (s ConfigComponentRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	componentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigComponentRelationship).ComponentID.String()
+	})
+	if err := db.Model(&Component{}).Where("id IN ?", componentIDs).Update("is_pushed", false).Error; err != nil {
+		return err
+	}
+
+	configIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigComponentRelationship).ConfigID.String()
+	})
+	return db.Model(&ConfigItem{}).Where("id IN ?", configIDs).Update("is_pushed", false).Error
+}
+
+func (s ConfigComponentRelationship) Value() any {
+	return &s
+}
+
+func (s ConfigComponentRelationship) PKCols() []clause.Column {
+	return []clause.Column{{Name: "component_id"}, {Name: "config_id"}}
 }
 
 func (s ConfigComponentRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {

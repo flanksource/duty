@@ -1,8 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/flanksource/commons/logger"
 )
 
 // Application error codes.
@@ -26,6 +29,9 @@ type Error struct {
 	// Human-readable error message.
 	Message string
 
+	// Machine-machine error message.
+	Data string
+
 	// DebugInfo contains low-level internal error details that should only be logged.
 	// End-users should never see this.
 	DebugInfo string
@@ -39,6 +45,23 @@ func (e *Error) Error() string {
 // WithDebugInfo wraps an application error with a debug message.
 func (e *Error) WithDebugInfo(msg string, args ...any) *Error {
 	e.DebugInfo = fmt.Sprintf(msg, args...)
+	return e
+}
+
+// WithData sets the given data
+func (e *Error) WithData(data any) *Error {
+	switch v := data.(type) {
+	case string:
+		e.Data = v
+	default:
+		d, err := json.Marshal(data)
+		if err != nil {
+			logger.Errorf("failed to set data. json marshalling failed: %v", err)
+		} else {
+			e.Data = string(d)
+		}
+	}
+
 	return e
 }
 
@@ -66,6 +89,18 @@ func ErrorMessage(err error) string {
 	return "Internal error."
 }
 
+// ErrorMessage unwraps an application error and returns its message.
+// Non-application errors always return "Internal error".
+func ErrorData(err error) string {
+	var e *Error
+	if err == nil {
+		return ""
+	} else if errors.As(err, &e) {
+		return e.Data
+	}
+	return ""
+}
+
 // ErrorDebugInfo unwraps an application error and returns its debug message.
 func ErrorDebugInfo(err error) string {
 	var e *Error
@@ -84,4 +119,13 @@ func Errorf(code string, format string, args ...any) *Error {
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
 	}
+}
+
+func FromError(err error) *Error {
+	var e *Error
+	if errors.As(err, &e) {
+		return e
+	}
+
+	return nil
 }

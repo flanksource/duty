@@ -67,12 +67,14 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 // PushHandler returns an echo handler that saves the push data from agents.
 func PushHandler(c echo.Context) error {
 	ctx := c.Request().Context().(context.Context)
-	var req PushData
+
 	start := time.Now()
 	histogram := ctx.Histogram("push_queue_create_handler", StatusLabel, "", AgentLabel, "")
 	defer func() {
 		histogram.Since(start)
 	}()
+
+	var req PushData
 	err := json.NewDecoder(c.Request().Body).Decode(&req)
 	if err != nil {
 		histogram.Label(StatusLabel, StatusAgentError)
@@ -89,7 +91,7 @@ func PushHandler(c echo.Context) error {
 
 	if err := InsertUpstreamMsg(ctx, &req); err != nil {
 		histogram.Label(StatusLabel, StatusError)
-		return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
+		return api.WriteError(c, err)
 	}
 	histogram.Label(StatusLabel, StatusOK)
 	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String(), "table", ""))

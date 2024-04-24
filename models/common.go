@@ -1,6 +1,10 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"gorm.io/gorm/clause"
+)
 
 type Severity string
 
@@ -39,4 +43,11 @@ func asMap(t any, removeFields ...string) map[string]any {
 type DBTable interface {
 	PK() string
 	TableName() string
+}
+
+// TODO: Find a better way to handle this
+type ExtendedDBTable interface {
+	DBTable
+	Value() any
+	PKCols() []clause.Column
 }

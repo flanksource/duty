@@ -17,7 +17,7 @@ FROM
   check_statuses
   LEFT JOIN checks ON check_statuses.check_id = checks.id
 WHERE
-  checks.created_at > now() - INTERVAL '1 day'
+  check_statuses.time > now() - INTERVAL '1 day'
 GROUP BY
   check_id,
   date_trunc('minute', "time") - (date_part('minute', "time")::INT % 5) * INTERVAL '1 minute'
