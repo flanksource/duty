@@ -194,6 +194,14 @@ table "config_items" {
     null = true
     type = text
   }
+  column "health" {
+    null = true
+    type = text
+  }
+  column "ready" {
+    null = true
+    type = bool
+  }
   column "external_id" {
     null = true
     type = sql("text[]")

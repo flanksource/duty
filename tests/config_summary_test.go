@@ -209,8 +209,8 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		Expect(len(output)).To(Equal(1))
 		Expect(output[0]["type"].(string)).To(Equal("Kubernetes::Node"))
 
-		summary, ok := output[0]["health_summary"].(map[string]any)
+		summary, ok := output[0]["health"].(map[string]any)
 		Expect(ok).To(BeTrue())
-		Expect(summary["Healthy"]).To(Equal(float64(2)))
+		Expect(summary["healthy"]).To(Equal(float64(2)))
 	})
 })

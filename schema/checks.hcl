@@ -107,6 +107,7 @@ table "check_statuses" {
   column "created_at" {
     null = false
     type = timestamptz
+    default = sql("now()")
   }
   column "invalid" {
     null = true
