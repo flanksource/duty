@@ -258,12 +258,12 @@ func TestResourceSelector_Matches(t *testing.T) {
 			},
 			selectable: models.ConfigItem{
 				Properties: &types.Properties{
-					{Name: "memory", Value: 64},
+					{Name: "memory", Value: lo.ToPtr(int64(64))},
 				},
 			},
 			unselectable: models.ConfigItem{
 				Properties: &types.Properties{
-					{Name: "memory", Value: 32},
+					{Name: "memory", Value: lo.ToPtr(int64(32))},
 				},
 			},
 		},

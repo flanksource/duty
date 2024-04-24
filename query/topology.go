@@ -283,7 +283,7 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	return &response, nil
 }
 
-func isZeroVal[T string | int64](v T) bool {
+func isZeroVal[T string | *int64](v T) bool {
 	var z T
 	return v == z
 }
@@ -333,7 +333,7 @@ func SortComponentsByField(c models.Components, sortBy TopologyQuerySortBy, asc 
 					return asc
 				}
 
-				return propI.Value < propJ.Value
+				return *propI.Value < *propJ.Value
 			}
 		})
 	}
