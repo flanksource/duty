@@ -20,7 +20,7 @@ const (
 	StatusWarning  = "WARNING"
 	StatusFinished = "FINISHED"
 	StatusFailed   = "FAILED"
-	StatusAborted  = "ABORTED"
+	StatusSkipped  = "SKIPPED"
 )
 
 type JobHistory struct {

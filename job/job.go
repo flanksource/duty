@@ -149,7 +149,7 @@ type Retention struct {
 }
 
 func (r Retention) Count(status string) int {
-	if status == models.StatusAborted || status == models.StatusFailed || status == models.StatusWarning {
+	if status == models.StatusSkipped || status == models.StatusFailed || status == models.StatusWarning {
 		return r.Failed
 	}
 	return r.Success
@@ -292,9 +292,9 @@ func (j *Job) Run() {
 			j.lock = &sync.Mutex{}
 		}
 		if !j.lock.TryLock() {
-			r.History.Status = models.StatusAborted
+			r.History.Status = models.StatusSkipped
 			ctx.Tracef("failed to acquire lock")
-			r.Failf("%s concurrent job aborted", r.ID())
+			r.Failf("%s job already running. Skipping this run.", r.ID())
 			return
 		}
 		defer j.lock.Unlock()

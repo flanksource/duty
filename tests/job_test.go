@@ -54,12 +54,12 @@ var _ = Describe("Job", Ordered, func() {
 
 		Expect(len(items)).To(BeNumerically("==", 4))
 		Expect(counts[models.StatusFinished]).To(Equal(2))
-		Expect(counts[models.StatusAborted]).To(Equal(2))
+		Expect(counts[models.StatusSkipped]).To(Equal(2))
 		for _, item := range groups[models.StatusFinished] {
 			Expect(item.TimeEnd).ToNot(BeNil())
 			Expect(item.TimeEnd.Sub(item.TimeStart).Milliseconds()).To(BeNumerically("~", 50, 10))
 		}
-		for _, item := range groups[models.StatusAborted] {
+		for _, item := range groups[models.StatusSkipped] {
 			Expect(item.TimeEnd).ToNot(BeNil())
 			Expect(item.TimeEnd.Sub(item.TimeStart).Milliseconds()).To(BeNumerically("~", 10, 20))
 		}
