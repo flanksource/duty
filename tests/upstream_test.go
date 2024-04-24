@@ -203,30 +203,26 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				SelectorID: utils.RandomString(10),
 			}
 
+			all := []any{&deployment, &pod, &deploymentChange, &podChange, &deploymentAnalysis, &podAnalysis, &deploymentPodRelationship}
+
 			ginkgo.BeforeAll(func() {
-				err := DefaultContext.DB().Create(&deployment).Error
-				Expect(err).To(BeNil())
+				for _, a := range all {
+					err := DefaultContext.DB().Create(a).Error
+					Expect(err).To(BeNil())
+				}
+			})
 
-				err = DefaultContext.DB().Create(&pod).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&deploymentChange).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&podChange).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&podChange).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&deploymentAnalysis).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&podAnalysis).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&deploymentPodRelationship).Error
-				Expect(err).To(BeNil())
+			ginkgo.AfterAll(func() {
+				var err error
+				for _, a := range lo.Reverse(all) {
+					switch v := a.(type) {
+					case *models.ConfigRelationship:
+						err = DefaultContext.DB().Where("selector_id = ?", v.SelectorID).Delete(a).Error
+					default:
+						err = DefaultContext.DB().Delete(a).Error
+					}
+					Expect(err).To(BeNil())
+				}
 			})
 
 			for _, t := range []string{"config_changes", "config_analysis", "config_relationships"} {
@@ -281,18 +277,19 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				Name:     "tcp check",
 			}
 
+			all := []any{&httpCanary, &httpChecks, &tcpCanary, &tcpCheck}
 			ginkgo.BeforeAll(func() {
-				err := DefaultContext.DB().Create(&httpCanary).Error
-				Expect(err).To(BeNil())
+				for _, a := range all {
+					err := DefaultContext.DB().Create(a).Error
+					Expect(err).To(BeNil())
+				}
+			})
 
-				err = DefaultContext.DB().Create(&tcpCanary).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&httpChecks).Error
-				Expect(err).To(BeNil())
-
-				err = DefaultContext.DB().Create(&tcpCheck).Error
-				Expect(err).To(BeNil())
+			ginkgo.AfterAll(func() {
+				for _, a := range all {
+					err := DefaultContext.DB().Delete(a).Error
+					Expect(err).To(BeNil())
+				}
 			})
 
 			ginkgo.It("should reconcile the above canary & checks", func() {
