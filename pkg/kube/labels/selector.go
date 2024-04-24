@@ -192,11 +192,6 @@ func NewRequirement(key string, op selection.Operator, vals []string, opts ...fi
 		allErrs = append(allErrs, field.NotSupported(path.Child("operator"), op, validRequirementOperators))
 	}
 
-	for i := range vals {
-		if err := validateLabelValue(key, vals[i], valuePath.Index(i)); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
 	return &Requirement{key: key, operator: op, strValues: vals}, allErrs.ToAggregate()
 }
 
