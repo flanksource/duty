@@ -294,7 +294,7 @@ func (j *Job) Run() {
 		if !j.lock.TryLock() {
 			r.History.Status = models.StatusSkipped
 			ctx.Tracef("failed to acquire lock")
-			r.Failf("%s job already running. Skipping this run.", r.ID())
+			r.Failf("%s job already running, skipping", r.ID())
 			return
 		}
 		defer j.lock.Unlock()
