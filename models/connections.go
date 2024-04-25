@@ -84,7 +84,7 @@ type Connection struct {
 	Properties  types.JSONStringMap `gorm:"column:properties" json:"properties,omitempty" faker:"-"  `
 	Certificate string              `gorm:"column:certificate" json:"certificate,omitempty" faker:"-"  `
 	InsecureTLS bool                `gorm:"column:insecure_tls;default:false" json:"insecure_tls,omitempty" faker:"-"  `
-	CreatedAt   time.Time           `gorm:"column:created_at;default:now();<-:false" json:"created_at,omitempty" faker:"-"  `
+	CreatedAt   time.Time           `gorm:"column:created_at;default:now();<-:create" json:"created_at,omitempty" faker:"-"  `
 	UpdatedAt   time.Time           `gorm:"column:updated_at;default:now()" json:"updated_at,omitempty" faker:"-"  `
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
 }
