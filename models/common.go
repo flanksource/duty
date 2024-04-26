@@ -1,8 +1,7 @@
 package models
 
 import (
-	"encoding/json"
-
+	"github.com/ohler55/ojg/alt"
 	"gorm.io/gorm/clause"
 )
 
@@ -27,12 +26,11 @@ const (
 
 // asMap marshals the given struct into a map.
 func asMap(t any, removeFields ...string) map[string]any {
-	m := make(map[string]any)
-	b, _ := json.Marshal(&t)
-	if err := json.Unmarshal(b, &m); err != nil {
-		return m
+	v := alt.Decompose(t, &alt.Options{OmitEmpty: false, OmitNil: false})
+	m, ok := v.(map[string]any)
+	if !ok {
+		return map[string]any{}
 	}
-
 	for _, field := range removeFields {
 		delete(m, field)
 	}
