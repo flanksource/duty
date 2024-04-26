@@ -102,12 +102,12 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 		if pushError != nil {
 			apiErr := api.FromError(pushError)
 			if apiErr == nil || apiErr.Data == "" {
-				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
+				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), pushError)
 			}
 
 			var foreignKeyErr PushFKError
 			if err := json.Unmarshal([]byte(apiErr.Data), &foreignKeyErr); err != nil {
-				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), err)
+				return 0, fmt.Errorf("failed to push %s to upstream (could not decode api error: %w): %w", table.TableName(), err, pushError)
 			}
 
 			failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
