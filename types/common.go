@@ -2,20 +2,62 @@ package types
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 
+	"github.com/flanksource/commons/logger"
 	"gorm.io/gorm"
 )
 
-// asMap marshals the given struct into a map.
-func asMap(t any, removeFields ...string) map[string]any {
+// marshalIgnoringOmitempty marshals a struct to JSON without considering omitempty tags.
+func marshalIgnoringOmitempty(v any) ([]byte, error) {
+	// Get the reflect type of the value
+	t := reflect.TypeOf(v)
+
+	// Create a new value of the same type
+	newValue := reflect.New(t).Elem()
+
+	// Copy the original value to the new value
+	newValue.Set(reflect.ValueOf(v))
+	structType := reflect.TypeOf(v)
+	newFields := make([]reflect.StructField, structType.NumField())
+	// Iterate over the fields of the struct
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		// Remove the omitempty tag from the JSON tag
+		field.Tag = reflect.StructTag(strings.Replace(string(field.Tag), ",omitempty", "", -1))
+
+		// Set the modified tag back to the field
+		newFields[i] = field
+	}
+	newStructType := reflect.StructOf(newFields)
+
+	// Create an instance of the new struct type
+	newStruct := reflect.New(newStructType).Elem()
+
+	// Copy values from the original struct to the new one
+	originalStruct := reflect.ValueOf(v)
+	for i := 0; i < structType.NumField(); i++ {
+		newStruct.Field(i).Set(originalStruct.Field(i))
+	}
+
+	// Marshal the modified value to JSON
+	return json.Marshal(newStruct.Interface())
+}
+
+// AsMap marshals the given struct into a map.
+func AsMap(t any, removeFields ...string) map[string]any {
 	m := make(map[string]any)
-	b, _ := json.Marshal(&t)
+	b, err := marshalIgnoringOmitempty(t)
+	if err != nil {
+		logger.Infof("ERROR %v", err)
+	}
 	if err := json.Unmarshal(b, &m); err != nil {
 		return m
 	}
 
+	logger.Infof("m is %v", m)
 	for _, field := range removeFields {
 		delete(m, field)
 	}

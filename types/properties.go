@@ -57,7 +57,7 @@ type Property struct {
 }
 
 func (p Property) AsMap(removeFields ...string) map[string]any {
-	return asMap(p, removeFields...)
+	return AsMap(p, removeFields...)
 }
 
 type Properties []*Property

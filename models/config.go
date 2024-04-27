@@ -81,7 +81,7 @@ type ConfigItem struct {
 	Ready           bool                 `json:"ready"`
 	Health          *Health              `json:"health"`
 	Name            *string              `json:"name,omitempty" faker:"name"  `
-	Description     *string              `json:"description,omitempty"`
+	Description     string               `json:"description,omitempty"`
 	Config          *string              `json:"config,omitempty"  `
 	Source          *string              `json:"source,omitempty"  `
 	ParentID        *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
