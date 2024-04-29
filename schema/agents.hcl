@@ -96,6 +96,7 @@ table "agents" {
   index "agents_name_key" {
     unique  = true
     columns = [column.name]
+    where   = "deleted_at IS NULL"
   }
 
   foreign_key "agents_created_by_fkey" {

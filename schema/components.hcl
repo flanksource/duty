@@ -76,6 +76,7 @@ table "topologies" {
   index "topologies_name_namespace_key" {
     unique  = true
     columns = [column.agent_id, column.name, column.namespace]
+    where   = "deleted_at IS NULL OR agent_id != 00000000-0000-0000-0000-000000000000"
   }
   index "topologies_is_pushed_idx" {
     columns = [column.is_pushed]

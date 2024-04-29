@@ -53,6 +53,7 @@ table "playbooks" {
   index "playbook_name_key" {
     unique  = true
     columns = [column.name]
+    where   = "deleted_at IS NULL"
   }
   foreign_key "playbook_created_by_fkey" {
     columns     = [column.created_by]
@@ -169,9 +170,9 @@ table "playbook_runs" {
     type = jsonb
   }
   column "agent_id" {
-    null = true
+    null    = true
     default = var.uuid_nil
-    type = uuid
+    type    = uuid
   }
   column "error" {
     null = true
@@ -227,13 +228,13 @@ table "playbook_action_agent_data" {
   }
   column "playbook_id" {
     comment = "saves the linked upstream playbook id"
-    null = false
-    type = uuid
+    null    = false
+    type    = uuid
   }
   column "run_id" {
     comment = "saves the linked upstream playbook run id"
-    null = false
-    type = uuid
+    null    = false
+    type    = uuid
   }
   column "spec" {
     comment = "Action spec provided by upstream"
