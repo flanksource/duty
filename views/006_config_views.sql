@@ -600,6 +600,7 @@ CREATE OR REPLACE VIEW catalog_changes AS
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;
 
+-- config_detail view
 DROP VIEW IF EXISTS config_detail;
 
 CREATE OR REPLACE VIEW config_detail AS
