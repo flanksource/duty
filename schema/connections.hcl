@@ -77,6 +77,7 @@ table "connections" {
   index "connections_name_namespace_key" {
     unique  = true
     columns = [column.name, column.namespace]
+    where   = "deleted_at IS NULL"
   }
   foreign_key "connections_created_by_fkey" {
     columns     = [column.created_by]

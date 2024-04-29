@@ -67,6 +67,7 @@ table "people" {
   index "people_email_unique_idx" {
     unique  = true
     columns = [column.email]
+    where   = "deleted_at IS NULL"
   }
   index "people_external_id_idx" {
     columns = [column.external_id]
