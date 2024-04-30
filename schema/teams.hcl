@@ -57,6 +57,10 @@ table "people" {
     null = true
     type = timestamptz
   }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
   column "last_login" {
     null = true
     type = timestamptz
