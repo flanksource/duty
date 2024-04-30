@@ -75,7 +75,7 @@ table "canaries" {
   index "canaries_name_namespace_source_key" {
     unique  = true
     columns = [column.agent_id, column.name, column.namespace, column.source]
-    where   = "deleted_at IS NULL OR agent_id != 00000000-0000-0000-0000-000000000000"
+    where   = "deleted_at IS NULL OR agent_id != '00000000-0000-0000-0000-000000000000'"
   }
   index "canaries_is_pushed_idx" {
     columns = [column.is_pushed]
