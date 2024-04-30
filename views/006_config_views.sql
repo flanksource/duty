@@ -23,6 +23,8 @@ CREATE or REPLACE VIEW configs AS
     ci.cost_total_30d,
     ci.agent_id,
     ci.status,
+    ci.health,
+    ci.ready,
     analysis,
     changes
   FROM config_items as ci
