@@ -32,7 +32,7 @@ func (t Topology) OnConflictClause() clause.OnConflict {
 		TargetWhere: clause.Where{
 			Exprs: []clause.Expression{
 				clause.And(
-					clause.Eq{Column: "deleted_at", Value: gorm.Expr("NULL")},
+					clause.Eq{Column: "deleted_at"},
 					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
 				),
 			},
