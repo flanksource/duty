@@ -15,6 +15,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ConfigSummaryRequestChanges struct {
@@ -66,7 +67,7 @@ func (t *ConfigSummaryRequest) analysisJoin() string {
 	for _, g := range t.GroupBy {
 		switch g {
 		case "type":
-			clauses = append(clauses, "aggregated_analysis_count .type = config_items.type")
+			clauses = append(clauses, "aggregated_analysis_count.type = config_items.type")
 		default:
 			clauses = append(clauses, fmt.Sprintf("aggregated_analysis_count.%s = config_items.tags->>'%s'", g, g))
 		}
@@ -90,8 +91,11 @@ func (t *ConfigSummaryRequest) changesJoin() string {
 	return output + strings.Join(clauses, " AND ")
 }
 
-func (t *ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []string {
-	return append(t.GroupBy, appendSelect...)
+func (t ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []string {
+	output := make([]string, len(t.GroupBy)+len(appendSelect))
+	copy(output, t.GroupBy)
+	copy(output[len(t.GroupBy):], appendSelect)
+	return output
 }
 
 func (t *ConfigSummaryRequest) summarySelectClause() []string {
@@ -187,7 +191,7 @@ func (t *ConfigSummaryRequest) Parse() error {
 	case "1d", "7d", "30d", "":
 		// do nothing
 	default:
-		return fmt.Errorf("Cost range is not allowed. allowed (1d, 7d, 30d)")
+		return fmt.Errorf("cost range is not allowed. allowed (1d, 7d, 30d)")
 	}
 
 	return nil
@@ -237,6 +241,9 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 			Group(strings.Join(req.GroupBy, ",")),
 	)
 
+	// Keep track of all the ctes in this query (in order)
+	withClauses := []clause.Expression{healthGrouped, healthAggregated}
+
 	summaryQuery := ctx.DB().
 		Select(req.summarySelectClause()).
 		Model(&models.ConfigItem{}).
@@ -246,11 +253,6 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Group(groupBy).
 		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
-
-	finalQuery := ctx.DB().
-		Clauses(healthGrouped).Clauses(healthAggregated).
-		Select("json_agg(row_to_json(summary))").
-		Table("summary")
 
 	if req.Changes.Since != "" {
 		changesGrouped := exclause.NewWith(
@@ -265,7 +267,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		)
 
 		summaryQuery = summaryQuery.Joins(req.changesJoin()).Group("changes_grouped.count")
-		finalQuery = finalQuery.Clauses(changesGrouped)
+		withClauses = append(withClauses, changesGrouped)
 	}
 
 	if req.Analysis.Since != "" {
@@ -288,11 +290,13 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		)
 
 		summaryQuery = summaryQuery.Joins(req.analysisJoin()).Group("aggregated_analysis_count.analysis")
-		finalQuery = finalQuery.Clauses(analysisGrouped).Clauses(analysisAggregated)
+		withClauses = append(withClauses, analysisGrouped, analysisAggregated)
 	}
 
+	withClauses = append(withClauses, exclause.NewWith("summary", summaryQuery))
+
 	var res []types.JSON
-	if err := finalQuery.Clauses(exclause.NewWith("summary", summaryQuery)).Scan(&res).Error; err != nil {
+	if err := ctx.DB().Clauses(withClauses...).Select("json_agg(row_to_json(summary))").Table("summary").Scan(&res).Error; err != nil {
 		return nil, err
 	}
 
