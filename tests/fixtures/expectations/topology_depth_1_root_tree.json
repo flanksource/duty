@@ -5,10 +5,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/logistics",
             "name": "logistics",
+            "namespace": "",
             "labels": {
                 "telemetry": "enabled"
             },
             "status": "warning",
+            "description": "",
+            "status_reason": "",
             "type": "Entity",
             "owner": "logistics-team",
             "summary": {
@@ -38,8 +41,11 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/cluster",
             "name": "cluster",
+            "namespace": "",
             "status": "healthy",
+            "description": "",
             "tooltip": "Kubernetes Cluster",
+            "status_reason": "",
             "icon": "icon-cluster",
             "type": "KubernetesCluster",
             "summary": {
@@ -59,7 +65,10 @@
             "agent_id": "ebd4cbf7-267e-48f9-a050-eca12e535ce1",
             "external_id": "dummy/payments-api",
             "name": "payments-api",
+            "namespace": "",
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Application",
             "summary": {
                 "healthy": 1
@@ -73,10 +82,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/flux",
             "name": "flux",
+            "namespace": "",
             "labels": {
                 "fluxcd.io/name": "flux"
             },
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Flux",
             "summary": {
                 "healthy": 1

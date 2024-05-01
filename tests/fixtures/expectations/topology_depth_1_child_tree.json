@@ -6,10 +6,13 @@
             "external_id": "dummy/logistics-api",
             "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
             "name": "logistics-api",
+            "namespace": "",
             "labels": {
                 "telemetry": "enabled"
             },
             "status": "warning",
+            "description": "",
+            "status_reason": "",
             "type": "Application",
             "owner": "logistics-team",
             "path": "018681fc-e54f-bd4f-42be-068a9a69eeb5",

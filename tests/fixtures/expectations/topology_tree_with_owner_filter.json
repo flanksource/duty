@@ -5,10 +5,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/logistics",
             "name": "logistics",
+            "namespace": "",
             "labels": {
                 "telemetry": "enabled"
             },
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Entity",
             "owner": "logistics-team",
             "summary": {
@@ -26,10 +29,13 @@
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
                     "name": "logistics-api",
+                    "namespace": "",
                     "labels": {
                         "telemetry": "enabled"
                     },
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "type": "Application",
                     "summary": {
                         "healthy": 1,
@@ -45,7 +51,10 @@
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "parent_id": "018681fc-e54f-bd4f-42be-068a9a69eeb5",
                     "name": "logistics-ui",
+                    "namespace": "",
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "type": "Application",
                     "summary": {
                         "healthy": 1

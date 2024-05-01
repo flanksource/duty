@@ -76,14 +76,14 @@ type ConfigItem struct {
 	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
 	ConfigClass     string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	Type            *string              `json:"type,omitempty"`
-	Status          *string              `json:"status,omitempty" gorm:"default:null"`
+	Type            *string              `json:"type"`
+	Status          *string              `json:"status" gorm:"default:null"`
 	Ready           bool                 `json:"ready"`
 	Health          *Health              `json:"health"`
-	Name            *string              `json:"name,omitempty" faker:"name"  `
-	Description     *string              `json:"description,omitempty"`
-	Config          *string              `json:"config,omitempty"  `
-	Source          *string              `json:"source,omitempty"  `
+	Name            *string              `json:"name,omitempty" faker:"name"`
+	Description     *string              `json:"description"`
+	Config          *string              `json:"config"`
+	Source          *string              `json:"source,omitempty"`
 	ParentID        *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
 	Path            string               `json:"path,omitempty" faker:"-"`
 	CostPerMinute   float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
