@@ -31,9 +31,9 @@ func (t Topology) OnConflictClause() clause.OnConflict {
 		Columns: []clause.Column{{Name: "agent_id"}, {Name: "name"}, {Name: "namespace"}},
 		TargetWhere: clause.Where{
 			Exprs: []clause.Expression{
-				clause.Or(
+				clause.And(
 					clause.Eq{Column: "deleted_at", Value: gorm.Expr("NULL")},
-					clause.Not(clause.Eq{Column: "agent_id", Value: uuid.Nil.String()}),
+					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
 				),
 			},
 		},

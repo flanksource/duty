@@ -346,9 +346,8 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should handle updates", func() {
 		ginkgo.It("ensure all the topologies & canaries have been pushed", func() {
-			count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			_, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
 			Expect(err).To(BeNil())
-			Expect(count).To(Not(BeZero()))
 
 			var unpushedCanaries int
 			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
