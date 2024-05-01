@@ -5,10 +5,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/logistics",
             "name": "logistics",
+            "namespace": "",
             "labels": {
                 "telemetry": "enabled"
             },
             "status": "warning",
+            "description": "",
+            "status_reason": "",
             "type": "Entity",
             "owner": "logistics-team",
             "summary": {
@@ -37,10 +40,13 @@
                     "id": "018681fd-5770-336f-227c-259435d7fc6b",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "logistics-api",
+                    "namespace": "",
                     "labels": {
                         "telemetry": "enabled"
                     },
                     "status": "warning",
+                    "description": "",
+                    "status_reason": "",
                     "type": "Application",
                     "summary": {
                         "healthy": 1,
@@ -67,7 +73,10 @@
                             "id": "018681fe-010a-6647-74ad-58b3a136dfe4",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "logistics-worker",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "type": "Application",
                             "summary": {
                                 "healthy": 1
@@ -79,7 +88,9 @@
                             "id": "018681fe-4529-c50f-26fd-530fa9c57319",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "logistics-db",
+                            "namespace": "",
                             "status": "unhealthy",
+                            "description": "",
                             "status_reason": "database not accepting connections",
                             "type": "Database",
                             "summary": {
@@ -107,7 +118,10 @@
                     "id": "018681fd-c1ff-16ee-dff0-8c8796e4263e",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "logistics-ui",
+                    "namespace": "",
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "type": "Application",
                     "summary": {
                         "healthy": 1
@@ -122,8 +136,11 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/cluster",
             "name": "cluster",
+            "namespace": "",
             "status": "healthy",
+            "description": "",
             "tooltip": "Kubernetes Cluster",
+            "status_reason": "",
             "icon": "icon-cluster",
             "type": "KubernetesCluster",
             "summary": {
@@ -142,7 +159,10 @@
                     "id": "018681fe-b27e-7627-72c2-ad18e93f72f4",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "Nodes",
+                    "namespace": "",
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "icon": "icon-kubernetes-node",
                     "type": "KubernetesNodes",
                     "summary": {
@@ -160,7 +180,10 @@
                             "id": "018681ff-227e-4d71-b38e-0693cc862213",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "node-b",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "icon": "icon-kubernetes-node",
                             "type": "KubernetesNode",
                             "summary": {
@@ -178,7 +201,10 @@
                                     "id": "018681ff-e578-a926-e366-d2dc0646eafa",
                                     "agent_id": "00000000-0000-0000-0000-000000000000",
                                     "name": "logistics-worker-79cb67d8f5-lr66n",
+                                    "namespace": "",
                                     "status": "healthy",
+                                    "description": "",
+                                    "status_reason": "",
                                     "icon": "icon-kubernetes-pod",
                                     "type": "KubernetesPod",
                                     "summary": {
@@ -193,7 +219,10 @@
                             "id": "018681fe-f5aa-37e9-83f7-47b5b0232d5e",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "node-a",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "icon": "icon-kubernetes-node",
                             "type": "KubernetesNode",
                             "summary": {
@@ -206,7 +235,10 @@
                                     "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
                                     "agent_id": "00000000-0000-0000-0000-000000000000",
                                     "name": "logistics-api-574dc95b5d-mp64w",
+                                    "namespace": "",
                                     "status": "healthy",
+                                    "description": "",
+                                    "status_reason": "",
                                     "icon": "icon-kubernetes-pod",
                                     "type": "KubernetesPod",
                                     "summary": {
@@ -219,7 +251,10 @@
                                     "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
                                     "agent_id": "00000000-0000-0000-0000-000000000000",
                                     "name": "logistics-ui-676b85b87c-tjjcp",
+                                    "namespace": "",
                                     "status": "healthy",
+                                    "description": "",
+                                    "status_reason": "",
                                     "icon": "icon-kubernetes-pod",
                                     "type": "KubernetesPod",
                                     "summary": {
@@ -236,7 +271,10 @@
                     "id": "018681ff-559f-7183-19d1-7d898b4e1413",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "Pods",
+                    "namespace": "",
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "icon": "icon-kubernetes-pod",
                     "type": "KubernetesPods",
                     "summary": {
@@ -249,7 +287,10 @@
                             "id": "018681ff-80ed-d10d-21ef-c74f152b085b",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "logistics-api-574dc95b5d-mp64w",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "icon": "icon-kubernetes-pod",
                             "type": "KubernetesPod",
                             "summary": {
@@ -262,7 +303,10 @@
                             "id": "018681ff-b6c1-a14d-2fd4-8c7dac94cddd",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "logistics-ui-676b85b87c-tjjcp",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "icon": "icon-kubernetes-pod",
                             "type": "KubernetesPod",
                             "summary": {
@@ -275,7 +319,10 @@
                             "id": "018681ff-e578-a926-e366-d2dc0646eafa",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "logistics-worker-79cb67d8f5-lr66n",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "icon": "icon-kubernetes-pod",
                             "type": "KubernetesPod",
                             "summary": {
@@ -293,7 +340,10 @@
             "agent_id": "ebd4cbf7-267e-48f9-a050-eca12e535ce1",
             "external_id": "dummy/payments-api",
             "name": "payments-api",
+            "namespace": "",
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Application",
             "summary": {
                 "healthy": 1
@@ -307,10 +357,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/flux",
             "name": "flux",
+            "namespace": "",
             "labels": {
                 "fluxcd.io/name": "flux"
             },
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Flux",
             "summary": {
                 "healthy": 1
@@ -323,7 +376,10 @@
                     "id": "018cb576-4c81-91da-e59d-f25464b8bf91",
                     "agent_id": "00000000-0000-0000-0000-000000000000",
                     "name": "kustomize-component",
+                    "namespace": "",
                     "status": "healthy",
+                    "description": "",
+                    "status_reason": "",
                     "type": "FluxKustomize",
                     "summary": {
                         "healthy": 1
@@ -335,7 +391,10 @@
                             "id": "018cb576-8036-10d8-edf1-cb49be2c0d93",
                             "agent_id": "00000000-0000-0000-0000-000000000000",
                             "name": "kustomize-flux-component",
+                            "namespace": "",
                             "status": "healthy",
+                            "description": "",
+                            "status_reason": "",
                             "type": "Application",
                             "summary": {
                                 "healthy": 1
@@ -348,10 +407,13 @@
                                     "agent_id": "00000000-0000-0000-0000-000000000000",
                                     "external_id": "dummy/flux",
                                     "name": "flux",
+                                    "namespace": "",
                                     "labels": {
                                         "fluxcd.io/name": "flux"
                                     },
                                     "status": "healthy",
+                                    "description": "",
+                                    "status_reason": "",
                                     "type": "Flux",
                                     "summary": {
                                         "healthy": 1
@@ -364,7 +426,10 @@
                                             "id": "018cb576-4c81-91da-e59d-f25464b8bf91",
                                             "agent_id": "00000000-0000-0000-0000-000000000000",
                                             "name": "kustomize-component",
+                                            "namespace": "",
                                             "status": "healthy",
+                                            "description": "",
+                                            "status_reason": "",
                                             "type": "FluxKustomize",
                                             "summary": {
                                                 "healthy": 1

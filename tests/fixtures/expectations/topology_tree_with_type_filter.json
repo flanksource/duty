@@ -5,10 +5,13 @@
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "external_id": "dummy/logistics",
             "name": "logistics",
+            "namespace": "",
             "labels": {
                 "telemetry": "enabled"
             },
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Entity",
             "owner": "logistics-team",
             "summary": {

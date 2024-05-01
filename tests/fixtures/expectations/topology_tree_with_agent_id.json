@@ -5,7 +5,10 @@
             "agent_id": "ebd4cbf7-267e-48f9-a050-eca12e535ce1",
             "external_id": "dummy/payments-api",
             "name": "payments-api",
+            "namespace": "",
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Application",
             "summary": {
                 "healthy": 1
@@ -18,10 +21,13 @@
             "id": "018cb576-11e3-a43a-75fd-3cbf5c8c804a",
             "agent_id": "00000000-0000-0000-0000-000000000000",
             "name": "flux",
+            "namespace": "",
             "labels": {
                 "fluxcd.io/name": "flux"
             },
             "status": "healthy",
+            "description": "",
+            "status_reason": "",
             "type": "Flux",
             "summary": {
                 "healthy": 1
