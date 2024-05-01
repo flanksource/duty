@@ -344,6 +344,46 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		})
 	})
 
+	ginkgo.Context("should handle updates", func() {
+		ginkgo.It("ensure all the topologies & canaries have been pushed", func() {
+			_, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			Expect(err).To(BeNil())
+
+			var unpushedCanaries int
+			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
+			Expect(err).To(BeNil())
+			Expect(unpushedCanaries).To(BeZero())
+
+			var unpushedTopologies int
+			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Topology{}).Scan(&unpushedTopologies).Error
+			Expect(err).To(BeNil())
+			Expect(unpushedTopologies).To(BeZero())
+		})
+
+		ginkgo.It("reconcile the updates", func() {
+			// Mark all the topologies as unpushed so we can reconcile them again to see how the upstream deals with updates
+			err := DefaultContext.DB().Model(&models.Topology{}).Where("is_pushed = ?", true).Update("is_pushed", false).Error
+			Expect(err).To(BeNil())
+
+			err = DefaultContext.DB().Model(&models.Canary{}).Where("is_pushed = ?", true).Update("is_pushed", false).Error
+			Expect(err).To(BeNil())
+
+			count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			Expect(err).To(BeNil())
+			Expect(count).To(Not(BeZero()))
+
+			var unpushedCanaries int
+			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
+			Expect(err).To(BeNil())
+			Expect(unpushedCanaries).To(BeZero())
+
+			var unpushedTopologies int
+			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Topology{}).Scan(&unpushedTopologies).Error
+			Expect(err).To(BeNil())
+			Expect(unpushedTopologies).To(BeZero())
+		})
+	})
+
 	ginkgo.AfterAll(func() {
 		echoCloser()
 		drop()

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Canary struct {
@@ -22,6 +23,21 @@ type Canary struct {
 	CreatedAt   time.Time           `json:"created_at" yaml:"created_at" time_format:"postgres_timestamp" gorm:"<-:create"`
 	UpdatedAt   *time.Time          `json:"updated_at" yaml:"updated_at" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (t Canary) ConflictClause() clause.OnConflict {
+	return clause.OnConflict{
+		Columns: []clause.Column{{Name: "agent_id"}, {Name: "name"}, {Name: "namespace"}, {Name: "source"}},
+		TargetWhere: clause.Where{
+			Exprs: []clause.Expression{
+				clause.And(
+					clause.Eq{Column: "deleted_at", Value: gorm.Expr("NULL")},
+					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
+				),
+			},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{"labels", "spec"}),
+	}
 }
 
 func (t Canary) GetUnpushed(db *gorm.DB) ([]DBTable, error) {

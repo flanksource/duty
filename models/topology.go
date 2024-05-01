@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Topology represents the topologies database table
@@ -23,6 +24,21 @@ type Topology struct {
 	CreatedAt *time.Time          `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:create"`
 	UpdatedAt *time.Time          `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (t Topology) OnConflictClause() clause.OnConflict {
+	return clause.OnConflict{
+		Columns: []clause.Column{{Name: "agent_id"}, {Name: "name"}, {Name: "namespace"}},
+		TargetWhere: clause.Where{
+			Exprs: []clause.Expression{
+				clause.And(
+					clause.Eq{Column: "deleted_at", Value: gorm.Expr("NULL")},
+					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
+				),
+			},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{"labels", "spec"}),
+	}
 }
 
 func (t Topology) GetUnpushed(db *gorm.DB) ([]DBTable, error) {

@@ -1,8 +1,11 @@
 package dummy
 
 import (
+	"time"
+
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 var LogisticsAPICanary = models.Canary{
@@ -30,8 +33,18 @@ var CartAPICanaryAgent = models.Canary{
 	CreatedAt: DummyCreatedAt,
 }
 
+var UICanary = models.Canary{
+	ID:        uuid.MustParse("c69f14cd-0041-4012-89f8-b5ed446ed8e9"),
+	Name:      "ui-canary",
+	Namespace: "cart",
+	Spec:      []byte("{}"),
+	CreatedAt: DummyCreatedAt,
+	DeletedAt: lo.ToPtr(DummyCreatedAt.Add(time.Hour)),
+}
+
 var AllDummyCanaries = []models.Canary{
 	LogisticsAPICanary,
 	LogisticsDBCanary,
 	CartAPICanaryAgent,
+	UICanary,
 }
