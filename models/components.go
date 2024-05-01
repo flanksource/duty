@@ -35,22 +35,22 @@ type Component struct {
 	AgentID         uuid.UUID               `json:"agent_id,omitempty"`
 	ExternalId      string                  `json:"external_id,omitempty"` //nolint
 	ParentId        *uuid.UUID              `json:"parent_id,omitempty"`   //nolint
-	Name            string                  `json:"name,omitempty"`
+	Name            string                  `json:"name"`
 	Text            string                  `json:"text,omitempty"`
 	TopologyType    string                  `json:"topology_type,omitempty"`
-	Namespace       string                  `json:"namespace,omitempty"`
+	Namespace       string                  `json:"namespace"`
 	Labels          types.JSONStringMap     `json:"labels,omitempty" gorm:"default:null"`
 	Hidden          bool                    `json:"hidden,omitempty"`
 	Silenced        bool                    `json:"silenced,omitempty"`
-	Status          types.ComponentStatus   `json:"status,omitempty"`
-	Description     string                  `json:"description,omitempty"`
+	Status          types.ComponentStatus   `json:"status"`
+	Description     string                  `json:"description"`
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
 	Tooltip         string                  `json:"tooltip,omitempty"`
-	StatusReason    string                  `json:"status_reason,omitempty"`
+	StatusReason    string                  `json:"status_reason"`
 	Schedule        string                  `json:"schedule,omitempty"`
 	Icon            string                  `json:"icon,omitempty"`
-	Type            string                  `json:"type,omitempty"`
+	Type            string                  `json:"type"`
 	Owner           string                  `json:"owner,omitempty"`
 	Selectors       types.ResourceSelectors `json:"selectors,omitempty" gorm:"resourceSelectors;default:null" swaggerignore:"true"`
 	Configs         types.ConfigQueries     `json:"configs,omitempty" gorm:"default:null"`
