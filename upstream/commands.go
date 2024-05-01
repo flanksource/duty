@@ -134,13 +134,13 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	batchSize := 100
 	db := ctx.DB()
 	for _, c := range req.Topologies {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
+		if err := db.Clauses(c.OnConflictClause()).Omit("created_by").Create(&c).Error; err != nil {
 			return fmt.Errorf("error upserting topology: (id=%s): %w", c.ID, err)
 		}
 	}
 
 	for _, c := range req.Canaries {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
+		if err := db.Clauses(c.ConflictClause()).Omit("created_by").Create(&c).Error; err != nil {
 			return fmt.Errorf("error upserting canaries: (id=%s): %w", c.ID, err)
 		}
 	}
