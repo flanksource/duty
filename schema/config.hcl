@@ -156,6 +156,10 @@ table "config_changes" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+  index "config_changes_created_at_brin_idx" {
+    type    = BRIN
+    columns = [column.created_at]
+  }
   index "config_changes_config_id_external_change_id_key" {
     unique  = true
     columns = [column.config_id, column.external_change_id]
@@ -247,8 +251,8 @@ table "config_items" {
     type = jsonb
   }
   column "tags" {
-    null = true
-    type = jsonb
+    null    = true
+    type    = jsonb
     comment = "contains a list of tags"
   }
   column "properties" {
@@ -273,8 +277,8 @@ table "config_items" {
     type = uuid
   }
   column "last_scraped_time" {
-    null    = true
-    type    = timestamptz
+    null = true
+    type = timestamptz
   }
   column "created_at" {
     null    = false
