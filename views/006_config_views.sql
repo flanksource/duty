@@ -551,6 +551,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- related config changes recursively
+DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 CREATE OR REPLACE FUNCTION related_changes_recursive (
   lookup_id UUID,
   type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'all'
@@ -568,7 +569,9 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     source TEXT,
     summary TEXT,
     created_by uuid,
-    agent_id uuid
+    agent_id uuid,
+    author_name TEXT,
+    author_avatar TEXT
 ) AS $$
 BEGIN
   IF type_filter NOT IN ('upstream', 'downstream', 'all') THEN
@@ -576,9 +579,13 @@ BEGIN
   END IF;
 
   RETURN query
-    SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+    SELECT
+        cc.id, cc.config_id, c.name, c.type, cc.external_created_by,
+        cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id,
+        COALESCE(p.name, cc.external_created_by, cc.source) AS author_name, p.avatar AS author_avatar
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id
+    LEFT JOIN people p on p.id = cc.created_by
     WHERE cc.config_id = lookup_id
       OR cc.config_id IN (
         SELECT related_config_ids_recursive.id
