@@ -323,4 +323,8 @@ table "playbook_run_actions" {
     EOF
     comment = "a run id is mandatory except for an agent"
   }
+
+  index "playbook_run_actions_status_time_idx" {
+    columns = [column.status, column.scheduled_time]
+  }
 }
