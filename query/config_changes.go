@@ -162,8 +162,6 @@ type ConfigChangeRow struct {
 	ConfigType        string     `gorm:"column:type" json:"type,omitempty"`
 	CreatedBy         *uuid.UUID `gorm:"column:created_by" json:"created_by,omitempty"`
 	ExternalCreatedBy string     `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
-	AuthorName        string     `json:"author_name,omitempty"`
-	AuthorAvatar      string     `json:"author_avatar,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
