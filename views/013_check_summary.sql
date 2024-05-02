@@ -155,8 +155,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
     agg_check_statuses.min_time,
     agg_check_statuses.max_time,
     agg_check_statuses.count,
-    pg_size_pretty(agg_check_statuses.size) AS size,
-    pg_size_pretty(agg_check_statuses.size / count) AS avg_size
+    agg_check_statuses.size AS size,
+    agg_check_statuses.size / count AS avg_size
   FROM
     agg_check_statuses
     JOIN checks ON checks.id = agg_check_statuses.check_id;
