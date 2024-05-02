@@ -135,3 +135,28 @@ AS $$
     WHERE check_component_relationships.component_id = $1;
   END;
 $$ language plpgsql;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
+  WITH agg_check_statuses AS (
+    SELECT
+      c.check_id,
+      MIN(c.time) AS min_time,
+      MAX(c.time) AS max_time,
+      COUNT(*) AS count,
+      sum(pg_column_size(c.*)) AS size
+    FROM
+      check_statuses AS c
+    GROUP BY
+      c.check_id
+  )
+  SELECT
+    checks.canary_id,
+    checks.id,
+    agg_check_statuses.min_time,
+    agg_check_statuses.max_time,
+    agg_check_statuses.count,
+    agg_check_statuses.size AS size,
+    agg_check_statuses.size / count AS avg_size
+  FROM
+    agg_check_statuses
+    JOIN checks ON checks.id = agg_check_statuses.check_id;
