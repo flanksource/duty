@@ -576,7 +576,9 @@ BEGIN
   END IF;
 
   RETURN query
-    SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+    SELECT
+        cc.id, cc.config_id, c.name, c.type, cc.external_created_by,
+        cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id
     WHERE cc.config_id = lookup_id
