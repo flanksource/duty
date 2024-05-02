@@ -9,9 +9,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+func RefreshCheckSizeSummary(ctx context.Context) error {
+	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_size_summary").Error
+}
+
 func RefreshCheckStatusSummary(ctx context.Context) error {
 	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_status_summary").Error
 }
+
 func RefreshCheckStatusSummaryAged(ctx context.Context) error {
 	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_status_summary_aged").Error
 }
