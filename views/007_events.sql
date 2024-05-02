@@ -145,10 +145,10 @@ BEGIN
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id))
+        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id, 'last_runtime', NEW.last_runtime))
         ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id))
+        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id, 'last_runtime', NEW.last_runtime))
         ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     END IF;
 

@@ -126,12 +126,11 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
 	id := fmt.Sprintf("secret/%s/%s/%s", namespace, name, key)
-
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 
+	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
 	}
