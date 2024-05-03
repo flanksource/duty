@@ -161,6 +161,37 @@ AFTER UPDATE ON checks
 FOR EACH ROW
 EXECUTE PROCEDURE insert_check_updates_in_event_queue ();
 
+-- Insert config health updates in event_queue
+CREATE OR REPLACE FUNCTION insert_config_health_updates_in_event_queue ()
+RETURNS TRIGGER AS $$
+DECLARE
+    event_name TEXT;
+BEGIN
+    IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
+      RETURN NULL;
+    END IF;
+
+    event_name := CONCAT('config.health.' , NEW.health);
+    IF event_name = 'config.health.' THEN
+        event_name = 'config.health.unknown';
+    END IF;
+
+    INSERT INTO event_queue(name, properties)
+    VALUES (event_name, jsonb_build_object('id', NEW.id))
+    ON CONFLICT (name, properties) DO UPDATE SET
+        created_at = NOW(),
+        last_attempt = NULL,
+        attempts = 0;
+
+    RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_health_event_enqueue
+AFTER UPDATE ON config_items
+FOR EACH ROW
+EXECUTE PROCEDURE insert_config_health_updates_in_event_queue();
+
 -- Insert component status updates in event_queue
 CREATE OR REPLACE FUNCTION insert_component_status_updates_in_event_queue() RETURNS TRIGGER AS $$
 DECLARE event_name TEXT;
