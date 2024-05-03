@@ -89,10 +89,12 @@ type Job struct {
 }
 
 type StatusRing struct {
-	lock      sync.Mutex
-	rings     map[string]*ring.Ring
-	evicted   chan uuid.UUID
+	lock    sync.Mutex
+	rings   map[string]*ring.Ring
+	evicted chan uuid.UUID
+
 	retention Retention
+	singleton bool
 }
 
 // populateFromDB syncs the status ring with the existing job histories in db
@@ -101,7 +103,7 @@ func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string
 	if err := ctx.DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
 		return err
 	}
-	ctx.Logger.V(4).Infof("found %d histories for %s %s", len(existingHistories), name, resourceID)
+	ctx.Logger.V(4).Infof("found %d histories", len(existingHistories))
 
 	for _, h := range existingHistories {
 		t.Add(&h)
@@ -110,12 +112,13 @@ func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string
 	return nil
 }
 
-func newStatusRing(r Retention, evicted chan uuid.UUID) StatusRing {
+func newStatusRing(r Retention, singleton bool, evicted chan uuid.UUID) StatusRing {
 	return StatusRing{
 		lock:      sync.Mutex{},
 		retention: r,
 		rings:     make(map[string]*ring.Ring),
 		evicted:   evicted,
+		singleton: singleton,
 	}
 }
 
@@ -125,7 +128,12 @@ func (sr *StatusRing) Add(job *models.JobHistory) {
 	var r *ring.Ring
 	var ok bool
 	if r, ok = sr.rings[job.Status]; !ok {
-		r = ring.New(sr.retention.Count(job.Status) + 1)
+		count := sr.retention.Count(job.Status)
+		if sr.singleton && job.Status == models.StatusRunning {
+			count = 1
+		}
+
+		r = ring.New(count + 1)
 		sr.rings[job.Status] = r
 	}
 	r.Value = job.ID
@@ -405,7 +413,7 @@ func (j *Job) init() error {
 
 	j.Context.Tracef("initalized %v", j.String())
 
-	j.statusRing = newStatusRing(j.Retention, evictedJobs)
+	j.statusRing = newStatusRing(j.Retention, j.Singleton, evictedJobs)
 	if err := j.statusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
 		return fmt.Errorf("error populating status ring: %w", err)
 	}
