@@ -161,20 +161,50 @@ AFTER UPDATE ON checks
 FOR EACH ROW
 EXECUTE PROCEDURE insert_check_updates_in_event_queue ();
 
--- Insert component status updates in event_queue
-CREATE OR REPLACE FUNCTION insert_component_status_updates_in_event_queue() RETURNS TRIGGER AS $$
-DECLARE event_name TEXT;
+-- Insert config health updates in event_queue
+CREATE OR REPLACE FUNCTION insert_config_health_updates_in_event_queue ()
+RETURNS TRIGGER AS $$
+DECLARE
+    event_name TEXT;
 BEGIN
-    IF OLD.status = NEW.status THEN
+    IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
       RETURN NULL;
     END IF;
 
-    IF NEW.status = 'unknown' THEN
+    event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
+
+    INSERT INTO event_queue(name, properties)
+    VALUES (event_name, jsonb_build_object('id', NEW.id))
+    ON CONFLICT (name, properties) DO UPDATE SET
+        created_at = NOW(),
+        last_attempt = NULL,
+        attempts = 0;
+
+    RETURN NULL;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_health_event_enqueue
+AFTER UPDATE ON config_items
+FOR EACH ROW
+EXECUTE PROCEDURE insert_config_health_updates_in_event_queue();
+
+-- Cleanup
+DROP TRIGGER IF EXISTS  component_status_enqueue ON components;
+DROP FUNCTION IF EXISTS insert_component_status_updates_in_event_queue;
+
+-- Insert component health updates in event_queue
+CREATE OR REPLACE FUNCTION insert_component_health_updates_in_event_queue()
+RETURNS TRIGGER AS $$
+DECLARE
+    event_name TEXT;
+BEGIN
+    IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
       RETURN NULL;
-    END If;
+    END IF;
 
-    event_name := 'component.status.' || NEW.status;
-
+    event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
+    
     INSERT INTO event_queue (name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id))
     ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
@@ -182,10 +212,10 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER component_status_enqueue
+CREATE OR REPLACE TRIGGER component_health_enqueue
 AFTER UPDATE ON components
 FOR EACH ROW
-EXECUTE PROCEDURE insert_component_status_updates_in_event_queue();
+EXECUTE PROCEDURE insert_component_health_updates_in_event_queue();
 
 CREATE OR REPLACE VIEW push_queue_summary AS
 SELECT

@@ -43,6 +43,7 @@ type Component struct {
 	Hidden          bool                    `json:"hidden,omitempty"`
 	Silenced        bool                    `json:"silenced,omitempty"`
 	Status          types.ComponentStatus   `json:"status"`
+	Health          *Health                 `json:"health,omitempty"`
 	Description     string                  `json:"description"`
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
