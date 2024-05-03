@@ -39,7 +39,7 @@ func TestStatusRing(t *testing.T) {
 	for i := range cases {
 		td := cases[i]
 		eg.Go(func() error {
-			sr := newStatusRing(td, ch)
+			sr := newStatusRing(td, false, ch)
 			for i := 0; i < 100; i++ {
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusSuccess)})
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFinished)})
