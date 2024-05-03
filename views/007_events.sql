@@ -171,7 +171,7 @@ BEGIN
       RETURN NULL;
     END IF;
 
-    event_name := CONCAT('config.health.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
+    event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
 
     INSERT INTO event_queue(name, properties)
     VALUES (event_name, jsonb_build_object('id', NEW.id))
