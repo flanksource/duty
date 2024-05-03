@@ -212,6 +212,10 @@ table "components" {
     null = false
     type = text
   }
+  column "health" {
+    null = true
+    type = text
+  }
   column "description" {
     null = true
     type = text
