@@ -288,11 +288,8 @@ func (k Context) GetAnnotations() map[string]string {
 	return k.GetObjectMeta().Annotations
 }
 
-func (k Context) GetEnvValueFromCache(input types.EnvVar, namespace ...string) (string, error) {
-	if len(namespace) == 0 {
-		namespace = []string{k.GetNamespace()}
-	}
-	return GetEnvValueFromCache(k, input, namespace[0])
+func (k Context) GetEnvValueFromCache(input types.EnvVar, namespace string) (string, error) {
+	return GetEnvValueFromCache(k, input, namespace)
 }
 
 func (k Context) GetEnvStringFromCache(env string, namespace string) (string, error) {
