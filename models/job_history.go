@@ -20,6 +20,7 @@ const (
 	StatusWarning  = "WARNING"
 	StatusFinished = "FINISHED"
 	StatusFailed   = "FAILED"
+	StatusStale    = "STALE"
 	StatusSkipped  = "SKIPPED"
 )
 
