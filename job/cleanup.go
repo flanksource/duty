@@ -28,3 +28,16 @@ func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceI
 
 	return int(res.RowsAffected), nil
 }
+
+func CleanupStaleRunningHistory(ctx context.Context, age time.Duration) (int, error) {
+	res := ctx.DB().
+		Model(&models.JobHistory{}).
+		Where("NOW() - time_start >= ?", age).
+		Where("status = ?", models.StatusRunning).
+		Update("status", models.StatusStale)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+
+	return int(res.RowsAffected), nil
+}
