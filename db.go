@@ -176,6 +176,17 @@ func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	return nil
 }
 
+// HasMigrationsRun performs a rudimentary check to see if the migrations have
+// run at least once.
+func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
+	var count int
+	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM migration_logs WHERE path = '099_optimize.sql'").Scan(&count); err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
 func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
 	db, pool, err := SetupDB(connection, migrateOpts)
 	if err != nil {
