@@ -6,8 +6,10 @@ BEGIN
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, UPDATE, DELETE, INSERT ON TABLES TO postgrest_api;
         GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgrest_api;
     END IF;
+    ALTER ROLE postgrest_api SET statement_timeout = '60s';
 
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_anon') THEN
         CREATE ROLE postgrest_anon;
     END IF;
+    ALTER ROLE postgrest_anon SET statement_timeout = '60s';
 END $$;

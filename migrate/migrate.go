@@ -51,10 +51,23 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
+	parsedConn, err := url.Parse(connection)
+	if err != nil {
+		return err
+	}
+	user := parsedConn.User.Username()
+	if user == "" {
+		return fmt.Errorf("malformed connection string, got empty username: %s", parsedConn.Redacted())
+	}
+
 	logger.Tracef("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
-	if err := grantPostgrestRolesToCurrentUser(pool, connection); err != nil {
+	if err := grantPostgrestRolesToCurrentUser(pool, user); err != nil {
 		return fmt.Errorf("failed to grant postgrest roles: %w", err)
+	}
+
+	if err := setTimeouts(pool, user); err != nil {
+		logger.Warnf("failed to set timeouts: %w", err)
 	}
 
 	logger.Tracef("Applying schema migrations")
@@ -76,16 +89,12 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	return nil
 }
 
-func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
-	parsedConn, err := url.Parse(connection)
-	if err != nil {
-		return err
-	}
-	user := parsedConn.User.Username()
-	if user == "" {
-		return fmt.Errorf("malformed connection string, got empty username: %s", parsedConn.Redacted())
-	}
+func setTimeouts(pool *sql.DB, user string) error {
+	_, err := pool.Exec(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '60min'`, user))
+	return err
+}
 
+func grantPostgrestRolesToCurrentUser(pool *sql.DB, user string) error {
 	isPostgrestAPIGranted, err := checkIfRoleIsGranted(pool, "postgrest_api", user)
 	if err != nil {
 		return err
