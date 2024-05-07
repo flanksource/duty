@@ -36,6 +36,7 @@ type ConfigSummaryRequest struct {
 	Filter   map[string]string            `json:"filter"` // Filter by labels
 	GroupBy  []string                     `json:"groupBy"`
 	Tags     []string                     `json:"tags"`
+	Status   string                       `json:"status"`
 }
 
 func (t *ConfigSummaryRequest) OrderBy() string {
@@ -197,12 +198,20 @@ func (t *ConfigSummaryRequest) Parse() error {
 	return nil
 }
 
-func (t *ConfigSummaryRequest) configDeleteClause() string {
+func (t ConfigSummaryRequest) configDeleteClause() string {
 	if !t.Deleted {
 		return "config_items.deleted_at IS NULL"
 	}
 
 	return ""
+}
+
+func (t ConfigSummaryRequest) statusClause(q *gorm.DB) *gorm.DB {
+	if t.Status != "" {
+		return q.Where("config_items.status = ?", t.Status)
+	}
+
+	return q
 }
 
 func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
@@ -250,6 +259,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Joins(req.healthSummaryJoin()).
 		Where(req.configDeleteClause()).
 		Where(req.filterClause(ctx.DB())).
+		Where(req.statusClause(ctx.DB())).
 		Group(groupBy).
 		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
