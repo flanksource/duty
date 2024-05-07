@@ -178,6 +178,17 @@ CREATE OR REPLACE VIEW job_history_names AS
 DROP VIEW IF EXISTS notifications_summary;
 
 CREATE OR REPLACE VIEW notifications_summary AS
+WITH notification_send_summary AS (
+  SELECT
+    notification_id,
+    ROUND(AVG(CASE WHEN notification_send_history.error IS NOT NULL THEN notification_send_history.duration_millis ELSE NULL END), 2) AS avg_duration_ms,
+    COUNT (CASE WHEN notification_send_history.error IS NOT NULL THEN 1 END) AS failed,
+    COUNT (CASE WHEN notification_send_history.error IS NULL THEN 1 END) AS sent,
+    mode() WITHIN GROUP (ORDER BY notification_send_history.error) AS most_common_error
+  FROM
+    notification_send_history
+  GROUP BY notification_id
+)
 SELECT
   notifications.id,
   notifications.title,
@@ -191,20 +202,23 @@ SELECT
   notifications.created_by,
   notifications.source,
   COUNT (event_queue.id) AS pending,
-  ROUND(AVG(CASE WHEN notification_send_history.error IS NOT NULL THEN notification_send_history.duration_millis ELSE NULL END), 2) AS avg_duration_ms,
-  COUNT (CASE WHEN notification_send_history.error IS NOT NULL THEN 1 END) AS failed,
-  COUNT (CASE WHEN notification_send_history.error IS NULL THEN 1 END) AS sent,
-  mode() WITHIN GROUP (ORDER BY notification_send_history.error) AS most_common_error
+  notification_send_summary.avg_duration_ms,
+  notification_send_summary.failed,
+  notification_send_summary.sent,
+  notification_send_summary.most_common_error
 FROM
   notifications
-  LEFT JOIN notification_send_history ON notifications.id = notification_send_history.notification_id
+  LEFT JOIN notification_send_summary ON notifications.id = notification_send_summary.notification_id
   LEFT JOIN event_queue ON 
     notifications.id::TEXT = event_queue.properties->>'notification_id' AND
     event_queue.name = 'notification.send'
 WHERE
   notifications.deleted_at IS NULL
-GROUP BY notifications.id;
-
+GROUP BY notifications.id,
+notification_send_summary.avg_duration_ms,
+notification_send_summary.failed,
+notification_send_summary.sent,
+notification_send_summary.most_common_error;
 
 CREATE VIEW integrations_with_status AS
 WITH combined AS (
