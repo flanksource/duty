@@ -9,7 +9,7 @@ import (
 var migrate = &cobra.Command{
 	Use: "migrate",
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := duty.Migrate(connection, nil); err != nil {
+		if err := duty.Migrate(cmd.Context(), connection, nil); err != nil {
 			logger.Fatalf(err.Error())
 		}
 	},

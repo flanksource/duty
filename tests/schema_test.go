@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"context"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/tests/setup"
@@ -12,7 +14,7 @@ var _ = ginkgo.Describe("Schema", func() {
 	ginkgo.It("should be able to run migrations", func() {
 		logger.Infof("Running migrations against %s", setup.PgUrl)
 		// run migrations again to ensure idempotency
-		err := duty.Migrate(setup.PgUrl, nil)
+		err := duty.Migrate(context.TODO(), setup.PgUrl, nil)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	ginkgo.It("Gorm can connect", func() {

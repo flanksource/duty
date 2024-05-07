@@ -14,13 +14,34 @@ import (
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
+	"github.com/samber/lo"
 )
 
 type MigrateOptions struct {
+	// Statement timeouts for `postgrest_api` & `postgrest_anon` roles.
+	// Default: 60s
+	PostgrestStatementTimeout *string
+
+	// Statement timeout for the connection role.
+	// Default: 60min
+	ConnectionRoleStatementTimeout *string
+
 	IgnoreFiles []string
 }
 
-func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
+func (t *MigrateOptions) SetDefaults() {
+	if t.PostgrestStatementTimeout == nil {
+		t.PostgrestStatementTimeout = lo.ToPtr("60s")
+	}
+
+	if t.ConnectionRoleStatementTimeout == nil {
+		t.ConnectionRoleStatementTimeout = lo.ToPtr("60min")
+	}
+}
+
+func RunMigrations(ctx context.Context, pool *sql.DB, connection string, opts MigrateOptions) error {
+	opts.SetDefaults()
+
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
@@ -66,12 +87,10 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 		return fmt.Errorf("failed to grant postgrest roles: %w", err)
 	}
 
-	if err := setTimeouts(pool, user); err != nil {
-		logger.Warnf("failed to set timeouts: %w", err)
-	}
+	setStatementTimeouts(ctx, pool, user, opts)
 
 	logger.Tracef("Applying schema migrations")
-	if err := schema.Apply(context.TODO(), connection); err != nil {
+	if err := schema.Apply(ctx, connection); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
@@ -89,9 +108,22 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	return nil
 }
 
-func setTimeouts(pool *sql.DB, user string) error {
-	_, err := pool.Exec(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '60min'`, user))
-	return err
+func setStatementTimeouts(ctx context.Context, db *sql.DB, user string, opts MigrateOptions) {
+	if lo.FromPtr(opts.ConnectionRoleStatementTimeout) != "" {
+		if _, err := db.ExecContext(ctx, fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%s'`, user, lo.FromPtr(opts.ConnectionRoleStatementTimeout))); err != nil {
+			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
+		}
+	}
+
+	if lo.FromPtr(opts.PostgrestStatementTimeout) != "" {
+		if _, err := db.Exec(fmt.Sprintf(`ALTER ROLE postgrest_api SET statement_timeout = '%s'`, lo.FromPtr(opts.PostgrestStatementTimeout))); err != nil {
+			logger.Errorf("failed to set statement timeout for role postgrest_api: %v", err)
+		}
+
+		if _, err := db.Exec(fmt.Sprintf(`ALTER ROLE postgrest_anon SET statement_timeout = '%s'`, lo.FromPtr(opts.PostgrestStatementTimeout))); err != nil {
+			logger.Errorf("failed to set statement timeout for role postgrest_anon: %v", err)
+		}
+	}
 }
 
 func grantPostgrestRolesToCurrentUser(pool *sql.DB, user string) error {

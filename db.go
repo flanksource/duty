@@ -153,7 +153,7 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(connection string, opts *migrate.MigrateOptions) error {
+func Migrate(ctx context.Context, connection string, opts *migrate.MigrateOptions) error {
 	db, err := NewDB(connection)
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	if migrateOptions == nil {
 		migrateOptions = &migrate.MigrateOptions{}
 	}
-	if err := migrate.RunMigrations(db, connection, *migrateOptions); err != nil {
+	if err := migrate.RunMigrations(ctx, db, connection, *migrateOptions); err != nil {
 		return err
 	}
 
@@ -187,23 +187,23 @@ func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
 	return count > 0, nil
 }
 
-func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
-	db, pool, err := SetupDB(connection, migrateOpts)
+func InitDB(ctx context.Context, connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
+	db, pool, err := SetupDB(ctx, connection, migrateOpts)
 	if err != nil {
 		return nil, err
 	}
-	ctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
-	return &ctx, nil
+	dutyctx := dutyContext.NewContext(ctx).WithDB(db, pool)
+	return &dutyctx, nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
-func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
+func SetupDB(ctx context.Context, connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
 	pgxpool, err = NewPgxPool(connection)
 	if err != nil {
 		return
 	}
 
-	conn, err := pgxpool.Acquire(context.Background())
+	conn, err := pgxpool.Acquire(ctx)
 	if err != nil {
 		return
 	}
@@ -214,7 +214,7 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 		return
 	}
 
-	if err = Migrate(connection, migrateOpts); err != nil {
+	if err = Migrate(ctx, connection, migrateOpts); err != nil {
 		return
 	}
 

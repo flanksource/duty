@@ -1,6 +1,7 @@
 package setup
 
 import (
+	gocontext "context"
 	"database/sql"
 	"fmt"
 	"net"
@@ -99,7 +100,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		logger.Infof("Started postgres on port %d", port)
 	}
 
-	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
+	if ctx, err := duty.InitDB(gocontext.TODO(), PgUrl, nil); err != nil {
 		panic(err.Error())
 	} else {
 		DefaultContext = *ctx
@@ -172,7 +173,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 		return nil, nil, err
 	}
 
-	newCtx, err := duty.InitDB(strings.ReplaceAll(pgUrl, pgDbName, newName), nil)
+	newCtx, err := duty.InitDB(ctx, strings.ReplaceAll(pgUrl, pgDbName, newName), nil)
 	if err != nil {
 		return nil, nil, err
 	}
