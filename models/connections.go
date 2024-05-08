@@ -127,7 +127,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 	if v, ok := from.(types.WithUsernamePassword); ok {
 		username := v.GetUsername()
 		if !username.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(username)
+			val, err := ctx.GetEnvValueFromCache(username, "")
 			if err != nil {
 				return nil, err
 			}
@@ -135,7 +135,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 		}
 		password := v.GetPassword()
 		if !password.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(password)
+			val, err := ctx.GetEnvValueFromCache(password, "")
 			if err != nil {
 				return nil, err
 			}
@@ -146,7 +146,7 @@ func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, 
 	if v, ok := from.(types.WithCertificate); ok {
 		cert := v.GetCertificate()
 		if !cert.IsEmpty() {
-			val, err := ctx.GetEnvValueFromCache(cert)
+			val, err := ctx.GetEnvValueFromCache(cert, "")
 			if err != nil {
 				return nil, err
 			}
