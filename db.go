@@ -192,7 +192,13 @@ func InitDB(ctx context.Context, connection string, migrateOpts *migrate.Migrate
 	if err != nil {
 		return nil, err
 	}
+
 	dutyctx := dutyContext.NewContext(ctx).WithDB(db, pool)
+
+	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
+	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
+	setStatementTimeouts(ctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
+
 	return &dutyctx, nil
 }
 
@@ -219,6 +225,28 @@ func SetupDB(ctx context.Context, connection string, migrateOpts *migrate.Migrat
 	}
 
 	return
+}
+
+func setStatementTimeouts(ctx context.Context, pool *pgxpool.Pool, connection string, connStatementTimeout, postgrestStatementTimeout string) {
+	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_api SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
+		logger.Errorf("failed to set statement timeout for role postgrest_api: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_anon SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
+		logger.Errorf("failed to set statement timeout for role postgrest_anon: %v", err)
+	}
+
+	parsedConn, err := url.Parse(connection)
+	if err != nil {
+		return
+	}
+
+	user := parsedConn.User.Username()
+	if user != "" && connStatementTimeout != "" {
+		if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%s'`, user, connStatementTimeout)); err != nil {
+			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
+		}
+	}
 }
 
 func IsForeignKeyError(err error) bool {
