@@ -217,6 +217,26 @@ AFTER UPDATE ON components
 FOR EACH ROW
 EXECUTE PROCEDURE insert_component_health_updates_in_event_queue();
 
+DROP VIEW IF EXISTS push_queue_summary;
+
+CREATE VIEW push_queue_summary AS
+SELECT 'artifacts' AS table, (SELECT COUNT(*) FROM artifacts WHERE is_pushed = false) AS count UNION
+SELECT 'canaries' AS table, (SELECT COUNT(*) FROM canaries WHERE is_pushed = false) AS count UNION
+SELECT 'check_component_relationships' AS table, (SELECT COUNT(*) FROM check_component_relationships WHERE is_pushed = false) AS count UNION
+SELECT 'check_config_relationships' AS table, (SELECT COUNT(*) FROM check_config_relationships WHERE is_pushed = false) AS count UNION
+SELECT 'check_statuses' AS table, (SELECT COUNT(*) FROM check_statuses WHERE is_pushed = false) AS count UNION
+SELECT 'checks' AS table, (SELECT COUNT(*) FROM checks WHERE is_pushed = false) AS count UNION
+SELECT 'component_relationships' AS table, (SELECT COUNT(*) FROM component_relationships WHERE is_pushed = false) AS count UNION
+SELECT 'components' AS table, (SELECT COUNT(*) FROM components WHERE is_pushed = false) AS count UNION
+SELECT 'config_analysis' AS table, (SELECT COUNT(*) FROM config_analysis WHERE is_pushed = false) AS count UNION
+SELECT 'config_changes' AS table, (SELECT COUNT(*) FROM config_changes WHERE is_pushed = false) AS count UNION
+SELECT 'config_component_relationships' AS table, (SELECT COUNT(*) FROM config_component_relationships WHERE is_pushed = false) AS count UNION
+SELECT 'config_items' AS table, (SELECT COUNT(*) FROM config_items WHERE is_pushed = false) AS count UNION
+SELECT 'config_relationships' AS table, (SELECT COUNT(*) FROM config_relationships WHERE is_pushed = false) AS count UNION
+SELECT 'config_scrapers' AS table, (SELECT COUNT(*) FROM config_scrapers WHERE is_pushed = false) AS count UNION
+SELECT 'playbook_run_actions' AS table, (SELECT COUNT(*) FROM playbook_run_actions WHERE is_pushed = false) AS count UNION
+SELECT 'topologies' AS table, (SELECT COUNT(*) FROM topologies WHERE is_pushed = false) AS count;
+
 CREATE OR REPLACE VIEW event_queue_summary AS
 SELECT
   name,
