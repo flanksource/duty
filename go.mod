@@ -15,7 +15,7 @@ require (
 	github.com/flanksource/commons v1.22.1
 	github.com/flanksource/gomplate/v3 v3.24.2
 	github.com/flanksource/kommons v0.31.4
-	github.com/flanksource/postq v0.1.3
+	github.com/flanksource/postq v0.1.5
 	github.com/google/cel-go v0.18.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0
