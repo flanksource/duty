@@ -11,8 +11,11 @@ var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-00
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
 func ParseFilteringQuery(query string) (in []interface{}, notIN []interface{}, prefix, suffix []string) {
-	items := strings.Split(query, ",")
+	if query == "" {
+		return
+	}
 
+	items := strings.Split(query, ",")
 	for _, item := range items {
 		if strings.HasPrefix(item, "!") {
 			notIN = append(notIN, strings.TrimPrefix(item, "!"))
