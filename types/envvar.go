@@ -39,7 +39,7 @@ type WithProperties interface {
 }
 
 type GetEnvVarFromCache interface {
-	GetEnvValueFromCache(e EnvVar, namespace ...string) (string, error)
+	GetEnvValueFromCache(e EnvVar, namespace string) (string, error)
 }
 
 func (e EnvVar) String() string {
