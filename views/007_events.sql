@@ -217,22 +217,6 @@ AFTER UPDATE ON components
 FOR EACH ROW
 EXECUTE PROCEDURE insert_component_health_updates_in_event_queue();
 
-CREATE OR REPLACE VIEW push_queue_summary AS
-SELECT
-  properties ->> 'table' AS "table",
-  COUNT(id) AS pending,
-  COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS failed,
-  ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
-  MIN(CASE WHEN error IS NOT NULL THEN created_at END) AS first_failure,
-  MAX(last_attempt) AS last_failure,
-  mode() WITHIN GROUP (ORDER BY error) AS most_common_error
-FROM
-  event_queue
-WHERE
-  name = 'push_queue.create'
-GROUP BY
-  "table";
-
 CREATE OR REPLACE VIEW event_queue_summary AS
 SELECT
   name,
