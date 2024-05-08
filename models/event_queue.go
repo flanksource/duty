@@ -62,17 +62,3 @@ type EventQueueSummary struct {
 func (t *EventQueueSummary) TableName() string {
 	return "event_queue_summary"
 }
-
-type PushQueueSummary struct {
-	Table         string     `json:"table"`
-	Pending       int64      `json:"pending"`
-	Failed        int64      `json:"failed"`
-	AvgAttempts   int64      `json:"average_attempts"`
-	FirstFailure  *time.Time `json:"first_failure,omitempty"`
-	LastFailure   *time.Time `json:"last_failure,omitempty"`
-	MostCommonErr string     `json:"most_common_error,omitempty"`
-}
-
-func (t *PushQueueSummary) TableName() string {
-	return "push_queue_summary"
-}

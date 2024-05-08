@@ -15,12 +15,4 @@ var _ = ginkgo.Describe("Event queue views", func() {
 
 		logger.Infof("eventQueueSummary (%d)", len(summaries))
 	})
-
-	ginkgo.It("should return deleted checks", func() {
-		var summaries []models.PushQueueSummary
-		err := DefaultContext.DB().Find(&summaries).Error
-		Expect(err).ToNot(HaveOccurred())
-
-		logger.Infof("pushQueueSummary (%d)", len(summaries))
-	})
 })
