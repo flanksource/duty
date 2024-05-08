@@ -60,19 +60,19 @@ func (t *AWSConnection) Populate(ctx ConnectionContext) error {
 		}
 	}
 
-	if accessKey, err := ctx.GetEnvValueFromCache(t.AccessKey); err != nil {
+	if accessKey, err := ctx.GetEnvValueFromCache(t.AccessKey, ""); err != nil {
 		return fmt.Errorf("could not parse AWS access key id: %v", err)
 	} else {
 		t.AccessKey.ValueStatic = accessKey
 	}
 
-	if secretKey, err := ctx.GetEnvValueFromCache(t.SecretKey); err != nil {
+	if secretKey, err := ctx.GetEnvValueFromCache(t.SecretKey, ""); err != nil {
 		return fmt.Errorf(fmt.Sprintf("Could not parse AWS secret access key: %v", err))
 	} else {
 		t.SecretKey.ValueStatic = secretKey
 	}
 
-	if sessionToken, err := ctx.GetEnvValueFromCache(t.SessionToken); err != nil {
+	if sessionToken, err := ctx.GetEnvValueFromCache(t.SessionToken, ""); err != nil {
 		return fmt.Errorf(fmt.Sprintf("Could not parse AWS session token: %v", err))
 	} else {
 		t.SessionToken.ValueStatic = sessionToken
