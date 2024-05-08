@@ -10,5 +10,5 @@ import (
 type ConnectionContext interface {
 	context.Context
 	HydrateConnectionByURL(connectionName string) (*models.Connection, error)
-	GetEnvValueFromCache(env types.EnvVar, namespace ...string) (string, error)
+	GetEnvValueFromCache(env types.EnvVar, namespace string) (string, error)
 }
