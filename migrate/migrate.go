@@ -20,7 +20,7 @@ type MigrateOptions struct {
 	IgnoreFiles []string
 }
 
-func RunMigrations(ctx context.Context, pool *sql.DB, connection string, opts MigrateOptions) error {
+func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
@@ -58,7 +58,7 @@ func RunMigrations(ctx context.Context, pool *sql.DB, connection string, opts Mi
 	}
 
 	logger.Tracef("Applying schema migrations")
-	if err := schema.Apply(ctx, connection); err != nil {
+	if err := schema.Apply(context.TODO(), connection); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 

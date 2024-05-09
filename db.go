@@ -153,7 +153,7 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(ctx context.Context, connection string, opts *migrate.MigrateOptions) error {
+func Migrate(connection string, opts *migrate.MigrateOptions) error {
 	db, err := NewDB(connection)
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func Migrate(ctx context.Context, connection string, opts *migrate.MigrateOption
 	if migrateOptions == nil {
 		migrateOptions = &migrate.MigrateOptions{}
 	}
-	if err := migrate.RunMigrations(ctx, db, connection, *migrateOptions); err != nil {
+	if err := migrate.RunMigrations(db, connection, *migrateOptions); err != nil {
 		return err
 	}
 
@@ -187,29 +187,29 @@ func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
 	return count > 0, nil
 }
 
-func InitDB(ctx context.Context, connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
-	db, pool, err := SetupDB(ctx, connection, migrateOpts)
+func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
+	db, pool, err := SetupDB(connection, migrateOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	dutyctx := dutyContext.NewContext(ctx).WithDB(db, pool)
+	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
 
 	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
 	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
-	setStatementTimeouts(ctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
+	setStatementTimeouts(dutyctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
 
 	return &dutyctx, nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
-func SetupDB(ctx context.Context, connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
+func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
 	pgxpool, err = NewPgxPool(connection)
 	if err != nil {
 		return
 	}
 
-	conn, err := pgxpool.Acquire(ctx)
+	conn, err := pgxpool.Acquire(context.TODO())
 	if err != nil {
 		return
 	}
@@ -220,7 +220,7 @@ func SetupDB(ctx context.Context, connection string, migrateOpts *migrate.Migrat
 		return
 	}
 
-	if err = Migrate(ctx, connection, migrateOpts); err != nil {
+	if err = Migrate(connection, migrateOpts); err != nil {
 		return
 	}
 
