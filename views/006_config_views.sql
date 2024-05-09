@@ -1,4 +1,7 @@
+-- Add cascade drops first to make sure all functions and views are always recreated
 DROP VIEW IF EXISTS configs CASCADE;
+
+DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
 CREATE or REPLACE VIEW configs AS
   SELECT
