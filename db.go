@@ -192,8 +192,14 @@ func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContex
 	if err != nil {
 		return nil, err
 	}
-	ctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
-	return &ctx, nil
+
+	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
+
+	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
+	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
+	setStatementTimeouts(dutyctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
+
+	return &dutyctx, nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
@@ -203,7 +209,7 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 		return
 	}
 
-	conn, err := pgxpool.Acquire(context.Background())
+	conn, err := pgxpool.Acquire(context.TODO())
 	if err != nil {
 		return
 	}
@@ -219,6 +225,28 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 	}
 
 	return
+}
+
+func setStatementTimeouts(ctx context.Context, pool *pgxpool.Pool, connection string, connStatementTimeout, postgrestStatementTimeout string) {
+	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_api SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
+		logger.Errorf("failed to set statement timeout for role postgrest_api: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_anon SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
+		logger.Errorf("failed to set statement timeout for role postgrest_anon: %v", err)
+	}
+
+	parsedConn, err := url.Parse(connection)
+	if err != nil {
+		return
+	}
+
+	user := parsedConn.User.Username()
+	if user != "" && connStatementTimeout != "" {
+		if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%s'`, user, connStatementTimeout)); err != nil {
+			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
+		}
+	}
 }
 
 func IsForeignKeyError(err error) bool {
