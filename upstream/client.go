@@ -87,7 +87,7 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 
 	start := time.Now()
 	msg.AddMetrics(ctx.Counter("push_queue_records", "method", method, "agent", t.AgentName, "table", ""))
-	histogram := ctx.Histogram("push_queue_batch", "method", method, "agent", t.AgentName, StatusLabel, "")
+	histogram := ctx.Histogram("push_queue_batch", context.LatencyBuckets, "method", method, "agent", t.AgentName, StatusLabel, "")
 	req := t.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName)
 	if err := req.Body(msg); err != nil {
 		return fmt.Errorf("error setting body: %w", err)

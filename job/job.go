@@ -217,7 +217,7 @@ func (j *JobRuntime) end() {
 	j.Job.statusRing.Add(j.History)
 
 	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
-	j.Context.Histogram("job_duration", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
+	j.Context.Histogram("job_duration", context.LatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
 }
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
