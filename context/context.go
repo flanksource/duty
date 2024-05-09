@@ -338,23 +338,16 @@ type Histogram struct {
 var ctxHistograms = make(map[string]*prometheus.HistogramVec)
 
 var LatencyBuckets = []float64{
-	float64(1 * time.Millisecond),
-	float64(5 * time.Millisecond),
 	float64(10 * time.Millisecond),
 	float64(50 * time.Millisecond),
 	float64(100 * time.Millisecond),
 	float64(500 * time.Millisecond),
 	float64(1 * time.Second),
 	float64(5 * time.Second),
-	float64(10 * time.Second),
 	float64(30 * time.Second),
 	float64(1 * time.Minute),
-	float64(2 * time.Minute),
 	float64(5 * time.Minute),
-	float64(10 * time.Minute),
-	float64(15 * time.Minute),
 	float64(30 * time.Minute),
-	float64(1 * time.Hour),
 }
 
 func (k Context) Histogram(name string, buckets []float64, labels ...string) Histogram {
