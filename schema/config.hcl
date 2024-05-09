@@ -319,8 +319,10 @@ table "config_items" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "config_items_is_pushed_idx" {
-    columns = [column.is_pushed]
+  index "config_items_path_is_pushed_idx" {
+    on {
+       expr = "length(path)"
+    }
     where   = "is_pushed IS FALSE"
   }
   index "idx_config_items_scraper_id" {

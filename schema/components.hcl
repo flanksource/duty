@@ -350,11 +350,12 @@ table "components" {
     unique  = true
     columns = [column.topology_id, column.type, column.name, column.parent_id]
   }
-  index "components_is_pushed_idx" {
-    columns = [column.is_pushed]
+  index "components_path_is_pushed_idx" {
+    on {
+       expr = "length(path)"
+    }
     where   = "is_pushed IS FALSE"
   }
-
   index "idx_components_deleted_at" {
     columns = [column.deleted_at]
   }
