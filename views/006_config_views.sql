@@ -561,6 +561,7 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     config_id uuid,
     name TEXT,
     type TEXT,
+    labels jsonb,
     external_created_by TEXT,
     created_at TIMESTAMP WITH TIME ZONE,
     severity TEXT,
@@ -577,7 +578,7 @@ BEGIN
 
   RETURN query
     SELECT
-        cc.id, cc.config_id, c.name, c.type, cc.external_created_by,
+        cc.id, cc.config_id, c.name, c.type, c.labels, cc.external_created_by,
         cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id

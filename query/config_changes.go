@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
@@ -28,6 +29,13 @@ type CatalogChangesSearchRequest struct {
 	Severity              string    `query:"severity"`
 	IncludeDeletedConfigs bool      `query:"include_deleted_configs"`
 	Depth                 int       `query:"depth"`
+	CreatedByRaw          string    `query:"created_by"`
+	IDs                   string    `query:"ids"`
+	Summary               string    `query:"summary"`
+	Labels                string    `query:"labels"`
+
+	createdBy         *uuid.UUID
+	externalCreatedBy string
 
 	// From date in datemath format
 	From string `query:"from"`
@@ -66,6 +74,18 @@ func (t CatalogChangesSearchRequest) String() string {
 	}
 	if t.Depth != 0 {
 		s += fmt.Sprintf("depth: %d ", t.Depth)
+	}
+	if t.CreatedByRaw != "" {
+		s += fmt.Sprintf("created_by: %s ", t.CreatedByRaw)
+	}
+	if t.IDs != "" {
+		s += fmt.Sprintf("ids: %s ", t.IDs)
+	}
+	if t.Summary != "" {
+		s += fmt.Sprintf("summary: %s ", t.Summary)
+	}
+	if t.Labels != "" {
+		s += fmt.Sprintf("labels: %s ", t.Labels)
 	}
 	if t.From != "" {
 		s += fmt.Sprintf("from: %s ", t.From)
@@ -146,6 +166,14 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		}
 	}
 
+	if t.CreatedByRaw != "" {
+		if u, err := uuid.Parse(t.CreatedByRaw); err == nil {
+			t.createdBy = &u
+		} else {
+			t.externalCreatedBy = t.CreatedByRaw
+		}
+	}
+
 	return nil
 }
 
@@ -186,6 +214,8 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	var clauses []clause.Expression
 
+	query := ctx.DB()
+
 	if req.ConfigType != "" {
 		clauses = append(clauses, parseAndBuildFilteringQuery(req.ConfigType, "type")...)
 	}
@@ -198,6 +228,25 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		clauses = append(clauses, parseAndBuildFilteringQuery(req.Severity, "severity")...)
 	}
 
+	if req.IDs != "" {
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.IDs, "config_id")...)
+	}
+
+	if req.Summary != "" {
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.IDs, "summary")...)
+	}
+
+	if req.Labels != "" {
+		parsedLabelSelector, err := labels.Parse(req.Labels)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+		}
+		requirements, _ := parsedLabelSelector.Requirements()
+		for _, r := range requirements {
+			query = labelSelectorRequirementToSQLClause(query, r)
+		}
+	}
+
 	if !req.fromParsed.IsZero() {
 		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: req.fromParsed})
 	}
@@ -206,9 +255,17 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "created_at"}, Value: req.toParsed})
 	}
 
-	table := ctx.DB().Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+	if req.createdBy != nil {
+		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "created_by"}, Value: req.createdBy})
+	}
+
+	if req.externalCreatedBy != "" {
+		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "external_created_by"}, Value: req.externalCreatedBy})
+	}
+
+	table := query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
 	if req.CatalogID == uuid.Nil {
-		table = ctx.DB().Table("catalog_changes")
+		table = query.Table("catalog_changes")
 	}
 
 	var output CatalogChangesSearchResponse
