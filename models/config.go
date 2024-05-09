@@ -110,7 +110,7 @@ func (t ConfigItem) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
 
 func (t ConfigItem) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigItem
-	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	err := db.Where("is_pushed IS FALSE").Order("length(path)").Find(&items).Error
 	return lo.Map(items, func(i ConfigItem, _ int) DBTable { return i }), err
 }
 
