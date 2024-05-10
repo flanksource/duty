@@ -399,7 +399,9 @@ DROP FUNCTION IF EXISTS related_config_ids_recursive;
 CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
-  max_depth INT DEFAULT 5
+  max_depth INT DEFAULT 5,
+  incoming_relation TEXT DEFAULT 'hard', -- hard or both (hard & soft)
+  outgoing_relation TEXT DEFAULT 'hard' -- hard or both (hard & soft)
 ) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
 BEGIN
 
@@ -413,44 +415,49 @@ IF type_filter = 'outgoing' THEN
         SELECT parent.related_id, parent.config_id as related_id, 'outgoing', 1::int
         FROM config_relationships parent
         WHERE parent.config_id = related_config_ids_recursive.config_id
+          AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
-       UNION ALL
+        UNION ALL
         SELECT
           child.related_id, parent.config_id as related_id, child.relation, parent.depth +1
           FROM config_relationships child,  cte parent
           WHERE child.config_id = parent.config_id
             AND parent.depth <= max_depth
+            AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id,cte.related_id, cte.relation,type_filter,cte.depth
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
-   ELSEIF type_filter = 'incoming' THEN
+ELSIF type_filter = 'incoming' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id,relation, depth) AS (
         SELECT parent.config_id, parent.related_id as related_id, 'incoming', 1::int
         FROM config_relationships parent
         WHERE parent.related_id = related_config_ids_recursive.config_id
+          AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
-       UNION ALL
+        UNION ALL
         SELECT
           child.config_id, child.related_id as related_id, child.relation, parent.depth +1
           FROM config_relationships child, cte parent
           WHERE child.related_id = parent.config_id
             AND parent.depth <= max_depth
+            AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation,type_filter,cte.depth
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
-   ELSE
-  	 RETURN query
-   		SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth)
+ELSE
+  RETURN query
+   		SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
    		UNION
-   		SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth);
-   END IF;
+   		SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
+END IF;
+
 END;
 $$ LANGUAGE plpgsql;
 
@@ -461,7 +468,9 @@ CREATE FUNCTION related_configs_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   include_deleted_configs BOOLEAN DEFAULT FALSE,
-  max_depth INTEGER DEFAULT 5
+  max_depth INTEGER DEFAULT 5,
+  incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
+  outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
 ) RETURNS TABLE (
     id uuid,
     name TEXT,
@@ -510,7 +519,7 @@ BEGIN
    	  min(r.relation_type) as relation_type,
       min(r.direction) as direction,
       min(r.depth) as depth
-    FROM related_config_ids_recursive($1, $2, $4) as r
+    FROM related_config_ids_recursive($1, $2, $4, $5, $6) as r
     GROUP BY r.id
    ) r
     LEFT JOIN configs ON r.id = configs.id
@@ -654,3 +663,22 @@ CREATE OR REPLACE VIEW config_detail AS
         WHERE start_time > NOW() - interval '30 days' 
         GROUP BY config_id) as playbook_runs
       ON ci.id = playbook_runs.config_id;
+
+-- config parent to config_relationship trigger
+CREATE OR REPLACE FUNCTION insert_parent_to_config_relationship()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.parent_id IS NOT NULL THEN
+    INSERT INTO config_relationships (config_id, related_id, relation) 
+    VALUES (NEW.parent_id, NEW.id, 'hard')
+    ON CONFLICT DO NOTHING;
+  END IF;
+
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER fn_insert_parent_to_config_relationship
+AFTER INSERT OR UPDATE ON config_items
+FOR EACH ROW
+EXECUTE PROCEDURE insert_parent_to_config_relationship();

@@ -324,7 +324,7 @@ func (c ConfigRelationship) Value() any {
 }
 
 func (c ConfigRelationship) PKCols() []clause.Column {
-	return []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "selector_id"}}
+	return []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}}
 }
 
 func (t ConfigRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
@@ -345,7 +345,7 @@ func (s ConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 		return []string{c.RelatedID, c.ConfigID, c.SelectorID}
 	})
 
-	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, selector_id) IN ?", ids).Update("is_pushed", true).Error
+	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, relation) IN ?", ids).Update("is_pushed", true).Error
 }
 
 func (t ConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
