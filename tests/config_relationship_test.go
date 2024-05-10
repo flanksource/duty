@@ -256,7 +256,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
-			Expect(rc.RelationType).To(Equal(models.RelatedConfigTypeOutgoing))
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		}
 	})
@@ -267,7 +267,47 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(1))
-		Expect(relatedConfigs[0].RelationType).To(Equal(models.RelatedConfigTypeIncoming))
+		Expect(relatedConfigs[0].Direction).To(Equal(models.RelatedConfigTypeIncoming))
 		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
+	})
+
+	ginkgo.It("should return HARD OUTGOING relationships", func() {
+		var relatedConfigs []models.RelatedConfig
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 10, 'hard')", dummy.LogisticsAPIDeployment.ID).Find(&relatedConfigs).Error
+		Expect(err).To(BeNil())
+
+		Expect(len(relatedConfigs)).To(Equal(2))
+		for _, rc := range relatedConfigs {
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
+			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIReplicaSet.ID.String(), dummy.LogisticsAPIPodConfig.ID.String()}))
+		}
+	})
+
+	ginkgo.It("should return HARD incoming relationships", func() {
+		var relatedConfigs []models.RelatedConfig
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false, 10, 'hard')", dummy.LogisticsAPIReplicaSet.ID).Find(&relatedConfigs).Error
+		Expect(err).To(BeNil())
+
+		Expect(len(relatedConfigs)).To(Equal(1))
+		for _, rc := range relatedConfigs {
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeIncoming))
+			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String()}))
+		}
+	})
+
+	ginkgo.It("should return HARD incoming/outgoing relationships", func() {
+		var relatedConfigs []models.RelatedConfig
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'all', false, 10, 'hard')", dummy.LogisticsAPIReplicaSet.ID).Find(&relatedConfigs).Error
+		Expect(err).To(BeNil())
+
+		Expect(len(relatedConfigs)).To(Equal(2))
+		for _, rc := range relatedConfigs {
+			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String(), dummy.LogisticsAPIPodConfig.ID.String()}))
+			if rc.ID == dummy.LogisticsAPIDeployment.ID {
+				Expect(rc.Direction).To(Equal(models.RelatedConfigTypeIncoming))
+			} else {
+				Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
+			}
+		}
 	})
 })

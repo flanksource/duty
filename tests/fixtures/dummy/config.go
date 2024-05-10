@@ -118,7 +118,33 @@ var EC2InstanceB = models.ConfigItem{
 var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
-	Type:        lo.ToPtr("Logistics::API::Deployment"),
+	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"app":         "logistics",
+		"environment": "production",
+		"owner":       "team-1",
+		"version":     "1.2.0",
+	}),
+}
+
+var LogisticsAPIReplicaSet = models.ConfigItem{
+	ID:          uuid.New(),
+	ConfigClass: "ReplicaSet",
+	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
+	ParentID:    lo.ToPtr(LogisticsAPIDeployment.ID),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"app":         "logistics",
+		"environment": "production",
+		"owner":       "team-1",
+		"version":     "1.2.0",
+	}),
+}
+
+var LogisticsAPIPodConfig = models.ConfigItem{
+	ID:          uuid.New(),
+	ConfigClass: models.ConfigClassPod,
+	Type:        lo.ToPtr("Kubernetes::Pod"),
+	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
@@ -171,6 +197,8 @@ var AllDummyConfigs = []models.ConfigItem{
 	EC2InstanceA,
 	EC2InstanceB,
 	LogisticsAPIDeployment,
+	LogisticsAPIReplicaSet,
+	LogisticsAPIPodConfig,
 	LogisticsUIDeployment,
 	LogisticsWorkerDeployment,
 	LogisticsDBRDS,

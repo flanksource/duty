@@ -426,7 +426,7 @@ IF type_filter = 'outgoing' THEN
             AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.config_id,cte.related_id, cte.relation,type_filter,cte.depth
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
@@ -447,7 +447,7 @@ ELSIF type_filter = 'incoming' THEN
             AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation,type_filter,cte.depth
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
