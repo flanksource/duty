@@ -100,7 +100,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	var findChanges = func(id uuid.UUID, filter string, deleted bool) (*query.CatalogChangesSearchResponse, error) {
 		return query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-			CatalogID:             id,
+			CatalogID:             id.String(),
 			IncludeDeletedConfigs: deleted,
 			Recursive:             filter,
 		})
@@ -176,7 +176,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.Context("Config type filter", func() {
 			ginkgo.It("IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID:  U.ID,
+					CatalogID:  U.ID.String(),
 					Recursive:  query.CatalogChangeRecursiveDownstream,
 					ConfigType: "Kubernetes::Pod,Kubernetes::ReplicaSet",
 				})
@@ -189,7 +189,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It("NOT IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID:  U.ID,
+					CatalogID:  U.ID.String(),
 					Recursive:  query.CatalogChangeRecursiveDownstream,
 					ConfigType: "!Kubernetes::ReplicaSet",
 				})
@@ -205,7 +205,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.Context("Change type filter", func() {
 			ginkgo.It("IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID:  X.ID,
+					CatalogID:  X.ID.String(),
 					Recursive:  query.CatalogChangeRecursiveAll,
 					ChangeType: "diff",
 				})
@@ -217,7 +217,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It("NOT IN", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID:  U.ID,
+					CatalogID:  U.ID.String(),
 					Recursive:  query.CatalogChangeRecursiveDownstream,
 					ChangeType: "!diff,!Pulled",
 				})
@@ -230,7 +230,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 		ginkgo.It("Severity filter", func() {
 			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-				CatalogID: U.ID,
+				CatalogID: U.ID.String(),
 				Recursive: query.CatalogChangeRecursiveDownstream,
 				Severity:  "!info",
 			})
@@ -244,7 +244,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.Context("Pagination", func() {
 			ginkgo.It("Page size", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: U.ID,
+					CatalogID: U.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
 					SortBy:    "summary",
 					PageSize:  2,
@@ -258,7 +258,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It("Page number", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: U.ID,
+					CatalogID: U.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
 					SortBy:    "summary",
 					PageSize:  2,
@@ -275,7 +275,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.Context("recursive mode", func() {
 			ginkgo.It("upstream", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: W.ID,
+					CatalogID: W.ID.String(),
 					Recursive: query.CatalogChangeRecursiveUpstream,
 				})
 				Expect(err).To(BeNil())
@@ -287,7 +287,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It(query.CatalogChangeRecursiveDownstream, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: V.ID,
+					CatalogID: V.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
 				})
 				Expect(err).To(BeNil())
@@ -299,7 +299,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It(query.CatalogChangeRecursiveAll, func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: V.ID,
+					CatalogID: V.ID.String(),
 					Recursive: query.CatalogChangeRecursiveAll,
 				})
 				Expect(err).To(BeNil())
@@ -313,7 +313,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 		ginkgo.It("should handle datemath", func() {
 			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-				CatalogID: U.ID,
+				CatalogID: U.ID.String(),
 				Recursive: query.CatalogChangeRecursiveDownstream,
 				From:      "now-65m",
 				To:        "now-1s",
@@ -328,7 +328,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.Context("Sorting", func() {
 			ginkgo.It("Descending", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: U.ID,
+					CatalogID: U.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
 					SortBy:    "-name",
 				})
@@ -341,7 +341,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 			ginkgo.It("Ascending", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					CatalogID: U.ID,
+					CatalogID: U.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
 					SortBy:    "name",
 				})
