@@ -23,16 +23,15 @@ const (
 var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
 
 type CatalogChangesSearchRequest struct {
-	CatalogID             uuid.UUID `query:"id"`
-	ConfigType            string    `query:"config_type"`
-	ChangeType            string    `query:"type"`
-	Severity              string    `query:"severity"`
-	IncludeDeletedConfigs bool      `query:"include_deleted_configs"`
-	Depth                 int       `query:"depth"`
-	CreatedByRaw          string    `query:"created_by"`
-	IDs                   string    `query:"ids"`
-	Summary               string    `query:"summary"`
-	Labels                string    `query:"labels"`
+	CatalogID             string `query:"id"`
+	ConfigType            string `query:"config_type"`
+	ChangeType            string `query:"type"`
+	Severity              string `query:"severity"`
+	IncludeDeletedConfigs bool   `query:"include_deleted_configs"`
+	Depth                 int    `query:"depth"`
+	CreatedByRaw          string `query:"created_by"`
+	Summary               string `query:"summary"`
+	Tags                  string `query:"tags"`
 
 	createdBy         *uuid.UUID
 	externalCreatedBy string
@@ -56,7 +55,7 @@ type CatalogChangesSearchRequest struct {
 
 func (t CatalogChangesSearchRequest) String() string {
 	s := ""
-	if t.CatalogID != uuid.Nil {
+	if t.CatalogID != "" {
 		s += fmt.Sprintf("id: %s ", t.CatalogID)
 	}
 
@@ -78,14 +77,11 @@ func (t CatalogChangesSearchRequest) String() string {
 	if t.CreatedByRaw != "" {
 		s += fmt.Sprintf("created_by: %s ", t.CreatedByRaw)
 	}
-	if t.IDs != "" {
-		s += fmt.Sprintf("ids: %s ", t.IDs)
-	}
 	if t.Summary != "" {
 		s += fmt.Sprintf("summary: %s ", t.Summary)
 	}
-	if t.Labels != "" {
-		s += fmt.Sprintf("labels: %s ", t.Labels)
+	if t.Tags != "" {
+		s += fmt.Sprintf("tags: %s ", t.Tags)
 	}
 	if t.From != "" {
 		s += fmt.Sprintf("from: %s ", t.From)
@@ -228,22 +224,18 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		clauses = append(clauses, parseAndBuildFilteringQuery(req.Severity, "severity")...)
 	}
 
-	if req.IDs != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.IDs, "config_id")...)
-	}
-
 	if req.Summary != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.IDs, "summary")...)
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.Summary, "summary")...)
 	}
 
-	if req.Labels != "" {
-		parsedLabelSelector, err := labels.Parse(req.Labels)
+	if req.Tags != "" {
+		parsedLabelSelector, err := labels.Parse(req.Tags)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
-			query = labelSelectorRequirementToSQLClause(query, r)
+			query = tagSelectorRequirementsToSQLClause(query, r)
 		}
 	}
 
@@ -263,9 +255,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "external_created_by"}, Value: req.externalCreatedBy})
 	}
 
-	table := query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
-	if req.CatalogID == uuid.Nil {
-		table = query.Table("catalog_changes")
+	table := query.Table("catalog_changes")
+	if err := uuid.Validate(req.CatalogID); err == nil {
+		table = query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+	} else {
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.CatalogID, "config_id")...)
 	}
 
 	var output CatalogChangesSearchResponse
