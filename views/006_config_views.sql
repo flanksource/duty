@@ -1,4 +1,7 @@
+-- Add cascade drops first to make sure all functions and views are always recreated
 DROP VIEW IF EXISTS configs CASCADE;
+
+DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
 CREATE or REPLACE VIEW configs AS
   SELECT
@@ -561,6 +564,7 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     config_id uuid,
     name TEXT,
     type TEXT,
+    tags jsonb,
     external_created_by TEXT,
     created_at TIMESTAMP WITH TIME ZONE,
     severity TEXT,
@@ -577,7 +581,7 @@ BEGIN
 
   RETURN query
     SELECT
-        cc.id, cc.config_id, c.name, c.type, cc.external_created_by,
+        cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
         cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
     FROM config_changes cc
     LEFT JOIN config_items c on c.id = cc.config_id
