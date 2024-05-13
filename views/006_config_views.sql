@@ -556,7 +556,7 @@ $$ LANGUAGE plpgsql;
 -- related config changes recursively
 CREATE OR REPLACE FUNCTION related_changes_recursive (
   lookup_id UUID,
-  type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', or 'all'
+  type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', 'all', 'none' or ''
   include_deleted_configs BOOLEAN DEFAULT FALSE,
   max_depth INTEGER DEFAULT 5
 ) RETURNS TABLE (
@@ -575,29 +575,39 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     agent_id uuid
 ) AS $$
 BEGIN
-  IF type_filter NOT IN ('upstream', 'downstream', 'all') THEN
-    RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all''';
+  IF type_filter NOT IN ('upstream', 'downstream', 'all', 'none', '') THEN
+    RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all'', ''none'' or ''''';
   END IF;
 
-  RETURN query
-    SELECT
-        cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
-        cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
-    FROM config_changes cc
-    LEFT JOIN config_items c on c.id = cc.config_id
-    WHERE cc.config_id = lookup_id
-      OR cc.config_id IN (
-        SELECT related_config_ids_recursive.id
-        FROM related_config_ids_recursive(
-          lookup_id,
-          CASE
-            WHEN type_filter = 'upstream' THEN 'incoming'
-            WHEN type_filter = 'downstream' THEN 'outgoing'
-            ELSE type_filter
-          END,
-          max_depth
-        )
-      );
+  IF type_filter IN ('none', '') THEN
+    RETURN query
+      SELECT
+          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, config_items.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items on config_items.id = cc.config_id
+      WHERE cc.config_id = lookup_id;
+  ELSE
+    RETURN query
+      SELECT
+          cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items c on c.id = cc.config_id
+      WHERE cc.config_id = lookup_id
+        OR cc.config_id IN (
+          SELECT related_config_ids_recursive.id
+          FROM related_config_ids_recursive(
+            lookup_id,
+            CASE
+              WHEN type_filter = 'upstream' THEN 'incoming'
+              WHEN type_filter = 'downstream' THEN 'outgoing'
+              ELSE type_filter
+            END,
+            max_depth
+          )
+        );
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
