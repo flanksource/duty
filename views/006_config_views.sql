@@ -668,13 +668,28 @@ CREATE OR REPLACE VIEW config_detail AS
 CREATE OR REPLACE FUNCTION insert_parent_to_config_relationship()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.parent_id IS NOT NULL THEN
-    INSERT INTO config_relationships (config_id, related_id, relation) 
-    VALUES (NEW.parent_id, NEW.id, 'hard')
-    ON CONFLICT DO NOTHING;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.parent_id IS NOT NULL THEN
+      INSERT INTO config_relationships (config_id, related_id, relation)
+      VALUES (NEW.parent_id, NEW.id, 'hard')
+      ON CONFLICT DO NOTHING;
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF NEW.parent_id IS DISTINCT FROM OLD.parent_id THEN
+      IF OLD.parent_id IS NOT NULL THEN
+        DELETE FROM config_relationships
+        WHERE config_id = OLD.parent_id AND related_id = NEW.id AND relation = 'hard';
+      END IF;
+
+      IF NEW.parent_id IS NOT NULL THEN
+        INSERT INTO config_relationships (config_id, related_id, relation)
+        VALUES (NEW.parent_id, NEW.id, 'hard')
+        ON CONFLICT DO NOTHING;
+      END IF;
+    END IF;
   END IF;
 
-  RETURN NEW;
+  RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
 
