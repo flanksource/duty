@@ -342,7 +342,7 @@ func (t ConfigRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) 
 func (s ConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	ids := lo.Map(items, func(a DBTable, _ int) []string {
 		c := any(a).(ConfigRelationship)
-		return []string{c.RelatedID, c.ConfigID, c.SelectorID}
+		return []string{c.RelatedID, c.ConfigID, c.Relation}
 	})
 
 	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, relation) IN ?", ids).Update("is_pushed", true).Error

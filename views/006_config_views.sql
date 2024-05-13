@@ -400,8 +400,8 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   max_depth INT DEFAULT 5,
-  incoming_relation TEXT DEFAULT 'hard', -- hard or both (hard & soft)
-  outgoing_relation TEXT DEFAULT 'hard' -- hard or both (hard & soft)
+  incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
+  outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
 ) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
 BEGIN
 

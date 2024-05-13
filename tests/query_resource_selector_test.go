@@ -103,7 +103,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{FieldSelector: "config_class notin (Node,Deployment,Database,Pod,Cluster)"}},
 			})
 			Expect(err).To(BeNil())
-			Expect(len(items.Configs)).To(Equal(2), "should have returned 2 for the Virtual Machine configs")
+			Expect(len(items.Configs)).To(Equal(3), "should have returned 3 for the Virtual Machine configs")
 		})
 	})
 

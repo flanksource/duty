@@ -1,5 +1,5 @@
 test:
-	go test   ./... -test.v
+	go test ./... -test.v
 
 fmt:
 	go fmt ./...
