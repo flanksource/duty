@@ -542,4 +542,7 @@ type RelatedConfig struct {
 	CreatedAt     time.Time              `json:"created_at"`
 	UpdatedAt     time.Time              `json:"updated_at"`
 	AgentID       uuid.UUID              `json:"agent_id"`
+	Status        *string                `json:"status" gorm:"default:null"`
+	Ready         bool                   `json:"ready"`
+	Health        *Health                `json:"health"`
 }

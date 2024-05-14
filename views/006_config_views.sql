@@ -489,6 +489,8 @@ CREATE FUNCTION related_configs_recursive (
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
     agent_id uuid,
+    health TEXT,
+    ready BOOLEAN,
     status TEXT
 ) AS $$
 BEGIN
@@ -511,6 +513,8 @@ BEGIN
       configs.created_at,
       configs.updated_at,
       configs.agent_id,
+      configs.health,
+      configs.ready,
       configs.status
    FROM (
    	SELECT
@@ -554,6 +558,8 @@ CREATE FUNCTION related_configs (
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
     agent_id uuid,
+    health TEXT,
+    ready BOOLEAN,
     status TEXT
 ) AS $$
 BEGIN
