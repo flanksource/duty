@@ -697,3 +697,7 @@ CREATE OR REPLACE TRIGGER fn_insert_parent_to_config_relationship
 AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
 EXECUTE PROCEDURE insert_parent_to_config_relationship();
+
+DROP VIEW IF EXISTS config_statuses;
+CREATE or REPLACE VIEW config_statuses AS
+  SELECT DISTINCT status FROM config_items ORDER BY status;
