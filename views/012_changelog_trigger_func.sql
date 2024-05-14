@@ -28,7 +28,7 @@ BEGIN
     WHEN 'config_component_relationships' THEN
       payload = jsonb_build_object('component_id', rec.component_id, 'config_id', rec.config_id);
     WHEN 'config_relationships' THEN
-      payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'selector_id', rec.selector_id);
+      payload = jsonb_build_object('related_id', rec.related_id, 'config_id', rec.config_id, 'relation', rec.relation);
     WHEN 'check_statuses' THEN
        RETURN NULL;
     ELSE

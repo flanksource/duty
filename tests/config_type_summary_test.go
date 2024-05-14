@@ -38,7 +38,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			configClassSummaries = append(configClassSummaries, c)
 		}
 
-		Expect(configClassSummaries).To(HaveLen(5))
+		Expect(configClassSummaries).To(HaveLen(7))
 		Expect(configClassSummaries).To(Equal([]configClassSummary{
 			{
 				configClass:  models.ConfigClassCluster,
@@ -61,6 +61,14 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 				totalConfigs: 2,
 				changes:      ptr(1),
 				cp30d:        ptr(2.5),
+			},
+			{
+				configClass:  models.ConfigClassPod,
+				totalConfigs: 1,
+			},
+			{
+				configClass:  "ReplicaSet",
+				totalConfigs: 1,
 			},
 			{
 				configClass:  models.ConfigClassVirtualMachine,

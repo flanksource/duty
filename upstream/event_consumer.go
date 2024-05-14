@@ -142,7 +142,7 @@ func GroupChangelogsByTables(events []postq.Event) []GroupedPushEvents {
 		case "config_component_relationships":
 			itemIDs = []string{cl.Properties["component_id"], cl.Properties["config_id"]}
 		case "config_relationships":
-			itemIDs = []string{cl.Properties["related_id"], cl.Properties["config_id"], cl.Properties["selector_id"]}
+			itemIDs = []string{cl.Properties["related_id"], cl.Properties["config_id"], cl.Properties["relation"]}
 		case "check_statuses":
 			itemIDs = []string{cl.Properties["check_id"], cl.Properties["time"]}
 		default:

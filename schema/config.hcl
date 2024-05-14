@@ -393,9 +393,9 @@ table "config_relationships" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
-  index "config_relationships_related_id_config_id_selector_id_key" {
+  index "config_relationships_related_id_config_id_relation_key" {
     unique  = true
-    columns = [column.related_id, column.config_id, column.selector_id]
+    columns = [column.related_id, column.config_id, column.relation]
   }
   index "idx_config_relationships_deleted_at" {
     columns = [column.deleted_at]
