@@ -706,4 +706,4 @@ EXECUTE PROCEDURE insert_parent_to_config_relationship();
 
 DROP VIEW IF EXISTS config_statuses;
 CREATE or REPLACE VIEW config_statuses AS
-  SELECT DISTINCT status FROM config_items ORDER BY status;
+  SELECT DISTINCT status FROM config_items WHERE status IS NOT NULL ORDER BY status;
