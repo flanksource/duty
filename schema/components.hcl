@@ -25,7 +25,7 @@ table "topologies" {
   column "source" {
     null    = false
     type    = enum.source
-    default = "Topology"
+    default = "UI"
   }
   column "spec" {
     null = true
