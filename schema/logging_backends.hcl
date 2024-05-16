@@ -1,8 +1,3 @@
-enum "source" {
-  schema = schema.public
-  values = ["KubernetesCRD", "ConfigFile", "UI", "Topology"]
-}
-
 table "logging_backends" {
   schema = schema.public
   column "id" {
