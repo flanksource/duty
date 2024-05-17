@@ -64,3 +64,4 @@ jobs:
           token: ${{ secrets.FLANKBOT }}
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
           merge-method: squash
+          repository: flanksource/${{ matrix.repos }}
