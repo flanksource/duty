@@ -1,6 +1,7 @@
 package upstream
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -203,6 +204,16 @@ func (p *PushData) Attributes() map[string]any {
 	}
 
 	return attrs
+}
+
+// Size returns the size of JSON encoded pushdata in bytes
+func (t PushData) Size() (int, error) {
+	b, err := json.Marshal(t)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(b), nil
 }
 
 func (t *PushData) Count() int {
