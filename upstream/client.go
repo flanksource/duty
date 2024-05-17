@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/http"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/google/uuid"
@@ -96,7 +97,12 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	resp, err := req.Do(method, "push")
 	if err != nil {
 		histogram.Label(StatusLabel, StatusError).Since(start)
-		return fmt.Errorf("error pushing to upstream: %w", err)
+		msgSize, msgSizeErr := msg.Size()
+		if msgSizeErr != nil {
+			logger.Errorf("failed to get msgsize: %w", msgSizeErr)
+		}
+
+		return fmt.Errorf("error pushing to upstream (msg_size: %d bytes): %w", msgSize, err)
 	}
 	defer resp.Body.Close()
 
