@@ -9,6 +9,7 @@ import (
 
 var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("Production EKS"),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("EKS::Cluster"),
 	Tags: types.JSONStringMap{

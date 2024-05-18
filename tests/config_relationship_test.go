@@ -42,27 +42,27 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 
 	// Create a list of ConfigItems
 	var (
-		A = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("A")}
-		B = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("B")}
-		C = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("C")}
-		D = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("D")}
-		E = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("E")}
-		F = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("F")}
-		G = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("G")}
-		H = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("H")}
+		A = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("A"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		B = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("B"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		C = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("C"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		D = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("D"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		E = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("E"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		F = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("F"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		G = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("G"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		H = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("H"), Type: lo.ToPtr("A"), ConfigClass: "A"}
 
-		L = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("L")}
-		M = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("M")}
-		N = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("N")}
-		O = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("O")}
-		P = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("p")}
+		L = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("L"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		M = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("M"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		N = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("N"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		O = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("O"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		P = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("p"), Type: lo.ToPtr("A"), ConfigClass: "A"}
 
-		U = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("U")}
-		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("V")}
-		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("W")}
-		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("X")}
-		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("Y")}
-		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("Z")}
+		U = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("U"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("V"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("W"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("X"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("Y"), Type: lo.ToPtr("A"), ConfigClass: "A"}
+		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-relationship"}, Name: lo.ToPtr("Z"), Type: lo.ToPtr("A"), ConfigClass: "A"}
 	)
 	configItems := []models.ConfigItem{
 		A, B, C, D, E, F, G, H,

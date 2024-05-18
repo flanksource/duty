@@ -17,10 +17,10 @@ import (
 var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 	ginkgo.It("should be able to traverse config relationships via types", func() {
 		configItems := map[string]models.ConfigItem{
-			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment")},
-			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease")},
-			"kustomize-of-helm-release":  {ID: uuid.New(), Name: utils.Ptr("aws-demo-infra"), Type: utils.Ptr("Kubernetes::Kustomization")},
-			"kustomize-of-kustomize":     {ID: uuid.New(), Name: utils.Ptr("aws-demo-bootstrap"), Type: utils.Ptr("Kubernetes::Kustomization")},
+			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment"), ConfigClass: "Deployment"},
+			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease"), ConfigClass: "HelmRelease"},
+			"kustomize-of-helm-release":  {ID: uuid.New(), Name: utils.Ptr("aws-demo-infra"), Type: utils.Ptr("Kubernetes::Kustomization"), ConfigClass: "Kustomization"},
+			"kustomize-of-kustomize":     {ID: uuid.New(), Name: utils.Ptr("aws-demo-bootstrap"), Type: utils.Ptr("Kubernetes::Kustomization"), ConfigClass: "Kustomization"},
 		}
 		ctx := DefaultContext
 		err := ctx.DB().Save(lo.Values(configItems)).Error
