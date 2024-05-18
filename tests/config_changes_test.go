@@ -25,12 +25,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 
 	// Create a list of ConfigItems
 	var (
-		U = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U")}
-		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V")}
-		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W")}
-		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X")}
-		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y")}
-		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z")}
+		U = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U"), ConfigClass: "Node"}
+		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V"), ConfigClass: "Deployment"}
+		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W"), ConfigClass: "Pod"}
+		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X"), ConfigClass: "ReplicaSet"}
+		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y"), ConfigClass: "PersistentVolume"}
+		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z"), ConfigClass: "Pod"}
 	)
 	configItems := []models.ConfigItem{U, V, W, X, Y, Z}
 
