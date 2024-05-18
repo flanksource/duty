@@ -211,7 +211,7 @@ table "config_items" {
     type = sql("text[]")
   }
   column "type" {
-    null = true
+    null = false
     type = text
   }
   column "cost_per_minute" {
@@ -342,6 +342,10 @@ table "config_items" {
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
+  check "config_item_type_and_class_not_empty" {
+    expr = "LENGTH(type) > 0 AND LENGTH(config_class) > 0"
+  }
+
 }
 
 table "config_relationships" {
