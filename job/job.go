@@ -78,6 +78,7 @@ type Job struct {
 	RunNow                   bool
 	ID                       string
 	ResourceID, ResourceType string
+	IgnoreSuccessHistory     bool
 	entryID                  *cron.EntryID
 	lock                     *sync.Mutex
 	lastHistoryCleanup       time.Time
@@ -200,7 +201,7 @@ func (j *JobRuntime) start() {
 	if j.Job.ResourceType != "" {
 		j.History.ResourceType = j.Job.ResourceType
 	}
-	if j.Job.JobHistory && j.Job.Retention.Success > 0 {
+	if j.Job.JobHistory && j.Job.Retention.Success > 0 && !j.Job.IgnoreSuccessHistory {
 		if err := j.History.Persist(j.FastDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
@@ -209,7 +210,7 @@ func (j *JobRuntime) start() {
 
 func (j *JobRuntime) end() {
 	j.History.End()
-	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) {
+	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) && !j.Job.IgnoreSuccessHistory {
 		if err := j.History.Persist(j.FastDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
