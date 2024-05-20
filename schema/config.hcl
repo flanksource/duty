@@ -342,8 +342,8 @@ table "config_items" {
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
-  check "config_item_name_type_class_not_empty" {
-    expr = "LENGTH(name) > 0 AND LENGTH(type) > 0 AND LENGTH(config_class) > 0"
+  check "config_item_name_type_not_empty" {
+    expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
   }
 
 }
