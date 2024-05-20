@@ -4,6 +4,7 @@ import (
 	gocontext "context"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	commons "github.com/flanksource/commons/context"
@@ -335,7 +336,7 @@ type Histogram struct {
 	Labels    map[string]string
 }
 
-var ctxHistograms = make(map[string]*prometheus.HistogramVec)
+var ctxHistograms sync.Map
 
 var LatencyBuckets = []float64{
 	float64(10 * time.Millisecond),
@@ -356,10 +357,10 @@ func (k Context) Histogram(name string, buckets []float64, labels ...string) His
 	slices.Sort(labelKeys)
 	key := strings.Join(append(labelKeys, name), ".")
 
-	if histo, exists := ctxHistograms[key]; exists {
+	if histo, exists := ctxHistograms.Load(key); exists {
 		return Histogram{
 			Context:   k,
-			Histogram: histo,
+			Histogram: histo.(*prometheus.HistogramVec),
 			Name:      name,
 			Labels:    labelMap,
 		}
@@ -374,8 +375,7 @@ func (k Context) Histogram(name string, buckets []float64, labels ...string) His
 		k.Errorf("error registering histogram[%s/%v]: %v", name, labels, err)
 	}
 
-	ctxHistograms[key] = histo
-
+	ctxHistograms.Store(key, histo)
 	return Histogram{
 		Context:   k,
 		Histogram: histo,
@@ -410,7 +410,7 @@ type Counter struct {
 	Counter *prometheus.CounterVec
 }
 
-var ctxCounters = make(map[string]*prometheus.CounterVec)
+var ctxCounters sync.Map
 
 func (k Context) Counter(name string, labels ...string) Counter {
 	labelMap := stringSliceToMap(labels)
@@ -418,13 +418,14 @@ func (k Context) Counter(name string, labels ...string) Counter {
 	slices.Sort(labelKeys)
 	key := strings.Join(append(labelKeys, name), ".")
 
-	if counter, exists := ctxCounters[key]; exists {
+	if counter, exists := ctxCounters.Load(key); exists {
 		return Counter{
 			Context: k,
-			Counter: counter,
+			Counter: counter.(*prometheus.CounterVec),
 			Name:    name,
 			Labels:  labelMap,
 		}
+
 	}
 
 	counter := prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -435,7 +436,7 @@ func (k Context) Counter(name string, labels ...string) Counter {
 		k.Errorf("error registering counter[%s/%v]: %v", name, labels, err)
 	}
 
-	ctxCounters[key] = counter
+	ctxCounters.Store(key, counter)
 	return Counter{
 		Context: k,
 		Counter: counter,
@@ -470,7 +471,7 @@ type Gauge struct {
 	Gauge   *prometheus.GaugeVec
 }
 
-var ctxGauges = make(map[string]*prometheus.GaugeVec)
+var ctxGauges sync.Map
 
 func (k Context) Gauge(name string, labels ...string) Gauge {
 	labelMap := stringSliceToMap(labels)
@@ -478,10 +479,10 @@ func (k Context) Gauge(name string, labels ...string) Gauge {
 	slices.Sort(labelKeys)
 	key := strings.Join(append(labelKeys, name), ".")
 
-	if gauge, exists := ctxGauges[key]; exists {
+	if gauge, exists := ctxGauges.Load(key); exists {
 		return Gauge{
 			Context: k,
-			Gauge:   gauge,
+			Gauge:   gauge.(*prometheus.GaugeVec),
 			Name:    name,
 			Labels:  labelMap,
 		}
@@ -495,7 +496,7 @@ func (k Context) Gauge(name string, labels ...string) Gauge {
 		k.Errorf("error registering gauge[%s/%v]: %v", name, labels, err)
 	}
 
-	ctxGauges[key] = gauge
+	ctxGauges.Store(key, gauge)
 	return Gauge{
 		Context: k,
 		Gauge:   gauge,
