@@ -9,6 +9,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
 
@@ -39,6 +40,16 @@ type JobHistory struct {
 	TimeEnd        *time.Time
 	Errors         []string      `gorm:"-"`
 	Logger         logger.Logger `gorm:"-"`
+}
+
+func (j JobHistory) PK() string {
+	return j.ID.String()
+}
+
+func (j JobHistory) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []JobHistory
+	err := db.Where("is_pushed IS FALSE").Where("status IN (?,?)", StatusFailed, StatusWarning).Find(&items).Error
+	return lo.Map(items, func(i JobHistory, _ int) DBTable { return i }), err
 }
 
 func (j JobHistory) AsError() error {

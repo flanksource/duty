@@ -91,6 +91,7 @@ type PushData struct {
 	Topologies                   []models.Topology                    `json:"topologies,omitempty"`
 	PlaybookActions              []models.PlaybookRunAction           `json:"playbook_actions,omitempty"`
 	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
+	JobHistory                   []models.JobHistory                  `json:"job_history,omitempty"`
 }
 
 func NewPushData[T models.DBTable](records []T) *PushData {
@@ -129,6 +130,8 @@ func NewPushData[T models.DBTable](records []T) *PushData {
 			p.PlaybookActions = append(p.PlaybookActions, t)
 		case models.Artifact:
 			p.Artifacts = append(p.Artifacts, t)
+		case models.JobHistory:
+			p.JobHistory = append(p.JobHistory, t)
 		}
 	}
 
@@ -150,6 +153,7 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "config_scrapers").Add(len(p.ConfigScrapers))
 	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
 	counter.Label("table", "topologies").Add(len(p.Topologies))
+	counter.Label("table", "job_history").Add(len(p.JobHistory))
 }
 
 func (p *PushData) String() string {
@@ -202,6 +206,9 @@ func (p *PushData) Attributes() map[string]any {
 	if len(p.Artifacts) > 0 {
 		attrs["Artifacts"] = len(p.Artifacts)
 	}
+	if len(p.JobHistory) > 0 {
+		attrs["JobHistory"] = len(p.JobHistory)
+	}
 
 	return attrs
 }
@@ -220,7 +227,7 @@ func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
 		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) +
-		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts)
+		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory)
 }
 
 // ReplaceTopologyID replaces the topology_id for all the components
