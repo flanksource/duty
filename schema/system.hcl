@@ -211,4 +211,8 @@ table "job_history" {
   primary_key {
     columns = [column.id]
   }
+  index "job_history_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE"
+  }
 }
