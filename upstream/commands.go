@@ -127,6 +127,12 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.JobHistory) > 0 {
+		if err := db.Delete(req.JobHistory).Error; err != nil {
+			return fmt.Errorf("error deleting job_history: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -200,6 +206,12 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	if len(req.Artifacts) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.Artifacts, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting artifacts: %w", err)
+		}
+	}
+
+	if len(req.JobHistory) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.JobHistory, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting job_history: %w", err)
 		}
 	}
 

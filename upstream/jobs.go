@@ -59,6 +59,8 @@ var reconciledTables = []pushableTable{
 	models.ComponentRelationship{},
 	models.ConfigComponentRelationship{},
 	models.ConfigRelationship{},
+
+	models.JobHistory{},
 }
 
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {

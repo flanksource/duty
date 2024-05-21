@@ -149,6 +149,11 @@ table "job_history" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "agent_id" {
+    null    = false
+    default = var.uuid_nil
+    type    = uuid
+  }
   column "name" {
     null = true
     type = text
@@ -197,6 +202,11 @@ table "job_history" {
     null    = false
     type    = timestamptz
     default = sql("now()")
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
   }
   primary_key {
     columns = [column.id]
