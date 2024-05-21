@@ -213,6 +213,6 @@ table "job_history" {
   }
   index "job_history_is_pushed_idx" {
     columns = [column.is_pushed]
-    where   = "is_pushed IS FALSE"
+    where   = "is_pushed IS FALSE AND status in ('FAILED', 'WARNING')"
   }
 }
