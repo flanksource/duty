@@ -151,6 +151,30 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(pending).To(BeZero())
 	})
 
+	ginkgo.It("should sync job history with failed and warning to upstream", func() {
+		var pushed int
+		err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.JobHistory{}).Scan(&pushed).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pushed).To(BeZero())
+
+		var upstreamCount int
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.JobHistory{}).Scan(&upstreamCount).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(upstreamCount).To(BeZero())
+
+		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.JobHistory{}).Scan(&upstreamCount).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(upstreamCount).To(Equal(count))
+
+		var pending int
+		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Where("status IN (?,?)", models.StatusFailed, models.StatusWarning).Model(&models.JobHistory{}).Scan(&pending).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pending).To(BeZero())
+	})
+
 	ginkgo.Describe("should deal with fk constraint errors", func() {
 		ginkgo.Context("full fk constraint error", func() {
 			deployment := models.ConfigItem{
