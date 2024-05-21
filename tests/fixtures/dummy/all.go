@@ -42,7 +42,8 @@ type DummyData struct {
 	CheckStatuses               []models.CheckStatus
 	CheckComponentRelationships []models.CheckComponentRelationship
 
-	Artifacts []models.Artifact
+	Artifacts    []models.Artifact
+	JobHistories []models.JobHistory
 }
 
 func (t *DummyData) Populate(gormDB *gorm.DB) error {
@@ -187,6 +188,12 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 			return err
 		}
 	}
+	for _, j := range t.JobHistories {
+		err = gormDB.Create(&j).Error
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -228,6 +235,12 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	}
 	for _, a := range t.Artifacts {
 		err = gormDB.Delete(&a).Error
+		if err != nil {
+			return err
+		}
+	}
+	for _, j := range t.JobHistories {
+		err = gormDB.Delete(&j).Error
 		if err != nil {
 			return err
 		}
@@ -342,6 +355,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Comments:                     append([]models.Comment{}, AllDummyComments...),
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
 		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
+		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
 	}
 
 	return d
