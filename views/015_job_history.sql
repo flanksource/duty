@@ -301,3 +301,19 @@ FROM
   logging_backends
 )
 SELECT combined.*, people.name AS creator_name, people.avatar AS creator_avatar, people.title AS creator_title, people.email AS creator_email FROM combined LEFT JOIN people ON combined.created_by = people.id;
+
+CREATE OR REPLACE VIEW job_histories 
+AS SELECT 
+  job_history.*,
+  COALESCE(
+    components.name,
+    config_scrapers.name,
+    topologies.name,
+    canaries.name,
+    job_history.resource_id
+  ) as resource_name
+FROM job_history
+LEFT JOIN components ON job_history.resource_id = components.id::TEXT AND job_history.resource_type = 'components'
+LEFT JOIN config_scrapers ON job_history.resource_id = config_scrapers.id::TEXT AND job_history.resource_type = 'config_scraper'
+LEFT JOIN canaries ON job_history.resource_id = canaries.id::TEXT AND job_history.resource_type = 'canary'
+LEFT JOIN topologies ON job_history.resource_id = topologies.id::TEXT AND job_history.resource_type = 'topology';
