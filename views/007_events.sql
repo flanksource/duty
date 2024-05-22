@@ -174,7 +174,7 @@ BEGIN
     event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
 
     INSERT INTO event_queue(name, properties)
-    VALUES (event_name, jsonb_build_object('id', NEW.id))
+    VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
     ON CONFLICT (name, properties) DO UPDATE SET
         created_at = NOW(),
         last_attempt = NULL,
@@ -205,7 +205,7 @@ BEGIN
 
     event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
     
-    INSERT INTO event_queue (name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id))
+    INSERT INTO event_queue (name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
     ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
     RETURN NULL;
