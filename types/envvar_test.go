@@ -133,3 +133,72 @@ func TestEnvVarScanInvalid(t *testing.T) {
 		t.Errorf("expected error when scanning non-string type")
 	}
 }
+
+func TestEnvVar_IsEmpty(t *testing.T) {
+	type fields struct {
+		Name        string
+		ValueStatic string
+		ValueFrom   *EnvVarSource
+	}
+
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{
+			name: "nil",
+			fields: fields{
+				Name:        "",
+				ValueStatic: "",
+				ValueFrom:   nil,
+			},
+			want: true,
+		},
+		{
+			name: "ValueStatic",
+			fields: fields{
+				Name:        "",
+				ValueStatic: "ValueStatic",
+				ValueFrom:   nil,
+			},
+			want: false,
+		},
+		{
+			name: "non nil ValueFrom",
+			fields: fields{
+				Name:        "",
+				ValueStatic: "",
+				ValueFrom:   &EnvVarSource{},
+			},
+			want: true,
+		},
+		{
+			name: "non nil ValueFrom",
+			fields: fields{
+				Name:        "",
+				ValueStatic: "",
+				ValueFrom: &EnvVarSource{
+					ServiceAccount: lo.ToPtr(""),
+					SecretKeyRef: &SecretKeySelector{
+						Key: "",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := EnvVar{
+				Name:        tt.fields.Name,
+				ValueStatic: tt.fields.ValueStatic,
+				ValueFrom:   tt.fields.ValueFrom,
+			}
+			if got := e.IsEmpty(); got != tt.want {
+				t.Errorf("EnvVar.IsEmpty() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

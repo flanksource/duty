@@ -50,7 +50,7 @@ func (e EnvVar) String() string {
 }
 
 func (e EnvVar) IsEmpty() bool {
-	return e.ValueStatic == "" && e.ValueFrom == nil
+	return e.ValueStatic == "" && (e.ValueFrom == nil || e.ValueFrom.IsEmpty())
 }
 
 // +kubebuilder:object:generate=true
@@ -60,6 +60,13 @@ type EnvVarSource struct {
 	HelmRef         *HelmRefKeySelector   `json:"helmRef,omitempty" yaml:"helmRef,omitempty" protobuf:"bytes,2,opt,name=helmRef"`
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
 	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
+}
+
+func (e EnvVarSource) IsEmpty() bool {
+	return (e.ServiceAccount == nil || *e.ServiceAccount == "") &&
+		(e.HelmRef == nil || e.HelmRef.IsEmpty()) &&
+		(e.ConfigMapKeyRef == nil || e.ConfigMapKeyRef.IsEmpty()) &&
+		(e.SecretKeyRef == nil || e.SecretKeyRef.IsEmpty())
 }
 
 func (e EnvVarSource) String() string {
@@ -85,6 +92,10 @@ type HelmRefKeySelector struct {
 	Key string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
+func (e HelmRefKeySelector) IsEmpty() bool {
+	return e.Key == ""
+}
+
 func (c HelmRefKeySelector) String() string {
 	return c.Name + "/" + c.Key
 }
@@ -95,6 +106,10 @@ type ConfigMapKeySelector struct {
 	Key                  string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
+func (c ConfigMapKeySelector) IsEmpty() bool {
+	return c.Key == ""
+}
+
 func (c ConfigMapKeySelector) String() string {
 	return c.Name + "/" + c.Key
 }
@@ -103,6 +118,10 @@ func (c ConfigMapKeySelector) String() string {
 type SecretKeySelector struct {
 	LocalObjectReference `json:",inline" yaml:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
 	Key                  string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
+}
+
+func (s SecretKeySelector) IsEmpty() bool {
+	return s.Key == ""
 }
 
 func (s SecretKeySelector) String() string {
