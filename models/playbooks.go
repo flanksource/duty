@@ -48,7 +48,7 @@ var (
 )
 
 type Playbook struct {
-	ID          uuid.UUID  `gorm:"default:generate_ulid()" json:"id"`
+	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name        string     `json:"name"`
 	Icon        string     `json:"icon,omitempty"`
 	Description string     `json:"description,omitempty"`
@@ -66,7 +66,7 @@ func (p Playbook) AsMap(removeFields ...string) map[string]any {
 }
 
 type PlaybookRun struct {
-	ID            uuid.UUID           `gorm:"default:generate_ulid()"`
+	ID            uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	PlaybookID    uuid.UUID           `json:"playbook_id"`
 	Status        PlaybookRunStatus   `json:"status,omitempty"`
 	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
@@ -87,7 +87,7 @@ func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
 }
 
 type PlaybookRunAction struct {
-	ID            uuid.UUID            `gorm:"default:generate_ulid()"`
+	ID            uuid.UUID            `json:"id" gorm:"default:generate_ulid()"`
 	Name          string               `json:"name" gorm:"not null"`
 	PlaybookRunID uuid.UUID            `json:"playbook_run_id"`
 	Status        PlaybookActionStatus `json:"status,omitempty"`
@@ -105,7 +105,7 @@ func (p PlaybookRunAction) AsMap(removeFields ...string) map[string]any {
 }
 
 type PlaybookApproval struct {
-	ID        uuid.UUID  `gorm:"default:generate_ulid()"`
+	ID        uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	RunID     uuid.UUID  `json:"run_id"`
 	PersonID  *uuid.UUID `json:"person_id,omitempty"`
 	TeamID    *uuid.UUID `json:"team_id,omitempty"`
