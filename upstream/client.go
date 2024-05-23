@@ -38,7 +38,6 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 		opt(client.Client)
 	}
 	return &client
-
 }
 
 // PushArtifacts uploads the given artifact to the upstream server.
