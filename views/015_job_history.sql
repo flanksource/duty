@@ -302,6 +302,8 @@ FROM
 )
 SELECT combined.*, people.name AS creator_name, people.avatar AS creator_avatar, people.title AS creator_title, people.email AS creator_email FROM combined LEFT JOIN people ON combined.created_by = people.id;
 
+DROP VIEW IF EXISTS job_histories;
+
 CREATE OR REPLACE VIEW job_histories 
 AS SELECT 
   job_history.*,
