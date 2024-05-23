@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/pkg/kube/labels"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
@@ -174,18 +175,19 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 }
 
 type ConfigChangeRow struct {
-	ExternalChangeId  string     `gorm:"column:external_change_id" json:"external_change_id"`
-	ID                string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
-	ConfigID          string     `gorm:"column:config_id;default:''" json:"config_id"`
-	ChangeType        string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff"`
-	Severity          string     `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
-	Source            string     `gorm:"column:source" json:"source"`
-	Summary           string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
-	CreatedAt         *time.Time `gorm:"column:created_at" json:"created_at"`
-	ConfigName        string     `gorm:"column:name" json:"name,omitempty"`
-	ConfigType        string     `gorm:"column:type" json:"type,omitempty"`
-	CreatedBy         *uuid.UUID `gorm:"column:created_by" json:"created_by,omitempty"`
-	ExternalCreatedBy string     `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
+	ExternalChangeId  string              `gorm:"column:external_change_id" json:"external_change_id"`
+	ID                string              `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ConfigID          string              `gorm:"column:config_id;default:''" json:"config_id"`
+	ChangeType        string              `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff"`
+	Severity          string              `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
+	Source            string              `gorm:"column:source" json:"source"`
+	Summary           string              `gorm:"column:summary;default:null" json:"summary,omitempty"`
+	CreatedAt         *time.Time          `gorm:"column:created_at" json:"created_at"`
+	ConfigName        string              `gorm:"column:name" json:"name,omitempty"`
+	ConfigType        string              `gorm:"column:type" json:"type,omitempty"`
+	Tags              types.JSONStringMap `gorm:"column:tags" json:"tags,omitempty"`
+	CreatedBy         *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty"`
+	ExternalCreatedBy string              `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
