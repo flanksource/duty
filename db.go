@@ -204,6 +204,10 @@ func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContex
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
 func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
+	if migrateOpts == nil {
+		migrateOpts = &migrate.MigrateOptions{}
+	}
+
 	pgxpool, err = NewPgxPool(connection)
 	if err != nil {
 		return
@@ -215,13 +219,19 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 	}
 	defer conn.Release()
 
+	if err := conn.Ping(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("error pinging database: %w", err)
+	}
+
 	gormDB, err = NewGorm(connection, DefaultGormConfig())
 	if err != nil {
 		return
 	}
 
-	if err = Migrate(connection, migrateOpts); err != nil {
-		return
+	if !migrateOpts.Skip {
+		if err = Migrate(connection, migrateOpts); err != nil {
+			return
+		}
 	}
 
 	return

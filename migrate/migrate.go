@@ -17,6 +17,7 @@ import (
 )
 
 type MigrateOptions struct {
+	Skip        bool // Skip running migrations
 	IgnoreFiles []string
 }
 
