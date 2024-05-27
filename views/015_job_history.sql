@@ -39,11 +39,16 @@ SELECT
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
   job_history_latest_status.created_at job_created_at,
-  lr.time_start job_last_failed
+  lr.time_start job_last_failed,
+  json_build_object(
+      'id', agents.id,
+      'name', agents.name
+    ) as agent
 FROM
   topologies
   LEFT JOIN job_history_latest_status ON topologies.id::TEXT = job_history_latest_status.resource_id
   AND job_history_latest_status.resource_type = 'topology'
+  LEFT JOIN agents ON agents.id = topologies.agent_id
   LEFT JOIN (
     SELECT 
       resource_id,
@@ -86,11 +91,16 @@ SELECT
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
   job_history_latest_status.created_at job_created_at,
-  lr.time_start job_last_failed
+  lr.time_start job_last_failed,
+  json_build_object(
+      'id', agents.id,
+      'name', agents.name
+    ) as agent
 FROM
   canaries
   LEFT JOIN job_history_latest_status ON canaries.id::TEXT = job_history_latest_status.resource_id
   LEFT JOIN canaries_last_runtime ON canaries_last_runtime.canary_id = canaries.id
+  LEFT JOIN agents ON agents.id = canaries.agent_id
   LEFT JOIN (
     SELECT 
       resource_id,
@@ -154,10 +164,15 @@ SELECT
   job_history_latest_status.time_start job_time_start,
   job_history_latest_status.time_end job_time_end,
   job_history_latest_status.created_at job_created_at,
-  lr.time_start job_last_failed
+  lr.time_start job_last_failed,
+  json_build_object(
+      'id', agents.id,
+      'name', agents.name
+    ) as agent
 FROM
   config_scrapers
   LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
+  LEFT JOIN agents ON agents.id = config_scrapers.agent_id
   LEFT JOIN (
     SELECT 
       resource_id,
@@ -244,7 +259,8 @@ SELECT
   job_time_start,
   job_time_end,
   job_created_at,
-  job_last_failed
+  job_last_failed,
+  agent::jsonb
 FROM
   config_scrapers_with_status
 UNION
@@ -270,7 +286,8 @@ SELECT
   job_time_start,
   job_time_end,
   job_created_at,
-  job_last_failed
+  job_last_failed,
+  agent::jsonb
 FROM
   topologies_with_status
 UNION
@@ -293,6 +310,7 @@ SELECT
   0,
   NULL,
   '',
+  NULL,
   NULL,
   NULL,
   NULL,
