@@ -128,7 +128,7 @@ func DeleteHandler(c echo.Context) error {
 	}
 
 	histogram.Label(StatusLabel, StatusOK).Since(start)
-	req.AddMetrics(ctx.Counter("push_queue_delete_handler_records", AgentLabel, agentID.String()))
+	req.AddMetrics(ctx.Counter("push_queue_delete_handler_records", AgentLabel, agentID.String(), "table", ""))
 
 	if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
 		logger.Errorf("failed to update agent last_received: %v", err)
