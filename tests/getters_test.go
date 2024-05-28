@@ -101,12 +101,12 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		{
 			Name:      "types",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   2,
+			Results:   3,
 		},
 		{
 			Name:      "repeated (types) to test cache",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   2,
+			Results:   3,
 		},
 		{
 			Name:      "label selector",

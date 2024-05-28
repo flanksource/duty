@@ -58,7 +58,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			},
 			{
 				configClass:  models.ConfigClassNode,
-				totalConfigs: 2,
+				totalConfigs: 3,
 				changes:      ptr(1),
 				cp30d:        ptr(2.5),
 			},
