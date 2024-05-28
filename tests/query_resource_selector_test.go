@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 
 		ginkgo.It("Property lookup Not Equals Query", func() {
 			response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1"}},
+				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1", TagSelector: "cluster=aws"}},
 			})
 			Expect(err).To(BeNil())
 			ids := lo.Map(response.Configs, func(item query.SelectedResource, _ int) string { return item.ID })
@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 
 		ginkgo.It("Not Equals Query", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{TagSelector: "cluster!=aws"}},
+				Configs: []types.ResourceSelector{{TagSelector: "cluster!=aws", Types: []string{"Kubernetes::Cluster"}}},
 			})
 			Expect(err).To(BeNil())
 			Expect(len(items.Configs)).To(Equal(1))

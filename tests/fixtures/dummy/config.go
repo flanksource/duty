@@ -40,10 +40,32 @@ var KubernetesCluster = models.ConfigItem{
 	}),
 }
 
+var KubernetesNodeAKSPool1 = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("aks-pool-1"),
+	ConfigClass: models.ConfigClassNode,
+	Type:        lo.ToPtr("Kubernetes::Node"),
+	Status:      lo.ToPtr("Healthy"),
+	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "aks-pool-1"}}`),
+	Tags: types.JSONStringMap{
+		"cluster":      "demo",
+		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
+	},
+	Health: lo.ToPtr(models.HealthHealthy),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"cluster":      "demo",
+		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
+	}),
+	Properties: &types.Properties{
+		{Name: "memory", Value: lo.ToPtr(int64(64))},
+	},
+}
+
 var KubernetesNodeA = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("node-a"),
 	ConfigClass: models.ConfigClassNode,
+	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
 	Status:      lo.ToPtr("Healthy"),
 	Tags: types.JSONStringMap{
@@ -66,6 +88,8 @@ var KubernetesNodeA = models.ConfigItem{
 
 var KubernetesNodeB = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("node-b"),
+	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-b"}}`),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
 	Status:      lo.ToPtr("Healthy"),
@@ -195,6 +219,7 @@ var AllDummyConfigs = []models.ConfigItem{
 	KubernetesCluster,
 	KubernetesNodeA,
 	KubernetesNodeB,
+	KubernetesNodeAKSPool1,
 	EC2InstanceA,
 	EC2InstanceB,
 	LogisticsAPIDeployment,
