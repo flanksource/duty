@@ -34,6 +34,10 @@ type CatalogChangesSearchRequest struct {
 	Summary               string `query:"summary"`
 	Tags                  string `query:"tags"`
 
+	// AgentID when blank applies the local agent_id.
+	// To Fetch from all agents, use the keyword `all`
+	AgentID string `query:"agent_id"`
+
 	createdBy         *uuid.UUID
 	externalCreatedBy string
 
@@ -56,10 +60,12 @@ type CatalogChangesSearchRequest struct {
 
 func (t CatalogChangesSearchRequest) String() string {
 	s := ""
+	if t.AgentID != "" {
+		s += fmt.Sprintf("agent: %s", t.AgentID)
+	}
 	if t.CatalogID != "" {
 		s += fmt.Sprintf("id: %s ", t.CatalogID)
 	}
-
 	if t.ConfigType != "" {
 		s += fmt.Sprintf("config_type: %s ", t.ConfigType)
 	}
@@ -125,6 +131,10 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 	if t.Depth <= 0 {
 		t.Depth = 5
 	}
+
+	if t.AgentID == "" {
+		t.AgentID = uuid.Nil.String()
+	}
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
@@ -171,10 +181,17 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		}
 	}
 
+	if t.AgentID != "all" {
+		if _, err := uuid.Parse(t.AgentID); err != nil {
+			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `all`", t.AgentID)
+		}
+	}
+
 	return nil
 }
 
 type ConfigChangeRow struct {
+	AgentID           string              `gorm:"column:agent_id" json:"agent_id"`
 	ExternalChangeId  string              `gorm:"column:external_change_id" json:"external_change_id"`
 	ID                string              `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ConfigID          string              `gorm:"column:config_id;default:''" json:"config_id"`
@@ -213,6 +230,10 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	var clauses []clause.Expression
 
 	query := ctx.DB()
+
+	if req.AgentID != "all" {
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.AgentID, "agent_id")...)
+	}
 
 	if req.ConfigType != "" {
 		clauses = append(clauses, parseAndBuildFilteringQuery(req.ConfigType, "type")...)
