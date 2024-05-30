@@ -169,6 +169,10 @@ table "playbook_runs" {
     null = true
     type = jsonb
   }
+  column "request" {
+    null = true
+    type = jsonb
+  }
   column "agent_id" {
     null    = true
     default = var.uuid_nil
