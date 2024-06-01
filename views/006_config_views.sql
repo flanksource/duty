@@ -426,7 +426,7 @@ IF type_filter = 'outgoing' THEN
             AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.related_id, cte.config_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
+      SELECT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
       FROM cte WHERE
       cte.config_id <> related_config_ids_recursive.config_id
       ORDER BY cte.depth asc;
@@ -477,7 +477,7 @@ CREATE FUNCTION related_configs_recursive (
     type TEXT,
     relation_type TEXT,
     direction TEXT,
-    related_id uuid,
+    related_ids TEXT[],
     depth INTEGER,
     tags jsonb,
     changes json,
@@ -501,7 +501,7 @@ BEGIN
       configs.type,
       r.relation_type,
       r.direction,
-      r.related_id,
+      r.related_ids,
       r.depth,
       configs.tags,
       configs.changes,
@@ -519,12 +519,12 @@ BEGIN
    FROM (
    	SELECT
    	  r.id::uuid,
-   	  min(r.related_id::text)::uuid as related_id,
+   	  array_agg(DISTINCT(r.related_id::TEXT)) AS related_ids,
    	  min(r.relation_type) as relation_type,
-      min(r.direction) as direction,
+      r.direction,
       min(r.depth) as depth
     FROM related_config_ids_recursive($1, $2, $4, $5, $6) as r
-    GROUP BY r.id
+    GROUP BY r.id, r.direction
    ) r
     LEFT JOIN configs ON r.id = configs.id
     WHERE related_configs_recursive.include_deleted_configs OR configs.deleted_at IS NULL
@@ -546,7 +546,7 @@ CREATE FUNCTION related_configs (
     type TEXT,
     relation_type TEXT,
     direction TEXT,
-    related_id uuid,
+    related_ids TEXT[],
     depth INTEGER,
     tags jsonb,
     changes json,
