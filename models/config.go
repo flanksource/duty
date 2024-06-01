@@ -529,6 +529,7 @@ const (
 type RelatedConfig struct {
 	Relation      string                 `json:"relation"`
 	Direction     RelatedConfigDirection `json:"direction"`
+	RelatedIDs    pq.StringArray         `json:"related_ids"`
 	ID            uuid.UUID              `json:"id"`
 	Name          string                 `json:"name"`
 	Type          string                 `json:"type"`
