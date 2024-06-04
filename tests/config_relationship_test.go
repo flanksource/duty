@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/models"
@@ -23,7 +24,7 @@ const (
 type RelatedConfig struct {
 	Relation      string                 `json:"relation"`
 	Direction     RelatedConfigDirection `json:"direction"`
-	RelatedIDs    pq.StringArray         `json:"related_ids"`
+	RelatedIDs    pq.StringArray         `json:"related_ids" gorm:"type:[]text"`
 	ID            uuid.UUID              `json:"id"`
 	Name          string                 `json:"name"`
 	Type          string                 `json:"type"`
@@ -340,6 +341,121 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 			} else {
 				Expect(rc.Direction).To(Equal(RelatedConfigTypeOutgoing))
 			}
+		}
+	})
+})
+
+var _ = ginkgo.Describe("Config relationship related ids", ginkgo.Ordered, func() {
+	// Graph #1 (cylic)
+	//                              Cluster
+	//                  ________________|________________
+	//                 /                                 \
+	//        Namespace(dev)                    Namespace(flux-system)
+	//         _____________
+	//        /                                          |
+	// Deployment(config-db)                  Kustomization(aws-sandbox)
+	//        _____________
+	//       /
+	// ReplicaSet
+	//  _________\__
+	// /                \
+	// PodA              PodB
+
+	// Create a list of ConfigItems
+	var (
+		cluster                 = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("Cluster"), Type: lo.ToPtr("Cluster"), ConfigClass: "Cluster"}
+		namespacedev            = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("dev"), Type: lo.ToPtr("Namespace"), ConfigClass: "Namespace"}
+		deploymentconfigdb      = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("config-db"), Type: lo.ToPtr("Deployment"), ConfigClass: "Deployment"}
+		replicaset              = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("ReplicaSet"), Type: lo.ToPtr("ReplicaSet"), ConfigClass: "ReplicaSet"}
+		podA                    = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("PodA"), Type: lo.ToPtr("Pod"), ConfigClass: "Pod"}
+		podB                    = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("PodB"), Type: lo.ToPtr("Pod"), ConfigClass: "Pod"}
+		namespacefluxsystem     = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("flux-system"), Type: lo.ToPtr("Namespace"), ConfigClass: "Namespace"}
+		kustomizationawssandbox = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-related-ids"}, Name: lo.ToPtr("aws-sandbox"), Type: lo.ToPtr("Kustomization"), ConfigClass: "Kustomization"}
+	)
+	configItems := []models.ConfigItem{
+		cluster, namespacedev, namespacefluxsystem,
+		kustomizationawssandbox,
+		deploymentconfigdb, replicaset, podA, podB,
+	}
+
+	// Create relationships between ConfigItems
+	relationships := []models.ConfigRelationship{
+		// hard relationships
+		{ConfigID: cluster.ID.String(), RelatedID: namespacedev.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: cluster.ID.String(), RelatedID: namespacefluxsystem.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: namespacefluxsystem.ID.String(), RelatedID: kustomizationawssandbox.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: namespacedev.ID.String(), RelatedID: deploymentconfigdb.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: deploymentconfigdb.ID.String(), RelatedID: replicaset.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: replicaset.ID.String(), RelatedID: podA.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+		{ConfigID: replicaset.ID.String(), RelatedID: podB.ID.String(), SelectorID: "test-related-ids", Relation: "hard"},
+
+		// Soft relationship
+		{ConfigID: kustomizationawssandbox.ID.String(), RelatedID: namespacedev.ID.String(), SelectorID: "test-related-ids", Relation: "kustomizationNamespace"},
+	}
+
+	ginkgo.BeforeAll(func() {
+		err := DefaultContext.DB().Create(&configItems).Error
+		Expect(err).To(BeNil())
+
+		var foundConfigs []models.ConfigItem
+		err = DefaultContext.DB().Select("id").Where("tags->>'namespace' = 'test-related-ids'").Find(&foundConfigs).Error
+		Expect(err).To(BeNil())
+		Expect(len(foundConfigs)).To(Equal(len(configItems)))
+
+		err = DefaultContext.DB().Create(&relationships).Error
+		Expect(err).To(BeNil())
+
+		var foundRelationships []models.ConfigRelationship
+		err = DefaultContext.DB().Where("selector_id = 'test-related-ids'").Find(&foundRelationships).Error
+		Expect(err).To(BeNil())
+		Expect(len(foundRelationships)).To(Equal(len(relationships)))
+	})
+
+	ginkgo.AfterAll(func() {
+		err := DefaultContext.DB().Where("selector_id = 'test-related-ids'").Delete(&models.ConfigRelationship{}).Error
+		Expect(err).To(BeNil())
+
+		err = DefaultContext.DB().Where("tags->>'namespace' = 'test-related-ids'").Delete(&models.ConfigItem{}).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should return deployment outgoing", func() {
+		var relatedConfigs []RelatedConfig
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 10, 'both', 'both')", deploymentconfigdb.ID).Find(&relatedConfigs).Error
+		Expect(err).To(BeNil())
+		Expect(len(relatedConfigs)).To(Equal(3))
+
+		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{replicaset.ID, podA.ID, podB.ID}))
+
+		outgoingRelatedIDsMap := map[string][]string{
+			replicaset.ID.String(): {deploymentconfigdb.ID.String()},
+			podA.ID.String():       {replicaset.ID.String()},
+			podB.ID.String():       {replicaset.ID.String()},
+		}
+		for i := range relatedConfigs {
+			Expect(outgoingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)),
+				fmt.Sprintf("name: %s, type: %s", relatedConfigs[i].Name, relatedConfigs[i].Type))
+		}
+	})
+
+	ginkgo.It("should return deployment incoming", func() {
+		var relatedConfigs []RelatedConfig
+		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false, 10, 'both', 'both')", deploymentconfigdb.ID).Find(&relatedConfigs).Error
+		Expect(err).To(BeNil())
+		Expect(len(relatedConfigs)).To(Equal(4))
+
+		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{cluster.ID, namespacedev.ID, namespacefluxsystem.ID, kustomizationawssandbox.ID}))
+
+		incomingRelatedIDsMap := map[string][]string{
+			cluster.ID.String():                 {namespacedev.ID.String(), namespacefluxsystem.ID.String()},
+			namespacedev.ID.String():            {deploymentconfigdb.ID.String()},
+			namespacefluxsystem.ID.String():     {kustomizationawssandbox.ID.String()},
+			kustomizationawssandbox.ID.String(): {namespacedev.ID.String()},
+		}
+		for i := range relatedConfigs {
+			Expect(incomingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)))
 		}
 	})
 })
