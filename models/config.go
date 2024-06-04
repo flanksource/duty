@@ -518,32 +518,3 @@ func (e ExternalID) CacheKey() string {
 func (e ExternalID) WhereClause(db *gorm.DB) *gorm.DB {
 	return db.Where("type = ? AND external_id  @> ?", e.ConfigType, pq.StringArray(e.ExternalID))
 }
-
-type RelatedConfigDirection string
-
-const (
-	RelatedConfigTypeIncoming RelatedConfigDirection = "incoming"
-	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
-)
-
-type RelatedConfig struct {
-	Relation      string                 `json:"relation"`
-	Direction     RelatedConfigDirection `json:"direction"`
-	RelatedIDs    pq.StringArray         `json:"related_ids"`
-	ID            uuid.UUID              `json:"id"`
-	Name          string                 `json:"name"`
-	Type          string                 `json:"type"`
-	Tags          types.JSONStringMap    `json:"tags"`
-	Changes       types.JSON             `json:"changes,omitempty"`
-	Analysis      types.JSON             `json:"analysis,omitempty"`
-	CostPerMinute *float64               `json:"cost_per_minute,omitempty"`
-	CostTotal1d   *float64               `json:"cost_total_1d,omitempty"`
-	CostTotal7d   *float64               `json:"cost_total_7d,omitempty"`
-	CostTotal30d  *float64               `json:"cost_total_30d,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
-	AgentID       uuid.UUID              `json:"agent_id"`
-	Status        *string                `json:"status" gorm:"default:null"`
-	Ready         bool                   `json:"ready"`
-	Health        *Health                `json:"health"`
-}
