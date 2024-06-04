@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func GenerateSchema(obj any) ([]byte, error) {
-	return jsonschema.Reflect(obj).MarshalJSON()
+	return json.MarshalIndent(jsonschema.Reflect(obj), "", "  ")
 }
 
 func WriteSchemaToFile(path string, obj any) error {
