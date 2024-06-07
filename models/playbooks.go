@@ -49,6 +49,7 @@ var (
 
 type Playbook struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	Namespace   string     `json:"namespace"`
 	Name        string     `json:"name"`
 	Icon        string     `json:"icon,omitempty"`
 	Description string     `json:"description,omitempty"`
