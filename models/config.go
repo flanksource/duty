@@ -69,6 +69,13 @@ const (
 
 var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
 
+type RelatedConfigDirection string
+
+const (
+	RelatedConfigTypeIncoming RelatedConfigDirection = "incoming"
+	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
+)
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
 	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
