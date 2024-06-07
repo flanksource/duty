@@ -14,33 +14,26 @@ import (
 	"github.com/samber/lo"
 )
 
-type RelatedConfigDirection string
-
-const (
-	RelatedConfigTypeIncoming RelatedConfigDirection = "incoming"
-	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
-)
-
 type RelatedConfig struct {
-	Relation      string                 `json:"relation"`
-	Direction     RelatedConfigDirection `json:"direction"`
-	RelatedIDs    pq.StringArray         `json:"related_ids" gorm:"type:[]text"`
-	ID            uuid.UUID              `json:"id"`
-	Name          string                 `json:"name"`
-	Type          string                 `json:"type"`
-	Tags          types.JSONStringMap    `json:"tags"`
-	Changes       types.JSON             `json:"changes,omitempty"`
-	Analysis      types.JSON             `json:"analysis,omitempty"`
-	CostPerMinute *float64               `json:"cost_per_minute,omitempty"`
-	CostTotal1d   *float64               `json:"cost_total_1d,omitempty"`
-	CostTotal7d   *float64               `json:"cost_total_7d,omitempty"`
-	CostTotal30d  *float64               `json:"cost_total_30d,omitempty"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
-	AgentID       uuid.UUID              `json:"agent_id"`
-	Status        *string                `json:"status" gorm:"default:null"`
-	Ready         bool                   `json:"ready"`
-	Health        *models.Health         `json:"health"`
+	Relation      string                        `json:"relation"`
+	Direction     models.RelatedConfigDirection `json:"direction"`
+	RelatedIDs    pq.StringArray                `json:"related_ids" gorm:"type:[]text"`
+	ID            uuid.UUID                     `json:"id"`
+	Name          string                        `json:"name"`
+	Type          string                        `json:"type"`
+	Tags          types.JSONStringMap           `json:"tags"`
+	Changes       types.JSON                    `json:"changes,omitempty"`
+	Analysis      types.JSON                    `json:"analysis,omitempty"`
+	CostPerMinute *float64                      `json:"cost_per_minute,omitempty"`
+	CostTotal1d   *float64                      `json:"cost_total_1d,omitempty"`
+	CostTotal7d   *float64                      `json:"cost_total_7d,omitempty"`
+	CostTotal30d  *float64                      `json:"cost_total_30d,omitempty"`
+	CreatedAt     time.Time                     `json:"created_at"`
+	UpdatedAt     time.Time                     `json:"updated_at"`
+	AgentID       uuid.UUID                     `json:"agent_id"`
+	Status        *string                       `json:"status" gorm:"default:null"`
+	Ready         bool                          `json:"ready"`
+	Health        *models.Health                `json:"health"`
 }
 
 var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() {
@@ -289,7 +282,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
-			Expect(rc.Direction).To(Equal(RelatedConfigTypeOutgoing))
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.KubernetesNodeA.ID.String(), dummy.KubernetesNodeB.ID.String()}))
 		}
 	})
@@ -300,7 +293,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 
 		Expect(len(relatedConfigs)).To(Equal(1))
-		Expect(relatedConfigs[0].Direction).To(Equal(RelatedConfigTypeIncoming))
+		Expect(relatedConfigs[0].Direction).To(Equal(models.RelatedConfigTypeIncoming))
 		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
 	})
 
@@ -311,7 +304,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(2))
 		for _, rc := range relatedConfigs {
-			Expect(rc.Direction).To(Equal(RelatedConfigTypeOutgoing))
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIReplicaSet.ID.String(), dummy.LogisticsAPIPodConfig.ID.String()}))
 		}
 	})
@@ -323,7 +316,7 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 
 		Expect(len(relatedConfigs)).To(Equal(1))
 		for _, rc := range relatedConfigs {
-			Expect(rc.Direction).To(Equal(RelatedConfigTypeIncoming))
+			Expect(rc.Direction).To(Equal(models.RelatedConfigTypeIncoming))
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String()}))
 		}
 	})
@@ -337,9 +330,9 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		for _, rc := range relatedConfigs {
 			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String(), dummy.LogisticsAPIPodConfig.ID.String()}))
 			if rc.ID == dummy.LogisticsAPIDeployment.ID {
-				Expect(rc.Direction).To(Equal(RelatedConfigTypeIncoming))
+				Expect(rc.Direction).To(Equal(models.RelatedConfigTypeIncoming))
 			} else {
-				Expect(rc.Direction).To(Equal(RelatedConfigTypeOutgoing))
+				Expect(rc.Direction).To(Equal(models.RelatedConfigTypeOutgoing))
 			}
 		}
 	})
