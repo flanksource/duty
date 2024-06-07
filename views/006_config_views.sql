@@ -629,7 +629,20 @@ $$ LANGUAGE plpgsql;
 DROP VIEW IF EXISTS catalog_changes;
 
 CREATE OR REPLACE VIEW catalog_changes AS
-  SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+  SELECT 
+    cc.id,
+    cc.config_id,
+    c.name,
+    c.type,
+    c.tags,
+    cc.external_created_by,
+    cc.created_at,
+    cc.severity,
+    cc.change_type,
+    cc.source,
+    cc.summary,
+    cc.created_by,
+    c.agent_id
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;
 
