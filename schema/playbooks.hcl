@@ -5,6 +5,11 @@ table "playbooks" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "namespace" {
+    null = false
+    type = text
+    default = "default"
+  }
   column "name" {
     null = false
     type = text
@@ -52,7 +57,7 @@ table "playbooks" {
   }
   index "playbook_name_key" {
     unique  = true
-    columns = [column.name]
+    columns = [column.namespace, column.name]
     where   = "deleted_at IS NULL"
   }
   foreign_key "playbook_created_by_fkey" {
