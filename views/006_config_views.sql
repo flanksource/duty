@@ -172,13 +172,15 @@ ORDER BY
 DROP VIEW IF EXISTS config_tags;
 CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
-  FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+  FROM config_items w JOIN json_each_text(tags::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
+
 
 -- config_labels
 DROP VIEW IF EXISTS config_labels;
 CREATE OR REPLACE VIEW config_labels AS
   SELECT d.key, d.value
-  FROM configs JOIN json_each_text(labels::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+  FROM config_items w JOIN json_each_text(labels::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
+
 
 -- config_type_summary
 DROP VIEW IF EXISTS config_summary;
