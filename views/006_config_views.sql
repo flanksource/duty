@@ -668,7 +668,7 @@ CREATE OR REPLACE VIEW config_detail AS
       ON ci.id = reverse_related.related_id
     LEFT JOIN
       (SELECT config_id, count(*) as analysis_count FROM config_analysis
-        WHERE last_observed_observed > NOW() - interval '2 days'
+        WHERE last_observed > NOW() - interval '2 days'
         GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
     LEFT JOIN
