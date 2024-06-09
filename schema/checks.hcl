@@ -81,6 +81,9 @@ table "canaries" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+  index "canaries_source_idx" {
+    columns = [column.source]
+  }
 }
 
 table "check_statuses" {
@@ -106,8 +109,8 @@ table "check_statuses" {
     type = timestamptz
   }
   column "created_at" {
-    null = false
-    type = timestamptz
+    null    = false
+    type    = timestamptz
     default = sql("now()")
   }
   column "invalid" {
