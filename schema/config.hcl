@@ -83,6 +83,19 @@ table "config_analysis" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+
+  index "config_analysis_config_id_idx" {
+    columns = [column.config_id]
+  }
+
+  index "config_analysis_last_observed_idx" {
+    type    = BRIN
+    columns = [column.last_observed]
+  }
+
+  index "config_analysis_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
 }
 
 table "config_changes" {
@@ -156,6 +169,7 @@ table "config_changes" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+
   index "config_changes_created_at_brin_idx" {
     type    = BRIN
     columns = [column.created_at]
@@ -164,6 +178,16 @@ table "config_changes" {
     unique  = true
     columns = [column.config_id, column.external_change_id]
   }
+
+  index "config_changes_change_type_idx" {
+    columns = [column.change_type]
+  }
+
+  index "config_changes_config_id_idx" {
+    columns = [column.config_id]
+  }
+
+
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
@@ -321,12 +345,15 @@ table "config_items" {
   }
   index "config_items_path_is_pushed_idx" {
     on {
-       expr = "length(path)"
+      expr = "length(path)"
     }
-    where   = "is_pushed IS FALSE"
+    where = "is_pushed IS FALSE"
   }
   index "idx_config_items_scraper_id" {
     columns = [column.scraper_id]
+  }
+  index "idx_config_items_parent_id" {
+    columns = [column.parent_id]
   }
   index "idx_config_items_external_id" {
     columns = [column.external_id]
