@@ -631,7 +631,7 @@ $$ LANGUAGE plpgsql;
 DROP VIEW IF EXISTS catalog_changes;
 
 CREATE OR REPLACE VIEW catalog_changes AS
-  SELECT 
+  SELECT
     cc.id,
     cc.config_id,
     c.name,
@@ -648,7 +648,6 @@ CREATE OR REPLACE VIEW catalog_changes AS
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;
 
--- config_detail view
 DROP VIEW IF EXISTS config_detail;
 
 CREATE OR REPLACE VIEW config_detail AS
@@ -681,9 +680,28 @@ CREATE OR REPLACE VIEW config_detail AS
       ON ci.id = config_changes.config_id
     LEFT JOIN
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
-        WHERE start_time > NOW() - interval '30 days' 
+        WHERE start_time > NOW() - interval '30 days'
         GROUP BY config_id) as playbook_runs
       ON ci.id = playbook_runs.config_id;
+
+--- config_path is a function that given a config id returns its path by walking the tree recursively up using the parent id and then joining the ids with a `.`
+CREATE OR REPLACE FUNCTION config_path(UUID)
+RETURNS TEXT AS $$
+DECLARE
+    child_id UUID;
+    parent_id UUID;
+    parent_path TEXT;
+BEGIN
+    SELECT config_items.id, config_items.parent_id INTO child_id, parent_id FROM config_items WHERE config_items.id = $1;
+
+    IF parent_id IS NULL THEN
+        RETURN child_id;
+    ELSE
+        SELECT config_path(parent_id) INTO parent_path;
+        RETURN parent_path || '.' || child_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 -- config parent to config_relationship trigger
 CREATE OR REPLACE FUNCTION insert_parent_to_config_relationship()
