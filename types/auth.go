@@ -1,19 +1,19 @@
-package connection
+package types
 
 import (
 	"strings"
-
-	"github.com/flanksource/duty/types"
 )
 
 // +kubebuilder:object:generate=true
 type Authentication struct {
-	Username types.EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
-	Password types.EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
+	Username EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
+	Password EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
+	Bearer   EnvVar `yaml:"bearer,omitempty" json:"bearer,omitempty"`
+	OAuth    OAuth  `yaml:"oauth,omitempty" json:"oauth,omitempty"`
 }
 
 func (auth Authentication) IsEmpty() bool {
-	return auth.Username.IsEmpty() && auth.Password.IsEmpty()
+	return (auth.Username.IsEmpty() && auth.Password.IsEmpty()) && auth.OAuth.IsEmpty() && auth.Bearer.IsEmpty()
 }
 
 func (auth Authentication) GetUsername() string {

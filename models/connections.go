@@ -81,7 +81,7 @@ type Connection struct {
 	URL         string              `gorm:"column:url" json:"url,omitempty" faker:"url" template:"true"`
 	Username    string              `gorm:"column:username" json:"username,omitempty" faker:"username"  `
 	Password    string              `gorm:"column:password" json:"password,omitempty" faker:"password"  `
-	Properties  types.JSONStringMap `gorm:"column:properties" json:"properties,omitempty" faker:"-"  `
+	Properties  types.JSONStringMap `gorm:"column:properties" json:"properties,omitempty" faker:"-" template:"true"`
 	Certificate string              `gorm:"column:certificate" json:"certificate,omitempty" faker:"-"  `
 	InsecureTLS bool                `gorm:"column:insecure_tls;default:false" json:"insecure_tls,omitempty" faker:"-"  `
 	CreatedAt   time.Time           `gorm:"column:created_at;default:now();<-:create" json:"created_at,omitempty" faker:"-"  `
@@ -121,6 +121,16 @@ func (c Connection) String() string {
 
 func (c Connection) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
+}
+
+// Auth method only works for a hydrated connection
+func (c Connection) Auth() (types.Authentication, error) {
+	auth := types.Authentication{}
+	auth.Username.ValueStatic = c.Username
+	auth.Password.ValueStatic = c.Password
+	auth.Bearer.ValueStatic = c.Properties["bearer"]
+	err := auth.OAuth.PopulateFromProperties(c.Properties)
+	return auth, err
 }
 
 func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, error) {
