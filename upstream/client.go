@@ -109,9 +109,9 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 		histogram.Label(StatusLabel, StatusError).Since(start)
 		respBody, _ := io.ReadAll(resp.Body)
 
-		var upstreamError api.Error
-		if json.Unmarshal(respBody, &upstreamError) == nil {
-			return &upstreamError
+		var httpErr api.HTTPError
+		if json.Unmarshal(respBody, &httpErr) == nil {
+			return &httpErr
 		}
 
 		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))

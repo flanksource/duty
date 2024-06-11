@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/flanksource/commons/logger"
@@ -8,12 +10,26 @@ import (
 )
 
 type HTTPError struct {
-	Error   string `json:"error"`
+	Err     string `json:"error"`
 	Message string `json:"message,omitempty"`
 
 	// Data for machine-machine communication.
 	// usually contains a JSON data.
 	Data string `json:"data,omitempty"`
+}
+
+// Error implements the error interface. Not used by the application otherwise.
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("error: message=%s data=%s ", e.Message, e.Data)
+}
+
+func HTTPErrorFromErr(err error) *HTTPError {
+	var e *HTTPError
+	if errors.As(err, &e) {
+		return e
+	}
+
+	return nil
 }
 
 type HTTPSuccess struct {
@@ -28,7 +44,7 @@ func WriteError(c echo.Context, err error) error {
 		logger.WithValues("code", code, "error", message).Errorf(debugInfo)
 	}
 
-	return c.JSON(ErrorStatusCode(code), &HTTPError{Error: message, Data: data})
+	return c.JSON(ErrorStatusCode(code), &HTTPError{Err: message, Data: data})
 }
 
 // ErrorStatusCode returns the associated HTTP status code for an application error code.
