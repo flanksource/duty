@@ -123,8 +123,8 @@ func (c Connection) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
 
-// Needs to be hydrated
-func (c Connection) OAuth() (types.Authentication, error) {
+// Auth method only works for a hydrated connection
+func (c Connection) Auth() (types.Authentication, error) {
 	auth := types.Authentication{}
 	auth.Username.ValueStatic = c.Username
 	auth.Password.ValueStatic = c.Password

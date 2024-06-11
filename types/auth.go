@@ -13,7 +13,7 @@ type Authentication struct {
 }
 
 func (auth Authentication) IsEmpty() bool {
-	return (auth.Username.IsEmpty() && auth.Password.IsEmpty()) || auth.OAuth.IsEmpty() || auth.Bearer.IsEmpty()
+	return (auth.Username.IsEmpty() && auth.Password.IsEmpty()) && auth.OAuth.IsEmpty() && auth.Bearer.IsEmpty()
 }
 
 func (auth Authentication) GetUsername() string {
