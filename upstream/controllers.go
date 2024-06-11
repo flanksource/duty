@@ -38,7 +38,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 			agentName := c.QueryParam(AgentNameQueryParam)
 			if agentName == "" {
 				histogram.Label(StatusLabel, StatusAgentError)
-				return c.JSON(http.StatusBadRequest, api.HTTPError{Error: "agent name is required"})
+				return c.JSON(http.StatusBadRequest, api.HTTPError{Err: "agent name is required"})
 			}
 
 			var agent *models.Agent
@@ -50,7 +50,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 				if err != nil {
 					histogram.Label(StatusLabel, StatusAgentError)
 					return c.JSON(http.StatusBadRequest, api.HTTPError{
-						Error: fmt.Errorf("failed to create/fetch agent: %w", err).Error(),
+						Err: fmt.Errorf("failed to create/fetch agent: %w", err).Error(),
 					})
 				}
 
@@ -78,7 +78,7 @@ func PushHandler(c echo.Context) error {
 	err := json.NewDecoder(c.Request().Body).Decode(&req)
 	if err != nil {
 		histogram.Label(StatusLabel, StatusAgentError)
-		return c.JSON(http.StatusBadRequest, api.HTTPError{Error: err.Error(), Message: "invalid json request"})
+		return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
 	}
 
 	ctx.GetSpan().SetAttributes(attribute.Int("count", req.Count()))
@@ -112,7 +112,7 @@ func DeleteHandler(c echo.Context) error {
 	histogram := ctx.Histogram("push_queue_delete_handler", context.LatencyBuckets, StatusLabel, "", AgentLabel, "")
 	if err != nil {
 		histogram.Label(StatusLabel, StatusAgentError).Since(start)
-		return c.JSON(http.StatusBadRequest, api.HTTPError{Error: err.Error(), Message: "invalid json request"})
+		return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
 	}
 
 	ctx.GetSpan().SetAttributes(attribute.String("action", "delete"), attribute.Int("upstream.push.msg-count", req.Count()))
@@ -124,7 +124,7 @@ func DeleteHandler(c echo.Context) error {
 	ctx.Logger.V(3).Infof("Deleting push data %s", req.String())
 	if err := DeleteOnUpstream(ctx, &req); err != nil {
 		histogram.Label(StatusLabel, "error").Since(start)
-		return c.JSON(http.StatusInternalServerError, api.HTTPError{Error: err.Error(), Message: "failed to upsert upstream message"})
+		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to upsert upstream message"})
 	}
 
 	histogram.Label(StatusLabel, StatusOK).Since(start)

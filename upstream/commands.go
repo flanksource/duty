@@ -258,7 +258,10 @@ func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err 
 		}
 	}
 
-	return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{IDs: lo.Uniq(conflicted)})
+	conflicted = lo.Uniq(conflicted)
+	return api.Errorf(api.ECONFLICT, "foreign key error").
+		WithData(PushFKError{IDs: conflicted}).
+		WithDebugInfo("foreign key error for %d items", len(conflicted))
 }
 
 func UpdateAgentLastSeen(ctx context.Context, id uuid.UUID) error {

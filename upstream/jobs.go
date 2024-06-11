@@ -102,13 +102,13 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
 		pushError := client.Push(ctx, NewPushData(items))
 		if pushError != nil {
-			apiErr := api.FromError(pushError)
-			if apiErr == nil || apiErr.Data == "" {
+			httpError := api.HTTPErrorFromErr(pushError)
+			if httpError == nil || httpError.Data == "" {
 				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), pushError)
 			}
 
 			var foreignKeyErr PushFKError
-			if err := json.Unmarshal([]byte(apiErr.Data), &foreignKeyErr); err != nil {
+			if err := json.Unmarshal([]byte(httpError.Data), &foreignKeyErr); err != nil {
 				return 0, fmt.Errorf("failed to push %s to upstream (could not decode api error: %w): %w", table.TableName(), err, pushError)
 			}
 
