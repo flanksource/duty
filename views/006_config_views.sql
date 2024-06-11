@@ -414,23 +414,22 @@ END IF;
 IF type_filter = 'outgoing' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
-        SELECT parent.related_id, parent.config_id as related_id, parent.relation, 'outgoing', 1::int
+        SELECT parent.config_id, parent.related_id, parent.relation, 'outgoing', 1::int
         FROM config_relationships parent
         WHERE parent.config_id = related_config_ids_recursive.config_id
           AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          child.related_id, parent.config_id as related_id, child.relation, 'outgoing', parent.depth +1
-          FROM config_relationships child,  cte parent
-          WHERE child.config_id = parent.config_id
+          parent.related_id as config_id, child.related_id, child.relation, 'outgoing', parent.depth +1
+          FROM config_relationships child, cte parent
+          WHERE child.config_id = parent.related_id
             AND parent.depth <= max_depth
             AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
+      FROM cte 
       ORDER BY cte.depth asc;
 ELSIF type_filter = 'incoming' THEN
 	RETURN query
@@ -450,8 +449,7 @@ ELSIF type_filter = 'incoming' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation AS "relation_type", type_filter as "direction", cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      FROM cte 
       ORDER BY cte.depth asc;
 ELSE
   RETURN query
