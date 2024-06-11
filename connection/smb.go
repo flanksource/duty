@@ -11,8 +11,8 @@ type SMBConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the connection fields.
 	ConnectionName string `yaml:"connection,omitempty" json:"connection,omitempty"`
 	//Port on which smb server is running. Defaults to 445
-	Port           int `yaml:"port,omitempty" json:"port,omitempty"`
-	Authentication `yaml:",inline" json:",inline"`
+	Port                 int `yaml:"port,omitempty" json:"port,omitempty"`
+	types.Authentication `yaml:",inline" json:",inline"`
 	//Domain...
 	Domain string `yaml:"domain,omitempty" json:"domain,omitempty"`
 }
@@ -34,7 +34,7 @@ func (c *SMBConnection) HydrateConnection(ctx ConnectionContext) (found bool, er
 		return false, nil
 	}
 
-	c.Authentication = Authentication{
+	c.Authentication = types.Authentication{
 		Username: types.EnvVar{ValueStatic: connection.Username},
 		Password: types.EnvVar{ValueStatic: connection.Password},
 	}

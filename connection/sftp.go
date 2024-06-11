@@ -11,9 +11,9 @@ type SFTPConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the connection fields.
 	ConnectionName string `yaml:"connection,omitempty" json:"connection,omitempty"`
 	// Port for the SSH server. Defaults to 22
-	Port           int    `yaml:"port,omitempty" json:"port,omitempty"`
-	Host           string `yaml:"host" json:"host"`
-	Authentication `yaml:",inline" json:",inline"`
+	Port                 int    `yaml:"port,omitempty" json:"port,omitempty"`
+	Host                 string `yaml:"host" json:"host"`
+	types.Authentication `yaml:",inline" json:",inline"`
 }
 
 func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (found bool, err error) {
@@ -27,7 +27,7 @@ func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (found bool, e
 	}
 
 	c.Host = connection.URL
-	c.Authentication = Authentication{
+	c.Authentication = types.Authentication{
 		Username: types.EnvVar{ValueStatic: connection.Username},
 		Password: types.EnvVar{ValueStatic: connection.Password},
 	}
