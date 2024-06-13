@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -224,6 +225,31 @@ func (t *CatalogChangesSearchResponse) Summarize() {
 	}
 }
 
+func formSeverityQuery(severity string) string {
+	if strings.HasPrefix(severity, "!") {
+		// For `Not` queries, we don't need to make any changes.
+		return severity
+	}
+
+	var severities = []models.Severity{
+		models.SeverityCritical,
+		models.SeverityHigh,
+		models.SeverityMedium,
+		models.SeverityLow,
+		models.SeverityInfo,
+	}
+
+	var applicable []string
+	for _, s := range severities {
+		applicable = append(applicable, string(s))
+		if string(s) == severity {
+			break
+		}
+	}
+
+	return strings.Join(applicable, ",")
+}
+
 func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*CatalogChangesSearchResponse, error) {
 	req.SetDefaults()
 	if err := req.Validate(); err != nil {
@@ -248,7 +274,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if req.Severity != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.Severity, "severity")...)
+		clauses = append(clauses, parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity")...)
 	}
 
 	if req.Summary != "" {
