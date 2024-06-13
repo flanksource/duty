@@ -32,6 +32,7 @@ type CatalogChangesSearchRequest struct {
 	Depth                 int    `query:"depth"`
 	CreatedByRaw          string `query:"created_by"`
 	Summary               string `query:"summary"`
+	Source                string `query:"source"`
 	Tags                  string `query:"tags"`
 
 	// AgentID when blank applies the local agent_id.
@@ -74,6 +75,9 @@ func (t CatalogChangesSearchRequest) String() string {
 	}
 	if t.Severity != "" {
 		s += fmt.Sprintf("severity: %s ", t.Severity)
+	}
+	if t.Source != "" {
+		s += fmt.Sprintf("source: %s ", t.Source)
 	}
 	if t.IncludeDeletedConfigs {
 		s += fmt.Sprintf("include_deleted_configs: %t ", t.IncludeDeletedConfigs)
@@ -249,6 +253,10 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	if req.Summary != "" {
 		clauses = append(clauses, parseAndBuildFilteringQuery(req.Summary, "summary")...)
+	}
+
+	if req.Source != "" {
+		clauses = append(clauses, parseAndBuildFilteringQuery(req.Source, "source")...)
 	}
 
 	if req.Tags != "" {
