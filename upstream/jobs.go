@@ -1,13 +1,17 @@
 package upstream
 
 import (
+	gocontext "context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
+	"github.com/sethvargo/go-retry"
 	"gorm.io/gorm"
 )
 
@@ -134,15 +138,33 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 
 		count += len(items)
 
-		if c, ok := table.(customIsPushedUpdater); ok {
-			if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed for %s: %w", table.TableName(), err)
+		backoff := retry.WithMaxRetries(3, retry.NewConstant(time.Second))
+		err = retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
+			ctx = _ctx.(context.Context)
+
+			if c, ok := table.(customIsPushedUpdater); ok {
+				if err := c.UpdateIsPushed(ctx.DB(), items); err != nil {
+					if duty.IsDeadlockError(err) {
+						return retry.RetryableError(err)
+					}
+
+					return fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
+				}
+			} else {
+				ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
+				if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
+					if duty.IsDeadlockError(err) {
+						return retry.RetryableError(err)
+					}
+
+					return fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
+				}
 			}
-		} else {
-			ids := lo.Map(items, func(a models.DBTable, _ int) string { return a.PK() })
-			if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-				return 0, fmt.Errorf("failed to update is_pushed on %s: %w", table.TableName(), err)
-			}
+
+			return nil
+		})
+		if err != nil {
+			return count, err
 		}
 
 		if pushError != nil {

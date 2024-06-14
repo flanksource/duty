@@ -267,3 +267,12 @@ func IsForeignKeyError(err error) bool {
 
 	return false
 }
+
+func IsDeadlockError(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgerrcode.DeadlockDetected
+	}
+
+	return false
+}
