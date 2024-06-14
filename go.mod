@@ -37,6 +37,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rodaine/table v1.1.0
 	github.com/samber/lo v1.39.0
+	github.com/sethvargo/go-retry v0.2.4
 	github.com/spf13/pflag v1.0.5
 	github.com/timberio/go-datemath v0.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
