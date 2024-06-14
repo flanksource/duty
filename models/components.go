@@ -532,9 +532,9 @@ func (p Properties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 }
 
 type ComponentRelationship struct {
-	ComponentID      uuid.UUID  `json:"component_id,omitempty"`
-	RelationshipID   uuid.UUID  `json:"relationship_id,omitempty"`
-	SelectorID       string     `json:"selector_id,omitempty"`
+	ComponentID      uuid.UUID  `json:"component_id,omitempty" gorm:"primaryKey"`
+	RelationshipID   uuid.UUID  `json:"relationship_id,omitempty" gorm:"primaryKey"`
+	SelectorID       string     `json:"selector_id,omitempty" gorm:"primaryKey"`
 	RelationshipPath string     `json:"relationship_path,omitempty"`
 	CreatedAt        time.Time  `json:"created_at,omitempty"`
 	UpdatedAt        time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -590,8 +590,8 @@ func (ComponentRelationship) TableName() string {
 }
 
 type ConfigComponentRelationship struct {
-	ComponentID uuid.UUID  `json:"component_id,omitempty"`
-	ConfigID    uuid.UUID  `json:"config_id,omitempty"`
+	ComponentID uuid.UUID  `json:"component_id,omitempty" gorm:"primaryKey"`
+	ConfigID    uuid.UUID  `json:"config_id,omitempty" gorm:"primaryKey"`
 	SelectorID  string     `json:"selector_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
