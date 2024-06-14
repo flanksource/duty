@@ -7,6 +7,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
+	"github.com/flanksource/duty/upstream"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -450,5 +451,37 @@ var _ = ginkgo.Describe("Config relationship related ids", ginkgo.Ordered, func(
 		for i := range relatedConfigs {
 			Expect(incomingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)))
 		}
+	})
+})
+
+var _ = ginkgo.Describe("config relationship deletion test", func() {
+	var tempRelationships = []models.ConfigRelationship{
+		{
+			ConfigID:  dummy.KubernetesCluster.ID.String(),
+			RelatedID: dummy.KubernetesNodeA.ID.String(),
+			Relation:  "TempRelationship",
+		},
+		{
+			ConfigID:  dummy.KubernetesCluster.ID.String(),
+			RelatedID: dummy.KubernetesNodeB.ID.String(),
+			Relation:  "TempRelationship",
+		},
+	}
+
+	ginkgo.It("should insert temp config relationships", func() {
+		err := DefaultContext.DB().Create(&tempRelationships).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should delete", func() {
+		err := upstream.DeleteOnUpstream(DefaultContext, &upstream.PushData{
+			ConfigRelationships: tempRelationships,
+		})
+		Expect(err).To(BeNil())
+
+		var foundRelationships []models.ConfigRelationship
+		err = DefaultContext.DB().Where("relation = 'TempRelationship'").Find(&foundRelationships).Error
+		Expect(err).To(BeNil())
+		Expect(len(foundRelationships)).To(Equal(0))
 	})
 })

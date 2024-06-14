@@ -124,7 +124,7 @@ func DeleteHandler(c echo.Context) error {
 	ctx.Logger.V(3).Infof("Deleting push data %s", req.String())
 	if err := DeleteOnUpstream(ctx, &req); err != nil {
 		histogram.Label(StatusLabel, "error").Since(start)
-		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to upsert upstream message"})
+		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to delete items"})
 	}
 
 	histogram.Label(StatusLabel, StatusOK).Since(start)

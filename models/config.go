@@ -317,9 +317,9 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigRelationship struct {
-	ConfigID   string     `json:"config_id"`
-	RelatedID  string     `json:"related_id"`
-	Relation   string     `json:"relation"`
+	ConfigID   string     `json:"config_id" gorm:"primaryKey"`
+	RelatedID  string     `json:"related_id" gorm:"primaryKey"`
+	Relation   string     `json:"relation" gorm:"primaryKey"`
 	SelectorID string     `json:"selector_id"`
 	CreatedAt  time.Time  `json:"created_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
