@@ -25,36 +25,36 @@ const (
 var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
 
 type CatalogChangesSearchRequest struct {
-	CatalogID             string `query:"id"`
-	ConfigType            string `query:"config_type"`
-	ChangeType            string `query:"type"`
-	Severity              string `query:"severity"`
-	IncludeDeletedConfigs bool   `query:"include_deleted_configs"`
-	Depth                 int    `query:"depth"`
-	CreatedByRaw          string `query:"created_by"`
-	Summary               string `query:"summary"`
-	Source                string `query:"source"`
-	Tags                  string `query:"tags"`
+	CatalogID             string `query:"id" json:"id"`
+	ConfigType            string `query:"config_type" json:"config_type"`
+	ChangeType            string `query:"type" json:"type"`
+	Severity              string `query:"severity" json:"severity"`
+	IncludeDeletedConfigs bool   `query:"include_deleted_configs" json:"include_deleted_configs"`
+	Depth                 int    `query:"depth" json:"depth"`
+	CreatedByRaw          string `query:"created_by" json:"created_by"`
+	Summary               string `query:"summary" json:"summary"`
+	Source                string `query:"source" json:"source"`
+	Tags                  string `query:"tags" json:"tags"`
 
 	// AgentID when blank applies the local agent_id.
 	// To Fetch from all agents, use the keyword `all`
-	AgentID string `query:"agent_id"`
+	AgentID string `query:"agent_id" json:"agent_id"`
 
 	createdBy         *uuid.UUID
 	externalCreatedBy string
 
 	// From date in datemath format
-	From string `query:"from"`
+	From string `query:"from" json:"from"`
 	// To date in datemath format
-	To string `query:"to"`
+	To string `query:"to" json:"to"`
 
-	PageSize  int    `query:"page_size"`
-	Page      int    `query:"page"`
-	SortBy    string `query:"sort_by"`
+	PageSize  int    `query:"page_size" json:"page_size"`
+	Page      int    `query:"page" json:"page"`
+	SortBy    string `query:"sort_by" json:"sort_by"`
 	sortOrder string
 
 	// upstream | downstream | both
-	Recursive string `query:"recursive"`
+	Recursive string `query:"recursive" json:"recursive"`
 
 	fromParsed time.Time
 	toParsed   time.Time
