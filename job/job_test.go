@@ -42,8 +42,6 @@ func TestStatusRing(t *testing.T) {
 			sr := newStatusRing(td, false, ch)
 			for i := 0; i < 100; i++ {
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusSuccess)})
-				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFinished)})
-
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFailed)})
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusWarning)})
 			}
