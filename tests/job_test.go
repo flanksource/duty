@@ -53,9 +53,9 @@ var _ = Describe("Job", Ordered, func() {
 		counts := lo.CountValuesBy(items, func(j models.JobHistory) string { return j.Status })
 
 		Expect(len(items)).To(BeNumerically("==", 4))
-		Expect(counts[models.StatusFinished]).To(Equal(2))
+		Expect(counts[models.StatusSuccess]).To(Equal(2))
 		Expect(counts[models.StatusSkipped]).To(Equal(2))
-		for _, item := range groups[models.StatusFinished] {
+		for _, item := range groups[models.StatusSuccess] {
 			Expect(item.TimeEnd).ToNot(BeNil())
 			Expect(item.TimeEnd.Sub(item.TimeStart).Milliseconds()).To(BeNumerically("~", 50, 10))
 		}

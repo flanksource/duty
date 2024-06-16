@@ -22,7 +22,8 @@ func TestStatusRing(t *testing.T) {
 		{Success: 3, Failed: 3},
 	}
 	var total int
-	var expected = 2000 - (5 * 6 * 2)
+	loops := 100
+	var expected = (len(cases) * loops * 3) - (3 * 3 * len(cases))
 
 	eg, _ := errgroup.WithContext(context.TODO())
 	eg.Go(func() error {
@@ -40,10 +41,8 @@ func TestStatusRing(t *testing.T) {
 		td := cases[i]
 		eg.Go(func() error {
 			sr := newStatusRing(td, false, ch)
-			for i := 0; i < 100; i++ {
+			for i := 0; i < loops; i++ {
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusSuccess)})
-				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFinished)})
-
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFailed)})
 				sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusWarning)})
 			}
@@ -54,8 +53,8 @@ func TestStatusRing(t *testing.T) {
 	_ = eg.Wait()
 	total += len(ch)
 
-	// we have added 2000 job  history to the status rings
-	// based on retention, 5*6*2 jobs remain in the status rings
+	// we have added 1500 job  history to the status rings
+	// based on retention, 5*3*3 (cases * uniq status * retention for uniq status) jobs remain in the status rings
 	// while the rest of them should have been moved to the evicted channel
 	if total != expected {
 		t.Fatalf("Expected %d job ids in the channel. Got %d", expected, total)

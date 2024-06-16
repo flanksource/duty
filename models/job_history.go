@@ -141,17 +141,12 @@ func (h *JobHistory) evaluateStatus() {
 	if h.Status != StatusRunning {
 		return
 	}
-	if h.SuccessCount == 0 {
-		if h.ErrorCount > 0 {
-			h.Status = StatusFailed
-		} else {
-			h.Status = StatusFinished
-		}
+
+	if h.ErrorCount > 0 && h.SuccessCount > 0 {
+		h.Status = StatusWarning
+	} else if h.ErrorCount > 0 && h.SuccessCount == 0 {
+		h.Status = StatusFailed
 	} else {
-		if h.ErrorCount == 0 {
-			h.Status = StatusSuccess
-		} else {
-			h.Status = StatusWarning
-		}
+		h.Status = StatusSuccess
 	}
 }
