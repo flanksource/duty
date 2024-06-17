@@ -81,12 +81,12 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 
 	var port int
 	if val, ok := os.LookupEnv("TEST_DB_PORT"); ok {
-		parsed, err := strconv.Atoi(val)
+		parsed, err := strconv.ParseInt(val, 10, 32)
 		if err != nil {
 			panic(err)
 		}
 
-		port = parsed
+		port = int(parsed)
 	} else {
 		port = FreePort()
 	}

@@ -291,8 +291,8 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		err := DefaultContext.DB().Raw("SELECT * FROM related_configs(?, 'incoming', false)", dummy.KubernetesNodeA.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
-		Expect(len(relatedConfigs)).To(Equal(1))
-		Expect(relatedConfigs[0].ID.String()).To(Equal(dummy.KubernetesCluster.ID.String()))
+		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{dummy.KubernetesCluster.ID, dummy.KubernetesNodeA.ID}))
 	})
 
 	ginkgo.It("should return HARD OUTGOING relationships", func() {
@@ -311,10 +311,8 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false, 10, 'hard')", dummy.LogisticsAPIReplicaSet.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
-		Expect(len(relatedConfigs)).To(Equal(1))
-		for _, rc := range relatedConfigs {
-			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String()}))
-		}
+		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID}))
 	})
 
 	ginkgo.It("should return HARD incoming/outgoing relationships", func() {
@@ -322,10 +320,8 @@ var _ = ginkgo.Describe("Config relationship", ginkgo.Ordered, func() {
 		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'all', false, 10, 'hard')", dummy.LogisticsAPIReplicaSet.ID).Find(&relatedConfigs).Error
 		Expect(err).To(BeNil())
 
-		Expect(len(relatedConfigs)).To(Equal(2))
-		for _, rc := range relatedConfigs {
-			Expect(rc.ID.String()).To(BeElementOf([]string{dummy.LogisticsAPIDeployment.ID.String(), dummy.LogisticsAPIPodConfig.ID.String()}))
-		}
+		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIPodConfig.ID, dummy.LogisticsAPIReplicaSet.ID}))
 	})
 })
 
@@ -446,10 +442,9 @@ var _ = ginkgo.Describe("Config relationship related ids", ginkgo.Ordered, func(
 			var relatedConfigs []RelatedConfig
 			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false, 10, 'both', 'both')", deploymentconfigdb.ID).Find(&relatedConfigs).Error
 			Expect(err).To(BeNil())
-			Expect(len(relatedConfigs)).To(Equal(4))
 
 			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{cluster.ID, namespacedev.ID, namespacefluxsystem.ID, kustomizationawssandbox.ID}))
+			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{deploymentconfigdb.ID, cluster.ID, namespacedev.ID, namespacefluxsystem.ID, kustomizationawssandbox.ID}))
 
 			incomingRelatedIDsMap := map[string][]string{
 				cluster.ID.String():                 {namespacedev.ID.String(), namespacefluxsystem.ID.String()},
