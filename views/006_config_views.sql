@@ -475,10 +475,7 @@ CREATE FUNCTION related_configs_recursive (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
     related_ids TEXT[],
-    depth INTEGER,
     tags jsonb,
     changes json,
     analysis json,
@@ -495,40 +492,37 @@ CREATE FUNCTION related_configs_recursive (
 ) AS $$
 BEGIN
   RETURN query
-    SELECT
-      configs.id,
-      configs.name,
-      configs.type,
-      r.relation_type,
-      r.direction,
-      r.related_ids,
-      r.depth,
-      configs.tags,
-      configs.changes,
-      configs.analysis,
-      configs.cost_per_minute,
-      configs.cost_total_1d,
-      configs.cost_total_7d,
-      configs.cost_total_30d,
-      configs.created_at,
-      configs.updated_at,
-      configs.agent_id,
-      configs.health,
-      configs.ready,
-      configs.status
-   FROM (
-   	SELECT
-   	  r.id::uuid,
-   	  array_agg(DISTINCT(r.related_id::TEXT)) AS related_ids,
-   	  min(r.relation_type) as relation_type,
-      r.direction,
-      min(r.depth) as depth
-    FROM related_config_ids_recursive($1, $2, $4, $5, $6) as r
-    GROUP BY r.id, r.direction
-   ) r
-    LEFT JOIN configs ON r.id = configs.id
-    WHERE related_configs_recursive.include_deleted_configs OR configs.deleted_at IS NULL
-    ORDER BY depth ASC;
+    WITH edges as (
+      SELECT * FROM related_config_ids_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
+    ), all_ids AS (
+      SELECT edges.id FROM edges UNION SELECT edges.related_id as id FROM edges
+    ), grouped_related_ids AS (
+      SELECT all_ids.id, array_agg(edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
+      FROM all_ids
+      LEFT JOIN edges ON edges.id = all_ids.id
+      GROUP BY all_ids.id
+    )
+      SELECT 
+        configs.id,
+        configs.name,
+        configs.type,
+        grouped_related_ids.related_ids,
+        configs.tags,
+        configs.changes,
+        configs.analysis,
+        configs.cost_per_minute,
+        configs.cost_total_1d,
+        configs.cost_total_7d,
+        configs.cost_total_30d,
+        configs.created_at,
+        configs.updated_at,
+        configs.agent_id,
+        configs.health,
+        configs.ready,
+        configs.status
+      FROM configs 
+      LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
+      WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -544,10 +538,7 @@ CREATE FUNCTION related_configs (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
     related_ids TEXT[],
-    depth INTEGER,
     tags jsonb,
     changes json,
     analysis json,
