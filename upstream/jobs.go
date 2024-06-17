@@ -67,40 +67,41 @@ var reconciledTables = []pushableTable{
 	models.JobHistory{},
 }
 
-func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, error) {
+func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, int, error) {
 	return ReconcileSome(ctx, config, batchSize)
 }
 
-func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, error) {
-	var count int
+func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, int, error) {
+	var count, fkFailed int
 	for _, table := range reconciledTables {
 		if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
 			continue
 		}
 
-		if c, err := reconcileTable(ctx, config, table, batchSize); err != nil {
-			return count, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
-		} else {
-			count += c
+		success, failed, err := reconcileTable(ctx, config, table, batchSize)
+		count += success
+		fkFailed += failed
+		if err != nil {
+			return count, fkFailed, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
 		}
 	}
 
-	return count, nil
+	return count, fkFailed, nil
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
-func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, error) {
+func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, int, error) {
 	client := NewUpstreamClient(config)
 
-	var count int
+	var count, fkFailed int
 	for {
 		items, err := table.GetUnpushed(ctx.DB().Limit(batchSize))
 		if err != nil {
-			return 0, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
+			return count, fkFailed, fmt.Errorf("failed to fetch unpushed items for table %s: %w", table, err)
 		}
 
 		if len(items) == 0 {
-			return count, nil
+			return count, fkFailed, nil
 		}
 
 		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
@@ -108,12 +109,12 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 		if pushError != nil {
 			httpError := api.HTTPErrorFromErr(pushError)
 			if httpError == nil || httpError.Data == "" {
-				return 0, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), pushError)
+				return count, fkFailed, fmt.Errorf("failed to push %s to upstream: %w", table.TableName(), pushError)
 			}
 
 			var foreignKeyErr PushFKError
 			if err := json.Unmarshal([]byte(httpError.Data), &foreignKeyErr); err != nil {
-				return 0, fmt.Errorf("failed to push %s to upstream (could not decode api error: %w): %w", table.TableName(), err, pushError)
+				return count, fkFailed, fmt.Errorf("failed to push %s to upstream (could not decode api error: %w): %w", table.TableName(), err, pushError)
 			}
 
 			failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
@@ -123,10 +124,11 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 				_, ok := failedOnes[item.PK()]
 				return ok
 			})
+			fkFailed += len(failedItems)
 
 			if c, ok := table.(parentIsPushedUpdater); ok && len(failedItems) > 0 {
 				if err := c.UpdateParentsIsPushed(ctx.DB(), failedItems); err != nil {
-					return 0, fmt.Errorf("failed to mark parents as unpushed: %w", err)
+					return count, fkFailed, fmt.Errorf("failed to mark parents as unpushed: %w", err)
 				}
 			}
 
@@ -166,12 +168,12 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 				return nil
 			})
 			if err != nil {
-				return count, err
+				return count, fkFailed, err
 			}
 		}
 
 		if pushError != nil {
-			return count, pushError
+			return count, fkFailed, pushError
 		}
 	}
 }

@@ -66,9 +66,10 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.It("should push config items first to satisfy foreign keys for changes & analyses", func() {
-		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_items")
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_items")
 		Expect(err).To(BeNil())
 		Expect(count).To(Not(BeZero()))
+		Expect(fkFailed).To(BeZero())
 	})
 
 	ginkgo.It("should sync config_changes to upstream", func() {
@@ -84,8 +85,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(changes).To(BeZero())
 
-		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
 		Expect(err).ToNot(HaveOccurred())
+		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigChange{}).Scan(&changes).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -112,8 +114,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(analyses).To(BeZero())
 
-		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
 		Expect(err).ToNot(HaveOccurred())
+		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -138,8 +141,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(artifacts).To(BeZero())
 
-		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
 		Expect(err).ToNot(HaveOccurred())
+		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -162,8 +166,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upstreamCount).To(BeZero())
 
-		count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
 		Expect(err).ToNot(HaveOccurred())
+		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.JobHistory{}).Scan(&upstreamCount).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -257,9 +262,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 						Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
 					Expect(err).To(BeNil())
 
-					count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
+					_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
 					Expect(err).To(HaveOccurred())
-					Expect(count).To(Equal(0))
+					Expect(fkFailed).To(BeNumerically(">", 0))
 
 					// After reconciliation, those config items should have been marked as unpushed.
 					var unpushed int
@@ -317,8 +322,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 			})
 
 			ginkgo.It("should reconcile the above canary & checks", func() {
-				_, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
+				_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
 				Expect(err).To(BeNil())
+				Expect(fkFailed).To(BeZero())
 
 				var canaryCount int
 				err = DefaultContext.DB().Model(&models.Canary{}).Select("Count(*)").Where("id IN ?", []uuid.UUID{httpCanary.ID, tcpCanary.ID}).Where("is_pushed = ?", true).Scan(&canaryCount).Error
@@ -339,8 +345,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 					err = DefaultContext.DB().Model(&models.Check{}).Where("id IN ?", []uuid.UUID{httpChecks.ID, tcpCheck.ID}).Update("is_pushed", false).Error
 					Expect(err).To(BeNil())
 
-					_, err = upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
+					_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
 					Expect(err).To(Not(BeNil()))
+					Expect(fkFailed).To(BeNumerically(">", 0))
 
 					// We expect the http check to have been marked as pushed
 					// while the tcp check & its canary to have been marked as unpushed
@@ -361,8 +368,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				})
 
 				ginkgo.It("The next round of reconciliation should have no error", func() {
-					_, err := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
+					_, fkFailed, err := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
 					Expect(err).To(BeNil())
+					Expect(fkFailed).To(BeZero())
 				})
 			})
 		})
@@ -370,8 +378,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should handle updates", func() {
 		ginkgo.It("ensure all the topologies & canaries have been pushed", func() {
-			_, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
 			Expect(err).To(BeNil())
+			Expect(fkFailed).To(BeZero())
 
 			var unpushedCanaries int
 			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
@@ -392,9 +401,10 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 			err = DefaultContext.DB().Model(&models.Canary{}).Where("is_pushed = ?", true).Update("is_pushed", false).Error
 			Expect(err).To(BeNil())
 
-			count, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
 			Expect(err).To(BeNil())
 			Expect(count).To(Not(BeZero()))
+			Expect(fkFailed).To(BeZero())
 
 			var unpushedCanaries int
 			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
