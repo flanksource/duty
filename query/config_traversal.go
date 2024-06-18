@@ -35,11 +35,10 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string) []string {
 	var allIDs []string
 	for _, id := range ids {
-		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id", "depth", "type").Where("type = ?", relatedType)
+		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id", "type").Where("type = ?", relatedType)
 		var rows []struct {
-			ID    string
-			Type  string
-			Depth int
+			ID   string
+			Type string
 		}
 		if err := q.Scan(&rows).Error; err != nil {
 			ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)

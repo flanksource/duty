@@ -395,10 +395,32 @@ CREATE OR REPLACE VIEW config_changes_items AS
   FROM config_changes as cc
     LEFT JOIN config_items as ci ON cc.config_id = ci.id;
 
-
 DROP FUNCTION IF EXISTS related_config_ids_recursive;
 
 CREATE OR REPLACE FUNCTION related_config_ids_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'outgoing',
+  max_depth INT DEFAULT 5,
+  incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
+  outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
+) RETURNS TABLE (id UUID, direction TEXT) AS $$
+BEGIN
+
+RETURN query
+  WITH edges as (
+    SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
+  ), all_ids AS (
+    SELECT edges.id, edges.direction FROM edges 
+    UNION 
+    SELECT edges.related_id as id, edges.direction FROM edges
+  ) SELECT DISTINCT all_ids.id, all_ids.direction FROM all_ids;
+  END;
+
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS config_relationships_recursive;
+
+CREATE OR REPLACE FUNCTION config_relationships_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
   max_depth INT DEFAULT 5,
@@ -414,30 +436,29 @@ END IF;
 IF type_filter = 'outgoing' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
-        SELECT parent.related_id, parent.config_id as related_id, parent.relation, 'outgoing', 1::int
+        SELECT parent.config_id, parent.related_id, parent.relation, 'outgoing', 1::int
         FROM config_relationships parent
-        WHERE parent.config_id = related_config_ids_recursive.config_id
+        WHERE parent.config_id = config_relationships_recursive.config_id
           AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          child.related_id, parent.config_id as related_id, child.relation, 'outgoing', parent.depth +1
-          FROM config_relationships child,  cte parent
-          WHERE child.config_id = parent.config_id
+          parent.related_id as config_id, child.related_id, child.relation, 'outgoing', parent.depth +1
+          FROM config_relationships child, cte parent
+          WHERE child.config_id = parent.related_id
             AND parent.depth <= max_depth
             AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
+      FROM cte 
       ORDER BY cte.depth asc;
 ELSIF type_filter = 'incoming' THEN
 	RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
         SELECT parent.config_id, parent.related_id as related_id, parent.relation, 'incoming', 1::int
         FROM config_relationships parent
-        WHERE parent.related_id = related_config_ids_recursive.config_id
+        WHERE parent.related_id = config_relationships_recursive.config_id
           AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
@@ -450,14 +471,13 @@ ELSIF type_filter = 'incoming' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation AS "relation_type", type_filter as "direction", cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      FROM cte 
       ORDER BY cte.depth asc;
 ELSE
   RETURN query
-   		SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
+   		SELECT * FROM config_relationships_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
    		UNION
-   		SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
+   		SELECT * FROM config_relationships_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
 END IF;
 
 END;
@@ -477,10 +497,7 @@ CREATE FUNCTION related_configs_recursive (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
     related_ids TEXT[],
-    depth INTEGER,
     tags jsonb,
     changes json,
     analysis json,
@@ -497,40 +514,37 @@ CREATE FUNCTION related_configs_recursive (
 ) AS $$
 BEGIN
   RETURN query
-    SELECT
-      configs.id,
-      configs.name,
-      configs.type,
-      r.relation_type,
-      r.direction,
-      r.related_ids,
-      r.depth,
-      configs.tags,
-      configs.changes,
-      configs.analysis,
-      configs.cost_per_minute,
-      configs.cost_total_1d,
-      configs.cost_total_7d,
-      configs.cost_total_30d,
-      configs.created_at,
-      configs.updated_at,
-      configs.agent_id,
-      configs.health,
-      configs.ready,
-      configs.status
-   FROM (
-   	SELECT
-   	  r.id::uuid,
-   	  array_agg(DISTINCT(r.related_id::TEXT)) AS related_ids,
-   	  min(r.relation_type) as relation_type,
-      r.direction,
-      min(r.depth) as depth
-    FROM related_config_ids_recursive($1, $2, $4, $5, $6) as r
-    GROUP BY r.id, r.direction
-   ) r
-    LEFT JOIN configs ON r.id = configs.id
-    WHERE related_configs_recursive.include_deleted_configs OR configs.deleted_at IS NULL
-    ORDER BY depth ASC;
+    WITH edges as (
+      SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
+    ), all_ids AS (
+      SELECT edges.id FROM edges UNION SELECT edges.related_id as id FROM edges
+    ), grouped_related_ids AS (
+      SELECT all_ids.id, array_agg(edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
+      FROM all_ids
+      LEFT JOIN edges ON edges.id = all_ids.id
+      GROUP BY all_ids.id
+    )
+      SELECT 
+        configs.id,
+        configs.name,
+        configs.type,
+        grouped_related_ids.related_ids,
+        configs.tags,
+        configs.changes,
+        configs.analysis,
+        configs.cost_per_minute,
+        configs.cost_total_1d,
+        configs.cost_total_7d,
+        configs.cost_total_30d,
+        configs.created_at,
+        configs.updated_at,
+        configs.agent_id,
+        configs.health,
+        configs.ready,
+        configs.status
+      FROM configs 
+      LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
+      WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -546,10 +560,7 @@ CREATE FUNCTION related_configs (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
     related_ids TEXT[],
-    depth INTEGER,
     tags jsonb,
     changes json,
     analysis json,

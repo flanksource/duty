@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
@@ -78,7 +79,17 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		return DefaultContext
 	}
 
-	port := FreePort()
+	var port int
+	if val, ok := os.LookupEnv("TEST_DB_PORT"); ok {
+		parsed, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			panic(err)
+		}
+
+		port = int(parsed)
+	} else {
+		port = FreePort()
+	}
 
 	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
 	url := os.Getenv("DUTY_DB_URL")
