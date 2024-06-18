@@ -333,7 +333,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if req.externalCreatedBy != "" {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "external_created_by"}, Value: req.externalCreatedBy})
+		clause, err := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse external createdby: %v", err))
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	table := query.Table("catalog_changes")
