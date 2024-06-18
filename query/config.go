@@ -208,11 +208,13 @@ func (t ConfigSummaryRequest) configDeleteClause() string {
 }
 
 func (t ConfigSummaryRequest) statusClause() []clause.Expression {
-	return parseAndBuildFilteringQuery(t.Status, "config_items.status")
+	clause, _ := parseAndBuildFilteringQuery(t.Status, "config_items.status", false)
+	return clause
 }
 
 func (t ConfigSummaryRequest) healthClause() []clause.Expression {
-	return parseAndBuildFilteringQuery(t.Health, "config_items.health")
+	clause, _ := parseAndBuildFilteringQuery(t.Health, "config_items.health", false)
+	return clause
 }
 
 func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
