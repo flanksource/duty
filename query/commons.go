@@ -1,6 +1,8 @@
 package query
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 
 	"gorm.io/gorm/clause"
@@ -10,13 +12,20 @@ var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-00
 
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
-func ParseFilteringQuery(query string) (in []interface{}, notIN []interface{}, prefix, suffix []string) {
+func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
 	if query == "" {
 		return
 	}
 
 	items := strings.Split(query, ",")
 	for _, item := range items {
+		if decodeURL {
+			item, err = url.QueryUnescape(item)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("failed to unescape query (%s): %v", item, err)
+			}
+		}
+
 		if strings.HasPrefix(item, "!") {
 			notIN = append(notIN, strings.TrimPrefix(item, "!"))
 		} else if strings.HasPrefix(item, "*") {
@@ -31,10 +40,13 @@ func ParseFilteringQuery(query string) (in []interface{}, notIN []interface{}, p
 	return
 }
 
-func parseAndBuildFilteringQuery(query string, field string) []clause.Expression {
-	var clauses []clause.Expression
+func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.Expression, error) {
+	in, notIN, prefixes, suffixes, err := ParseFilteringQuery(query, decodeURL)
+	if err != nil {
+		return nil, err
+	}
 
-	in, notIN, prefixes, suffixes := ParseFilteringQuery(query)
+	var clauses []clause.Expression
 	if len(in) > 0 {
 		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: in})
 	}
@@ -59,5 +71,5 @@ func parseAndBuildFilteringQuery(query string, field string) []clause.Expression
 		})
 	}
 
-	return clauses
+	return clauses, nil
 }

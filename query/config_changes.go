@@ -262,27 +262,51 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	query := ctx.DB()
 
 	if req.AgentID != "all" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.AgentID, "agent_id")...)
+		clause, err := parseAndBuildFilteringQuery(req.AgentID, "agent_id", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.ConfigType != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.ConfigType, "type")...)
+		clause, err := parseAndBuildFilteringQuery(req.ConfigType, "type", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.ChangeType != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.ChangeType, "change_type")...)
+		clause, err := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Severity != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity")...)
+		clause, err := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse severity: %v", err))
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Summary != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.Summary, "summary")...)
+		clause, err := parseAndBuildFilteringQuery(req.Summary, "summary", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse summary: %v", err))
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Source != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.Source, "source")...)
+		clause, err := parseAndBuildFilteringQuery(req.Source, "source", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse source: %v", err))
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Tags != "" {
@@ -316,7 +340,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if err := uuid.Validate(req.CatalogID); err == nil {
 		table = query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
 	} else {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.CatalogID, "config_id")...)
+		clause, err := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	var output CatalogChangesSearchResponse
