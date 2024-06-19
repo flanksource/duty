@@ -340,15 +340,23 @@ var ctxHistograms sync.Map
 
 var LatencyBuckets = []float64{
 	float64(10 * time.Millisecond),
-	float64(50 * time.Millisecond),
 	float64(100 * time.Millisecond),
 	float64(500 * time.Millisecond),
 	float64(1 * time.Second),
-	float64(5 * time.Second),
-	float64(30 * time.Second),
-	float64(1 * time.Minute),
-	float64(5 * time.Minute),
-	float64(30 * time.Minute),
+	float64(10 * time.Second),
+}
+
+var ShortLatencyBuckets = []float64{
+	float64(10 * time.Millisecond),
+	float64(100 * time.Millisecond),
+	float64(500 * time.Millisecond),
+}
+
+var LongLatencyBuckets = []float64{
+	float64(1 * time.Second),
+	float64(10 * time.Second),
+	float64(100 * time.Second),
+	float64(1000 * time.Second),
 }
 
 func (k Context) Histogram(name string, buckets []float64, labels ...string) Histogram {
