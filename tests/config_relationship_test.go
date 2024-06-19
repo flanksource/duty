@@ -419,18 +419,19 @@ var _ = ginkgo.Describe("Config relationship related ids", ginkgo.Ordered, func(
 	})
 
 	ginkgo.Context("deployment incoming", func() {
-		ginkgo.It("should return hard incoming related ids for deployment", ginkgo.Pending, func() {
+		ginkgo.It("should return hard incoming related ids for deployment", func() {
 			var relatedConfigs []RelatedConfig
-			err := DefaultContext.DB().Raw("SELECT * FROM related_config_ids_recursive(?, 'incoming', 10, 'hard', 'both')", deploymentconfigdb.ID).Find(&relatedConfigs).Error
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false, 10, 'hard', 'both')", deploymentconfigdb.ID).Find(&relatedConfigs).Error
 			Expect(err).To(BeNil())
-			Expect(len(relatedConfigs)).To(Equal(2))
+			Expect(len(relatedConfigs)).To(Equal(3))
 
 			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID}))
+			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, deploymentconfigdb.ID}))
 
 			outgoingRelatedIDsMap := map[string][]string{
-				cluster.ID.String():      {namespacedev.ID.String()},
-				namespacedev.ID.String(): {deploymentconfigdb.ID.String()},
+				cluster.ID.String():            {namespacedev.ID.String()},
+				namespacedev.ID.String():       {deploymentconfigdb.ID.String()},
+				deploymentconfigdb.ID.String(): nil,
 			}
 			for i := range relatedConfigs {
 				Expect(outgoingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)),
