@@ -519,7 +519,7 @@ BEGIN
     ), all_ids AS (
       SELECT edges.id FROM edges UNION SELECT edges.related_id as id FROM edges
     ), grouped_related_ids AS (
-      SELECT all_ids.id, array_agg(edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
+      SELECT all_ids.id, array_agg(DISTINCT edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
       FROM all_ids
       LEFT JOIN edges ON edges.id = all_ids.id
       GROUP BY all_ids.id
