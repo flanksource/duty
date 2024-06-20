@@ -85,11 +85,29 @@ type Component struct {
 }
 
 func (t Component) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
-	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+	componentWithTopology := lo.Filter(items, func(item DBTable, _ int) bool { return item.(Component).TopologyID != nil })
+	topologyParents := lo.Map(componentWithTopology, func(item DBTable, _ int) string {
 		return item.(Component).TopologyID.String()
 	})
 
-	return db.Model(&Topology{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+	if len(topologyParents) > 0 {
+		if err := db.Model(&Topology{}).Where("id IN ?", topologyParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	// Components can also have another components as parent
+	componentWithComponentParent := lo.Filter(items, func(item DBTable, _ int) bool { return item.(Component).ParentId != nil })
+	componentParents := lo.Map(componentWithComponentParent, func(item DBTable, _ int) string {
+		return item.(Component).ParentId.String()
+	})
+	if len(componentParents) > 0 {
+		if err := db.Model(&Component{}).Where("id IN ?", componentParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t Component) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
