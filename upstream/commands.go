@@ -295,7 +295,9 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		}
 
 		if retries > maxRetries {
-			return fmt.Errorf("failed to save %d items after %d retries", len(failed), maxRetries)
+			return api.Errorf(api.ECONFLICT, "foreign key error").
+				WithData(PushFKError{IDs: lo.Map(failed, func(i T, _ int) string { return i.PK() })}).
+				WithDebugInfo("foreign key error for %d items after %d retries", len(failed), retries)
 		}
 
 		items = failed

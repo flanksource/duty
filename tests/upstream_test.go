@@ -14,6 +14,7 @@ import (
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/tests/setup"
 	"github.com/flanksource/duty/upstream"
 )
@@ -96,6 +97,63 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		{
 			var pending int
 			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.ConfigChange{}).Scan(&pending).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pending).To(BeZero())
+		}
+	})
+
+	ginkgo.It("should sync components to upstream & deal with fk issue", func() {
+		{
+			var pushed int
+			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.Component{}).Scan(&pushed).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pushed).To(BeZero())
+		}
+
+		{
+			// Falsely, mark Logistic component as pushed. It's a parent component to other components
+			// so we expect reconciliation to fail.
+			tx := DefaultContext.DB().Model(&models.Component{}).Where("id = ?", dummy.Logistics.ID).Update("is_pushed", true)
+			Expect(tx.Error).ToNot(HaveOccurred())
+			Expect(tx.RowsAffected).To(Equal(int64(1)))
+		}
+
+		var totalComponents int
+		err := upstreamCtx.DB().Select("COUNT(*)").Model(&models.Component{}).Scan(&totalComponents).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(totalComponents).To(BeZero(), "upstream should have 0 components as we haven't reconciled yet")
+
+		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+		Expect(err).To(HaveOccurred())
+
+		expectedFailed := 4
+		Expect(fkFailed).To(Equal(expectedFailed), "logistics api, ui, database & worker should fail to be synced")
+		Expect(count).To(Not(BeZero()))
+
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Component{}).Scan(&totalComponents).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(totalComponents).To(Equal(count))
+
+		var parentIsPushed bool
+		err = DefaultContext.DB().Model(&models.Component{}).Where("id = ?", dummy.Logistics.ID).Select("is_pushed").Scan(&parentIsPushed).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(parentIsPushed).To(BeFalse(), "after the failed reconiliation, we expect the parent component to be marked as not pushed")
+
+		{
+			var pending int
+			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Component{}).Scan(&pending).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pending).To(BeNumerically(">=", fkFailed))
+		}
+
+		{
+			count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+			Expect(err).To(BeNil())
+			Expect(fkFailed).To(BeZero())
+			Expect(count).To(Not(BeZero()))
+
+			var pending int
+			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Component{}).Scan(&pending).Error
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pending).To(BeZero())
 		}

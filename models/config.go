@@ -108,11 +108,29 @@ type ConfigItem struct {
 }
 
 func (t ConfigItem) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
-	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
-		return lo.FromPtr(item.(ConfigItem).ScraperID)
+	configWithScraper := lo.Filter(items, func(item DBTable, _ int) bool { return item.(ConfigItem).ScraperID != nil })
+	scraperParents := lo.Map(configWithScraper, func(item DBTable, _ int) string {
+		return *item.(ConfigItem).ScraperID
 	})
 
-	return db.Model(&ConfigScraper{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+	if len(scraperParents) > 0 {
+		if err := db.Model(&ConfigScraper{}).Where("id IN ?", scraperParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	// config items can also have another config items as parent
+	configWithConfigParent := lo.Filter(items, func(item DBTable, _ int) bool { return item.(ConfigItem).ParentID != nil })
+	configParents := lo.Map(configWithConfigParent, func(item DBTable, _ int) string {
+		return item.(ConfigItem).ParentID.String()
+	})
+	if len(configParents) > 0 {
+		if err := db.Model(&ConfigItem{}).Where("id IN ?", configParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t ConfigItem) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
