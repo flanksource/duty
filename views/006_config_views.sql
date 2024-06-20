@@ -521,7 +521,11 @@ BEGIN
     WITH edges as (
       SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
     ), all_ids AS (
-      SELECT edges.id FROM edges UNION SELECT edges.related_id as id FROM edges
+      SELECT edges.id FROM edges
+      UNION 
+      SELECT edges.related_id as id FROM edges
+      UNION
+      SELECT related_configs_recursive.config_id as id
     ), grouped_related_ids AS (
       SELECT all_ids.id, MIN(edges.depth) depth, array_agg(DISTINCT edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
       FROM all_ids

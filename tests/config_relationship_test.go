@@ -190,11 +190,12 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				Expect(relatedConfigNames).To(ConsistOf([]string{*C.Name, *F.Name}))
 			})
 
-			ginkgo.It("should correctly return zero relationships for leaf nodes", func() {
+			ginkgo.It("should only return itself for leaf nodes", func() {
 				var relatedConfigs []RelatedConfig
 				err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?)", G.ID).Find(&relatedConfigs).Error
 				Expect(err).To(BeNil())
-				Expect(len(relatedConfigs)).To(Equal(0))
+				Expect(len(relatedConfigs)).To(Equal(1))
+				Expect(relatedConfigs[0].ID).To(Equal(G.ID))
 			})
 
 			ginkgo.It("should correctly handle cycles", func() {
@@ -255,11 +256,12 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 		})
 
 		ginkgo.Context("Incoming", func() {
-			ginkgo.It("should return 0 parents for a root node", func() {
+			ginkgo.It("should return only the root node and no parents for a root node", func() {
 				var relatedConfigs []RelatedConfig
 				err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", U.ID).Find(&relatedConfigs).Error
 				Expect(err).To(BeNil())
-				Expect(len(relatedConfigs)).To(Equal(0))
+				Expect(len(relatedConfigs)).To(Equal(1))
+				Expect(relatedConfigs[0].ID).To(Equal(U.ID))
 			})
 
 			ginkgo.It("should return parents of a leaf node", func() {
