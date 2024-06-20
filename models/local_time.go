@@ -3,11 +3,18 @@ package models
 import (
 	"database/sql/driver"
 	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const TimeFormat = "2006-01-02T15:04:05"
 
 type LocalTime time.Time
+
+func Now() clause.Expr {
+	return gorm.Expr("NOW()")
+}
 
 func (t *LocalTime) UnmarshalJSON(data []byte) (err error) {
 	if len(data) == 2 {
