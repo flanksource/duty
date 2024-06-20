@@ -16,7 +16,7 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 
 	ids := []string{configID}
 	for _, typ := range strings.Split(relationType, "/") {
-		ids = getRelatedTypeConfigID(ctx, ids, typ, direction)
+		ids = getRelatedTypeConfigID(ctx, ids, typ, direction, true)
 	}
 
 	for _, id := range ids {
@@ -32,22 +32,25 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 }
 
 // Fetch config IDs which match the type and direction upto max depth (5)
-func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string) []string {
+func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string, excludeSelf bool) []string {
 	var allIDs []string
 	for _, id := range ids {
-		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id", "type").Where("type = ?", relatedType)
-		var rows []struct {
-			ID   string
-			Type string
-		}
+		var rows []string
+		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id").Where("type = ?", relatedType)
 		if err := q.Scan(&rows).Error; err != nil {
 			ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
 			return nil
 		}
-		for _, r := range rows {
-			allIDs = append(allIDs, r.ID)
+
+		for _, row := range rows {
+			if excludeSelf && row == id {
+				continue
+			}
+
+			allIDs = append(allIDs, row)
 		}
 	}
+
 	return allIDs
 }
 
