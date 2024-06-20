@@ -395,6 +395,7 @@ CREATE OR REPLACE VIEW config_changes_items AS
   FROM config_changes as cc
     LEFT JOIN config_items as ci ON cc.config_id = ci.id;
 
+-- related_config_ids_recursive---
 DROP FUNCTION IF EXISTS related_config_ids_recursive;
 
 CREATE OR REPLACE FUNCTION related_config_ids_recursive (
@@ -403,21 +404,24 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   max_depth INT DEFAULT 5,
   incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
   outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
-) RETURNS TABLE (id UUID, direction TEXT) AS $$
+) RETURNS TABLE (id UUID, direction TEXT, depth INT) AS $$
 BEGIN
 
 RETURN query
   WITH edges as (
     SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
   ), all_ids AS (
-    SELECT edges.id, edges.direction FROM edges 
+    SELECT edges.id, edges.depth, edges.direction FROM edges 
     UNION 
-    SELECT edges.related_id as id, edges.direction FROM edges
-  ) SELECT DISTINCT all_ids.id, all_ids.direction FROM all_ids;
+    SELECT edges.related_id as id, edges.depth, edges.direction FROM edges
+  ) SELECT all_ids.id, all_ids.direction, MIN(all_ids.depth) depth FROM all_ids
+    GROUP BY all_ids.id, all_ids.direction
+    ORDER BY depth;
   END;
 
 $$ LANGUAGE plpgsql;
 
+-- config_relationships_recursive --
 DROP FUNCTION IF EXISTS config_relationships_recursive;
 
 CREATE OR REPLACE FUNCTION config_relationships_recursive (
@@ -519,7 +523,7 @@ BEGIN
     ), all_ids AS (
       SELECT edges.id FROM edges UNION SELECT edges.related_id as id FROM edges
     ), grouped_related_ids AS (
-      SELECT all_ids.id, array_agg(DISTINCT edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
+      SELECT all_ids.id, MIN(edges.depth) depth, array_agg(DISTINCT edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
       FROM all_ids
       LEFT JOIN edges ON edges.id = all_ids.id
       GROUP BY all_ids.id
@@ -544,7 +548,8 @@ BEGIN
         configs.status
       FROM configs 
       LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
-      WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids);
+      WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids)
+      ORDER BY grouped_related_ids.depth;
 END;
 $$ LANGUAGE plpgsql;
 
