@@ -553,6 +553,7 @@ BEGIN
       FROM configs 
       LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
       WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids)
+      AND (include_deleted_configs OR configs.deleted_at IS NULL)
       ORDER BY grouped_related_ids.depth;
 END;
 $$ LANGUAGE plpgsql;
