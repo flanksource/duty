@@ -260,6 +260,41 @@ func (c Component) GetType() string {
 	return c.Type
 }
 
+func (c *Component) Save(db *gorm.DB) error {
+	if c.ParentId != nil && !strings.Contains(c.Path, c.ParentId.String()) {
+		if c.Path == "" {
+			c.Path = c.ParentId.String()
+		} else {
+			c.Path += "." + c.ParentId.String()
+		}
+	}
+	err := db.Clauses(
+		clause.OnConflict{
+			Columns:   []clause.Column{{Name: "topology_id"}, {Name: "name"}, {Name: "type"}, {Name: "parent_id"}},
+			UpdateAll: true,
+		},
+		clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		},
+	).Create(c).Error
+
+	if err != nil {
+		return err
+	}
+
+	if len(c.Components) > 0 {
+		for _, child := range c.Components {
+			child.TopologyID = c.TopologyID
+			child.ParentId = &c.ID
+			if err := child.Save(db); err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
 func (c Component) GetLabelsMatcher() labels.Labels {
 	return componentLabelsProvider{c}
 }
@@ -371,6 +406,70 @@ func (components Components) Find(name string) *Component {
 	for _, component := range components {
 		if component.Name == name {
 			return component
+		}
+	}
+	return nil
+}
+
+func (components Components) Save(db *gorm.DB) error {
+	for _, component := range components {
+		if err := component.Save(db); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteComponentsWithID deletes all components with specified ids.
+func DeleteComponentsWithIDs(db *gorm.DB, compIDs []string) error {
+	if err := db.Table("components").Where("id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	if err := db.Table("component_relationships").Where("component_id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	if err := db.Table("check_component_relationships").Where("component_id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	for _, compID := range compIDs {
+		if err := DeleteInlineCanariesForComponent(db, compID); err != nil {
+			logger.Errorf("Error deleting component[%s] relationship: %v", compID, err)
+		}
+
+		if err := DeleteComponentChildren(db, compID); err != nil {
+			logger.Errorf("Error deleting component[%s] children: %v", compID, err)
+		}
+	}
+	return nil
+}
+
+func DeleteComponentChildren(db *gorm.DB, componentID string) error {
+	return db.Table("components").
+		Where("path LIKE ?", "%"+componentID+"%").
+		Update("deleted_at", Now()).
+		Error
+}
+
+func DeleteInlineCanariesForComponent(db *gorm.DB, componentID string) error {
+	var rows []struct {
+		ID string
+	}
+	source := "component/" + componentID
+	if err := db.
+		Model(&rows).
+		Table("canaries").
+		Where("source = ?", source).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+		UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+
+	for _, r := range rows {
+		if _, err := DeleteChecksForCanary(db, r.ID); err != nil {
+			logger.Errorf("Error deleting checks for canary[%s]: %v", r.ID, err)
+		}
+		if err := DeleteCheckComponentRelationshipsForCanary(db, r.ID); err != nil {
+			logger.Errorf("Error deleting check component relationships for canary[%s]: %v", r.ID, err)
 		}
 	}
 	return nil

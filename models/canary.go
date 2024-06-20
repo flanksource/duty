@@ -61,3 +61,23 @@ func (c Canary) TableName() string {
 func (c Canary) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
+
+func DeleteChecksForCanary(db *gorm.DB, id string) ([]string, error) {
+	var checkIDs []string
+	var checks []Check
+	err := db.Model(&checks).
+		Table("checks").
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+		Where("canary_id = ? and deleted_at IS NULL", id).
+		UpdateColumn("deleted_at", Now()).
+		Error
+
+	for _, c := range checks {
+		checkIDs = append(checkIDs, c.ID.String())
+	}
+	return checkIDs, err
+}
+
+func DeleteCheckComponentRelationshipsForCanary(db *gorm.DB, id string) error {
+	return db.Table("check_component_relationships").Where("canary_id = ?", id).UpdateColumn("deleted_at", Now()).Error
+}

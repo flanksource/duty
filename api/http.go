@@ -37,6 +37,10 @@ type HTTPSuccess struct {
 	Payload any    `json:"payload,omitempty"`
 }
 
+func WriteSuccess(c echo.Context, payload any) error {
+	return c.JSON(http.StatusOK, HTTPSuccess{Message: "success", Payload: payload})
+}
+
 func WriteError(c echo.Context, err error) error {
 	code, message, data := ErrorCode(err), ErrorMessage(err), ErrorData(err)
 
