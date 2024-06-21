@@ -32,7 +32,7 @@ func traverseTemplate(from models.ConfigItem, relationType string, direction str
 	return gotExpr
 }
 
-var _ = ginkgo.FDescribe("Config traversal", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 	ginkgo.It("should be able to traverse config relationships via types", func() {
 		deployment := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment"), ConfigClass: "Deployment"}
 		helmRelease := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease"), ConfigClass: "HelmRelease"}
