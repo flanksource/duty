@@ -5,4 +5,5 @@ const (
 	SourceConfigFile = "ConfigFile"
 	SourceUI         = "UI"
 	SourceTopology   = "Topology"
+	SourcePush       = "Push"
 )
