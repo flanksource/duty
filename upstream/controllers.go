@@ -33,7 +33,7 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 				return next(c)
 			}
 
-			histogram := ctx.Histogram("agent_auth_middleware", context.LatencyBuckets, StatusLabel, "")
+			histogram := ctx.Histogram("agent_auth_middleware", context.ShortLatencyBuckets, StatusLabel, "")
 
 			agentName := c.QueryParam(AgentNameQueryParam)
 			if agentName == "" {
@@ -141,7 +141,7 @@ func PingHandler(c echo.Context) error {
 	start := time.Now()
 	ctx := c.Request().Context().(context.Context)
 
-	histogram := ctx.Histogram("push_queue_ping_handler", context.LatencyBuckets, StatusLabel, "", AgentLabel, ctx.Agent().ID.String())
+	histogram := ctx.Histogram("push_queue_ping_handler", context.ShortLatencyBuckets, StatusLabel, "", AgentLabel, ctx.Agent().ID.String())
 
 	if err := UpdateAgentLastSeen(ctx, ctx.Agent().ID); err != nil {
 		histogram.Label(StatusLabel, StatusError).Since(start)

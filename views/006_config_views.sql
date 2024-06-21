@@ -438,7 +438,7 @@ IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
 END IF;
 
 IF type_filter = 'outgoing' THEN
-	RETURN query
+  RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
         SELECT parent.config_id, parent.related_id, parent.relation, 'outgoing', 1::int
         FROM config_relationships parent
@@ -455,10 +455,10 @@ IF type_filter = 'outgoing' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
-      FROM cte 
+      FROM cte
       ORDER BY cte.depth asc;
 ELSIF type_filter = 'incoming' THEN
-	RETURN query
+  RETURN query
       WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
         SELECT parent.config_id, parent.related_id as related_id, parent.relation, 'incoming', 1::int
         FROM config_relationships parent
@@ -475,13 +475,13 @@ ELSIF type_filter = 'incoming' THEN
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation AS "relation_type", type_filter as "direction", cte.depth
-      FROM cte 
+      FROM cte
       ORDER BY cte.depth asc;
 ELSE
   RETURN query
-   		SELECT * FROM config_relationships_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
-   		UNION
-   		SELECT * FROM config_relationships_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
+      SELECT * FROM config_relationships_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
+      UNION
+      SELECT * FROM config_relationships_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
 END IF;
 
 END;
@@ -532,7 +532,7 @@ BEGIN
       LEFT JOIN edges ON edges.id = all_ids.id
       GROUP BY all_ids.id
     )
-      SELECT 
+      SELECT
         configs.id,
         configs.name,
         configs.type,
@@ -550,7 +550,7 @@ BEGIN
         configs.health,
         configs.ready,
         configs.status
-      FROM configs 
+      FROM configs
       LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
       WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids)
       AND (include_deleted_configs OR configs.deleted_at IS NULL)
