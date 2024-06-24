@@ -114,26 +114,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	return &output, nil
 }
 
-// queryResourceSelector runs the given resourceSelector and returns the resource ids
-func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
-	if resourceSelector.IsEmpty() {
-		return nil, nil
-	}
-
-	hash := fmt.Sprintf("%s-%s", table, resourceSelector.Hash())
-	cacheToUse := getterCache
-	if resourceSelector.Immutable() {
-		cacheToUse = immutableCache
-	}
-
-	if resourceSelector.Cache != "no-cache" {
-		if val, ok := cacheToUse.Get(hash); ok {
-			return val.([]uuid.UUID), nil
-		}
-	}
-
-	query := ctx.DB().Select("id").Table(table)
-
+func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) error {
 	if !resourceSelector.IncludeDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
@@ -168,18 +149,18 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	} else { // assume it's an agent name
 		agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		query = query.Where("agent_id = ?", agent.ID)
 	}
 
 	if len(resourceSelector.TagSelector) > 0 {
 		if table != "config_items" {
-			return nil, api.Errorf(api.EINVALID, "tag selector is only supported for config_items")
+			return api.Errorf(api.EINVALID, "tag selector is only supported for config_items")
 		} else {
 			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
 			if err != nil {
-				return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse tag selector: %v", err))
+				return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse tag selector: %v", err))
 			}
 			requirements, _ := parsedTagSelector.Requirements()
 			for _, r := range requirements {
@@ -191,7 +172,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	if len(resourceSelector.LabelSelector) > 0 {
 		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+			return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
@@ -202,7 +183,7 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	if len(resourceSelector.FieldSelector) > 0 {
 		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
+			return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
 		}
 
 		requirements, _ := parsedFieldSelector.Requirements()
@@ -213,6 +194,32 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 				query = propertySelectorRequirementToSQLClause(query, r)
 			}
 		}
+	}
+
+	return nil
+}
+
+// queryResourceSelector runs the given resourceSelector and returns the resource ids
+func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
+	if resourceSelector.IsEmpty() {
+		return nil, nil
+	}
+
+	hash := fmt.Sprintf("%s-%s", table, resourceSelector.Hash())
+	cacheToUse := getterCache
+	if resourceSelector.Immutable() {
+		cacheToUse = immutableCache
+	}
+
+	if resourceSelector.Cache != "no-cache" {
+		if val, ok := cacheToUse.Get(hash); ok {
+			return val.([]uuid.UUID), nil
+		}
+	}
+
+	query := ctx.DB().Select("id").Table(table)
+	if err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields); err != nil {
+		return nil, err
 	}
 
 	var output []uuid.UUID
