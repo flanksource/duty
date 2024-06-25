@@ -27,6 +27,7 @@ const (
 
 type JobHistory struct {
 	ID             uuid.UUID `gorm:"default:generate_ulid()"`
+	AgentID        uuid.UUID `json:"agent_id,omitempty"`
 	Name           string
 	SuccessCount   int
 	ErrorCount     int

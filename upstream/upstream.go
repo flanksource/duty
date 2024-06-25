@@ -258,6 +258,9 @@ func (t *PushData) PopulateAgentID(id uuid.UUID) {
 	for i := range t.Topologies {
 		t.Topologies[i].AgentID = id
 	}
+	for i := range t.JobHistory {
+		t.JobHistory[i].AgentID = id
+	}
 }
 
 // ApplyLabels injects additional labels to the suitable fields
