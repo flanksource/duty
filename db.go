@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/exaring/otelpgx"
@@ -275,4 +276,24 @@ func IsDeadlockError(err error) bool {
 	}
 
 	return false
+}
+
+func DBErrorDetails(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		var errString []string
+		if pgErr.Detail != "" {
+			errString = append(errString, fmt.Sprintf("detail: %s", pgErr.Detail))
+		}
+		if pgErr.Hint != "" {
+			errString = append(errString, fmt.Sprintf("hint: %s", pgErr.Hint))
+		}
+		if pgErr.Position != 0 {
+			errString = append(errString, fmt.Sprintf(", position: %d", pgErr.Position))
+		}
+		if len(errString) > 0 {
+			return fmt.Errorf("%w: %s", err, strings.Join(errString, ", "))
+		}
+	}
+	return err
 }
