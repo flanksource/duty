@@ -331,9 +331,14 @@ AS SELECT
     topologies.name,
     canaries.name,
     job_history.resource_id
-  ) as resource_name
+  ) as resource_name,
+  json_build_object(
+    'id', agents.id,
+    'name', agents.name
+  ) as agent 
 FROM job_history
 LEFT JOIN components ON job_history.resource_id = components.id::TEXT AND job_history.resource_type = 'components'
 LEFT JOIN config_scrapers ON job_history.resource_id = config_scrapers.id::TEXT AND job_history.resource_type = 'config_scraper'
 LEFT JOIN canaries ON job_history.resource_id = canaries.id::TEXT AND job_history.resource_type = 'canary'
-LEFT JOIN topologies ON job_history.resource_id = topologies.id::TEXT AND job_history.resource_type = 'topology';
+LEFT JOIN topologies ON job_history.resource_id = topologies.id::TEXT AND job_history.resource_type = 'topology'
+LEFT JOIN agents ON job_history.agent_id = agents.id;
