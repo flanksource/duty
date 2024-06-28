@@ -765,3 +765,34 @@ CREATE or REPLACE VIEW config_statuses AS
 -- Cleanup old trigger that used to add 'push_queue.create' events
 -- for any changes on a selected list of tables.
 DROP FUNCTION IF EXISTS push_changes_to_event_queue CASCADE;
+
+-- checks_by_config
+DROP VIEW IF EXISTS checks_by_config;
+CREATE OR REPLACE VIEW
+  checks_by_config AS
+SELECT
+  check_config_relationships.config_id,
+  checks.id,
+  checks.type,
+  checks.name,
+  checks.severity,
+  checks.status
+from
+  check_config_relationships
+  INNER JOIN checks ON checks.id = check_config_relationships.check_id
+WHERE
+  check_config_relationships.deleted_at is null;
+
+-- check_summary_by_config
+CREATE OR REPLACE VIEW
+  check_summary_by_config AS
+WITH cte as (
+    SELECT
+        config_id, status, COUNT(*) AS count
+    FROM
+      checks_by_config
+    GROUP BY
+      config_id, status
+)
+SELECT config_id, json_object_agg(status, count) AS checks
+FROM cte GROUP BY config_id;
