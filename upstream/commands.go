@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -242,7 +242,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 }
 
 func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err error) error {
-	if !duty.IsForeignKeyError(err) {
+	if !dutil.IsForeignKeyError(err) {
 		return fmt.Errorf("error upserting: %w", err)
 	}
 
@@ -250,7 +250,7 @@ func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err 
 	var conflicted []string
 	for _, item := range items {
 		if err := ctx.DB().Debug().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
-			if duty.IsForeignKeyError(err) {
+			if dutil.IsForeignKeyError(err) {
 				conflicted = append(conflicted, item.PK())
 			} else {
 				return fmt.Errorf("error upserting config change (%s): %w", item.PK(), err)
@@ -282,7 +282,7 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		var failed []T
 		for _, c := range items {
 			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
-				if duty.IsForeignKeyError(err) {
+				if dutil.IsForeignKeyError(err) {
 					failed = append(failed, c)
 				} else {
 					return fmt.Errorf("error upserting %s (id=%s) : %w", c.TableName(), c.PK(), err)

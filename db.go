@@ -3,11 +3,9 @@ package duty
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/exaring/otelpgx"
@@ -17,8 +15,6 @@ import (
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/tracing"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/pflag"
@@ -258,42 +254,4 @@ func setStatementTimeouts(ctx context.Context, pool *pgxpool.Pool, connection st
 			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
 		}
 	}
-}
-
-func IsForeignKeyError(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == pgerrcode.ForeignKeyViolation
-	}
-
-	return false
-}
-
-func IsDeadlockError(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == pgerrcode.DeadlockDetected
-	}
-
-	return false
-}
-
-func DBErrorDetails(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		var errString []string
-		if pgErr.Detail != "" {
-			errString = append(errString, fmt.Sprintf("detail: %s", pgErr.Detail))
-		}
-		if pgErr.Hint != "" {
-			errString = append(errString, fmt.Sprintf("hint: %s", pgErr.Hint))
-		}
-		if pgErr.Position != 0 {
-			errString = append(errString, fmt.Sprintf(", position: %d", pgErr.Position))
-		}
-		if len(errString) > 0 {
-			return fmt.Errorf("%w: %s", err, strings.Join(errString, ", "))
-		}
-	}
-	return err
 }
