@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 )
 
 func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string, statuses ...string) (int, error) {
@@ -26,6 +28,34 @@ func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceI
 		return 0, res.Error
 	}
 
+	return int(res.RowsAffected), nil
+}
+
+func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, error) {
+	query := `
+        WITH grouped_history AS (
+            SELECT
+                id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY resource_type, resource_id, name, status, agent_id
+                    ORDER BY time_start DESC
+                ) AS rn
+            FROM
+                job_history
+        )
+        DELETE FROM job_history
+        WHERE id IN (
+            SELECT id
+            FROM grouped_history
+            WHERE
+                rn > ? AND
+                agent_id != ?
+        )`
+
+	res := ctx.DB().Exec(query, itemsToRetain, uuid.Nil)
+	if res.Error != nil {
+		return 0, db.ErrorDetails(res.Error)
+	}
 	return int(res.RowsAffected), nil
 }
 

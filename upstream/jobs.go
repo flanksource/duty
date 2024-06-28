@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-retry"
@@ -148,7 +148,7 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 
 				if c, ok := table.(customIsPushedUpdater); ok {
 					if err := c.UpdateIsPushed(ctx.DB(), batch); err != nil {
-						if duty.IsDeadlockError(err) {
+						if dutil.IsDeadlockError(err) {
 							return retry.RetryableError(err)
 						}
 
@@ -157,7 +157,7 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 				} else {
 					ids := lo.Map(batch, func(a models.DBTable, _ int) string { return a.PK() })
 					if err := ctx.DB().Model(table).Where("id IN ?", ids).Update("is_pushed", true).Error; err != nil {
-						if duty.IsDeadlockError(err) {
+						if dutil.IsDeadlockError(err) {
 							return retry.RetryableError(err)
 						}
 
