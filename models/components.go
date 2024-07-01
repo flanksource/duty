@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
+	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -68,6 +69,11 @@ type Component struct {
 	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP();<-:create"`
 	UpdatedAt       *time.Time              `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
+
+	// statusExpr allows defining a cel expression to evaluate the status of a component
+	// based on the summary and the related config
+	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
+
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
 	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
@@ -132,17 +138,29 @@ func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	}
 }
 
-func (c Component) GetStatus() string {
+func (c Component) GetStatus() (string, error) {
+	if c.StatusExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+		}
+		statusOut, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate status expression %s: %v", c.StatusExpr, err)
+		}
+
+		return statusOut, nil
+	}
+
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusWarning)
+		return string(types.ComponentStatusWarning), nil
 	} else if c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusUnhealthy)
+		return string(types.ComponentStatusUnhealthy), nil
 	} else if c.Summary.Warning > 0 {
-		return string(types.ComponentStatusWarning)
+		return string(types.ComponentStatusWarning), nil
 	} else if c.Summary.Healthy > 0 {
-		return string(types.ComponentStatusHealthy)
+		return string(types.ComponentStatusHealthy), nil
 	} else {
-		return string(types.ComponentStatusInfo)
+		return string(types.ComponentStatusInfo), nil
 	}
 }
 
@@ -215,6 +233,7 @@ func (component Component) Clone() Component {
 		Properties:   component.Properties,
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
+		StatusExpr:   component.StatusExpr,
 	}
 
 	copy(clone.LogSelectors, component.LogSelectors)
