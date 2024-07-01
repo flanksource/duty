@@ -45,7 +45,7 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 	Name:        lo.ToPtr("aks-pool-1"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	Status:      lo.ToPtr("Healthy"),
+	Status:      lo.ToPtr("healthy"),
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "aks-pool-1"}}`),
 	Tags: types.JSONStringMap{
 		"cluster":      "demo",
@@ -67,7 +67,7 @@ var KubernetesNodeA = models.ConfigItem{
 	ConfigClass: models.ConfigClassNode,
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	Status:      lo.ToPtr("Healthy"),
+	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -92,7 +92,7 @@ var KubernetesNodeB = models.ConfigItem{
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-b"}}`),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	Status:      lo.ToPtr("Healthy"),
+	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
