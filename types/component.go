@@ -57,6 +57,18 @@ type Summary struct {
 	processed bool `json:"-"`
 }
 
+func (t *Summary) AsEnv() map[string]any {
+	return map[string]any{
+		"healthy":   t.Healthy,
+		"unhealthy": t.Unhealthy,
+		"warning":   t.Warning,
+		"info":      t.Info,
+		"incidents": t.Incidents,
+		"insights":  t.Insights,
+		"checks":    t.Checks,
+	}
+}
+
 func (s *Summary) SetProcessed(val bool) {
 	s.processed = val
 }
