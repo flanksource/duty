@@ -33,7 +33,7 @@ func (opt TopologyOptions) selectClause() string {
 	}
 
 	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
-	return "name, namespace, id, is_leaf, status, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
+	return "name, namespace, id, is_leaf, status, status_expr, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
@@ -247,7 +247,10 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	response.Components = applyTypeFilter(response.Components, params.Types...)
 
 	if !params.Flatten {
-		response.Components = createComponentTree(params, response.Components)
+		response.Components, err = createComponentTree(params, response.Components)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if params.Depth <= 0 {
@@ -364,7 +367,7 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return newComponents
 }
 
-func generateTree(components models.Components, compChildrenMap map[string]models.Components) models.Components {
+func generateTree(components models.Components, compChildrenMap map[string]models.Components) (models.Components, error) {
 	var nodes models.Components
 
 	for _, c := range components {
@@ -377,21 +380,32 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 
 		c.NodeProcessed = true
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			c.Components = generateTree(children, compChildrenMap)
+			if cc, err := generateTree(children, compChildrenMap); err != nil {
+				return nil, err
+			} else {
+				c.Components = cc
+			}
 		}
 
 		// TODO: Depth is added to prevent cyclic stackoverflow
 		// Summary should be set after applyDepthFilter
 		// which dereferences pointer cycles
 		c.Summary = c.Summarize(10)
-		c.Status = types.ComponentStatus(c.GetStatus())
+
+		status, err := c.GetStatus()
+		if err != nil {
+			return nil, err
+		}
+
+		c.Status = types.ComponentStatus(status)
 
 		nodes = append(nodes, c)
 	}
-	return nodes
+
+	return nodes, nil
 }
 
-func createComponentTree(params TopologyOptions, components models.Components) []*models.Component {
+func createComponentTree(params TopologyOptions, components models.Components) ([]*models.Component, error) {
 	// ComponentID with its children
 	compChildrenMap := make(map[string]models.Components)
 	for _, c := range components {
@@ -429,8 +443,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		}
 	}
 
-	tree := generateTree(rootComps, compChildrenMap)
-	return tree
+	return generateTree(rootComps, compChildrenMap)
 }
 
 func applyTypeFilter(components []*models.Component, types ...string) []*models.Component {

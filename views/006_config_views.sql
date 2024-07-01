@@ -766,10 +766,12 @@ CREATE or REPLACE VIEW config_statuses AS
 -- for any changes on a selected list of tables.
 DROP FUNCTION IF EXISTS push_changes_to_event_queue CASCADE;
 
--- checks_by_config
+DROP VIEW IF EXISTS check_summary_by_config;
 DROP VIEW IF EXISTS checks_by_config;
-CREATE OR REPLACE VIEW
-  checks_by_config AS
+
+-- checks_by_config
+CREATE
+OR REPLACE VIEW checks_by_config AS
 SELECT
   check_config_relationships.config_id,
   checks.id,
@@ -777,11 +779,12 @@ SELECT
   checks.name,
   checks.severity,
   checks.status
-from
+FROM
   check_config_relationships
   INNER JOIN checks ON checks.id = check_config_relationships.check_id
 WHERE
-  check_config_relationships.deleted_at is null;
+  check_config_relationships.deleted_at IS NULL;
+
 
 -- check_summary_by_config
 CREATE OR REPLACE VIEW
