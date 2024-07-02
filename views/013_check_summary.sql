@@ -160,3 +160,14 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
   FROM
     agg_check_statuses
     JOIN checks ON checks.id = agg_check_statuses.check_id;
+
+-- check_summary_for_config
+CREATE OR REPLACE VIEW check_summary_for_config AS
+SELECT
+  check_config_relationships.config_id,
+  check_summary.*
+FROM
+  check_config_relationships
+  INNER JOIN check_summary on check_config_relationships.check_id = check_summary.id
+WHERE
+  check_config_relationships.deleted_at IS NULL;
