@@ -214,11 +214,11 @@ func (c ConfigItem) GetType() string {
 	return *c.Type
 }
 
-func (c ConfigItem) GetStatus() string {
+func (c ConfigItem) GetStatus() (string, error) {
 	if c.Status == nil {
-		return ""
+		return "", nil
 	}
-	return *c.Status
+	return *c.Status, nil
 }
 
 func (c ConfigItem) GetTagsMatcher() labels.Labels {

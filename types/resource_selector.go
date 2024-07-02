@@ -104,7 +104,11 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
 		return false
 	}
-	if len(rs.Statuses) > 0 && !rs.Statuses.Contains(s.GetStatus()) {
+
+	if status, err := s.GetStatus(); err != nil {
+		logger.Errorf("failed to get status: %v", err)
+		return false
+	} else if len(rs.Statuses) > 0 && !rs.Statuses.Contains(status) {
 		return false
 	}
 
@@ -187,5 +191,5 @@ type ResourceSelectable interface {
 	GetName() string
 	GetNamespace() string
 	GetType() string
-	GetStatus() string
+	GetStatus() (string, error)
 }

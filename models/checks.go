@@ -120,8 +120,8 @@ func (c Check) GetType() string {
 	return c.Type
 }
 
-func (c Check) GetStatus() string {
-	return string(c.Status)
+func (c Check) GetStatus() (string, error) {
+	return string(c.Status), nil
 }
 
 func (c Check) GetLabelsMatcher() labels.Labels {
