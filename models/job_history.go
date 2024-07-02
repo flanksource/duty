@@ -84,8 +84,12 @@ func (h *JobHistory) End() *JobHistory {
 	timeEnd := time.Now()
 	h.TimeEnd = &timeEnd
 	h.DurationMillis = timeEnd.Sub(h.TimeStart).Milliseconds()
-	h.Details = map[string]any{
-		"errors": h.Errors,
+
+	if len(h.Errors) > 0 {
+		if h.Details == nil {
+			h.Details = make(map[string]any)
+		}
+		h.Details["errors"] = h.Errors
 	}
 
 	h.evaluateStatus()
@@ -94,6 +98,14 @@ func (h *JobHistory) End() *JobHistory {
 
 func (h *JobHistory) Persist(db *gorm.DB) error {
 	return db.Save(h).Error
+}
+
+func (h *JobHistory) AddDetails(key string, val any) {
+	if h.Details == nil {
+		h.Details = make(map[string]any)
+	}
+
+	h.Details[key] = val
 }
 
 func (h *JobHistory) AddErrorf(msg string, args ...interface{}) *JobHistory {
