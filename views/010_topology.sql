@@ -195,6 +195,7 @@ CREATE OR REPLACE VIEW incident_summary_by_component AS
 
   SELECT id, jsonb_object_agg(key, value) as incidents FROM (select id, json_object_agg(type,json) incidents from type_summary group by id, type) i, json_each(incidents) group by id;
 
+-- Topology view
 CREATE OR REPLACE VIEW
   topology AS
 WITH
