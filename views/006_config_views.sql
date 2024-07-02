@@ -778,13 +778,14 @@ SELECT
   checks.type,
   checks.name,
   checks.severity,
-  checks.status
+  checks.status,
+  checks.icon,
+  checks.last_runtime
 FROM
   check_config_relationships
   INNER JOIN checks ON checks.id = check_config_relationships.check_id
 WHERE
   check_config_relationships.deleted_at IS NULL;
-
 
 -- check_summary_by_config
 CREATE OR REPLACE VIEW
