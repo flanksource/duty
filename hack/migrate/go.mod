@@ -3,7 +3,7 @@ module github.com/flanksource/duty/hack/migrate
 go 1.22.0
 
 require (
-	github.com/flanksource/commons v1.22.1
+	github.com/flanksource/commons v1.24.1
 	github.com/flanksource/duty v1.0.180
 	github.com/spf13/cobra v1.8.0
 )
@@ -40,7 +40,7 @@ require (
 	github.com/exaring/otelpgx v0.5.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flanksource/gomplate/v3 v3.24.2 // indirect
-	github.com/flanksource/is-healthy v0.0.0-20231003215854-76c51e3a3ff7 // indirect
+	github.com/flanksource/is-healthy v1.0.17 // indirect
 	github.com/flanksource/kommons v0.31.4 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/flanksource/postq v0.1.3 // indirect
