@@ -678,7 +678,8 @@ CREATE OR REPLACE VIEW config_detail AS
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
       'analysis', COALESCE(analysis.analysis_count, 0),
       'changes', COALESCE(config_changes.changes_count, 0),
-      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0)
+      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0),
+      'checks', COALESCE(config_checks.checks_count, 0)
     ) as summary
   FROM config_items as ci
     LEFT JOIN
@@ -703,7 +704,12 @@ CREATE OR REPLACE VIEW config_detail AS
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
         WHERE start_time > NOW() - interval '30 days'
         GROUP BY config_id) as playbook_runs
-      ON ci.id = playbook_runs.config_id;
+      ON ci.id = playbook_runs.config_id
+    LEFT JOIN 
+      (SELECT config_id, count(*) as checks_count from check_config_relationships
+        WHERE deleted_at IS NULL
+        GROUP BY config_id) as config_checks
+      ON ci.id = config_checks.config_id;
 
 --- config_path is a function that given a config id returns its path by walking the tree recursively up using the parent id and then joining the ids with a `.`
 CREATE OR REPLACE FUNCTION config_path(UUID)
