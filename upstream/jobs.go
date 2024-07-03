@@ -3,7 +3,9 @@ package upstream
 import (
 	gocontext "context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flanksource/duty/api"
@@ -44,49 +46,171 @@ var (
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
 )
 
-var reconciledTables = []pushableTable{
-	models.Topology{},
-	models.ConfigScraper{},
-	models.Canary{},
-	models.Artifact{},
-
-	models.ConfigItem{},
-	models.Check{},
-	models.Component{},
-
-	models.ConfigChange{},
-	models.ConfigAnalysis{},
-	models.CheckStatus{},
-
-	models.CheckComponentRelationship{},
-	models.CheckConfigRelationship{},
-	models.ComponentRelationship{},
-	models.ConfigComponentRelationship{},
-	models.ConfigRelationship{},
-
-	models.JobHistory{},
+type ReconcileTableSummary struct {
+	Success   int   `json:"success,omitempty"`
+	FKeyError int   `json:"foreign_error,omitempty"`
+	Skipped   bool  `json:"skipped,omitempty"`
+	Error     error `json:"error,omitempty"`
 }
 
-func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) (int, int, error) {
-	return ReconcileSome(ctx, config, batchSize)
-}
+type ReconcileSummary map[string]ReconcileTableSummary
 
-func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) (int, int, error) {
-	var count, fkFailed int
-	for _, table := range reconciledTables {
-		if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
-			continue
+// DidReconcile returns true if all of the given tables
+// reconciled successfully.
+func (t ReconcileSummary) DidReconcile(tables []string) bool {
+	if len(tables) == 0 {
+		return true
+	}
+
+	if t == nil {
+		return false // nothing has been reconciled yet
+	}
+
+	for _, table := range tables {
+		summary, ok := t[table]
+		if !ok {
+			return false // this table hasn't been reconciled yet
 		}
 
-		success, failed, err := reconcileTable(ctx, config, table, batchSize)
-		count += success
-		fkFailed += failed
-		if err != nil {
-			return count, fkFailed, fmt.Errorf("failed to reconcile table %s: %w", table.TableName(), err)
+		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError == 0
+		if !reconciled {
+			return false // table didn't reconcile successfully
 		}
 	}
 
-	return count, fkFailed, nil
+	return true
+}
+
+func (t ReconcileSummary) GetSuccessFailure() (int, int) {
+	var success, failure int
+	for _, summary := range t {
+		success += summary.Success
+		failure += summary.FKeyError
+	}
+	return success, failure
+}
+
+func (t *ReconcileSummary) AddSkipped(tables ...pushableTable) {
+	if t == nil || (*t) == nil {
+		(*t) = make(ReconcileSummary)
+	}
+
+	for _, table := range tables {
+		v := (*t)[table.TableName()]
+		v.Skipped = true
+		(*t)[table.TableName()] = v
+	}
+}
+
+func (t *ReconcileSummary) AddStat(table string, success, failed int, err error) {
+	if t == nil || (*t) == nil {
+		(*t) = make(ReconcileSummary)
+	}
+
+	v := (*t)[table]
+	v.Success = success
+	v.FKeyError = failed
+	v.Error = err
+	(*t)[table] = v
+}
+
+func (t ReconcileSummary) Error() error {
+	var allErrors []string
+	for table, summary := range t {
+		if summary.Error != nil {
+			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
+		}
+	}
+
+	if len(allErrors) == 0 {
+		return nil
+	}
+
+	return errors.New(strings.Join(allErrors, ";"))
+}
+
+// PushGroup are a set of tables that need to be reconciled in order.
+// If one fails, the rest are skipped.
+type PushGroup struct {
+	Name   string
+	Tables []pushableTable
+
+	// DependsOn is a list of tables that need to be reconciled
+	// for this group to be reconciled.
+	DependsOn []string
+}
+
+var reconcileTableGroups = []PushGroup{
+	{
+		Name:   "topologies",
+		Tables: []pushableTable{models.Topology{}, models.Component{}, models.ComponentRelationship{}},
+	},
+	{
+		Name:   "configs",
+		Tables: []pushableTable{models.ConfigScraper{}, models.ConfigItem{}, models.ConfigChange{}, models.ConfigAnalysis{}, models.ConfigRelationship{}},
+	},
+	{
+		Name:   "canaries",
+		Tables: []pushableTable{models.Canary{}, models.Check{}, models.CheckStatus{}},
+	},
+	{
+		Name:      "CheckComponentRelationship",
+		Tables:    []pushableTable{models.CheckComponentRelationship{}},
+		DependsOn: []string{models.Check{}.TableName(), models.Component{}.TableName()},
+	},
+	{
+		Name:      "CheckConfigRelationship",
+		Tables:    []pushableTable{models.CheckConfigRelationship{}},
+		DependsOn: []string{models.Check{}.TableName(), models.ConfigItem{}.TableName()},
+	},
+	{
+		Name:      "ConfigComponentRelationship",
+		Tables:    []pushableTable{models.ConfigComponentRelationship{}},
+		DependsOn: []string{models.ConfigItem{}.TableName(), models.Component{}.TableName()},
+	},
+	{
+		Name:   "JobHistory",
+		Tables: []pushableTable{models.JobHistory{}},
+	},
+	{
+		Name:   "Artifact",
+		Tables: []pushableTable{models.Artifact{}},
+	},
+}
+
+func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) ReconcileSummary {
+	return ReconcileSome(ctx, config, batchSize)
+}
+
+func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) ReconcileSummary {
+	var summary ReconcileSummary
+
+	for _, group := range reconcileTableGroups {
+		if !summary.DidReconcile(group.DependsOn) {
+			summary.AddSkipped(group.Tables...)
+			continue
+		}
+
+	outer:
+		for i, table := range group.Tables {
+			if len(runOnly) > 0 && !lo.Contains(runOnly, table.TableName()) {
+				continue
+			}
+
+			success, failed, err := reconcileTable(ctx, config, table, batchSize)
+			summary.AddStat(table.TableName(), success, failed, err)
+			if err != nil {
+				if i != len(group.Tables)-1 {
+					// If there are remaining tables in this group, skip them.
+					summary.AddSkipped(group.Tables[i+1:]...)
+				}
+
+				break outer
+			}
+		}
+	}
+
+	return summary
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
