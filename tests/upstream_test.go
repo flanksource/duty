@@ -87,8 +87,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(totalConfigsPushed).To(BeZero(), "upstream should have 0 config items as we haven't reconciled yet")
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
-		Expect(err).To(HaveOccurred())
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
+		Expect(summary.Error()).To(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(Equal(2), "logistics replicaset & pod should fail to be synced")
 		Expect(count).To(Not(BeZero()))
 
@@ -109,8 +110,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		}
 
 		{
-			count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
-			Expect(err).To(BeNil())
+			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
+			Expect(summary.Error()).To(BeNil())
+			count, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
 			Expect(count).To(Not(BeZero()))
 
@@ -134,8 +136,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(changes).To(BeZero())
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
-		Expect(err).ToNot(HaveOccurred())
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigChange{}).Scan(&changes).Error
@@ -171,9 +174,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(totalComponents).To(BeZero(), "upstream should have 0 components as we haven't reconciled yet")
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
-		Expect(err).To(HaveOccurred())
-
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+		Expect(summary.Error()).To(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(Equal(4), "logistics api, ui, database & worker should fail to be synced")
 		Expect(count).To(Not(BeZero()))
 
@@ -194,8 +197,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		}
 
 		{
-			count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
-			Expect(err).To(BeNil())
+			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+			Expect(summary.Error()).ToNot(HaveOccurred())
+			count, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
 			Expect(count).To(Not(BeZero()))
 
@@ -219,8 +223,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(analyses).To(BeZero())
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
-		Expect(err).ToNot(HaveOccurred())
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
@@ -246,8 +251,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(artifacts).To(BeZero())
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
-		Expect(err).ToNot(HaveOccurred())
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
@@ -271,8 +277,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upstreamCount).To(BeZero())
 
-		count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
-		Expect(err).ToNot(HaveOccurred())
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(BeZero())
 
 		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.JobHistory{}).Scan(&upstreamCount).Error
@@ -367,8 +374,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 						Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
 					Expect(err).To(BeNil())
 
-					_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
-					Expect(err).To(HaveOccurred())
+					summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
+					Expect(summary.Error()).To(HaveOccurred())
+					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeNumerically(">", 0))
 
 					// After reconciliation, those config items should have been marked as unpushed.
@@ -427,12 +435,13 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 			})
 
 			ginkgo.It("should reconcile the above canary & checks", func() {
-				_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
-				Expect(err).To(BeNil())
+				summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
+				Expect(summary.Error()).ToNot(HaveOccurred())
+				_, fkFailed := summary.GetSuccessFailure()
 				Expect(fkFailed).To(BeZero())
 
 				var canaryCount int
-				err = DefaultContext.DB().Model(&models.Canary{}).Select("Count(*)").Where("id IN ?", []uuid.UUID{httpCanary.ID, tcpCanary.ID}).Where("is_pushed = ?", true).Scan(&canaryCount).Error
+				err := DefaultContext.DB().Model(&models.Canary{}).Select("Count(*)").Where("id IN ?", []uuid.UUID{httpCanary.ID, tcpCanary.ID}).Where("is_pushed = ?", true).Scan(&canaryCount).Error
 				Expect(err).To(BeNil())
 				Expect(canaryCount).To(Equal(2))
 
@@ -450,8 +459,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 					err = DefaultContext.DB().Model(&models.Check{}).Where("id IN ?", []uuid.UUID{httpChecks.ID, tcpCheck.ID}).Update("is_pushed", false).Error
 					Expect(err).To(BeNil())
 
-					_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
-					Expect(err).To(Not(BeNil()))
+					summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
+					Expect(summary.Error()).To(HaveOccurred())
+					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeNumerically(">", 0))
 
 					// We expect the http check to have been marked as pushed
@@ -473,8 +483,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 				})
 
 				ginkgo.It("The next round of reconciliation should have no error", func() {
-					_, fkFailed, err := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
-					Expect(err).To(BeNil())
+					summary := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
+					Expect(summary.Error()).ToNot(HaveOccurred())
+					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeZero())
 				})
 			})
@@ -483,12 +494,13 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should handle updates", func() {
 		ginkgo.It("ensure all the topologies & canaries have been pushed", func() {
-			_, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
-			Expect(err).To(BeNil())
+			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			Expect(summary.Error()).To(BeNil())
+			_, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
 
 			var unpushedCanaries int
-			err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
+			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Canary{}).Scan(&unpushedCanaries).Error
 			Expect(err).To(BeNil())
 			Expect(unpushedCanaries).To(BeZero())
 
@@ -506,8 +518,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
 			err = DefaultContext.DB().Model(&models.Canary{}).Where("is_pushed = ?", true).Update("is_pushed", false).Error
 			Expect(err).To(BeNil())
 
-			count, fkFailed, err := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
-			Expect(err).To(BeNil())
+			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			Expect(summary.Error()).To(BeNil())
+			count, fkFailed := summary.GetSuccessFailure()
 			Expect(count).To(Not(BeZero()))
 			Expect(fkFailed).To(BeZero())
 
