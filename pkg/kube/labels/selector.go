@@ -161,9 +161,6 @@ type Requirement struct {
 func NewRequirement(key string, op selection.Operator, vals []string, opts ...field.PathOption) (*Requirement, error) {
 	var allErrs field.ErrorList
 	path := field.ToPath(opts...)
-	if err := validateLabelKey(key, path.Child("key")); err != nil {
-		allErrs = append(allErrs, err)
-	}
 
 	valuePath := path.Child("values")
 	switch op {
@@ -718,9 +715,6 @@ func (p *Parser) parseKeyAndInferOperator() (string, selection.Operator, error) 
 	}
 	if tok != IdentifierToken {
 		err := fmt.Errorf("found '%s', expected: identifier", literal)
-		return "", "", err
-	}
-	if err := validateLabelKey(literal, p.path); err != nil {
 		return "", "", err
 	}
 	if t, _ := p.lookahead(Values); t == EndOfStringToken || t == CommaToken {
