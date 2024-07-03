@@ -321,7 +321,11 @@ func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm
 	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s = ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			if r.Key() == "external_id" {
+				q = q.Where(fmt.Sprintf("? = ANY(%s)", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			} else {
+				q = q.Where(fmt.Sprintf("%s = ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			}
 		}
 	case selection.NotEquals:
 		for val := range r.Values() {
