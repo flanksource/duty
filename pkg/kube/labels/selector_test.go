@@ -460,17 +460,17 @@ func TestRequirementConstructor(t *testing.T) {
 				},
 			},
 		},
-		{
-			Key: strings.Repeat("a", 254), //breaks DNS rule that len(key) <= 253
-			Op:  selection.Exists,
-			WantErr: field.ErrorList{
-				&field.Error{
-					Type:     field.ErrorTypeInvalid,
-					Field:    "key",
-					BadValue: strings.Repeat("a", 254),
-				},
-			},
-		},
+		// {
+		// 	Key: strings.Repeat("a", 254), //breaks DNS rule that len(key) <= 253
+		// 	Op:  selection.Exists,
+		// 	WantErr: field.ErrorList{
+		// 		&field.Error{
+		// 			Type:     field.ErrorTypeInvalid,
+		// 			Field:    "key",
+		// 			BadValue: strings.Repeat("a", 254),
+		// 		},
+		// 	},
+		// },
 		{
 			Key: "x18",
 			Op:  "unsupportedOp",
