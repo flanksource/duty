@@ -3,7 +3,7 @@ module github.com/flanksource/duty/hack/migrate
 go 1.22.0
 
 require (
-	github.com/flanksource/commons v1.22.1
+	github.com/flanksource/commons v1.24.2
 	github.com/flanksource/duty v1.0.180
 	github.com/spf13/cobra v1.8.0
 )
@@ -40,7 +40,7 @@ require (
 	github.com/exaring/otelpgx v0.5.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flanksource/gomplate/v3 v3.24.2 // indirect
-	github.com/flanksource/is-healthy v0.0.0-20231003215854-76c51e3a3ff7 // indirect
+	github.com/flanksource/is-healthy v1.0.18 // indirect
 	github.com/flanksource/kommons v0.31.4 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/flanksource/postq v0.1.3 // indirect
@@ -126,7 +126,7 @@ require (
 	github.com/robertkrimen/otto v0.2.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/samber/lo v1.39.0 // indirect
+	github.com/samber/lo v1.44.0 // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -164,7 +164,7 @@ require (
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.169.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
