@@ -399,13 +399,13 @@ type ConfigChange struct {
 	ID               string     `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
 	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
 	ChangeType       string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
-	Severity         Severity   `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
-	Source           string     `gorm:"column:source" json:"source"`
-	Summary          string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
+	Severity         Severity   `json:"severity"  faker:"oneof: critical, high, medium, low, info"`
+	Source           string     `json:"source"`
+	Summary          string     `json:"summary,omitempty"`
 	Patches          string     `gorm:"column:patches;default:null" json:"patches,omitempty"`
 	Diff             string     `gorm:"column:diff;default:null" json:"diff,omitempty"`
-	Details          types.JSON `gorm:"column:details" json:"details,omitempty"`
-	CreatedAt        *time.Time `gorm:"column:created_at" json:"created_at"`
+	Details          types.JSON `json:"details,omitempty"`
+	CreatedAt        *time.Time `json:"created_at"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
