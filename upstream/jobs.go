@@ -103,6 +103,10 @@ func (t *ReconcileSummary) AddSkipped(tables ...pushableTable) {
 }
 
 func (t *ReconcileSummary) AddStat(table string, success, failed int, err error) {
+	if success == 0 && failed == 0 && err == nil {
+		return
+	}
+
 	if t == nil || (*t) == nil {
 		(*t) = make(ReconcileSummary)
 	}
