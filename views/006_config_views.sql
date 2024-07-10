@@ -447,10 +447,10 @@ IF type_filter = 'outgoing' THEN
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          parent.related_id as config_id, child.related_id, child.relation, 'outgoing', parent.depth +1
+          parent.related_id as config_id, child.related_id, child.relation, 'outgoing', parent.depth + 1
           FROM config_relationships child, cte parent
           WHERE child.config_id = parent.related_id
-            AND parent.depth <= max_depth
+            AND parent.depth < max_depth
             AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
@@ -467,10 +467,10 @@ ELSIF type_filter = 'incoming' THEN
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          child.config_id, child.related_id as related_id, child.relation, 'incoming', parent.depth +1
+          child.config_id, child.related_id as related_id, child.relation, 'incoming', parent.depth + 1
           FROM config_relationships child, cte parent
           WHERE child.related_id = parent.config_id
-            AND parent.depth <= max_depth
+            AND parent.depth < max_depth
             AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path

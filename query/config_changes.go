@@ -19,8 +19,11 @@ import (
 const (
 	CatalogChangeRecursiveUpstream   = "upstream"
 	CatalogChangeRecursiveDownstream = "downstream"
+	CatalogChangeRecursiveNone       = "none"
 	CatalogChangeRecursiveAll        = "all"
 )
+
+var allRecursiveOptions = []string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveNone, CatalogChangeRecursiveAll}
 
 var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
 
@@ -143,8 +146,8 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
-	if !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
-		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
+	if !lo.Contains(allRecursiveOptions, t.Recursive) {
+		return fmt.Errorf("'recursive' must be one of %s", strings.Join(allRecursiveOptions, ", "))
 	}
 
 	if t.From != "" {
