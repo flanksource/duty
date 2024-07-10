@@ -32,7 +32,6 @@ var _ = ginkgo.Describe("Config Generator", ginkgo.Ordered, func() {
 	}
 
 	ginkgo.BeforeAll(func() {
-		DefaultContext.DB().Exec("TRUNCATE config_items CASCADE")
 		generator.GenerateKubernetes()
 		Expect(generator.Save(DefaultContext.DB())).To(BeNil())
 	})

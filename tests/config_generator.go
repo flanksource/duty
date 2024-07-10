@@ -51,6 +51,17 @@ type Generated struct {
 	Relationships []models.ConfigRelationship
 }
 
+func (t *Generated) ConfigByTypes(configType ...string) []models.ConfigItem {
+	output := make([]models.ConfigItem, 0)
+	for _, config := range t.Configs {
+		if lo.Contains(configType, *config.Type) && config.DeletedAt == nil {
+			output = append(output, config)
+		}
+	}
+
+	return output
+}
+
 func (t *Generated) Total() int {
 	return len(t.Configs) + len(t.Changes) + len(t.Analysis) + len(t.Relationships)
 }
