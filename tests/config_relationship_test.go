@@ -518,47 +518,71 @@ var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
 		assertConfigCount("", DeleteFilterNone, 0)
 	})
 
-	ginkgo.It("should fetch level 1", func() {
-		cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
-		var relatedConfigs []RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 1, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
+	ginkgo.Context("cluster relationship", func() {
+		ginkgo.It("should fetch level 1", func() {
+			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 1, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
 
-		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-		expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
-		Expect(relatedIDs).To(ConsistOf(expected))
+			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+			expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
+			Expect(relatedIDs).To(ConsistOf(expected))
+		})
+
+		ginkgo.It("should fetch level 2", func() {
+			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 2, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+
+			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+			expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
+			Expect(relatedIDs).To(ConsistOf(expected))
+		})
+
+		ginkgo.It("should fetch level 3", func() {
+			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 3, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+
+			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+			expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment", "Kubernetes::ReplicaSet"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
+			Expect(relatedIDs).To(ConsistOf(expected))
+		})
+
+		ginkgo.It("should fetch level 4", func() {
+			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 4, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+
+			relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+			expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment", "Kubernetes::ReplicaSet", "Kubernetes::Pod"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
+			Expect(relatedIDs).To(ConsistOf(expected))
+		})
 	})
 
-	ginkgo.It("should fetch level 2", func() {
-		cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
-		var relatedConfigs []RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 2, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
+	ginkgo.Context("deployment relationship", func() {
+		ginkgo.It("should fetch level 1", func() {
+			dep := generator.Generated.ConfigByTypes("Kubernetes::Deployment")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 1, 'hard', 'hard')", dep.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
 
-		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-		expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
-		Expect(relatedIDs).To(ConsistOf(expected))
-	})
+			relatedTypes := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) string { return rc.Type })
+			Expect(lo.Uniq(relatedTypes)).To(ConsistOf([]string{"Kubernetes::Deployment", "Kubernetes::ReplicaSet"}))
+		})
 
-	ginkgo.It("should fetch level 3", func() {
-		cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
-		var relatedConfigs []RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 3, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
+		ginkgo.It("should fetch level 2", func() {
+			dep := generator.Generated.ConfigByTypes("Kubernetes::Deployment")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 2, 'hard', 'hard')", dep.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
 
-		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-		expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment", "Kubernetes::ReplicaSet"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
-		Expect(relatedIDs).To(ConsistOf(expected))
-	})
-
-	ginkgo.It("should fetch level 4", func() {
-		cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
-		var relatedConfigs []RelatedConfig
-		err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 4, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
-		Expect(err).To(BeNil())
-
-		relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
-		expected := lo.Map(generator.Generated.ConfigByTypes("Kubernetes::Cluster", "Kubernetes::Node", "Kubernetes::Namespace", "Kubernetes::Deployment", "Kubernetes::ReplicaSet", "Kubernetes::Pod"), func(c models.ConfigItem, _ int) uuid.UUID { return c.ID })
-		Expect(relatedIDs).To(ConsistOf(expected))
+			relatedTypes := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) string { return rc.Type })
+			Expect(lo.Uniq(relatedTypes)).To(ConsistOf([]string{"Kubernetes::Deployment", "Kubernetes::ReplicaSet", "Kubernetes::Pod"}))
+		})
 	})
 })
