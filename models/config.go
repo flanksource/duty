@@ -143,6 +143,14 @@ func (t ConfigItem) PK() string {
 	return t.ID.String()
 }
 
+func (t ConfigItem) PKCols() []clause.Column {
+	return []clause.Column{{Name: "id"}}
+}
+
+func (c ConfigItem) Value() any {
+	return &c
+}
+
 func (ConfigItem) TableName() string {
 	return "config_items"
 }

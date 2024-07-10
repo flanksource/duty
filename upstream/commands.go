@@ -168,9 +168,10 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	// config items are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
-	if err := saveIndividuallyWithRetries(ctx, req.ConfigItems, saveRetries); err != nil {
-		return fmt.Errorf("error upserting components: %w", err)
+	if len(req.ConfigItems) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ConfigItems, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ConfigItems, func(i models.ConfigItem, _ int) models.ExtendedDBTable { return i }), err)
+		}
 	}
 
 	if len(req.ConfigRelationships) > 0 {
