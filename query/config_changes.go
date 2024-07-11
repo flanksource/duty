@@ -39,8 +39,8 @@ type CatalogChangesSearchRequest struct {
 	Source                string `query:"source" json:"source"`
 	Tags                  string `query:"tags" json:"tags"`
 
-	// AgentID when blank applies the local agent_id.
-	// To Fetch from all agents, use the keyword `all`
+	// To Fetch from a particular agent, provide the agent id.
+	// Use `local` keyword to filter by the local agent.
 	AgentID string `query:"agent_id" json:"agent_id"`
 
 	createdBy         *uuid.UUID
@@ -140,7 +140,7 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 		t.Depth = 5
 	}
 
-	if t.AgentID == "" {
+	if t.AgentID == "local" {
 		t.AgentID = uuid.Nil.String()
 	}
 }
@@ -189,9 +189,9 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		}
 	}
 
-	if t.AgentID != "all" {
+	if t.AgentID != "" {
 		if _, err := uuid.Parse(t.AgentID); err != nil {
-			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `all`", t.AgentID)
+			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `local`", t.AgentID)
 		}
 	}
 
@@ -264,7 +264,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	query := ctx.DB()
 
-	if req.AgentID != "all" {
+	if req.AgentID != "" {
 		clause, err := parseAndBuildFilteringQuery(req.AgentID, "agent_id", false)
 		if err != nil {
 			return nil, err
