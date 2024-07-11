@@ -12,7 +12,7 @@ require (
 	github.com/eko/gocache/store/go_cache/v4 v4.2.1
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.22.1
+	github.com/flanksource/commons v1.24.2
 	github.com/flanksource/gomplate/v3 v3.24.2
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.3
@@ -36,7 +36,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rodaine/table v1.1.0
-	github.com/samber/lo v1.39.0
+	github.com/samber/lo v1.44.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/spf13/pflag v1.0.5
 	github.com/timberio/go-datemath v0.1.0
@@ -86,7 +86,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/flanksource/is-healthy v0.0.0-20231003215854-76c51e3a3ff7 // indirect
+	github.com/flanksource/is-healthy v1.0.18 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -188,14 +188,14 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/crypto v0.23.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.20.0 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/api v0.169.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9 // indirect
