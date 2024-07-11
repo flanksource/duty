@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// +kubebuilder:object:generate=true
 type TLSConfig struct {
 	// InsecureSkipVerify controls whether a client verifies the server's
 	// certificate chain and host name
@@ -31,6 +32,7 @@ func (t TLSConfig) IsEmpty() bool {
 	return t.CA.IsEmpty() || t.Cert.IsEmpty() || t.Key.IsEmpty()
 }
 
+// +kubebuilder:object:generate=true
 type HTTPConnection struct {
 	types.Authentication `json:",inline"`
 	URL                  string       `json:"url,omitempty" yaml:"url,omitempty"`
