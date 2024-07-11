@@ -52,6 +52,7 @@ func (in *RelationshipSelectorTemplate) DeepCopyInto(out *RelationshipSelectorTe
 	out.Namespace = in.Namespace
 	out.Type = in.Type
 	out.Agent = in.Agent
+	out.Scope = in.Scope
 	if in.Labels != nil {
 		in, out := &in.Labels, &out.Labels
 		*out = make(map[string]string, len(*in))

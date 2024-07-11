@@ -140,6 +140,19 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
 
+	if resourceSelector.Scope != "" {
+		switch table {
+		case "checks":
+			query = query.Where("canary_id = ?", resourceSelector.Scope)
+		case "config_items":
+			query = query.Where("scraper_id = ?", resourceSelector.Scope)
+		case "components":
+			query = query.Where("topology_id = ?", resourceSelector.Scope)
+		default:
+			return api.Errorf(api.EINVALID, "scope is not supported for %s", table)
+		}
+	}
+
 	if resourceSelector.Agent == "" {
 		query = query.Where("agent_id = ?", uuid.Nil)
 	} else if resourceSelector.Agent == "all" {

@@ -22,6 +22,12 @@ type ResourceSelector struct {
 	//  Additionally, the special "self" value can be used to select resources without an agent.
 	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
 
+	// Scope is the id parent of the resource to select.
+	// Example: For config items, the scope is the scraper id
+	// - for checks, it's canaries and
+	// - for components, it's topology.
+	Scope string
+
 	// Cache directives
 	//  'no-cache' (should not fetch from cache but can be cached)
 	//  'no-store' (should not cache)
@@ -41,7 +47,8 @@ type ResourceSelector struct {
 }
 
 func (c ResourceSelector) IsEmpty() bool {
-	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && len(c.Types) == 0 &&
+	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" &&
+		len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
 		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
@@ -77,6 +84,7 @@ func (c ResourceSelector) Hash() string {
 		c.Name,
 		c.Namespace,
 		c.Agent,
+		c.Scope,
 		strings.Join(c.Types.Sort(), ","),
 		strings.Join(c.Statuses.Sort(), ","),
 		collections.SortedMap(collections.SelectorToMap(c.TagSelector)),
