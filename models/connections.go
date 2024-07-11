@@ -123,16 +123,6 @@ func (c Connection) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
 
-// Auth method only works for a hydrated connection
-func (c Connection) Auth() (types.Authentication, error) {
-	auth := types.Authentication{}
-	auth.Username.ValueStatic = c.Username
-	auth.Password.ValueStatic = c.Password
-	auth.Bearer.ValueStatic = c.Properties["bearer"]
-	err := auth.OAuth.PopulateFromProperties(c.Properties)
-	return auth, err
-}
-
 func (c Connection) Merge(ctx types.GetEnvVarFromCache, from any) (*Connection, error) {
 	if v, ok := from.(types.WithUsernamePassword); ok {
 		username := v.GetUsername()
