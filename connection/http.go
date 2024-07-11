@@ -36,14 +36,14 @@ func (t TLSConfig) IsEmpty() bool {
 type HTTPConnection struct {
 	ConnectionName       string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.Authentication `json:",inline"`
-	URL                  string       `json:"url,omitempty" yaml:"url,omitempty"`
+	URL                  types.EnvVar `json:"url,omitempty" yaml:"url,omitempty"`
 	Bearer               types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
 	OAuth                types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
 	TLS                  TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
 }
 
 func (h HTTPConnection) GetEndpoint() string {
-	return h.URL
+	return h.URL.String()
 }
 
 func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTPConnection, error) {
@@ -51,7 +51,7 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 	if h.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(h.ConnectionName)
 		if err != nil {
-			return h, fmt.Errorf("could not parse EC2 access key: %v", err)
+			return h, fmt.Errorf("could not hydrate connection[%s]: %w", h.ConnectionName, err)
 		}
 		if connection == nil {
 			return h, fmt.Errorf("connection[%s] not found", h.ConnectionName)
@@ -60,6 +60,11 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		if err != nil {
 			return h, fmt.Errorf("error creating connection from model: %w", err)
 		}
+	}
+
+	h.URL.ValueStatic, err = ctx.GetEnvValueFromCache(h.URL, namespace)
+	if err != nil {
+		return h, err
 	}
 
 	h.Authentication.Username.ValueStatic, err = ctx.GetEnvValueFromCache(h.Authentication.Username, namespace)
@@ -137,6 +142,9 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 	var httpConn HTTPConnection
 	switch conn.Type {
 	case models.ConnectionTypeHTTP:
+		if err := httpConn.URL.Scan(conn.URL); err != nil {
+			return httpConn, fmt.Errorf("error scanning url: %w", err)
+		}
 		if err := httpConn.Username.Scan(conn.Username); err != nil {
 			return httpConn, fmt.Errorf("error scanning username: %w", err)
 		}
