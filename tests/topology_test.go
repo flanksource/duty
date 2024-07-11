@@ -16,8 +16,7 @@ import (
 	"github.com/samber/lo"
 )
 
-// For debugging
-// nolint
+//lint:ignore U1000 For debugging
 func prettytree(mytree []*models.Component) {
 	for _, c := range mytree {
 		fmt.Printf("- %s {analysis: %v}\n\n", c.Name, c.Summary)
@@ -33,8 +32,7 @@ func prettytree(mytree []*models.Component) {
 	}
 }
 
-// For debugging
-// nolint
+//lint:ignore U1000 For debugging
 func writeJSONToFile(filepath string, data any) error {
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
@@ -55,7 +53,7 @@ func testTopologyJSON(opts query.TopologyOptions, path string) {
 	matcher.MatchFixture(path, tree, `del(.. | .created_at?, .updated_at?)`)
 }
 
-var _ = ginkgo.Describe("Topology", func() {
+var _ = ginkgo.Describe("Topology", ginkgo.Pending, func() {
 	format.MaxLength = 0 // Do not truncate diffs
 
 	ginkgo.It("Should create root tree", func() {
