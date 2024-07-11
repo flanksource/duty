@@ -26,7 +26,7 @@ type ResourceSelector struct {
 	// Example: For config items, the scope is the scraper id
 	// - for checks, it's canaries and
 	// - for components, it's topology.
-	Scope string
+	Scope string `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// Cache directives
 	//  'no-cache' (should not fetch from cache but can be cached)
