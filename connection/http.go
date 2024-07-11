@@ -1,11 +1,11 @@
 package connection
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/http/middlewares"
 	"github.com/flanksource/duty/models"
@@ -150,23 +150,25 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 			}
 		}
 
-		if oauthClientID := conn.Properties["oauth_client_id"]; oauthClientID != "" {
+		if oauthClientID := conn.Properties["clientID"]; oauthClientID != "" {
 			if err := httpConn.OAuth.ClientID.Scan(oauthClientID); err != nil {
 				return httpConn, fmt.Errorf("error scanning oauth_client_id: %w", err)
 			}
 		}
-		if oauthClientSecret := conn.Properties["oauth_client_secret"]; oauthClientSecret != "" {
+		if oauthClientSecret := conn.Properties["clientSecret"]; oauthClientSecret != "" {
 			if err := httpConn.OAuth.ClientSecret.Scan(oauthClientSecret); err != nil {
 				return httpConn, fmt.Errorf("error scanning oauth_client_secret: %w", err)
 			}
 		}
-		if oauthTokenURL := conn.Properties["oauth_token_url"]; oauthTokenURL != "" {
+		if oauthTokenURL := conn.Properties["tokenURL"]; oauthTokenURL != "" {
 			httpConn.OAuth.TokenURL = oauthTokenURL
 		}
-		if oauthParams := conn.Properties["oauth_params"]; oauthParams != "" {
-			httpConn.OAuth.Params = collections.KeyValueSliceToMap(strings.Split(oauthParams, ","))
+		if oauthParams := conn.Properties["params"]; oauthParams != "" {
+			if err := json.Unmarshal([]byte(oauthParams), &httpConn.OAuth.Params); err != nil {
+				return httpConn, fmt.Errorf("error unmarshaling params:%s in oauth: %w", oauthParams, err)
+			}
 		}
-		if oauthScopes := conn.Properties["oauth_scopes"]; oauthScopes != "" {
+		if oauthScopes := conn.Properties["scopes"]; oauthScopes != "" {
 			httpConn.OAuth.Scopes = strings.Split(oauthScopes, ",")
 		}
 
