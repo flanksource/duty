@@ -57,10 +57,16 @@ type RelationshipSelector struct {
 	Type       string            `json:"type,omitempty"`
 	Agent      string            `json:"agent,omitempty"`
 	Labels     map[string]string `json:"labels,omitempty"`
+
+	// Scope is the id parent of the resource to select.
+	// Example: For config items, the scope is the scraper id
+	// - for checks, it's canaries and
+	// - for components, it's topology.
+	Scope string `json:"scope,omitempty"`
 }
 
 func (t *RelationshipSelector) IsEmpty() bool {
-	return t.ID == "" && t.ExternalID == "" && t.Name == "" && t.Namespace == "" && t.Type == "" && t.Agent == "" && len(t.Labels) == 0
+	return t.ID == "" && t.ExternalID == "" && t.Name == "" && t.Namespace == "" && t.Type == "" && t.Agent == "" && len(t.Labels) == 0 && t.Scope == ""
 }
 
 func (t *RelationshipSelector) ToResourceSelector() types.ResourceSelector {
@@ -72,6 +78,7 @@ func (t *RelationshipSelector) ToResourceSelector() types.ResourceSelector {
 
 	rs := types.ResourceSelector{
 		ID:            t.ID,
+		Scope:         t.Scope,
 		Name:          t.Name,
 		Agent:         t.Agent,
 		LabelSelector: labelSelector,
@@ -94,16 +101,27 @@ type RelationshipSelectorTemplate struct {
 	Name       Lookup `json:"name,omitempty"`
 	Namespace  Lookup `json:"namespace,omitempty"`
 	Type       Lookup `json:"type,omitempty"`
+
 	// Agent can be one of
 	//  - agent id
 	//  - agent name
 	//  - 'self' (no agent)
-	Agent  Lookup            `json:"agent,omitempty"`
+	Agent Lookup `json:"agent,omitempty"`
+
+	// Scope is the id of the parent of the resource to select.
+	// Example: For config items, the scope is the scraper id
+	// - for checks, it's canaries and
+	// - for components, it's topology.
+	// If left empty, the scope is the requester's scope.
+	// Use `all` to disregard scope.
+	Scope Lookup `json:"scope,omitempty"`
+
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
 func (t *RelationshipSelectorTemplate) IsEmpty() bool {
-	return t.ID.IsEmpty() && t.ExternalID.IsEmpty() && t.Name.IsEmpty() && t.Namespace.IsEmpty() && t.Type.IsEmpty() && t.Agent.IsEmpty() && len(t.Labels) == 0
+	return t.ID.IsEmpty() && t.ExternalID.IsEmpty() && t.Name.IsEmpty() && t.Namespace.IsEmpty() &&
+		t.Scope.IsEmpty() && t.Type.IsEmpty() && t.Agent.IsEmpty() && len(t.Labels) == 0
 }
 
 // Eval evaluates the template and returns a RelationshipSelector.
@@ -121,7 +139,7 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.ID.IsEmpty() {
 		if output.ID, err = t.ID.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate id: %v for config relationship: %w", t.ID, err)
+			return nil, fmt.Errorf("failed to evaluate id: %v for relationship: %w", t.ID, err)
 		} else if output.ID == "" {
 			return nil, nil
 		}
@@ -129,7 +147,7 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.ExternalID.IsEmpty() {
 		if output.ExternalID, err = t.ExternalID.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate external id: %v for config relationship: %w", t.ExternalID, err)
+			return nil, fmt.Errorf("failed to evaluate external id: %v for relationship: %w", t.ExternalID, err)
 		} else if output.ExternalID == "" {
 			return nil, nil
 		}
@@ -137,7 +155,7 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.Name.IsEmpty() {
 		if output.Name, err = t.Name.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate name: %v for config relationship: %w", t.Name, err)
+			return nil, fmt.Errorf("failed to evaluate name: %v for relationship: %w", t.Name, err)
 		} else if output.Name == "" {
 			return nil, nil
 		}
@@ -145,7 +163,7 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.Namespace.IsEmpty() {
 		if output.Namespace, err = t.Namespace.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate namespace: %v for config relationship: %w", t.Namespace, err)
+			return nil, fmt.Errorf("failed to evaluate namespace: %v for relationship: %w", t.Namespace, err)
 		} else if output.Namespace == "" {
 			return nil, nil
 		}
@@ -153,7 +171,7 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.Type.IsEmpty() {
 		if output.Type, err = t.Type.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate type: %v for config relationship: %w", t.Type, err)
+			return nil, fmt.Errorf("failed to evaluate type: %v for relationship: %w", t.Type, err)
 		} else if output.Type == "" {
 			return nil, nil
 		}
@@ -161,8 +179,16 @@ func (t *RelationshipSelectorTemplate) Eval(labels map[string]string, env map[st
 
 	if !t.Agent.IsEmpty() {
 		if output.Agent, err = t.Agent.Eval(labels, env); err != nil {
-			return nil, fmt.Errorf("failed to evaluate agent_id: %v for config relationship: %w", t.Agent, err)
+			return nil, fmt.Errorf("failed to evaluate agent_id: %v for relationship: %w", t.Agent, err)
 		} else if output.Agent == "" {
+			return nil, nil
+		}
+	}
+
+	if !t.Scope.IsEmpty() {
+		if output.Scope, err = t.Scope.Eval(labels, env); err != nil {
+			return nil, fmt.Errorf("failed to evaluate scope: %v for relationship: %w", t.Scope, err)
+		} else if output.Scope == "" {
 			return nil, nil
 		}
 	}

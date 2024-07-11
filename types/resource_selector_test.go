@@ -30,7 +30,7 @@ func TestResourceSelector_Hash_Consistency(t *testing.T) {
 				LabelSelector: "app=example,env=production",
 				FieldSelector: "owner=admin,path=/,icon=example.png",
 			},
-			expectedHash: "870f326c398aa91734ab5ff6959e488500a844788eb0f31e76744d697ceae400",
+			expectedHash: "b2eadc3ba5ed46dc207470a96b1cc88ab7129c5cbb906ecee666e8fdd93d8fed",
 		},
 	}
 
