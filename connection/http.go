@@ -34,6 +34,7 @@ func (t TLSConfig) IsEmpty() bool {
 
 // +kubebuilder:object:generate=true
 type HTTPConnection struct {
+	ConnectionName       string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.Authentication `json:",inline"`
 	URL                  string       `json:"url,omitempty" yaml:"url,omitempty"`
 	Bearer               types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
@@ -41,8 +42,26 @@ type HTTPConnection struct {
 	TLS                  TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
 }
 
+func (h HTTPConnection) GetEndpoint() string {
+	return h.URL
+}
+
 func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTPConnection, error) {
 	var err error
+	if h.ConnectionName != "" {
+		connection, err := ctx.HydrateConnectionByURL(h.ConnectionName)
+		if err != nil {
+			return h, fmt.Errorf("could not parse EC2 access key: %v", err)
+		}
+		if connection == nil {
+			return h, fmt.Errorf("connection[%s] not found", h.ConnectionName)
+		}
+		*h, err = NewHTTPConnection(ctx, *connection)
+		if err != nil {
+			return h, fmt.Errorf("error creating connection from model: %w", err)
+		}
+	}
+
 	h.Authentication.Username.ValueStatic, err = ctx.GetEnvValueFromCache(h.Authentication.Username, namespace)
 	if err != nil {
 		return h, err
