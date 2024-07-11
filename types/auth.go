@@ -8,12 +8,10 @@ import (
 type Authentication struct {
 	Username EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
 	Password EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
-	Bearer   EnvVar `yaml:"bearer,omitempty" json:"bearer,omitempty"`
-	OAuth    OAuth  `yaml:"oauth,omitempty" json:"oauth,omitempty"`
 }
 
 func (auth Authentication) IsEmpty() bool {
-	return (auth.Username.IsEmpty() && auth.Password.IsEmpty()) && auth.OAuth.IsEmpty() && auth.Bearer.IsEmpty()
+	return (auth.Username.IsEmpty() && auth.Password.IsEmpty())
 }
 
 func (auth Authentication) GetUsername() string {
