@@ -105,7 +105,7 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client,
 			HandshakeTimeout:   conn.TLS.HandshakeTimeout,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error setting tls config: %w")
+			return nil, fmt.Errorf("error setting tls config: %w", err)
 		}
 	}
 
