@@ -197,6 +197,11 @@ func GetConnection(ctx Context, name, namespace string) (*models.Connection, err
 // var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
 func HydrateConnection(ctx Context, connection *models.Connection) (*models.Connection, error) {
 	var err error
+
+	if connection.URL, err = GetEnvStringFromCache(ctx, connection.URL, connection.Namespace); err != nil {
+		return nil, err
+	}
+
 	if connection.Username, err = GetEnvStringFromCache(ctx, connection.Username, connection.Namespace); err != nil {
 		return nil, err
 	}
