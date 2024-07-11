@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/flanksource/commons v1.24.2
 	github.com/flanksource/duty v1.0.180
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 )
 
 require (
