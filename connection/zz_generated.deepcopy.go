@@ -66,7 +66,6 @@ func (in *GCSConnection) DeepCopy() *GCSConnection {
 func (in *HTTPConnection) DeepCopyInto(out *HTTPConnection) {
 	*out = *in
 	in.Authentication.DeepCopyInto(&out.Authentication)
-	in.URL.DeepCopyInto(&out.URL)
 	in.Bearer.DeepCopyInto(&out.Bearer)
 	in.OAuth.DeepCopyInto(&out.OAuth)
 	in.TLS.DeepCopyInto(&out.TLS)

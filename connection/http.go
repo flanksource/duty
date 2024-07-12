@@ -36,14 +36,14 @@ func (t TLSConfig) IsEmpty() bool {
 type HTTPConnection struct {
 	ConnectionName       string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.Authentication `json:",inline"`
-	URL                  types.EnvVar `json:"url,omitempty" yaml:"url,omitempty"`
+	URL                  string       `json:"url,omitempty" yaml:"url,omitempty"`
 	Bearer               types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
 	OAuth                types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
 	TLS                  TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
 }
 
 func (h HTTPConnection) GetEndpoint() string {
-	return h.URL.String()
+	return h.URL
 }
 
 func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTPConnection, error) {
@@ -62,7 +62,13 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		}
 	}
 
-	h.URL.ValueStatic, err = ctx.GetEnvValueFromCache(h.URL, namespace)
+	// URL can be an EnvVar string so we
+	// typecase to EnvVar and scan it first
+	var url types.EnvVar
+	if err := url.Scan(h.URL); err != nil {
+		return h, err
+	}
+	h.URL, err = ctx.GetEnvValueFromCache(url, namespace)
 	if err != nil {
 		return h, err
 	}
@@ -142,9 +148,6 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 	var httpConn HTTPConnection
 	switch conn.Type {
 	case models.ConnectionTypeHTTP:
-		if err := httpConn.URL.Scan(conn.URL); err != nil {
-			return httpConn, fmt.Errorf("error scanning url: %w", err)
-		}
 		if err := httpConn.Username.Scan(conn.Username); err != nil {
 			return httpConn, fmt.Errorf("error scanning username: %w", err)
 		}
