@@ -148,6 +148,7 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 	var httpConn HTTPConnection
 	switch conn.Type {
 	case models.ConnectionTypeHTTP, models.ConnectionTypePrometheus:
+		httpConn.URL = conn.URL
 		if err := httpConn.Username.Scan(conn.Username); err != nil {
 			return httpConn, fmt.Errorf("error scanning username: %w", err)
 		}
