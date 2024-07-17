@@ -337,11 +337,13 @@ func (j *Job) getPropertyNames(key string) []string {
 }
 
 func (j *Job) GetProperty(property string) (string, bool) {
-	if val := j.Context.Properties().String(j.Name+"."+property, ""); val != "" {
+	if val := j.Context.Properties().String("jobs."+j.Name+"."+property, ""); val != "" {
 		return val, true
 	}
-	if val := j.Context.Properties().String(fmt.Sprintf("%s[%s].%s", j.Name, j.ID, property), ""); val != "" {
-		return val, true
+	if j.ID != "" {
+		if val := j.Context.Properties().String(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), ""); val != "" {
+			return val, true
+		}
 	}
 	return "", false
 }

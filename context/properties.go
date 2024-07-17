@@ -36,7 +36,12 @@ func (k Context) ClearCache() {
 func nilSafe(values ...interface{}) string {
 	for _, v := range values {
 		if v != nil && v != "" {
-			return fmt.Sprintf("%v", v)
+			switch t := v.(type) {
+			case *bool:
+				return fmt.Sprintf("%v", *t)
+			default:
+				return fmt.Sprintf("%v", v)
+			}
 		}
 	}
 	return ""
@@ -44,7 +49,7 @@ func nilSafe(values ...interface{}) string {
 
 func newProp(prop PropertyType) {
 	if loaded := supportedProperties.SetIfAbsent(prop.Key, prop); loaded {
-		if prop.Default != prop.Value {
+		if prop.Value != nil && prop.Default != prop.Value {
 			logger.Debugf("Property overridden %s=%v (default=%v)", prop.Key, console.Greenf(nilSafe(prop.Value)), nilSafe(prop.Default))
 		}
 	}
