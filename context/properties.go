@@ -25,18 +25,12 @@ func (k Context) ClearCache() {
 	propertyCache = cache.New(time.Minute*15, time.Minute*15)
 }
 
-func nilSafe(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	return fmt.Sprintf("%v", v)
-}
 func newProp(key, def string, val interface{}) {
 	if loaded := supportedProperties.SetIfAbsent(key, fmt.Sprintf("%s", val)); loaded {
 		if val == nil {
-			logger.Tracef("property: %s=%v", key, console.Grayf(nilSafe(def)))
+			logger.Tracef("property: %s=%s", key, console.Grayf(def))
 		} else {
-			logger.Debugf("property: %s=%v (default %v)", key, console.Greenf("%s", val), nilSafe(def))
+			logger.Infof("property: %s=%v (default %v)", key, console.Greenf("%s", val), def)
 		}
 	}
 }
@@ -44,7 +38,7 @@ func newProp(key, def string, val interface{}) {
 func (p Properties) SupportedProperties() map[string]string {
 	m := make(map[string]string)
 	for t := range supportedProperties.IterBuffered() {
-		m[t.Key] = nilSafe(t.Val)
+		m[t.Key] = t.Val
 	}
 	return m
 }
