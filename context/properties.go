@@ -54,7 +54,6 @@ func newProp(prop PropertyType) {
 		}
 	}
 }
-
 func (p Properties) SupportedProperties() map[string]PropertyType {
 	m := make(map[string]PropertyType)
 	for t := range supportedProperties.IterBuffered() {
