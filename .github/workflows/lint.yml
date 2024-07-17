@@ -8,8 +8,8 @@ permissions:
 jobs:
   golangci:
     permissions:
-      contents: read  # for actions/checkout to fetch code
-      pull-requests: read  # for golangci/golangci-lint-action to fetch pull requests
+      contents: read # for actions/checkout to fetch code
+      pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
     name: lint
     runs-on: ubuntu-latest
     steps:
@@ -30,4 +30,4 @@ jobs:
           cd hack/migrate
           go mod tidy
           changed_files=$(git status -s)
-          [[ -z "$changed_files" ]] ||  (printf "Change is detected in: \n$changed_files\n Did you run 'go mod tidy' before sending the PR?" && exit 1)
+          [[ -z "$changed_files" ]] ||  ( git diff && printf "Change is detected in: \n$changed_files\n Did you run 'go mod tidy' before sending the PR?" && exit 1)
