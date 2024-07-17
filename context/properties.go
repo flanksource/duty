@@ -123,10 +123,11 @@ func (p Properties) Int(key string, def int) int {
 		Key:     key,
 		Default: def,
 	}
-	var d string
-	if d != "" {
-		if i, err := strconv.Atoi(d); err != nil {
-			logger.Warnf("property[%s] invalid int %s", key, d)
+
+	if v, ok := p[key]; ok {
+		prop.Value = v
+		if i, err := strconv.Atoi(v); err != nil {
+			logger.Warnf("property[%s] invalid int %s", key, v)
 		} else {
 			prop.Value = i
 			newProp(prop)
