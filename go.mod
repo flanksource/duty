@@ -32,6 +32,7 @@ require (
 	github.com/ohler55/ojg v1.20.3
 	github.com/onsi/ginkgo/v2 v2.17.2
 	github.com/onsi/gomega v1.33.0
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron/v3 v3.0.1

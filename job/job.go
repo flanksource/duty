@@ -324,12 +324,24 @@ func (j *Job) Run() {
 	}
 }
 
-func getProperty(j *Job, properties map[string]string, property string) (string, bool) {
-	if val, ok := properties[j.Name+"."+property]; ok {
-		return val, ok
+func (j *Job) getPropertyNames(key string) []string {
+	if j.ID == "" {
+		return []string{
+			fmt.Sprintf("jobs.%s.%s", j.Name, key),
+			fmt.Sprintf("jobs.%s", key)}
 	}
-	if val, ok := properties[fmt.Sprintf("%s[%s].%s", j.Name, j.ID, property)]; ok {
-		return val, ok
+	return []string{
+		fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, key),
+		fmt.Sprintf("jobs.%s.%s", j.Name, key),
+		fmt.Sprintf("jobs.%s", key)}
+}
+
+func (j *Job) GetProperty(property string) (string, bool) {
+	if val := j.Context.Properties().String(j.Name+"."+property, ""); val != "" {
+		return val, true
+	}
+	if val := j.Context.Properties().String(fmt.Sprintf("%s[%s].%s", j.Name, j.ID, property), ""); val != "" {
+		return val, true
 	}
 	return "", false
 }
@@ -346,12 +358,11 @@ func (j *Job) init() error {
 
 	j.lastHistoryCleanup = time.Now()
 
-	properties := j.Context.Properties()
-	if schedule, ok := getProperty(j, properties, "schedule"); ok {
+	if schedule, ok := j.GetProperty("schedule"); ok {
 		j.Schedule = schedule
 	}
 
-	if timeout, ok := getProperty(j, properties, "timeout"); ok {
+	if timeout, ok := j.GetProperty("timeout"); ok {
 		duration, err := time.ParseDuration(timeout)
 		if err != nil {
 			j.Context.Warnf("invalid timeout %s", timeout)
@@ -359,21 +370,9 @@ func (j *Job) init() error {
 		j.Timeout = duration
 	}
 
-	if history, ok := getProperty(j, properties, "history"); ok {
-		j.JobHistory = !(history != "false")
-	}
-
-	if trace := properties["jobs.trace"]; trace == "true" {
-		j.Trace = true
-	} else if trace, ok := getProperty(j, properties, "trace"); ok {
-		j.Trace = trace == "true"
-	}
-
-	if debug := properties["jobs.debug"]; debug == "true" {
-		j.Debug = true
-	} else if debug, ok := getProperty(j, properties, "debug"); ok {
-		j.Debug = debug == "true"
-	}
+	j.JobHistory = j.Properties().On(true, j.getPropertyNames("history")...)
+	j.Trace = j.Properties().On(false, j.getPropertyNames("trace")...)
+	j.Debug = j.Properties().On(false, j.getPropertyNames("debug")...)
 
 	// Set default retention if it is unset
 	if j.Retention.Empty() {
@@ -408,7 +407,7 @@ func (j *Job) init() error {
 
 	j.Context = j.Context.WithObject(obj)
 
-	if dbLevel, ok := getProperty(j, properties, "db-log-level"); ok {
+	if dbLevel, ok := j.GetProperty("db-log-level"); ok {
 		j.Context = j.Context.WithDBLogLevel(dbLevel)
 	}
 
@@ -452,7 +451,7 @@ func (j *Job) GetResourcedName() string {
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	cronRunner.Start()
 	schedule := j.Schedule
-	if override, ok := getProperty(j, j.Context.Properties(), "schedule"); ok {
+	if override, ok := j.GetProperty("schedule"); ok {
 		schedule = override
 	}
 

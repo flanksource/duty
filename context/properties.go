@@ -9,12 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/patrickmn/go-cache"
 )
 
 var Local map[string]string
+var supportedProperties = cmap.New[string]()
 
 var propertyCache = cache.New(time.Minute*15, time.Minute*15)
 
@@ -22,43 +25,92 @@ func (k Context) ClearCache() {
 	propertyCache = cache.New(time.Minute*15, time.Minute*15)
 }
 
+func nilSafe(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", v)
+}
+func newProp(key, def string, val interface{}) {
+	if loaded := supportedProperties.SetIfAbsent(key, fmt.Sprintf("%s", val)); loaded {
+		if val == nil {
+			logger.Tracef("property: %s=%v", key, console.Grayf(nilSafe(def)))
+		} else {
+			logger.Debugf("property: %s=%v (default %v)", key, console.Greenf("%s", val), nilSafe(def))
+		}
+	}
+}
+
+func (p Properties) SupportedProperties() map[string]string {
+	m := make(map[string]string)
+	for t := range supportedProperties.IterBuffered() {
+		m[t.Key] = nilSafe(t.Val)
+	}
+	return m
+}
+
 type Properties map[string]string
 
-func (p Properties) On(key string) bool {
-	return p[key] == "true" || p[key] == "off"
+// Returns true if the property is true|enabled|on, if there is no property it defaults to true
+func (p Properties) On(def bool, keys ...string) bool {
+	for _, key := range keys {
+		k, ok := p[key]
+		if ok {
+			v := k == "true" || k == "enabled" || k == "on"
+			newProp(key, fmt.Sprintf("%v", def), v)
+			return v
+		}
+		newProp(key, fmt.Sprintf("%v", def), nil)
+	}
+	return def
 }
 
 func (p Properties) Duration(key string, def time.Duration) time.Duration {
 	if d, ok := p[key]; !ok {
+		newProp(key, fmt.Sprintf("%v", def), nil)
 		return def
 	} else if dur, err := time.ParseDuration(d); err != nil {
 		logger.Warnf("property[%s] invalid duration %s", key, d)
 		return def
 	} else {
+		newProp(key, fmt.Sprintf("%v", def), dur)
 		return dur
 	}
 }
 
 func (p Properties) Int(key string, def int) int {
 	if d, ok := p[key]; !ok {
+		newProp(key, fmt.Sprintf("%v", def), nil)
 		return def
 	} else if i, err := strconv.Atoi(d); err != nil {
 		logger.Warnf("property[%s] invalid int %s", key, d)
 		return def
 	} else {
+		newProp(key, fmt.Sprintf("%v", def), i)
 		return i
 	}
 }
 
 func (p Properties) String(key string, def string) string {
 	if d, ok := p[key]; ok {
+		newProp(key, fmt.Sprintf("%v", def), d)
 		return d
 	}
+	newProp(key, fmt.Sprintf("%v", def), nil)
 	return def
+
 }
 
-func (p Properties) Off(key string) bool {
-	return p[key] == "false" || p[key] == "disabled"
+// Returns true if the property is false|disabled|off, if there is no property it defaults to true
+func (p Properties) Off(key string, def bool) bool {
+	k, ok := p[key]
+	if !ok {
+		newProp(key, fmt.Sprintf("%v", def), nil)
+		return def
+	}
+	v := k == "false" || k == "disabled" || k == "off"
+	newProp(key, fmt.Sprintf("%v", def), v)
+	return v
 }
 
 // Properties returns a cached map of properties

@@ -62,6 +62,8 @@ func MustDB() *sql.DB {
 }
 
 var WithoutDummyData = "without_dummy_data"
+var WithExistingDatabase = "with_existing_database"
+var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
 	logger.UseZap()
@@ -71,6 +73,9 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 	for _, arg := range args {
 		if arg == WithoutDummyData {
 			importDummyData = false
+		}
+		if arg == WithExistingDatabase {
+			recreateDatabase = false
 		}
 	}
 
@@ -93,7 +98,9 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 
 	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
 	url := os.Getenv("DUTY_DB_URL")
-	if url != "" {
+	if url != "" && !recreateDatabase {
+		PgUrl = url
+	} else if url != "" && recreateDatabase {
 		postgresDBUrl = url
 		dbName = fmt.Sprintf("duty_gingko%d", port)
 		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
@@ -101,7 +108,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
 			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
 		}
-	} else {
+	} else if url == "" {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
 		postgresServer = embeddedPG.NewDatabase(config)
 		if err = postgresServer.Start(); err != nil {
@@ -165,7 +172,7 @@ func AfterSuiteFn() {
 		if err := postgresServer.Stop(); err != nil {
 			ginkgo.Fail(err.Error())
 		}
-	} else {
+	} else if recreateDatabase {
 		if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
 			ginkgo.Fail(fmt.Sprintf("Cannot drop %s: %v", dbName, err))
 		}
