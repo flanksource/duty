@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: buildjet/setup-go@v5
         with:
           go-version: 1.22.x
       - name: Checkout code
         uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
-      - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      - uses: buildjet/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -32,7 +32,7 @@ jobs:
       migrate_command: cd hack/migrate && go mod tidy && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
     steps:
       - name: Install Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: buildjet/setup-go@v5
         with:
           go-version: 1.22.x
       - name: Check out main branch
