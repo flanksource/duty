@@ -5,8 +5,36 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/gomplate/v3"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
+
+type CelExpression string
+
+func (t CelExpression) Eval(env map[string]any) (string, error) {
+	return gomplate.RunTemplate(env, gomplate.Template{Expression: string(t)})
+}
+
+type GoTemplate string
+
+func (t GoTemplate) Run(env map[string]any) (string, error) {
+	return gomplate.RunTemplate(env, gomplate.Template{Template: string(t)})
+}
+
+// MatchExpression uses MatchItems
+type MatchExpression string
+
+func (t MatchExpression) Match(item string) bool {
+	return collections.MatchItems(item, string(t))
+}
+
+type MatchExpressions []MatchExpression
+
+func (t MatchExpressions) Match(item string) bool {
+	return collections.MatchItems(item, lo.Map(t, func(x MatchExpression, _ int) string { return string(x) })...)
+}
 
 // asMap marshals the given struct into a map.
 func asMap(t any, removeFields ...string) map[string]any {

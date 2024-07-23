@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flanksource/commons/collections"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
@@ -231,4 +232,63 @@ func (e *EnvVar) Scan(value any) error {
 	default:
 		return fmt.Errorf("invalid value type: %T", value)
 	}
+}
+
+// +kubebuilder:object:generate=true
+type ExtractionVar struct {
+	Expr CelExpression `yaml:"expr,omitempty" json:"expr,omitempty"`
+
+	// Value is a static value
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
+}
+
+func (t ExtractionVar) Empty() bool {
+	return t.Value == "" && t.Expr == ""
+}
+
+func (t ExtractionVar) Eval(env map[string]any) (string, error) {
+	if t.Value != "" {
+		return t.Value, nil
+	}
+
+	return t.Expr.Eval(env)
+}
+
+// EnvVarResourceSelector is used to select a resource.
+// At least one of the fields must be specified.
+// +kubebuilder:object:generate=true
+type EnvVarResourceSelector struct {
+	Name ExtractionVar     `yaml:"name,omitempty" json:"name,omitempty"`
+	Type ExtractionVar     `yaml:"type,omitempty" json:"type,omitempty"`
+	Tags map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
+}
+
+func (t EnvVarResourceSelector) Empty() bool {
+	return t.Name.Empty() && t.Type.Empty() && len(t.Tags) == 0
+}
+
+func (t EnvVarResourceSelector) Hydrate(env map[string]any) (*ResourceSelector, error) {
+	var rs ResourceSelector
+
+	if !t.Name.Empty() {
+		name, err := t.Name.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate name: %v", err)
+		}
+		rs.Name = name
+	}
+
+	if !t.Type.Empty() {
+		typ, err := t.Type.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate type: %v", err)
+		}
+		rs.Types = []string{typ}
+	}
+
+	if len(t.Tags) != 0 {
+		rs.TagSelector = collections.SortedMap(t.Tags)
+	}
+
+	return &rs, nil
 }
