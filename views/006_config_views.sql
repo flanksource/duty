@@ -523,7 +523,7 @@ BEGIN
     ), all_ids AS (
       SELECT edges.id FROM edges
       UNION 
-      SELECT edges.related_id as id FROM edges
+      SELECT edges.related_id as id FROM edges WHERE max_depth > 0
       UNION
       SELECT related_configs_recursive.config_id as id
     ), grouped_related_ids AS (

@@ -565,6 +565,16 @@ var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.Context("deployment relationship", func() {
+		ginkgo.It("should fetch level 0", func() {
+			deployment := generator.Generated.ConfigByTypes("Kubernetes::Deployment")[0]
+			var relatedConfigs []RelatedConfig
+			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 0, 'hard', 'hard')", deployment.ID).Find(&relatedConfigs).Error
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedConfigs)).To(Equal(1))
+			Expect(relatedConfigs[0].ID.String()).To(Equal(deployment.ID.String()))
+		})
+
 		ginkgo.It("should fetch level 1", func() {
 			dep := generator.Generated.ConfigByTypes("Kubernetes::Deployment")[0]
 			var relatedConfigs []RelatedConfig
