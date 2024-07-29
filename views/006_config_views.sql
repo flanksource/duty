@@ -617,7 +617,7 @@ BEGIN
     RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all'', ''none'' or ''''';
   END IF;
 
-  IF type_filter IN ('none', '') THEN
+  IF type_filter IN ('none', '') OR max_depth = 0 THEN
     RETURN query
       SELECT
           cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,

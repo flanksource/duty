@@ -103,6 +103,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			CatalogID:             id.String(),
 			IncludeDeletedConfigs: deleted,
 			Recursive:             filter,
+			Depth:                 5,
 		})
 	}
 

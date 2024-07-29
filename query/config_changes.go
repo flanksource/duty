@@ -136,10 +136,6 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 		t.Recursive = CatalogChangeRecursiveDownstream
 	}
 
-	if t.Depth <= 0 {
-		t.Depth = 5
-	}
-
 	if t.AgentID == "local" {
 		t.AgentID = uuid.Nil.String()
 	}
