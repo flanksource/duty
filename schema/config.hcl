@@ -154,6 +154,23 @@ table "config_changes" {
     type    = timestamptz
     default = sql("now()")
   }
+
+  column "count" {
+    null = true
+    type = int
+  }
+
+  column "fingerprint" {
+    null = true
+    type = text
+  }
+
+  column "first_observed" {
+    null = true
+    type = timestamptz
+  }
+
+
   column "is_pushed" {
     null    = false
     default = false
@@ -187,6 +204,9 @@ table "config_changes" {
     columns = [column.config_id]
   }
 
+  index "config_changes_fingerprint_idx" {
+    columns = [column.fingerprint]
+  }
 
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]

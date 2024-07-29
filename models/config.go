@@ -400,21 +400,63 @@ func (cr ConfigRelationship) TableName() string {
 }
 
 // ConfigChange represents the config change database table
+// ConfigChange represents a change to a configuration item.
 type ConfigChange struct {
-	ExternalID       string     `gorm:"-" json:"-"`
-	ConfigType       string     `gorm:"-" json:"-"`
-	ExternalChangeId string     `gorm:"column:external_change_id" json:"external_change_id"`
-	ID               string     `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
-	ConfigID         string     `gorm:"column:config_id;default:''" json:"config_id"`
-	ChangeType       string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
-	Severity         Severity   `json:"severity"  faker:"oneof: critical, high, medium, low, info"`
-	Source           string     `json:"source"`
-	Summary          string     `json:"summary,omitempty"`
-	Patches          string     `gorm:"column:patches;default:null" json:"patches,omitempty"`
-	Diff             string     `gorm:"column:diff;default:null" json:"diff,omitempty"`
-	Details          types.JSON `json:"details,omitempty"`
-	CreatedAt        *time.Time `json:"created_at"`
-	// IsPushed when set to true indicates that the check status has been pushed to upstream.
+	// ExternalID is the external identifier for the configuration change.
+	// Note: This field is not stored in the database.
+	ExternalID string `gorm:"-" json:"-"`
+
+	// ConfigType represents the type of configuration.
+	// Note: This field is not stored in the database.
+	ConfigType string `gorm:"-" json:"-"`
+
+	// ExternalChangeId is the identifier for the change from an external system.
+	ExternalChangeId string `gorm:"column:external_change_id" json:"external_change_id"`
+
+	// ID is the unique identifier for the configuration change.
+	// It is automatically generated using ULID if not provided.
+	ID string `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
+
+	// ConfigID is the identifier of the associated configuration item.
+	ConfigID string `gorm:"column:config_id;default:''" json:"config_id"`
+
+	// ChangeType describes the nature of the configuration change.
+	// Example values: RunInstances, diff
+	ChangeType string `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff" `
+
+	// Severity indicates the importance or impact level of the change.
+	// Possible values: critical, high, medium, low, info
+	Severity Severity `json:"severity"  faker:"oneof: critical, high, medium, low, info"`
+
+	// Source indicates the origin of the configuration change, e.g. Kubernetes, Cloudtrail
+	Source string `json:"source"`
+
+	// Summary provides a brief description of the change.
+	Summary string `json:"summary,omitempty"`
+
+	// Patches contains a JSON strategic merge patch
+	Patches string `gorm:"column:patches;default:null" json:"patches,omitempty"`
+
+	// Diff represents the differences introduced by this change.
+	Diff string `gorm:"column:diff;default:null" json:"diff,omitempty"`
+
+	// Fingerprint is a uniquest identifier for the change, it ignores all UUID, numbers and timestamps to enable de-duplication of equivalent changes.
+	Fingerprint string `gorm:"column:fingerprint;default:null" json:"fingerprint,omitempty"`
+
+	// Details contains additional information about the change in JSON format.
+	Details types.JSON `json:"details,omitempty"`
+
+	// CreatedAt represents the timestamp when the change was created or last observed
+	CreatedAt *time.Time `json:"created_at"`
+
+	// FirstObserved represents the timestamp when this change was first observed.
+	FirstObserved *time.Time `gorm:"first_observed" json:"first_observed,omitempty"`
+
+	// Count is the number of occurrences of this change, including duplicates detected by fingerprinting
+	Count int `json:"count"`
+
+	// IsPushed indicates whether the change has been pushed to upstream.
+	// When set to true, it means the status has been synchronized.
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
