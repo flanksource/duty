@@ -114,7 +114,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	return &output, nil
 }
 
-func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) error {
+func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
 	if !resourceSelector.IncludeDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
@@ -149,7 +149,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		case "components":
 			query = query.Where("topology_id = ?", resourceSelector.Scope)
 		default:
-			return api.Errorf(api.EINVALID, "scope is not supported for %s", table)
+			return nil, api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 		}
 	}
 
@@ -162,18 +162,18 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	} else { // assume it's an agent name
 		agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		query = query.Where("agent_id = ?", agent.ID)
 	}
 
 	if len(resourceSelector.TagSelector) > 0 {
 		if table != "config_items" {
-			return api.Errorf(api.EINVALID, "tag selector is only supported for config_items")
+			return nil, api.Errorf(api.EINVALID, "tag selector is only supported for config_items")
 		} else {
 			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
 			if err != nil {
-				return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse tag selector: %v", err))
+				return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse tag selector: %v", err))
 			}
 			requirements, _ := parsedTagSelector.Requirements()
 			for _, r := range requirements {
@@ -185,7 +185,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if len(resourceSelector.LabelSelector) > 0 {
 		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
 		if err != nil {
-			return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
@@ -196,7 +196,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if len(resourceSelector.FieldSelector) > 0 {
 		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
 		if err != nil {
-			return api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
 		}
 
 		requirements, _ := parsedFieldSelector.Requirements()
@@ -209,7 +209,22 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	return nil
+	if resourceSelector.Search != "" {
+		var prefixQueries []*gorm.DB
+		if resourceSelector.Name == "" {
+			prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+		}
+		if resourceSelector.TagSelector == "" && table == "config_items" {
+			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+		}
+		if resourceSelector.LabelSelector == "" {
+			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+		}
+
+		query = OrQueries(query, prefixQueries...)
+	}
+
+	return query, nil
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
@@ -231,7 +246,8 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	query := ctx.DB().Select("id").Table(table)
-	if err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields); err != nil {
+	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
+	if err != nil {
 		return nil, err
 	}
 
