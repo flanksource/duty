@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -72,4 +73,25 @@ func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.
 	}
 
 	return clauses, nil
+}
+
+func OrQueries(db *gorm.DB, queries ...*gorm.DB) *gorm.DB {
+	if len(queries) == 0 {
+		return db
+	}
+
+	if len(queries) == 1 {
+		return db.Where(queries[0])
+	}
+
+	union := queries[0]
+	for i, q := range queries {
+		if i == 0 {
+			continue
+		}
+
+		union = union.Or(q)
+	}
+
+	return db.Where(union)
 }

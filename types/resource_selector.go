@@ -34,7 +34,10 @@ type ResourceSelector struct {
 	//  'max-age=X' (cache for X duration)
 	Cache string `yaml:"cache,omitempty" json:"cache,omitempty"`
 
-	IncludeDeleted bool `yaml:"-" json:"-"`
+	// Search query that applies to the resource name, tag & labels.
+	Search string `yaml:"search,omitempty" json:"search,omitempty"`
+
+	IncludeDeleted bool `yaml:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
 
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -47,7 +50,7 @@ type ResourceSelector struct {
 }
 
 func (c ResourceSelector) IsEmpty() bool {
-	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" &&
+	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
 		len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
 		len(c.TagSelector) == 0 &&
@@ -63,6 +66,11 @@ func (c ResourceSelector) Immutable() bool {
 
 	if c.Name == "" {
 		// without a name, a selector is never specific enough to be cached indefinitely
+		return false
+	}
+
+	if c.Search == "" {
+		// too broad to be cached indefinitely
 		return false
 	}
 
@@ -91,6 +99,7 @@ func (c ResourceSelector) Hash() string {
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
 		fmt.Sprint(c.IncludeDeleted),
+		c.Search,
 	}
 
 	return hash.Sha256Hex(strings.Join(items, "|"))
