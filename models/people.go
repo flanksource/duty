@@ -43,9 +43,9 @@ type AccessToken struct {
 	ID        uuid.UUID `gorm:"default:generate_ulid()"`
 	Name      string    `gorm:"not null"`
 	Value     string    `gorm:"not null"`
-	PersonID  uuid.UUID
-	ExpiresAt time.Time
-	CreatedAt time.Time
+	PersonID  uuid.UUID `gorm:"not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"<-:create"`
+	ExpiresAt *time.Time
 }
 
 func (AccessToken) TableName() string {
