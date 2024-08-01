@@ -10,6 +10,10 @@ import (
 )
 
 func ErrorDetails(err error) error {
+	if err == nil {
+		return nil
+	}
+
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		var errString []string
