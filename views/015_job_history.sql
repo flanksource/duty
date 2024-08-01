@@ -5,21 +5,29 @@ DROP VIEW IF EXISTS integrations_with_status;
 CREATE OR REPLACE VIEW
   job_history_latest_status AS
 WITH
-  latest_job_history AS (
+  max_created_at_job_history AS (
     SELECT
-      job_history.resource_id,
-      MAX(job_history.created_at) AS max_created_at
+      resource_id,
+      MAX(created_at) AS max_created_at
     FROM
       job_history
     GROUP BY
-      job_history.resource_id
+      resource_id
+  ),
+  latest_job_history AS (
+    SELECT
+      jh.*,
+      ROW_NUMBER() OVER (PARTITION BY jh.resource_id ORDER BY jh.created_at DESC, jh.id DESC) AS rn
+    FROM
+      job_history jh
+      JOIN max_created_at_job_history mc ON jh.resource_id = mc.resource_id AND jh.created_at = mc.max_created_at
   )
 SELECT
-  job_history.*
+  latest_job_history.*
 FROM
-  job_history
-  JOIN latest_job_history ON job_history.resource_id = latest_job_history.resource_id
-  AND job_history.created_at = latest_job_history.max_created_at;
+  latest_job_history
+WHERE
+  rn = 1;
 
 -- Topologies with job status
 DROP VIEW IF EXISTS topologies_with_status;
