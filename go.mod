@@ -12,8 +12,8 @@ require (
 	github.com/eko/gocache/store/go_cache/v4 v4.2.2
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.24.2
-	github.com/flanksource/gomplate/v3 v3.24.11
+	github.com/flanksource/commons v1.25.0
+	github.com/flanksource/gomplate/v3 v3.24.17
 	github.com/flanksource/kommons v0.31.4
 	github.com/flanksource/postq v0.1.3
 	github.com/google/cel-go v0.20.1
@@ -70,6 +70,7 @@ require (
 	github.com/AlekSi/pointer v1.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
+	github.com/Snawoot/go-http-digest-auth-client v1.1.3 // indirect
 	github.com/TomOnTime/utfutil v0.0.0-20210710122150-437f72b26edf // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
@@ -86,7 +87,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/flanksource/is-healthy v1.0.18 // indirect
+	github.com/flanksource/is-healthy v1.0.21 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -217,4 +218,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-// replace "github.com/flanksource/commons" => ../commons
+// replace github.com/flanksource/commons => ../commons

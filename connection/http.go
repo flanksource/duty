@@ -34,12 +34,12 @@ func (t TLSConfig) IsEmpty() bool {
 
 // +kubebuilder:object:generate=true
 type HTTPConnection struct {
-	ConnectionName       string `json:"connection,omitempty" yaml:"connection,omitempty"`
-	types.Authentication `json:",inline"`
-	URL                  string       `json:"url,omitempty" yaml:"url,omitempty"`
-	Bearer               types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
-	OAuth                types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
-	TLS                  TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
+	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
+	types.HTTPBasicAuth `json:",inline"`
+	URL                 string       `json:"url,omitempty" yaml:"url,omitempty"`
+	Bearer              types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
+	OAuth               types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
+	TLS                 TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
 }
 
 func (h HTTPConnection) GetEndpoint() string {
@@ -114,8 +114,11 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 // CreateHTTPClient requires a hydrated connection
 func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client, error) {
 	client := http.NewClient()
-	if !conn.Authentication.IsEmpty() {
+	if !conn.HTTPBasicAuth.IsEmpty() {
 		client.Auth(conn.GetUsername(), conn.GetPassword())
+		client.Digest(conn.Digest)
+		client.NTLM(conn.NTLM)
+		client.NTLMV2(conn.NTLMV2)
 	} else if !conn.Bearer.IsEmpty() {
 		client.Header(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
 	} else if !conn.OAuth.IsEmpty() {
