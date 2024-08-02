@@ -4,9 +4,11 @@ Duty (**D**atabase **Ut**ilit**y**) is a home for common database tools, models 
 
 Duty wraps the awesome [atlas](https://github.com/ariga/atlas/) library, and copies some of its code to make use of internal functions.
 
-
 ## Running Tests
 
-1. `make test` will run tests against a new embedded postgres instance
+`make test` will run tests against a new embedded postgres instance
 
-If you set `DUTY_DB_URL` environment variable to the `postgres` db, each test will run against a new database called `duty_gingko`
+### Env Vars
+
+- `DUTY_DB_URL`: the `postgres` db, each test will run against a new database called `duty_gingko`
+- `TEST_DB_PORT`: will set the port that the test database will run on.
