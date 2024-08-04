@@ -19,6 +19,14 @@ type Team struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (t Team) TableName() string {
+	return "teams"
+}
+
+func (t Team) PK() string {
+	return t.ID.String()
+}
+
 func (t *Team) AsMap(removeFields ...string) map[string]any {
 	return asMap(t, removeFields...)
 }

@@ -30,6 +30,14 @@ type Notification struct {
 	Error *string `json:"error,omitempty"`
 }
 
+func (n Notification) TableName() string {
+	return "notifications"
+}
+
+func (n Notification) PK() string {
+	return n.ID.String()
+}
+
 func (n *Notification) HasRecipients() bool {
 	return n.TeamID != nil || n.PersonID != nil || len(n.CustomServices) != 0
 }

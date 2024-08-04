@@ -130,6 +130,23 @@ func (c Component) TableName() string {
 	return "components"
 }
 
+func DeleteAllComponents(db *gorm.DB, components ...Component) error {
+	ids := lo.Map(components, func(c Component, _ int) string { return c.ID.String() })
+	if err := db.Exec("DELETE from component_relationships WHERE component_id in (?)  or relationship_id in (?)", ids, ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_component_relationships WHERE component_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM  check_component_relationships WHERE component_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM components WHERE id in (?)", ids).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      c.Name,

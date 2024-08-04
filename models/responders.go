@@ -23,6 +23,14 @@ type Responder struct {
 	UpdatedAt    time.Time  `json:"updated_at" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 }
 
+func (r Responder) TableName() string {
+	return "responders"
+}
+
+func (r Responder) PK() string {
+	return r.ID.String()
+}
+
 func (r Responder) AsMap(removeFields ...string) map[string]any {
 	return asMap(r, removeFields...)
 }

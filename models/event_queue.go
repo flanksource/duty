@@ -38,6 +38,10 @@ func (Event) TableName() string {
 	return "event_queue"
 }
 
+func (e Event) PK() string {
+	return e.ID.String()
+}
+
 type Events []Event
 
 func (events Events) ToPostQEvents() postq.Events {

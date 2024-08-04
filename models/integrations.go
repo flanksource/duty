@@ -38,6 +38,10 @@ type Integration struct {
 	JobCreatedAt time.Time       `json:"job_created_at"`
 }
 
+func (i Integration) PK() string {
+	return i.ID.String()
+}
+
 func (t *Integration) TableName() string {
 	return "integrations_with_status"
 }

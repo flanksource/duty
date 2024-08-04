@@ -89,6 +89,14 @@ type Connection struct {
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
 }
 
+func (c Connection) TableName() string {
+	return "connections"
+}
+
+func (c Connection) PK() string {
+	return c.ID.String()
+}
+
 func ConnectionFromURL(url url.URL) *Connection {
 	c := &Connection{}
 	if url.User != nil {

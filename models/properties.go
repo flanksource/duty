@@ -21,8 +21,12 @@ type AppProperty struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 }
 
-func (t AppProperty) TableName() string {
+func (p AppProperty) TableName() string {
 	return "properties"
+}
+
+func (p AppProperty) PK() string {
+	return p.Name
 }
 
 func parsePropertiesFile(filename string) ([]AppProperty, error) {

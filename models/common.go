@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -43,6 +44,10 @@ func asMap(t any, removeFields ...string) map[string]any {
 type DBTable interface {
 	PK() string
 	TableName() string
+}
+
+type Deleteable interface {
+	Delete(db *gorm.DB) error
 }
 
 // TODO: Find a better way to handle this

@@ -39,6 +39,14 @@ var PlaybookActionFinalStates = []PlaybookActionStatus{
 	PlaybookActionStatusSkipped,
 }
 
+func (p Playbook) TableName() string {
+	return "playbooks"
+}
+
+func (p Playbook) PK() string {
+	return p.ID.String()
+}
+
 var (
 	PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 		PlaybookRunStatusRunning,
@@ -84,6 +92,14 @@ type PlaybookRun struct {
 	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
 }
 
+func (p PlaybookRun) TableName() string {
+	return "playbook_runs"
+}
+
+func (p PlaybookRun) PK() string {
+	return p.ID.String()
+}
+
 func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
 }
@@ -102,6 +118,14 @@ type PlaybookRunAction struct {
 	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
 }
 
+func (p PlaybookRunAction) TableName() string {
+	return "playbook_run_actions"
+}
+
+func (p PlaybookRunAction) PK() string {
+	return p.ID.String()
+}
+
 func (p PlaybookRunAction) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
 }
@@ -112,6 +136,14 @@ type PlaybookApproval struct {
 	PersonID  *uuid.UUID `json:"person_id,omitempty"`
 	TeamID    *uuid.UUID `json:"team_id,omitempty"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:false"`
+}
+
+func (p PlaybookApproval) TableName() string {
+	return "playbook_approvals"
+}
+
+func (p PlaybookApproval) PK() string {
+	return p.ID.String()
 }
 
 func (p PlaybookApproval) AsMap(removeFields ...string) map[string]any {

@@ -107,6 +107,31 @@ type ConfigItem struct {
 	DeleteReason    string               `json:"delete_reason,omitempty"`
 }
 
+func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
+	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })
+
+	if err := db.Exec("DELETE FROM config_component_relationships WHERE config_id  in(?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM check_config_relationships WHERE config_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_changes WHERE config_id  in(?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_relationships WHERE config_id in (?) or related_id in (?) ", ids, ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_analysis WHERE config_id  in(?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_items WHERE id  in(?)", ids).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (t ConfigItem) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
 	configWithScraper := lo.Filter(items, func(item DBTable, _ int) bool { return item.(ConfigItem).ScraperID != nil })
 	scraperParents := lo.Map(configWithScraper, func(item DBTable, _ int) string {
