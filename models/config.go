@@ -110,26 +110,7 @@ type ConfigItem struct {
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
 	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })
 
-	if err := db.Exec("DELETE FROM config_component_relationships WHERE config_id  in(?)", ids).Error; err != nil {
-		return err
-	}
-	if err := db.Exec("DELETE FROM check_config_relationships WHERE config_id in (?)", ids).Error; err != nil {
-		return err
-	}
-	if err := db.Exec("DELETE FROM config_changes WHERE config_id  in(?)", ids).Error; err != nil {
-		return err
-	}
-	if err := db.Exec("DELETE FROM config_relationships WHERE config_id in (?) or related_id in (?) ", ids, ids).Error; err != nil {
-		return err
-	}
-	if err := db.Exec("DELETE FROM config_analysis WHERE config_id  in(?)", ids).Error; err != nil {
-		return err
-	}
-	if err := db.Exec("DELETE FROM config_items WHERE id  in(?)", ids).Error; err != nil {
-		return err
-	}
-
-	return nil
+	return db.Exec("select drop_config_items(?)", pq.StringArray(ids)).Error
 }
 
 func (t ConfigItem) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
