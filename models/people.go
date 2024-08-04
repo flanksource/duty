@@ -18,6 +18,10 @@ type Person struct {
 	Properties PersonProperties `json:"properties,omitempty" gorm:"default:null"`
 }
 
+func (p Person) PK() string {
+	return p.ID.String()
+}
+
 func (person Person) TableName() string {
 	return "people"
 }
@@ -50,4 +54,8 @@ type AccessToken struct {
 
 func (AccessToken) TableName() string {
 	return "access_tokens"
+}
+
+func (a AccessToken) PK() string {
+	return a.ID.String()
 }

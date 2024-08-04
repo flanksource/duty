@@ -40,6 +40,23 @@ func (t Canary) ConflictClause() clause.OnConflict {
 	}
 }
 
+func DeleteAllCanaries(db *gorm.DB, canaries ...Canary) error {
+	ids := lo.Map(canaries, func(c Canary, _ int) string { return c.ID.String() })
+	if err := db.Exec("DELETE FROM check_statuses WHERE check_id in (select id from checks where canary_id in (?))", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM check_config_relationships WHERE check_id in (select id from checks where canary_id in (?))", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM checks WHERE canary_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM canaries WHERE id in (?)", ids).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (t Canary) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []Canary
 	err := db.Where("is_pushed IS FALSE").Find(&items).Error

@@ -33,6 +33,14 @@ type Agent struct {
 	LastReceived *time.Time `json:"last_received,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (a Agent) TableName() string {
+	return "agents"
+}
+
+func (a Agent) PK() string {
+	return a.ID.String()
+}
+
 func (t Agent) AsMap(removeFields ...string) map[string]any {
 	return asMap(t, removeFields...)
 }

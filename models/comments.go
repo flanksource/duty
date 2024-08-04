@@ -20,6 +20,14 @@ type Comment struct {
 	UpdatedAt         time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 }
 
+func (c Comment) TableName() string {
+	return "comments"
+}
+
+func (c Comment) PK() string {
+	return c.ID.String()
+}
+
 func (c Comment) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }

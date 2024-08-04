@@ -133,6 +133,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 
 	if importDummyData {
 		dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
+		dummyData.Delete(DefaultContext.DB())
 		err = dummyData.Populate(DefaultContext.DB())
 		if err != nil {
 			panic(err.Error())
