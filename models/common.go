@@ -56,3 +56,11 @@ type ExtendedDBTable interface {
 	Value() any
 	PKCols() []clause.Column
 }
+
+func GetIDs[T DBTable](items ...T) []string {
+	var ids []string
+	for _, item := range items {
+		ids = append(ids, item.PK())
+	}
+	return ids
+}

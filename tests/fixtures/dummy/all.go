@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var CurrentTime = time.Now()
@@ -100,8 +101,10 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 	for i := range t.ConfigRelationships {
 		t.ConfigRelationships[i].UpdatedAt = createTime
 	}
-
-	if err := gormDB.CreateInBatches(t.ConfigRelationships, 100).Error; err != nil {
+	if err := gormDB.Model(models.ConfigRelationship{}).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}},
+		DoNothing: true,
+	}).CreateInBatches(t.ConfigRelationships, 100).Error; err != nil {
 		return err
 	}
 	if err := gormDB.CreateInBatches(t.ConfigChanges, 100).Error; err != nil {
@@ -160,6 +163,10 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		return err
 	}
 	if err := gormDB.CreateInBatches(t.JobHistories, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.Exec("UPDATE config_items set path = config_path(id)").Error; err != nil {
 		return err
 	}
 

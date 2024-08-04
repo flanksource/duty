@@ -28,6 +28,7 @@ CREATE or REPLACE VIEW configs AS
     ci.status,
     ci.health,
     ci.ready,
+    ci.path,
     analysis,
     changes
   FROM config_items as ci
@@ -387,15 +388,6 @@ CREATE OR REPLACE VIEW config_analysis_items AS
   FROM config_analysis as ca
     LEFT JOIN config_items as ci ON ca.config_id = ci.id;
 
-DROP VIEW IF EXISTS config_changes_items;
-CREATE OR REPLACE VIEW config_changes_items AS
-  SELECT
-    cc.*,
-    ci.type as config_type,
-    ci.config_class
-  FROM config_changes as cc
-    LEFT JOIN config_items as ci ON cc.config_id = ci.id;
-
 -- related_config_ids_recursive---
 DROP FUNCTION IF EXISTS related_config_ids_recursive;
 
@@ -434,7 +426,7 @@ CREATE OR REPLACE FUNCTION config_relationships_recursive (
 ) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
   BEGIN
 
-  IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
+  IF type_filter NOT IN ('incoming', 'outgoing', 'all', '', null) THEN
     RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
   END IF;
 
@@ -444,7 +436,7 @@ IF type_filter = 'outgoing' THEN
         SELECT parent.config_id, parent.related_id, parent.relation, 'outgoing', 1::int
         FROM config_relationships parent
         WHERE parent.config_id = config_relationships_recursive.config_id
-          AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
+          AND (outgoing_relation = 'both' OR incoming_relation = 'soft'  OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
@@ -452,7 +444,7 @@ IF type_filter = 'outgoing' THEN
           FROM config_relationships child, cte parent
           WHERE child.config_id = parent.related_id
             AND parent.depth < max_depth
-            AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
+            AND (outgoing_relation = 'both' OR incoming_relation = 'soft'  OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
@@ -464,7 +456,7 @@ ELSIF type_filter = 'incoming' THEN
         SELECT parent.config_id, parent.related_id as related_id, parent.relation, 'incoming', 1::int
         FROM config_relationships parent
         WHERE parent.related_id = config_relationships_recursive.config_id
-          AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
+          AND (incoming_relation = 'both' OR  incoming_relation = 'soft' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
@@ -472,7 +464,7 @@ ELSIF type_filter = 'incoming' THEN
           FROM config_relationships child, cte parent
           WHERE child.related_id = parent.config_id
             AND parent.depth < max_depth
-            AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
+            AND (incoming_relation = 'both' OR incoming_relation = 'soft' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
       SELECT DISTINCT cte.config_id, cte.related_id, cte.relation AS "relation_type", type_filter as "direction", cte.depth
@@ -487,6 +479,40 @@ END IF;
 
   END;
 $$ LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS get_recursive_path;
+
+CREATE OR REPLACE FUNCTION get_recursive_path(start uuid)
+RETURNS TABLE  (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
+DECLARE
+    current_id uuid;
+    current_parent uuid;
+    current_depth INT;
+    current_path text[];
+BEGIN
+    -- Initialize the starting point
+    current_id := start;
+    current_parent := NULL;
+    current_depth := 0;
+
+    select string_to_array(config_items.path, '.') into current_path from config_items where config_items.id = start;
+
+    IF array_length(current_path, 1) > 0  THEN
+      FOR i IN 0 .. array_length(current_path, 1) -1 LOOP
+          current_parent := current_id;
+          current_id := current_path[array_length(current_path,1) - i];
+
+      if start != current_id then
+            current_depth := current_depth + 1;
+            RETURN QUERY SELECT current_id,current_parent,'parent','incoming', current_depth;
+          end if;
+      END LOOP;
+    END IF;
+
+END;
+$$ LANGUAGE plpgsql;
+
+
 
 CREATE OR REPLACE FUNCTION drop_config_items(ids text[]) RETURNS void as $$
   BEGIN
@@ -510,7 +536,6 @@ $$ LANGUAGE plpgsql;
 
 -- related configs recursively
 DROP FUNCTION IF EXISTS related_configs_recursive;
-
 CREATE FUNCTION related_configs_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
@@ -542,7 +567,10 @@ BEGIN
   RETURN query
     WITH edges as (
       SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
-    ), all_ids AS (
+      UNION
+      SELECT * from get_recursive_path(config_id)
+    ),
+     all_ids AS (
       SELECT edges.id FROM edges
       UNION
       SELECT edges.related_id as id FROM edges WHERE max_depth > 0
@@ -606,7 +634,8 @@ CREATE FUNCTION related_configs (
     agent_id uuid,
     health TEXT,
     ready BOOLEAN,
-    status TEXT
+    status TEXT,
+    path TEXT
 ) AS $$
 BEGIN
   RETURN query
@@ -636,11 +665,11 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     agent_id uuid
 ) AS $$
 BEGIN
-  IF type_filter NOT IN ('upstream', 'downstream', 'all', 'none', '') THEN
+  IF type_filter NOT IN ('upstream', 'downstream', 'all', 'none', '',null) THEN
     RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all'', ''none'' or ''''';
   END IF;
 
-  IF type_filter IN ('none', '') THEN
+  IF type_filter IN ('none', '',null) THEN
     RETURN query
       SELECT
           cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,

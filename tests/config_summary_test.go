@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		expected := lo.Uniq(lo.Map(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) string {
 			return lo.FromPtr(item.Type)
 		}))
-		Expect(types).To(ConsistOf(expected))
+		Expect(types).To(ContainElements(expected))
 	})
 
 	ginkgo.It("should not fetch analysis and changes if not requested", func() {

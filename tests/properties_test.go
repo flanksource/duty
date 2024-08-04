@@ -8,7 +8,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Properties", func() {
+var _ = Describe("Properties", Ordered, func() {
+	BeforeAll(func() {
+		Expect(DefaultContext.DB().Exec("TRUNCATE properties").Error).ToNot(HaveOccurred())
+	})
 	It("Should save properties to db", func() {
 		err := context.UpdateProperties(DefaultContext, map[string]string{
 			"john":  "doe",
