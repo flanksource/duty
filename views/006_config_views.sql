@@ -412,8 +412,8 @@ RETURN query
   WITH edges as (
     SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
   ), all_ids AS (
-    SELECT edges.id, edges.depth, edges.direction FROM edges 
-    UNION 
+    SELECT edges.id, edges.depth, edges.direction FROM edges
+    UNION
     SELECT edges.related_id as id, edges.depth, edges.direction FROM edges
   ) SELECT all_ids.id, all_ids.direction, MIN(all_ids.depth) depth FROM all_ids
     GROUP BY all_ids.id, all_ids.direction
@@ -432,11 +432,11 @@ CREATE OR REPLACE FUNCTION config_relationships_recursive (
   incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
   outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
 ) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
-BEGIN
+  BEGIN
 
-IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
-  RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
-END IF;
+  IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
+    RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
+  END IF;
 
 IF type_filter = 'outgoing' THEN
   RETURN query
@@ -485,7 +485,7 @@ ELSE
       SELECT * FROM config_relationships_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
 END IF;
 
-END;
+  END;
 $$ LANGUAGE plpgsql;
 
 -- related configs recursively
@@ -515,7 +515,8 @@ CREATE FUNCTION related_configs_recursive (
     agent_id uuid,
     health TEXT,
     ready BOOLEAN,
-    status TEXT
+    status TEXT,
+    path TEXT
 ) AS $$
 BEGIN
   RETURN query
@@ -523,7 +524,7 @@ BEGIN
       SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
     ), all_ids AS (
       SELECT edges.id FROM edges
-      UNION 
+      UNION
       SELECT edges.related_id as id FROM edges WHERE max_depth > 0
       UNION
       SELECT related_configs_recursive.config_id as id
@@ -550,7 +551,8 @@ BEGIN
         configs.agent_id,
         configs.health,
         configs.ready,
-        configs.status
+        configs.status,
+        configs.path
       FROM configs
       LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
       WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids)
@@ -706,7 +708,7 @@ CREATE OR REPLACE VIEW config_detail AS
         WHERE start_time > NOW() - interval '30 days'
         GROUP BY config_id) as playbook_runs
       ON ci.id = playbook_runs.config_id
-    LEFT JOIN 
+    LEFT JOIN
       (SELECT config_id, count(*) as checks_count from check_config_relationships
         WHERE deleted_at IS NULL
         GROUP BY config_id) as config_checks
