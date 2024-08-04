@@ -488,6 +488,26 @@ END IF;
   END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION drop_config_items(ids text[]) RETURNS void as $$
+  BEGIN
+  ALTER TABLE config_items
+    ALTER CONSTRAINT config_items_parent_id_fkey DEFERRABLE INITIALLY DEFERRED;
+  SET CONSTRAINTS ALL DEFERRED;
+  DELETE FROM config_component_relationships WHERE config_id  = any (ids::uuid[]);
+  DELETE FROM check_config_relationships WHERE config_id  = any  (ids::uuid[]);
+  DELETE FROM config_changes WHERE config_id   = any  (ids::uuid[]);
+  DELETE FROM config_relationships WHERE config_id  = any  (ids::uuid[]) or related_id  = any(ids::uuid[]);
+  DELETE FROM config_analysis WHERE config_id   = any  (ids::uuid[]);
+
+      FOR i IN 1 .. array_length(ids, 1) LOOP
+       DELETE FROM config_items WHERE PATH like '%'||ids[i]||'%';
+      END LOOP;
+
+  DELETE FROM config_items WHERE parent_id  = any (ids::uuid[]);
+  DELETE FROM config_items WHERE id  = any (ids::uuid[]);
+  END;
+$$ LANGUAGE plpgsql;
+
 -- related configs recursively
 DROP FUNCTION IF EXISTS related_configs_recursive;
 
