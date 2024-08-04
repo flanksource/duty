@@ -34,6 +34,14 @@ type SearchResourcesResponse struct {
 	Configs    []SelectedResource `json:"configs,omitempty"`
 }
 
+func (r *SearchResourcesResponse) GetIDs() []string {
+	var ids []string
+	ids = append(ids, lo.Map(r.Checks, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.Configs, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.Components, func(c SelectedResource, _ int) string { return c.ID })...)
+	return ids
+}
+
 type SelectedResource struct {
 	ID        string            `json:"id"`
 	Agent     string            `json:"agent"`

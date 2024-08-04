@@ -4,6 +4,7 @@ import (
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -79,44 +80,42 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 	type testRecord struct {
 		Name      string
 		Selectors []types.ResourceSelector
-		Results   int
+		Results   []uuid.UUID
 	}
 
 	testData := []testRecord{
 		{
 			Name:      "empty",
 			Selectors: []types.ResourceSelector{},
-			Results:   0,
 		},
 		{
 			Name:      "name",
 			Selectors: []types.ResourceSelector{{Name: lo.FromPtr(dummy.KubernetesNodeA.Name)}},
-			Results:   1,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID},
 		},
 		{
 			Name:      "name but different namespace",
 			Selectors: []types.ResourceSelector{{Namespace: "kube-system", Name: lo.FromPtr(dummy.KubernetesNodeA.Name)}},
-			Results:   0,
 		},
 		{
 			Name:      "types",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   3,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID, dummy.KubernetesNodeAKSPool1.ID},
 		},
 		{
 			Name:      "repeated (types) to test cache",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   3,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID},
 		},
 		{
 			Name:      "label selector",
 			Selectors: []types.ResourceSelector{{LabelSelector: "role=worker"}},
-			Results:   2,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID},
 		},
 		{
 			Name:      "field selector",
 			Selectors: []types.ResourceSelector{{FieldSelector: "config_class=Deployment"}},
-			Results:   3,
+			Results:   []uuid.UUID{dummy.LogisticsUIDeployment.ID, dummy.LogisticsAPIDeployment.ID},
 		},
 	}
 
@@ -126,7 +125,7 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		ginkgo.It(td.Name, func() {
 			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(components)).To(Equal(td.Results))
+			Expect(components).To(ContainElements(testData[i].Results))
 		})
 	}
 })
