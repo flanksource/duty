@@ -147,7 +147,7 @@ func (sr *StatusRing) Add(job *models.JobHistory) {
 }
 
 type Retention struct {
-	// Success is the number of finished/success job history to retain
+	// Success is the number of success job history to retain
 	Success int
 
 	// Failed is the number of unsuccessful job history to retain
