@@ -387,6 +387,7 @@ CREATE OR REPLACE VIEW config_analysis_items AS
   FROM config_analysis as ca
     LEFT JOIN config_items as ci ON ca.config_id = ci.id;
 
+DROP VIEW IF EXISTS config_changes_items;
 CREATE OR REPLACE VIEW config_changes_items AS
   SELECT
     cc.*,
@@ -767,10 +768,6 @@ EXECUTE PROCEDURE insert_parent_to_config_relationship();
 DROP VIEW IF EXISTS config_statuses;
 CREATE or REPLACE VIEW config_statuses AS
   SELECT DISTINCT status FROM config_items WHERE status IS NOT NULL ORDER BY status;
-
--- Cleanup old trigger that used to add 'push_queue.create' events
--- for any changes on a selected list of tables.
-DROP FUNCTION IF EXISTS push_changes_to_event_queue CASCADE;
 
 DROP VIEW IF EXISTS check_summary_by_config;
 DROP VIEW IF EXISTS checks_by_config;
