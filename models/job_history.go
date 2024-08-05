@@ -16,13 +16,12 @@ import (
 type JobStatus string
 
 const (
-	StatusRunning  = "RUNNING"
-	StatusSuccess  = "SUCCESS"
-	StatusWarning  = "WARNING"
-	StatusFinished = "FINISHED"
-	StatusFailed   = "FAILED"
-	StatusStale    = "STALE"
-	StatusSkipped  = "SKIPPED"
+	StatusRunning = "RUNNING"
+	StatusSuccess = "SUCCESS"
+	StatusWarning = "WARNING"
+	StatusFailed  = "FAILED"
+	StatusStale   = "STALE"
+	StatusSkipped = "SKIPPED"
 )
 
 type JobHistory struct {
@@ -49,7 +48,7 @@ func (j JobHistory) PK() string {
 
 func (j JobHistory) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []JobHistory
-	err := db.Where("is_pushed IS FALSE").Where("status IN (?,?)", StatusFailed, StatusWarning).Find(&items).Error
+	err := db.Where("is_pushed IS FALSE").Where("status IN (?,?,?)", StatusFailed, StatusWarning, StatusSuccess).Find(&items).Error
 	return lo.Map(items, func(i JobHistory, _ int) DBTable { return i }), err
 }
 
