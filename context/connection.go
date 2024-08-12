@@ -169,6 +169,9 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 			return nil, err
 		} else if connection.ID != uuid.Nil {
 			logger.Warnf("connection format connection://<type>/<name> has been deprecated. Use connection://<namespace>/<name> or connection://<name>")
+		} else if errors.Is(err, gorm.ErrRecordNotFound) || connection.ID == uuid.Nil {
+			// The connection does not exist either way
+			return nil, nil
 		}
 	}
 

@@ -156,7 +156,6 @@ func (p Properties) String(key string, def string) string {
 
 // Returns true if the property is false|disabled|off, if there is no property it defaults to true
 func (p Properties) Off(key string, def bool) bool {
-
 	prop := PropertyType{
 		Type:    "bool",
 		Key:     key,
