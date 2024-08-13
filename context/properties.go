@@ -1,16 +1,14 @@
 package context
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/models"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/patrickmn/go-cache"
@@ -151,7 +149,6 @@ func (p Properties) String(key string, def string) string {
 	}
 	newProp(prop)
 	return def
-
 }
 
 // Returns true if the property is false|disabled|off, if there is no property it defaults to true
@@ -192,7 +189,7 @@ func (k Context) Properties() Properties {
 		}
 	}
 
-	for k, v := range Local {
+	for k, v := range properties.Global.GetAll() {
 		props[k] = v
 	}
 
@@ -232,50 +229,20 @@ func UpdateProperties(ctx Context, props map[string]string) error {
 	return ctx.DB().Exec(query, args...).Error
 }
 
-func LoadPropertiesFromFile(ctx Context, filename string) error {
-	logger.Infof("Loading properties from %s", filename)
-	props, err := ParsePropertiesFile(filename)
-	if err != nil {
-		return err
+func getLogLevel(level string) int {
+	if i, err := strconv.Atoi(level); err == nil {
+		return i
 	}
-	Local = props
-	for k, v := range Local {
-		logger.Infof("%s(local)=%s", k, v)
+	switch level {
+	case "debug":
+		return 1
+	case "trace":
+		return 2
+	case "warn":
+		return -1
+	case "error":
+		return -2
+	default:
+		return 0
 	}
-	defer ctx.ClearCache()
-	return nil
-}
-
-func ParsePropertiesFile(filename string) (map[string]string, error) {
-	file, err := os.Open(filename)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var props = make(map[string]string)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		tokens := strings.SplitN(line, "=", 2)
-		if len(tokens) != 2 {
-			return nil, fmt.Errorf("invalid line: %s", line)
-		}
-
-		key := strings.TrimSpace(tokens[0])
-		value := strings.TrimSpace(tokens[1])
-		props[key] = value
-	}
-
-	if scanner.Err() != nil {
-		return nil, scanner.Err()
-	}
-
-	return props, nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/exaring/otelpgx"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/api"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/drivers"
 	dutyGorm "github.com/flanksource/duty/gorm"
@@ -17,7 +18,6 @@ import (
 	"github.com/flanksource/duty/tracing"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/spf13/pflag"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -42,10 +42,6 @@ type Table interface {
 	TableName() string
 }
 
-func BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
-}
-
 func BindGoFlags() {
 	flag.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 }
@@ -56,7 +52,7 @@ func DefaultGormConfig() *gorm.Config {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		Logger: dutyGorm.NewGormLogger(LogLevel),
+		Logger: dutyGorm.NewSqlLogger(logger.GetLogger("db")),
 	}
 }
 
@@ -150,18 +146,17 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(connection string, opts *migrate.MigrateOptions) error {
-	db, err := NewDB(connection)
+func Migrate(config api.Config) error {
+	db, err := NewDB(config.ConnectionString)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	migrateOptions := opts
-	if migrateOptions == nil {
-		migrateOptions = &migrate.MigrateOptions{}
-	}
-	if err := migrate.RunMigrations(db, connection, *migrateOptions); err != nil {
+	if err := migrate.RunMigrations(db, config.ConnectionString, migrate.MigrateOptions{
+		Skip:        config.SkipMigrations,
+		IgnoreFiles: config.SkipMigrationFiles,
+	}); err != nil {
 		return err
 	}
 
@@ -184,8 +179,8 @@ func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
 	return count > 0, nil
 }
 
-func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
-	db, pool, err := SetupDB(connection, migrateOpts)
+func InitDB(config api.Config) (*dutyContext.Context, error) {
+	db, pool, err := SetupDB(config)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +189,15 @@ func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContex
 
 	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
 	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
-	setStatementTimeouts(dutyctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
+	setStatementTimeouts(dutyctx, dutyctx.Pool(), config.ConnectionString, statementTimeout, postgrestStatmentTimeout)
 
 	return &dutyctx, nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
-func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
-	if migrateOpts == nil {
-		migrateOpts = &migrate.MigrateOptions{}
-	}
+func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
 
-	pgxpool, err = NewPgxPool(connection)
+	pgxpool, err = NewPgxPool(config.ConnectionString)
 	if err != nil {
 		return
 	}
@@ -220,13 +212,13 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 		return nil, nil, fmt.Errorf("error pinging database: %w", err)
 	}
 
-	gormDB, err = NewGorm(connection, DefaultGormConfig())
+	gormDB, err = NewGorm(config.ConnectionString, DefaultGormConfig())
 	if err != nil {
 		return
 	}
 
-	if !migrateOpts.Skip {
-		if err = Migrate(connection, migrateOpts); err != nil {
+	if !config.SkipMigrations {
+		if err = Migrate(config); err != nil {
 			return
 		}
 	}

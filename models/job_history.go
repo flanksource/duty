@@ -117,12 +117,16 @@ func (h *JobHistory) AddErrorf(msg string, args ...interface{}) *JobHistory {
 	return h
 }
 
-func (h *JobHistory) AddError(err string) *JobHistory {
+func (h *JobHistory) AddError(err any) *JobHistory {
 	h.ErrorCount += 1
-	if err != "" {
-		h.Errors = append(h.Errors, err)
+	switch v := err.(type) {
+	case error:
+		h.Errors = append(h.Errors, v.Error())
+	case string:
+		h.Errors = append(h.Errors, v)
+	default:
 	}
-	h.Logger.WithSkipReportLevel(1).Errorf("%s %s", h, err)
+	h.Logger.Errorf("%s %v", h, err)
 	return h
 }
 

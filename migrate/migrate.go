@@ -23,6 +23,8 @@ type MigrateOptions struct {
 }
 
 func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
+	l := logger.GetLogger("migrate")
+
 	if connection == "" {
 		return errors.New("connection string is empty")
 	}
@@ -36,41 +38,41 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	if err := row.Scan(&name); err != nil {
 		return fmt.Errorf("failed to get current database: %w", err)
 	}
-	logger.Infof("Migrating database %s", name)
+	l.Infof("Migrating database %s", name)
 
 	if err := createMigrationLogTable(pool); err != nil {
 		return fmt.Errorf("failed to create migration log table: %w", err)
 	}
 
-	logger.Tracef("Getting functions")
+	l.Tracef("Getting functions")
 	funcs, err := functions.GetFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to get functions: %w", err)
 	}
 
-	logger.Tracef("Running scripts")
+	l.Tracef("Running scripts")
 	if err := runScripts(pool, funcs, opts.IgnoreFiles); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
-	logger.Tracef("Granting roles to current user")
+	l.Tracef("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
 	if err := grantPostgrestRolesToCurrentUser(pool, connection); err != nil {
 		return fmt.Errorf("failed to grant postgrest roles: %w", err)
 	}
 
-	logger.Tracef("Applying schema migrations")
+	l.Tracef("Applying schema migrations")
 	if err := schema.Apply(context.TODO(), connection); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
-	logger.Tracef("Getting views")
+	l.Tracef("Getting views")
 	views, err := views.GetViews()
 	if err != nil {
 		return fmt.Errorf("failed to get views: %w", err)
 	}
 
-	logger.Tracef("Running scripts for views")
+	l.Tracef("Running scripts for views")
 	if err := runScripts(pool, views, opts.IgnoreFiles); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
@@ -79,6 +81,7 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 }
 
 func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
+	l := logger.GetLogger("migrate")
 	parsedConn, err := url.Parse(connection)
 	if err != nil {
 		return err
@@ -96,7 +99,7 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_api TO "%s"`, user)); err != nil {
 			return err
 		}
-		logger.Debugf("Granted postgrest_api to %s", user)
+		l.Debugf("Granted postgrest_api to %s", user)
 
 		grantQuery := `
             GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgrest_api;
@@ -106,7 +109,7 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 		if _, err := pool.Exec(grantQuery); err != nil {
 			return err
 		}
-		logger.Debugf("Granted privileges to postgrest_api", user)
+		l.Debugf("Granted privileges to postgrest_api", user)
 
 	}
 
@@ -118,7 +121,7 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
 		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_anon TO "%s"`, user)); err != nil {
 			return err
 		}
-		logger.Debugf("Granted postgrest_anon to %s", user)
+		l.Debugf("Granted postgrest_anon to %s", user)
 	}
 
 	return nil
@@ -146,6 +149,7 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 }
 
 func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) error {
+	l := logger.GetLogger("migrate")
 	var filenames []string
 	for name := range scripts {
 		if collections.Contains(ignoreFiles, name) {
@@ -168,11 +172,11 @@ func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) e
 
 		hash := sha1.Sum([]byte(content))
 		if string(hash[:]) == currentHash {
-			logger.Tracef("Skipping script %s", file)
+			l.Tracef("Skipping script %s", file)
 			continue
 		}
 
-		logger.Tracef("Running script %s", file)
+		l.Tracef("Running script %s", file)
 		if _, err := pool.Exec(scripts[file]); err != nil {
 			return fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
 		}

@@ -331,6 +331,7 @@ func (p *Playbook) NamespaceScope() string {
 func (p *PlaybookRunAction) LoggerName() string {
 	return p.Name
 }
+
 func (p *PlaybookRunAction) Context() map[string]any {
 	if p == nil {
 		return nil
@@ -440,7 +441,6 @@ func (p PlaybookRunAction) Complete(db *gorm.DB, result any) error {
 	}
 
 	return p.ScheduleRun(db)
-
 }
 
 func (p PlaybookRunAction) Update(db *gorm.DB, columns map[string]any) error {

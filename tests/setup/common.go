@@ -1,6 +1,7 @@
 package setup
 
 import (
+	gocontext "context"
 	"database/sql"
 	"fmt"
 	"net"
@@ -11,12 +12,15 @@ import (
 
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/telemetry"
+
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
-	"github.com/flanksource/postq"
 	"github.com/labstack/echo/v4"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,8 +38,6 @@ var dummyData dummy.DummyData
 var PgUrl string
 var postgresDBUrl string
 var dbName = "test"
-var trace bool
-var dbTrace bool
 
 func init() {
 	logger.BindGoFlags()
@@ -64,8 +66,19 @@ func MustDB() *sql.DB {
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
 var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
+var otel = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+
+var ShutdownHooks []func(ctx gocontext.Context) error
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
+
+	properties.LoadFile("test.properties")
+
+	if otel != "" {
+		logger.Infof("Sending traces to %s", otel)
+
+		ShutdownHooks = append(ShutdownHooks, telemetry.InitTracer("tests", otel, true))
+	}
 	var err error
 	importDummyData := true
 
@@ -78,7 +91,6 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		}
 	}
 
-	logger.Infof("Initializing test db debug=%v db.trace=%v", trace, dbTrace)
 	if postgresServer != nil {
 		return DefaultContext
 	}
@@ -107,6 +119,11 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
 			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
 		}
+
+		ShutdownHooks = append(ShutdownHooks, func(ctx gocontext.Context) error {
+			return execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName))
+		})
+
 	} else if url == "" {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
 		postgresServer = embeddedPG.NewDatabase(config)
@@ -114,14 +131,18 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 			panic(err.Error())
 		}
 		logger.Infof("Started postgres on port %d", port)
+		ShutdownHooks = append(ShutdownHooks, func(ctx gocontext.Context) error {
+			logger.Infof("Stopping postgres")
+			return postgresServer.Stop()
+		})
 	}
 
-	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
+	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.WithUrl(PgUrl))
+	if err != nil {
 		panic(err.Error())
-	} else {
-		DefaultContext = *ctx
 	}
 
+	DefaultContext = ctx
 	if err := DefaultContext.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
 		panic(err.Error())
 	}
@@ -157,26 +178,18 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 			"foo": []byte("secret"),
 		}}))
 
-	if dbTrace {
-		DefaultContext = DefaultContext.WithDBLogLevel("trace")
-	}
-	if trace {
-		DefaultContext = DefaultContext.WithTrace()
-	}
 	return DefaultContext
 }
 
 func AfterSuiteFn() {
-	if os.Getenv("DUTY_DB_URL") == "" {
-		logger.Infof("Stopping postgres")
-		if err := postgresServer.Stop(); err != nil {
-			ginkgo.Fail(err.Error())
-		}
-	} else if recreateDatabase {
-		if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
-			ginkgo.Fail(fmt.Sprintf("Cannot drop %s: %v", dbName, err))
+	for _, fn := range ShutdownHooks {
+		if err := fn(DefaultContext); err != nil {
+			logger.Errorf(err.Error())
 		}
 	}
+	// clear out hooks so they don't run again
+	ShutdownHooks = []func(ctx gocontext.Context) error{}
+
 }
 
 // NewDB creates a new database from an existing context, and
@@ -190,7 +203,9 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 		return nil, nil, err
 	}
 
-	newCtx, err := duty.InitDB(strings.ReplaceAll(pgUrl, pgDbName, newName), nil)
+	newCtx, err := duty.InitDB(api.Config{
+		ConnectionString: strings.ReplaceAll(pgUrl, pgDbName, newName),
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,7 +263,7 @@ func ExpectJobToPass(j *job.Job) {
 }
 
 func DumpEventQueue(ctx context.Context) {
-	var events []postq.Event
+	var events []models.Event
 	Expect(ctx.DB().Find(&events).Error).To(BeNil())
 
 	table.DefaultHeaderFormatter = func(format string, vals ...interface{}) string {
