@@ -2,9 +2,6 @@ package context
 
 import (
 	gocontext "context"
-	"slices"
-	"strings"
-	"sync"
 	"time"
 
 	commons "github.com/flanksource/commons/context"
@@ -71,30 +68,22 @@ func (k Context) WithValue(key, val any) Context {
 	}
 }
 
-// WithAnyValue is a wrapper around WithValue
+// // Deprecated: use WithValue
 func (k Context) WithAnyValue(key, val any) Context {
-	return Context{
-		Context: k.WithValue(key, val),
-	}
+	return k.WithValue(key, val)
 }
 
 func (k Context) WithObject(object metav1.ObjectMeta) Context {
-	return Context{
-		Context: k.WithValue("object", object),
-	}
+	return k.WithValue("object", object)
 }
 
 func (k Context) WithTopology(topology any) Context {
-	return Context{
-		Context: k.WithValue("topology", topology),
-	}
+	return k.WithValue("topology", topology)
 }
 
 func (k Context) WithUser(user *models.Person) Context {
 	k.GetSpan().SetAttributes(attribute.String("user-id", user.ID.String()))
-	return Context{
-		Context: k.WithValue("user", user),
-	}
+	return k.WithValue("user", user)
 }
 
 func (k Context) WithoutName() Context {
@@ -118,9 +107,7 @@ func (k Context) User() *models.Person {
 // WithAgent sets the current session's agent in the context
 func (k Context) WithAgent(agent models.Agent) Context {
 	k.GetSpan().SetAttributes(attribute.String("agent-id", agent.ID.String()))
-	return Context{
-		Context: k.WithValue("agent", agent),
-	}
+	return k.WithValue("agent", agent)
 }
 
 func (k Context) Agent() *models.Agent {
@@ -160,9 +147,7 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 func (k Context) WithDBLogLevel(level string) Context {
 	db := k.DB()
 	db.Logger = dutyGorm.NewGormLogger(level)
-	return Context{
-		Context: k.WithValue("db", db),
-	}
+	return k.WithValue("db", db)
 }
 
 // FastDB returns a db suitable for high-performance usage, with limited logging and tracing
