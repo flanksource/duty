@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -63,4 +64,38 @@ func GetIDs[T DBTable](items ...T) []string {
 		ids = append(ids, item.PK())
 	}
 	return ids
+}
+
+type Contextable interface {
+	Context() map[string]any
+}
+
+func ErrorContext(items ...Contextable) []any {
+	merged := make(map[string]any)
+
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		for k, v := range item.Context() {
+			merged[k] = v
+		}
+	}
+	var args []any
+
+	for k, v := range merged {
+		if v == nil || v == uuid.Nil.String() {
+			continue
+		}
+		args = append(args, k, v)
+	}
+	return args
+}
+
+type LogNameAccessor interface {
+	LoggerName() string
+}
+
+type NamespaceScopeAccessor interface {
+	NamespaceScope() string
 }

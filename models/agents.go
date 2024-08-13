@@ -33,6 +33,12 @@ type Agent struct {
 	LastReceived *time.Time `json:"last_received,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (a Agent) Context() map[string]any {
+	return map[string]any{
+		"agent_id": a.ID,
+	}
+}
+
 func (a Agent) TableName() string {
 	return "agents"
 }
