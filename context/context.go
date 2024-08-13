@@ -25,14 +25,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-type Poolable interface {
-	Pool() *pgxpool.Pool
-}
-
-type Gormable interface {
-	DB() *gorm.DB
-}
-
 type Context struct {
 	commons.Context
 }
@@ -73,6 +65,12 @@ func (k Context) WithDeadline(deadline time.Time) (Context, gocontext.CancelFunc
 	return Context{
 		Context: ctx,
 	}, cancelFunc
+}
+
+func (k Context) WithValue(key, val any) Context {
+	return Context{
+		Context: k.Context.WithValue(key, val),
+	}
 }
 
 // WithAnyValue is a wrapper around WithValue
@@ -146,27 +144,19 @@ func (k Context) WithDebug() Context {
 }
 
 func (k Context) WithKubernetes(client kubernetes.Interface) Context {
-	return Context{
-		Context: k.WithValue("kubernetes", client),
-	}
+	return k.WithValue("kubernetes", client)
 }
 
 func (k Context) WithKommons(client *kommons.Client) Context {
-	return Context{
-		Context: k.WithValue("kommons", client),
-	}
+	return k.WithValue("kommons", client)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
-	return Context{
-		Context: k.WithValue("namespace", namespace),
-	}
+	return k.WithValue("namespace", namespace)
 }
 
 func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
-	return Context{
-		Context: k.WithValue("db", db).WithValue("pgxpool", pool),
-	}
+	return k.WithValue("db", db).WithValue("pgxpool", pool)
 }
 
 func (k Context) WithDBLogLevel(level string) Context {
@@ -194,7 +184,19 @@ func (k Context) IsTracing() bool {
 }
 
 func (k Context) WithoutTracing() Context {
-	return k.WithAnyValue(tracing.TracePaused, "true")
+	return k.WithValue(tracing.TracePaused, "true")
+}
+
+func (k Context) Transaction(name string, fn func(ctx Context, span trace.Span) error) error {
+	return k.DB().Transaction(func(tx *gorm.DB) error {
+		ctx := k.WithDB(tx, k.Pool())
+		var span trace.Span
+		if name != "" {
+			ctx, span = ctx.StartSpan(name)
+			defer span.End()
+		}
+		return fn(ctx, span)
+	})
 }
 
 func (k Context) DB() *gorm.DB {
@@ -268,8 +270,8 @@ func (k Context) GetObjectMeta() metav1.ObjectMeta {
 }
 
 func (k Context) GetNamespace() string {
-	if k.Value("object") != nil {
-		return k.GetObjectMeta().Namespace
+	if ns := k.GetObjectMeta().Namespace; ns != "" {
+		return ns
 	}
 	if k.Value("namespace") != nil {
 		return k.Value("namespace").(string)
