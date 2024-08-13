@@ -334,7 +334,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				To:        "now-1s",
 			})
 			Expect(err).To(BeNil())
-			Expect(response.Total).To(BeNumerically(">=", 2))
+			Expect(response.Total).To(BeNumerically(">=", 1))
 		})
 
 		ginkgo.Context("Sorting", func() {

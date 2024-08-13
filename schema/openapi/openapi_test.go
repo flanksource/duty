@@ -4,40 +4,36 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestPlaybookSpec_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		spec    string
-		invalid bool
-	}{
-		{
-			name:    "invalid playbook",
-			spec:    "playbook-invalid.json",
-			invalid: true,
-		},
-		{
-			name: "valid playbook",
-			spec: "playbook-valid.json",
-		},
-	}
+var _ = Describe("PlaybookSpec", func() {
+	var (
+		data []byte
+		err  error
+	)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			data, err := os.ReadFile(filepath.Join("testdata", tt.spec))
-			if err != nil {
-				t.Errorf("PlaybookSpec.Validate() error = %v, wantErr %v", err, tt.invalid)
-			}
+	DescribeTable("Validate",
+		func(spec string, invalid bool) {
+			data, err = os.ReadFile(filepath.Join("testdata", spec))
+			Expect(err).ToNot(HaveOccurred())
 
 			validationError, err := ValidatePlaybookSpec(data)
-			if err != nil {
-				t.Errorf("PlaybookSpec.Validate() error = %v, wantErr %v", err, tt.invalid)
+			Expect(err).ToNot(HaveOccurred())
+			if invalid {
+				Expect(validationError).To(HaveOccurred())
+			} else {
+				Expect(validationError).ToNot(HaveOccurred())
 			}
+		},
+		Entry("invalid playbook", "playbook-invalid.json", true),
+		Entry("valid playbook", "playbook-valid.json", false),
+	)
+})
 
-			if (validationError != nil) != tt.invalid {
-				t.Errorf("PlaybookSpec.Validate() error = %v, wantErr %v", validationError, tt.invalid)
-			}
-		})
-	}
+func TestOpenAPI(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "OpenAPI Suite")
 }
