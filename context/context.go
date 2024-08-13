@@ -26,6 +26,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+func init() {
+	logger.SkipFrameSuffixes = append(logger.SkipFrameSuffixes, "context/context")
+}
+
 type Context struct {
 	commons.Context
 }
@@ -45,23 +49,23 @@ func New(opts ...commons.ContextOptions) Context {
 
 func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Context {
 	baseOpts := []commons.ContextOptions{
-		commons.WithDebugFn(func(ctx commons.Context) bool {
+		commons.WithDebugFn(func(ctx commons.Context) *bool {
 			for _, o := range Objects(ctx) {
 				annotations := getObjectMeta(o).Annotations
 				if annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true") {
-					return true
+					return lo.ToPtr(true)
 				}
 			}
-			return false
+			return nil
 		}),
-		commons.WithTraceFn(func(ctx commons.Context) bool {
+		commons.WithTraceFn(func(ctx commons.Context) *bool {
 			for _, o := range Objects(ctx) {
 				annotations := getObjectMeta(o).Annotations
 				if annotations != nil && annotations["trace"] == "true" {
-					return true
+					return lo.ToPtr(true)
 				}
 			}
-			return false
+			return nil
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)

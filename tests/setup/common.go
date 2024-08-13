@@ -66,7 +66,6 @@ var WithExistingDatabase = "with_existing_database"
 var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
-	logger.UseZap()
 	var err error
 	importDummyData := true
 
