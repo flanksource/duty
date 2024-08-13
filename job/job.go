@@ -186,6 +186,14 @@ type JobRuntime struct {
 	runId     string
 }
 
+func New(ctx context.Context) JobRuntime {
+	return JobRuntime{
+		Context: ctx,
+		History: &models.JobHistory{},
+		Job:     &Job{},
+	}
+}
+
 func (j *JobRuntime) ID() string {
 	return fmt.Sprintf("[%s/%s]", j.Job.Name, j.runId)
 }
@@ -348,6 +356,18 @@ func (j *Job) GetProperty(property string) (string, bool) {
 	return "", false
 }
 
+func (j *Job) GetPropertyInt(property string, def int) int {
+	if val := j.Context.Properties().Int("jobs."+j.Name+"."+property, def); val != def {
+		return val
+	}
+	if j.ID != "" {
+		if val := j.Context.Properties().Int(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), def); val != def {
+			return val
+		}
+	}
+	return def
+}
+
 func (j *Job) init() error {
 	if evictedJobs == nil {
 		evictedJobs = make(chan uuid.UUID, 1000)
@@ -373,8 +393,12 @@ func (j *Job) init() error {
 	}
 
 	j.JobHistory = j.Properties().On(true, j.getPropertyNames("history")...)
+	j.Retention.Success = j.GetPropertyInt("retention.success", j.Retention.Success)
+	j.Retention.Failed = j.GetPropertyInt("retention.failed", j.Retention.Failed)
+
 	j.Trace = j.Properties().On(false, j.getPropertyNames("trace")...)
 	j.Debug = j.Properties().On(false, j.getPropertyNames("debug")...)
+	j.Singleton = j.Properties().On(j.Singleton, j.getPropertyNames("singleton")...)
 
 	// Set default retention if it is unset
 	if j.Retention.Empty() {
