@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,6 +27,10 @@ const (
 	HealthUnknown   Health = "unknown"
 	HealthWarning   Health = "warning"
 )
+
+func init() {
+	logger.SkipFrameContains = append(logger.SkipFrameContains, "duty/models")
+}
 
 // asMap marshals the given struct into a map.
 func asMap(t any, removeFields ...string) map[string]any {

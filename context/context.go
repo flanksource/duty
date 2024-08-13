@@ -173,7 +173,7 @@ func (k Context) WithUser(user *models.Person) Context {
 }
 
 func (k Context) WithoutName() Context {
-	k.Logger = k.Logger.WithoutName()
+	k.Logger = logger.GetLogger()
 	return k
 }
 
@@ -232,22 +232,24 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	return k.WithValue("db", db).WithValue("pgxpool", pool)
 }
 
-func (k Context) WithDBLogLevel(level string) Context {
-	db := k.DB()
-	db.Logger = dutyGorm.NewGormLogger(level)
+func (k Context) WithDBLogLevel(level any) Context {
+	db := k.DB().Session(&gorm.Session{
+		Context: k.Context,
+	})
+	db.Logger = db.Logger.LogMode(dutyGorm.FromCommonsLevel(k.Logger, level))
 	return k.WithValue("db", db)
 }
 
 // FastDB returns a db suitable for high-performance usage, with limited logging and tracing
 func (k Context) FastDB() *gorm.DB {
-	db := k.WithAnyValue(tracing.TracePaused, true).DB()
-	db.Logger = dutyGorm.NewGormLogger("warn")
+	db := k.WithAnyValue(tracing.TracePaused, true).
+		WithDBLogLevel(logger.Warn).DB()
 	return db
 }
 
 // Fast with limiting tracing and db logging
 func (k Context) Fast() Context {
-	return k.WithoutTracing().WithDBLogLevel("warn")
+	return k.WithoutTracing().WithDBLogLevel(logger.Warn)
 }
 
 func (k Context) IsTracing() bool {
@@ -391,7 +393,14 @@ func (k Context) WithLoggingValues(args ...interface{}) Context {
 }
 
 func (k Context) GetObjectMeta() metav1.ObjectMeta {
-	return getObjectMeta(k.Context)
+	var meta metav1.ObjectMeta
+	for _, o := range k.Objects() {
+		meta = getObjectMeta(o)
+		if meta.Name != "" && meta.Namespace != "" {
+			return meta
+		}
+	}
+	return meta
 }
 
 func (k Context) GetNamespace() string {

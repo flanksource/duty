@@ -2,7 +2,6 @@
 // This source code is licensed under the Apache 2.0 license found at
 // https://github.com/ariga/atlas/blob/master/LICENSE
 
-
 package schema
 
 import (
@@ -36,7 +35,7 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 	for _, change := range changes {
 		switch change := change.(type) {
 		case *schema.DropTable:
-			logger.Debugf("Skipping drop table of %s", change.T.Name)
+			logger.GetLogger("migrate").Tracef("Skipping drop table of %s", change.T.Name)
 		default:
 			filtered = append(filtered, change)
 		}
@@ -45,6 +44,7 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 }
 
 func Apply(ctx context.Context, connection string) error {
+	log := logger.GetLogger("migrate")
 	from, err := dbReader(ctx, connection, []string{})
 	if err != nil {
 		return fmt.Errorf("failed to open connection: %w", err)
@@ -68,7 +68,7 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	if len(changes) == 0 {
-		logger.Infof("No changes detected")
+		log.Debugf("No changes detected")
 		return nil
 	}
 
@@ -80,14 +80,14 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	for _, change := range plan.Changes {
-		logger.Debugf(change.Cmd)
+		log.Tracef(change.Cmd)
 	}
 
 	if err = client.ApplyChanges(ctx, changes); err != nil {
 		return fmt.Errorf("applied %d changes and then failed: %w", len(changes), err)
 	}
 
-	logger.Infof("Applied %d changes", len(changes))
+	log.Infof("Applied %d changes", len(changes))
 	return nil
 }
 
