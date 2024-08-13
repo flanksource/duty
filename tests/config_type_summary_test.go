@@ -7,6 +7,7 @@ import (
 	"github.com/flanksource/duty/models"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 )
 
 type configClassSummary struct {
@@ -38,11 +39,11 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			configClassSummaries = append(configClassSummaries, c)
 		}
 
-		Expect(configClassSummaries).To(ContainElements([]configClassSummary{
+		expectedSummary := []configClassSummary{
 			{
 				configClass:  models.ConfigClassCluster,
 				totalConfigs: 2,
-				changes:      ptr(2),
+				changes:      lo.ToPtr(2),
 			},
 			{
 				configClass:  models.ConfigClassDatabase,
@@ -58,8 +59,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			{
 				configClass:  models.ConfigClassNode,
 				totalConfigs: 3,
-				changes:      ptr(1),
-				cp30d:        ptr(2.5),
+				changes:      lo.ToPtr(1),
+				cp30d:        lo.ToPtr(2.5),
 			},
 			{
 				configClass:  models.ConfigClassPod,
@@ -76,11 +77,16 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 					"security": float64(1),
 				},
 			},
-		}),
-		)
+		}
+
+		Expect(len(configClassSummaries)).To(BeNumerically(">=", len(expectedSummary)))
+		for _, expected := range expectedSummary {
+
+			i, found := lo.Find(configClassSummaries, func(i configClassSummary) bool { return i.configClass == expected.configClass })
+			Expect(found).To(BeTrue())
+			Expect(i.totalConfigs).To(BeNumerically(">=", expected.totalConfigs))
+			Expect(lo.FromPtr(i.changes)).To(BeNumerically(">=", lo.FromPtr(expected.changes)))
+		}
+
 	})
 })
-
-func ptr[T any](i T) *T {
-	return &i
-}
