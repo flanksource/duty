@@ -1,5 +1,10 @@
-test:
-	go test ./... -test.v
+
+.PHONY: ginkgo
+ginkgo:
+	go install github.com/onsi/ginkgo/v2/ginkgo
+
+test: ginkgo
+	ginkgo -r  -v
 
 fmt:
 	go fmt ./...

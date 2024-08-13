@@ -10,7 +10,56 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/itchyny/gojq"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gcustom"
 )
+
+func MatchMap(a map[string]string, jq ...string) gcustom.CustomGomegaMatcher {
+
+	return gcustom.MakeMatcher(func(b map[string]string) (bool, error) {
+
+		var err error
+		actualJSONb, err := json.Marshal(a)
+		if err != nil {
+			return false, err
+		}
+
+		expectedJSONb, err := json.Marshal(b)
+		if err != nil {
+			return false, err
+		}
+
+		expectedJSON, err := NormalizeJSON(string(expectedJSONb))
+		if err != nil {
+			return false, err
+		}
+
+		actualJSON, err := NormalizeJSON(string(actualJSONb))
+		if err != nil {
+			return false, err
+		}
+
+		for _, _jq := range jq {
+
+			expectedJSONb, err = ParseJQ([]byte(expectedJSON), _jq)
+			if err != nil {
+				return false, err
+			}
+			actualJSONb, err = ParseJQ([]byte(actualJSON), _jq)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		diff, err := generateDiff(string(expectedJSON), string(actualJSON))
+		if err != nil {
+			return false, err
+		}
+		if len(diff) > 0 {
+			return false, fmt.Errorf("%v", diff)
+		}
+		return true, nil
+	})
+}
 
 func MatchFixture(path string, result any, jqFilter string) {
 	resultJSON, err := json.Marshal(result)
