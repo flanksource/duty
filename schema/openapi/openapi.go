@@ -2,9 +2,9 @@ package openapi
 
 import (
 	"embed"
-	"fmt"
 	"net/http"
 
+	"github.com/samber/oops"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -20,11 +20,11 @@ func ValidateSpec(path string, schema []byte) (error, error) {
 	documentLoader := gojsonschema.NewBytesLoader(schema)
 	result, err := gojsonschema.Validate(playbookSchemaLoader, documentLoader)
 	if err != nil {
-		return nil, err
+		return nil, oops.Wrap(err)
 	}
 
 	if len(result.Errors()) != 0 {
-		return fmt.Errorf("spec is invalid: %v", result.Errors()), nil
+		return oops.Errorf("spec is invalid: %v", result.Errors()), nil
 	}
 
 	return nil, nil
