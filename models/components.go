@@ -70,6 +70,9 @@ type Component struct {
 	UpdatedAt       *time.Time              `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
 
+	// ConfigID is the id of the config from which this component is derived
+	ConfigID *uuid.UUID `json:"config_id,omitempty"`
+
 	// statusExpr allows defining a cel expression to evaluate the status of a component
 	// based on the summary and the related config
 	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
