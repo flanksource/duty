@@ -1,2 +1,1 @@
---- CASBIN rule needs to be truncated after introduction of eft
-TRUNCATE casbin_rule;
+UPDATE casbin_rule SET v3 = 'allow' WHERE ptype = 'p' and v3 is null
