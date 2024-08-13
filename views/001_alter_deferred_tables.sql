@@ -51,7 +51,8 @@ BEGIN
   -- Create a temporary table to store config_item IDs to ignore
   CREATE TEMP TABLE ignored_config_items AS
     SELECT DISTINCT config_id FROM evidences
-    UNION  SELECT DISTINCT config_id FROM playbook_runs;
+    UNION SELECT DISTINCT config_id FROM playbook_runs
+    UNION SELECT DISTINCT config_id FROM components;
 
   -- Create a temporary table to store config_item IDs to delete
   CREATE TEMP TABLE config_items_to_delete AS

@@ -173,6 +173,10 @@ table "components" {
     null = true
     type = uuid
   }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
   column "name" {
     null = false
     type = text
@@ -331,6 +335,12 @@ table "components" {
   foreign_key "components_parent_id_fkey" {
     columns     = [column.parent_id]
     ref_columns = [table.components.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "components_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
