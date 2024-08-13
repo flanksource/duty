@@ -127,9 +127,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		panic(err.Error())
 	}
 
-	DefaultContext = context.Context{
-		Context: DefaultContext.WithValue("db_name", dbName).WithValue("db_url", PgUrl),
-	}
+	DefaultContext = DefaultContext.WithValue("db_name", dbName).WithValue("db_url", PgUrl)
 
 	if importDummyData {
 		dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
