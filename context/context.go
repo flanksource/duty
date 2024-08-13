@@ -2,16 +2,22 @@ package context
 
 import (
 	gocontext "context"
+	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	commons "github.com/flanksource/commons/context"
+	"github.com/flanksource/commons/logger"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -24,6 +30,15 @@ type Context struct {
 	commons.Context
 }
 
+func (k Context) Oops(tags ...string) oops.OopsErrorBuilder {
+	var args []any
+
+	for k, v := range k.GetLoggingContext() {
+		args = append(args, k, v)
+	}
+	return oops.With(args...).Tags(tags...)
+}
+
 func New(opts ...commons.ContextOptions) Context {
 	return NewContext(gocontext.Background(), opts...)
 }
@@ -31,21 +46,56 @@ func New(opts ...commons.ContextOptions) Context {
 func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Context {
 	baseOpts := []commons.ContextOptions{
 		commons.WithDebugFn(func(ctx commons.Context) bool {
-			annotations := getObjectMeta(ctx).Annotations
-			return annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true")
+			for _, o := range Objects(ctx) {
+				annotations := getObjectMeta(o).Annotations
+				if annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true") {
+					return true
+				}
+			}
+			return false
 		}),
 		commons.WithTraceFn(func(ctx commons.Context) bool {
-			annotations := getObjectMeta(ctx).Annotations
-			return annotations != nil && annotations["trace"] == "true"
+			for _, o := range Objects(ctx) {
+				annotations := getObjectMeta(o).Annotations
+				if annotations != nil && annotations["trace"] == "true" {
+					return true
+				}
+			}
+			return false
 		}),
 	}
 	baseOpts = append(baseOpts, opts...)
-	return Context{
-		Context: commons.NewContext(
-			baseCtx,
-			baseOpts...,
-		),
+	ctx := commons.NewContext(
+		baseCtx,
+		baseOpts...,
+	)
+	if ctx.Logger == nil {
+		ctx.Logger = logger.StandardLogger()
 	}
+	return Context{
+		Context: ctx,
+	}
+}
+
+func (k Context) String() string {
+	s := []string{}
+	if k.IsTrace() {
+		s = append(s, "[trace]")
+	} else if k.IsDebug() {
+		s = append(s, "[debug]")
+	}
+
+	if user := k.User(); user != nil {
+		s = append(s, fmt.Sprintf("user=%s", user.Name))
+	}
+
+	if ns := k.GetNamespace(); ns != "" {
+		s = append(s, fmt.Sprintf("namespace=%s", ns))
+	}
+	if name := k.GetName(); name != "" {
+		s = append(s, fmt.Sprintf("name=%s", name))
+	}
+	return strings.Join(s, " ")
 }
 
 func (k Context) WithTimeout(timeout time.Duration) (Context, gocontext.CancelFunc) {
@@ -73,8 +123,40 @@ func (k Context) WithAnyValue(key, val any) Context {
 	return k.WithValue(key, val)
 }
 
-func (k Context) WithObject(object metav1.ObjectMeta) Context {
-	return k.WithValue("object", object)
+func (k Context) WithObject(object ...any) Context {
+	var logNames []string
+	ctx := k
+
+	for _, o := range object {
+		switch v := o.(type) {
+		case models.NamespaceScopeAccessor:
+			ctx = ctx.WithNamespace(v.NamespaceScope())
+		}
+		switch v := o.(type) {
+		case models.LogNameAccessor:
+			logNames = append(logNames, v.LoggerName())
+		}
+	}
+	ctx = ctx.WithValue("object", object)
+	if len(logNames) > 0 {
+		ctx.Logger = ctx.Logger.Named(strings.Join(logNames, "."))
+	}
+	return ctx
+}
+
+func (k Context) Verbose() logger.Logger {
+	var args []any
+	for k, v := range k.GetLoggingContext() {
+		if lo.IsNotEmpty(v) {
+			args = append(args, k, v)
+		}
+	}
+
+	return k.Logger.WithValues(args...)
+}
+
+func (k Context) Objects() []any {
+	return Objects(k.Context)
 }
 
 func (k Context) WithTopology(topology any) Context {
@@ -119,13 +201,15 @@ func (k Context) Agent() *models.Agent {
 }
 
 func (k Context) WithTrace() Context {
-	k.Context = k.Context.WithTrace()
-	return k
+	return Context{
+		Context: k.Context.WithTrace(),
+	}
 }
 
 func (k Context) WithDebug() Context {
-	k.Context = k.Context.WithDebug()
-	return k
+	return Context{
+		Context: k.Context.WithDebug(),
+	}
 }
 
 func (k Context) WithKubernetes(client kubernetes.Interface) Context {
@@ -235,17 +319,71 @@ func (k Context) StartSpan(name string) (Context, trace.Span) {
 		attribute.String("namespace", k.GetNamespace()),
 	)
 
-	return Context{
-		Context: ctx,
-	}, span
+	return k.Wrap(ctx), span
 }
 
-func getObjectMeta(ctx commons.Context) metav1.ObjectMeta {
-	o := ctx.Value("object")
-	if o == nil {
-		return metav1.ObjectMeta{Annotations: make(map[string]string), Labels: make(map[string]string)}
+func (k Context) WrapEcho(c echo.Context) Context {
+	c2 := k.Wrap(c.Request().Context())
+	if c.Request().Header.Get("X-Trace") == "true" {
+		c2 = c2.WithTrace()
 	}
-	return o.(metav1.ObjectMeta)
+	if c.Request().Header.Get("X-Debug") == "true" {
+		c2 = c2.WithDebug()
+	}
+	return c2
+}
+
+func (k Context) GetLoggingContext() map[string]any {
+	meta := k.GetObjectMeta()
+	args := map[string]any{
+		"namespace": meta.Namespace,
+		"name":      meta.Name,
+	}
+
+	if user := k.User(); user != nil {
+		args["user"] = user.Name
+	}
+	if agent := k.Agent(); agent != nil {
+		args["agent"] = agent.ID
+	}
+
+	for _, o := range k.Objects() {
+		switch v := o.(type) {
+		case ContextAccessor:
+			for k, v := range v.Context() {
+				if lo.IsNotEmpty(v) {
+					args[k] = v
+				}
+			}
+		}
+	}
+
+	if m := k.Value("values"); m != nil {
+		for k, v := range m.(map[string]interface{}) {
+			if !lo.IsEmpty(v) {
+				args[k] = v
+			}
+		}
+	}
+
+	return args
+}
+
+func (k Context) WithLoggingValues(args ...interface{}) Context {
+	var m map[string]interface{}
+	if v := k.Value("values"); v != nil {
+		m = v.(map[string]interface{})
+	} else {
+		m = make(map[string]interface{})
+	}
+
+	for i := 0; i < len(args)-1; i = i + 2 {
+		m[args[i].(string)] = args[i+1]
+	}
+	for _, arg := range args {
+		k = k.WithValue(reflect.TypeOf(arg).Name(), arg)
+	}
+	return k.WithValue("values", m)
 }
 
 func (k Context) GetObjectMeta() metav1.ObjectMeta {
