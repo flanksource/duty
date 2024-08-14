@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = ginkgo.Describe("Schema", func() {
+var _ = ginkgo.Describe("Schema", ginkgo.Label("slow"), func() {
 	ginkgo.It("should be able to run migrations", func() {
 		logger.Infof("Running migrations against %s", setup.PgUrl)
 		// run migrations again to ensure idempotency
