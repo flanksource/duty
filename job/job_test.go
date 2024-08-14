@@ -19,7 +19,7 @@ func TestJob(t *testing.T) {
 	RunSpecs(t, "Job Suite")
 }
 
-var _ = Describe("StatusRing", func() {
+var _ = Describe("StatusRing", Label("slow"), func() {
 	var ch chan uuid.UUID
 
 	cases := []Retention{

@@ -780,8 +780,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/fergusstrange/embedded-postgres v1.25.0 h1:sa+k2Ycrtz40eCRPOzI7Ry7TtkWXXJ+YRsxpKMDhxK0=
 github.com/fergusstrange/embedded-postgres v1.25.0/go.mod h1:t/MLs0h9ukYM6FSt99R7InCHs1nW0ordoVCcnzmpTYw=
-github.com/flanksource/commons v1.26.0 h1:cPNV+YNT/GQ6OsMKIDGI48xWmrmsKOzGaM7JJBj2BaU=
-github.com/flanksource/commons v1.26.0/go.mod h1:0rqqWCOm8CC5w1MGyjw7HlNiUqDIXF5wSP40z8uqaso=
+github.com/flanksource/commons v1.26.1 h1:heS/uP0K1okniy2yAisCBoASAGkS419zC6Jir9VzEJg=
+github.com/flanksource/commons v1.26.1/go.mod h1:0rqqWCOm8CC5w1MGyjw7HlNiUqDIXF5wSP40z8uqaso=
 github.com/flanksource/gomplate/v3 v3.20.4/go.mod h1:27BNWhzzSjDed1z8YShO6W+z6G9oZXuxfNFGd/iGSdc=
 github.com/flanksource/gomplate/v3 v3.24.22 h1:F0A62PfJlxUM5GaR1093h2Lx8FjbLTnCqP/Y8bYC/1Q=
 github.com/flanksource/gomplate/v3 v3.24.22/go.mod h1:dNRCXKf7uuYwEKtzJSiRAz1WGwQXB0P3J5md+tnqqI4=

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -70,9 +71,30 @@ var otel = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
 var ShutdownHooks []func(ctx gocontext.Context) error
 
-func BeforeSuiteFn(args ...interface{}) context.Context {
+func findFileInPath(filename string, depth int) string {
 
-	properties.LoadFile("test.properties")
+	if !path.IsAbs(filename) {
+		cwd, _ := os.Getwd()
+		filename = path.Join(cwd, filename)
+	}
+
+	base := path.Base(filename)
+
+	paths := strings.Split(path.Dir(filename), "/")
+	for i := len(paths); i >= len(paths)-depth; i-- {
+		file := "/" + path.Join(append(paths[:i], base)...)
+		logger.Infof(file)
+		if _, err := os.Stat(file); err == nil {
+			return file
+		}
+	}
+	return filename
+}
+
+func BeforeSuiteFn(args ...interface{}) context.Context {
+	if err := properties.LoadFile(findFileInPath("test.properties", 2)); err != nil {
+		logger.Errorf("Failed to load test properties: %v", err)
+	}
 
 	if otel != "" {
 		logger.Infof("Sending traces to %s", otel)
