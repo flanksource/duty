@@ -19,7 +19,7 @@ import (
 	"github.com/flanksource/duty/upstream"
 )
 
-var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), func() {
 	var upstreamCtx *context.Context
 	var echoCloser, drop func()
 	var upstreamConf upstream.UpstreamConfig

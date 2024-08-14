@@ -11,6 +11,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
@@ -24,6 +25,10 @@ type MigrateOptions struct {
 
 func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 	l := logger.GetLogger("migrate")
+
+	if properties.On(false, "db.migrate.skip") {
+		return nil
+	}
 
 	if connection == "" {
 		return errors.New("connection string is empty")
