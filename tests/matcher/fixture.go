@@ -39,7 +39,6 @@ func MatchMap(a map[string]string, jq ...string) gcustom.CustomGomegaMatcher {
 		}
 
 		for _, _jq := range jq {
-
 			expectedJSONb, err = ParseJQ([]byte(expectedJSON), _jq)
 			if err != nil {
 				return false, err
@@ -50,7 +49,7 @@ func MatchMap(a map[string]string, jq ...string) gcustom.CustomGomegaMatcher {
 			}
 		}
 
-		diff, err := generateDiff(string(expectedJSON), string(actualJSON))
+		diff, err := generateDiff(string(actualJSONb), string(expectedJSONb))
 		if err != nil {
 			return false, err
 		}

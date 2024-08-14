@@ -228,21 +228,3 @@ func UpdateProperties(ctx Context, props map[string]string) error {
 	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, args...).Error
 }
-
-func getLogLevel(level string) int {
-	if i, err := strconv.Atoi(level); err == nil {
-		return i
-	}
-	switch level {
-	case "debug":
-		return 1
-	case "trace":
-		return 2
-	case "warn":
-		return -1
-	case "error":
-		return -2
-	default:
-		return 0
-	}
-}
