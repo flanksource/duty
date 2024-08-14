@@ -4,6 +4,7 @@ import (
 	"container/ring"
 	gocontext "context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -476,9 +477,16 @@ func (j *Job) GetResourcedName() string {
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	cronRunner.Start()
+
 	schedule := j.Schedule
 	if override, ok := j.GetProperty("schedule"); ok {
 		schedule = override
+	}
+
+	if override, ok := j.GetProperty("runNow"); ok {
+		if parsed, err := strconv.ParseBool(override); err == nil {
+			j.RunNow = parsed
+		}
 	}
 
 	if schedule == "" {

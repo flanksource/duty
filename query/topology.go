@@ -396,8 +396,13 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 		if err != nil {
 			return nil, err
 		}
-
 		c.Status = types.ComponentStatus(status)
+
+		if health, err := c.GetStatus(); err != nil {
+			return nil, err
+		} else {
+			c.Health = lo.ToPtr(models.Health(health))
+		}
 
 		nodes = append(nodes, c)
 	}

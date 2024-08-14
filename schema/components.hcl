@@ -220,6 +220,10 @@ table "components" {
     null = true
     type = text
   }
+  column "health_expr" {
+    null = true
+    type = text
+  }
   column "health" {
     null = true
     type = text

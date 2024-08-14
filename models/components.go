@@ -73,8 +73,12 @@ type Component struct {
 	// ConfigID is the id of the config from which this component is derived
 	ConfigID *uuid.UUID `json:"config_id,omitempty"`
 
+	// HealthExpr allows defining a cel expression to evaluate the health of a component
+	// based on the summary.
+	HealthExpr string `json:"health_expr,omitempty" gorm:"column:health_expr;default:null"`
+
 	// statusExpr allows defining a cel expression to evaluate the status of a component
-	// based on the summary and the related config
+	// based on the summary.
 	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
 
 	// Auxiliary fields
@@ -155,6 +159,32 @@ func (c *Component) ObjectMeta() metav1.ObjectMeta {
 		Name:      c.Name,
 		Namespace: c.Namespace,
 		Labels:    c.Labels,
+	}
+}
+
+func (c Component) GetHealth() (string, error) {
+	if c.HealthExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+		}
+		statusOut, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
+		}
+
+		return statusOut, nil
+	}
+
+	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
+		return string(types.ComponentStatusWarning), nil
+	} else if c.Summary.Unhealthy > 0 {
+		return string(types.ComponentStatusUnhealthy), nil
+	} else if c.Summary.Warning > 0 {
+		return string(types.ComponentStatusWarning), nil
+	} else if c.Summary.Healthy > 0 {
+		return string(types.ComponentStatusHealthy), nil
+	} else {
+		return string(types.ComponentStatusInfo), nil
 	}
 }
 
