@@ -15,7 +15,6 @@ require (
 	github.com/flanksource/commons v1.26.1
 	github.com/flanksource/gomplate/v3 v3.24.22
 	github.com/flanksource/kommons v0.31.4
-	github.com/flanksource/postq v0.1.3
 	github.com/google/cel-go v0.20.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/gops v0.3.28
