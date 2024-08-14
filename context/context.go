@@ -89,6 +89,8 @@ func (k Context) String() string {
 		s = append(s, "[debug]")
 	}
 
+	s = append(s, fmt.Sprintf("logger={%s}", k.Context.String()))
+
 	if user := k.User(); user != nil {
 		s = append(s, fmt.Sprintf("user=%s", user.Name))
 	}

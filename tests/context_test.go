@@ -38,6 +38,7 @@ var _ = Describe("Context", func() {
 		})
 		c.WithTracer(tracer)
 
+		Expect(c.GetObjectMeta().Name).To(Equal("test"))
 		Expect(c.IsDebug()).To(BeTrue())
 		Expect(c.IsTrace()).To(BeFalse())
 
@@ -45,6 +46,7 @@ var _ = Describe("Context", func() {
 		Expect(c.GetNamespace()).To(Equal("default"))
 
 		ctx, span := c.StartSpan("test")
+
 		Expect(ctx.GetName()).To(Equal("test"))
 		Expect(ctx.GetNamespace()).To(Equal("default"))
 		inner := ctx.WithObject(metav1.ObjectMeta{
