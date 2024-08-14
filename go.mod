@@ -53,7 +53,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0
 	golang.org/x/exp v0.0.0-20240716175740-e3f259677ff7
 	golang.org/x/sync v0.7.0
-	google.golang.org/grpc v1.64.0
+	google.golang.org/grpc v1.64.1
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.11
 	k8s.io/api v0.28.2
