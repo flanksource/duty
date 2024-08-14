@@ -61,7 +61,6 @@ type Config struct {
 type SqlLogger struct {
 	Config
 	commons.Logger
-	skipLevel int
 }
 
 func (l *SqlLogger) WithLogLevel(level any) *SqlLogger {
@@ -161,24 +160,4 @@ func (l *SqlLogger) ParamsFilter(ctx context.Context, sql string, params ...inte
 		return sql, params
 	}
 	return sql, nil
-}
-
-type traceRecorder struct {
-	Logger
-	BeginAt      time.Time
-	SQL          string
-	RowsAffected int64
-	Err          error
-}
-
-// New trace recorder
-func (l *traceRecorder) New() *traceRecorder {
-	return &traceRecorder{Logger: l.Logger, BeginAt: time.Now()}
-}
-
-// Trace implement logger interface
-func (l *traceRecorder) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
-	l.BeginAt = begin
-	l.SQL, l.RowsAffected = fc()
-	l.Err = err
 }

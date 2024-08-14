@@ -65,9 +65,9 @@ func InitTracer(serviceName, collectorURL string, insecure bool, resourceAttrs .
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return func(ctx context.Context) error {
-		logger.Infof("Shutting down exporter")
-		exporter.Shutdown(ctx)
-		logger.Infof("Shutdown exporter")
+		logger.Debugf("Shutting down otel exporter")
+		_ = exporter.Shutdown(ctx)
+		logger.Debugf("Shutdown complete")
 		return nil
 	}
 }
