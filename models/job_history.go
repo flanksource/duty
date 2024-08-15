@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -56,7 +57,7 @@ func (j JobHistory) AsError() error {
 	if len(j.Errors) == 0 {
 		return nil
 	}
-	return fmt.Errorf(strings.Join(j.Errors, ","))
+	return errors.New(strings.Join(j.Errors, ","))
 }
 
 func (j JobHistory) TableName() string {

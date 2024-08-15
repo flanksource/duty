@@ -67,13 +67,13 @@ func (t *AWSConnection) Populate(ctx ConnectionContext) error {
 	}
 
 	if secretKey, err := ctx.GetEnvValueFromCache(t.SecretKey, ""); err != nil {
-		return fmt.Errorf(fmt.Sprintf("Could not parse AWS secret access key: %v", err))
+		return fmt.Errorf("could not parse AWS secret access key: %w", err)
 	} else {
 		t.SecretKey.ValueStatic = secretKey
 	}
 
 	if sessionToken, err := ctx.GetEnvValueFromCache(t.SessionToken, ""); err != nil {
-		return fmt.Errorf(fmt.Sprintf("Could not parse AWS session token: %v", err))
+		return fmt.Errorf("could not parse AWS session token: %w", err)
 	} else {
 		t.SessionToken.ValueStatic = sessionToken
 	}
