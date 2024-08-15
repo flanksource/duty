@@ -17,6 +17,7 @@ type Config struct {
 	Namespace                string
 	Postgrest                PostgrestConfig
 	LogLevel                 string
+	LogName                  string
 }
 
 type PostgrestConfig struct {

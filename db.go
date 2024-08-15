@@ -212,7 +212,13 @@ func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err err
 		return nil, nil, fmt.Errorf("error pinging database: %w", err)
 	}
 
-	gormDB, err = NewGorm(config.ConnectionString, DefaultGormConfig())
+	cfg := DefaultGormConfig()
+
+	if config.LogName != "" {
+		cfg.Logger = dutyGorm.NewSqlLogger(logger.GetLogger(config.LogName))
+	}
+
+	gormDB, err = NewGorm(config.ConnectionString, cfg)
 	if err != nil {
 		return
 	}

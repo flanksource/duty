@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // PlaybookRunStatus are statuses for a playbook run and its actions.
@@ -79,7 +80,7 @@ type Playbook struct {
 }
 
 func (p *Playbook) LoggerName() string {
-	return p.Name
+	return "playbook." + p.Name
 }
 
 func (p *Playbook) Context() map[string]any {
@@ -92,6 +93,22 @@ func (p *Playbook) Context() map[string]any {
 		"name":        p.Name,
 	}
 }
+
+func (p *Playbook) Save(db *gorm.DB) error {
+	if p.ID != uuid.Nil {
+		return db.Model(p).Clauses(
+			clause.Returning{},
+		).Save(p).Error
+	}
+	return db.Model(p).Clauses(
+		clause.Returning{},
+		clause.OnConflict{
+			Columns:     []clause.Column{{Name: "namespace"}, {Name: "name"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+			UpdateAll:   true,
+		}).Create(p).Error
+}
+
 func (p Playbook) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
 }
@@ -208,6 +225,33 @@ func (p PlaybookRun) GetActions(db *gorm.DB) (actions []PlaybookRunAction, err e
 	return actions, err
 }
 
+func (p PlaybookRun) GetAgentActions(db *gorm.DB) (actions []PlaybookRunAction, err error) {
+	err = db.Raw(`
+		SELECT * FROM playbook_run_actions
+		INNER JOIN playbook_action_agent_data ON
+			playbook_run_actions.id = playbook_action_agent_data.action_id
+		WHERE playbook_action_agent_data.run_id = ?`, p.ID).Scan(&actions).Error
+	if err != nil {
+		return nil, oops.Tags("db").Wrap(err)
+	}
+
+	return actions, err
+}
+
+func (p PlaybookRun) GetAgentAction(db *gorm.DB, name string) (*PlaybookRunAction, error) {
+	actions, err := p.GetAgentActions(db)
+	if err != nil {
+		return nil, err
+	}
+	for _, action := range actions {
+		if action.Name == name {
+			return &action, nil
+		}
+	}
+	return nil, oops.Errorf("action not found: %s, available actions [%s]", name, strings.Join(
+		lo.Map(actions, func(i PlaybookRunAction, _ int) string { return i.Name }), ", "))
+}
+
 func (p PlaybookRunAction) Load(db *gorm.DB) (*PlaybookRunAction, error) {
 	var _refreshed []PlaybookRunAction
 	err := db.Model(p).Where("id = ?", p.ID).Find(&_refreshed).Error
@@ -298,6 +342,13 @@ type PlaybookRunAction struct {
 	Error         *string              `json:"error,omitempty" gorm:"default:null"`
 	IsPushed      bool                 `json:"is_pushed"`
 	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
+}
+
+func (p PlaybookRunAction) JSON() (out map[string]any) {
+	if stdout, ok := p.Result["stdout"]; ok {
+		_ = json.Unmarshal([]byte(stdout.(string)), &out)
+	}
+	return out
 }
 
 func (p PlaybookRunAction) String() string {

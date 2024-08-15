@@ -5,6 +5,8 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Agent struct {
@@ -31,6 +33,21 @@ type Agent struct {
 
 	// LastReceived is the timestamp the agent last sent a push data
 	LastReceived *time.Time `json:"last_received,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (p *Agent) Save(db *gorm.DB) error {
+	if p.ID != uuid.Nil {
+		return db.Model(p).Clauses(
+			clause.Returning{},
+		).Save(p).Error
+	}
+	return db.Model(p).Clauses(
+		clause.Returning{},
+		clause.OnConflict{
+			Columns:     []clause.Column{{Name: "name"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+			UpdateAll:   true,
+		}).Create(p).Error
 }
 
 func (a Agent) Context() map[string]any {
