@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
 	commons "github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -61,11 +61,21 @@ type Config struct {
 type SqlLogger struct {
 	Config
 	commons.Logger
+	traceParams bool
+	maxLength   int
+	baseLevel   commons.LogLevel
 }
 
 func (l *SqlLogger) WithLogLevel(level any) *SqlLogger {
 	newlogger := *l
 	newlogger.Logger = l.Logger.WithV(level)
+	return &newlogger
+}
+
+func (l *SqlLogger) WithLogger(name string, level any) *SqlLogger {
+	newlogger := *l
+	newlogger.Logger = commons.GetLogger(name)
+	newlogger.baseLevel = commons.ParseLevel(l.Logger, level)
 	return &newlogger
 }
 
@@ -84,7 +94,10 @@ func NewSqlLogger(logger *commons.SlogLogger) logger.Interface {
 			SlowThreshold:             time.Second.Nanoseconds(),
 			IgnoreRecordNotFoundError: true,
 		},
-		Logger: logger,
+		Logger:      logger,
+		traceParams: logger.IsTraceEnabled() || properties.On(false, "log.db.params"),
+		maxLength:   properties.Int(1024, "log.db.maxLength"),
+		baseLevel:   commons.Info,
 	}
 }
 
@@ -111,40 +124,42 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 
 	elapsed := int64(time.Since(begin).Nanoseconds())
 	msg := ""
-	level := commons.Info
+	level := l.baseLevel
 	switch {
 	case err != nil && (!errors.Is(err, gorm.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
 		sql, rows := fc()
+		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("ERROR >="+detailsFmt, elapsed/1e6, rows, err.Error()+" "+sql)
-		level = commons.Error
+		level = l.baseLevel - (commons.Error * -1)
 
 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0:
 		sql, rows := fc()
+		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("SLOW SQL >= "+detailsFmt, elapsed/1e6, rows, sql)
-		level = commons.Warn
+		level = l.baseLevel - (commons.Warn * -1)
 
 	case l.LogLevel == int(commons.Info):
 		sql, rows := fc()
+		sql = trunc(sql, l.maxLength)
 
-		switch strings.Trim(strings.Split(strings.ToLower(sql[0:int(math.Min(float64(len(sql)), 10))]), " ")[0], " \n") {
-		case "select":
+		switch strings.ToLower(strings.Split(strings.TrimSpace(sql), " ")[0]) {
+		case "select", "notify":
 			if rows == 0 {
-				level = commons.Trace1
+				level = l.baseLevel + commons.Trace1
 			} else {
 				level = commons.Trace
 			}
 
 		case "update", "insert", "delete":
 			if rows == 0 {
-				level = commons.Trace
+				level = l.baseLevel + commons.Trace
 			} else {
-				level = commons.Debug
-
+				level = l.baseLevel + commons.Debug
 			}
 		case "create", "alter", "drop":
-			level = commons.Info
+			level = l.baseLevel
 		default:
-			level = commons.Debug
+			level = l.baseLevel + commons.Debug
 		}
 
 		msg = fmt.Sprintf(detailsFmt, elapsed/1e6, rows, sql)
@@ -154,9 +169,16 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	}
 }
 
+func trunc(s string, length int) string {
+	if len(s) <= length {
+		return s
+	}
+	return s[0:length]
+}
+
 // ParamsFilter filter params
 func (l *SqlLogger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
-	if l.GetLevel() >= commons.Debug {
+	if l.traceParams || l.GetLevel() >= commons.Trace1 {
 		return sql, params
 	}
 	return sql, nil
