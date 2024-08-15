@@ -336,6 +336,10 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 
 	})
 
+	ginkgo.AfterAll(func() {
+		Expect(DefaultContext.DB().Exec("DELETE FROM config_items WHERE tags->>'namespace' = ?", "test-related-ids").Error).To(BeNil())
+	})
+
 	ginkgo.It("should return deployment outgoing", func() {
 		relatedConfigs, err := query.GetRelatedConfigs(DefaultContext, query.RelationQuery{ID: deployment.ID, Relation: query.Outgoing})
 
