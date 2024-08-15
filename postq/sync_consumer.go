@@ -5,6 +5,7 @@ import (
 	gocontext "context"
 	"fmt"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 )
@@ -71,7 +72,7 @@ func (t *SyncEventConsumer) Handle(ctx context.Context) (int, error) {
 
 // consumeEvent fetches a single event and passes it to all the consumers in one single transaction.
 func (t *SyncEventConsumer) consumeEvent(ctx context.Context) (*models.Event, error) {
-	ctx = ctx.WithName("postq").Fast()
+	ctx = ctx.WithName("postq").WithDBLogger("postq", logger.Trace)
 	tx := ctx.DB().Begin()
 	defer tx.Rollback()
 

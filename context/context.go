@@ -20,6 +20,7 @@ import (
 	"github.com/samber/oops"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -27,7 +28,7 @@ import (
 )
 
 func init() {
-	logger.SkipFrameSuffixes = append(logger.SkipFrameSuffixes, "context/context")
+	logger.SkipFrameSuffixes = append(logger.SkipFrameSuffixes, "context/context.go")
 }
 
 type Context struct {
@@ -145,7 +146,7 @@ func (k Context) WithObject(object ...any) Context {
 	}
 	ctx = ctx.WithValue("object", object)
 	if len(logNames) > 0 {
-		ctx.Logger = ctx.Logger.Named(strings.Join(logNames, "."))
+		ctx.Logger = logger.GetLogger(strings.Join(logNames, "."))
 	}
 	return ctx
 }
@@ -234,24 +235,34 @@ func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	return k.WithValue("db", db).WithValue("pgxpool", pool)
 }
 
+// Returns a new named logger, the default db log level starts at INFO for DDL
+// and then increases to TRACE1 depending on the query type and rows returned
+// set a baseLevel at Debug, will increase all the levels by 1
+func (k Context) WithDBLogger(name string, baseLevel any) Context {
+	db := k.DB().Session(&gorm.Session{
+		Context: k.Context,
+	})
+	db.Logger = db.Logger.(*dutyGorm.SqlLogger).WithLogger(name, baseLevel)
+	return k.WithValue("db", db)
+}
+
+// Changes the minimum log level for db statements
 func (k Context) WithDBLogLevel(level any) Context {
 	db := k.DB().Session(&gorm.Session{
 		Context: k.Context,
 	})
-	db.Logger = db.Logger.LogMode(dutyGorm.FromCommonsLevel(k.Logger, level))
+	db.Logger = db.Logger.(*dutyGorm.SqlLogger).WithLogLevel(level)
 	return k.WithValue("db", db)
 }
 
 // FastDB returns a db suitable for high-performance usage, with limited logging and tracing
 func (k Context) FastDB() *gorm.DB {
-	db := k.WithAnyValue(tracing.TracePaused, true).
-		WithDBLogLevel(logger.Warn).DB()
-	return db
+	return k.Fast().DB()
 }
 
 // Fast with limiting tracing and db logging
 func (k Context) Fast() Context {
-	return k.WithoutTracing().WithDBLogLevel(logger.Warn)
+	return k.WithoutTracing().WithDBLogger("db", logger.Debug)
 }
 
 func (k Context) IsTracing() bool {
@@ -262,15 +273,18 @@ func (k Context) WithoutTracing() Context {
 	return k.WithValue(tracing.TracePaused, "true")
 }
 
-func (k Context) Transaction(name string, fn func(ctx Context, span trace.Span) error) error {
+func (k Context) Transaction(fn func(ctx Context, span trace.Span) error, opts ...any) error {
 	return k.DB().Transaction(func(tx *gorm.DB) error {
 		ctx := k.WithDB(tx, k.Pool())
-		var span trace.Span
-		if name != "" {
-			ctx, span = ctx.StartSpan(name)
-			defer span.End()
+		for _, opt := range opts {
+			switch v := opt.(type) {
+			case string:
+				ctx, span := ctx.StartSpan(v)
+				defer span.End()
+				return fn(ctx, span)
+			}
 		}
-		return fn(ctx, span)
+		return fn(ctx, noop.Span{})
 	})
 }
 
@@ -322,11 +336,9 @@ func (k Context) Topology() any {
 
 func (k Context) StartSpan(name string) (Context, trace.Span) {
 	ctx, span := k.Context.StartSpan(name)
-	span.SetAttributes(
-		attribute.String("name", k.GetName()),
-		attribute.String("namespace", k.GetNamespace()),
-	)
-
+	for k, v := range k.GetLoggingContext() {
+		span.SetAttributes(attribute.String(k, fmt.Sprintf("%v", v)))
+	}
 	return k.Wrap(ctx), span
 }
 

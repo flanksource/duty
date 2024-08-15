@@ -6,6 +6,8 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Person struct {
@@ -24,6 +26,21 @@ func (p Person) PK() string {
 
 func (person Person) TableName() string {
 	return "people"
+}
+
+func (p *Person) Save(db *gorm.DB) error {
+	if p.ID != uuid.Nil {
+		return db.Model(p).Clauses(
+			clause.Returning{},
+		).Save(p).Error
+	}
+	return db.Model(p).Clauses(
+		clause.Returning{},
+		clause.OnConflict{
+			Columns:     []clause.Column{{Name: "email"}},
+			TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+			UpdateAll:   true,
+		}).Create(p).Error
 }
 
 func (person Person) AsMap(removeFields ...string) map[string]any {
