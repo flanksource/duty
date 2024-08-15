@@ -5,6 +5,7 @@ import (
 	gocontext "context"
 	"fmt"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 )
@@ -45,7 +46,7 @@ func (t AsyncEventConsumer) GetRecords() ([]models.Event, error) {
 }
 
 func (t *AsyncEventConsumer) Handle(ctx context.Context) (int, error) {
-	ctx = ctx.WithName("postq").Fast()
+	ctx = ctx.WithName("postq").WithDBLogger("postq", logger.Trace)
 	tx := ctx.DB().Begin()
 	defer tx.Rollback() //nolint:errcheck
 
