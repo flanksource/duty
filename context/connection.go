@@ -235,8 +235,8 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		"name":       connection.Name,
 		"type":       connection.Type,
 		"namespace":  connection.Namespace,
-		"username":   connection.Username,
-		"password":   connection.Password,
+		"username":   url.QueryEscape(connection.Username),
+		"password":   url.QueryEscape(connection.Password),
 		"domain":     domain,
 		"properties": connection.Properties,
 	}
