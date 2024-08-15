@@ -35,8 +35,9 @@ table "playbooks" {
     type = enum.source
   }
   column "category" {
-    null = true
+    null = false
     type = text
+    default = ""
   }
   column "created_at" {
     null    = false
@@ -55,7 +56,7 @@ table "playbooks" {
   primary_key {
     columns = [column.id]
   }
-  index "playbook_name_key" {
+  index "playbook_name_namespace_category_key" {
     unique  = true
     columns = [column.namespace, column.name]
     where   = "deleted_at IS NULL"
