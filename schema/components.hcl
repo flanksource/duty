@@ -216,6 +216,10 @@ table "components" {
     null = false
     type = text
   }
+  column "status_expr" {
+    null = true
+    type = text
+  }
   column "health_expr" {
     null = true
     type = text
@@ -366,9 +370,9 @@ table "components" {
   }
   index "components_path_is_pushed_idx" {
     on {
-       expr = "length(path)"
+      expr = "length(path)"
     }
-    where   = "is_pushed IS FALSE"
+    where = "is_pushed IS FALSE"
   }
   index "idx_components_deleted_at" {
     columns = [column.deleted_at]

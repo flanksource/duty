@@ -73,6 +73,10 @@ type Component struct {
 	// ConfigID is the id of the config from which this component is derived
 	ConfigID *uuid.UUID `json:"config_id,omitempty"`
 
+	// StatusExpr allows defining a cel expression to evaluate the status of a component
+	// based on the summary.
+	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
+
 	// HealthExpr allows defining a cel expression to evaluate the health of a component
 	// based on the summary.
 	HealthExpr string `json:"health_expr,omitempty" gorm:"column:health_expr;default:null"`
@@ -158,6 +162,22 @@ func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	}
 }
 
+func (c Component) GetStatus() (string, error) {
+	if c.StatusExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+		}
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate status expression %s: %v", c.StatusExpr, err)
+		}
+
+		return out, nil
+	}
+
+	return string(c.Status), nil
+}
+
 func (c Component) GetHealth() (string, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{
@@ -182,10 +202,6 @@ func (c Component) GetHealth() (string, error) {
 	} else {
 		return string(types.ComponentStatusInfo), nil
 	}
-}
-
-func (c Component) GetStatus() (string, error) {
-	return string(c.Status), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
@@ -258,6 +274,7 @@ func (component Component) Clone() Component {
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
 		Health:       component.Health,
+		StatusExpr:   component.StatusExpr,
 		HealthExpr:   component.HealthExpr,
 	}
 
