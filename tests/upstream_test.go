@@ -311,17 +311,15 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 			}
 
 			deploymentChange := models.ConfigChange{
-				ID:               uuid.New().String(),
-				ConfigID:         deployment.ID.String(),
-				ExternalChangeId: utils.RandomString(10),
-				ChangeType:       "Pending",
+				ID:         uuid.New().String(),
+				ConfigID:   deployment.ID.String(),
+				ChangeType: "Pending",
 			}
 
 			podChange := models.ConfigChange{
-				ID:               uuid.New().String(),
-				ConfigID:         pod.ID.String(),
-				ExternalChangeId: utils.RandomString(10),
-				ChangeType:       "Running",
+				ID:         uuid.New().String(),
+				ConfigID:   pod.ID.String(),
+				ChangeType: "Running",
 			}
 
 			deploymentAnalysis := models.ConfigAnalysis{

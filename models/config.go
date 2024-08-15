@@ -416,8 +416,8 @@ type ConfigChange struct {
 	// Note: This field is not stored in the database.
 	ConfigType string `gorm:"-" json:"-"`
 
-	// ExternalChangeId is the identifier for the change from an external system.
-	ExternalChangeId string `gorm:"column:external_change_id" json:"external_change_id"`
+	// ExternalChangeID is the identifier for the change from an external system.
+	ExternalChangeID *string `gorm:"column:external_change_id;default:null" json:"external_change_id"`
 
 	// ID is the unique identifier for the configuration change.
 	// It is automatically generated using ULID if not provided.
