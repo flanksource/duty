@@ -14,6 +14,11 @@ table "playbooks" {
     null = false
     type = text
   }
+  column "title" {
+    null = false
+    type = text
+    default = ""
+  }
   column "icon" {
     null = true
     type = text
@@ -58,7 +63,7 @@ table "playbooks" {
   }
   index "playbook_name_namespace_category_key" {
     unique  = true
-    columns = [column.namespace, column.name]
+    columns = [column.namespace, column.name, column.category]
     where   = "deleted_at IS NULL"
   }
   foreign_key "playbook_created_by_fkey" {
