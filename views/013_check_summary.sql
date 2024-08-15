@@ -1,4 +1,5 @@
 DROP FUNCTION IF EXISTS check_summary_for_component;
+DROP VIEW IF EXISTS check_summary_for_config;
 DROP VIEW IF EXISTS check_summary;
 DROP MATERIALIZED VIEW IF EXISTS check_status_summary;
 

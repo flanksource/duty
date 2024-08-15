@@ -77,10 +77,6 @@ type Component struct {
 	// based on the summary.
 	HealthExpr string `json:"health_expr,omitempty" gorm:"column:health_expr;default:null"`
 
-	// statusExpr allows defining a cel expression to evaluate the status of a component
-	// based on the summary.
-	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
-
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
 	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
@@ -167,12 +163,12 @@ func (c Component) GetHealth() (string, error) {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
 		}
-		statusOut, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
 		}
 
-		return statusOut, nil
+		return out, nil
 	}
 
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
@@ -189,29 +185,7 @@ func (c Component) GetHealth() (string, error) {
 }
 
 func (c Component) GetStatus() (string, error) {
-	if c.StatusExpr != "" {
-		env := map[string]any{
-			"summary": c.Summary.AsEnv(),
-		}
-		statusOut, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
-		if err != nil {
-			return "", fmt.Errorf("failed to evaluate status expression %s: %v", c.StatusExpr, err)
-		}
-
-		return statusOut, nil
-	}
-
-	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusUnhealthy), nil
-	} else if c.Summary.Warning > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Healthy > 0 {
-		return string(types.ComponentStatusHealthy), nil
-	} else {
-		return string(types.ComponentStatusInfo), nil
-	}
+	return string(c.Status), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
@@ -283,8 +257,8 @@ func (component Component) Clone() Component {
 		Properties:   component.Properties,
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
-		StatusExpr:   component.StatusExpr,
 		Health:       component.Health,
+		HealthExpr:   component.HealthExpr,
 	}
 
 	copy(clone.LogSelectors, component.LogSelectors)

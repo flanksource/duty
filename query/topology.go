@@ -11,7 +11,6 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/jackc/pgx/v5"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
@@ -33,7 +32,7 @@ func (opt TopologyOptions) selectClause() string {
 	}
 
 	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
-	return "name, namespace, id, is_leaf, status, status_expr, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
+	return "name, namespace, id, is_leaf, status, health_expr, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
@@ -391,12 +390,6 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 		// Summary should be set after applyDepthFilter
 		// which dereferences pointer cycles
 		c.Summary = c.Summarize(10)
-
-		status, err := c.GetStatus()
-		if err != nil {
-			return nil, err
-		}
-		c.Status = types.ComponentStatus(status)
 
 		if health, err := c.GetHealth(); err != nil {
 			return nil, err

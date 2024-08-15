@@ -513,7 +513,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
 CREATE OR REPLACE FUNCTION drop_config_items(ids text[]) RETURNS void as $$
   BEGIN
   ALTER TABLE config_items
