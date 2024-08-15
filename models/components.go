@@ -254,6 +254,7 @@ func (component Component) Clone() Component {
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
 		StatusExpr:   component.StatusExpr,
+		Health:       component.Health,
 	}
 
 	copy(clone.LogSelectors, component.LogSelectors)
