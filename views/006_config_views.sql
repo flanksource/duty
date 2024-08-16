@@ -662,6 +662,8 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     source TEXT,
     summary TEXT,
     created_by uuid,
+    count INT ,
+    first_observed TIMESTAMP WITH TIME ZONE,
     agent_id uuid
 ) AS $$
 BEGIN
@@ -673,7 +675,7 @@ BEGIN
     RETURN query
       SELECT
           cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
-          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, config_items.agent_id
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
       WHERE cc.config_id = lookup_id;
@@ -681,7 +683,7 @@ BEGIN
     RETURN query
       SELECT
           cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
-          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, c.agent_id
       FROM config_changes cc
       LEFT JOIN config_items c on c.id = cc.config_id
       WHERE cc.config_id = lookup_id
@@ -717,6 +719,8 @@ CREATE OR REPLACE VIEW catalog_changes AS
     cc.source,
     cc.summary,
     cc.created_by,
+    cc.count,
+    cc.first_observed,
     c.agent_id
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;

@@ -25,7 +25,7 @@ const (
 
 var allRecursiveOptions = []string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveNone, CatalogChangeRecursiveAll}
 
-var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
+var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at", "count"}
 
 type CatalogChangesSearchRequest struct {
 	CatalogID             string `query:"id" json:"id"`
@@ -208,6 +208,8 @@ type ConfigChangeRow struct {
 	Source            string              `gorm:"column:source" json:"source"`
 	Summary           string              `gorm:"column:summary;default:null" json:"summary,omitempty"`
 	CreatedAt         *time.Time          `gorm:"column:created_at" json:"created_at"`
+	Count             int                 `gorm:"column:count" json:"count"`
+	FirstObserved     *time.Time          `gorm:"column:first_observed" json:"first_observed,omitempty"`
 	ConfigName        string              `gorm:"column:name" json:"name,omitempty"`
 	ConfigType        string              `gorm:"column:type" json:"type,omitempty"`
 	Tags              types.JSONStringMap `gorm:"column:tags" json:"tags,omitempty"`
