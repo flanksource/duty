@@ -48,6 +48,11 @@ var WithUrl = func(url string) func(config Config) Config {
 	}
 }
 
+var SkipChangeLogMigration = func(config Config) Config {
+	config.SkipMigrationFiles = []string{"007_events.sql", "012_changelog_triggers_others.sql", "012_changelog_triggers_scrapers.sql"}
+	return config
+}
+
 var SkipMigrations = func(config Config) Config {
 	config.SkipMigrations = true
 	return config
