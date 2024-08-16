@@ -2,7 +2,6 @@ package duty
 
 import (
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 
@@ -14,21 +13,13 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func readFromEnv(v string) string {
-	val := os.Getenv(v)
-	if val != "" {
-		return val
-	}
-	return v
-}
-
 func BindPFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
 	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
 	flags.StringVar(&DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
 	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
-	flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Run database migrations")
+	flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
 	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", false, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
 	flags.StringVar(&DefaultConfig.Postgrest.DBAnonRole, "postgrest-anon-role", "postgrest-api", "PostgREST anonymous role")
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
@@ -71,6 +62,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	for _, opt := range opts {
 		config = opt(config)
 	}
+	config = config.ReadEnv()
 
 	if config.Postgrest.URL != "" && !config.Postgrest.Disable {
 		parsedURL, err := url.Parse(config.Postgrest.URL)
@@ -87,9 +79,6 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	stop := func() {}
-
-	config.ConnectionString = readFromEnv(config.ConnectionString)
-	config.Schema = readFromEnv(config.Schema)
 
 	var ctx context.Context
 	if c, err := InitDB(config); err != nil {
