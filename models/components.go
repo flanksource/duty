@@ -73,9 +73,13 @@ type Component struct {
 	// ConfigID is the id of the config from which this component is derived
 	ConfigID *uuid.UUID `json:"config_id,omitempty"`
 
-	// statusExpr allows defining a cel expression to evaluate the status of a component
-	// based on the summary and the related config
+	// StatusExpr allows defining a cel expression to evaluate the status of a component
+	// based on the summary.
 	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
+
+	// HealthExpr allows defining a cel expression to evaluate the health of a component
+	// based on the summary.
+	HealthExpr string `json:"health_expr,omitempty" gorm:"column:health_expr;default:null"`
 
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
@@ -163,12 +167,28 @@ func (c Component) GetStatus() (string, error) {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
 		}
-		statusOut, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate status expression %s: %v", c.StatusExpr, err)
 		}
 
-		return statusOut, nil
+		return out, nil
+	}
+
+	return string(c.Status), nil
+}
+
+func (c Component) GetHealth() (string, error) {
+	if c.HealthExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+		}
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
+		}
+
+		return out, nil
 	}
 
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
@@ -253,8 +273,9 @@ func (component Component) Clone() Component {
 		Properties:   component.Properties,
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
-		StatusExpr:   component.StatusExpr,
 		Health:       component.Health,
+		StatusExpr:   component.StatusExpr,
+		HealthExpr:   component.HealthExpr,
 	}
 
 	copy(clone.LogSelectors, component.LogSelectors)
