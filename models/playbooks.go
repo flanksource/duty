@@ -104,7 +104,7 @@ func (p *Playbook) Save(db *gorm.DB) error {
 	return db.Model(p).Clauses(
 		clause.Returning{},
 		clause.OnConflict{
-			Columns:     []clause.Column{{Name: "namespace"}, {Name: "name"}},
+			Columns:     []clause.Column{{Name: "namespace"}, {Name: "name"}, {Name: "category"}},
 			TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
 			UpdateAll:   true,
 		}).Create(p).Error
