@@ -25,6 +25,7 @@ func NewConfig(connection string) Config {
 }
 
 type Config struct {
+	Metrics                  bool
 	ConnectionString, Schema string
 	SkipMigrations           bool
 	SkipMigrationFiles       []string

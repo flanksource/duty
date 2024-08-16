@@ -17,6 +17,7 @@ import (
 	"github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/postgrest"
 	"github.com/spf13/pflag"
+	"gorm.io/plugin/prometheus"
 )
 
 func BindPFlags(flags *pflag.FlagSet) {
@@ -32,6 +33,7 @@ func BindPFlags(flags *pflag.FlagSet) {
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
 	flags.StringVar(&DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
+	flags.BoolVar(&DefaultConfig.Metrics, "db-metrics", false, "Expose db metrics")
 }
 
 type StartOption func(config Config) Config
@@ -48,8 +50,13 @@ var WithUrl = func(url string) func(config Config) Config {
 	}
 }
 
-var SkipChangeLogMigration = func(config Config) Config {
+var SkipChangelogMigration = func(config Config) Config {
 	config.SkipMigrationFiles = []string{"007_events.sql", "012_changelog_triggers_others.sql", "012_changelog_triggers_scrapers.sql"}
+	return config
+}
+
+var EnableMetrics = func(config Config) Config {
+	config.Metrics = true
 	return config
 }
 
@@ -120,6 +127,19 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	} else {
 		ctx = *c
 	}
+
+	if config.Metrics {
+		if err := ctx.DB().Use(prometheus.New(prometheus.Config{
+			DBName:      ctx.Pool().Config().ConnConfig.Database,
+			StartServer: false,
+			MetricsCollector: []prometheus.MetricsCollector{
+				&prometheus.Postgres{},
+			},
+		})); err != nil {
+			return context.Context{}, stop, fmt.Errorf("failed to register prometheus metrics: %w", err)
+		}
+	}
+
 	if !config.DisableKubernetes {
 		if client, err := kubernetes.NewClient(); err == nil {
 			ctx = ctx.WithKubernetes(client)
