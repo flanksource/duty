@@ -13,7 +13,7 @@ import (
 func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string, statuses ...string) (int, error) {
 	ctx = ctx.WithName(fmt.Sprintf("job=%s", name)).WithName(fmt.Sprintf("resourceID=%s", resourceID))
 
-	query := ctx.DB().Where("NOW() - time_start >= ?", age)
+	query := ctx.FastDB("jobs").Where("NOW() - time_start >= ?", age)
 	if name != "" {
 		query = query.Where("name = ?", name)
 	}
@@ -52,7 +52,7 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
                 agent_id != ?
         )`
 
-	res := ctx.DB().Exec(query, itemsToRetain, uuid.Nil)
+	res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
 	if res.Error != nil {
 		return 0, db.ErrorDetails(res.Error)
 	}
@@ -60,7 +60,7 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
 }
 
 func CleanupStaleRunningHistory(ctx context.Context, age time.Duration) (int, error) {
-	res := ctx.DB().
+	res := ctx.FastDB("jobs").
 		Model(&models.JobHistory{}).
 		Where("NOW() - time_start >= ?", age).
 		Where("status = ?", models.StatusRunning).

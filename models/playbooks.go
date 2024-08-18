@@ -177,7 +177,18 @@ func (p PlaybookRun) Running(db *gorm.DB) error {
 	})
 }
 
-func (p PlaybookRun) End(db *gorm.DB, status PlaybookRunStatus) error {
+func (p PlaybookRun) End(db *gorm.DB) error {
+	status := PlaybookRunStatusCompleted
+
+	var statuses []PlaybookActionStatus
+	if err := db.Select("status").Model(&PlaybookRunAction{}).Where("playbook_run_id = ?", p.ID).Find(&statuses).Error; err != nil {
+		return oops.Tags("db").Wrap(err)
+	}
+
+	if _, failed := lo.Find(statuses, func(i PlaybookActionStatus) bool { return i == PlaybookActionStatusFailed }); failed {
+		status = PlaybookRunStatusFailed
+	}
+
 	return p.Update(db, map[string]any{
 		"status":   status,
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
@@ -372,16 +383,8 @@ func colorStatus(s string) string {
 	return s
 }
 
-func (p *PlaybookRun) LoggerName() string {
-	return p.ID.String()[0:8]
-}
-
 func (p *Playbook) NamespaceScope() string {
 	return p.Namespace
-}
-
-func (p *PlaybookRunAction) LoggerName() string {
-	return p.Name
 }
 
 func (p *PlaybookRunAction) Context() map[string]any {

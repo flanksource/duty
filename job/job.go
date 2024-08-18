@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/echo"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
@@ -38,7 +39,7 @@ func deleteEvictedJobs(ctx context.Context) {
 			time.Sleep(period)
 			continue
 		}
-		if tx := ctx.DB().Exec("DELETE FROM job_history WHERE id in ?", items); tx.Error != nil {
+		if tx := ctx.FastDB("jobs").Exec("DELETE FROM job_history WHERE id in ?", items); tx.Error != nil {
 			ctx.Errorf("Failed to delete job entries: %v", tx.Error)
 			time.Sleep(1 * time.Minute)
 		} else {
@@ -90,6 +91,16 @@ type Job struct {
 	statusRing               StatusRing
 }
 
+func (j *Job) GetContext() map[string]any {
+	return map[string]any{
+		"id":           j.ID,
+		"resourceID":   j.ResourceID,
+		"resourceType": j.ResourceType,
+		"name":         j.Name,
+		"schedule":     j.Schedule,
+	}
+}
+
 type StatusRing struct {
 	lock    sync.Mutex
 	rings   map[string]*ring.Ring
@@ -102,10 +113,9 @@ type StatusRing struct {
 // populateFromDB syncs the status ring with the existing job histories in db
 func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string) error {
 	var existingHistories []models.JobHistory
-	if err := ctx.DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
+	if err := ctx.FastDB("jobs").Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
 		return err
 	}
-	ctx.Logger.V(4).Infof("found %d histories", len(existingHistories))
 
 	for _, h := range existingHistories {
 		t.Add(&h)
@@ -259,9 +269,9 @@ func (j *Job) FindHistory(statuses ...string) ([]models.JobHistory, error) {
 	var items []models.JobHistory
 	var err error
 	if len(statuses) == 0 {
-		err = j.DB().Where("name = ?", j.Name).Order("time_start DESC").Find(&items).Error
+		err = j.FastDB("jobs").Where("name = ?", j.Name).Order("time_start DESC").Find(&items).Error
 	} else {
-		err = j.DB().Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
+		err = j.FastDB("jobs").Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
 	}
 	return items, err
 }
@@ -478,6 +488,8 @@ func (j *Job) GetResourcedName() string {
 }
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
+
+	echo.RegisterCron(cronRunner)
 	cronRunner.Start()
 
 	schedule := j.Schedule
