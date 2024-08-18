@@ -67,7 +67,6 @@ func MustDB() *sql.DB {
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
 var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
-var otel = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
 var ShutdownHooks []func(ctx gocontext.Context) error
 
@@ -96,11 +95,8 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		logger.Errorf("Failed to load test properties: %v", err)
 	}
 
-	if otel != "" {
-		logger.Infof("Sending traces to %s", otel)
+	ShutdownHooks = append(ShutdownHooks, telemetry.InitTracer())
 
-		ShutdownHooks = append(ShutdownHooks, telemetry.InitTracer("tests", otel, true))
-	}
 	var err error
 	importDummyData := true
 
