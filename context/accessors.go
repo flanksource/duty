@@ -69,6 +69,10 @@ type ContextAccessor interface {
 	Context() map[string]any
 }
 
+type ContextAccessor2 interface {
+	GetContext() map[string]any
+}
+
 func getObjectMeta(o any) metav1.ObjectMeta {
 	switch v := o.(type) {
 	case metav1.ObjectMeta:
