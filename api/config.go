@@ -11,7 +11,8 @@ import (
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
 		Version:    "v10.0.0",
-		DBAnonRole: "postgrest_api",
+		DBRole:     "postgrest_api",
+		DBAnonRole: "postgrest_anon",
 		Port:       3000,
 		MaxRows:    2000,
 	},
@@ -63,7 +64,7 @@ func (c Config) ReadEnv() Config {
 }
 
 func (c Config) String() string {
-	s := fmt.Sprintf("migrate=%v log=%v postgres=(%s)", !c.SkipMigrations, c.LogLevel, c.Postgrest.String())
+	s := fmt.Sprintf("migrate=%v log=%v postgrest=(%s)", !c.SkipMigrations, c.LogLevel, c.Postgrest.String())
 	if pgUrl, err := url.Parse(c.ConnectionString); err == nil {
 		s = fmt.Sprintf("url=%s ", pgUrl.Redacted()) + s
 	}
@@ -72,13 +73,13 @@ func (c Config) String() string {
 }
 
 type PostgrestConfig struct {
-	Port       int
-	Disable    bool
-	LogLevel   string
-	URL        string
-	Version    string
-	JWTSecret  string
-	DBAnonRole string
+	Port      int
+	Disable   bool
+	LogLevel  string
+	URL       string
+	Version   string
+	JWTSecret string
+	DBRole    string
 
 	// A hard limit to the number of rows PostgREST will fetch from a view, table, or stored procedure.
 	// Limits payload size for accidental or malicious requests.

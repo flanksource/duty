@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/exaring/otelpgx"
@@ -148,10 +147,7 @@ func Migrate(config api.Config) error {
 	}
 	defer db.Close()
 
-	if err := migrate.RunMigrations(db, config.ConnectionString, migrate.MigrateOptions{
-		Skip:        config.SkipMigrations,
-		IgnoreFiles: config.SkipMigrationFiles,
-	}); err != nil {
+	if err := migrate.RunMigrations(db, config); err != nil {
 		return err
 	}
 
@@ -182,9 +178,7 @@ func InitDB(config api.Config) (*dutyContext.Context, error) {
 
 	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
 
-	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
-	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
-	setStatementTimeouts(dutyctx, dutyctx.Pool(), config.ConnectionString, statementTimeout, postgrestStatmentTimeout)
+	setStatementTimeouts(dutyctx, config)
 
 	return &dutyctx, nil
 }
@@ -230,24 +224,17 @@ func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err err
 	return
 }
 
-func setStatementTimeouts(ctx context.Context, pool *pgxpool.Pool, connection string, connStatementTimeout, postgrestStatementTimeout string) {
-	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_api SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
-		logger.Errorf("failed to set statement timeout for role postgrest_api: %v", err)
+func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
+	postgrestTimeout := ctx.Properties().Duration("db.postgrest.timeout", 1*time.Minute)
+
+	if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, config.Postgrest.DBRole, postgrestTimeout.Seconds())).Error; err != nil {
+		logger.Errorf(err.Error())
 	}
 
-	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_anon SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
-		logger.Errorf("failed to set statement timeout for role postgrest_anon: %v", err)
-	}
-
-	parsedConn, err := url.Parse(connection)
-	if err != nil {
-		return
-	}
-
-	user := parsedConn.User.Username()
-	if user != "" && connStatementTimeout != "" {
-		if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%s'`, user, connStatementTimeout)); err != nil {
-			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
+	statementTimeout := ctx.Properties().Duration("db.connection.timeout", 1*time.Hour)
+	if username := config.GetUsername(); username != "" {
+		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, username, statementTimeout.Seconds())).Error; err != nil {
+			logger.Errorf(err.Error())
 		}
 	}
 }
