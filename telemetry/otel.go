@@ -17,9 +17,15 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func InitTracer(serviceName, collectorURL string, insecure bool, resourceAttrs ...attribute.KeyValue) func(context.Context) error {
+// Telemetry flag vars
+var OtelCollectorURL string
+var OtelServiceName string
+var OtelAttributes []attribute.KeyValue
+var OtelInsecure bool
+
+func InitTracer() func(context.Context) error {
 	var secureOption otlptracegrpc.Option
-	if !insecure {
+	if !OtelInsecure {
 		secureOption = otlptracegrpc.WithTLSCredentials(credentials.NewClientTLSFromCert(nil, ""))
 	} else {
 		secureOption = otlptracegrpc.WithInsecure()
@@ -29,7 +35,7 @@ func InitTracer(serviceName, collectorURL string, insecure bool, resourceAttrs .
 		context.Background(),
 		otlptracegrpc.NewClient(
 			secureOption,
-			otlptracegrpc.WithEndpoint(collectorURL),
+			otlptracegrpc.WithEndpoint(OtelCollectorURL),
 		),
 	)
 
@@ -37,9 +43,10 @@ func InitTracer(serviceName, collectorURL string, insecure bool, resourceAttrs .
 		logger.Errorf("failed to create opentelemetry exporter: %v", err)
 		return func(_ context.Context) error { return nil }
 	}
-	logger.Infof("Sending traces to %s", collectorURL)
+	logger.Infof("Sending traces to %s", OtelCollectorURL)
 
-	resourceAttrs = append(resourceAttrs, attribute.String("service.name", serviceName))
+	var resourceAttrs []attribute.KeyValue
+	resourceAttrs = append(resourceAttrs, attribute.String("service.name", OtelServiceName))
 	if val, ok := os.LookupEnv("OTEL_LABELS"); ok {
 		kv := collections.KeyValueSliceToMap(strings.Split(val, ","))
 		for k, v := range kv {
@@ -63,7 +70,6 @@ func InitTracer(serviceName, collectorURL string, insecure bool, resourceAttrs .
 
 	// Register the TraceContext propagator globally.
 	otel.SetTextMapPropagator(propagation.TraceContext{})
-
 	return func(ctx context.Context) error {
 		logger.Debugf("Shutting down otel exporter")
 		_ = exporter.Shutdown(ctx)
