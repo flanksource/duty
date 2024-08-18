@@ -63,8 +63,7 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 	debug := e.Group("/debug/", rbac)
 
 	debug.GET("/debug/loggers", func(c echo.Context) error {
-		c.JSON(200, logger.GetNamedLoggingLevels())
-		return nil
+		return c.JSON(200, logger.GetNamedLoggingLevels())
 	})
 
 	debug.POST("/debug/loggers", func(c echo.Context) error {
