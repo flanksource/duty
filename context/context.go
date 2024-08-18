@@ -130,6 +130,7 @@ func (k Context) WithAnyValue(key, val any) Context {
 	return k.WithValue(key, val)
 }
 
+// Order the objects from parent -> child
 func (k Context) WithObject(object ...any) Context {
 	var logNames []string
 	ctx := k
@@ -256,13 +257,16 @@ func (k Context) WithDBLogLevel(level any) Context {
 }
 
 // FastDB returns a db suitable for high-performance usage, with limited logging and tracing
-func (k Context) FastDB() *gorm.DB {
-	return k.Fast().DB()
+func (k Context) FastDB(name ...string) *gorm.DB {
+	return k.Fast(name...).DB()
 }
 
 // Fast with limiting tracing and db logging
-func (k Context) Fast() Context {
-	return k.WithoutTracing().WithDBLogger("db", logger.Debug)
+func (k Context) Fast(name ...string) Context {
+	if len(name) > 0 {
+		return k.WithoutTracing().WithDBLogger(name[0], logger.Trace)
+	}
+	return k.WithoutTracing().WithDBLogger("db", logger.Trace)
 }
 
 func (k Context) IsTracing() bool {
@@ -339,7 +343,7 @@ func (k Context) StartSpan(name string) (Context, trace.Span) {
 	for k, v := range k.GetLoggingContext() {
 		span.SetAttributes(attribute.String(k, fmt.Sprintf("%v", v)))
 	}
-	return k.Wrap(ctx), span
+	return k.Wrap(ctx).WithName(name), span
 }
 
 func (k Context) WrapEcho(c echo.Context) Context {
@@ -464,7 +468,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 }
 
 func (k Context) Wrap(ctx gocontext.Context) Context {
-	return NewContext(ctx, commons.WithTracer(k.GetTracer())).
+	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
 		WithKubernetes(k.Kubernetes()).
 		WithKommons(k.Kommons()).
