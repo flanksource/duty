@@ -15,13 +15,16 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/google/gops/agent"
 	"github.com/labstack/echo/v4"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/robfig/cron/v3"
 )
 
-var Crons []*cron.Cron
+var Crons = cmap.New[*cron.Cron]()
 
 func RegisterCron(cron *cron.Cron) {
-	Crons = append(Crons, cron)
+
+	// Cache cron objects by their pointer
+	Crons.SetIfAbsent(fmt.Sprintf("%p", cron), cron)
 }
 
 func init() {
@@ -115,8 +118,8 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 	debug.POST("/cron/run", func(c echo.Context) error {
 		name := c.Request().FormValue("name")
 		names := []string{}
-		for _, cron := range Crons {
-			for _, e := range cron.Entries() {
+		for entry := range Crons.IterBuffered() {
+			for _, e := range entry.Val.Entries() {
 				entry := toEntry(&e)
 				names = append(names, entry.GetName())
 				if entry.GetName() == name {
@@ -172,8 +175,8 @@ func toEntry(e *cron.Entry) JobCronEntry {
 func CronDetailsHandler() func(c echo.Context) error {
 	return func(c echo.Context) error {
 		var entries []JobCronEntry
-		for _, cron := range Crons {
-			for _, e := range cron.Entries() {
+		for entry := range Crons.IterBuffered() {
+			for _, e := range entry.Val.Entries() {
 				entries = append(entries, toEntry(&e))
 			}
 		}
