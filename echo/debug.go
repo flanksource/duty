@@ -60,13 +60,13 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 	pprofGroup.GET("/symbol*", echo.WrapHandler(http.HandlerFunc(pprof.Symbol)))
 	pprofGroup.GET("/trace*", echo.WrapHandler(http.HandlerFunc(pprof.Trace)))
 
-	debug := e.Group("/debug/", rbac)
+	debug := e.Group("/debug", rbac)
 
-	debug.GET("/debug/loggers", func(c echo.Context) error {
+	debug.GET("/loggers", func(c echo.Context) error {
 		return c.JSON(200, logger.GetNamedLoggingLevels())
 	})
 
-	debug.POST("/debug/loggers", func(c echo.Context) error {
+	debug.POST("/loggers", func(c echo.Context) error {
 		logName := c.Request().FormValue("logger")
 		logLevel := c.Request().FormValue("level")
 		duration := c.Request().FormValue("duration")
@@ -95,13 +95,13 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 		}
 	})
 
-	debug.GET("/debug/properties", func(c echo.Context) error {
+	debug.GET("/properties", func(c echo.Context) error {
 		ctx := c.Request().Context().(context.Context)
 		props := ctx.Properties().SupportedProperties()
 		return c.JSON(200, props)
 	})
 
-	debug.POST("/debug/property", func(c echo.Context) error {
+	debug.POST("/property", func(c echo.Context) error {
 		id := c.Request().FormValue("name")
 		value := c.Request().FormValue("value")
 		if id != "" && value != "" {
@@ -112,7 +112,7 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 		}
 	})
 
-	debug.POST("/debug/cron/run", func(c echo.Context) error {
+	debug.POST("/cron/run", func(c echo.Context) error {
 		name := c.Request().FormValue("name")
 		names := []string{}
 		for _, cron := range Crons {
@@ -130,7 +130,7 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 
 	})
 
-	debug.GET("/debug/cron", CronDetailsHandler())
+	debug.GET("/cron", CronDetailsHandler())
 }
 
 type JobCronEntry struct {
