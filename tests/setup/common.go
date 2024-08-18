@@ -225,9 +225,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 		return nil, nil, err
 	}
 
-	newCtx, err := duty.InitDB(api.Config{
-		ConnectionString: strings.ReplaceAll(pgUrl, pgDbName, newName),
-	})
+	newCtx, err := duty.InitDB(api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName)))
 	if err != nil {
 		return nil, nil, err
 	}
