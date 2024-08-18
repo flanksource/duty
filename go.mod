@@ -12,7 +12,7 @@ require (
 	github.com/eko/gocache/store/go_cache/v4 v4.2.2
 	github.com/exaring/otelpgx v0.5.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
-	github.com/flanksource/commons v1.26.1
+	github.com/flanksource/commons v1.27.0
 	github.com/flanksource/gomplate/v3 v3.24.22
 	github.com/flanksource/kommons v0.31.4
 	github.com/google/cel-go v0.20.1
@@ -90,6 +90,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flanksource/is-healthy v1.0.26 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
