@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -24,6 +25,13 @@ var OtelAttributes []attribute.KeyValue
 var OtelInsecure bool
 
 func InitTracer() func(context.Context) error {
+	OtelCollectorURL = lo.CoalesceOrEmpty(OtelCollectorURL, os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+
+	if OtelCollectorURL == "" {
+		return func(_ context.Context) error {
+			return nil
+		}
+	}
 	var secureOption otlptracegrpc.Option
 	if !OtelInsecure {
 		secureOption = otlptracegrpc.WithTLSCredentials(credentials.NewClientTLSFromCert(nil, ""))
