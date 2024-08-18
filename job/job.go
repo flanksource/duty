@@ -211,7 +211,7 @@ func (j *JobRuntime) start() {
 		j.History.ResourceType = j.Job.ResourceType
 	}
 	if j.Job.JobHistory && j.Job.Retention.Success > 0 && !j.Job.IgnoreSuccessHistory {
-		if err := j.History.Persist(j.FastDB()); err != nil {
+		if err := j.History.Persist(j.FastDB("jobs")); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
@@ -220,7 +220,7 @@ func (j *JobRuntime) start() {
 func (j *JobRuntime) end() {
 	j.History.End()
 	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) && !j.Job.IgnoreSuccessHistory {
-		if err := j.History.Persist(j.FastDB()); err != nil {
+		if err := j.History.Persist(j.FastDB("jobs")); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
@@ -409,12 +409,6 @@ func (j *Job) init() error {
 		}
 	}
 
-	if j.ID != "" {
-		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ID))
-	} else {
-		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ResourceID))
-	}
-
 	obj := j.Context.GetObjectMeta()
 	if obj.Name == "" {
 		obj.Name = j.Name
@@ -436,6 +430,14 @@ func (j *Job) init() error {
 
 	if dbLevel, ok := j.GetProperty("db-log-level"); ok {
 		j.Context = j.Context.WithDBLogLevel(dbLevel)
+	}
+
+	if j.ID != "" {
+		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", j.Name, j.ID))
+	} else if j.ResourceID != "" {
+		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", j.Name, j.ResourceID))
+	} else {
+		j.Context = j.Context.WithName(j.Name)
 	}
 
 	j.Context.Tracef("initalized %v", j.String())

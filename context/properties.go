@@ -184,7 +184,6 @@ func (k Context) Properties() Properties {
 		}
 
 		for _, prop := range rows {
-			logger.Infof("%s(local)=%s", prop.Name, prop.Value)
 			props[prop.Name] = prop.Value
 		}
 	}
