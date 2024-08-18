@@ -10,12 +10,17 @@ import (
 
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
-		Version:    "v10.0.0",
-		DBRole:     "postgrest_api",
-		DBAnonRole: "postgrest_anon",
-		Port:       3000,
-		MaxRows:    2000,
+		Version: "v10.0.0",
+		DBRole:  "postgrest_api",
+		Port:    3000,
+		MaxRows: 2000,
 	},
+}
+
+func NewConfig(connection string) Config {
+	n := DefaultConfig
+	n.ConnectionString = connection
+	return n
 }
 
 type Config struct {
@@ -70,6 +75,14 @@ func (c Config) String() string {
 	}
 
 	return s
+}
+
+func (c Config) GetUsername() string {
+	if url, err := url.Parse(c.ConnectionString); err != nil {
+		return ""
+	} else {
+		return url.User.Username()
+	}
 }
 
 type PostgrestConfig struct {

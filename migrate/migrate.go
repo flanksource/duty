@@ -16,6 +16,7 @@ import (
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
+	"github.com/samber/oops"
 )
 
 type MigrateOptions struct {
@@ -63,7 +64,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	l.V(3).Infof("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
 	if err := grantPostgrestRolesToCurrentUser(pool, config); err != nil {
-		return fmt.Errorf("failed to grant postgrest roles: %w", err)
+		return oops.Wrapf(err, "failed to grant postgrest roles")
 	}
 
 	l.V(3).Infof("Applying schema migrations")
@@ -108,22 +109,12 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
 				GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s;
 				ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s;
         `
-		if _, err := pool.Exec(fmt.Sprintf(grantQuery, role, role, role, role, role)); err != nil {
-			return err
+		grantQuery = fmt.Sprintf(grantQuery, role, role, role, role, role)
+		if _, err := pool.Exec(grantQuery); err != nil {
+			return oops.Hint(grantQuery).Wrap(err)
 		}
 		l.Debugf("Granted privileges to %s", user)
 
-	}
-
-	isPostgrestAnonGranted, err := checkIfRoleIsGranted(pool, config.Postgrest.DBAnonRole, user)
-	if err != nil {
-		return err
-	}
-	if !isPostgrestAnonGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, config.Postgrest.DBAnonRole, user)); err != nil {
-			return err
-		}
-		l.Debugf("Granted %s to %s", config.Postgrest.DBAnonRole, user)
 	}
 
 	return nil
