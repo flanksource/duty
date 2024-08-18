@@ -15,7 +15,7 @@ import (
 )
 
 func BindPFlags(flags *pflag.FlagSet) {
-	flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
+	_ = flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
 	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
 	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
