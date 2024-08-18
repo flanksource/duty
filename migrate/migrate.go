@@ -6,12 +6,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
 	"sort"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
@@ -23,14 +23,14 @@ type MigrateOptions struct {
 	IgnoreFiles []string
 }
 
-func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
+func RunMigrations(pool *sql.DB, config api.Config) error {
 	l := logger.GetLogger("migrate")
 
 	if properties.On(false, "db.migrate.skip") {
 		return nil
 	}
 
-	if connection == "" {
+	if config.ConnectionString == "" {
 		return errors.New("connection string is empty")
 	}
 
@@ -49,84 +49,81 @@ func RunMigrations(pool *sql.DB, connection string, opts MigrateOptions) error {
 		return fmt.Errorf("failed to create migration log table: %w", err)
 	}
 
-	l.Tracef("Getting functions")
+	l.V(3).Infof("Getting functions")
 	funcs, err := functions.GetFunctions()
 	if err != nil {
 		return fmt.Errorf("failed to get functions: %w", err)
 	}
 
-	l.Tracef("Running scripts")
-	if err := runScripts(pool, funcs, opts.IgnoreFiles); err != nil {
+	l.V(3).Infof("Running scripts")
+	if err := runScripts(pool, funcs, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
-	l.Tracef("Granting roles to current user")
+	l.V(3).Infof("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
-	if err := grantPostgrestRolesToCurrentUser(pool, connection); err != nil {
+	if err := grantPostgrestRolesToCurrentUser(pool, config); err != nil {
 		return fmt.Errorf("failed to grant postgrest roles: %w", err)
 	}
 
-	l.Tracef("Applying schema migrations")
-	if err := schema.Apply(context.TODO(), connection); err != nil {
+	l.V(3).Infof("Applying schema migrations")
+	if err := schema.Apply(context.TODO(), config.ConnectionString); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
-	l.Tracef("Getting views")
+	l.V(3).Infof("Getting views")
 	views, err := views.GetViews()
 	if err != nil {
 		return fmt.Errorf("failed to get views: %w", err)
 	}
 
-	l.Tracef("Running scripts for views")
-	if err := runScripts(pool, views, opts.IgnoreFiles); err != nil {
+	l.V(3).Infof("Running scripts for views")
+	if err := runScripts(pool, views, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
 	return nil
 }
 
-func grantPostgrestRolesToCurrentUser(pool *sql.DB, connection string) error {
+func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
 	l := logger.GetLogger("migrate")
-	parsedConn, err := url.Parse(connection)
-	if err != nil {
-		return err
-	}
-	user := parsedConn.User.Username()
-	if user == "" {
-		return fmt.Errorf("malformed connection string, got empty username: %s", parsedConn.Redacted())
-	}
 
-	isPostgrestAPIGranted, err := checkIfRoleIsGranted(pool, "postgrest_api", user)
-	if err != nil {
-		return err
+	user := config.GetUsername()
+	if user == "" {
+		return fmt.Errorf("Cannot find username in connection string")
 	}
-	if !isPostgrestAPIGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_api TO "%s"`, user)); err != nil {
+	role := config.Postgrest.DBRole
+	if isPostgrestAPIGranted, err := checkIfRoleIsGranted(pool, role, user); err != nil {
+		return err
+	} else if !isPostgrestAPIGranted {
+		if _, err := pool.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, role, user)); err != nil {
 			return err
 		}
-		l.Debugf("Granted postgrest_api to %s", user)
+		l.Debugf("Granted %s to %s", role, user)
 
 		grantQuery := `
-            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgrest_api;
-            GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO postgrest_api;
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON  TABLES TO postgrest_api;
+				ALTER ROLE %s SET statement_timeout = '120s';
+        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %s;
+				GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s;
+				GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s;
+				ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s;
         `
-		if _, err := pool.Exec(grantQuery); err != nil {
+		if _, err := pool.Exec(fmt.Sprintf(grantQuery, role, role, role, role, role)); err != nil {
 			return err
 		}
-		l.Debugf("Granted privileges to postgrest_api", user)
+		l.Debugf("Granted privileges to %s", user)
 
 	}
 
-	isPostgrestAnonGranted, err := checkIfRoleIsGranted(pool, "postgrest_anon", user)
+	isPostgrestAnonGranted, err := checkIfRoleIsGranted(pool, config.Postgrest.DBAnonRole, user)
 	if err != nil {
 		return err
 	}
 	if !isPostgrestAnonGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT postgrest_anon TO "%s"`, user)); err != nil {
+		if _, err := pool.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, config.Postgrest.DBAnonRole, user)); err != nil {
 			return err
 		}
-		l.Debugf("Granted postgrest_anon to %s", user)
+		l.Debugf("Granted %s to %s", config.Postgrest.DBAnonRole, user)
 	}
 
 	return nil
@@ -177,7 +174,7 @@ func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) e
 
 		hash := sha1.Sum([]byte(content))
 		if string(hash[:]) == currentHash {
-			l.Tracef("Skipping script %s", file)
+			l.V(3).Infof("Skipping script %s", file)
 			continue
 		}
 

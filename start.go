@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/utils"
 	. "github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/kubernetes"
@@ -14,6 +15,7 @@ import (
 )
 
 func BindPFlags(flags *pflag.FlagSet) {
+	flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
 	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
 	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
@@ -21,7 +23,7 @@ func BindPFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
 	flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
 	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", false, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
-	flags.StringVar(&DefaultConfig.Postgrest.DBAnonRole, "postgrest-anon-role", "postgrest-api", "PostgREST anonymous role")
+	flags.StringVar(&DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
 	flags.StringVar(&DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
@@ -74,8 +76,13 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 		port, _ := strconv.Atoi(parsedURL.Port())
 		config.Postgrest.Port = int(port)
 		if host == "localhost" {
+			if config.Postgrest.JWTSecret == "" {
+				logger.Warnf("PostgREST JWT secret not specified, generating random secret")
+				config.Postgrest.JWTSecret = utils.RandomString(32)
+			}
 			go postgrest.Start(config)
 		}
+		DefaultConfig = config
 	}
 
 	stop := func() {}
