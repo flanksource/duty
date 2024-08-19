@@ -185,8 +185,6 @@ func InitDB(config api.Config) (*dutyContext.Context, error) {
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
 func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
-	config = config.ReadEnv()
-
 	logger.Infof("Connecting to %s", config)
 
 	pgxpool, err = NewPgxPool(config.ConnectionString)

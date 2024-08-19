@@ -1,10 +1,15 @@
 package duty
 
 import (
+	"fmt"
+	"net"
 	"net/url"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 
+	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
 	. "github.com/flanksource/duty/api"
@@ -66,10 +71,29 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 	config = config.ReadEnv()
 
+	stop := func() {}
+
+	if strings.HasPrefix(config.ConnectionString, "embedded://") {
+		embeddedDBConnectionString, stopper, err := embeddedDB("embedded", config.ConnectionString, uint32(FreePort()))
+		if err != nil {
+			return context.Context{}, nil, fmt.Errorf("failed to setup embedded postgres: %w", err)
+		}
+
+		stop = func() {
+			if err := stopper(); err != nil {
+				logger.Errorf("error stopping embedded postgres: %v", err)
+			}
+		}
+
+		// override the embedded connection string with an actual postgres connection string
+		config.ConnectionString = embeddedDBConnectionString
+		DefaultConfig.ConnectionString = embeddedDBConnectionString
+	}
+
 	if config.Postgrest.URL != "" && !config.Postgrest.Disable {
 		parsedURL, err := url.Parse(config.Postgrest.URL)
 		if err != nil {
-			logger.Fatalf("Failed to parse PostgREST URL: %v", err)
+			return context.Context{}, nil, fmt.Errorf("failed to parse PostgREST URL: %v", err)
 		}
 
 		host := strings.ToLower(parsedURL.Hostname())
@@ -84,8 +108,6 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 		}
 		DefaultConfig = config
 	}
-
-	stop := func() {}
 
 	var ctx context.Context
 	if c, err := InitDB(config); err != nil {
@@ -103,4 +125,42 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	return ctx, stop, nil
+}
+
+func embeddedDB(database, connectionString string, port uint32) (string, func() error, error) {
+	embeddedPath := strings.TrimSuffix(strings.TrimPrefix(connectionString, "embedded://"), "/")
+	if err := os.Chmod(embeddedPath, 0750); err != nil {
+		logger.Errorf("failed to chmod %s: %v", embeddedPath, err)
+	}
+
+	logger.Infof("Starting embedded postgres server at %s", embeddedPath)
+
+	embeddedPGServer := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
+		Port(port).
+		DataPath(path.Join(embeddedPath, "data")).
+		RuntimePath(path.Join(embeddedPath, "runtime")).
+		BinariesPath(path.Join(embeddedPath, "bin")).
+		Version(embeddedpostgres.V14).
+		Username("postgres").Password("postgres").
+		Database(database))
+
+	if err := embeddedPGServer.Start(); err != nil {
+		return "", nil, fmt.Errorf("error starting embedded postgres: %w", err)
+	}
+
+	return fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, database), embeddedPGServer.Stop, nil
+}
+
+func FreePort() int {
+	// Bind to port 0 to let the OS choose a free port
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer listener.Close()
+
+	// Get the address of the listener
+	address := listener.Addr().(*net.TCPAddr)
+	return address.Port
 }
