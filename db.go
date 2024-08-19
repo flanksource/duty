@@ -213,7 +213,7 @@ func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err err
 		return
 	}
 
-	if !config.SkipMigrations {
+	if config.Migrate() {
 		if err = Migrate(config); err != nil {
 			return
 		}

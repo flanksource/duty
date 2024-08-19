@@ -24,17 +24,38 @@ func NewConfig(connection string) Config {
 	return n
 }
 
+type MigrationMode int
+
+const (
+	RunByDefault MigrationMode = iota
+	SkipByDefault
+)
+
 type Config struct {
 	Metrics                  bool
 	ConnectionString, Schema string
-	RunMigrations            bool // Deprecated
-	SkipMigrations           bool
-	SkipMigrationFiles       []string
 	DisableKubernetes        bool
 	Namespace                string
 	Postgrest                PostgrestConfig
 	LogLevel                 string
 	LogName                  string
+
+	RunMigrations      bool
+	SkipMigrations     bool
+	SkipMigrationFiles []string
+	MigrationMode      MigrationMode
+}
+
+func (t *Config) Migrate() bool {
+	// We have two flags dictating whether to run migration or not
+	// depending on whether it's being used on mission-control or (config-db/canary-checker).
+	switch t.MigrationMode {
+	case RunByDefault:
+		return t.SkipMigrations
+
+	default:
+		return t.RunMigrations
+	}
 }
 
 func PrintableSecret(secret string) string {
@@ -72,7 +93,7 @@ func (c Config) ReadEnv() Config {
 }
 
 func (c Config) String() string {
-	s := fmt.Sprintf("migrate=%v log=%v postgrest=(%s)", !c.SkipMigrations, c.LogLevel, c.Postgrest.String())
+	s := fmt.Sprintf("migrate=%v log=%v postgrest=(%s)", c.Migrate(), c.LogLevel, c.Postgrest.String())
 	if pgUrl, err := url.Parse(c.ConnectionString); err == nil {
 		s = fmt.Sprintf("url=%s ", pgUrl.Redacted()) + s
 	}
