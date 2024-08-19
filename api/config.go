@@ -27,7 +27,8 @@ func NewConfig(connection string) Config {
 type Config struct {
 	Metrics                  bool
 	ConnectionString, Schema string
-	SkipMigrations           bool
+	RunMigrations            bool
+	SkipMigrations           bool // Deprecated
 	SkipMigrationFiles       []string
 	DisableKubernetes        bool
 	Namespace                string
