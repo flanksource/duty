@@ -1,6 +1,7 @@
 package postgrest
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/flanksource/commons/deps"
@@ -31,4 +32,12 @@ func Start(config api.Config) {
 	if err := getBinary(config)(""); err != nil {
 		logger.Errorf("Failed to start postgREST: %v", err)
 	}
+}
+
+func PostgRESTEndpoint(config api.Config) string {
+	return fmt.Sprintf("http://localhost:%d", config.Postgrest.Port)
+}
+
+func PostgRESTAdminEndpoint(config api.Config) string {
+	return fmt.Sprintf("http://localhost:%d", config.Postgrest.AdminPort)
 }

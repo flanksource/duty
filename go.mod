@@ -56,6 +56,7 @@ require (
 	google.golang.org/grpc v1.64.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.11
+	gorm.io/plugin/prometheus v0.1.0
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2

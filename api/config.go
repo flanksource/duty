@@ -10,10 +10,11 @@ import (
 
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
-		Version: "v10.0.0",
-		DBRole:  "postgrest_api",
-		Port:    3000,
-		MaxRows: 2000,
+		Version:   "v10.0.0",
+		DBRole:    "postgrest_api",
+		Port:      3000,
+		AdminPort: 3001,
+		MaxRows:   2000,
 	},
 }
 
@@ -24,7 +25,9 @@ func NewConfig(connection string) Config {
 }
 
 type Config struct {
+	Metrics                  bool
 	ConnectionString, Schema string
+	RunMigrations            bool // Deprecated
 	SkipMigrations           bool
 	SkipMigrationFiles       []string
 	DisableKubernetes        bool
@@ -93,6 +96,7 @@ type PostgrestConfig struct {
 	Version   string
 	JWTSecret string
 	DBRole    string
+	AdminPort int
 
 	// A hard limit to the number of rows PostgREST will fetch from a view, table, or stored procedure.
 	// Limits payload size for accidental or malicious requests.

@@ -4,7 +4,6 @@ import (
 	gocontext "context"
 	"database/sql"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -122,7 +121,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 
 		port = int(parsed)
 	} else {
-		port = FreePort()
+		port = duty.FreePort()
 	}
 
 	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
@@ -238,7 +237,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 }
 
 func RunEcho(e *echo.Echo) (int, func()) {
-	port := FreePort()
+	port := duty.FreePort()
 
 	listenAddr := fmt.Sprintf(":%d", port)
 	go func() {
@@ -255,20 +254,6 @@ func RunEcho(e *echo.Echo) (int, func()) {
 		defer ginkgo.GinkgoRecover() // Required by ginkgo, if an assertion is made in a goroutine.
 		Expect(e.Close()).To(BeNil())
 	}
-}
-
-func FreePort() int {
-	// Bind to port 0 to let the OS choose a free port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	defer listener.Close()
-
-	// Get the address of the listener
-	address := listener.Addr().(*net.TCPAddr)
-	return address.Port
 }
 
 func ExpectJobToPass(j *job.Job) {
