@@ -3,9 +3,8 @@ package job
 import (
 	"container/ring"
 	gocontext "context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -31,6 +30,8 @@ const (
 const (
 	// iterationJitterPercent sets the maximum percent by which to jitter each subsequent invocation of a periodic job
 	iterationJitterPercent = 10
+
+	maxJitterDuration = time.Minute * 15
 )
 
 var evictedJobs chan uuid.UUID
@@ -527,11 +528,15 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 		return fmt.Errorf("failed to parse schedule: %s", err)
 	}
 	interval := time.Until(parsedSchedule.Next(time.Now()))
+	if interval > maxJitterDuration {
+		interval = maxJitterDuration
+	}
 
 	delayedJob := cron.FuncJob(func() {
-		delayPercent, _ := rand.Int(rand.Reader, big.NewInt(int64(iterationJitterPercent)))
-		jitterDuration := time.Duration((int64(interval) * delayPercent.Int64()) / 100)
-		j.Context.Logger.Named(j.GetResourcedName()).V(2).Infof("jitter (%d%%): %s", delayPercent, jitterDuration)
+		delayPercent := rand.Intn(iterationJitterPercent)
+		jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
+		j.Context.Logger.V(4).Infof("jitter (%d%%): %s", delayPercent, jitterDuration)
+
 		time.Sleep(jitterDuration)
 		j.Run()
 	})
