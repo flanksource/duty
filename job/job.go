@@ -29,9 +29,6 @@ const (
 )
 
 const (
-	// initialJitterPercent sets by how much the initial scheduling of the job should be delayed
-	initialJitterPercent = 100
-
 	// iterationJitterPercent sets the maximum percent by which to jitter each subsequent invocation of a periodic job
 	iterationJitterPercent = 10
 )
@@ -498,7 +495,6 @@ func (j *Job) GetResourcedName() string {
 }
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
-
 	echo.RegisterCron(cronRunner)
 	cronRunner.Start()
 
@@ -523,10 +519,19 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	}
 	j.Context.Logger.Named(j.GetResourcedName()).V(1).Infof("scheduled %s", schedule)
 
+	// Attempt to get a fixed interval from the schedule
+	// to measure the appropriate jitter.
+	// NOTE: Only works for fixed interval schedules.
+	parsedSchedule, err := cron.ParseStandard(j.Schedule)
+	if err != nil {
+		return fmt.Errorf("failed to parse schedule: %s", err)
+	}
+	interval := time.Until(parsedSchedule.Next(time.Now()))
+
 	delayedJob := cron.FuncJob(func() {
-		randomDelay, _ := rand.Int(rand.Reader, big.NewInt(int64(iterationJitterPercent)))
-		jitterDuration := time.Duration(randomDelay.Int64())
-		j.Context.Logger.Named(j.GetResourcedName()).V(2).Infof("jitter: %s", jitterDuration)
+		delayPercent, _ := rand.Int(rand.Reader, big.NewInt(int64(iterationJitterPercent)))
+		jitterDuration := time.Duration((int64(interval) * delayPercent.Int64()) / 100)
+		j.Context.Logger.Named(j.GetResourcedName()).V(2).Infof("jitter (%d%%): %s", delayPercent, jitterDuration)
 		time.Sleep(jitterDuration)
 		j.Run()
 	})
