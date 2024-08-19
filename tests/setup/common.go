@@ -154,7 +154,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		})
 	}
 
-	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.WithUrl(PgUrl))
+	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.RunMigrations, duty.WithUrl(PgUrl))
 	if err != nil {
 		panic(err.Error())
 	}
@@ -220,7 +220,8 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 		return nil, nil, err
 	}
 
-	newCtx, err := duty.InitDB(api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName)))
+	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
+	newCtx, err := duty.InitDB(duty.RunMigrations(config))
 	if err != nil {
 		return nil, nil, err
 	}

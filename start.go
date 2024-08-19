@@ -20,15 +20,17 @@ import (
 	"gorm.io/plugin/prometheus"
 )
 
-func BindPFlags(flags *pflag.FlagSet) {
+type BindFlagOption struct {
+	SkipMigrationByDefault bool
+}
+
+func BindPFlags(flags *pflag.FlagSet, opt BindFlagOption) {
 	_ = flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
 	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
 	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
 	flags.StringVar(&DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
 	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
-	flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", true, "Run database migrations")
-	flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
 	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", false, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
 	flags.StringVar(&DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
@@ -36,7 +38,15 @@ func BindPFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
 	flags.BoolVar(&DefaultConfig.Metrics, "db-metrics", false, "Expose db metrics")
 
-	_ = flags.MarkDeprecated("db-migrations", "migrations are run by default. Use --skip-migrations to skip migrations.")
+	if opt.SkipMigrationByDefault {
+		DefaultConfig.SkipMigrationsByDefault = true
+		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", false, "Run database migrations")
+		DefaultConfig.SkipMigrations = false // pratically disable this flag so RunMigrations dictates migration
+	} else {
+		flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
+		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", true, "Run database migrations")
+		_ = flags.MarkDeprecated("db-migrations", "migrations are run by default. Use --skip-migrations to skip migrations.")
+	}
 }
 
 type StartOption func(config Config) Config
@@ -63,14 +73,22 @@ var EnableMetrics = func(config Config) Config {
 	return config
 }
 
+var RunMigrations = func(config Config) Config {
+	config.SkipMigrationsByDefault = false
+	config.RunMigrations = true
+	return config
+}
+
 var SkipMigrations = func(config Config) Config {
-	config.SkipMigrations = true
+	config.SkipMigrationsByDefault = true
+	config.RunMigrations = false
 	return config
 }
 
 var ClientOnly = func(config Config) Config {
 	config.Postgrest.Disable = true
 	config.SkipMigrations = true
+	config.RunMigrations = false
 	return config
 }
 
