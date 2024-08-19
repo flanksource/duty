@@ -154,7 +154,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		})
 	}
 
-	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.RunMigrations, duty.WithUrl(PgUrl))
+	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.WithUrl(PgUrl))
 	if err != nil {
 		panic(err.Error())
 	}
