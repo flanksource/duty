@@ -20,11 +20,12 @@ import (
 	"gorm.io/plugin/prometheus"
 )
 
-type BindFlagOption struct {
-	SkipMigrationByDefault bool
-}
+func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
+	config := DefaultConfig
+	for _, opt := range opts {
+		config = opt(config)
+	}
 
-func BindPFlags(flags *pflag.FlagSet, opt BindFlagOption) {
 	_ = flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
 	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
@@ -38,10 +39,8 @@ func BindPFlags(flags *pflag.FlagSet, opt BindFlagOption) {
 	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
 	flags.BoolVar(&DefaultConfig.Metrics, "db-metrics", false, "Expose db metrics")
 
-	if opt.SkipMigrationByDefault {
-		DefaultConfig.SkipMigrationsByDefault = true
+	if config.MigrationMode == SkipByDefault {
 		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", false, "Run database migrations")
-		DefaultConfig.SkipMigrations = false // pratically disable this flag so RunMigrations dictates migration
 	} else {
 		flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
 		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", true, "Run database migrations")
@@ -63,6 +62,11 @@ var WithUrl = func(url string) func(config Config) Config {
 	}
 }
 
+var SkipMigrationByDefaultMode = func(config Config) Config {
+	config.MigrationMode = SkipByDefault
+	return config
+}
+
 var SkipChangelogMigration = func(config Config) Config {
 	config.SkipMigrationFiles = []string{"007_events.sql", "012_changelog_triggers_others.sql", "012_changelog_triggers_scrapers.sql"}
 	return config
@@ -74,13 +78,13 @@ var EnableMetrics = func(config Config) Config {
 }
 
 var RunMigrations = func(config Config) Config {
-	config.SkipMigrationsByDefault = false
+	config.MigrationMode = SkipByDefault
 	config.RunMigrations = true
 	return config
 }
 
 var SkipMigrations = func(config Config) Config {
-	config.SkipMigrationsByDefault = true
+	config.MigrationMode = RunByDefault
 	config.RunMigrations = false
 	return config
 }
@@ -88,7 +92,6 @@ var SkipMigrations = func(config Config) Config {
 var ClientOnly = func(config Config) Config {
 	config.Postgrest.Disable = true
 	config.SkipMigrations = true
-	config.RunMigrations = false
 	return config
 }
 

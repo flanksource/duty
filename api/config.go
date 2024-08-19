@@ -24,6 +24,13 @@ func NewConfig(connection string) Config {
 	return n
 }
 
+type MigrationMode int
+
+const (
+	RunByDefault MigrationMode = iota
+	SkipByDefault
+)
+
 type Config struct {
 	Metrics                  bool
 	ConnectionString, Schema string
@@ -36,20 +43,19 @@ type Config struct {
 	RunMigrations      bool
 	SkipMigrations     bool
 	SkipMigrationFiles []string
-
-	// SkipMigrationsByDefault Defines the mode for migration.
-	SkipMigrationsByDefault bool
+	MigrationMode      MigrationMode
 }
 
 func (t *Config) Migrate() bool {
 	// We have two flags dictating whether to run migration or not
 	// depending on whether it's being used on mission-control or (config-db/canary-checker).
-
-	if t.SkipMigrationsByDefault {
+	switch t.MigrationMode {
+	case RunByDefault:
 		return t.SkipMigrations
-	}
 
-	return t.RunMigrations
+	default:
+		return t.RunMigrations
+	}
 }
 
 func PrintableSecret(secret string) string {
