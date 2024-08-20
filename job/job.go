@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -97,6 +98,13 @@ type Job struct {
 	initialized              bool
 	unschedule               func()
 	statusRing               StatusRing
+
+	// Semaphores control concurrent execution of related jobs.
+	// They are acquired sequentially and released in reverse order.
+	// Hence, they should be ordered from most specific to most general
+	// so broader locks are held for the least amount of time.
+	// The job is responsible in providing the semaphores in the correct order.
+	Semaphores []*semaphore.Weighted
 }
 
 func (j *Job) GetContext() map[string]any {
@@ -334,6 +342,20 @@ func (j *Job) Run() {
 			return
 		}
 		defer j.lock.Unlock()
+	}
+
+	for i, l := range j.Semaphores {
+		ctx.Logger.V(9).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		if err := l.Acquire(ctx, 1); err != nil {
+			r.Failf("failed to acquire semaphore")
+			return
+		}
+		ctx.Logger.V(9).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+
+		defer func() {
+			l.Release(1)
+			ctx.Logger.V(9).Infof("[%s] released sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		}()
 	}
 
 	if j.Timeout > 0 {
