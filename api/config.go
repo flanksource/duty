@@ -51,7 +51,7 @@ func (t *Config) Migrate() bool {
 	// depending on whether it's being used on mission-control or (config-db/canary-checker).
 	switch t.MigrationMode {
 	case RunByDefault:
-		return t.SkipMigrations
+		return !t.SkipMigrations
 
 	default:
 		return t.RunMigrations
