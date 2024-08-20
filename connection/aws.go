@@ -19,8 +19,8 @@ import (
 type AWSConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey.
 	ConnectionName string       `yaml:"connection,omitempty" json:"connection,omitempty"`
-	AccessKey      types.EnvVar `yaml:"accessKey" json:"accessKey,omitempty"`
-	SecretKey      types.EnvVar `yaml:"secretKey" json:"secretKey,omitempty"`
+	AccessKey      types.EnvVar `yaml:"accessKey,omitempty" json:"accessKey,omitempty"`
+	SecretKey      types.EnvVar `yaml:"secretKey,omitempty" json:"secretKey,omitempty"`
 	SessionToken   types.EnvVar `yaml:"sessionToken,omitempty" json:"sessionToken,omitempty"`
 	AssumeRole     string       `yaml:"assumeRole,omitempty" json:"assumeRole,omitempty"`
 	Region         string       `yaml:"region,omitempty" json:"region,omitempty"`
@@ -108,11 +108,11 @@ func (t *AWSConnection) Client(ctx context.Context) (aws.Config, error) {
 	if ctx.IsTrace() {
 		httplogger := &httpretty.Logger{
 			Time:           true,
-			TLS:            true,
+			TLS:            ctx.Logger.IsLevelEnabled(7),
 			RequestHeader:  true,
-			RequestBody:    true,
+			RequestBody:    ctx.Logger.IsLevelEnabled(8),
 			ResponseHeader: true,
-			ResponseBody:   true,
+			ResponseBody:   ctx.Logger.IsLevelEnabled(9),
 			Colors:         true,
 			Formatters:     []httpretty.Formatter{&httpretty.JSONFormatter{}},
 		}
