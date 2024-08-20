@@ -156,8 +156,9 @@ table "config_changes" {
   }
 
   column "count" {
-    null = true
-    type = int
+    null    = false
+    default = 1
+    type    = int
   }
 
   column "fingerprint" {
@@ -166,10 +167,10 @@ table "config_changes" {
   }
 
   column "first_observed" {
-    null = true
-    type = timestamptz
+    null    = false
+    default = sql("now()")
+    type    = timestamptz
   }
-
 
   column "is_pushed" {
     null    = false

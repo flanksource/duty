@@ -456,7 +456,7 @@ type ConfigChange struct {
 	CreatedAt *time.Time `json:"created_at"`
 
 	// FirstObserved represents the timestamp when this change was first observed.
-	FirstObserved *time.Time `gorm:"first_observed" json:"first_observed,omitempty"`
+	FirstObserved *time.Time `gorm:"first_observed;default:now()" json:"first_observed,omitempty"`
 
 	// Count is the number of occurrences of this change, including duplicates detected by fingerprinting
 	Count int `json:"count"`
