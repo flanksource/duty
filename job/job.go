@@ -347,7 +347,7 @@ func (j *Job) Run() {
 	for i, l := range j.Semaphores {
 		ctx.Logger.V(9).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
 		if err := l.Acquire(ctx, 1); err != nil {
-			r.Failf("failed to acquire semaphore")
+			r.Failf("too many concurrent jobs, skipping")
 			return
 		}
 		ctx.Logger.V(9).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
