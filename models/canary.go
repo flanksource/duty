@@ -32,7 +32,7 @@ func (t Canary) ConflictClause() clause.OnConflict {
 			Exprs: []clause.Expression{
 				clause.And(
 					clause.Eq{Column: "deleted_at"},
-					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
+					clause.Expr{SQL: "agent_id = '00000000-0000-0000-0000-000000000000'::uuid", WithoutParentheses: true},
 				),
 			},
 		},
