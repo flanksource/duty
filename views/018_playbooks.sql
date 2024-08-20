@@ -81,6 +81,7 @@ DROP VIEW IF EXISTS playbook_names;
 CREATE OR REPLACE VIEW playbook_names AS
   SELECT
     id,
+    title,
     name,
     spec ->> 'description' AS description,
     spec ->> 'category' AS category,
