@@ -193,7 +193,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		},
 		Data: map[string][]byte{
 			"foo": []byte("secret"),
-		}}))
+		}}), nil)
 
 	return DefaultContext
 }
