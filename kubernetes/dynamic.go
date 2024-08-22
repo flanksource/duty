@@ -1,7 +1,9 @@
 package kubernetes
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -16,19 +18,22 @@ import (
 
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 // DynamicClient is an updated & stripped of kommons client
 type DynamicClient struct {
+	client        kubernetes.Interface
 	restMapper    *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient *dynamic.DynamicClient
 	config        *rest.Config
 }
 
-func NewKubeClient(config *rest.Config) *DynamicClient {
-	return &DynamicClient{config: config}
+func NewKubeClient(client kubernetes.Interface, config *rest.Config) *DynamicClient {
+	return &DynamicClient{config: config, client: client}
 }
 
 func (c *DynamicClient) FetchResources(ctx context.Context, resources ...unstructured.Unstructured) ([]unstructured.Unstructured, error) {
@@ -137,4 +142,50 @@ func (c *DynamicClient) GetRestMapper() (meta.RESTMapper, error) {
 	}
 	c.restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cache)
 	return c.restMapper, err
+}
+
+func (c *DynamicClient) ExecutePodf(ctx context.Context, namespace, pod, container string, command ...string) (string, string, error) {
+	const tty = false
+	req := c.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod).
+		Namespace(namespace).
+		SubResource("exec").
+		Param("container", container).
+		Param("stdin", fmt.Sprintf("%t", false)).
+		Param("stdout", fmt.Sprintf("%t", true)).
+		Param("stderr", fmt.Sprintf("%t", true)).
+		Param("tty", fmt.Sprintf("%t", tty))
+
+	for _, c := range command {
+		req.Param("command", c)
+	}
+
+	exec, err := remotecommand.NewSPDYExecutor(c.config, "POST", req.URL())
+	if err != nil {
+		return "", "", fmt.Errorf("ExecutePodf: Failed to get SPDY Executor: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    tty,
+	})
+
+	_stdout := safeString(&stdout)
+	_stderr := safeString(&stderr)
+
+	if err != nil {
+		return "", "", fmt.Errorf("failed to execute command: %v, stdout=%s stderr=%s", err, _stdout, _stderr)
+	}
+
+	return _stdout, _stderr, nil
+}
+
+func safeString(buf *bytes.Buffer) string {
+	if buf == nil || buf.Len() == 0 {
+		return ""
+	}
+	return buf.String()
 }
