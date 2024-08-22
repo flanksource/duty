@@ -13,6 +13,7 @@ var migrate = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := duty.Migrate(api.Config{
 			ConnectionString: connection,
+			Postgrest:        api.DefaultConfig.Postgrest,
 		}); err != nil {
 			logger.Fatalf(err.Error())
 		}

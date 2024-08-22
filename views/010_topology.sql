@@ -11,6 +11,7 @@ $$ LANGUAGE plpgsql;
 
 -- Drop these first because of dependencies
 DROP VIEW IF EXISTS topology;
+
 DROP VIEW IF EXISTS check_summary_by_component;
 
 DROP VIEW IF EXISTS checks_by_component;
