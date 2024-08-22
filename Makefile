@@ -60,6 +60,18 @@ download-openapi-schemas:
 	rm -rf tmp
 
 
+hack/migrate/go.mod: tidy
+	cp go.mod hack/migrate && \
+	cd hack/migrate && \
+	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
+	go mod edit -require=github.com/flanksource/duty@v1.0.0 && \
+ 	go mod edit -replace=github.com/flanksource/duty=../../ && \
+	go mod tidy
+
+.PHONY: migrate-test
+migrate-test: hack/migrate/go.mod
+	cd hack/migrate && go run ./main.go
+
 cp-playbook-schema:
 	cp ../incident-commander/config/schemas/playbook-spec.schema.json schema/
 
@@ -75,4 +87,3 @@ fmt_sql:
 
 tidy:
 	go mod tidy
-	cd hack/migrate && go mod tidy

@@ -29,7 +29,7 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     env:
-      migrate_command: cd hack/migrate && go mod tidy && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
+      migrate_command: make hack/migrate/go.mod && cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
     steps:
       - name: Install Go
         uses: buildjet/setup-go@v5
