@@ -27,7 +27,7 @@ BEGIN
     ) THEN
         -- Update existing NULL values in the "first_observed" column
         UPDATE config_changes
-        SET first_observed = NOW()
+        SET first_observed = created_at
         WHERE first_observed IS NULL;
     END IF;
 END $$;
