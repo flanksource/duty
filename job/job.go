@@ -364,18 +364,18 @@ func (j *Job) Run() {
 		time.Sleep(jitterDuration)
 	}
 
-	for i, l := range j.Semaphores {
-		ctx.Logger.V(9).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
-		if err := l.Acquire(ctx, 1); err != nil {
+	for i, lock := range j.Semaphores {
+		ctx.Logger.V(6).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		if err := lock.Acquire(ctx, 1); err != nil {
 			r.Failf("too many concurrent jobs, skipping")
 			return
 		}
-		ctx.Logger.V(9).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		ctx.Logger.V(7).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
 
-		defer func() {
-			l.Release(1)
-			ctx.Logger.V(9).Infof("[%s] released sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
-		}()
+		defer func(s *semaphore.Weighted, msg string) {
+			s.Release(1)
+			ctx.Logger.V(6).Infof(msg)
+		}(lock, fmt.Sprintf("[%s] released sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores)))
 	}
 
 	if j.Timeout > 0 {

@@ -328,8 +328,10 @@ func (k *Context) Kubernetes() kubernetes.Interface {
 }
 
 func (k *Context) KubernetesRestConfig() *rest.Config {
-	v, _ := k.Value("kubernetes-rest").((*rest.Config))
-	return v
+	if v, ok := k.Value("kubernetes-rest").(*rest.Config); ok {
+		return v
+	}
+	return nil
 }
 
 func (k *Context) KubernetesDynamicClient() *dutyKubernetes.DynamicClient {
