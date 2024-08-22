@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
+	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/cache"
@@ -19,6 +21,12 @@ import (
 )
 
 var Nil = fake.NewSimpleClientset()
+
+var sensitiveUrls = []*regexp.Regexp{
+	regexp.MustCompile("/api/v1/namespaces/.*/secrets"),
+	regexp.MustCompile("/api/v1/namespaces/.*/connections"),
+	regexp.MustCompile("/api/v1/namespaces/.*/serviceaccounts/default/token"),
+}
 
 var kubeCache = cache.NewCache[kubeCacheData]("kube-clients", time.Hour)
 
@@ -110,7 +118,13 @@ func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
 		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
 			return logger.RoundTripper(rt)
 		}
-		logger.SetBodyFilter(func(h http.Header) (skip bool, err error) {
+		logger.SetFilter(func(r *http.Request) (bool, error) {
+			for _, url := range sensitiveUrls {
+				if url.MatchString(r.URL.Path) {
+					clogger.Tracef("%s %s (Skipping sensitive URL)", console.Greenf(r.Method), r.URL.Path)
+					return true, nil
+				}
+			}
 			return false, nil
 		})
 	}
@@ -118,7 +132,6 @@ func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
 }
 
 // ExecutePodf runs the specified shell command inside a container of the specified pod
-
 func GetClusterName(config *rest.Config) string {
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
