@@ -1,4 +1,3 @@
-UPDATE playbooks set category = '' WHERE category IS NULL;
 WITH duplicates AS (
     SELECT
         name,
