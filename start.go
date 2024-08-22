@@ -32,7 +32,7 @@ func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
 	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
 	flags.StringVar(&DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
 	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
-	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", false, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
+	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", config.Postgrest.Disable, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
 	flags.StringVar(&DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
 	flags.StringVar(&DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
@@ -146,10 +146,15 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	var ctx context.Context
-	if c, err := InitDB(config); err != nil {
-		return context.Context{}, stop, err
+	if config.ConnectionString == "" {
+		logger.Warnf("--db not configured")
+		ctx = context.New()
 	} else {
-		ctx = *c
+		if c, err := InitDB(config); err != nil {
+			return context.Context{}, stop, err
+		} else {
+			ctx = *c
+		}
 	}
 
 	if config.Metrics {
@@ -165,11 +170,11 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	if !config.DisableKubernetes {
-		if client, err := kubernetes.NewClient(); err == nil {
-			ctx = ctx.WithKubernetes(client)
+		if client, config, err := kubernetes.NewClient(logger.GetLogger("k8s")); err == nil {
+			ctx = ctx.WithKubernetes(client, config)
 		} else {
 			ctx.Infof("Kubernetes client not available: %v", err)
-			ctx = ctx.WithKubernetes(kubernetes.Nil)
+			ctx = ctx.WithKubernetes(kubernetes.Nil, nil)
 		}
 	}
 
