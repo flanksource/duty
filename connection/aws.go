@@ -121,8 +121,11 @@ func (t *AWSConnection) Client(ctx context.Context) (aws.Config, error) {
 	}
 
 	options := []func(*config.LoadOptions) error{
-		config.WithRegion(t.Region),
 		config.WithHTTPClient(&http.Client{Transport: tr}),
+	}
+
+	if t.Region != "" {
+		options = append(options, config.WithRegion(t.Region))
 	}
 
 	if !t.AccessKey.IsEmpty() {
