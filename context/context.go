@@ -10,6 +10,7 @@ import (
 	commons "github.com/flanksource/commons/context"
 	"github.com/flanksource/commons/logger"
 	dutyGorm "github.com/flanksource/duty/gorm"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
@@ -25,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
 
 func init() {
@@ -220,12 +222,11 @@ func (k Context) WithDebug() Context {
 	}
 }
 
-func (k Context) WithKubernetes(client kubernetes.Interface) Context {
-	return k.WithValue("kubernetes", client)
-}
-
-func (k Context) WithKommons(client *kommons.Client) Context {
-	return k.WithValue("kommons", client)
+func (k Context) WithKubernetes(client kubernetes.Interface, config *rest.Config) Context {
+	return k.
+		WithValue("kubernetes", client).
+		WithValue("kubernetes-rest", config).
+		WithValue("kommons", kommons.NewClient(config, k.Logger))
 }
 
 func (k Context) WithNamespace(namespace string) Context {
@@ -324,6 +325,40 @@ func (k *Context) Kubernetes() kubernetes.Interface {
 		return fake.NewSimpleClientset()
 	}
 	return v
+}
+
+func (k *Context) KubernetesRestConfig() *rest.Config {
+	v, _ := k.Value("kubernetes-rest").((*rest.Config))
+	return v
+}
+
+func (k *Context) KubernetesDynamicClient() *dutyKubernetes.DynamicClient {
+	return dutyKubernetes.NewKubeClient(k.KubernetesRestConfig())
+}
+
+func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
+	val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
+	if err != nil {
+		return k, k.Oops().Wrap(err)
+	}
+
+	var client kubernetes.Interface
+	var rest *rest.Config
+
+	if strings.HasPrefix(val, "/") {
+		if client, rest, err = dutyKubernetes.NewClient(k.Logger, val); err != nil {
+			return k, k.Oops().Wrap(err)
+		}
+	} else {
+		if client, rest, err = dutyKubernetes.NewClientWithConfig(k.Logger, []byte(val)); err != nil {
+			return k, k.Oops().Wrap(err)
+		}
+	}
+
+	c := k.WithKubernetes(client, rest)
+
+	return &c, nil
+
 }
 
 func (k *Context) Kommons() *kommons.Client {
@@ -470,8 +505,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
-		WithKubernetes(k.Kubernetes()).
-		WithKommons(k.Kommons()).
+		WithKubernetes(k.Kubernetes(), k.KubernetesRestConfig()).
 		WithNamespace(k.GetNamespace())
 }
 
