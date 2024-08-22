@@ -344,6 +344,26 @@ func (j *Job) Run() {
 		defer j.lock.Unlock()
 	}
 
+	if !j.Context.Properties().On(false, "job.jitter.disable") {
+		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
+		// NOTE: Only works for fixed interval schedules.
+		parsedSchedule, err := cron.ParseStandard(j.Schedule)
+		if err != nil {
+			r.Failf("failed to parse schedule (%s): %s", j.Schedule, err)
+			return
+		}
+		interval := time.Until(parsedSchedule.Next(time.Now()))
+		if interval > maxJitterDuration {
+			interval = maxJitterDuration
+		}
+
+		delayPercent := rand.Intn(iterationJitterPercent)
+		jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
+		j.Context.Logger.V(4).Infof("jitter (%d%%): %s", delayPercent, jitterDuration)
+
+		time.Sleep(jitterDuration)
+	}
+
 	for i, l := range j.Semaphores {
 		ctx.Logger.V(9).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
 		if err := l.Acquire(ctx, 1); err != nil {
@@ -364,8 +384,7 @@ func (j *Job) Run() {
 		defer cancel()
 	}
 
-	err := j.Fn(r)
-	if err != nil {
+	if err := j.Fn(r); err != nil {
 		ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
 		r.History.AddErrorWithSkipReportLevel(err.Error(), 1)
 	} else {
@@ -542,27 +561,7 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	}
 	j.Context.Logger.Named(j.GetResourcedName()).V(1).Infof("scheduled %s", schedule)
 
-	// Attempt to get a fixed interval from the schedule
-	// to measure the appropriate jitter.
-	// NOTE: Only works for fixed interval schedules.
-	parsedSchedule, err := cron.ParseStandard(j.Schedule)
-	if err != nil {
-		return fmt.Errorf("failed to parse schedule: %s", err)
-	}
-	interval := time.Until(parsedSchedule.Next(time.Now()))
-	if interval > maxJitterDuration {
-		interval = maxJitterDuration
-	}
-
-	delayedJob := cron.FuncJob(func() {
-		delayPercent := rand.Intn(iterationJitterPercent)
-		jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
-		j.Context.Logger.V(4).Infof("jitter (%d%%): %s", delayPercent, jitterDuration)
-
-		time.Sleep(jitterDuration)
-		j.Run()
-	})
-	entryID, err := cronRunner.AddJob(schedule, delayedJob)
+	entryID, err := cronRunner.AddJob(schedule, j)
 	if err != nil {
 		return fmt.Errorf("[%s] failed to schedule job: %s", j.Label(), err)
 	}
