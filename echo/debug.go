@@ -65,6 +65,10 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 
 	debug := e.Group("/debug", rbac)
 
+	debug.GET("/routes", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, e.Routes())
+	})
+
 	debug.GET("/loggers", func(c echo.Context) error {
 		return c.JSON(200, logger.GetNamedLoggingLevels())
 	})
