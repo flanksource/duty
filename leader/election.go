@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/flanksource/duty/context"
@@ -18,6 +19,8 @@ var (
 	identity = getHostname()
 )
 
+var isLeader *atomic.Bool
+
 func getHostname() string {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -28,14 +31,41 @@ func getHostname() string {
 
 var watchers = []func(isLeader bool){}
 
-func OnElection(fn func(isLeader bool)) {
+func OnElection(ctx context.Context, leaseName string, fn func(isLeader bool)) {
 	watchers = append(watchers, fn)
+
+	if isLeader == nil {
+		leaseDuration := ctx.Properties().Duration("leader.lease.duration", 10*time.Minute)
+		isLeader = new(atomic.Bool)
+		go func() {
+			for {
+
+				leader, _, err := createOrUpdateLease(ctx, leaseName, 0)
+
+				if err != nil {
+					ctx.Warnf("failed to create/update lease: %v", err)
+					time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+					continue
+				}
+
+				if isLeader.Load() != leader {
+					isLeader.Store(leader)
+					notify(leader)
+				}
+
+				// sleep for just under half the lease duration before trying to renew
+				time.Sleep(leaseDuration/2 - time.Second*10)
+			}
+		}()
+	}
+
 }
 
 func notify(isLeader bool) {
 	for _, fn := range watchers {
 		fn(isLeader)
 	}
+
 }
 
 func IsLeader(ctx context.Context, leaseName string) (bool, error) {
@@ -53,19 +83,19 @@ func IsLeader(ctx context.Context, leaseName string) (bool, error) {
 	return false, nil
 }
 
-func createOrUpdateLease(ctx context.Context, leaseName string, attempt int) (string, error) {
+func createOrUpdateLease(ctx context.Context, leaseName string, attempt int) (bool, string, error) {
 	if attempt > 0 {
 		time.Sleep(time.Duration(rand.Intn(5000)) * time.Millisecond)
 	}
 	if attempt >= ctx.Properties().Int("leader.lease.attempts", 3) {
-		return "", fmt.Errorf("failed to acquire lease %s after %d attempts", leaseName, attempt)
+		return false, "", fmt.Errorf("failed to acquire lease %s after %d attempts", leaseName, attempt)
 	}
 	now := metav1.MicroTime{Time: time.Now()}
 	leases := ctx.Kubernetes().CoordinationV1().Leases(ctx.GetNamespace())
 	leaseDuration := ctx.Properties().Duration("leader.lease.duration", 10*time.Minute)
 	lease, err := leases.Get(ctx, leaseName, metav1.GetOptions{})
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 	if lease == nil {
 		ctx.Infof("Acquiring lease %s", leaseName)
@@ -83,10 +113,9 @@ func createOrUpdateLease(ctx context.Context, leaseName string, attempt int) (st
 		}
 		_, err = leases.Create(ctx, lease, metav1.CreateOptions{})
 		if err != nil {
-			return "", err
+			return false, "", err
 		}
-		notify(true)
-		return identity, nil
+		return true, identity, nil
 	}
 
 	if lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity == identity {
@@ -94,7 +123,7 @@ func createOrUpdateLease(ctx context.Context, leaseName string, attempt int) (st
 		ctx.Debugf("Renewing lease %s : %s", leaseName, now.String())
 		_, err = leases.Update(ctx, lease, metav1.UpdateOptions{})
 		if err != nil {
-			return "", err
+			return false, "", err
 		}
 	}
 	renewTime := lease.Spec.RenewTime.Time
@@ -106,5 +135,5 @@ func createOrUpdateLease(ctx context.Context, leaseName string, attempt int) (st
 		return createOrUpdateLease(ctx, leaseName, attempt+1)
 	}
 	ctx.Debugf("Lease %s already held by %s, expires in %s", leaseName, *lease.Spec.HolderIdentity, time.Until(renewTime.Add(leaseDuration)).String())
-	return *lease.Spec.HolderIdentity, nil
+	return false, *lease.Spec.HolderIdentity, nil
 }

@@ -2,3 +2,6 @@
 *.out.json
 ginkgo.report
 .vscode
+nohup.out
+*.test
+.aider*
