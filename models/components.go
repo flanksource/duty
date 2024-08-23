@@ -191,6 +191,10 @@ func (c Component) GetHealth() (string, error) {
 		return out, nil
 	}
 
+	if h := lo.FromPtr(c.Health); h != "" {
+		return string(h), nil
+	}
+
 	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
 		return string(types.ComponentStatusWarning), nil
 	} else if c.Summary.Unhealthy > 0 {
