@@ -41,6 +41,15 @@ table "notifications" {
     type    = uuid
     comment = "team that should receive this notification."
   }
+  column "repeat_interval" {
+    null = true
+    type = text
+  }
+  column "group_by" {
+    null    = true
+    type    = sql("text[]")
+    comment = "group by fields for repeat interval"
+  }
   column "custom_services" {
     null    = true
     type    = jsonb
