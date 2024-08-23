@@ -161,9 +161,9 @@ func Migrate(config api.Config) error {
 
 // HasMigrationsRun performs a rudimentary check to see if the migrations have
 // run at least once.
-func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
+func HasMigrationsRun(ctx dutyContext.Context) (bool, error) {
 	var count int
-	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM migration_logs WHERE path = '099_optimize.sql'").Scan(&count); err != nil {
+	if err := ctx.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM migration_logs WHERE path = '099_optimize.sql'").Scan(&count); err != nil {
 		return false, err
 	}
 
@@ -179,6 +179,14 @@ func InitDB(config api.Config) (*dutyContext.Context, error) {
 	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
 
 	setStatementTimeouts(dutyctx, config)
+
+	migrationsRan, err := HasMigrationsRun(dutyctx)
+	if err != nil {
+		return nil, fmt.Errorf("error querying migration logs: %w", err)
+	}
+	if !migrationsRan {
+		return nil, fmt.Errorf("database migrations have not been run")
+	}
 
 	return &dutyctx, nil
 }
