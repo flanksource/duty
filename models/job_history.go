@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -98,6 +99,38 @@ func (h *JobHistory) End() *JobHistory {
 
 func (h *JobHistory) Persist(db *gorm.DB) error {
 	return db.Save(h).Error
+}
+
+func (h *JobHistory) Merge(db *gorm.DB) error {
+	if h.Status == StatusSkipped {
+		return nil
+	}
+
+	childRun := types.JSONMap{
+		"start":   h.TimeStart,
+		"end":     h.TimeEnd,
+		"status":  h.Status,
+		"details": h.Details,
+	}
+
+	marshalled, err := json.Marshal(childRun)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Fix this
+	query := fmt.Sprintf(`
+	UPDATE job_history
+	SET details = jsonb_build_object(
+		'%s', CASE 
+			WHEN details ? '%s' THEN details->'%s' || jsonb_build_array(?)
+			ELSE jsonb_build_array(?)
+		END,
+		'scrape_summary', details->'scrape_summary'
+	)
+	WHERE id = ?
+	`, h.Name, h.Name, h.Name)
+	return db.Debug().Exec(query, gorm.Expr("?"), string(marshalled), string(marshalled), h.ResourceID).Error
 }
 
 func (h *JobHistory) AddDetails(key string, val any) {

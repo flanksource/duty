@@ -99,6 +99,9 @@ type Job struct {
 	unschedule               func()
 	statusRing               StatusRing
 
+	// Parent is the name of the parent job.
+	Parent string
+
 	// Semaphores control concurrent execution of related jobs.
 	// They are acquired sequentially and released in reverse order.
 	// Hence, they should be ordered from most specific to most general
@@ -179,9 +182,6 @@ type Retention struct {
 
 	// Failed is the number of unsuccessful job history to retain
 	Failed int
-
-	// Data ...?
-	Data bool
 }
 
 func (r Retention) Count(status string) int {
@@ -189,11 +189,6 @@ func (r Retention) Count(status string) int {
 		return r.Failed
 	}
 	return r.Success
-}
-
-func (r Retention) WithData() Retention {
-	r.Data = true
-	return r
 }
 
 func (r Retention) String() string {
@@ -211,6 +206,8 @@ type JobRuntime struct {
 	History   *models.JobHistory
 	Table, Id string
 	runId     string
+
+	Parent string
 }
 
 func New(ctx context.Context) JobRuntime {
@@ -228,7 +225,28 @@ func (j *JobRuntime) ID() string {
 func (j *JobRuntime) start() {
 	j.Tracef("starting")
 	j.Context.Counter("job_started", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType).Add(1)
-	j.History = models.NewJobHistory(j.Logger, j.Job.Name, "", "").Start()
+
+	if j.Parent != "" {
+		query := j.Context.DB().Where("name = ?", j.Parent)
+		if j.Job.ResourceID != "" {
+			query = query.Where("resource_id = ?", j.Job.ResourceID)
+		}
+		if j.Job.ResourceType != "" {
+			query = query.Where("resource_type = ?", j.Job.ResourceType)
+		}
+		if err := query.Find(&j.History).Error; err != nil {
+			j.Warnf("could not find parent job history. proceeding with a new job history: %v", err)
+		}
+
+		j.History.Name = "Scraper"
+		j.History.Logger = j.Logger
+	}
+
+	if j.History == nil {
+		j.History = models.NewJobHistory(j.Logger, j.Job.Name, "", "")
+	}
+
+	j.History = j.History.Start()
 	j.Job.LastJob = j.History
 	if j.Job.ResourceID != "" {
 		j.History.ResourceID = j.Job.ResourceID
@@ -236,7 +254,8 @@ func (j *JobRuntime) start() {
 	if j.Job.ResourceType != "" {
 		j.History.ResourceType = j.Job.ResourceType
 	}
-	if j.Job.JobHistory && j.Job.Retention.Success > 0 && !j.Job.IgnoreSuccessHistory {
+
+	if j.Job.JobHistory && j.Job.Retention.Success > 0 && !j.Job.IgnoreSuccessHistory && j.Parent != "" {
 		if err := j.History.Persist(j.FastDB("jobs")); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
@@ -246,8 +265,14 @@ func (j *JobRuntime) start() {
 func (j *JobRuntime) end() {
 	j.History.End()
 	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) && !j.Job.IgnoreSuccessHistory {
-		if err := j.History.Persist(j.FastDB("jobs")); err != nil {
-			j.Warnf("failed to persist history: %v", err)
+		if j.Parent != "" {
+			if err := j.History.Merge(j.FastDB("jobs")); err != nil {
+				j.Warnf("failed to merge job history with parent's: %v", err)
+			}
+		} else {
+			if err := j.History.Persist(j.FastDB("jobs")); err != nil {
+				j.Warnf("failed to persist history: %v", err)
+			}
 		}
 	}
 	j.Job.statusRing.Add(j.History)
@@ -315,6 +340,7 @@ func (j *Job) Run() {
 		Context: ctx,
 		Span:    span,
 		Job:     j,
+		Parent:  j.Parent,
 	}
 	if span.SpanContext().HasSpanID() {
 		r.runId = span.SpanContext().SpanID().String()[0:8]
