@@ -89,6 +89,14 @@ type Connection struct {
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
 }
 
+func (c *Connection) SetProperty(key, value string) {
+	if c.Properties == nil {
+		c.Properties = make(types.JSONStringMap)
+	}
+
+	c.Properties[key] = value
+}
+
 func (c Connection) TableName() string {
 	return "connections"
 }
