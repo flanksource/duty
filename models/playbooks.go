@@ -84,10 +84,7 @@ func (p *Playbook) LoggerName() string {
 	return "playbook." + p.Name
 }
 
-func (p *Playbook) Context() map[string]any {
-	if p == nil {
-		return nil
-	}
+func (p Playbook) Context() map[string]any {
 	return map[string]any{
 		"playbook_id": p.ID.String(),
 		"namespace":   p.Namespace,
@@ -314,10 +311,7 @@ func (p PlaybookRun) GetAction(db *gorm.DB, name string) (action *PlaybookRunAct
 		lo.Map(actions, func(i PlaybookRunAction, _ int) string { return i.Name }), ", "))
 }
 
-func (p *PlaybookRun) Context() map[string]any {
-	if p == nil {
-		return nil
-	}
+func (p PlaybookRun) Context() map[string]any {
 	return map[string]any{
 		"run_id":      p.ID.String(),
 		"playbook_id": p.PlaybookID,
@@ -387,10 +381,7 @@ func (p *Playbook) NamespaceScope() string {
 	return p.Namespace
 }
 
-func (p *PlaybookRunAction) Context() map[string]any {
-	if p == nil {
-		return nil
-	}
+func (p PlaybookRunAction) Context() map[string]any {
 	return map[string]any{
 		"action_id":   p.ID.String(),
 		"action_name": p.Name,

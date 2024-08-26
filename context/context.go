@@ -132,6 +132,10 @@ func (k Context) WithAnyValue(key, val any) Context {
 	return k.WithValue(key, val)
 }
 
+func (k Context) WithAppendObject(object any) Context {
+	return k.WithObject(append(k.Objects(), object)...)
+}
+
 // Order the objects from parent -> child
 func (k Context) WithObject(object ...any) Context {
 	var logNames []string
@@ -339,6 +343,9 @@ func (k *Context) KubernetesDynamicClient() *dutyKubernetes.DynamicClient {
 }
 
 func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
+	if k.GetNamespace() == "" {
+		return nil, k.Oops().Errorf("namespace is required")
+	}
 	val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
 	if err != nil {
 		return k, k.Oops().Wrap(err)
@@ -416,6 +423,13 @@ func (k Context) GetLoggingContext() map[string]any {
 					args[k] = v
 				}
 			}
+
+		case ContextAccessor2:
+			for k, v := range v.GetContext() {
+				if lo.IsNotEmpty(v) {
+					args[k] = v
+				}
+			}
 		}
 	}
 
@@ -462,8 +476,8 @@ func (k Context) GetNamespace() string {
 	if ns := k.GetObjectMeta().Namespace; ns != "" {
 		return ns
 	}
-	if k.Value("namespace") != nil {
-		return k.Value("namespace").(string)
+	if v, ok := k.Value("namespace").(string); ok && v != "" {
+		return v
 	}
 	return ""
 }
