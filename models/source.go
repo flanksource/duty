@@ -6,4 +6,5 @@ const (
 	SourceUI         = "UI"
 	SourceTopology   = "Topology"
 	SourcePush       = "Push"
+	SourceCRDSync    = "CRDSync"
 )
