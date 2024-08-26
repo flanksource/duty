@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/duty/models"
 )
 
 // +kubebuilder:object:generate=true
@@ -57,4 +58,19 @@ func (t *S3Connection) Populate(ctx ConnectionContext) error {
 	}
 
 	return nil
+}
+
+func (c S3Connection) ToModel() models.Connection {
+	conn := c.AWSConnection.ToModel()
+	conn.Type = models.ConnectionTypeS3
+	if c.Bucket != "" {
+		conn.Properties["bucket"] = c.Bucket
+	}
+	if c.ObjectPath != "" {
+		conn.Properties["objectPath"] = c.ObjectPath
+	}
+	if c.UsePathStyle {
+		conn.Properties["usePathStyle"] = strconv.FormatBool(c.UsePathStyle)
+	}
+	return conn
 }

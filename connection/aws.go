@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/henvic/httpretty"
 )
@@ -45,6 +46,20 @@ func (t *AWSConnection) GetProperties() map[string]string {
 
 func (t *AWSConnection) GetURL() types.EnvVar {
 	return types.EnvVar{ValueStatic: t.Endpoint}
+}
+
+func (t AWSConnection) ToModel() models.Connection {
+	return models.Connection{
+		Type:        models.ConnectionTypeAWS,
+		Username:    t.AccessKey.ValueStatic,
+		Password:    t.SecretKey.ValueStatic,
+		URL:         t.Endpoint,
+		InsecureTLS: t.SkipTLSVerify,
+		Properties: types.JSONStringMap{
+			"region":     t.Region,
+			"assumeRole": t.AssumeRole,
+		},
+	}
 }
 
 // Populate populates an AWSConnection with credentials and other information.
