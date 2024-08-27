@@ -56,7 +56,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		})
 
 		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
-		e.POST("/upstream/push", upstream.PushHandler)
+		e.POST("/upstream/push", upstream.NewPushHandler(nil))
 
 		port, echoCloser = setup.RunEcho(e)
 
