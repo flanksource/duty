@@ -17,6 +17,7 @@ import (
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/telemetry"
+	"github.com/spf13/pflag"
 
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -40,8 +41,10 @@ var postgresDBUrl string
 var dbName = "test"
 
 func init() {
-	logger.BindGoFlags()
-	duty.BindGoFlags()
+	logger.UseSlog()
+	logger.BindFlags(pflag.CommandLine)
+	duty.BindPFlags(pflag.CommandLine)
+	properties.BindFlags(pflag.CommandLine)
 }
 
 func execPostgres(connection, query string) error {
