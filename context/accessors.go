@@ -49,6 +49,10 @@ func unstructuredMeta(v unstructured.Unstructured) metav1.ObjectMeta {
 	}
 }
 
+type PKAccessor interface {
+	PK() string
+}
+
 type NameAccessor interface {
 	GetName() string
 }

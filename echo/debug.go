@@ -52,7 +52,7 @@ func RestrictToLocalhost(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
+func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFunc) {
 
 	// Add pprof routes with localhost restriction
 	pprofGroup := e.Group("/debug/pprof")
@@ -103,9 +103,13 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 	})
 
 	debug.GET("/properties", func(c echo.Context) error {
-		ctx := c.Request().Context().(context.Context)
 		props := ctx.Properties().SupportedProperties()
-		return c.JSON(200, props)
+		data, _ := json.MarshalIndent(props, "", "  ")
+		return c.Blob(200, "application/json", data)
+	})
+
+	debug.GET("/system/properties", func(c echo.Context) error {
+		return c.JSON(200, properties.Global.GetAll())
 	})
 
 	debug.POST("/property", func(c echo.Context) error {
@@ -126,7 +130,7 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 			for _, e := range entry.Val.Entries() {
 				entry := toEntry(&e)
 				names = append(names, entry.GetName())
-				if entry.GetName() == name {
+				if entry.GetName() == name || fmt.Sprintf("%s/%s", entry.GetName(), entry.Context["id"]) == name {
 					logger.Infof("Running %s now", name)
 					e.Job.Run()
 					return c.NoContent(http.StatusCreated)
@@ -142,9 +146,8 @@ func AddDebugHandlers(e *echo.Echo, rbac echo.MiddlewareFunc) {
 
 type JobCronEntry struct {
 	Context   map[string]any `json:"context"`
-	ID        int            `json:"id"`
+	ID        string         `json:"id"`
 	LastRan   time.Time      `json:"last_ran,omitempty"`
-	Schedule  string         `json:"schedule"`
 	NextRun   time.Time      `json:"next_run"`
 	NextRunIn string         `json:"next_run_in"`
 }
@@ -159,7 +162,6 @@ func (j JobCronEntry) GetName() string {
 
 func toEntry(e *cron.Entry) JobCronEntry {
 	entry := JobCronEntry{
-		Schedule:  fmt.Sprintf("%v", e.Schedule),
 		LastRan:   e.Prev,
 		NextRun:   e.Next,
 		NextRunIn: time.Until(e.Next).String(),
@@ -172,6 +174,10 @@ func toEntry(e *cron.Entry) JobCronEntry {
 		entry.Context = v.GetContext()
 	default:
 		entry.Context = map[string]any{"name": fmt.Sprintf("%v", e.Job)}
+	}
+
+	if pk, ok := e.Job.(context.PKAccessor); ok {
+		entry.ID = pk.PK()
 	}
 	return entry
 }
