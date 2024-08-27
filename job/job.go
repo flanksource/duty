@@ -39,7 +39,7 @@ const (
 	maxJitterDuration = time.Minute * 15
 )
 
-var evictedJobs chan uuid.UUID
+var EvictedJobs chan uuid.UUID
 
 // deleteEvictedJobs deletes job_history rows from the DB every job.eviction.period(1m),
 // jobs send rows to be deleted by maintaining a circular buffer by status type
@@ -48,7 +48,7 @@ func deleteEvictedJobs(ctx context.Context) {
 	ctx = ctx.WithoutTracing().WithName("jobs").WithDBLogger("jobs", logger.Trace1)
 	ctx.Infof("Cleaning up jobs every %v", period)
 	for {
-		items, _, _, _ := lo.BufferWithTimeout(evictedJobs, 32, 5*time.Second)
+		items, _, _, _ := lo.BufferWithTimeout(EvictedJobs, 32, 5*time.Second)
 		if len(items) == 0 {
 			time.Sleep(period)
 			continue
@@ -102,7 +102,7 @@ type Job struct {
 	LastJob                  *models.JobHistory
 	initialized              bool
 	unschedule               func()
-	StatusRing               StatusRing
+	statusRing               StatusRing
 
 	// Semaphores control concurrent execution of related jobs.
 	// They are acquired sequentially and released in reverse order.
@@ -149,7 +149,7 @@ func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string
 	return nil
 }
 
-func newStatusRing(r Retention, singleton bool, evicted chan uuid.UUID) StatusRing {
+func NewStatusRing(r Retention, singleton bool, evicted chan uuid.UUID) StatusRing {
 	return StatusRing{
 		lock:      sync.Mutex{},
 		retention: r,
@@ -188,9 +188,6 @@ type Retention struct {
 
 	// Failed is the number of unsuccessful job history to retain
 	Failed int
-
-	// Data ...?
-	Data bool
 }
 
 func (r Retention) Count(status string) int {
@@ -198,11 +195,6 @@ func (r Retention) Count(status string) int {
 		return r.Failed
 	}
 	return r.Success
-}
-
-func (r Retention) WithData() Retention {
-	r.Data = true
-	return r
 }
 
 func (r Retention) String() string {
@@ -263,7 +255,7 @@ func (j *JobRuntime) end() {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
-	j.Job.StatusRing.Add(j.History)
+	j.Job.statusRing.Add(j.History)
 
 	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
 	j.Context.Histogram("job_duration", context.LongLatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
@@ -443,8 +435,8 @@ func (j *Job) GetPropertyInt(property string, def int) int {
 }
 
 func (j *Job) init() error {
-	if evictedJobs == nil {
-		evictedJobs = make(chan uuid.UUID, 1000)
+	if EvictedJobs == nil {
+		EvictedJobs = make(chan uuid.UUID, 1000)
 		go deleteEvictedJobs(j.Context)
 	}
 
@@ -515,8 +507,8 @@ func (j *Job) init() error {
 
 	j.Context.Tracef("initalized %v", j.String())
 
-	j.StatusRing = newStatusRing(j.Retention, j.Singleton, evictedJobs)
-	if err := j.StatusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
+	j.statusRing = NewStatusRing(j.Retention, j.Singleton, EvictedJobs)
+	if err := j.statusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
 		return fmt.Errorf("error populating status ring: %w", err)
 	}
 
