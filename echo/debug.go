@@ -1,6 +1,7 @@
 package echo
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/commons/timer"
 	"github.com/flanksource/duty/context"
 	"github.com/google/gops/agent"
 	"github.com/labstack/echo/v4"
@@ -142,6 +144,16 @@ func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFun
 	})
 
 	debug.GET("/cron", CronDetailsHandler())
+
+	if period := properties.Duration(0, "memory.stats"); period > 0 {
+		timer := timer.NewMemoryTimer()
+		go func() {
+			for {
+				logger.GetLogger("memory").Infof(timer.End())
+				time.Sleep(period)
+			}
+		}()
+	}
 }
 
 type JobCronEntry struct {
