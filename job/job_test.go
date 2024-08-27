@@ -56,7 +56,7 @@ var _ = Describe("StatusRing", Label("slow"), func() {
 		for i := range cases {
 			td := cases[i]
 			eg.Go(func() error {
-				sr := newStatusRing(td, false, ch)
+				sr := NewStatusRing(td, false, ch)
 				for i := 0; i < loops; i++ {
 					sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusSuccess)})
 					sr.Add(&models.JobHistory{ID: uuid.New(), Status: string(models.StatusFailed)})
