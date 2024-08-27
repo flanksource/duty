@@ -47,15 +47,15 @@ func nilSafe(values ...interface{}) string {
 
 func newProp(prop PropertyType) {
 	if loaded := supportedProperties.SetIfAbsent(prop.Key, prop); loaded {
-		if prop.Value != nil && prop.Default != prop.Value {
+		if prop.Value != nil && fmt.Sprintf("%v", prop.Default) != fmt.Sprintf("%v", prop.Value) {
 			logger.Debugf("Property overridden %s=%v (default=%v)", prop.Key, console.Greenf(nilSafe(prop.Value)), nilSafe(prop.Default))
 		}
 	}
 }
 func (p Properties) SupportedProperties() map[string]PropertyType {
 	m := make(map[string]PropertyType)
-	for t := range supportedProperties.IterBuffered() {
-		m[t.Key] = t.Val
+	for k, v := range supportedProperties.Items() {
+		m[k] = v
 	}
 	return m
 }
