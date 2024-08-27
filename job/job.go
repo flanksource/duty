@@ -102,7 +102,7 @@ type Job struct {
 	LastJob                  *models.JobHistory
 	initialized              bool
 	unschedule               func()
-	statusRing               StatusRing
+	StatusRing               StatusRing
 
 	// Semaphores control concurrent execution of related jobs.
 	// They are acquired sequentially and released in reverse order.
@@ -263,7 +263,7 @@ func (j *JobRuntime) end() {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
-	j.Job.statusRing.Add(j.History)
+	j.Job.StatusRing.Add(j.History)
 
 	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
 	j.Context.Histogram("job_duration", context.LongLatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
@@ -515,8 +515,8 @@ func (j *Job) init() error {
 
 	j.Context.Tracef("initalized %v", j.String())
 
-	j.statusRing = newStatusRing(j.Retention, j.Singleton, evictedJobs)
-	if err := j.statusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
+	j.StatusRing = newStatusRing(j.Retention, j.Singleton, evictedJobs)
+	if err := j.StatusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
 		return fmt.Errorf("error populating status ring: %w", err)
 	}
 

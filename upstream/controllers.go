@@ -9,9 +9,11 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
+	"github.com/robfig/cron/v3"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -65,39 +67,69 @@ func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.Ha
 }
 
 // PushHandler returns an echo handler that saves the push data from agents.
-func PushHandler(c echo.Context) error {
-	ctx := c.Request().Context().(context.Context)
+func NewPushHandler(jobCrons *cron.Cron) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context().(context.Context)
 
-	start := time.Now()
-	histogram := ctx.Histogram("push_queue_create_handler", context.LatencyBuckets, StatusLabel, "", AgentLabel, "")
-	defer func() {
-		histogram.Since(start)
-	}()
+		start := time.Now()
+		histogram := ctx.Histogram("push_queue_create_handler", context.LatencyBuckets, StatusLabel, "", AgentLabel, "")
+		defer func() {
+			histogram.Since(start)
+		}()
 
-	var req PushData
-	err := json.NewDecoder(c.Request().Body).Decode(&req)
-	if err != nil {
-		histogram.Label(StatusLabel, StatusAgentError)
-		return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
+		var req PushData
+		err := json.NewDecoder(c.Request().Body).Decode(&req)
+		if err != nil {
+			histogram.Label(StatusLabel, StatusAgentError)
+			return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
+		}
+
+		ctx.GetSpan().SetAttributes(attribute.Int("count", req.Count()))
+
+		agentID := ctx.Agent().ID
+		histogram = histogram.Label(AgentLabel, agentID.String())
+		req.PopulateAgentID(agentID)
+
+		ctx.Tracef("Inserting push data %s", req.String())
+
+		if err := InsertUpstreamMsg(ctx, &req); err != nil {
+			histogram.Label(StatusLabel, StatusError)
+			return api.WriteError(c, err)
+		}
+
+		if err := addJobHistoryToRing(ctx, req.JobHistory, jobCrons); err != nil {
+			logger.Errorf("failed to add job histories to status ring: %v", err)
+		}
+
+		histogram.Label(StatusLabel, StatusOK)
+		req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String(), "table", ""))
+
+		if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
+			logger.Errorf("failed to update agent last_received: %v", err)
+		}
+
+		return nil
+	}
+}
+
+func addJobHistoryToRing(ctx context.Context, histories []models.JobHistory, jobCron *cron.Cron) error {
+	if jobCron == nil {
+		return nil
 	}
 
-	ctx.GetSpan().SetAttributes(attribute.Int("count", req.Count()))
-
-	agentID := ctx.Agent().ID
-	histogram = histogram.Label(AgentLabel, agentID.String())
-	req.PopulateAgentID(agentID)
-
-	ctx.Tracef("Inserting push data %s", req.String())
-
-	if err := InsertUpstreamMsg(ctx, &req); err != nil {
-		histogram.Label(StatusLabel, StatusError)
-		return api.WriteError(c, err)
+	jobMap := map[string]*job.StatusRing{}
+	for _, e := range jobCron.Entries() {
+		if j, ok := e.Job.(*job.Job); ok {
+			jobMap[j.Name] = &j.StatusRing
+		}
 	}
-	histogram.Label(StatusLabel, StatusOK)
-	req.AddMetrics(ctx.Counter("push_queue_create_handler_records", AgentLabel, agentID.String(), "table", ""))
 
-	if err := UpdateAgentLastReceived(ctx, agentID); err != nil {
-		logger.Errorf("failed to update agent last_received: %v", err)
+	for _, history := range histories {
+		if j, ok := jobMap[history.Name]; ok {
+			j.Add(&history)
+		} else {
+			ctx.Warnf("job history %s didn't have a corresponding job entry", history.Name)
+		}
 	}
 
 	return nil
