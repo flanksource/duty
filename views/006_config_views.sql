@@ -356,9 +356,12 @@ BEGIN
         WHEN TG_OP = 'INSERT' THEN
           event_name := 'config.created';
         WHEN TG_OP = 'UPDATE' THEN
-          event_name := 'config.updated';
           IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
             event_name := 'config.deleted';
+          ELSIF OLD.config != NEW.config THEN
+            event_name := 'config.updated';
+          ELSE
+            RETURN NEW;
           END IF;
         ELSE
           RAISE EXCEPTION 'Unexpected operation in trigger: %', TG_OP;
