@@ -224,6 +224,7 @@ SELECT
   notifications.updated_at,
   notifications.created_by,
   notifications.source,
+  notifications.repeat_interval,
   COUNT (event_queue.id) AS pending,
   notification_send_summary.avg_duration_ms,
   notification_send_summary.failed,
