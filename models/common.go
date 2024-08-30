@@ -28,6 +28,18 @@ const (
 	HealthWarning   Health = "warning"
 )
 
+func WorseHealth(healths ...Health) Health {
+	worst := HealthHealthy
+	for _, h := range healths {
+		if h == HealthUnhealthy {
+			return HealthUnhealthy
+		} else if h == HealthWarning {
+			worst = HealthWarning
+		}
+	}
+	return worst
+}
+
 func init() {
 	logger.SkipFrameContains = append(logger.SkipFrameContains, "duty/models")
 }
