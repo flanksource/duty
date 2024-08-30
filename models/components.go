@@ -178,7 +178,7 @@ func (c Component) GetStatus() (string, error) {
 	return string(c.Status), nil
 }
 
-func (c Component) GetHealth() (string, error) {
+func (c Component) GetHealth() (Health, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
@@ -188,24 +188,25 @@ func (c Component) GetHealth() (string, error) {
 			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
 		}
 
-		return out, nil
+		return Health(out), nil
 	}
 
-	if h := lo.FromPtr(c.Health); h != "" {
-		return string(h), nil
+	// When HealthExpr is not defined, we take worse of checks, children and the component itself
+	if h := lo.FromPtr(c.Health); h == HealthUnhealthy {
+		return h, nil
 	}
 
-	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusUnhealthy), nil
-	} else if c.Summary.Warning > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Healthy > 0 {
-		return string(types.ComponentStatusHealthy), nil
-	} else {
-		return string(types.ComponentStatusInfo), nil
+	if unhealthyCount := c.Checks[string(HealthUnhealthy)]; unhealthyCount > 0 {
+		return HealthUnhealthy, nil
 	}
+
+	for _, child := range c.Components {
+		if lo.FromPtr(child.Health) == HealthUnhealthy {
+			return HealthUnhealthy, nil
+		}
+	}
+
+	return lo.CoalesceOrEmpty(lo.FromPtr(c.Health), HealthHealthy), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
