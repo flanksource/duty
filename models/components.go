@@ -192,20 +192,19 @@ func (c Component) GetHealth() (Health, error) {
 	}
 
 	// When HealthExpr is not defined, we take worse of checks, children and the component itself
-	currentHealth := HealthHealthy
+	var allHealths []Health
 	if h := lo.FromPtr(c.Health); h != "" {
-		currentHealth = WorseHealth(currentHealth, h)
+		allHealths = append(allHealths, h)
 	}
 
 	for h, count := range c.Checks {
 		if count > 0 {
-			currentHealth = WorseHealth(currentHealth, Health(h))
+			allHealths = append(allHealths, Health(h))
 		}
 	}
 
-	childWorseHealth := WorseHealth(lo.Map(c.Components, func(item *Component, _ int) Health { return lo.FromPtr(item.Health) })...)
-
-	return WorseHealth(currentHealth, childWorseHealth), nil
+	allHealths = append(allHealths, lo.Map(c.Components, func(item *Component, _ int) Health { return lo.FromPtr(item.Health) })...)
+	return WorseHealth(allHealths...), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
