@@ -17,7 +17,7 @@ require (
 	github.com/exaring/otelpgx v0.6.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
 	github.com/flanksource/commons v1.29.1
-	github.com/flanksource/gomplate/v3 v3.24.24
+	github.com/flanksource/gomplate/v3 v3.24.26
 	github.com/flanksource/kommons v0.31.4
 	github.com/google/cel-go v0.21.0
 	github.com/google/go-cmp v0.6.0
