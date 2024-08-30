@@ -178,7 +178,7 @@ func (c Component) GetStatus() (string, error) {
 	return string(c.Status), nil
 }
 
-func (c Component) GetHealth() (string, error) {
+func (c Component) GetHealth() (Health, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
@@ -188,24 +188,23 @@ func (c Component) GetHealth() (string, error) {
 			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
 		}
 
-		return out, nil
+		return Health(out), nil
 	}
 
+	// When HealthExpr is not defined, we take worse of checks, children and the component itself
+	var allHealths []Health
 	if h := lo.FromPtr(c.Health); h != "" {
-		return string(h), nil
+		allHealths = append(allHealths, h)
 	}
 
-	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusUnhealthy), nil
-	} else if c.Summary.Warning > 0 {
-		return string(types.ComponentStatusWarning), nil
-	} else if c.Summary.Healthy > 0 {
-		return string(types.ComponentStatusHealthy), nil
-	} else {
-		return string(types.ComponentStatusInfo), nil
+	for h, count := range c.Checks {
+		if count > 0 {
+			allHealths = append(allHealths, Health(h))
+		}
 	}
+
+	allHealths = append(allHealths, lo.Map(c.Components, func(item *Component, _ int) Health { return lo.FromPtr(item.Health) })...)
+	return WorseHealth(allHealths...), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
