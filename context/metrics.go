@@ -13,6 +13,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+var MetricsLogLevel = 5
+
 func mapToSlice(c map[string]string) []any {
 	args := []any{}
 	for k, v := range c {
@@ -100,7 +102,7 @@ func (h Histogram) Record(duration time.Duration) {
 
 	if duration > time.Millisecond*5 {
 		if logger := logger.GetLogger("metrics." + h.Name); logger.IsLevelEnabled(4) {
-			logger.WithValues(mapToSlice(h.Labels)...).V(4).Infof("%s", text.HumanizeDuration(duration))
+			logger.WithValues(mapToSlice(h.Labels)...).V(MetricsLogLevel).Infof("%s", text.HumanizeDuration(duration))
 		}
 	}
 
@@ -161,7 +163,7 @@ func (c Counter) Add(count int) {
 	}()
 
 	if logger := logger.GetLogger("metrics." + c.Name); logger.IsLevelEnabled(4) {
-		logger.WithValues(mapToSlice(c.Labels)...).V(4).Infof("%d", count)
+		logger.WithValues(mapToSlice(c.Labels)...).V(MetricsLogLevel).Infof("%d", count)
 	}
 	c.Counter.With(prometheus.Labels(c.Labels)).Add(float64(count))
 }
@@ -174,7 +176,7 @@ func (c Counter) AddFloat(count float64) {
 	}()
 
 	if logger := logger.GetLogger("metrics." + c.Name); logger.IsLevelEnabled(4) {
-		logger.WithValues(mapToSlice(c.Labels)...).V(4).Infof("%0.2f", count)
+		logger.WithValues(mapToSlice(c.Labels)...).V(MetricsLogLevel).Infof("%0.2f", count)
 	}
 	c.Counter.With(prometheus.Labels(c.Labels)).Add(count)
 }
@@ -228,7 +230,7 @@ func (k Context) Gauge(name string, labels ...string) Gauge {
 func (g Gauge) Set(count float64) {
 
 	if logger := logger.GetLogger("metrics." + g.Name); logger.IsLevelEnabled(4) {
-		logger.WithValues(mapToSlice(g.Labels)...).V(4).Infof("%0.2f", count)
+		logger.WithValues(mapToSlice(g.Labels)...).V(MetricsLogLevel).Infof("%0.2f", count)
 	}
 
 	g.Gauge.With(prometheus.Labels(g.Labels)).Set(count)
@@ -236,14 +238,14 @@ func (g Gauge) Set(count float64) {
 
 func (g Gauge) Add(count float64) {
 	if logger := logger.GetLogger("metrics." + g.Name); logger.IsLevelEnabled(4) {
-		logger.WithValues(mapToSlice(g.Labels)...).V(4).Infof("+%0.2f", count)
+		logger.WithValues(mapToSlice(g.Labels)...).V(MetricsLogLevel).Infof("+%0.2f", count)
 	}
 	g.Gauge.With(prometheus.Labels(g.Labels)).Add(count)
 }
 
 func (g Gauge) Sub(count float64) {
 	if logger := logger.GetLogger("metrics." + g.Name); logger.IsLevelEnabled(4) {
-		logger.WithValues(mapToSlice(g.Labels)...).V(4).Infof("-%0.2f", count)
+		logger.WithValues(mapToSlice(g.Labels)...).V(MetricsLogLevel).Infof("-%0.2f", count)
 	}
 	g.Gauge.With(prometheus.Labels(g.Labels)).Sub(count)
 }
