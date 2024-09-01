@@ -27,6 +27,9 @@ var envCache = cache.New(5*time.Minute, 10*time.Minute)
 const helmSecretType = "helm.sh/release.v1"
 
 func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (value string, err error) {
+	if input.IsEmpty() {
+		return "", nil
+	}
 	ctx, cancel := ctx.WithTimeout(ctx.Properties().Duration("envvar.lookup.timeout", 5*time.Second))
 	defer cancel()
 	if namespace == "" {
