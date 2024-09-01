@@ -270,6 +270,13 @@ func (j *JobRuntime) Failf(message string, args ...interface{}) {
 	}
 }
 
+func (j *JobRuntime) Skipped(msg string) {
+	j.Span.SetStatus(codes.Unset, msg)
+	if j.History != nil {
+		j.History.Status = models.StatusSkipped
+	}
+}
+
 func NewJob(ctx context.Context, name string, schedule string, fn func(ctx JobRuntime) error) *Job {
 	return &Job{
 		Context:    ctx,
@@ -344,7 +351,7 @@ func (j *Job) Run() {
 		if !j.lock.TryLock() {
 			r.History.Status = models.StatusSkipped
 			ctx.Tracef("failed to acquire lock")
-			r.Failf("job already running, skipping")
+			r.Skipped("job already running, skipping")
 			return
 		}
 		defer j.lock.Unlock()
@@ -373,7 +380,7 @@ func (j *Job) Run() {
 	for i, lock := range j.Semaphores {
 		ctx.Logger.V(6).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
 		if err := lock.Acquire(ctx, 1); err != nil {
-			r.Failf("too many concurrent jobs, skipping")
+			r.Skipped("too many concurrent jobs, skipping")
 			return
 		}
 		ctx.Logger.V(7).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))

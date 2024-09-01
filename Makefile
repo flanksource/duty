@@ -28,6 +28,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object paths="./types/..."
 	$(CONTROLLER_GEN) object paths="./connection/..."
 	$(CONTROLLER_GEN) object paths="./models/..."
+	$(CONTROLLER_GEN) object paths="./shell/..."
 	$(CONTROLLER_GEN) object paths="./"
 
 $(LOCALBIN):
