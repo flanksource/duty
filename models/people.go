@@ -20,6 +20,22 @@ type Person struct {
 	Properties PersonProperties `json:"properties,omitempty" gorm:"default:null"`
 }
 
+func (p Person) GetName() string {
+	if p.Email != "" {
+		return p.Email
+	}
+	if p.ExternalID != "" {
+		return p.ExternalID
+	}
+	if p.Name != "" {
+		return p.Name
+	}
+	if p.ID != uuid.Nil {
+		return p.ID.String()
+	}
+	return ""
+}
+
 func (p Person) PK() string {
 	return p.ID.String()
 }
