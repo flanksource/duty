@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
@@ -32,7 +33,8 @@ func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceI
 }
 
 func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, error) {
-	query := `
+	batchSize := properties.Int(2000, "job_history.agent_cleanup.batch_size")
+	query := fmt.Sprintf(`
         WITH grouped_history AS (
             SELECT
                 id,
@@ -50,13 +52,23 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
             WHERE
                 rn > ? AND
                 agent_id != ?
-        )`
+            LIMIT %d
+        )`, batchSize)
 
-	res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
-	if res.Error != nil {
-		return 0, db.ErrorDetails(res.Error)
+	// We are deleting in batches since the query can timeout if size is too high
+	deleted := 0
+	for {
+		res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
+		if res.Error != nil {
+			return 0, db.ErrorDetails(res.Error)
+		}
+		deleted += int(res.RowsAffected)
+		if res.RowsAffected == 0 {
+			break
+		}
 	}
-	return int(res.RowsAffected), nil
+
+	return deleted, nil
 }
 
 func CleanupStaleRunningHistory(ctx context.Context, age time.Duration) (int, error) {

@@ -42,7 +42,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.34.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/spf13/cobra v1.7.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/prometheus/client_golang v1.19.1
 	github.com/robfig/cron/v3 v3.0.1
@@ -50,6 +49,7 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/samber/oops v1.13.1
 	github.com/sethvargo/go-retry v0.3.0
+	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/timberio/go-datemath v0.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
