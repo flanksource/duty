@@ -420,19 +420,24 @@ func (p PlaybookRunAction) Start(db *gorm.DB) error {
 }
 
 func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
-	if o, ok := oops.AsOops(err); ok {
-		result = map[string]any{
-			"result": result,
-			"error":  o.ToMap(),
-		}
-	}
-	if err := p.Update(db, map[string]any{
-		"error":      err.Error(),
+	updates := map[string]any{
 		"result":     marshallResult(result),
 		"start_time": gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 		"end_time":   gorm.Expr("CLOCK_TIMESTAMP()"),
 		"status":     PlaybookActionStatusFailed,
-	}); err != nil {
+	}
+
+	if err != nil {
+		if o, ok := oops.AsOops(err); ok {
+			updates["result"] = map[string]any{
+				"result": result,
+				"error":  o.ToMap(),
+			}
+		}
+		updates["error"] = err.Error()
+	}
+
+	if err := p.Update(db, updates); err != nil {
 		return err
 	}
 
