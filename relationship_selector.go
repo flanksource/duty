@@ -208,7 +208,7 @@ func LookupComponents(ctx context.Context, lookup RelationshipSelectorTemplate, 
 		logger.Tracef("finding all components (%s)", lookupResult)
 	}
 
-	return query.FindComponentIDs(ctx, lookupResult.ToResourceSelector())
+	return query.FindComponentIDs(ctx, 0, lookupResult.ToResourceSelector())
 }
 
 func LookupConfigs(ctx context.Context, lookup RelationshipSelectorTemplate, labels map[string]string, env map[string]any) ([]uuid.UUID, error) {
@@ -223,5 +223,5 @@ func LookupConfigs(ctx context.Context, lookup RelationshipSelectorTemplate, lab
 		logger.Tracef("finding all config items (%s)", lookupResult)
 	}
 
-	return query.FindConfigIDsByResourceSelector(ctx, lookupResult.ToResourceSelector())
+	return query.FindConfigIDsByResourceSelector(ctx, 0, lookupResult.ToResourceSelector())
 }

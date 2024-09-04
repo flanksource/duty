@@ -69,7 +69,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindCheckIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindCheckIDs(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -123,7 +123,7 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, td.Selectors...)
+			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(components).To(ContainElements(testData[i].Results))
 		})
@@ -194,7 +194,7 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindComponentIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindComponentIDs(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})

@@ -336,7 +336,7 @@ func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem,
 }
 
 func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigItem, error) {
-	res, err := FindConfigsByResourceSelector(ctx, query.ToResourceSelector())
+	res, err := FindConfigsByResourceSelector(ctx, -1, query.ToResourceSelector())
 	if err != nil {
 		return nil, err
 	}
@@ -348,16 +348,16 @@ func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigIte
 	return &res[0], nil
 }
 
-func FindConfigs(ctx context.Context, config types.ConfigQuery) ([]models.ConfigItem, error) {
-	return FindConfigsByResourceSelector(ctx, config.ToResourceSelector())
+func FindConfigs(ctx context.Context, limit int, config types.ConfigQuery) ([]models.ConfigItem, error) {
+	return FindConfigsByResourceSelector(ctx, limit, config.ToResourceSelector())
 }
 
-func FindConfigIDs(ctx context.Context, config types.ConfigQuery) ([]uuid.UUID, error) {
-	return FindConfigIDsByResourceSelector(ctx, config.ToResourceSelector())
+func FindConfigIDs(ctx context.Context, limit int, config types.ConfigQuery) ([]uuid.UUID, error) {
+	return FindConfigIDsByResourceSelector(ctx, limit, config.ToResourceSelector())
 }
 
-func FindConfigsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItem, error) {
-	items, err := FindConfigIDsByResourceSelector(ctx, resourceSelectors...)
+func FindConfigsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItem, error) {
+	items, err := FindConfigIDsByResourceSelector(ctx, limit, resourceSelectors...)
 	if err != nil {
 		return nil, err
 	}
@@ -365,16 +365,19 @@ func FindConfigsByResourceSelector(ctx context.Context, resourceSelectors ...typ
 	return GetConfigsByIDs(ctx, items)
 }
 
-func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+func FindConfigIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
 	var allConfigs []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", models.AllowedColumnFieldsInConfigs)
+		items, err := queryResourceSelector(ctx, limit, resourceSelector, "config_items", models.AllowedColumnFieldsInConfigs)
 		if err != nil {
 			return nil, err
 		}
 
 		allConfigs = append(allConfigs, items...)
+		if limit > 0 && len(allConfigs) >= limit {
+			return allConfigs[:limit], nil
+		}
 	}
 
 	return allConfigs, nil
