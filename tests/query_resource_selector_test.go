@@ -215,3 +215,69 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		})
 	})
 })
+
+var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	ginkgo.Context("It should return the fixed page size for configs", func() {
+		for limit := 1; limit < 3; limit++ {
+			ginkgo.It(fmt.Sprintf("should work with %d page size", limit), func() {
+				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+					Limit:   limit,
+					Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
+				})
+
+				Expect(err).To(BeNil())
+				Expect(limit).To(Equal(len(items.Configs)))
+			})
+		}
+	})
+
+	ginkgo.Context("It should return the fixed page size for components", func() {
+		for limit := 1; limit < 5; limit++ {
+			ginkgo.It(fmt.Sprintf("should work with %d page size", limit), func() {
+				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+					Limit:      limit,
+					Components: []types.ResourceSelector{{Types: []string{"Application"}}},
+				})
+
+				Expect(err).To(BeNil())
+				Expect(limit).To(Equal(len(items.Components)))
+			})
+		}
+	})
+
+	ginkgo.Context("It should return the fixed page size for checks", func() {
+		for limit := 1; limit < 3; limit++ {
+			ginkgo.It(fmt.Sprintf("should work with %d page size", limit), func() {
+				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+					Limit:  limit,
+					Checks: []types.ResourceSelector{{Types: []string{"http"}, Agent: "all"}},
+				})
+
+				Expect(err).To(BeNil())
+				Expect(limit).To(Equal(len(items.Checks)))
+			})
+		}
+	})
+
+	ginkgo.Context("It should return the fixed page size for all types", func() {
+		for pageSize := 1; pageSize < 3; pageSize++ {
+			ginkgo.It(fmt.Sprintf("should work with %d page size", pageSize), func() {
+				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+					Limit:      pageSize,
+					Configs:    []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
+					Components: []types.ResourceSelector{{Types: []string{"Application"}}},
+					Checks:     []types.ResourceSelector{{Types: []string{"http"}, Agent: "all"}},
+				})
+
+				Expect(err).To(BeNil())
+				Expect(pageSize).To(Equal(len(items.Configs)))
+				Expect(pageSize).To(Equal(len(items.Components)))
+				Expect(pageSize).To(Equal(len(items.Checks)))
+			})
+		}
+	})
+})

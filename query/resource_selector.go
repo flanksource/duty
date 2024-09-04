@@ -23,6 +23,9 @@ import (
 )
 
 type SearchResourcesRequest struct {
+	// Limit the number of results returned per resource type
+	Limit int `json:"limit"`
+
 	Checks     []types.ResourceSelector `json:"checks"`
 	Components []types.ResourceSelector `json:"components"`
 	Configs    []types.ResourceSelector `json:"configs"`
@@ -55,9 +58,13 @@ type SelectedResource struct {
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
 	var output SearchResourcesResponse
 
+	if req.Limit <= 0 {
+		req.Limit = 100
+	}
+
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		if items, err := FindConfigsByResourceSelector(ctx, req.Configs...); err != nil {
+		if items, err := FindConfigsByResourceSelector(ctx, req.Limit, req.Configs...); err != nil {
 			return err
 		} else {
 			for i := range items {
@@ -76,7 +83,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	})
 
 	eg.Go(func() error {
-		if items, err := FindChecks(ctx, req.Checks...); err != nil {
+		if items, err := FindChecks(ctx, req.Limit, req.Checks...); err != nil {
 			return err
 		} else {
 			for i := range items {
@@ -96,7 +103,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	})
 
 	eg.Go(func() error {
-		if items, err := FindComponents(ctx, req.Components...); err != nil {
+		if items, err := FindComponents(ctx, req.Limit, req.Components...); err != nil {
 			return err
 		} else {
 			for i := range items {
@@ -236,12 +243,12 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
-func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
+func queryResourceSelector(ctx context.Context, limit int, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
 	if resourceSelector.IsEmpty() {
 		return nil, nil
 	}
 
-	hash := fmt.Sprintf("%s-%s", table, resourceSelector.Hash())
+	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
 	cacheToUse := getterCache
 	if resourceSelector.Immutable() {
 		cacheToUse = immutableCache
@@ -254,6 +261,10 @@ func queryResourceSelector(ctx context.Context, resourceSelector types.ResourceS
 	}
 
 	query := ctx.DB().Select("id").Table(table)
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
 	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
 	if err != nil {
 		return nil, err

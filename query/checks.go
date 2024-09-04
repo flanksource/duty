@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func FindChecks(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.Check, error) {
-	ids, err := FindCheckIDs(ctx, resourceSelectors...)
+func FindChecks(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.Check, error) {
+	ids, err := FindCheckIDs(ctx, limit, resourceSelectors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +18,7 @@ func FindChecks(ctx context.Context, resourceSelectors ...types.ResourceSelector
 	return GetChecksByIDs(ctx, ids)
 }
 
-func FindCheckIDs(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+func FindCheckIDs(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
 	for _, rs := range resourceSelectors {
 		if rs.FieldSelector != "" {
 			return nil, fmt.Errorf("field selector is not supported for checks (%s)", rs.FieldSelector)
@@ -27,12 +27,15 @@ func FindCheckIDs(ctx context.Context, resourceSelectors ...types.ResourceSelect
 
 	var allChecks []uuid.UUID
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "checks", nil)
+		items, err := queryResourceSelector(ctx, limit, resourceSelector, "checks", nil)
 		if err != nil {
 			return nil, err
 		}
 
 		allChecks = append(allChecks, items...)
+		if limit > 0 && len(allChecks) >= limit {
+			return allChecks[:limit], nil
+		}
 	}
 
 	return allChecks, nil
