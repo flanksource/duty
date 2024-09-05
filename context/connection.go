@@ -86,13 +86,19 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 		return cacheVal, nil
 	}
 
-	// Must be in one of the correct forms.
-	if _, err := uuid.Parse(connectionString); err != nil && !strings.HasPrefix(connectionString, "connection://") {
+	_, uuidErr := uuid.Parse(connectionString)
+	isConnectionUUID := uuidErr == nil
+
+	if !isConnectionUUID && !strings.HasPrefix(connectionString, "connection://") {
 		if _url, err := url.Parse(connectionString); err == nil {
 			return models.ConnectionFromURL(*_url), nil
 		}
+	}
 
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string, uuid or URL", connectionString)
+	_, _, formatOK := extractConnectionNameType(connectionString)
+	if !formatOK && !isConnectionUUID {
+		// Must be in one of the correct forms.
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string (connection://<namespace>/<name>), uuid or a URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -136,7 +142,7 @@ func FindConnectionByURL(ctx Context, connectionString string) (*models.Connecti
 
 	name, namespace, found := extractConnectionNameType(connectionString)
 	if !found {
-		return nil, nil
+		return nil, fmt.Errorf("invalid connection string: %q. Must be in connection://<namespace>/<name> format", connectionString)
 	}
 
 	connection, err := FindConnection(ctx, name, namespace)
