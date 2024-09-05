@@ -385,13 +385,15 @@ FOR EACH ROW
 CREATE OR REPLACE FUNCTION insert_config_changes_updates_in_event_queue()
 RETURNS TRIGGER AS
 $$
+DECLARE
+  event_name TEXT := 'config.changed';
 BEGIN
-  IF TG_OP = 'UPDATE' AND OLD.details = NEW.details THEN
-    RETURN NEW;
+  IF NEW.change_type = 'diff' THEN
+    event_name := 'config.updated';
   END IF;
 
   INSERT INTO event_queue(name, properties)
-  VALUES ('config.updated', jsonb_build_object('id', NEW.config_id))
+  VALUES (event_name, jsonb_build_object('id', NEW.config_id, 'change_id', NEW.id))
   ON CONFLICT (name, properties) DO UPDATE
   SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
