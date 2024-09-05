@@ -358,8 +358,6 @@ BEGIN
         WHEN TG_OP = 'UPDATE' THEN
           IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
             event_name := 'config.deleted';
-          ELSIF OLD.config != NEW.config THEN
-            event_name := 'config.updated';
           ELSE
             RETURN NEW;
           END IF;
@@ -382,6 +380,31 @@ CREATE OR REPLACE TRIGGER config_items_create_update_trigger
 AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
   EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
+
+---
+CREATE OR REPLACE FUNCTION insert_config_changes_updates_in_event_queue()
+RETURNS TRIGGER AS
+$$
+BEGIN
+  IF TG_OP = 'UPDATE' AND OLD.details = NEW.details THEN
+    RETURN NEW;
+  END IF;
+
+  INSERT INTO event_queue(name, properties)
+  VALUES ('config.updated', jsonb_build_object('id', NEW.config_id))
+  ON CONFLICT (name, properties) DO UPDATE
+  SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_change_create_update_trigger
+AFTER INSERT OR UPDATE ON config_changes
+FOR EACH ROW
+  EXECUTE FUNCTION insert_config_changes_updates_in_event_queue();
+---
 
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
