@@ -320,6 +320,26 @@ func (j *Job) SetID(id string) *Job {
 }
 
 func (j *Job) Run() {
+	if !j.Context.Properties().On(false, "job.jitter.disable") && j.Schedule != "" {
+		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
+		// NOTE: Only works for fixed interval schedules.
+		parsedSchedule, err := cron.ParseStandard(j.Schedule)
+		if err != nil {
+			j.Debugf("failed to parse schedule (%s): %s", j.Schedule, err)
+		} else {
+			interval := time.Until(parsedSchedule.Next(time.Now()))
+			if interval > maxJitterDuration {
+				interval = maxJitterDuration
+			}
+
+			delayPercent := rand.Intn(iterationJitterPercent)
+			jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
+			j.Context.Logger.V(4).Infof("jitter %v", jitterDuration)
+
+			time.Sleep(jitterDuration)
+		}
+	}
+
 	ctx, span := j.Context.StartSpan(j.Name)
 	ctx = ctx.WithName("job." + j.PK())
 	defer span.End()
@@ -355,26 +375,6 @@ func (j *Job) Run() {
 			return
 		}
 		defer j.lock.Unlock()
-	}
-
-	if !j.Context.Properties().On(false, "job.jitter.disable") && j.Schedule != "" {
-		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
-		// NOTE: Only works for fixed interval schedules.
-		parsedSchedule, err := cron.ParseStandard(j.Schedule)
-		if err != nil {
-			j.Debugf("failed to parse schedule (%s): %s", j.Schedule, err)
-		} else {
-			interval := time.Until(parsedSchedule.Next(time.Now()))
-			if interval > maxJitterDuration {
-				interval = maxJitterDuration
-			}
-
-			delayPercent := rand.Intn(iterationJitterPercent)
-			jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
-			j.Context.Logger.V(4).Infof("jitter %v", jitterDuration)
-
-			time.Sleep(jitterDuration)
-		}
 	}
 
 	for i, lock := range j.Semaphores {
