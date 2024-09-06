@@ -3,8 +3,10 @@ package tests
 import (
 	"time"
 
+	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -364,5 +366,68 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(changes).To(Equal([]string{"U", "V", "W", "X", "Y", "Z"}))
 			})
 		})
+	})
+})
+
+var _ = ginkgo.Describe("handle external id conflict on config change inserts", ginkgo.Ordered, func() {
+	// An arbitrarily chosen time of the event we will be inserting multiple times
+	var referenceTime = time.Date(2020, 01, 15, 12, 00, 00, 00, time.UTC)
+
+	dummyChanges := []models.ConfigChange{
+		{ConfigID: dummy.LogisticsAPIDeployment.ID.String(), ExternalChangeID: lo.ToPtr("conflict_test_1"), Count: 1, CreatedAt: lo.ToPtr(referenceTime.Add(-time.Minute * 5)), Details: []byte(`{"replicas": "1"}`)},
+		{ConfigID: dummy.LogisticsAPIDeployment.ID.String(), ExternalChangeID: lo.ToPtr("conflict_test_2"), Count: 1, CreatedAt: lo.ToPtr(referenceTime.Add(-time.Minute * 4)), Details: []byte(`{"replicas": "2"}`)},
+	}
+
+	ginkgo.BeforeAll(func() {
+		err := DefaultContext.DB().Create(dummyChanges).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.AfterAll(func() {
+		err := DefaultContext.DB().Delete(dummyChanges).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should increase count when the details is changed", func() {
+		c := models.ConfigChange{ConfigID: dummy.LogisticsAPIDeployment.ID.String(), ExternalChangeID: lo.ToPtr("conflict_test_1"), Count: 1, CreatedAt: lo.ToPtr(referenceTime), Details: []byte(`{"replicas": "3"}`)}
+		err := DefaultContext.DB().Create(&c).Error
+		Expect(err).To(BeNil())
+
+		{
+			var inserted models.ConfigChange
+			err := DefaultContext.DB().Where("external_change_id = ? AND config_id = ?", c.ExternalChangeID, c.ConfigID).First(&inserted).Error
+			Expect(db.ErrorDetails(err)).NotTo(HaveOccurred())
+			Expect(inserted.Count).To(Equal(2))
+		}
+	})
+
+	ginkgo.It("should NOT increase count", func() {
+		// insert the same change with the same details and external change id
+		// and ensure the count doesn't change.
+		for i := 0; i < 10; i++ {
+			c := models.ConfigChange{ConfigID: dummy.LogisticsAPIDeployment.ID.String(), ExternalChangeID: lo.ToPtr("conflict_test_1"), CreatedAt: lo.ToPtr(referenceTime), Count: 1, Details: []byte(`{"replicas": "3"}`)}
+			err := DefaultContext.DB().Create(&c).Error
+			Expect(err).To(BeNil())
+
+			{
+				var inserted models.ConfigChange
+				err := DefaultContext.DB().Where("external_change_id = ? AND config_id = ?", c.ExternalChangeID, c.ConfigID).First(&inserted).Error
+				Expect(db.ErrorDetails(err)).NotTo(HaveOccurred())
+				Expect(inserted.Count).To(Equal(2))
+			}
+		}
+	})
+
+	ginkgo.It("should increase count when the details is the same but the created_at is changed", func() {
+		c := models.ConfigChange{ConfigID: dummy.LogisticsAPIDeployment.ID.String(), ExternalChangeID: lo.ToPtr("conflict_test_1"), Count: 1, CreatedAt: lo.ToPtr(referenceTime.Add(time.Minute)), Details: []byte(`{"replicas": "3"}`)}
+		err := DefaultContext.DB().Create(&c).Error
+		Expect(err).To(BeNil())
+
+		{
+			var inserted models.ConfigChange
+			err := DefaultContext.DB().Where("external_change_id = ? AND config_id = ?", c.ExternalChangeID, c.ConfigID).First(&inserted).Error
+			Expect(db.ErrorDetails(err)).NotTo(HaveOccurred())
+			Expect(inserted.Count).To(Equal(3))
+		}
 	})
 })
