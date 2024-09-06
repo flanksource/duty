@@ -11,6 +11,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -20,10 +23,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -40,6 +46,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -62,11 +71,8 @@
         "secretKey": {
           "$ref": "#/$defs/EnvVar"
         },
-        "region": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "assumeRole": {
+          "type": "string"
         },
         "endpoint": {
           "type": "string"
@@ -74,8 +80,11 @@
         "skipTLSVerify": {
           "type": "boolean"
         },
-        "assumeRole": {
-          "type": "string"
+        "region": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "compliance": {
           "type": "boolean"
@@ -100,10 +109,7 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "region"
-      ]
+      "type": "object"
     },
     "Authentication": {
       "properties": {
@@ -129,6 +135,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -138,10 +147,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -158,6 +170,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -208,6 +223,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -217,10 +235,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -237,6 +258,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -291,9 +315,36 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ChangeExtractionMapping": {
+      "properties": {
+        "createdAt": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "severity": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "summary": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "type": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "details": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "timeFormat": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ChangeMapping": {
       "properties": {
         "filter": {
+          "type": "string"
+        },
+        "severity": {
           "type": "string"
         },
         "type": {
@@ -465,6 +516,51 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnvVarResourceSelector": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "name": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "namespace": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "types": {
+          "items": {
+            "$ref": "#/$defs/ValueExpression"
+          },
+          "type": "array"
+        },
+        "statuses": {
+          "items": {
+            "$ref": "#/$defs/ValueExpression"
+          },
+          "type": "array"
+        },
+        "tagSelector": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "labelSelector": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "fieldSelector": {
+          "$ref": "#/$defs/ValueExpression"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnvVarSource": {
       "properties": {
         "serviceAccount": {
@@ -496,6 +592,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -505,10 +604,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -525,6 +627,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -563,12 +668,15 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "GitHubActions": {
+    "GCP": {
       "properties": {
         "id": {
           "type": "string"
         },
         "name": {
+          "type": "string"
+        },
+        "description": {
           "type": "string"
         },
         "items": {
@@ -580,10 +688,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -600,6 +711,114 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "project": {
+          "type": "string"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "exclude": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "project"
+      ]
+    },
+    "GCSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "bucket": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GitHubActions": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -641,6 +860,117 @@
         "workflows"
       ]
     },
+    "HTTP": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "ntlm": {
+          "type": "boolean"
+        },
+        "ntlmv2": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        },
+        "bearer": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth"
+        },
+        "tls": {
+          "$ref": "#/$defs/TLSConfig"
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "method": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "HelmRefKeySelector": {
       "properties": {
         "name": {
@@ -670,6 +1000,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -679,10 +1012,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -699,6 +1035,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -762,7 +1101,10 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "clusterName"
+      ]
     },
     "KubernetesEventConfig": {
       "properties": {
@@ -838,6 +1180,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -847,10 +1192,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -867,6 +1215,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -905,13 +1256,13 @@
     "KubernetesRelationshipSelectorTemplate": {
       "properties": {
         "kind": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
         },
         "name": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
         },
         "namespace": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
         }
       },
       "additionalProperties": false,
@@ -953,6 +1304,21 @@
           "type": "string"
         },
         "text": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
           "type": "string"
         },
         "label": {
@@ -1009,6 +1375,39 @@
         "$ref": "#/$defs/Mask"
       },
       "type": "array"
+    },
+    "MatchExpressions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "OAuth": {
+      "properties": {
+        "clientID": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "scope": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tokenURL": {
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ObjectMeta": {
       "properties": {
@@ -1124,16 +1523,25 @@
     "RelationshipConfig": {
       "properties": {
         "id": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
+        },
+        "external_id": {
+          "$ref": "#/$defs/Lookup"
         },
         "name": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
         },
         "type": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
         },
         "agent": {
-          "$ref": "#/$defs/RelationshipLookup"
+          "$ref": "#/$defs/Lookup"
+        },
+        "scope": {
+          "$ref": "#/$defs/Lookup"
         },
         "labels": {
           "additionalProperties": {
@@ -1146,21 +1554,9 @@
         },
         "filter": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "RelationshipLookup": {
-      "properties": {
-        "expr": {
-          "type": "string"
         },
-        "value": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
+        "parent": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1208,12 +1604,54 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "S3Connection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "objectPath": {
+          "type": "string"
+        },
+        "usePathStyle": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "SQL": {
       "properties": {
         "id": {
           "type": "string"
         },
         "name": {
+          "type": "string"
+        },
+        "description": {
           "type": "string"
         },
         "items": {
@@ -1225,10 +1663,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -1245,6 +1686,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -1316,6 +1760,12 @@
         "schedule": {
           "type": "string"
         },
+        "gcp": {
+          "items": {
+            "$ref": "#/$defs/GCP"
+          },
+          "type": "array"
+        },
         "aws": {
           "items": {
             "$ref": "#/$defs/AWS"
@@ -1364,11 +1814,32 @@
           },
           "type": "array"
         },
+        "slack": {
+          "items": {
+            "$ref": "#/$defs/Slack"
+          },
+          "type": "array"
+        },
         "trivy": {
           "items": {
             "$ref": "#/$defs/Trivy"
           },
           "type": "array"
+        },
+        "terraform": {
+          "items": {
+            "$ref": "#/$defs/Terraform"
+          },
+          "type": "array"
+        },
+        "http": {
+          "items": {
+            "$ref": "#/$defs/HTTP"
+          },
+          "type": "array"
+        },
+        "crdSync": {
+          "type": "boolean"
         },
         "retention": {
           "$ref": "#/$defs/RetentionSpec"
@@ -1413,6 +1884,160 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Slack": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "token": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "since": {
+          "type": "string"
+        },
+        "channels": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/SlackChangeExtractionRule"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "token",
+        "rules"
+      ]
+    },
+    "SlackChangeAcceptanceFilter": {
+      "properties": {
+        "bot": {
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/$defs/SlackUserFilter"
+        },
+        "expr": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SlackChangeExtractionRule": {
+      "properties": {
+        "regexp": {
+          "type": "string"
+        },
+        "mapping": {
+          "$ref": "#/$defs/ChangeExtractionMapping"
+        },
+        "config": {
+          "items": {
+            "$ref": "#/$defs/EnvVarResourceSelector"
+          },
+          "type": "array"
+        },
+        "filter": {
+          "$ref": "#/$defs/SlackChangeAcceptanceFilter"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "config"
+      ]
+    },
+    "SlackUserFilter": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TLSConfig": {
+      "properties": {
+        "insecureSkipVerify": {
+          "type": "boolean"
+        },
+        "handshakeTimeout": {
+          "type": "integer"
+        },
+        "ca": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "cert": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "key": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Tag": {
       "properties": {
         "name": {
@@ -1439,6 +2064,91 @@
         "$ref": "#/$defs/Tag"
       },
       "type": "array"
+    },
+    "Terraform": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/TerraformStateSource"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "state"
+      ]
+    },
+    "TerraformStateSource": {
+      "properties": {
+        "s3": {
+          "$ref": "#/$defs/S3Connection"
+        },
+        "gcs": {
+          "$ref": "#/$defs/GCSConnection"
+        },
+        "local": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Time": {
       "properties": {},
@@ -1507,6 +2217,9 @@
         "name": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "items": {
           "type": "string"
         },
@@ -1516,10 +2229,13 @@
         "class": {
           "type": "string"
         },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
         "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "timestampFormat": {
@@ -1536,6 +2252,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
         },
         "labels": {
           "$ref": "#/$defs/JSONStringMap"
@@ -1631,6 +2350,18 @@
           "type": "string"
         },
         "deletedAge": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValueExpression": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
           "type": "string"
         }
       },

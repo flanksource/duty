@@ -17,6 +17,9 @@
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
         },
+        "assumeRole": {
+          "type": "string"
+        },
         "region": {
           "type": "string"
         },
@@ -170,6 +173,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "query": {
           "type": "string"
         },
@@ -184,6 +190,9 @@
         },
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
         },
         "region": {
           "type": "string"
@@ -240,6 +249,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "ignoreRules": {
           "items": {
             "type": "string"
@@ -269,6 +281,9 @@
         },
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
         },
         "region": {
           "type": "string"
@@ -338,6 +353,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -711,6 +729,9 @@
         },
         "replicas": {
           "type": "integer"
+        },
+        "selector": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -751,6 +772,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "selector": {
           "$ref": "#/$defs/ResourceSelectors"
         }
@@ -766,13 +790,13 @@
       "properties": {
         "components": {
           "items": {
-            "$ref": "#/$defs/LookupSpec"
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
           },
           "type": "array"
         },
         "configs": {
           "items": {
-            "$ref": "#/$defs/LookupSpec"
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
           },
           "type": "array"
         }
@@ -842,6 +866,9 @@
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
         },
+        "assumeRole": {
+          "type": "string"
+        },
         "region": {
           "type": "string"
         },
@@ -859,6 +886,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "actionPrefix": {
           "type": "string"
@@ -926,6 +956,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "image": {
           "type": "string"
         },
@@ -972,6 +1005,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "image": {
           "type": "string"
         },
@@ -1014,6 +1050,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "server": {
           "type": "string"
@@ -1084,6 +1123,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "gcp": {
           "$ref": "#/$defs/GCPDatabase"
         },
@@ -1122,6 +1164,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "image": {
           "type": "string"
@@ -1168,6 +1213,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "image": {
           "type": "string"
@@ -1217,6 +1265,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -1271,6 +1322,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -1368,6 +1422,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "script": {
           "type": "string"
         },
@@ -1451,6 +1508,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "path": {
           "type": "string"
@@ -1640,6 +1700,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -1691,6 +1754,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "filename": {
           "type": "string"
@@ -1748,6 +1814,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -1811,6 +1880,9 @@
         },
         "oauth2": {
           "$ref": "#/$defs/Oauth2Config"
+        },
+        "tlsConfig": {
+          "$ref": "#/$defs/TLSConfig"
         }
       },
       "additionalProperties": false,
@@ -1844,6 +1916,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "chartmuseum": {
           "type": "string"
@@ -1905,6 +1980,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "endpoint": {
           "type": "string"
         },
@@ -1965,6 +2043,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "jmx": {
           "$ref": "#/$defs/EnvVar"
@@ -2036,6 +2117,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "timeout": {
           "type": "integer"
         },
@@ -2089,6 +2173,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "namespaceSelector": {
           "$ref": "#/$defs/ResourceSelector"
@@ -2156,6 +2243,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "staticResources": {
           "items": {
@@ -2521,6 +2611,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -2566,21 +2659,6 @@
         },
         "label": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "LookupSpec": {
-      "properties": {
-        "name": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "namespace": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "type": {
-          "$ref": "#/$defs/Lookup"
         }
       },
       "additionalProperties": false,
@@ -2735,6 +2813,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -2795,6 +2876,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -2845,6 +2929,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "namespaceNamePrefix": {
           "type": "string"
@@ -2916,6 +3003,33 @@
         "name",
         "podSpec"
       ]
+    },
+    "OAuth": {
+      "properties": {
+        "clientID": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "scope": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tokenURL": {
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Oauth2Config": {
       "properties": {
@@ -3054,6 +3168,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -3139,6 +3256,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "spec": {
           "type": "string"
@@ -3236,6 +3356,9 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -3296,13 +3419,13 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "host": {
           "type": "string"
         },
         "connection": {
-          "type": "string"
-        },
-        "url": {
           "type": "string"
         },
         "username": {
@@ -3310,6 +3433,27 @@
         },
         "password": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "ntlm": {
+          "type": "boolean"
+        },
+        "ntlmv2": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        },
+        "bearer": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth"
+        },
+        "tls": {
+          "$ref": "#/$defs/TLSConfig"
         },
         "query": {
           "type": "string"
@@ -3348,6 +3492,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -3372,6 +3519,39 @@
       "required": [
         "name"
       ]
+    },
+    "RelationshipSelectorTemplate": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "external_id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "name": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "type": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "agent": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "scope": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ResourceSelector": {
       "properties": {
@@ -3419,6 +3599,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -3483,6 +3666,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "connection": {
           "type": "string"
         },
@@ -3494,6 +3680,9 @@
         },
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
         },
         "region": {
           "type": "string"
@@ -3537,6 +3726,9 @@
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
         },
+        "assumeRole": {
+          "type": "string"
+        },
         "region": {
           "type": "string"
         },
@@ -3578,26 +3770,26 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "host"
-      ]
+      "type": "object"
     },
     "SMBConnection": {
       "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "port": {
-          "type": "integer"
-        },
         "username": {
           "$ref": "#/$defs/EnvVar"
         },
         "password": {
           "$ref": "#/$defs/EnvVar"
         },
+        "connection": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
         "domain": {
+          "type": "string"
+        },
+        "share": {
           "type": "string"
         }
       },
@@ -3648,6 +3840,9 @@
           },
           "type": "array"
         },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
+        },
         "endpoint": {
           "type": "string"
         },
@@ -3660,6 +3855,27 @@
       "required": [
         "name"
       ]
+    },
+    "TLSConfig": {
+      "properties": {
+        "insecureSkipVerify": {
+          "type": "boolean"
+        },
+        "handshakeTimeout": {
+          "type": "integer"
+        },
+        "ca": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "cert": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "key": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Template": {
       "properties": {
@@ -3748,6 +3964,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "token": {
           "$ref": "#/$defs/EnvVar"
