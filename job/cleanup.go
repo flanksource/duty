@@ -58,9 +58,11 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
 	// We are deleting in batches since the query can timeout if size is too high
 	deleted := 0
 	for {
-		res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
+		// TODO (yashmehrotra): Use FastDB after debugging job failure
+		//res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
+		res := ctx.DB().Exec(query, itemsToRetain, uuid.Nil)
 		if res.Error != nil {
-			return 0, db.ErrorDetails(res.Error)
+			return deleted, db.ErrorDetails(res.Error)
 		}
 		deleted += int(res.RowsAffected)
 		if res.RowsAffected == 0 {
