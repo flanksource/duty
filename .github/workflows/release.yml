@@ -36,15 +36,7 @@ jobs:
         uses: buildjet/setup-go@v5
         with:
           go-version: v1.22.x
-      - uses: buildjet/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-            .bin
-          key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
-          restore-keys: |
-            cache-
+
       - name: Create commits
         run: |
           # Sleep to let index refresh
