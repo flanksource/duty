@@ -44,14 +44,15 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
                 ) AS rn
             FROM
                 job_history
+            WHERE
+                agent_id != ?
         )
         DELETE FROM job_history
         WHERE id IN (
             SELECT id
             FROM grouped_history
             WHERE
-                rn > ? AND
-                agent_id != ?
+                rn > ?
             LIMIT %d
         )`, batchSize)
 
@@ -60,7 +61,7 @@ func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, erro
 	for {
 		// TODO (yashmehrotra): Use FastDB after debugging job failure
 		//res := ctx.FastDB("jobs").Exec(query, itemsToRetain, uuid.Nil)
-		res := ctx.DB().Exec(query, itemsToRetain, uuid.Nil)
+		res := ctx.DB().Exec(query, uuid.Nil, itemsToRetain)
 		if res.Error != nil {
 			return deleted, db.ErrorDetails(res.Error)
 		}
