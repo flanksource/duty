@@ -100,7 +100,6 @@ EXCEPTION
       WHERE external_change_id = NEW.external_change_id AND config_id = NEW.config_id
       INTO existing_details, existing_created_at;
 
-      INSERT INTO event_queue(name, properties) VALUES('test', jsonb_build_object('id', NEW.id, 'oldDetails', OLD.details, 'newDetails', NEW.details));
       UPDATE config_changes
       SET
         change_type = NEW.change_type,
