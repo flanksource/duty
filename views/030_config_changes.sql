@@ -51,7 +51,7 @@ EXCEPTION
         source = NEW.source,
         summary = NEW.summary
       WHERE 
-        external_change_id = NEW.external_change_id;
+        external_change_id = NEW.external_change_id AND config_id = NEW.config_id;
 
       RETURN NULL;
     ELSE
@@ -95,11 +95,9 @@ BEGIN
   RETURN NULL;
 EXCEPTION
   WHEN unique_violation THEN
-    INSERT INTO event_queue(name, properties) VALUES('config_change', jsonb_build_object('id', NEW.id, 'sqlerrm', sqlerrm));
-
     IF sqlerrm LIKE '%config_changes_config_id_external_change_id_key%' THEN
       SELECT details, created_at FROM config_changes 
-      WHERE external_change_id = NEW.external_change_id
+      WHERE external_change_id = NEW.external_change_id AND config_id = NEW.config_id
       INTO existing_details, existing_created_at;
 
       INSERT INTO event_queue(name, properties) VALUES('test', jsonb_build_object('id', NEW.id, 'oldDetails', OLD.details, 'newDetails', NEW.details));
@@ -120,7 +118,8 @@ EXCEPTION
         source = NEW.source,
         summary = NEW.summary
       WHERE 
-        external_change_id = NEW.external_change_id;
+        external_change_id = NEW.external_change_id
+        AND config_id = NEW.config_id;
 
       RETURN NULL;
     ELSE
