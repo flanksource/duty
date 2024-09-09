@@ -53,3 +53,28 @@ CREATE OR REPLACE VIEW connection_details AS
     deleted_at IS NULL
   ORDER BY
     created_at;
+
+--
+CREATE OR REPLACE FUNCTION connection_before_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.username = '***' THEN
+    NEW.username = OLD.username;
+  END IF;
+
+  IF NEW.password = '***' THEN
+    NEW.password = OLD.password;
+  END IF;
+
+  IF NEW.certificate = '***' THEN
+    NEW.certificate = OLD.certificate;
+  END IF;
+
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER connection_before_update
+BEFORE UPDATE ON connections
+FOR EACH ROW EXECUTE PROCEDURE connection_before_update();
