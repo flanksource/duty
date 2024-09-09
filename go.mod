@@ -19,8 +19,8 @@ require (
 	github.com/exaring/otelpgx v0.6.2
 	github.com/fergusstrange/embedded-postgres v1.25.0
 	github.com/flanksource/artifacts v1.0.14
-	github.com/flanksource/commons v1.29.4
-	github.com/flanksource/gomplate/v3 v3.24.29
+	github.com/flanksource/commons v1.29.10
+	github.com/flanksource/gomplate/v3 v3.24.30
 	github.com/flanksource/kommons v0.31.4
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/cel-go v0.21.0
