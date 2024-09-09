@@ -110,3 +110,24 @@ func (t *NotificationSendHistory) End() *NotificationSendHistory {
 	t.DurationMillis = time.Since(t.timeStart).Milliseconds()
 	return t
 }
+
+type NotificationSilence struct {
+	ID        uuid.UUID  `json:"id"`
+	Namespace string     `json:"namespace"`
+	From      time.Time  `json:"from"`
+	Until     time.Time  `json:"until"`
+	Matcher   *string    `json:"matcher,omitempty"`
+	Source    string     `json:"source"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt time.Time  `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedAt time.Time  `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (n NotificationSilence) AsMap(removeFields ...string) map[string]any {
+	return asMap(n, removeFields...)
+}
+
+func (t *NotificationSilence) TableName() string {
+	return "notification_silences"
+}
