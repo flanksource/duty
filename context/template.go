@@ -13,7 +13,11 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	for _, f := range CelEnvFuncs {
 		t.CelEnvs = append(t.CelEnvs, f(k))
 	}
-	return gomplate.RunTemplate(env, t)
+	val, err := gomplate.RunTemplateContext(k.Context, env, t)
+	if err != nil {
+		return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
+	}
+	return val, nil
 }
 
 func (k Context) NewStructTemplater(vals map[string]any, requiredTag string, funcs map[string]any) gomplate.StructTemplater {
@@ -23,6 +27,7 @@ func (k Context) NewStructTemplater(vals map[string]any, requiredTag string, fun
 	}
 
 	return gomplate.StructTemplater{
+		Context:        k.Context,
 		Values:         vals,
 		ValueFunctions: true,
 		Funcs:          collections.MergeMap(tfuncs, funcs),
