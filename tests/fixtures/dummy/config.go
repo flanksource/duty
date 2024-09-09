@@ -21,6 +21,7 @@ var EKSCluster = models.ConfigItem{
 		"cluster":     "aws",
 		"environment": "production",
 		"telemetry":   "enabled",
+		"eks_version": "1.27",
 	}),
 }
 

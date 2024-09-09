@@ -218,8 +218,22 @@ func (t ConfigSummaryRequest) healthClause() []clause.Expression {
 }
 
 func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
+	var orClause *gorm.DB
 	for k, v := range t.Filter {
-		q = q.Where("config_items.labels @> ?", types.JSONStringMap{k: v})
+		if strings.HasPrefix(v, "!") {
+			excludeValue := strings.TrimPrefix(v, "!")
+			q = q.Where("NOT (config_items.labels @> ?)", types.JSONStringMap{k: excludeValue})
+		} else {
+			if orClause == nil {
+				orClause = q
+			}
+
+			orClause = orClause.Or("config_items.labels @> ?", types.JSONStringMap{k: v})
+		}
+	}
+
+	if orClause != nil {
+		q = q.Where(orClause)
 	}
 
 	return q
