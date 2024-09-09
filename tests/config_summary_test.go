@@ -105,10 +105,9 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		ginkgo.It("should handle exclude queries", func() {
 			request := query.ConfigSummaryRequest{
 				Filter: map[string]string{
-					"environment": "production",
-					"account":     "!flanksource",
-					"owner":       "!team-1",
-					"database":    "!logistics",
+					"environment": "!development,!testing",
+					"account":     "flanksource",
+					"telemetry":   "enabled",
 				},
 			}
 
@@ -122,7 +121,27 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			types := lo.Map(output, func(item map[string]any, _ int) string {
 				return item["type"].(string)
 			})
-			Expect(types).To(ConsistOf([]string{"Logistics::UI::Deployment", "Logistics::Worker::Deployment"}))
+
+			withLabels := lo.Filter(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) bool {
+				env := lo.FromPtr(item.Labels)["environment"]
+				if env == "development" || env == "testing" {
+					return false
+				}
+
+				if lo.FromPtr(item.Labels)["account"] == "flanksource" {
+					return true
+				}
+
+				if lo.FromPtr(item.Labels)["telemetry"] == "enabled" {
+					return true
+				}
+
+				return false
+			})
+			expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
+				return lo.FromPtr(item.Type)
+			}))
+			Expect(types).To(ConsistOf(expected))
 		})
 	})
 
