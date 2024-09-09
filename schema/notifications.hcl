@@ -178,20 +178,36 @@ table "notification_silences" {
     type = text
   }
   column "from" {
-    null    = false
-    type    = timestamptz
+    null = false
+    type = timestamptz
   }
   column "until" {
-    null    = false
-    type    = timestamptz
+    null = false
+    type = timestamptz
   }
-  column "matcher" {
+  column "recursive" {
     null = true
-    type = text
+    type = bool
+  }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
+  column "check_id" {
+    null = true
+    type = uuid
+  }
+  column "canary_id" {
+    null = true
+    type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
   }
   column "source" {
-    null    = true
-    type    = enum.source
+    null = true
+    type = enum.source
   }
   column "created_by" {
     null = true
@@ -202,7 +218,7 @@ table "notification_silences" {
     type    = timestamptz
     default = sql("now()")
   }
-   column "updated_at" {
+  column "updated_at" {
     null    = false
     type    = timestamptz
     default = sql("now()")
@@ -213,5 +229,13 @@ table "notification_silences" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "notification_silences_from_idx" {
+    type    = BRIN
+    columns = [column.from]
+  }
+  index "notification_silences_until_idx" {
+    type    = BRIN
+    columns = [column.until]
   }
 }

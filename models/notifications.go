@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -111,13 +112,26 @@ func (t *NotificationSendHistory) End() *NotificationSendHistory {
 	return t
 }
 
+type NotificationSilenceResource struct {
+	ConfigID    *string `json:"config_id,omitempty"`
+	CanaryID    *string `json:"canary_id,omitempty"`
+	ComponentID *string `json:"component_id,omitempty"`
+	CheckID     *string `json:"check_id,omitempty"`
+}
+
+func (t NotificationSilenceResource) Key() string {
+	return fmt.Sprintf("%s:%s:%s:%s", lo.FromPtr(t.ConfigID), lo.FromPtr(t.CanaryID), lo.FromPtr(t.ComponentID), lo.FromPtr(t.CheckID))
+}
+
 type NotificationSilence struct {
+	NotificationSilenceResource `json:",inline" yaml:",inline"`
+
 	ID        uuid.UUID  `json:"id"`
 	Namespace string     `json:"namespace"`
 	From      time.Time  `json:"from"`
 	Until     time.Time  `json:"until"`
-	Matcher   *string    `json:"matcher,omitempty"`
 	Source    string     `json:"source"`
+	Recursive bool       `json:"recursive"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt time.Time  `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`

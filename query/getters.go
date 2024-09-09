@@ -173,22 +173,3 @@ func FindTeam(ctx context.Context, identifier string, opts ...GetterOption) (*mo
 
 	return team, nil
 }
-
-func GetAllNotificationSilences(ctx context.Context) ([]models.NotificationSilence, error) {
-	var silences []models.NotificationSilence
-
-	cacheKey := "allNotificationSilences"
-	if value, ok := getterCache.Get(cacheKey); ok {
-		if cache, ok := value.([]models.NotificationSilence); ok {
-			return cache, nil
-		}
-	}
-
-	err := ctx.DB().Where("deleted_at is NULL ").Find(&silences).Error
-	if err != nil {
-		return nil, err
-	}
-
-	getterCache.SetDefault(cacheKey, silences)
-	return silences, err
-}
