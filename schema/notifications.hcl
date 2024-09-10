@@ -165,3 +165,77 @@ table "notification_send_history" {
     on_delete   = CASCADE
   }
 }
+
+table "notification_silences" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "namespace" {
+    null = false
+    type = text
+  }
+  column "from" {
+    null = false
+    type = timestamptz
+  }
+  column "until" {
+    null = false
+    type = timestamptz
+  }
+  column "recursive" {
+    null = true
+    type = bool
+  }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
+  column "check_id" {
+    null = true
+    type = uuid
+  }
+  column "canary_id" {
+    null = true
+    type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
+  }
+  column "source" {
+    null = true
+    type = enum.source
+  }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  index "notification_silences_from_idx" {
+    type    = BRIN
+    columns = [column.from]
+  }
+  index "notification_silences_until_idx" {
+    type    = BRIN
+    columns = [column.until]
+  }
+}

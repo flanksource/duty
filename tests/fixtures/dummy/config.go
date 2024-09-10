@@ -142,6 +142,7 @@ var EC2InstanceB = models.ConfigItem{
 
 var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("logistics-api"),
 	ConfigClass: models.ConfigClassDeployment,
 	Type:        lo.ToPtr("Kubernetes::Deployment"),
 	Labels: lo.ToPtr(types.JSONStringMap{
@@ -155,6 +156,7 @@ var LogisticsAPIDeployment = models.ConfigItem{
 var LogisticsAPIReplicaSet = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: "ReplicaSet",
+	Name:        lo.ToPtr("logistics-api"),
 	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
 	ParentID:    lo.ToPtr(LogisticsAPIDeployment.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
@@ -168,6 +170,7 @@ var LogisticsAPIReplicaSet = models.ConfigItem{
 var LogisticsAPIPodConfig = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassPod,
+	Name:        lo.ToPtr("logistics-api-pod-1"),
 	Type:        lo.ToPtr("Kubernetes::Pod"),
 	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
@@ -180,6 +183,7 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 
 var LogisticsUIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("logistics-ui"),
 	ConfigClass: models.ConfigClassDeployment,
 	Type:        lo.ToPtr("Logistics::UI::Deployment"),
 	Labels: lo.ToPtr(types.JSONStringMap{
