@@ -2,10 +2,10 @@
 CREATE OR REPLACE FUNCTION notify_playbook_action_update() RETURNS TRIGGER AS $$
   BEGIN
     IF TG_OP = 'INSERT' THEN
-      NOTIFY playbook_action_updates;
+      PERFORM pg_notify('playbook_action_updates', json_build_object('id', NEW.id, 'agent_id', NEW.agent_id)::TEXT);
     ELSEIF TG_OP = 'UPDATE' THEN
       IF OLD.status != NEW.status AND NEW.status = 'scheduled' THEN
-        NOTIFY playbook_action_updates;
+        PERFORM pg_notify('playbook_action_updates', json_build_object('id', NEW.id, 'agent_id', NEW.agent_id)::TEXT);
       END IF;
     END IF;
 
