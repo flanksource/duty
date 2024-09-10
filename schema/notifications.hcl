@@ -177,6 +177,10 @@ table "notification_silences" {
     null = false
     type = text
   }
+  column "description" {
+    null = true
+    type = text
+  }
   column "from" {
     null = false
     type = timestamptz
