@@ -10,11 +10,11 @@ BEGIN
   SET
     change_type = NEW.change_type,
     count = CASE
-      WHEN NEW.details IS DISTINCT FROM OLD.details THEN NEW.count
+      WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN NEW.count
       ELSE count
     END,
     created_at = CASE
-      WHEN NEW.details IS DISTINCT FROM OLD.details THEN NOW()
+      WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN NOW()
       ELSE COALESCE(NEW.created_at, OLD.created_at)
     END,
     created_by = NEW.created_by,
@@ -39,11 +39,11 @@ EXCEPTION
       SET
         change_type = NEW.change_type,
         count = CASE
-          WHEN NEW.details IS DISTINCT FROM OLD.details THEN config_changes.count + count_increment
+          WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN config_changes.count + count_increment
           ELSE count
         END,
         created_at = CASE
-          WHEN NEW.details IS DISTINCT FROM OLD.details THEN NOW()
+          WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN NOW()
           ELSE COALESCE(NEW.created_at, OLD.created_at)
         END,
         created_by = NEW.created_by,
