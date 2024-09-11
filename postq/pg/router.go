@@ -60,7 +60,11 @@ func (t *notifyRouter) Run(ctx context.Context, channel string) {
 	eventQueueNotifyChannel := make(chan string)
 	go Listen(ctx, channel, eventQueueNotifyChannel)
 
-	for payload := range eventQueueNotifyChannel {
+	t.start(eventQueueNotifyChannel)
+}
+
+func (t *notifyRouter) start(channel chan string) {
+	for payload := range channel {
 		if payload == "" {
 			continue
 		}
