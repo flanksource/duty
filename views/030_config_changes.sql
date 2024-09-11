@@ -13,14 +13,16 @@ BEGIN
       WHEN NEW.details IS DISTINCT FROM OLD.details THEN NEW.count
       ELSE count
     END,
-    created_at = NOW(),
+    created_at = CASE
+      WHEN NEW.details IS DISTINCT FROM OLD.details THEN NOW()
+      ELSE COALESCE(NEW.created_at, OLD.created_at)
+    END,
     created_by = NEW.created_by,
     details = NEW.details,
     is_pushed = NEW.is_pushed,
     diff = NEW.diff,
     external_created_by = NEW.external_created_by,
     external_change_id = NEW.external_change_id,
-    first_observed = LEAST(first_observed, created_at),
     patches = NEW.patches,
     severity = NEW.severity,
     source = NEW.source,
@@ -40,12 +42,14 @@ EXCEPTION
           WHEN NEW.details IS DISTINCT FROM OLD.details THEN config_changes.count + count_increment
           ELSE count
         END,
-        created_at = NOW(),
+        created_at = CASE
+          WHEN NEW.details IS DISTINCT FROM OLD.details THEN NOW()
+          ELSE COALESCE(NEW.created_at, OLD.created_at)
+        END,
         created_by = NEW.created_by,
         details = NEW.details,
         diff = NEW.diff,
         external_created_by = NEW.external_created_by,
-        first_observed = LEAST(first_observed, created_at),
         patches = NEW.patches,
         severity = NEW.severity,
         source = NEW.source,
