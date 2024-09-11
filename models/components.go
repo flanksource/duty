@@ -334,7 +334,7 @@ func (c *Component) Save(db *gorm.DB) error {
 	}
 	err := db.Clauses(
 		clause.OnConflict{
-			Columns:   []clause.Column{{Name: "topology_id"}, {Name: "name"}, {Name: "type"}, {Name: "parent_id"}},
+			Columns:   []clause.Column{{Name: "topology_id"}, {Name: "type"}, {Name: "name"}, {Name: "parent_id"}},
 			UpdateAll: true,
 		},
 		clause.OnConflict{
