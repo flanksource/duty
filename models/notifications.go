@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/types"
@@ -119,15 +118,18 @@ type NotificationSilenceResource struct {
 	CheckID     *string `json:"check_id,omitempty"`
 }
 
-func (t NotificationSilenceResource) Key() string {
-	return fmt.Sprintf("%s:%s:%s:%s", lo.FromPtr(t.ConfigID), lo.FromPtr(t.CanaryID), lo.FromPtr(t.ComponentID), lo.FromPtr(t.CheckID))
+func (t NotificationSilenceResource) Empty() bool {
+	return lo.FromPtr(t.ConfigID) == "" &&
+		lo.FromPtr(t.CanaryID) == "" &&
+		lo.FromPtr(t.ComponentID) == "" &&
+		lo.FromPtr(t.CheckID) == ""
 }
 
 type NotificationSilence struct {
 	NotificationSilenceResource `json:",inline" yaml:",inline"`
 
-	ID          uuid.UUID  `json:"id"`
-	Namespace   string     `json:"namespace"`
+	ID          uuid.UUID  `json:"id"  gorm:"default:generate_ulid()"`
+	Namespace   string     `json:"namespace,omitempty"`
 	From        time.Time  `json:"from"`
 	Until       time.Time  `json:"until"`
 	Source      string     `json:"source"`
