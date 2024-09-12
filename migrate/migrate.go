@@ -86,35 +86,58 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	return nil
 }
 
-func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
-	l := logger.GetLogger("migrate")
-
+func createRole(db *sql.DB, roleName string, config api.Config, grants ...string) error {
+	if roleName == "" {
+		return nil
+	}
+	log := logger.GetLogger("migrate")
+	count := 0
+	if err := db.QueryRow("SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = $1 LIMIT 1", roleName).Scan(&count); err != nil {
+		return err
+	} else if count == 0 {
+		if _, err := db.Exec(fmt.Sprintf("CREATE ROLE %s", roleName)); err != nil {
+			return err
+		} else {
+			log.Infof("Created role %s", roleName)
+		}
+	}
 	user := config.GetUsername()
 	if user == "" {
-		return fmt.Errorf("Cannot find username in connection string")
-	}
-	role := config.Postgrest.DBRole
-	if isPostgrestAPIGranted, err := checkIfRoleIsGranted(pool, role, user); err != nil {
-		return err
-	} else if !isPostgrestAPIGranted {
-		if _, err := pool.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, role, user)); err != nil {
+		log.Errorf("Unable to find current user, %s may not be setup correctly", roleName)
+	} else {
+		if granted, err := checkIfRoleIsGranted(db, roleName, user); err != nil {
 			return err
+		} else if !granted {
+			if _, err := db.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, roleName, user)); err != nil {
+				log.Errorf("Failed to grant role %s to %s", roleName, user)
+			} else {
+				log.Infof("Granted %s to %s", roleName, user)
+			}
 		}
-		l.Debugf("Granted %s to %s", role, user)
+	}
 
-		grantQuery := `
-				ALTER ROLE %s SET statement_timeout = '120s';
-        GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %s;
-				GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s;
-				GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s;
-				ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s;
-        `
-		grantQuery = fmt.Sprintf(grantQuery, role, role, role, role, role)
-		if _, err := pool.Exec(grantQuery); err != nil {
-			return oops.Hint(grantQuery).Wrap(err)
+	for _, grant := range grants {
+		if _, err := db.Exec(fmt.Sprintf(grant, roleName)); err != nil {
+			log.Errorf("Failed to apply grants for %s: %+v", roleName, err)
 		}
-		l.Debugf("Granted privileges to %s", user)
 
+	}
+
+	return nil
+}
+
+func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
+	if err := createRole(pool, config.Postgrest.DBRole, config,
+		"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %s",
+		"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s",
+		"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s",
+		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s"); err != nil {
+		return err
+	}
+	if err := createRole(pool, config.Postgrest.AnonDBRole, config,
+		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s",
+		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %s"); err != nil {
+		return err
 	}
 
 	return nil

@@ -18,7 +18,7 @@ func getBinary(config api.Config) deps.BinaryFunc {
 		"PGRST_SERVER_PORT":              strconv.Itoa(config.Postgrest.Port),
 		"PGRST_DB_URI":                   config.ConnectionString,
 		"PGRST_DB_SCHEMA":                config.Schema,
-		"PGRST_DB_ANON_ROLE":             "",
+		"PGRST_DB_ANON_ROLE":             config.Postgrest.AnonDBRole,
 		"PGRST_OPENAPI_SERVER_PROXY_URI": config.Postgrest.URL,
 		"PGRST_LOG_LEVEL":                config.Postgrest.LogLevel,
 		"PGRST_DB_MAX_ROWS":              strconv.Itoa(config.Postgrest.MaxRows),
