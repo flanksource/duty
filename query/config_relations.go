@@ -26,6 +26,7 @@ type RelatedConfig struct {
 	CostTotal30d  *float64            `json:"cost_total_30d,omitempty"`
 	CreatedAt     time.Time           `json:"created_at"`
 	UpdatedAt     time.Time           `json:"updated_at"`
+	DeletedAt     *time.Time          `json:"deleted_at"`
 	AgentID       uuid.UUID           `json:"agent_id"`
 	Status        *string             `json:"status" gorm:"default:null"`
 	Ready         bool                `json:"ready"`
