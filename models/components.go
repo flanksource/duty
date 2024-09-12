@@ -324,55 +324,6 @@ func (c Component) GetType() string {
 	return c.Type
 }
 
-func (c *Component) Save(db *gorm.DB) error {
-	if c.ParentId != nil && !strings.Contains(c.Path, c.ParentId.String()) {
-		if c.Path == "" {
-			c.Path = c.ParentId.String()
-		} else {
-			c.Path += "." + c.ParentId.String()
-		}
-	}
-
-	update := false
-	if c.ID != uuid.Nil {
-		var count int64
-		if err := db.Model(&Component{}).Where("id = ?", c.ID).Count(&count).Error; err != nil {
-			return err
-		}
-		if count == 1 {
-			update = true
-		}
-	}
-
-	var err error
-	q := db.Clauses(
-		clause.OnConflict{
-			Columns:   []clause.Column{{Name: "topology_id"}, {Name: "type"}, {Name: "name"}, {Name: "parent_id"}},
-			UpdateAll: true,
-		})
-
-	if update {
-		err = q.UpdateColumns(c).Error
-	} else {
-		err = q.Create(c).Error
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if len(c.Components) > 0 {
-		for _, child := range c.Components {
-			child.TopologyID = c.TopologyID
-			child.ParentId = &c.ID
-			if err := child.Save(db); err != nil {
-				return err
-			}
-		}
-	}
-	return err
-}
-
 func (c Component) GetLabelsMatcher() labels.Labels {
 	return componentLabelsProvider{c}
 }
@@ -484,15 +435,6 @@ func (components Components) Find(name string) *Component {
 	for _, component := range components {
 		if component.Name == name {
 			return component
-		}
-	}
-	return nil
-}
-
-func (components Components) Save(db *gorm.DB) error {
-	for _, component := range components {
-		if err := component.Save(db); err != nil {
-			return err
 		}
 	}
 	return nil
