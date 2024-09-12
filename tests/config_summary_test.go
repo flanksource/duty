@@ -48,29 +48,101 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		}
 	})
 
-	ginkgo.It("should filter by labels", func() {
-		request := query.ConfigSummaryRequest{
-			Filter: map[string]string{
-				"environment": "production",
-			},
-		}
-		response, err := query.ConfigSummary(DefaultContext, request)
-		Expect(err).To(BeNil())
+	ginkgo.Context("labels filter", func() {
+		ginkgo.It("should filter by labels", func() {
+			request := query.ConfigSummaryRequest{
+				Filter: map[string]string{
+					"environment": "production",
+				},
+			}
 
-		var output []map[string]any
-		err = json.Unmarshal(response, &output)
-		Expect(err).To(BeNil())
+			response, err := query.ConfigSummary(DefaultContext, request)
+			Expect(err).To(BeNil())
 
-		types := lo.Map(output, func(item map[string]any, _ int) string {
-			return item["type"].(string)
+			var output []map[string]any
+			err = json.Unmarshal(response, &output)
+			Expect(err).To(BeNil())
+
+			types := lo.Map(output, func(item map[string]any, _ int) string {
+				return item["type"].(string)
+			})
+			withLabels := lo.Filter(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) bool {
+				return lo.FromPtr(item.Labels)["environment"] == "production"
+			})
+			expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
+				return lo.FromPtr(item.Type)
+			}))
+			Expect(types).To(ConsistOf(expected))
 		})
-		withLabels := lo.Filter(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) bool {
-			return lo.FromPtr(item.Labels)["environment"] == "production"
+
+		ginkgo.It("should filter by multiple labels", func() {
+			request := query.ConfigSummaryRequest{
+				Filter: map[string]string{
+					"environment": "production",
+					"cluster":     "demo",
+				},
+			}
+
+			response, err := query.ConfigSummary(DefaultContext, request)
+			Expect(err).To(BeNil())
+
+			var output []map[string]any
+			err = json.Unmarshal(response, &output)
+			Expect(err).To(BeNil())
+
+			types := lo.Map(output, func(item map[string]any, _ int) string {
+				return item["type"].(string)
+			})
+			withLabels := lo.Filter(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) bool {
+				return lo.FromPtr(item.Labels)["environment"] == "production" || lo.FromPtr(item.Labels)["cluster"] == "demo"
+			})
+			expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
+				return lo.FromPtr(item.Type)
+			}))
+			Expect(types).To(ConsistOf(expected))
 		})
-		expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
-			return lo.FromPtr(item.Type)
-		}))
-		Expect(types).To(ConsistOf(expected))
+
+		ginkgo.It("should handle exclude queries", func() {
+			request := query.ConfigSummaryRequest{
+				Filter: map[string]string{
+					"environment": "!development,!testing",
+					"account":     "flanksource",
+					"telemetry":   "enabled",
+				},
+			}
+
+			response, err := query.ConfigSummary(DefaultContext, request)
+			Expect(err).To(BeNil())
+
+			var output []map[string]any
+			err = json.Unmarshal(response, &output)
+			Expect(err).To(BeNil())
+
+			types := lo.Map(output, func(item map[string]any, _ int) string {
+				return item["type"].(string)
+			})
+
+			withLabels := lo.Filter(dummy.AllDummyConfigs, func(item models.ConfigItem, _ int) bool {
+				env := lo.FromPtr(item.Labels)["environment"]
+				if env == "development" || env == "testing" {
+					return false
+				}
+
+				if lo.FromPtr(item.Labels)["account"] == "flanksource" {
+					return true
+				}
+
+				if lo.FromPtr(item.Labels)["telemetry"] == "enabled" {
+					return true
+				}
+
+				return false
+			})
+			expected := lo.Uniq(lo.Map(withLabels, func(item models.ConfigItem, _ int) string {
+				return lo.FromPtr(item.Type)
+			}))
+			Expect(types).To(ConsistOf(expected))
+		})
 	})
 
 	ginkgo.Context("should query changes by range", func() {
@@ -79,7 +151,9 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 				Changes: query.ConfigSummaryRequestChanges{
 					Since: "7d",
 				},
-				Filter: lo.FromPtr(dummy.EKSCluster.Labels),
+				Filter: map[string]string{
+					"eks_version": "1.27",
+				},
 			}
 			response, err := query.ConfigSummary(DefaultContext, request)
 			Expect(err).To(BeNil())
@@ -97,7 +171,9 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 				Changes: query.ConfigSummaryRequestChanges{
 					Since: "5y",
 				},
-				Filter: lo.FromPtr(dummy.EKSCluster.Labels),
+				Filter: map[string]string{
+					"eks_version": "1.27",
+				},
 			}
 			response, err := query.ConfigSummary(DefaultContext, request)
 			Expect(err).To(BeNil())

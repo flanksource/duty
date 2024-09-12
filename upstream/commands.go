@@ -250,7 +250,7 @@ func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err 
 	// If foreign key error, try inserting one by one and return the ones that fail
 	var conflicted []string
 	for _, item := range items {
-		if err := ctx.DB().Debug().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
+		if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
 			if dutil.IsForeignKeyError(err) {
 				conflicted = append(conflicted, item.PK())
 			} else {
