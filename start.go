@@ -34,6 +34,8 @@ func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
 	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
 	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", config.Postgrest.Disable, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
 	flags.StringVar(&DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
+	flags.StringVar(&DefaultConfig.Postgrest.AnonDBRole, "postgrest-anon-role", "postgrest_anon", "PostgREST role for unauthenticated connections")
+
 	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
 	flags.StringVar(&DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")

@@ -237,6 +237,12 @@ func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
 		logger.Errorf(err.Error())
 	}
 
+	if config.Postgrest.AnonDBRole != "" {
+		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, config.Postgrest.AnonDBRole, postgrestTimeout.Seconds())).Error; err != nil {
+			logger.Errorf(err.Error())
+		}
+	}
+
 	statementTimeout := ctx.Properties().Duration("db.connection.timeout", 1*time.Hour)
 	if username := config.GetUsername(); username != "" {
 		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, username, statementTimeout.Seconds())).Error; err != nil {

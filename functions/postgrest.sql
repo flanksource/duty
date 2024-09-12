@@ -9,5 +9,7 @@ BEGIN
 
     IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_anon') THEN
         CREATE ROLE postgrest_anon;
+        GRANT SELECT ON ALL TABLES IN SCHEMA public TO postgrest_anon;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO postgrest_anon;
     END IF;
 END $$;
