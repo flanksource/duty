@@ -60,11 +60,6 @@ func (t *Topology) AsMap(removeFields ...string) map[string]any {
 }
 
 func (t *Topology) Save(db *gorm.DB) error {
-	err := db.Clauses(Topology{}.OnConflictClause(),
-		clause.OnConflict{
-			Columns:   []clause.Column{{Name: "id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"labels", "spec"}),
-		},
-	).Create(t).Error
+	err := db.Clauses(Topology{}.OnConflictClause()).Create(t).Error
 	return err
 }
