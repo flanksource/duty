@@ -332,12 +332,30 @@ func (c *Component) Save(db *gorm.DB) error {
 			c.Path += "." + c.ParentId.String()
 		}
 	}
-	err := db.Clauses(
+
+	update := false
+	if c.ID != uuid.Nil {
+		var count int64
+		if err := db.Model(&Component{}).Where("id = ?", c.ID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 1 {
+			update = true
+		}
+	}
+
+	var err error
+	q := db.Clauses(
 		clause.OnConflict{
 			Columns:   []clause.Column{{Name: "topology_id"}, {Name: "type"}, {Name: "name"}, {Name: "parent_id"}},
 			UpdateAll: true,
-		},
-	).Create(c).Error
+		})
+
+	if update {
+		err = q.UpdateColumns(c).Error
+	} else {
+		err = q.Create(c).Error
+	}
 
 	if err != nil {
 		return err
