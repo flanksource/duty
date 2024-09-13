@@ -214,6 +214,8 @@ WITH notification_send_summary AS (
 )
 SELECT
   notifications.id,
+  notifications.name,
+  notifications.namespace,
   notifications.title,
   notifications.events,
   notifications.filter,

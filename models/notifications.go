@@ -12,6 +12,8 @@ import (
 // Notification represents the notifications table
 type Notification struct {
 	ID             uuid.UUID           `json:"id"`
+	Name           string              `json:"name"`
+	Namespace      string              `json:"namespace,omitempty"`
 	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
 	Title          string              `json:"title,omitempty"`
 	Template       string              `json:"template,omitempty"`
@@ -20,7 +22,7 @@ type Notification struct {
 	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
 	Source         string              `json:"source"`
-	RepeatInterval string              `json:"repeat_interval"`
+	RepeatInterval string              `json:"repeat_interval,omitempty"`
 	GroupBy        pq.StringArray      `json:"group_by" gorm:"type:[]text"`
 	CustomServices types.JSON          `json:"custom_services,omitempty" gorm:"column:custom_services"`
 	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
