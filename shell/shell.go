@@ -22,6 +22,20 @@ import (
 	"github.com/samber/oops"
 )
 
+// List of env var keys that we pass on to the exec command
+var allowedEnvVars = map[string]struct{}{
+	"CLOUDSDK_PYTHON":                       {},
+	"DEBIAN_FRONTEND":                       {},
+	"DOTNET_SYSTEM_GLOBALIZATION_INVARIANT": {},
+	"HOME":                                  {},
+	"LC_CTYPE":                              {},
+	"PATH":                                  {},
+	"PS_INSTALL_FOLDER":                     {},
+	"PS_VERSION":                            {},
+	"PSModuleAnalysisCachePath":             {},
+	"USER":                                  {},
+}
+
 var checkoutLocks = utils.NamedLock{}
 
 type Exec struct {
@@ -76,6 +90,14 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 
 	// Set to a non-nil empty slice to prevent access to current environment variables
 	cmd.Env = []string{}
+
+	for _, e := range os.Environ() {
+		key, _, ok := strings.Cut(e, "=")
+		if _, exists := allowedEnvVars[key]; exists && ok {
+			cmd.Env = append(cmd.Env, e)
+		}
+	}
+
 	if len(envParams.envs) != 0 {
 		ctx.Logger.V(6).Infof("using environment %s", logger.Pretty(envParams.envs))
 		cmd.Env = append(cmd.Env, envParams.envs...)

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
@@ -23,7 +24,7 @@ func TestEnv(t *testing.T) {
 					{Name: "mc_test_secret", ValueStatic: "abcdef"},
 				},
 			},
-			expectedVars: []string{"mc_test_secret=abcdef"},
+			expectedVars: []string{"mc_test_secret"},
 		},
 		{
 			name: "access multiple custom env vars",
@@ -34,7 +35,7 @@ func TestEnv(t *testing.T) {
 					{Name: "mc_test_secret_id", ValueStatic: "xyz"},
 				},
 			},
-			expectedVars: []string{"mc_test_secret_key=abc", "mc_test_secret_id=xyz"},
+			expectedVars: []string{"mc_test_secret_key", "mc_test_secret_id"},
 		},
 		{
 			name: "no access to process env",
@@ -69,8 +70,15 @@ func TestEnv(t *testing.T) {
 				return key != "PWD" && key != "SHLVL" && key != "_"
 			})
 
-			if !lo.Every(envVars, td.expectedVars) || !lo.Every(td.expectedVars, envVars) {
-				t.Errorf("expected %s, got %s", td.expectedVars, envVars)
+			envVarKeys := lo.Map(envVars, func(v string, _ int) string {
+				key, _, _ := strings.Cut(v, "=")
+				return key
+			})
+
+			expected := collections.MapKeys(allowedEnvVars)
+			expected = append(expected, td.expectedVars...)
+			if !lo.Every(expected, envVarKeys) {
+				t.Errorf("expected %s, got %s", td.expectedVars, envVarKeys)
 			}
 		})
 	}
