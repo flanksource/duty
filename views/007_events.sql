@@ -167,6 +167,12 @@ RETURNS TRIGGER AS $$
 DECLARE
     event_name TEXT;
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.health NOT IN ('warning', 'unhealthy') THEN
+        RETURN NUll;
+      END IF;
+    END IF;
+
     IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
       RETURN NULL;
     END IF;
@@ -185,7 +191,7 @@ END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER config_health_event_enqueue
-AFTER UPDATE ON config_items
+AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
 EXECUTE PROCEDURE insert_config_health_updates_in_event_queue();
 
