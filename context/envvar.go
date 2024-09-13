@@ -55,9 +55,9 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (va
 	}
 
 	if err != nil {
-		ctx.Logger.V(3).Infof("lookup failed %s => %s", source, err.Error())
+		ctx.Logger.V(3).Infof("lookup[%s] failed %s => %s", input.Name, source, err.Error())
 	} else if ctx.Logger.IsLevelEnabled(5) {
-		ctx.Logger.V(5).Infof("lookup %s => %s", source, logger.PrintableSecret(value))
+		ctx.Logger.V(5).Infof("lookup[%s] %s => %s", input.Name, source, logger.PrintableSecret(value))
 	}
 
 	return value, err
