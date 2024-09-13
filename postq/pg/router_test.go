@@ -15,8 +15,8 @@ func TestPGRouter(t *testing.T) {
 	}()
 
 	// Two subscribers
-	alpha := r.RegisterRoutes("alphaA", "alphaB")
-	beta := r.RegisterRoutes("beta")
+	alpha := r.GetOrCreateChannel("alphaA", "alphaB")
+	beta := r.GetOrCreateChannel("beta")
 
 	var alphaCount, betaCount int
 	timeout := time.NewTimer(time.Second * 3)

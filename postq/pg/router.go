@@ -36,12 +36,13 @@ func (t *notifyRouter) WithRouteExtractor(routeExtractor routeExtractorFn) *noti
 	return t
 }
 
-// RegisterRoutes creates a single channel for the given routes and returns it.
-func (t *notifyRouter) RegisterRoutes(routes ...string) <-chan string {
-	// If any of the routes already has a channel, we use that
-	// for all the routes.
-	// Caution: The caller needs to ensure that the route
-	// groups do not overlap.
+// GetOrCreateChannel creates a single channel for the given routes.
+//
+// If any of the routes already has a channel, we use that existing for all the routes.
+//
+// Caution: The caller needs to ensure that the route
+// groups do not overlap.
+func (t *notifyRouter) GetOrCreateChannel(routes ...string) <-chan string {
 	pgNotifyChannel := make(chan string)
 	for _, we := range routes {
 		if existing, ok := t.registry[we]; ok {
