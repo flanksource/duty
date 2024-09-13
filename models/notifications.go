@@ -49,19 +49,29 @@ func (n Notification) AsMap(removeFields ...string) map[string]any {
 }
 
 const (
-	NotificationStatusError   = "error"
-	NotificationStatusSent    = "sent"
-	NotificationStatusSending = "sending"
+	NotificationStatusError          = "error"
+	NotificationStatusSent           = "sent"
+	NotificationStatusSending        = "sending"
+	NotificationStatusSilenced       = "silenced"
+	NotificationStatusRepeatInterval = "repeat-interval"
 )
 
 type NotificationSendHistory struct {
 	ID             uuid.UUID `json:"id,omitempty" gorm:"default:generate_ulid()"`
 	NotificationID uuid.UUID `json:"notification_id"`
-	Body           string    `json:"body,omitempty"`
+	Body           *string   `json:"body,omitempty"`
 	Error          *string   `json:"error,omitempty"`
 	DurationMillis int64     `json:"duration_millis,omitempty"`
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
 	Status         string    `json:"status,omitempty"`
+
+	// Notifications that were silenced or blocked by repeat intervals
+	// use this counter.
+	Count int `json:"count"`
+
+	// Notifications that were silenced or blocked by repeat intervals
+	// use this as the first observed timestamp.
+	FirstObserved time.Time `json:"first_observed"`
 
 	// Name of the original event that caused this notification
 	SourceEvent string `json:"source_event"`
