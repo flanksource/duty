@@ -81,7 +81,19 @@ func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
 
 func traverseConfigTemplateFunction() func(ctx context.Context) any {
 	return func(ctx context.Context) any {
-		return func(id, relationType, direction string) []models.ConfigItem {
+		return func(args ...string) []models.ConfigItem {
+			if len(args) < 2 {
+				return nil
+			}
+			var id, relationType, direction string
+
+			id = args[0]
+			relationType = args[1]
+			if len(args) == 3 {
+				direction = args[2]
+			} else {
+				direction = "incoming"
+			}
 			return TraverseConfig(ctx, id, relationType, direction)
 		}
 	}
