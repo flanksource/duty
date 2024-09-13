@@ -113,15 +113,23 @@ table "notification_send_history" {
     type = uuid
   }
   column "body" {
-    null = false
+    null = true # nullable for unsent notifications
     type = text
   }
-
   column "status" {
     null = true
     type = text
   }
-
+  column "count" {
+    null    = false
+    default = 1
+    type    = integer
+  }
+  column "first_observed" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
   column "source_event" {
     null    = false
     type    = text
