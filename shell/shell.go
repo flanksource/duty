@@ -38,14 +38,16 @@ type Artifact struct {
 }
 
 type ExecDetails struct {
-	Error    error    `json:"-"`
 	Stdout   string   `json:"stdout"`
 	Stderr   string   `json:"stderr"`
 	ExitCode int      `json:"exitCode"`
 	Path     string   `json:"path"`
 	Args     []string `json:"args"`
+
 	// Any extra details about the command execution, e.g. git commit id, etc.
-	Extra     map[string]any       `json:"extra,omitempty"`
+	Extra map[string]any `json:"extra,omitempty"`
+
+	Error     error                `json:"-" yaml:"-"`
 	Artifacts []artifacts.Artifact `json:"-" yaml:"-"`
 }
 
@@ -72,9 +74,11 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		return nil, ctx.Oops().Wrap(err)
 	}
 
+	// Set to a non-nil empty slice to prevent access to current environment variables
+	cmd.Env = []string{}
 	if len(envParams.envs) != 0 {
 		ctx.Logger.V(6).Infof("using environment %s", logger.Pretty(envParams.envs))
-		cmd.Env = append(os.Environ(), envParams.envs...)
+		cmd.Env = append(cmd.Env, envParams.envs...)
 	}
 
 	if envParams.mountPoint != "" {
