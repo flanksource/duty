@@ -13,6 +13,12 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	for _, f := range CelEnvFuncs {
 		t.CelEnvs = append(t.CelEnvs, f(k))
 	}
+	if t.Functions == nil {
+		t.Functions = make(map[string]any)
+	}
+	for name, v := range TemplateFuncs {
+		t.Functions[name] = v(k)
+	}
 	val, err := gomplate.RunTemplateContext(k.Context, env, t)
 	if err != nil {
 		return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
