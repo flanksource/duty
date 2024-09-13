@@ -14,7 +14,7 @@ const EnvVarType = "env_var"
 // +kubebuilder:object:generate=true
 type EnvVar struct {
 	Name        string        `json:"name,omitempty" yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value" template="true"`
+	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value" template:"true"`
 	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
 }
 
