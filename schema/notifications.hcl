@@ -5,6 +5,15 @@ table "notifications" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "name" {
+    null = false
+    type = text
+    default = sql("generate_ulid()") # temporary default value to make the migration possible. we can remove this later.
+  }
+  column "namespace" {
+    null = true
+    type = text
+  }
   column "events" {
     null    = false
     type    = sql("text[]")
@@ -98,6 +107,11 @@ table "notifications" {
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  index "notifications_name_namespace_key" {
+    unique  = true
+    columns = [column.name, column.namespace]
+    where   = "deleted_at IS NULL"
   }
 }
 
