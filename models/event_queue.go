@@ -50,7 +50,7 @@ func (events Events) Recreate(ctx context.Context, tx *gorm.DB) error {
 			Error:       event.Error,
 			Attempts:    event.Attempts + 1,
 			LastAttempt: event.LastAttempt,
-			Priority:    event.Priority,
+			Priority:    event.Priority - 1,
 		})
 	}
 
