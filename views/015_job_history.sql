@@ -237,7 +237,8 @@ FROM
   LEFT JOIN notification_send_summary ON notifications.id = notification_send_summary.notification_id
   LEFT JOIN event_queue ON 
     notifications.id::TEXT = event_queue.properties->>'notification_id' AND
-    event_queue.name = 'notification.send'
+    event_queue.name = 'notification.send' AND
+    event_queue.attempts < 4
 WHERE
   notifications.deleted_at IS NULL
 GROUP BY notifications.id,
