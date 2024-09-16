@@ -28,3 +28,13 @@ GROUP BY
 ORDER BY
   key,
   value;
+
+CREATE OR REPLACE VIEW
+  canary_names AS
+SELECT
+  id,
+  name
+FROM
+  canaries
+WHERE
+  deleted_at is null
