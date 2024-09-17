@@ -199,7 +199,6 @@ CREATE OR REPLACE VIEW job_history_names AS
 
 -- Notifications with job history
 DROP VIEW IF EXISTS notifications_summary;
-
 CREATE OR REPLACE VIEW notifications_summary AS
 WITH notification_send_summary AS (
   SELECT
@@ -215,7 +214,7 @@ WITH notification_send_summary AS (
 SELECT
   notifications.id,
   notifications.name,
-  notifications.namespace,
+  COALESCE(notifications.namespace, '') AS namespace,
   notifications.title,
   notifications.events,
   notifications.filter,
@@ -229,8 +228,8 @@ SELECT
   notifications.repeat_interval,
   COUNT (event_queue.id) AS pending,
   notification_send_summary.avg_duration_ms,
-  notification_send_summary.failed,
-  notification_send_summary.sent,
+  COALESCE(notification_send_summary.failed, 0) AS failed,
+  COALESCE(notification_send_summary.sent, 0) AS sent,
   notification_send_summary.most_common_error
 FROM
   notifications
