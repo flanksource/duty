@@ -95,7 +95,7 @@ table "event_queue" {
     columns = [column.properties]
   }
   index "event_queue_pop" {
-    columns = [column.name, column.attempts, column.last_attempt, column.priority, column.created_at]
+    columns = [column.name, column.delay, column.attempts, column.last_attempt, column.priority, column.created_at]
   }
 }
 
