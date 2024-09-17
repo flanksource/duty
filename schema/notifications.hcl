@@ -6,8 +6,8 @@ table "notifications" {
     default = sql("generate_ulid()")
   }
   column "name" {
-    null = false
-    type = text
+    null    = false
+    type    = text
     default = sql("generate_ulid()") # temporary default value to make the migration possible. we can remove this later.
   }
   column "namespace" {
@@ -53,6 +53,11 @@ table "notifications" {
   column "repeat_interval" {
     null = true
     type = text
+  }
+  column "wait_for" {
+    null    = true
+    type    = bigint
+    comment = "duration in nanoseconds"
   }
   column "group_by" {
     null    = true

@@ -16,6 +16,7 @@ type Notification struct {
 	Namespace      string              `json:"namespace,omitempty"`
 	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
 	Title          string              `json:"title,omitempty"`
+	WaitFor        *time.Duration      `json:"wait_for,omitempty"`
 	Template       string              `json:"template,omitempty"`
 	Filter         string              `json:"filter,omitempty"`
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`

@@ -35,6 +35,7 @@ func fetchEvents(ctx context.Context, tx *gorm.DB, watchEvents []string, batchSi
 		WHERE id IN (
 			SELECT id FROM event_queue
 			WHERE
+				(delay IS NULL OR created_at + (delay * INTERVAL '1 second' / 1000000000)  <= NOW()) AND
 				attempts <= @MaxAttempts AND
 				name = ANY(@Events) AND
 				(last_attempt IS NULL OR last_attempt <= NOW() - INTERVAL '1 SECOND' * @BaseDelay * POWER(attempts, @Exponent))

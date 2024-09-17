@@ -16,6 +16,7 @@ type Event struct {
 	Name        string              `json:"name"`
 	CreatedAt   time.Time           `json:"created_at"`
 	Properties  types.JSONStringMap `json:"properties"`
+	Delay       *time.Duration      `json:"delay,omitempty"`
 	Error       *string             `json:"error,omitempty"`
 	Attempts    int                 `json:"attempts"`
 	LastAttempt *time.Time          `json:"last_attempt"`

@@ -373,7 +373,8 @@ func (in *Summary) DeepCopyInto(out *Summary) {
 			if val == nil {
 				(*out)[key] = nil
 			} else {
-				in, out := &val, &outVal
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
 				*out = make(map[string]int, len(*in))
 				for key, val := range *in {
 					(*out)[key] = val
@@ -390,7 +391,8 @@ func (in *Summary) DeepCopyInto(out *Summary) {
 			if val == nil {
 				(*out)[key] = nil
 			} else {
-				in, out := &val, &outVal
+				inVal := (*in)[key]
+				in, out := &inVal, &outVal
 				*out = make(map[string]int, len(*in))
 				for key, val := range *in {
 					(*out)[key] = val
