@@ -1,8 +1,15 @@
 package connection
 
 import (
+	"crypto/tls"
+	"net/http"
+
+	gcs "cloud.google.com/go/storage"
+
 	"github.com/flanksource/commons/utils"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"google.golang.org/api/option"
 )
 
 // +kubebuilder:object:generate=true
@@ -11,6 +18,48 @@ type GCPConnection struct {
 	ConnectionName string        `yaml:"connection,omitempty" json:"connection,omitempty"`
 	Endpoint       string        `yaml:"endpoint" json:"endpoint,omitempty"`
 	Credentials    *types.EnvVar `yaml:"credentials" json:"credentials,omitempty"`
+
+	// Skip TLS verify
+	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
+}
+
+func (conn *GCPConnection) Client(ctx context.Context) (*gcs.Client, error) {
+	conn = conn.Validate()
+	var client *gcs.Client
+	var err error
+
+	var clientOpts []option.ClientOption
+
+	if conn.Endpoint != "" {
+		clientOpts = append(clientOpts, option.WithEndpoint(conn.Endpoint))
+	}
+
+	if conn.SkipTLSVerify {
+		insecureHTTPClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+
+		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
+	}
+
+	if conn.Credentials != nil && !conn.Credentials.IsEmpty() {
+		credential, err := ctx.GetEnvValueFromCache(*conn.Credentials, ctx.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(credential)))
+	} else {
+		clientOpts = append(clientOpts, option.WithoutAuthentication())
+	}
+
+	client, err = gcs.NewClient(ctx.Context, clientOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func (g *GCPConnection) Validate() *GCPConnection {
