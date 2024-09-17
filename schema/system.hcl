@@ -59,6 +59,11 @@ table "event_queue" {
     null = true
     type = text
   }
+  column "delay" {
+    null    = true
+    type    = bigint
+    comment = "wait for this duration (nanoseconds) before consuming"
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
