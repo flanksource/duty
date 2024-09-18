@@ -1,11 +1,73 @@
 package dummy
 
 import (
+	"embed"
+	"path/filepath"
+	"strings"
+
+	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
+
+//go:embed config/*.yaml
+var yamls embed.FS
+
+func ImportConfigs(data []byte) (configs []models.ConfigItem, relationships []models.ConfigRelationship, err error) {
+	objects, err := kubernetes.GetUnstructuredObjects(data)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, object := range objects {
+		json, _ := object.MarshalJSON()
+		labels := types.JSONStringMap{}
+		for k, v := range object.GetLabels() {
+			labels[k] = v
+		}
+		ci := models.ConfigItem{
+			Config:      lo.ToPtr(string(json)),
+			ID:          uuid.MustParse(string(object.GetUID())),
+			Name:        lo.ToPtr(object.GetName()),
+			ConfigClass: object.GetKind(),
+			Type:        lo.ToPtr("Kubernetes::" + object.GetKind()),
+			Labels:      lo.ToPtr(labels),
+			CreatedAt:   object.GetCreationTimestamp().Time,
+			Tags: types.JSONStringMap{
+				"namespace": object.GetNamespace(),
+			},
+		}
+
+		if parent, ok := object.GetAnnotations()["config-db.flanksource.com/parent"]; ok {
+			id, err := uuid.Parse(parent)
+			if err == nil {
+				ci.ParentID = lo.ToPtr(id)
+				relationships = append(relationships, models.ConfigRelationship{
+					ConfigID:  id.String(),
+					RelatedID: ci.ID.String(),
+				})
+			}
+		}
+
+		if related, ok := object.GetAnnotations()["config-db.flanksource.com/related"]; ok {
+			for _, relation := range strings.Split(related, ",") {
+				id, err := uuid.Parse(relation)
+				if err == nil {
+					relationships = append(relationships, models.ConfigRelationship{
+						ConfigID:  ci.ID.String(),
+						RelatedID: id.String(),
+					})
+				}
+
+			}
+		}
+		configs = append(configs, ci)
+	}
+	return configs, relationships, nil
+}
 
 var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
@@ -257,3 +319,42 @@ var ClusterNodeBRelationship = models.ConfigRelationship{
 }
 
 var AllConfigRelationships = []models.ConfigRelationship{ClusterNodeARelationship, ClusterNodeBRelationship}
+
+func GetConfig(configType, namespace, name string) models.ConfigItem {
+	for _, config := range AllDummyConfigs {
+		if *config.Type == configType &&
+			*config.Name == name &&
+			config.Tags["namespace"] == namespace {
+			return config
+		}
+	}
+	return models.ConfigItem{}
+}
+
+var GitRepository models.ConfigItem
+var Kustomization models.ConfigItem
+var Namespace models.ConfigItem
+
+func init() {
+	files, _ := yamls.ReadDir("config")
+	for _, file := range files {
+		data, err := yamls.ReadFile(filepath.Join("config", file.Name()))
+		if err != nil {
+			logger.Errorf("Failed to read %s: %v", file.Name(), err)
+			continue
+		}
+		configs, relationships, err := ImportConfigs(data)
+		if err != nil {
+			logger.Errorf("Failed to import configs %v", err)
+			continue
+		}
+
+		AllConfigRelationships = append(AllConfigRelationships, relationships...)
+		AllDummyConfigs = append(AllDummyConfigs, configs...)
+	}
+
+	GitRepository = GetConfig("Kubernetes::GitRepository", "flux-system", "sandbox")
+	Kustomization = GetConfig("Kubernetes::Kustomization", "flux-system", "infra")
+	Namespace = GetConfig("Kubernetes::Namespace", "", "flux")
+
+}
