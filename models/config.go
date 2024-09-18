@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -105,6 +106,8 @@ type ConfigItem struct {
 	UpdatedAt       *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
 	DeleteReason    string               `json:"delete_reason,omitempty"`
+
+	configJson map[string]any `json:"-" yaml:"-" gorm:"-"`
 }
 
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
@@ -174,10 +177,22 @@ func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
 	return asMap(ci, removeFields...)
 }
 
-func (ci ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
-	var m map[string]any
-	err := json.Unmarshal([]byte(*ci.Config), &m)
-	return m, err
+func (ci *ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
+	if ci.configJson != nil {
+		return ci.configJson, nil
+	}
+	ci.configJson = make(map[string]any)
+	err := json.Unmarshal([]byte(*ci.Config), &ci.configJson)
+	return ci.configJson, err
+}
+
+func (ci *ConfigItem) NestedString(paths ...string) string {
+	m, err := ci.ConfigJSONStringMap()
+	if err != nil {
+		return ""
+	}
+	v, _, _ := unstructured.NestedString(m, paths...)
+	return v
 }
 
 func (ci ConfigItem) TemplateEnv() (map[string]any, error) {
