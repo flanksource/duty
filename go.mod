@@ -7,6 +7,7 @@ toolchain go1.22.6
 require (
 	ariga.io/atlas v0.14.2
 	cloud.google.com/go/cloudsqlconn v1.5.1
+	cloud.google.com/go/storage v1.38.0
 	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.0
 	github.com/asecurityteam/rolling v2.0.4+incompatible
@@ -20,7 +21,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.25.0
 	github.com/flanksource/artifacts v1.0.14
 	github.com/flanksource/commons v1.29.10
-	github.com/flanksource/gomplate/v3 v3.24.30
+	github.com/flanksource/gomplate/v3 v3.24.31
 	github.com/flanksource/kommons v0.31.4
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/cel-go v0.21.0
@@ -64,6 +65,7 @@ require (
 	golang.org/x/crypto v0.26.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	golang.org/x/sync v0.8.0
+	google.golang.org/api v0.169.0
 	google.golang.org/grpc v1.65.0
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/postgres v1.5.9
@@ -80,7 +82,6 @@ require (
 	cloud.google.com/go v0.112.1 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
-	cloud.google.com/go/storage v1.38.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/AlekSi/pointer v1.2.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -240,7 +241,6 @@ require (
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
-	google.golang.org/api v0.169.0 // indirect
 	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
