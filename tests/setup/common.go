@@ -16,19 +16,23 @@ import (
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/telemetry"
-	"github.com/spf13/pflag"
-
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/telemetry"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/labstack/echo/v4"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	"github.com/rodaine/table"
+	"github.com/samber/oops"
+	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	//fix indirect go.mod
+	_ "github.com/spf13/cobra"
 )
 
 var DefaultContext context.Context
@@ -45,6 +49,16 @@ func init() {
 	logger.BindFlags(pflag.CommandLine)
 	duty.BindPFlags(pflag.CommandLine)
 	properties.BindFlags(pflag.CommandLine)
+
+	format.RegisterCustomFormatter(func(value interface{}) (string, bool) {
+		switch v := value.(type) {
+		case error:
+			if err, ok := oops.AsOops(v); ok {
+				return fmt.Sprintf("%+v", err), true
+			}
+		}
+		return "", false
+	})
 }
 
 func execPostgres(connection, query string) error {
