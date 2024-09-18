@@ -1,0 +1,183 @@
+package query
+
+import (
+	"fmt"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/gomplate/v3/conv"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/uuid"
+)
+
+type Kustomize struct {
+	Path string `json:"path"`
+	File string `json:"file"`
+}
+
+func (t *Kustomize) AsMap() map[string]any {
+	return map[string]any{
+		"path": t.Path,
+		"file": t.File,
+	}
+}
+
+type Git struct {
+	File   string `json:"file"`
+	Dir    string `json:"dir"`
+	URL    string `json:"url"`
+	Branch string `json:"branch"`
+}
+
+func (t *Git) AsMap() map[string]any {
+	return map[string]any{
+		"file":   t.File,
+		"dir":    t.Dir,
+		"url":    t.URL,
+		"branch": t.Branch,
+	}
+}
+
+type GitOpsSource struct {
+	Git       Git       `json:"git"`
+	Kustomize Kustomize `json:"kustomize"`
+}
+
+func (t *GitOpsSource) AsMap() map[string]any {
+	return map[string]any{
+		"git":       t.Git.AsMap(),
+		"kustomize": t.Kustomize.AsMap(),
+	}
+}
+
+func getOrigin(ci *models.ConfigItem) (map[string]any, error) {
+	origin := make(map[string]any)
+	_origin := ci.NestedString("metadata", "annotations", "config.kubernetes.io/origin")
+	if _origin != "" {
+		if err := yaml.Unmarshal([]byte(_origin), &origin); err != nil {
+			return origin, err
+		}
+	}
+	return origin, nil
+}
+
+func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
+	var source GitOpsSource
+	if id == uuid.Nil {
+		return source, nil
+	}
+
+	ci, err := GetCachedConfig(ctx, id.String())
+	if err != nil {
+		return source, err
+	}
+
+	gitRepos := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization/Kubernetes::GitRepository", string(models.RelatedConfigTypeIncoming))
+	if len(gitRepos) > 0 && gitRepos[0].Config != nil {
+		source.Git.URL = gitRepos[0].NestedString("spec", "url")
+		source.Git.Branch = gitRepos[0].NestedString("spec", "ref", "branch")
+	}
+
+	kustomization := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization", string(models.RelatedConfigTypeIncoming))
+	if len(kustomization) > 0 && kustomization[0].Config != nil {
+		source.Kustomize.Path = kustomization[0].NestedString("spec", "path")
+		source.Kustomize.File = filepath.Join(source.Kustomize.Path, "kustomization.yaml")
+	}
+
+	origin, _ := getOrigin(ci)
+	if path, ok := origin["path"]; ok {
+		source.Git.File = filepath.Join(source.Kustomize.Path, path.(string))
+		source.Git.Dir = filepath.Dir(source.Git.File)
+	}
+
+	return source, nil
+}
+
+func gitopsSourceCELFunction() func(ctx context.Context) cel.EnvOption {
+	return func(ctx context.Context) cel.EnvOption {
+		return cel.Function("gitops.source",
+			cel.Overload("gitops.source_interface{}",
+				[]*cel.Type{cel.DynType},
+				cel.DynType,
+				cel.UnaryBinding(func(arg ref.Val) ref.Val {
+
+					id, err := getConfigId(arg.Value())
+					if err != nil {
+						ctx.Errorf("could not find id: %v", err)
+						return types.DefaultTypeAdapter.NativeToValue((&GitOpsSource{}).AsMap())
+					}
+
+					source, err := GetGitOpsSource(ctx, id)
+					if err != nil {
+						return types.WrapErr(err)
+					}
+
+					return types.DefaultTypeAdapter.NativeToValue(source.AsMap())
+				}),
+			),
+		)
+	}
+}
+
+func getConfigId(id any) (uuid.UUID, error) {
+	switch v := id.(type) {
+	case string:
+		return uuid.Parse(v)
+	case uuid.UUID:
+		return v, nil
+	case models.ConfigItem:
+		return v.ID, nil
+	case map[string]string:
+		if v, ok := v["id"]; ok {
+			return uuid.Parse(v)
+		}
+	case map[string]any:
+		if v, ok := v["id"]; ok {
+			switch v2 := v.(type) {
+			case uuid.UUID:
+				return v2, nil
+			case []byte:
+				return uuid.UUID(v2), nil
+			case string:
+				return uuid.Parse(v2)
+			default:
+				return uuid.Parse(conv.ToString(v2))
+			}
+		}
+	}
+	return uuid.Nil, fmt.Errorf("unknown uuid type: %t", id)
+}
+
+func gitopsSourceTemplateFunction() func(ctx context.Context) any {
+	return func(ctx context.Context) any {
+		return func(args ...any) map[string]any {
+
+			var source GitOpsSource
+			if len(args) < 1 {
+				return source.AsMap()
+			}
+
+			id, err := getConfigId(args[0])
+			if err != nil {
+				ctx.Errorf("could not find id '%s' from %v: %v", id, args[0], err)
+				return source.AsMap()
+			}
+
+			source, err = GetGitOpsSource(ctx, id)
+			if err != nil {
+				ctx.Errorf(err.Error())
+			}
+			return source.AsMap()
+		}
+	}
+}
+
+func init() {
+	context.CelEnvFuncs["gitops.source"] = gitopsSourceCELFunction()
+	context.TemplateFuncs["gitops_source"] = gitopsSourceTemplateFunction()
+}
