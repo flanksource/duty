@@ -68,38 +68,3 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql;
-
---
-DROP VIEW IF EXISTS notification_silences_list;
-
-CREATE OR REPLACE VIEW notification_silences_list AS
-SELECT 
-  notification_silences.id,
-  notification_silences.namespace,
-  notification_silences.recursive,
-  notification_silences.description,
-  notification_silences."from",
-  notification_silences."until",
-  notification_silences.source,
-  notification_silences.created_by,
-  notification_silences.created_at, 
-  notification_silences.updated_at,
-  notification_silences.deleted_at,
-  COALESCE(config_items.id, components.id, checks.id, canaries.id) as resource_id,
-  COALESCE(config_items.type, components.icon, checks.icon) as resource_icon,
-  COALESCE(config_items.type, components.type, checks.type) as resource_type,
-  COALESCE(config_items.health, components.health, CASE WHEN checks.status = 'passed' THEN 'healthy' ELSE 'unhealthy' END) as resource_health,
-  COALESCE(config_items.status, components.status) AS resource_status,
-  COALESCE(config_items.name, components.name, checks.name, canaries.name) AS resource_name,
-  CASE
-    WHEN config_items.id IS NOT NULL THEN 'config_item'
-    WHEN components.id IS NOT NULL THEN 'component'
-    WHEN checks.id IS NOT NULL THEN 'check'
-    WHEN canaries.id IS NOT NULL THEN 'canary'
-  END as resource_kind
-FROM notification_silences
-  LEFT JOIN config_items ON config_items.id = notification_silences.config_id
-  LEFT JOIN components ON components.id = notification_silences.component_id
-  LEFT JOIN checks ON checks.id = notification_silences.check_id
-  LEFT JOIN canaries ON canaries.id = notification_silences.canary_id;
--- 
