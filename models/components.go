@@ -182,6 +182,7 @@ func (c Component) GetHealth() (Health, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
+			"self":    c.AsMap(),
 		}
 		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
 		if err != nil {
