@@ -293,4 +293,10 @@ table "notification_silences" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "notification_silence_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
