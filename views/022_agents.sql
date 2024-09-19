@@ -6,7 +6,7 @@ SELECT
     configs.count as config_count,
     config_scrapper.count as config_scrapper_count,
     checks.count as checks_count,
-    playbook_runs.count as playbook_runs_count
+    playbook_run_actions.count as playbook_run_actions_count
 FROM
     agents
     LEFT JOIN (
@@ -41,10 +41,10 @@ FROM
             agent_id,
             COUNT(id) as count
         FROM
-            playbook_runs
+            playbook_run_actions
         GROUP BY
             agent_id
-    ) AS playbook_runs ON playbook_runs.agent_id = agents.id
+    ) AS playbook_run_actions ON playbook_run_actions.agent_id = agents.id
 WHERE
   deleted_at IS NULL;
 

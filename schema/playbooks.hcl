@@ -184,11 +184,6 @@ table "playbook_runs" {
     null = true
     type = jsonb
   }
-  column "agent_id" {
-    null    = true
-    default = var.uuid_nil
-    type    = uuid
-  }
   column "error" {
     null = true
     type = text
@@ -223,12 +218,6 @@ table "playbook_runs" {
   foreign_key "playbook_run_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
-  }
-  foreign_key "playbook_run_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
@@ -338,7 +327,10 @@ table "playbook_run_actions" {
     EOF
     comment = "a run id is mandatory except for an agent"
   }
-
+  index "playbook_run_actions_name" {
+    unique = true
+    columns = [column.playbook_run_id, column.name]
+  }
   index "playbook_run_actions_status_time_idx" {
     columns = [column.status, column.scheduled_time]
   }

@@ -126,7 +126,6 @@ type PlaybookRun struct {
 	Error         *string             `json:"error,omitempty"`
 	Parameters    types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
 	Request       types.JSONMap       `json:"request,omitempty" gorm:"default:null"`
-	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
 }
 
 func (p PlaybookRun) TableName() string {
