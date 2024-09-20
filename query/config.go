@@ -14,6 +14,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -94,14 +95,14 @@ func (t *ConfigSummaryRequest) changesJoin() string {
 }
 
 func (t *ConfigSummaryRequest) changesAnalysisJoin() string {
-	output := "LEFT JOIN distinct_changes_analysis_grouped ON "
+	output := "LEFT JOIN aggregated_analysis ON "
 	var clauses []string
 	for _, g := range t.GroupBy {
 		switch g {
 		case "type":
-			clauses = append(clauses, "distinct_changes_analysis_grouped.type = config_items.type")
+			clauses = append(clauses, "aggregated_analysis.type = config_items.type")
 		default:
-			clauses = append(clauses, fmt.Sprintf("distinct_changes_analysis_grouped.%s = config_items.tags->>'%s'", g, g))
+			clauses = append(clauses, fmt.Sprintf("aggregated_analysis.%s = config_items.tags->>'%s'", g, g))
 		}
 	}
 
@@ -128,7 +129,7 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	}
 
 	if (t.Changes.Since == "7d" && t.Analysis.Since == "7d") || (t.Changes.Since == "30d" && t.Analysis.Since == "30d") {
-		cols = append(cols, "distinct_changes_analysis_grouped.changes AS changes, distinct_changes_analysis_grouped.analysis AS analysis")
+		cols = append(cols, fmt.Sprintf("COALESCE(sum(config_item_analysis_change_count_%s.config_changes_count), 0) AS changes, COALESCE(aggregated_analysis.total_analysis, '{}'::jsonb) AS analysis", t.Changes.Since))
 	} else {
 		if t.Changes.Since != "" {
 			cols = append(cols, "changes_grouped.count AS changes")
@@ -321,24 +322,32 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		tableName := fmt.Sprintf("config_item_analysis_change_count_%s", req.Changes.Since)
 		changesAnalysisGrouped := exclause.NewWith(
 			"changes_analysis_grouped",
-			ctx.DB().Select(req.baseSelectClause("config_changes_count as changes, config_analysis_type_counts as analysis")).
+			ctx.DB().Select(req.baseSelectClause(fmt.Sprintf("SUM(%s.config_changes_count) AS total_changes, COALESCE(kv_pair.key, '') AS key, SUM((kv_pair.value::int)) AS value_sum", tableName))).
 				Table(tableName).
 				Joins(fmt.Sprintf("LEFT JOIN config_items ON %s.config_id = config_items.id", tableName)).
+				Joins(fmt.Sprintf("LEFT JOIN jsonb_each_text(%s.config_analysis_type_counts) AS kv_pair(key, value) ON %s.config_analysis_type_counts IS NOT NULL", tableName, tableName)).
 				Where(req.configDeleteClause()).
+				Where("kv_pair.key IS NOT NULL AND kv_pair.key <> ''").
 				Where(req.filterClause(ctx.DB())).
-				Group(groupBy).Group("config_changes_count").Group("config_analysis_type_counts"),
+				Group(groupBy).Group("kv_pair.key"),
 		)
 
-		distinctChangesAnalysisGrouped := exclause.NewWith(
-			"distinct_changes_analysis_grouped",
-			ctx.DB().Select("DISTINCT ON (type) type, changes, analysis").
-				Table("changes_analysis_grouped"),
+		// Replace config_items. prefix as either sleect with tag or type will come from the changes_analysis_grouped view
+		selectClause := lo.Map(req.baseSelectClause("COALESCE(jsonb_object_agg(key, value_sum), '{}'::jsonb) AS total_analysis"), func(item string, _ int) string {
+			return strings.ReplaceAll(item, "config_items.", "")
+		})
+		aggregatedAnalysis := exclause.NewWith(
+			"aggregated_analysis",
+			ctx.DB().Select(selectClause).
+				Table("changes_analysis_grouped").
+				Group(strings.ReplaceAll(groupBy, "config_items.", "")),
 		)
 
-		withClauses = append(withClauses, changesAnalysisGrouped, distinctChangesAnalysisGrouped)
-		summaryQuery = summaryQuery.Joins(req.changesAnalysisJoin()).
-			Group("distinct_changes_analysis_grouped.changes").
-			Group("distinct_changes_analysis_grouped.analysis")
+		withClauses = append(withClauses, changesAnalysisGrouped, aggregatedAnalysis)
+		summaryQuery = summaryQuery.
+			Joins(req.changesAnalysisJoin()).
+			Joins(fmt.Sprintf("LEFT JOIN %s ON %s.config_id = config_items.id", tableName, tableName)).
+			Group("aggregated_analysis.total_analysis")
 
 	} else {
 		if req.Changes.Since != "" {

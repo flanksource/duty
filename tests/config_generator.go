@@ -87,6 +87,7 @@ func (generator *ConfigGenerator) GenerateConfigItem(configType, status string, 
 		Type:      lo.ToPtr(configType),
 		Name:      lo.ToPtr(name),
 		Status:    &status,
+		Health:    lo.ToPtr(models.Health(status)),
 		Tags:      generator.Tags,
 	}
 	if parent != nil {

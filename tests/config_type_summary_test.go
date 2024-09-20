@@ -3,11 +3,16 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type configClassSummary struct {
@@ -88,5 +93,100 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			Expect(lo.FromPtr(i.changes)).To(BeNumerically(">=", lo.FromPtr(expected.changes)))
 		}
 
+	})
+
+	ginkgo.It("Should query config summary by type", func() {
+		gen := ConfigGenerator{}
+		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 4, NumInsightsPerConfig: 3})
+		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
+		gen.GenerateConfigItem("Test::type-A", "unhealthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
+		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 5, NumInsightsPerConfig: 1})
+		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 3})
+		gen.GenerateConfigItem("Test::type-C", "unhealthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 0, NumInsightsPerConfig: 0})
+		for _, item := range gen.Generated.Configs {
+			DefaultContext.DB().Create(&item)
+		}
+		for _, item := range gen.Generated.Changes {
+			DefaultContext.DB().Create(&item)
+		}
+		for i, item := range gen.Generated.Analysis {
+			if i%3 == 0 {
+				item.AnalysisType = models.AnalysisTypeCost
+			}
+			if i%3 == 1 {
+				item.AnalysisType = models.AnalysisTypeSecurity
+			}
+			DefaultContext.DB().Create(&item)
+		}
+
+		job.RefreshConfigItemAnalysisChangeCount30d(DefaultContext)
+
+		summary30D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
+			GroupBy:  []string{"type"},
+			Changes:  query.ConfigSummaryRequestChanges{Since: "30d"},
+			Analysis: query.ConfigSummaryRequestAnalysis{Since: "30d"},
+		})
+		Expect(err).To(BeNil())
+
+		type summaryRow struct {
+			Type     string
+			Count    int
+			Health   types.JSONMap
+			Changes  int
+			Analysis types.JSONMap
+		}
+		var rows []summaryRow
+		err = json.Unmarshal(summary30D, &rows)
+		Expect(err).To(BeNil())
+
+		expectedTypeSummary := []summaryRow{
+			{Type: "Test::type-A", Count: 3, Changes: 6, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(3), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-C", Count: 1, Changes: 0, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
+		}
+
+		for _, expected := range expectedTypeSummary {
+			i, found := lo.Find(rows, func(i summaryRow) bool { return i.Type == expected.Type })
+			Expect(found).To(BeTrue())
+			Expect(i.Count).To(Equal(expected.Count))
+			Expect(i.Changes).To(Equal(expected.Changes))
+			Expect(i.Health).To(Equal(expected.Health))
+			Expect(i.Analysis).To(Equal(expected.Analysis))
+		}
+
+		// We are making a change and an analysis older than 7 days, it should reflect in the summary
+		change0 := gen.Generated.Changes[0]
+		DefaultContext.DB().Model(&models.ConfigChange{}).Where("id = ?", change0.ID).UpdateColumn("created_at", gorm.Expr("NOW() - '15 days'::interval"))
+
+		analysis0 := gen.Generated.Analysis[0]
+		analysis0.LastObserved.Add(-15 * 24 * time.Hour)
+		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("last_observed", gorm.Expr("NOW() - '15 days'::interval"))
+
+		job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
+			GroupBy:  []string{"type"},
+			Changes:  query.ConfigSummaryRequestChanges{Since: "7d"},
+			Analysis: query.ConfigSummaryRequestAnalysis{Since: "7d"},
+		})
+		Expect(err).To(BeNil())
+
+		var rows7d []summaryRow
+		err = json.Unmarshal(summary7D, &rows7d)
+		Expect(err).To(BeNil())
+
+		expectedTypeSummary7d := []summaryRow{
+			{Type: "Test::type-A", Count: 3, Changes: 5, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-C", Count: 1, Changes: 0, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
+		}
+
+		for _, expected := range expectedTypeSummary7d {
+			i, found := lo.Find(rows7d, func(i summaryRow) bool { return i.Type == expected.Type })
+			Expect(found).To(BeTrue())
+			Expect(i.Count).To(Equal(expected.Count))
+			Expect(i.Changes).To(Equal(expected.Changes))
+			Expect(i.Health).To(Equal(expected.Health))
+			Expect(i.Analysis).To(Equal(expected.Analysis))
+		}
 	})
 })
