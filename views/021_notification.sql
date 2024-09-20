@@ -68,3 +68,69 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE VIEW notification_send_history_summary AS
+WITH combined AS (
+-- config
+  SELECT
+    nsh.*,
+    'config' AS "resource_type",
+    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class) as resource
+  FROM notification_send_history nsh
+  LEFT JOIN (
+    SELECT 
+      id,
+      name,
+      type,
+      config_class
+    FROM configs as configs
+  ) config ON config.id = nsh.resource_id
+  WHERE nsh.source_event like 'config.%'
+UNION
+-- component
+  SELECT
+    nsh.*,
+    'component' as "resource_type",
+    jsonb_build_object('id', component.id, 'name', component.name) as resource
+  FROM notification_send_history nsh
+  LEFT JOIN (
+    SELECT 
+      id,
+      name
+    FROM topologies
+  ) component ON component.id = nsh.resource_id
+  WHERE nsh.source_event like 'component.%'
+UNION
+-- check
+  SELECT
+    nsh.*,
+    'check' as "resource_type",
+    jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon) as resource
+  FROM
+    notification_send_history nsh
+  LEFT JOIN (
+    SELECT
+      id,
+      name,
+      type,
+      status,
+      icon
+    FROM checks
+  ) check_details ON check_details.id = nsh.resource_id
+  WHERE nsh.source_event like 'check.%'
+UNION
+-- canary
+  SELECT
+    nsh.*,
+    'canary' as "resource_type",
+    jsonb_build_object('id', canary.id, 'name', canary.name) as resource
+  FROM notification_send_history nsh
+  LEFT JOIN (
+    SELECT
+      id,
+      name
+    FROM canaries
+  ) canary ON canary.id = nsh.resource_id
+  WHERE nsh.source_event like 'canary.%'
+)
+SELECT combined.* FROM combined
