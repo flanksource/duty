@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -119,7 +118,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			DefaultContext.DB().Create(&item)
 		}
 
-		job.RefreshConfigItemAnalysisChangeCount30d(DefaultContext)
+		err := job.RefreshConfigItemAnalysisChangeCount30d(DefaultContext)
+		Expect(err).To(BeNil())
 
 		summary30D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy:  []string{"type"},
@@ -159,10 +159,10 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		DefaultContext.DB().Model(&models.ConfigChange{}).Where("id = ?", change0.ID).UpdateColumn("created_at", gorm.Expr("NOW() - '15 days'::interval"))
 
 		analysis0 := gen.Generated.Analysis[0]
-		analysis0.LastObserved.Add(-15 * 24 * time.Hour)
 		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("last_observed", gorm.Expr("NOW() - '15 days'::interval"))
 
-		job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		err = job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		Expect(err).To(BeNil())
 		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy:  []string{"type"},
 			Changes:  query.ConfigSummaryRequestChanges{Since: "7d"},
