@@ -456,10 +456,7 @@ func (j *Job) GetPropertyInt(property string, def int) int {
 }
 
 func (j *Job) init() error {
-	if EvictedJobs == nil {
-		EvictedJobs = make(chan uuid.UUID, 1000)
-		go deleteEvictedJobs(j.Context)
-	}
+	StartJobHistoryEvictor(j.Context)
 
 	if j.initialized {
 		return nil
@@ -636,4 +633,10 @@ func (j *Job) RemoveFromScheduler(cronRunner *cron.Cron) {
 		return
 	}
 	cronRunner.Remove(*j.entryID)
+}
+
+func init() {
+	if EvictedJobs == nil {
+		EvictedJobs = make(chan uuid.UUID, 1000)
+	}
 }
