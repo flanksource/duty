@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/duty/context"
 	dutil "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"github.com/sethvargo/go-retry"
 	"gorm.io/gorm"
@@ -47,10 +48,10 @@ var (
 )
 
 type ReconcileTableSummary struct {
-	Success   int   `json:"success,omitempty"`
-	FKeyError int   `json:"foreign_error,omitempty"`
-	Skipped   bool  `json:"skipped,omitempty"`
-	Error     error `json:"error,omitempty"`
+	Success   int               `json:"success,omitempty"`
+	FKeyError int               `json:"foreign_error,omitempty"`
+	Skipped   bool              `json:"skipped,omitempty"`
+	Error     types.ErrorString `json:"error,omitempty"`
 }
 
 type ReconcileSummary map[string]ReconcileTableSummary
@@ -72,7 +73,7 @@ func (t ReconcileSummary) DidReconcile(tables []string) bool {
 			return false // this table hasn't been reconciled yet
 		}
 
-		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError == 0
+		reconciled := !summary.Skipped && summary.Error.Err == nil && summary.FKeyError == 0
 		if !reconciled {
 			return false // table didn't reconcile successfully
 		}
@@ -114,14 +115,14 @@ func (t *ReconcileSummary) AddStat(table string, success, failed int, err error)
 	v := (*t)[table]
 	v.Success = success
 	v.FKeyError = failed
-	v.Error = err
+	v.Error = types.ErrorString{Err: err}
 	(*t)[table] = v
 }
 
 func (t ReconcileSummary) Error() error {
 	var allErrors []string
 	for table, summary := range t {
-		if summary.Error != nil {
+		if summary.Error.Err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
 		}
 	}
