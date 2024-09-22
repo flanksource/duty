@@ -135,6 +135,11 @@ table "playbook_runs" {
     null = false
     type = uuid
   }
+  column "spec" {
+    null = false
+    type = jsonb
+    default = "{}" # temporary default value to make the migration possible. we can remove this later.
+  }
   column "status" {
     null    = false
     type    = text

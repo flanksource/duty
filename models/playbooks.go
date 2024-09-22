@@ -115,6 +115,7 @@ type PlaybookRun struct {
 	ID            uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	PlaybookID    uuid.UUID           `json:"playbook_id"`
 	Status        PlaybookRunStatus   `json:"status,omitempty"`
+	Spec          types.JSON          `json:"spec"`
 	CreatedAt     time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	StartTime     *time.Time          `json:"start_time,omitempty" time_format:"postgres_timestamp"`
 	ScheduledTime time.Time           `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
