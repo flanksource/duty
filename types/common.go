@@ -135,3 +135,16 @@ func (items Items) Where(query *gorm.DB, col string) *gorm.DB {
 
 	return query
 }
+
+// ErrorString wraps the error to implement custom JSON marshaling
+type ErrorString struct {
+	Err error
+}
+
+// Convert the error to its string representation if non-nil, else return an empty string.
+func (e ErrorString) MarshalJSON() ([]byte, error) {
+	if e.Err != nil {
+		return json.Marshal(e.Err.Error())
+	}
+	return json.Marshal("")
+}
