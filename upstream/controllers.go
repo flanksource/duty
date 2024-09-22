@@ -9,6 +9,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
@@ -112,6 +113,7 @@ func addJobHistoryToRing(ctx context.Context, agentID string, histories []models
 	if ringManager == nil {
 		return
 	}
+	job.StartJobHistoryEvictor(ctx)
 
 	for _, history := range histories {
 		ringManager.Add(ctx, agentID, history)

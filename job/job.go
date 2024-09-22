@@ -39,7 +39,21 @@ const (
 	maxJitterDuration = time.Minute * 15
 )
 
-var EvictedJobs chan uuid.UUID
+var (
+	EvictedJobs       chan uuid.UUID
+	startedJobHistory = false
+)
+
+func StartJobHistoryEvictor(ctx context.Context) {
+	if !startedJobHistory {
+		if EvictedJobs == nil {
+			EvictedJobs = make(chan uuid.UUID, 1000)
+		}
+		go deleteEvictedJobs(ctx)
+		startedJobHistory = true
+	}
+
+}
 
 // deleteEvictedJobs deletes job_history rows from the DB every job.eviction.period(1m),
 // jobs send rows to be deleted by maintaining a circular buffer by status type
