@@ -39,6 +39,11 @@ table "permissions" {
     type = uuid
   }
 
+  column "connection_id" {
+    null = true
+    type = uuid
+  }
+
   column "created_by" {
     null = false
     type = uuid
@@ -92,6 +97,12 @@ table "permissions" {
   foreign_key "permissions_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "permissions_connection_id_fkey" {
+    columns     = [column.connection_id]
+    ref_columns = [table.connections.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
