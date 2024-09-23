@@ -49,7 +49,7 @@ type Component struct {
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
 	Tooltip         string                  `json:"tooltip,omitempty"`
-	StatusReason    string                  `json:"status_reason"`
+	StatusReason    types.NullString        `json:"status_reason"`
 	Schedule        string                  `json:"schedule,omitempty"`
 	Icon            string                  `json:"icon,omitempty"`
 	Type            string                  `json:"type"`
