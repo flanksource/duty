@@ -63,8 +63,9 @@ table "permissions" {
     null = true
     type = uuid
   }
+
   column "updated_by" {
-    null = false
+    null = true
     type = uuid
   }
 
