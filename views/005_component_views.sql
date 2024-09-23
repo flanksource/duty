@@ -145,3 +145,27 @@ $$ language plpgsql;
 CREATE OR REPLACE VIEW component_types AS
   SELECT distinct on (type) type
   FROM components ORDER BY type asc;
+
+CREATE OR REPLACE FUNCTION lookup_component_config_id_related_components (
+  component_id TEXT,
+  type_filter TEXT DEFAULT 'outgoing',
+  component_types TEXT[] DEFAULT '{}'
+)
+RETURNS TABLE (id UUID) AS $$
+BEGIN
+    RETURN QUERY
+        WITH related_config_ids AS (
+            SELECT * 
+            FROM related_configs_recursive(
+                (SELECT config_id FROM components WHERE components.id = $1::UUID), 
+                $2, 
+                FALSE, 
+                10
+            )
+        )
+        SELECT components.id 
+        FROM components 
+        WHERE config_id IN (SELECT related_config_ids.id FROM related_config_ids) 
+          AND type = ANY($3);
+END;
+$$ LANGUAGE plpgsql;

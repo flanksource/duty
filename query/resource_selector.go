@@ -224,6 +224,13 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
+	if resourceSelector.Functions.ComponentConfigTraversal != nil {
+		args := resourceSelector.Functions.ComponentConfigTraversal
+		if table == "components" {
+			query = query.Where("id IN (SELECT id from lookup_component_config_id_related_components(?, ?, ?))", args.ComponentID, args.Direction, args.Types)
+		}
+	}
+
 	if resourceSelector.Search != "" {
 		var prefixQueries []*gorm.DB
 		if resourceSelector.Name == "" {

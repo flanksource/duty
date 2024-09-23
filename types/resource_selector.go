@@ -9,12 +9,27 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+// +kubebuilder:object:generate=true
+type ComponentConfigTraversalArgs struct {
+	ComponentID string         `yaml:"component_id,omitempty" json:"component_id,omitempty"`
+	Direction   string         `yaml:"direction,omitempty" json:"direction,omitempty"`
+	Types       pq.StringArray `yaml:"types,omitempty" json:"types,omitempty"`
+}
+
+// +kubebuilder:object:generate=true
+type Functions struct {
+	// It uses the config_id linked to the componentID to lookup up all the config relations and returns
+	// a list of componentIDs that are linked to the found configIDs
+	ComponentConfigTraversal *ComponentConfigTraversalArgs `yaml:"component_config_traversal,omitempty" json:"component_config_traversal,omitempty"`
+}
 
 // +kubebuilder:object:generate=true
 type ResourceSelector struct {
@@ -36,6 +51,9 @@ type ResourceSelector struct {
 
 	// Search query that applies to the resource name, tag & labels.
 	Search string `yaml:"search,omitempty" json:"search,omitempty"`
+
+	// Use custom functions for specific selections
+	Functions Functions `yaml:"function,omitempty" json:"function,omitempty"`
 
 	IncludeDeleted bool `yaml:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
 
