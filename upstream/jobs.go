@@ -73,7 +73,7 @@ func (t ReconcileSummary) DidReconcile(tables []string) bool {
 			return false // this table hasn't been reconciled yet
 		}
 
-		reconciled := !summary.Skipped && summary.Error.Unwrap() != nil && summary.FKeyError == 0
+		reconciled := !summary.Skipped && summary.Error.Unwrap() == nil && summary.FKeyError == 0
 		if !reconciled {
 			return false // table didn't reconcile successfully
 		}
