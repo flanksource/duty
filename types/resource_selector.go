@@ -17,14 +17,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// +kubebuilder:object:generate=true
 type ComponentConfigTraversalArgs struct {
 	ComponentID string         `yaml:"component_id,omitempty" json:"component_id,omitempty"`
 	Direction   string         `yaml:"direction,omitempty" json:"direction,omitempty"`
 	Types       pq.StringArray `yaml:"types,omitempty" json:"types,omitempty"`
 }
 
-// +kubebuilder:object:generate=true
 type Functions struct {
 	// It uses the config_id linked to the componentID to lookup up all the config relations and returns
 	// a list of componentIDs that are linked to the found configIDs
@@ -53,7 +51,7 @@ type ResourceSelector struct {
 	Search string `yaml:"search,omitempty" json:"search,omitempty"`
 
 	// Use custom functions for specific selections
-	Functions Functions `yaml:"function,omitempty" json:"function,omitempty"`
+	Functions Functions `yaml:"-" json:"-"`
 
 	IncludeDeleted bool `yaml:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
 

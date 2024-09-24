@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/commons/logger"
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -224,26 +225,42 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
+	if resourceSelector.Search != "" {
+		if strings.HasPrefix(resourceSelector.Search, "component_config_traverse") && table == "components" {
+			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing,Kubernetes::Pod,Kubernetes::Node
+			items := strings.Split(resourceSelector.Search, "=")
+			if len(items) == 2 {
+				// Args should be componentID, direction and types (compID,direction,type1,type2,type3)
+				args := strings.SplitN(items[1], ",", 3)
+				if len(args) == 3 {
+					resourceSelector.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
+						ComponentID: args[0],
+						Direction:   args[1],
+						Types:       pq.StringArray(strings.Split(args[2], ",")),
+					}
+				}
+			}
+		} else {
+			var prefixQueries []*gorm.DB
+			if resourceSelector.Name == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.TagSelector == "" && table == "config_items" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.LabelSelector == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+
+			query = OrQueries(query, prefixQueries...)
+		}
+	}
+
 	if resourceSelector.Functions.ComponentConfigTraversal != nil {
 		args := resourceSelector.Functions.ComponentConfigTraversal
 		if table == "components" {
 			query = query.Where("id IN (SELECT id from lookup_component_config_id_related_components(?, ?, ?))", args.ComponentID, args.Direction, args.Types)
 		}
-	}
-
-	if resourceSelector.Search != "" {
-		var prefixQueries []*gorm.DB
-		if resourceSelector.Name == "" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
-		}
-		if resourceSelector.TagSelector == "" && table == "config_items" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-		}
-		if resourceSelector.LabelSelector == "" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-		}
-
-		query = OrQueries(query, prefixQueries...)
 	}
 
 	return query, nil
