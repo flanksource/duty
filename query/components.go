@@ -10,7 +10,7 @@ import (
 func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Component, error) {
 	var components []models.Component
 	for i := range ids {
-		c, err := ComponentFromCache(ctx, ids[i].String())
+		c, err := ComponentFromCache(ctx, ids[i].String(), false)
 		if err != nil {
 			return nil, err
 		}

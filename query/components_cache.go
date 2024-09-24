@@ -53,7 +53,7 @@ func SyncComponentCache(ctx context.Context) error {
 	return nil
 }
 
-func ComponentFromCache(ctx context.Context, id string) (models.Component, error) {
+func ComponentFromCache(ctx context.Context, id string, queryDeleted bool) (models.Component, error) {
 	c, err := componentCache.Get(ctx, componentCacheKey(id))
 	if err != nil {
 		var cacheErr *store.NotFound
@@ -62,7 +62,11 @@ func ComponentFromCache(ctx context.Context, id string) (models.Component, error
 		}
 
 		var component models.Component
-		if err := ctx.DB().Where("id = ?", id).Where("deleted_at IS NULL").First(&component).Error; err != nil {
+		q := ctx.DB().Where("id = ?", id)
+		if !queryDeleted {
+			q = q.Where("deleted_at IS NULL")
+		}
+		if err := q.First(&component).Error; err != nil {
 			return component, err
 		}
 
