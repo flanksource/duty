@@ -3,6 +3,7 @@ package topology
 import (
 	"strings"
 
+	"github.com/flanksource/commons/collections/set"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
@@ -13,12 +14,16 @@ import (
 
 // Save the component and its children returing the ids that were inserted/updated
 func SaveComponent(ctx context.Context, c *models.Component) ([]string, error) {
-	var ids []string
-	return saveComponentsRecursively(ctx, c, ids)
+	ids := set.New[string]()
+	returnedIDs, err := saveComponentsRecursively(ctx, c, ids)
+	if err != nil {
+		return nil, err
+	}
+	return returnedIDs.ToSlice(), nil
 }
 
 // We keep a list of ids to track all the insert/updated ids
-func saveComponentsRecursively(ctx context.Context, c *models.Component, ids []string) ([]string, error) {
+func saveComponentsRecursively(ctx context.Context, c *models.Component, ids set.Set[string]) (set.Set[string], error) {
 	if c.ParentId != nil && !strings.Contains(c.Path, c.ParentId.String()) {
 		if c.Path == "" {
 			c.Path = c.ParentId.String()
@@ -39,7 +44,6 @@ func saveComponentsRecursively(ctx context.Context, c *models.Component, ids []s
 				return nil, db.ErrorDetails(err)
 			}
 		}
-		ids = append(ids, c.ID.String())
 	} else {
 		// We set this to nil so that the conflict clause returns correct ID
 		c.ID = uuid.Nil
@@ -51,8 +55,8 @@ func saveComponentsRecursively(ctx context.Context, c *models.Component, ids []s
 			}, clause.Returning{Columns: []clause.Column{{Name: "id"}}}).Create(c).Error; err != nil {
 			return nil, db.ErrorDetails(err)
 		}
-		ids = append(ids, c.ID.String())
 	}
+	ids.Add(c.ID.String())
 
 	if len(c.Components) > 0 {
 		for _, child := range c.Components {
@@ -62,7 +66,7 @@ func saveComponentsRecursively(ctx context.Context, c *models.Component, ids []s
 			if err != nil {
 				return nil, err
 			}
-			ids = append(ids, returnedIDs...)
+			ids.Union(returnedIDs)
 		}
 	}
 	return ids, nil
