@@ -173,3 +173,19 @@ func FindTeam(ctx context.Context, identifier string, opts ...GetterOption) (*mo
 
 	return team, nil
 }
+
+func FindPlaybook(ctx context.Context, identifier string, opts ...GetterOption) (*models.Playbook, error) {
+	var field string
+	if _, err := uuid.Parse(identifier); err == nil {
+		field = "id"
+	} else {
+		field = "name"
+	}
+
+	team, err := findEntityByField[models.Playbook](ctx, field, identifier, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return team, nil
+}
