@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/labstack/echo/v4"
+	"github.com/samber/oops"
 )
 
 type HTTPError struct {
@@ -42,6 +43,11 @@ func WriteSuccess(c echo.Context, payload any) error {
 }
 
 func WriteError(c echo.Context, err error) error {
+	var oopsErr oops.OopsError
+	if errors.As(err, &oopsErr) {
+		return c.JSON(ErrorStatusCode(oopsErr.Code()), oopsErr)
+	}
+
 	code, message, data := ErrorCode(err), ErrorMessage(err), ErrorData(err)
 
 	if debugInfo := ErrorDebugInfo(err); debugInfo != "" {
