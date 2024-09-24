@@ -8,7 +8,6 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/commons/logger"
-	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -225,21 +224,17 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
+	supportedFuncs := []string{"component_config_traverse"}
+	useFuncParsing := false
 	if resourceSelector.Search != "" {
-		if strings.HasPrefix(resourceSelector.Search, "component_config_traverse") && table == "components" {
-			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing,Kubernetes::Pod,Kubernetes::Node
-			items := strings.Split(resourceSelector.Search, "=")
-			if len(items) == 2 {
-				// Args should be componentID, direction and types (compID,direction,type1,type2,type3)
-				args := strings.SplitN(items[1], ",", 3)
-				if len(args) == 3 {
-					resourceSelector.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
-						ComponentID: args[0],
-						Direction:   args[1],
-						Types:       pq.StringArray(strings.Split(args[2], ",")),
-					}
-				}
+		for _, sf := range supportedFuncs {
+			if strings.Contains(resourceSelector.Search, sf) {
+				useFuncParsing = true
+				break
 			}
+		}
+		if useFuncParsing {
+			setSearchQueryParams(&resourceSelector)
 		} else {
 			var prefixQueries []*gorm.DB
 			if resourceSelector.Name == "" {
@@ -264,6 +259,34 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	}
 
 	return query, nil
+}
+
+func setSearchQueryParams(rs *types.ResourceSelector) {
+	if rs.Search == "" {
+		return
+	}
+
+	queries := strings.Split(rs.Search, ";")
+	for _, q := range queries {
+		items := strings.Split(q, "=")
+		if len(items) != 2 {
+			continue
+		}
+
+		switch items[0] {
+		case "component_config_traverse":
+			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing,Kubernetes::Pod,Kubernetes::Node
+			// Args should be componentID, direction and types (compID,direction,type1,type2,type3)
+			args := strings.SplitN(items[1], ",", 3)
+			if len(args) == 3 {
+				rs.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
+					ComponentID: args[0],
+					Direction:   args[1],
+					Types:       types.Items(strings.Split(args[2], ",")),
+				}
+			}
+		}
+	}
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids

@@ -9,7 +9,6 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
-	"github.com/lib/pq"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -18,9 +17,9 @@ import (
 )
 
 type ComponentConfigTraversalArgs struct {
-	ComponentID string         `yaml:"component_id,omitempty" json:"component_id,omitempty"`
-	Direction   string         `yaml:"direction,omitempty" json:"direction,omitempty"`
-	Types       pq.StringArray `yaml:"types,omitempty" json:"types,omitempty"`
+	ComponentID string `yaml:"component_id,omitempty" json:"component_id,omitempty"`
+	Direction   string `yaml:"direction,omitempty" json:"direction,omitempty"`
+	Types       Items  `yaml:"types,omitempty" json:"types,omitempty"`
 }
 
 type Functions struct {
