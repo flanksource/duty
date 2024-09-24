@@ -10,6 +10,11 @@ table "permissions" {
     type = text
   }
 
+  column "source" {
+    null = true
+    type = text
+  }
+
   column "action" {
     null = false
     type = text
