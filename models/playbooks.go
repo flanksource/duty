@@ -336,21 +336,21 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 	return s
 }
 
-func (run *PlaybookRun) GetAccessors(db *gorm.DB) (AccessorObjects, error) {
-	var output []AccessorObject
+func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
+	output := map[string]any{}
 
 	var playbook Playbook
 	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
 		return nil, err
 	}
-	output = append(output, AccessorObject{Name: "playbook", Data: playbook})
+	output["playbook"] = playbook
 
 	if run.ComponentID != nil {
 		var component Component
 		if err := db.First(&component, run.ComponentID).Error; err != nil {
 			return nil, err
 		}
-		output = append(output, AccessorObject{Name: "component", Data: component})
+		output["component"] = component
 	}
 
 	if run.CheckID != nil {
@@ -358,7 +358,7 @@ func (run *PlaybookRun) GetAccessors(db *gorm.DB) (AccessorObjects, error) {
 		if err := db.First(&check, run.CheckID).Error; err != nil {
 			return nil, err
 		}
-		output = append(output, AccessorObject{Name: "check", Data: check})
+		output["check"] = check
 	}
 
 	if run.ConfigID != nil {
@@ -366,7 +366,7 @@ func (run *PlaybookRun) GetAccessors(db *gorm.DB) (AccessorObjects, error) {
 		if err := db.First(&config, run.ConfigID).Error; err != nil {
 			return nil, err
 		}
-		output = append(output, AccessorObject{Name: "config", Data: config})
+		output["config"] = config
 	}
 
 	return output, nil
