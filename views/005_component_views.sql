@@ -148,8 +148,7 @@ CREATE OR REPLACE VIEW component_types AS
 
 CREATE OR REPLACE FUNCTION lookup_component_config_id_related_components (
   component_id TEXT,
-  type_filter TEXT DEFAULT 'outgoing',
-  component_types TEXT[] DEFAULT '{}'
+  type_filter TEXT DEFAULT 'outgoing'
 )
 RETURNS TABLE (id UUID) AS $$
 BEGIN
@@ -165,7 +164,6 @@ BEGIN
         )
         SELECT components.id 
         FROM components 
-        WHERE config_id IN (SELECT related_config_ids.id FROM related_config_ids) 
-          AND type = ANY($3);
+        WHERE config_id IN (SELECT related_config_ids.id FROM related_config_ids);
 END;
 $$ LANGUAGE plpgsql;

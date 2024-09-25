@@ -19,7 +19,6 @@ import (
 type ComponentConfigTraversalArgs struct {
 	ComponentID string `yaml:"component_id,omitempty" json:"component_id,omitempty"`
 	Direction   string `yaml:"direction,omitempty" json:"direction,omitempty"`
-	Types       Items  `yaml:"types,omitempty" json:"types,omitempty"`
 }
 
 type Functions struct {

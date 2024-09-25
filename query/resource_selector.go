@@ -250,7 +250,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if resourceSelector.Functions.ComponentConfigTraversal != nil {
 		args := resourceSelector.Functions.ComponentConfigTraversal
 		if table == "components" {
-			query = query.Where("id IN (SELECT id from lookup_component_config_id_related_components(?, ?, ?))", args.ComponentID, args.Direction, args.Types)
+			query = query.Where("id IN (SELECT id from lookup_component_config_id_related_components(?, ?))", args.ComponentID, args.Direction)
 		}
 	}
 
@@ -271,14 +271,13 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 
 		switch items[0] {
 		case "component_config_traverse":
-			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing,Kubernetes::Pod,Kubernetes::Node
-			// Args should be componentID, direction and types (compID,direction,type1,type2,type3)
-			args := strings.SplitN(items[1], ",", 3)
-			if len(args) == 3 {
+			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
+			// Args should be componentID, direction and types (compID,direction)
+			args := strings.Split(items[1], ",")
+			if len(args) == 2 {
 				rs.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
 					ComponentID: args[0],
 					Direction:   args[1],
-					Types:       types.Items(strings.Split(args[2], ",")),
 				}
 			}
 		case "id":
