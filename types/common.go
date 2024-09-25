@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/gomplate/v3"
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 )
@@ -51,7 +52,7 @@ func asMap(t any, removeFields ...string) map[string]any {
 	return m
 }
 
-type Items []string
+type Items pq.StringArray
 
 func (items Items) String() string {
 	return strings.Join(items, ",")

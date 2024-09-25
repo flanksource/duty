@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -130,6 +131,28 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 }
 
 func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
+
+	// We call setSearchQueryParams as it sets those params that
+	// might later be used by the query
+	if resourceSelector.Search != "" {
+		if strings.Contains(resourceSelector.Search, "=") {
+			setSearchQueryParams(&resourceSelector)
+		} else {
+			var prefixQueries []*gorm.DB
+			if resourceSelector.Name == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.TagSelector == "" && table == "config_items" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.LabelSelector == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+
+			query = OrQueries(query, prefixQueries...)
+		}
+	}
+
 	if !resourceSelector.IncludeDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
@@ -224,22 +247,59 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	if resourceSelector.Search != "" {
-		var prefixQueries []*gorm.DB
-		if resourceSelector.Name == "" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+	if resourceSelector.Functions.ComponentConfigTraversal != nil {
+		args := resourceSelector.Functions.ComponentConfigTraversal
+		if table == "components" {
+			query = query.Where("id IN (SELECT id from lookup_component_config_id_related_components(?, ?))", args.ComponentID, args.Direction)
 		}
-		if resourceSelector.TagSelector == "" && table == "config_items" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-		}
-		if resourceSelector.LabelSelector == "" {
-			prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-		}
-
-		query = OrQueries(query, prefixQueries...)
 	}
 
 	return query, nil
+}
+
+func setSearchQueryParams(rs *types.ResourceSelector) {
+	if rs.Search == "" {
+		return
+	}
+
+	queries := strings.Split(rs.Search, " ")
+	for _, q := range queries {
+		items := strings.Split(q, "=")
+		if len(items) != 2 {
+			continue
+		}
+
+		switch items[0] {
+		case "component_config_traverse":
+			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
+			// Args should be componentID, direction and types (compID,direction)
+			args := strings.Split(items[1], ",")
+			if len(args) == 2 {
+				rs.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
+					ComponentID: args[0],
+					Direction:   args[1],
+				}
+			}
+		case "id":
+			rs.ID = items[1]
+		case "name":
+			rs.Name = items[1]
+		case "namespace":
+			rs.Namespace = items[1]
+		case "type":
+			rs.Types = append(rs.Types, strings.Split(items[1], ",")...)
+		case "status":
+			rs.Statuses = append(rs.Statuses, strings.Split(items[1], ",")...)
+		case "limit":
+			l, _ := strconv.Atoi(items[1])
+			rs.Limit = l
+		case "scope":
+			rs.Scope = items[1]
+		default:
+			// key=val
+			rs.LabelSelector += strings.Join([]string{rs.LabelSelector, q}, ",")
+		}
+	}
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
@@ -261,7 +321,11 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 	}
 
 	query := ctx.DB().Select("id").Table(table)
-	if limit > 0 {
+
+	// Resource selector's limit gets higher priority
+	if resourceSelector.Limit > 0 {
+		query = query.Limit(resourceSelector.Limit)
+	} else if limit > 0 {
 		query = query.Limit(limit)
 	}
 
