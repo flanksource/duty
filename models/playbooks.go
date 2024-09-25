@@ -334,7 +334,42 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 		s += fmt.Sprintf("\t\t%s\n", &action)
 	}
 	return s
+}
 
+func (run *PlaybookRun) GetAccessors(db *gorm.DB) (AccessorObjects, error) {
+	var output []AccessorObject
+
+	var playbook Playbook
+	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
+		return nil, err
+	}
+	output = append(output, AccessorObject{Name: "playbook", Data: playbook})
+
+	if run.ComponentID != nil {
+		var component Component
+		if err := db.First(&component, run.ComponentID).Error; err != nil {
+			return nil, err
+		}
+		output = append(output, AccessorObject{Name: "component", Data: component})
+	}
+
+	if run.CheckID != nil {
+		var check Check
+		if err := db.First(&check, run.CheckID).Error; err != nil {
+			return nil, err
+		}
+		output = append(output, AccessorObject{Name: "check", Data: check})
+	}
+
+	if run.ConfigID != nil {
+		var config ConfigItem
+		if err := db.First(&config, run.ConfigID).Error; err != nil {
+			return nil, err
+		}
+		output = append(output, AccessorObject{Name: "config", Data: config})
+	}
+
+	return output, nil
 }
 
 type PlaybookRunAction struct {
