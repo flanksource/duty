@@ -188,5 +188,33 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			Expect(i.Health).To(Equal(expected.Health))
 			Expect(i.Analysis).To(Equal(expected.Analysis))
 		}
+
+		// We have separate test for 10 days since 30day and 7day summary is served from materialized views
+		// but any other time range is served from a view
+		summary10D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
+			GroupBy:  []string{"type"},
+			Changes:  query.ConfigSummaryRequestChanges{Since: "10d"},
+			Analysis: query.ConfigSummaryRequestAnalysis{Since: "10d"},
+		})
+		Expect(err).To(BeNil())
+
+		var rows10d []summaryRow
+		err = json.Unmarshal(summary10D, &rows10d)
+		Expect(err).To(BeNil())
+
+		expectedTypeSummary10d := []summaryRow{
+			{Type: "Test::type-A", Count: 3, Changes: 5, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-C", Count: 1, Changes: 0, Health: map[string]any{"unhealthy": float64(1)}, Analysis: nil},
+		}
+
+		for _, expected := range expectedTypeSummary10d {
+			i, found := lo.Find(rows10d, func(i summaryRow) bool { return i.Type == expected.Type })
+			Expect(found).To(BeTrue())
+			Expect(i.Count).To(Equal(expected.Count))
+			Expect(i.Changes).To(Equal(expected.Changes))
+			Expect(i.Health).To(Equal(expected.Health))
+			Expect(i.Analysis).To(Equal(expected.Analysis))
+		}
 	})
 })
