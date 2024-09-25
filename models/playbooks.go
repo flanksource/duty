@@ -334,7 +334,42 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 		s += fmt.Sprintf("\t\t%s\n", &action)
 	}
 	return s
+}
 
+func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
+	output := map[string]any{}
+
+	var playbook Playbook
+	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
+		return nil, err
+	}
+	output["playbook"] = playbook
+
+	if run.ComponentID != nil {
+		var component Component
+		if err := db.First(&component, run.ComponentID).Error; err != nil {
+			return nil, err
+		}
+		output["component"] = component
+	}
+
+	if run.CheckID != nil {
+		var check Check
+		if err := db.First(&check, run.CheckID).Error; err != nil {
+			return nil, err
+		}
+		output["check"] = check
+	}
+
+	if run.ConfigID != nil {
+		var config ConfigItem
+		if err := db.First(&config, run.ConfigID).Error; err != nil {
+			return nil, err
+		}
+		output["config"] = config
+	}
+
+	return output, nil
 }
 
 type PlaybookRunAction struct {
