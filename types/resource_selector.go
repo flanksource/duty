@@ -52,6 +52,8 @@ type ResourceSelector struct {
 	// Use custom functions for specific selections
 	Functions Functions `yaml:"-" json:"-"`
 
+	Limit int `yaml:"limit,omitempty" json:"limit,omitempty"`
+
 	IncludeDeleted bool `yaml:"includeDeleted,omitempty" json:"includeDeleted,omitempty"`
 
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`

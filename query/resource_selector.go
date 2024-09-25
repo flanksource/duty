@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -130,6 +131,28 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 }
 
 func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
+
+	// We call setSearchQueryParams as it sets those params that
+	// might later be used by the query
+	if resourceSelector.Search != "" {
+		if strings.Contains(resourceSelector.Search, "=") {
+			setSearchQueryParams(&resourceSelector)
+		} else {
+			var prefixQueries []*gorm.DB
+			if resourceSelector.Name == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.TagSelector == "" && table == "config_items" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+			if resourceSelector.LabelSelector == "" {
+				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+			}
+
+			query = OrQueries(query, prefixQueries...)
+		}
+	}
+
 	if !resourceSelector.IncludeDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
@@ -224,33 +247,6 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	supportedFuncs := []string{"component_config_traverse"}
-	useFuncParsing := false
-	if resourceSelector.Search != "" {
-		for _, sf := range supportedFuncs {
-			if strings.Contains(resourceSelector.Search, sf) {
-				useFuncParsing = true
-				break
-			}
-		}
-		if useFuncParsing {
-			setSearchQueryParams(&resourceSelector)
-		} else {
-			var prefixQueries []*gorm.DB
-			if resourceSelector.Name == "" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
-			}
-			if resourceSelector.TagSelector == "" && table == "config_items" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-			}
-			if resourceSelector.LabelSelector == "" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-			}
-
-			query = OrQueries(query, prefixQueries...)
-		}
-	}
-
 	if resourceSelector.Functions.ComponentConfigTraversal != nil {
 		args := resourceSelector.Functions.ComponentConfigTraversal
 		if table == "components" {
@@ -266,7 +262,7 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 		return
 	}
 
-	queries := strings.Split(rs.Search, ";")
+	queries := strings.Split(rs.Search, " ")
 	for _, q := range queries {
 		items := strings.Split(q, "=")
 		if len(items) != 2 {
@@ -285,6 +281,24 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 					Types:       types.Items(strings.Split(args[2], ",")),
 				}
 			}
+		case "id":
+			rs.ID = items[1]
+		case "name":
+			rs.Name = items[1]
+		case "namespace":
+			rs.Namespace = items[1]
+		case "type":
+			rs.Types = append(rs.Types, strings.Split(items[1], ",")...)
+		case "status":
+			rs.Statuses = append(rs.Statuses, strings.Split(items[1], ",")...)
+		case "limit":
+			l, _ := strconv.Atoi(items[1])
+			rs.Limit = l
+		case "scope":
+			rs.Scope = items[1]
+		default:
+			// key=val
+			rs.LabelSelector += strings.Join([]string{rs.LabelSelector, q}, ",")
 		}
 	}
 }
@@ -308,7 +322,11 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 	}
 
 	query := ctx.DB().Select("id").Table(table)
-	if limit > 0 {
+
+	// Resource selector's limit gets higher priority
+	if resourceSelector.Limit > 0 {
+		query = query.Limit(resourceSelector.Limit)
+	} else if limit > 0 {
 		query = query.Limit(limit)
 	}
 
