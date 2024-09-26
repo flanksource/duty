@@ -3,6 +3,7 @@ package echo
 import (
 	"net/http"
 
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	echov4 "github.com/labstack/echo/v4"
@@ -20,7 +21,7 @@ func Properties(c echov4.Context) error {
 
 	var output = make([]map[string]string, 0)
 
-	for k, v := range context.Local {
+	for k, v := range properties.Global.GetAll() {
 		output = append(output, map[string]string{
 			"name":        k,
 			"value":       v,
