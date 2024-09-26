@@ -48,10 +48,10 @@ var (
 )
 
 type ReconcileTableSummary struct {
-	Success   int            `json:"success,omitempty"`
-	FKeyError int            `json:"foreign_error,omitempty"`
-	Skipped   bool           `json:"skipped,omitempty"`
-	Error     oops.OopsError `json:"error,omitempty"`
+	Success   int             `json:"success,omitempty"`
+	FKeyError int             `json:"foreign_error,omitempty"`
+	Skipped   bool            `json:"skipped,omitempty"`
+	Error     *oops.OopsError `json:"error,omitempty"`
 }
 
 type ReconcileSummary map[string]ReconcileTableSummary
@@ -73,7 +73,7 @@ func (t ReconcileSummary) DidReconcile(tables []string) bool {
 			return false // this table hasn't been reconciled yet
 		}
 
-		reconciled := !summary.Skipped && summary.Error.Unwrap() == nil && summary.FKeyError == 0
+		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError == 0
 		if !reconciled {
 			return false // table didn't reconcile successfully
 		}
@@ -117,15 +117,16 @@ func (t *ReconcileSummary) AddStat(table string, success, failed int, err error)
 	v.FKeyError = failed
 	if err != nil {
 		// For json marshaling
-		v.Error = oops.Wrap(err).(oops.OopsError)
+		v.Error = lo.ToPtr(oops.Wrap(err).(oops.OopsError))
 	}
+
 	(*t)[table] = v
 }
 
 func (t ReconcileSummary) Error() error {
 	var allErrors []string
 	for table, summary := range t {
-		if summary.Error.Unwrap() != nil {
+		if summary.Error != nil {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
 		}
 	}
