@@ -174,7 +174,18 @@ func (ci ConfigItem) String() string {
 }
 
 func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
-	return asMap(ci, removeFields...)
+	env := asMap(ci, removeFields...)
+	if ci.Config == nil || *ci.Config == "" {
+		return env
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(*ci.Config), &m); err != nil {
+		return env
+	}
+	env["config"] = m
+
+	return env
 }
 
 func (ci *ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
@@ -193,19 +204,6 @@ func (ci *ConfigItem) NestedString(paths ...string) string {
 	}
 	v, _, _ := unstructured.NestedString(m, paths...)
 	return v
-}
-
-func (ci ConfigItem) TemplateEnv() (map[string]any, error) {
-	env := ci.AsMap()
-	if ci.Config == nil {
-		return env, nil
-	}
-	var m map[string]any
-	if err := json.Unmarshal([]byte(*ci.Config), &m); err != nil {
-		return env, err
-	}
-	env["config"] = m
-	return env, nil
 }
 
 func (c ConfigItem) GetSelectorID() string {
