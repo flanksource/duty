@@ -46,7 +46,7 @@ type ResourceSelector struct {
 	Cache string `yaml:"cache,omitempty" json:"cache,omitempty"`
 
 	// Search query that applies to the resource name, tag & labels.
-	Search string `yaml:"search,omitempty" json:"search,omitempty"`
+	Search string `yaml:"search,omitempty" json:"search,omitempty" template:"true"`
 
 	// Use custom functions for specific selections
 	Functions Functions `yaml:"-" json:"-"`
