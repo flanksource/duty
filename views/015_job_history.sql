@@ -199,6 +199,7 @@ CREATE OR REPLACE VIEW job_history_names AS
 
 -- Notifications with job history
 DROP VIEW IF EXISTS notifications_summary;
+
 CREATE OR REPLACE VIEW notifications_summary AS
 WITH notification_send_summary AS (
   SELECT
@@ -215,6 +216,7 @@ SELECT
   notifications.id,
   notifications.name,
   COALESCE(notifications.namespace, '') AS namespace,
+  notifications.error,
   notifications.title,
   notifications.events,
   notifications.filter,
