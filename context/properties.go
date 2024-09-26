@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 )
 
-var Local map[string]string
 var supportedProperties = cmap.New[PropertyType]()
 
 var propertyCache = cache.New(time.Minute*15, time.Minute*15)
@@ -194,14 +193,6 @@ func (k Context) Properties() Properties {
 
 	propertyCache.Set("global", props, 0)
 	return props
-}
-
-func SetLocalProperty(property, value string) {
-	if Local == nil {
-		Local = make(map[string]string)
-	}
-
-	Local[property] = value
 }
 
 func UpdateProperty(ctx Context, key, value string) error {

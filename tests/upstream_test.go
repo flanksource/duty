@@ -11,6 +11,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -27,7 +28,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 	ginkgo.BeforeAll(func() {
 		DefaultContext.ClearCache()
-		context.SetLocalProperty("upstream.reconcile.pre-check", "false")
+		properties.Set("upstream.reconcile.pre-check", "false")
 
 		var err error
 		upstreamCtx, drop, err = setup.NewDB(DefaultContext, "upstream")
