@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -156,7 +157,11 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 
 		// We are making a change and an analysis older than 7 days, it should reflect in the summary
 		change0 := gen.Generated.Changes[0]
-		DefaultContext.DB().Model(&models.ConfigChange{}).Where("id = ?", change0.ID).UpdateColumn("created_at", gorm.Expr("NOW() - '15 days'::interval"))
+		err = DefaultContext.DB().Model(&models.ConfigChange{}).Where("id = ?", change0.ID).UpdateColumns(map[string]any{
+			"created_at": gorm.Expr("NOW() - '15 days'::interval"),
+			"details":    `{"reason": "test reason"}`,
+		}).Error
+		Expect(err).To(BeNil())
 
 		analysis0 := gen.Generated.Analysis[0]
 		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("last_observed", gorm.Expr("NOW() - '15 days'::interval"))
@@ -183,10 +188,10 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		for _, expected := range expectedTypeSummary7d {
 			i, found := lo.Find(rows7d, func(i summaryRow) bool { return i.Type == expected.Type })
 			Expect(found).To(BeTrue())
-			Expect(i.Count).To(Equal(expected.Count))
-			Expect(i.Changes).To(Equal(expected.Changes))
-			Expect(i.Health).To(Equal(expected.Health))
-			Expect(i.Analysis).To(Equal(expected.Analysis))
+			Expect(i.Count).To(Equal(expected.Count), fmt.Sprintf("count mismatched for type %s", expected.Type))
+			Expect(i.Changes).To(Equal(expected.Changes), fmt.Sprintf("changes count mismatched for type %s", expected.Type))
+			Expect(i.Health).To(Equal(expected.Health), fmt.Sprintf("health mismatched for type %s", expected.Type))
+			Expect(i.Analysis).To(Equal(expected.Analysis), fmt.Sprintf("analysis count mismatched for type %s", expected.Type))
 		}
 
 		// We have separate test for 10 days since 30day and 7day summary is served from materialized views

@@ -14,8 +14,8 @@ BEGIN
       ELSE count
     END,
     created_at = CASE
-      WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN NOW()
-      ELSE COALESCE(NEW.created_at, OLD.created_at)
+      WHEN NEW.details IS DISTINCT FROM OLD.details OR NEW.diff IS DISTINCT FROM OLD.diff THEN NEW.created_at
+      ELSE OLD.created_at
     END,
     created_by = NEW.created_by,
     details = NEW.details,
