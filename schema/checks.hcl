@@ -97,8 +97,9 @@ table "check_statuses" {
     type = jsonb
   }
   column "duration" {
+    comment = "duration in milliseconds"
     null = true
-    type = integer
+    type = bigint
   }
   column "error" {
     null = true

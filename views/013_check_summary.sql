@@ -79,7 +79,6 @@ CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
     check_id not in (select check_id from check_status_summary_hour)
 ;
 
-
 CREATE OR REPLACE VIEW check_summary AS
   SELECT
     checks.id,
@@ -124,8 +123,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER checks_last_transition_time BEFORE
 UPDATE ON checks FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
 EXECUTE PROCEDURE update_last_transition_time_for_check ();
-
-
+-- 
 CREATE OR REPLACE FUNCTION check_summary_for_component(id uuid) RETURNS setof check_summary
 AS $$
   BEGIN
@@ -137,6 +135,7 @@ AS $$
   END;
 $$ language plpgsql;
 
+-- 
 CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
   WITH agg_check_statuses AS (
     SELECT

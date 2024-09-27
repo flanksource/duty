@@ -1,5 +1,4 @@
-CREATE OR REPLACE VIEW
-  check_statuses_5m AS
+CREATE OR REPLACE VIEW check_statuses_5m AS
 SELECT
   check_statuses.check_id,
   date_trunc('minute', "time") - (date_part('minute', "time")::INT % 5) * INTERVAL '1 minute' AS created_at,

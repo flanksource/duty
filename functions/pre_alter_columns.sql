@@ -48,3 +48,5 @@ BEGIN
         WHERE category IS NULL;
     END IF;
 END $$;
+
+ALTER TABLE IF EXISTS check_statuses ALTER COLUMN duration TYPE BIGINT;
