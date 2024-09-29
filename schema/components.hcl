@@ -385,6 +385,9 @@ table "components" {
   index "idx_components_parent_id" {
     columns = [column.parent_id]
   }
+  index "idx_components_config_id" {
+    columns = [column.config_id]
+  }
 }
 
 table "check_component_relationships" {
