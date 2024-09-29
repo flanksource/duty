@@ -159,7 +159,7 @@ BEGIN
                 (SELECT config_id FROM components WHERE components.id = $1::UUID), 
                 $2, 
                 FALSE, 
-                10
+                5
             )
         )
         SELECT components.id 
