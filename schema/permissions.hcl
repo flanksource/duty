@@ -6,7 +6,7 @@ table "permissions" {
     default = sql("generate_ulid()")
   }
   column "description" {
-    null = false
+    null = true
     type = text
   }
 
@@ -20,8 +20,14 @@ table "permissions" {
     type = text
   }
 
+  column "object" {
+    null = true
+    type = text
+  }
+
   column "deny" {
     type = boolean
+    default = false
   }
 
   column "component_id" {
