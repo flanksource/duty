@@ -159,6 +159,6 @@ BEGIN
         )
         SELECT components.id 
         FROM components 
-        WHERE config_id IN (SELECT config_id_paths.id FROM config_id_paths);
+        INNER JOIN config_id_paths ON config_id_paths.id = components.config_id;
 END;
 $$ LANGUAGE plpgsql

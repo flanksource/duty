@@ -377,16 +377,17 @@ table "components" {
   index "idx_components_deleted_at" {
     columns = [column.deleted_at]
   }
-
   index "idx_components_agent" {
     columns = [column.agent_id]
   }
-
   index "idx_components_parent_id" {
     columns = [column.parent_id]
   }
   index "idx_components_config_id" {
     columns = [column.config_id]
+  }
+  index "idx_components_configs" {
+    columns = [column.configs]
   }
 }
 
