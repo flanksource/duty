@@ -220,4 +220,10 @@ table "job_history" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE AND status in ('FAILED', 'WARNING')"
   }
+  index "job_history_resource_id_idx" {
+    columns = [column.resource_id]
+  }
+  index "job_history_status_idx" {
+    columns = [column.status]
+  }
 }

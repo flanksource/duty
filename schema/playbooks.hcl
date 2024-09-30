@@ -347,4 +347,7 @@ table "playbook_run_actions" {
   index "playbook_run_actions_status_time_idx" {
     columns = [column.status, column.scheduled_time]
   }
+  index "playbook_run_actions_playbook_run_id_idx" {
+    columns = [column.playbook_run_id]
+  }
 }

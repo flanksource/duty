@@ -98,6 +98,9 @@ table "agents" {
     columns = [column.name]
     where   = "deleted_at IS NULL"
   }
+  index "idx_agents_name" {
+    columns = [column.name]
+  }
 
   foreign_key "agents_created_by_fkey" {
     columns     = [column.created_by]
