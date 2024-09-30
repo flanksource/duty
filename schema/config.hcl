@@ -196,19 +196,18 @@ table "config_changes" {
     unique  = true
     columns = [column.config_id, column.external_change_id]
   }
-
   index "config_changes_change_type_idx" {
     columns = [column.change_type]
   }
-
   index "config_changes_config_id_idx" {
     columns = [column.config_id]
   }
-
+  index "config_changes_config_id_change_type_idx" {
+    columns = [column.config_id, column.change_type]
+  }
   index "config_changes_fingerprint_idx" {
     columns = [column.fingerprint]
   }
-
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
@@ -389,6 +388,10 @@ table "config_items" {
   }
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
+  }
+  index "idx_config_items_scraper_id_deleted_at_null" {
+    columns = [column.scraper_id]
+    where = "deleted_at IS NULL"
   }
   check "config_item_name_type_not_empty" {
     expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
