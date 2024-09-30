@@ -2,7 +2,9 @@ package query
 
 import (
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -28,6 +30,7 @@ func (t *Kustomize) AsMap() map[string]any {
 }
 
 type Git struct {
+	Link   string `json:"link"`
 	File   string `json:"file"`
 	Dir    string `json:"dir"`
 	URL    string `json:"url"`
@@ -37,6 +40,7 @@ type Git struct {
 func (t *Git) AsMap() map[string]any {
 	return map[string]any{
 		"file":   t.File,
+		"link":   t.Link,
 		"dir":    t.Dir,
 		"url":    t.URL,
 		"branch": t.Branch,
@@ -95,7 +99,21 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 		source.Git.Dir = filepath.Dir(source.Git.File)
 	}
 
+	if strings.Contains(source.Git.URL, "github.com") {
+		source.Git.Link = fmt.Sprintf("https://%s/tree/%s/%s", stripScheme(source.Git.URL), source.Git.Branch, source.Git.File)
+	}
+
 	return source, nil
+}
+
+func stripScheme(uri string) string {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	u.Scheme = ""
+	u.User = nil
+	return strings.TrimPrefix(strings.ReplaceAll(u.String(), ".git", ""), "//")
 }
 
 func gitopsSourceCELFunction() func(ctx context.Context) cel.EnvOption {
