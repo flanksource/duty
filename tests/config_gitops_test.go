@@ -31,6 +31,7 @@ var _ = ginkgo.Describe("Config Gitops Source", ginkgo.Ordered, func() {
 		Expect(source.Git.File).To(Equal("aws-demo/spec/namespaces/flux/namespace.yaml"))
 		Expect(source.Git.Dir).To(Equal("aws-demo/spec/namespaces/flux"))
 		Expect(source.Git.URL).To(Equal("ssh://git@github.com/flanksource/sandbox.git"))
+		Expect(source.Git.Link).To(Equal("https://github.com/flanksource/sandbox/tree/main/aws-demo/spec/namespaces/flux/namespace.yaml"))
 		Expect(source.Git.Branch).To(Equal("main"))
 	})
 
