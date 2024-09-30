@@ -25,7 +25,7 @@ BEGIN
   LOOP 
     EXECUTE format('
       CREATE OR REPLACE TRIGGER notify_updates_and_deletes
-      AFTER UPDATE OR DELETE ON %I
+      AFTER INSERT OR UPDATE OR DELETE ON %I
       FOR EACH ROW
       EXECUTE PROCEDURE notify_table_updates_and_deletes()',
       table_name
