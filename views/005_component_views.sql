@@ -155,7 +155,7 @@ BEGIN
         WITH config_id_paths AS (
             SELECT config_items.id
             FROM config_items
-            WHERE path LIKE '%' || (SELECT config_id FROM components WHERE components.id = $1::UUID) || '%'
+            WHERE starts_with(path, (SELECT path FROM config_items WHERE id IN (SELECT config_id FROM components WHERE components.id = $1::UUID)))
         )
         SELECT components.id 
         FROM components 

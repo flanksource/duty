@@ -393,6 +393,9 @@ table "config_items" {
     columns = [column.scraper_id]
     where = "deleted_at IS NULL"
   }
+  index "idx_config_items_path" {
+    columns = [column.path]
+  }
   check "config_item_name_type_not_empty" {
     expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
   }
