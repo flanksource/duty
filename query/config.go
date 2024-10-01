@@ -374,7 +374,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 					Joins("LEFT JOIN config_items ON config_analysis.config_id = config_items.id").
 					Where(req.configDeleteClause()).
 					Where(req.filterClause(ctx.DB())).
-					Where("NOW() - config_analysis.last_observed <= ?", req.Analysis.sinceParsed).
+					Where("config_analysis.status = ?", models.AnalysisStatusOpen).
 					Group(groupBy).Group("config_analysis.analysis_type"),
 			)
 

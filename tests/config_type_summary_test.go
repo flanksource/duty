@@ -164,7 +164,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		Expect(err).To(BeNil())
 
 		analysis0 := gen.Generated.Analysis[0]
-		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("last_observed", gorm.Expr("NOW() - '15 days'::interval"))
+		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("status", "closed")
 
 		err = job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
 		Expect(err).To(BeNil())
