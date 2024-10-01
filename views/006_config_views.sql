@@ -13,8 +13,7 @@ WITH type_counts AS (
     FROM 
         config_analysis ca
     WHERE 
-        ca.status = 'open' AND
-        ca.last_observed >= NOW() - INTERVAL '7 days'
+        ca.status = 'open'
     GROUP BY 
         ca.config_id, ca.analysis_type
 )
@@ -43,8 +42,7 @@ WITH type_counts AS (
     FROM 
         config_analysis ca
     WHERE 
-        ca.status = 'open' AND
-        ca.last_observed >= NOW() - INTERVAL '30 days'
+        ca.status = 'open'
     GROUP BY 
         ca.config_id, ca.analysis_type
 )

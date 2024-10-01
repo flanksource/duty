@@ -88,12 +88,14 @@ table "config_analysis" {
   index "config_analysis_config_id_idx" {
     columns = [column.config_id]
   }
-
+  index "config_analysis_config_id_status_open_idx" {
+    columns = [column.config_id]
+    where   = "status = 'open'"
+  }
   index "config_analysis_last_observed_idx" {
     type    = BRIN
     columns = [column.last_observed]
   }
-
   index "config_analysis_scraper_id_idx" {
     columns = [column.scraper_id]
   }
