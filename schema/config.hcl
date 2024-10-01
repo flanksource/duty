@@ -40,6 +40,7 @@ table "config_analysis" {
   column "status" {
     null = true
     type = text
+    default = "open"
   }
   column "message" {
     null = true
