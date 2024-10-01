@@ -3,6 +3,66 @@ DROP VIEW IF EXISTS configs CASCADE;
 
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
+CREATE MATERIALIZED VIEW IF NOT EXISTS
+  config_item_analysis_change_count_7d AS
+WITH type_counts AS (
+    SELECT 
+        ca.config_id, 
+        ca.analysis_type, 
+        COUNT(*) AS type_count
+    FROM 
+        config_analysis ca
+    WHERE 
+        ca.status = 'open' AND
+        ca.last_observed >= NOW() - INTERVAL '7 days'
+    GROUP BY 
+        ca.config_id, ca.analysis_type
+)
+SELECT 
+    ci.id AS config_id, 
+    COUNT(cc.config_id) AS config_changes_count, 
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc 
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM 
+    config_items ci
+LEFT JOIN 
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '7 days'
+GROUP BY 
+    ci.id, ci.name;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS
+  config_item_analysis_change_count_30d AS
+WITH type_counts AS (
+    SELECT 
+        ca.config_id, 
+        ca.analysis_type, 
+        COUNT(*) AS type_count
+    FROM 
+        config_analysis ca
+    WHERE 
+        ca.status = 'open' AND
+        ca.last_observed >= NOW() - INTERVAL '30 days'
+    GROUP BY 
+        ca.config_id, ca.analysis_type
+)
+SELECT 
+    ci.id AS config_id, 
+    COUNT(cc.config_id) AS config_changes_count, 
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc 
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM 
+    config_items ci
+LEFT JOIN 
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '30 days'
+GROUP BY 
+    ci.id, ci.name;
+
 CREATE or REPLACE VIEW configs AS
   SELECT
     ci.id,
@@ -29,23 +89,10 @@ CREATE or REPLACE VIEW configs AS
     ci.health,
     ci.ready,
     ci.path,
-    analysis,
-    changes
-  FROM config_items as ci
-    full join (
-      SELECT config_id,
-        json_agg(json_build_object('analyzer',analyzer,'analysis_type',analysis_type,'severity',severity)) as analysis
-      FROM config_analysis
-      WHERE config_analysis.status = 'open'
-      GROUP BY  config_id
-    ) as ca on ca.config_id = ci.id
-    full join (
-      SELECT config_id,
-        json_agg(total) as changes
-      FROM
-      (SELECT config_id,json_build_object('change_type',change_type, 'severity', severity, 'total', count(*)) as total FROM config_changes GROUP BY config_id, change_type, severity) as config_change_types
-      GROUP BY  config_id
-    ) as cc on cc.config_id = ci.id;
+    config_item_analysis_change_count_7d.config_changes_count AS changes,
+    config_item_analysis_change_count_7d.config_analysis_type_counts AS analysis
+  FROM config_items AS ci
+  INNER JOIN config_item_analysis_change_count_7d ON config_item_analysis_change_count_7d.config_id = ci.id;
 
 
 DROP VIEW IF EXISTS config_names;
@@ -900,61 +947,3 @@ WITH cte as (
 )
 SELECT config_id, json_object_agg(status, count) AS checks
 FROM cte GROUP BY config_id;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_analysis_change_count_7d AS
-WITH type_counts AS (
-    SELECT 
-        ca.config_id, 
-        ca.analysis_type, 
-        COUNT(*) AS type_count
-    FROM 
-        config_analysis ca
-    WHERE 
-        ca.last_observed >= NOW() - INTERVAL '7 days'
-    GROUP BY 
-        ca.config_id, ca.analysis_type
-)
-SELECT 
-    ci.id AS config_id, 
-    COUNT(cc.config_id) AS config_changes_count, 
-    COALESCE(
-        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
-         FROM type_counts tc 
-         WHERE tc.config_id = ci.id), '{}'::jsonb
-    ) AS config_analysis_type_counts
-FROM 
-    config_items ci
-LEFT JOIN 
-    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '7 days'
-GROUP BY 
-    ci.id, ci.name;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_analysis_change_count_30d AS
-WITH type_counts AS (
-    SELECT 
-        ca.config_id, 
-        ca.analysis_type, 
-        COUNT(*) AS type_count
-    FROM 
-        config_analysis ca
-    WHERE 
-        ca.last_observed >= NOW() - INTERVAL '30 days'
-    GROUP BY 
-        ca.config_id, ca.analysis_type
-)
-SELECT 
-    ci.id AS config_id, 
-    COUNT(cc.config_id) AS config_changes_count, 
-    COALESCE(
-        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
-         FROM type_counts tc 
-         WHERE tc.config_id = ci.id), '{}'::jsonb
-    ) AS config_analysis_type_counts
-FROM 
-    config_items ci
-LEFT JOIN 
-    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '30 days'
-GROUP BY 
-    ci.id, ci.name;
