@@ -18,7 +18,7 @@ type RelatedConfig struct {
 	Name          string              `json:"name"`
 	Type          string              `json:"type"`
 	Tags          types.JSONStringMap `json:"tags"`
-	Changes       types.JSON          `json:"changes,omitempty"`
+	Changes       int                 `json:"changes,omitempty"`
 	Analysis      types.JSON          `json:"analysis,omitempty"`
 	CostPerMinute *float64            `json:"cost_per_minute,omitempty"`
 	CostTotal1d   *float64            `json:"cost_total_1d,omitempty"`

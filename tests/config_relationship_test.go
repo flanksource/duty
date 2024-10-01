@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -134,8 +135,11 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 
 	ginkgo.Context("Multiple parent graph", func() {
 		ginkgo.It("should not return duplicate parents", func() {
+			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			Expect(err).To(BeNil())
+
 			var relatedConfigs []query.RelatedConfig
-			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", P.ID).Find(&relatedConfigs).Error
+			err = DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'incoming', false)", P.ID).Find(&relatedConfigs).Error
 			Expect(err).To(BeNil())
 
 			Expect(len(relatedConfigs)).To(Equal(5))
@@ -341,6 +345,9 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 	})
 
 	ginkgo.It("should return deployment outgoing", func() {
+		err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		Expect(err).To(BeNil())
+
 		relatedConfigs, err := query.GetRelatedConfigs(DefaultContext, query.RelationQuery{ID: deployment.ID, Relation: query.Outgoing})
 
 		Expect(err).To(BeNil())
@@ -482,9 +489,12 @@ var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
 
 	ginkgo.Context("cluster relationship", func() {
 		ginkgo.It("should fetch level 1", func() {
+			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			Expect(err).To(BeNil())
+
 			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]
 			var relatedConfigs []query.RelatedConfig
-			err := DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 1, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
+			err = DefaultContext.DB().Raw("SELECT * FROM related_configs_recursive(?, 'outgoing', false, 1, 'hard', 'hard')", cluster.ID).Find(&relatedConfigs).Error
 			Expect(err).To(BeNil())
 
 			relatedIDs := lo.Map(relatedConfigs, func(rc query.RelatedConfig, _ int) uuid.UUID { return rc.ID })
