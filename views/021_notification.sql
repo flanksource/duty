@@ -72,7 +72,7 @@ UNION
   SELECT
     nsh.*,
     'component' as "resource_type",
-    jsonb_build_object('id', component.id, 'name', component.name) as resource
+    jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon) as resource
   FROM notification_send_history nsh
   LEFT JOIN (
     SELECT 
