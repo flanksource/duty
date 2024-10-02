@@ -4,7 +4,7 @@ DROP VIEW IF EXISTS configs CASCADE;
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_analysis_change_count_3d AS
+  config_item_summary_3d AS
 WITH type_counts AS (
     SELECT
         ca.config_id,
@@ -34,7 +34,7 @@ GROUP BY
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_analysis_change_count_7d AS
+  config_item_summary_7d AS
 WITH type_counts AS (
     SELECT
         ca.config_id, 
@@ -63,7 +63,7 @@ GROUP BY
     ci.id, ci.name;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_analysis_change_count_30d AS
+  config_item_summary_30d AS
 WITH type_counts AS (
     SELECT 
         ca.config_id, 
@@ -117,10 +117,10 @@ CREATE or REPLACE VIEW configs AS
     ci.health,
     ci.ready,
     ci.path,
-    config_item_analysis_change_count_7d.config_changes_count AS changes,
-    config_item_analysis_change_count_7d.config_analysis_type_counts AS analysis
+    config_item_summary_7d.config_changes_count AS changes,
+    config_item_summary_7d.config_analysis_type_counts AS analysis
   FROM config_items AS ci
-  INNER JOIN config_item_analysis_change_count_7d ON config_item_analysis_change_count_7d.config_id = ci.id;
+  INNER JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id;
 
 
 DROP VIEW IF EXISTS config_names;

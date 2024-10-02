@@ -135,7 +135,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 
 	ginkgo.Context("Multiple parent graph", func() {
 		ginkgo.It("should not return duplicate parents", func() {
-			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			err := job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 
 			var relatedConfigs []query.RelatedConfig
@@ -345,7 +345,7 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 	})
 
 	ginkgo.It("should return deployment outgoing", func() {
-		err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		err := job.RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 
 		relatedConfigs, err := query.GetRelatedConfigs(DefaultContext, query.RelationQuery{ID: deployment.ID, Relation: query.Outgoing})
@@ -489,7 +489,7 @@ var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
 
 	ginkgo.Context("cluster relationship", func() {
 		ginkgo.It("should fetch level 1", func() {
-			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			err := job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 
 			cluster := generator.Generated.ConfigByTypes("Kubernetes::Cluster")[0]

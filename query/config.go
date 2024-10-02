@@ -128,7 +128,7 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	}
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, t.Changes.Since) {
-		cols = append(cols, fmt.Sprintf("COALESCE(sum(config_item_analysis_change_count_%s.config_changes_count), 0) AS changes, COALESCE(aggregated_analysis.total_analysis, '{}'::jsonb) AS analysis", t.Changes.Since))
+		cols = append(cols, fmt.Sprintf("COALESCE(sum(config_item_summary_%s.config_changes_count), 0) AS changes, COALESCE(aggregated_analysis.total_analysis, '{}'::jsonb) AS analysis", t.Changes.Since))
 	} else {
 		if t.Changes.Since != "" {
 			cols = append(cols, "changes_grouped.count AS changes")
@@ -308,7 +308,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Order(req.OrderBy())
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, req.Changes.Since) {
-		tableName := fmt.Sprintf("config_item_analysis_change_count_%s", req.Changes.Since)
+		tableName := fmt.Sprintf("config_item_summary_%s", req.Changes.Since)
 		changesAnalysisGrouped := exclause.NewWith(
 			"changes_analysis_grouped",
 			ctx.DB().Select(req.baseSelectClause(fmt.Sprintf("SUM(%s.config_changes_count) AS total_changes, COALESCE(kv_pair.key, '') AS key, SUM((kv_pair.value::int)) AS value_sum", tableName))).
