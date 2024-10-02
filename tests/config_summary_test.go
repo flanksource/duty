@@ -145,7 +145,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should query changes by range", func() {
 		ginkgo.It("small range", func() {
-			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			err := job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 
 			request := query.ConfigSummaryRequest{

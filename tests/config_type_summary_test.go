@@ -119,7 +119,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			DefaultContext.DB().Create(&item)
 		}
 
-		err := job.RefreshConfigItemAnalysisChangeCount30d(DefaultContext)
+		err := job.RefreshConfigItemSummary30d(DefaultContext)
 		Expect(err).To(BeNil())
 
 		summary30D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
@@ -165,7 +165,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		analysis0 := gen.Generated.Analysis[0]
 		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("status", "closed")
 
-		err = job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		err = job.RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy: []string{"type"},
@@ -192,7 +192,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			Expect(i.Analysis).To(Equal(expected.Analysis), fmt.Sprintf("analysis count mismatched for type %s", expected.Type))
 		}
 
-		err = job.RefreshConfigItemAnalysisChangeCount3d(DefaultContext)
+		err = job.RefreshConfigItemSummary3d(DefaultContext)
 		Expect(err).To(BeNil())
 		summary3D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy: []string{"type"},

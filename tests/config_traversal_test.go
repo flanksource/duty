@@ -52,7 +52,7 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		err = ctx.DB().Clauses(clause.OnConflict{DoNothing: true}).Save(configRelations).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		err = job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+		err = job.RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 
 		err = query.SyncConfigCache(DefaultContext)
