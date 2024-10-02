@@ -3,6 +3,7 @@ package query
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,8 +26,6 @@ type ConfigSummaryRequestChanges struct {
 }
 
 type ConfigSummaryRequestAnalysis struct {
-	Since       string `json:"since"`
-	sinceParsed time.Duration
 }
 
 type ConfigSummaryRequest struct {
@@ -119,8 +118,8 @@ func (t ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []string
 func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	cols := []string{
 		"aggregated_health_count.health AS health",
-		"MAX(config_items.created_at) as created_at",
-		"MAX(config_items.updated_at) as updated_at",
+		"MAX(config_items.created_at) AS created_at",
+		"MAX(config_items.updated_at) AS updated_at",
 		"COUNT(*) AS count",
 	}
 
@@ -128,17 +127,15 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 		cols = append(cols, fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost))
 	}
 
-	if (t.Changes.Since == "7d" && t.Analysis.Since == "7d") || (t.Changes.Since == "30d" && t.Analysis.Since == "30d") {
+	if slices.Contains([]string{"3d", "7d", "30d"}, t.Changes.Since) {
 		cols = append(cols, fmt.Sprintf("COALESCE(sum(config_item_analysis_change_count_%s.config_changes_count), 0) AS changes, COALESCE(aggregated_analysis.total_analysis, '{}'::jsonb) AS analysis", t.Changes.Since))
 	} else {
 		if t.Changes.Since != "" {
 			cols = append(cols, "changes_grouped.count AS changes")
 		}
-		if t.Analysis.Since != "" {
-			cols = append(cols,
-				"aggregated_analysis_count.analysis AS analysis",
-			)
-		}
+		cols = append(cols,
+			"aggregated_analysis_count.analysis AS analysis",
+		)
 	}
 
 	return t.baseSelectClause(cols...)
@@ -197,14 +194,6 @@ func (t *ConfigSummaryRequest) Parse() error {
 			return fmt.Errorf("changes since is invalid: %w", err)
 		} else {
 			t.Changes.sinceParsed = time.Duration(val)
-		}
-	}
-
-	if t.Analysis.Since != "" {
-		if val, err := duration.ParseDuration(t.Analysis.Since); err != nil {
-			return fmt.Errorf("analysis since is invalid: %w", err)
-		} else {
-			t.Analysis.sinceParsed = time.Duration(val)
 		}
 	}
 
@@ -318,7 +307,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
 
-	if (req.Changes.Since == "7d" && req.Analysis.Since == "7d") || (req.Changes.Since == "30d" && req.Analysis.Since == "30d") {
+	if slices.Contains([]string{"3d", "7d", "30d"}, req.Changes.Since) {
 		tableName := fmt.Sprintf("config_item_analysis_change_count_%s", req.Changes.Since)
 		changesAnalysisGrouped := exclause.NewWith(
 			"changes_analysis_grouped",
@@ -366,28 +355,26 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 			withClauses = append(withClauses, changesGrouped)
 		}
 
-		if req.Analysis.Since != "" {
-			analysisGrouped := exclause.NewWith(
-				"analysis_grouped",
-				ctx.DB().Select(req.baseSelectClause("config_analysis.analysis_type", "COUNT(*) AS count")).
-					Model(&models.ConfigAnalysis{}).
-					Joins("LEFT JOIN config_items ON config_analysis.config_id = config_items.id").
-					Where(req.configDeleteClause()).
-					Where(req.filterClause(ctx.DB())).
-					Where("config_analysis.status = ?", models.AnalysisStatusOpen).
-					Group(groupBy).Group("config_analysis.analysis_type"),
-			)
+		analysisGrouped := exclause.NewWith(
+			"analysis_grouped",
+			ctx.DB().Select(req.baseSelectClause("config_analysis.analysis_type", "COUNT(*) AS count")).
+				Model(&models.ConfigAnalysis{}).
+				Joins("LEFT JOIN config_items ON config_analysis.config_id = config_items.id").
+				Where(req.configDeleteClause()).
+				Where(req.filterClause(ctx.DB())).
+				Where("config_analysis.status = ?", models.AnalysisStatusOpen).
+				Group(groupBy).Group("config_analysis.analysis_type"),
+		)
 
-			analysisAggregated := exclause.NewWith(
-				"aggregated_analysis_count",
-				ctx.DB().Select(req.plainSelectClause("json_object_agg(analysis_type, count)::jsonb AS analysis")).
-					Table("analysis_grouped").
-					Group(strings.Join(req.GroupBy, ",")),
-			)
+		analysisAggregated := exclause.NewWith(
+			"aggregated_analysis_count",
+			ctx.DB().Select(req.plainSelectClause("json_object_agg(analysis_type, count)::jsonb AS analysis")).
+				Table("analysis_grouped").
+				Group(strings.Join(req.GroupBy, ",")),
+		)
 
-			summaryQuery = summaryQuery.Joins(req.analysisJoin()).Group("aggregated_analysis_count.analysis")
-			withClauses = append(withClauses, analysisGrouped, analysisAggregated)
-		}
+		summaryQuery = summaryQuery.Joins(req.analysisJoin()).Group("aggregated_analysis_count.analysis")
+		withClauses = append(withClauses, analysisGrouped, analysisAggregated)
 	}
 
 	withClauses = append(withClauses, exclause.NewWith("summary", summaryQuery))
