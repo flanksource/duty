@@ -77,8 +77,9 @@ UNION
   LEFT JOIN (
     SELECT 
       id,
-      name
-    FROM topologies
+      name,
+      icon
+    FROM components
   ) component ON component.id = nsh.resource_id
   WHERE nsh.source_event like 'component.%'
 UNION
