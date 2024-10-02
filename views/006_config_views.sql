@@ -4,17 +4,47 @@ DROP VIEW IF EXISTS configs CASCADE;
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
+  config_item_analysis_change_count_3d AS
+WITH type_counts AS (
+    SELECT
+        ca.config_id,
+        ca.analysis_type,
+        COUNT(*) AS type_count
+    FROM
+        config_analysis ca
+    WHERE
+        ca.status = 'open'
+    GROUP BY
+        ca.config_id, ca.analysis_type
+)
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc 
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM 
+    config_items ci
+LEFT JOIN 
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '3 days'
+GROUP BY 
+    ci.id, ci.name;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS
   config_item_analysis_change_count_7d AS
 WITH type_counts AS (
-    SELECT 
+    SELECT
         ca.config_id, 
         ca.analysis_type, 
         COUNT(*) AS type_count
-    FROM 
+    FROM
         config_analysis ca
-    WHERE 
+    WHERE
         ca.status = 'open'
-    GROUP BY 
+    GROUP BY
         ca.config_id, ca.analysis_type
 )
 SELECT 

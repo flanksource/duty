@@ -3,6 +3,7 @@ package tests
 import (
 	"encoding/json"
 
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -30,7 +31,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		Expect(types).To(ContainElements(expected))
 	})
 
-	ginkgo.It("should not fetch analysis and changes if not requested", func() {
+	ginkgo.It("should not fetch changes if not requested", func() {
 		request := query.ConfigSummaryRequest{}
 		response, err := query.ConfigSummary(DefaultContext, request)
 		Expect(err).To(BeNil())
@@ -40,10 +41,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 
 		for _, o := range output {
-			_, ok := o["analysis"]
-			Expect(ok).To(BeFalse())
-
-			_, ok = o["changes"]
+			_, ok := o["changes"]
 			Expect(ok).To(BeFalse())
 		}
 	})
@@ -147,6 +145,9 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should query changes by range", func() {
 		ginkgo.It("small range", func() {
+			err := job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
+			Expect(err).To(BeNil())
+
 			request := query.ConfigSummaryRequest{
 				Changes: query.ConfigSummaryRequestChanges{
 					Since: "7d",

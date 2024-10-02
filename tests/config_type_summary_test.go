@@ -123,9 +123,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		Expect(err).To(BeNil())
 
 		summary30D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
-			GroupBy:  []string{"type"},
-			Changes:  query.ConfigSummaryRequestChanges{Since: "30d"},
-			Analysis: query.ConfigSummaryRequestAnalysis{Since: "30d"},
+			GroupBy: []string{"type"},
+			Changes: query.ConfigSummaryRequestChanges{Since: "30d"},
 		})
 		Expect(err).To(BeNil())
 
@@ -169,9 +168,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		err = job.RefreshConfigItemAnalysisChangeCount7d(DefaultContext)
 		Expect(err).To(BeNil())
 		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
-			GroupBy:  []string{"type"},
-			Changes:  query.ConfigSummaryRequestChanges{Since: "7d"},
-			Analysis: query.ConfigSummaryRequestAnalysis{Since: "7d"},
+			GroupBy: []string{"type"},
+			Changes: query.ConfigSummaryRequestChanges{Since: "7d"},
 		})
 		Expect(err).To(BeNil())
 
@@ -194,12 +192,38 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			Expect(i.Analysis).To(Equal(expected.Analysis), fmt.Sprintf("analysis count mismatched for type %s", expected.Type))
 		}
 
-		// We have separate test for 10 days since 30day and 7day summary is served from materialized views
+		err = job.RefreshConfigItemAnalysisChangeCount3d(DefaultContext)
+		Expect(err).To(BeNil())
+		summary3D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
+			GroupBy: []string{"type"},
+			Changes: query.ConfigSummaryRequestChanges{Since: "3d"},
+		})
+		Expect(err).To(BeNil())
+
+		var rows3d []summaryRow
+		err = json.Unmarshal(summary3D, &rows3d)
+		Expect(err).To(BeNil())
+
+		expectedTypeSummary3d := []summaryRow{
+			{Type: "Test::type-A", Count: 3, Changes: 5, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-C", Count: 1, Changes: 0, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
+		}
+
+		for _, expected := range expectedTypeSummary3d {
+			i, found := lo.Find(rows3d, func(i summaryRow) bool { return i.Type == expected.Type })
+			Expect(found).To(BeTrue())
+			Expect(i.Count).To(Equal(expected.Count), fmt.Sprintf("count mismatched for type %s", expected.Type))
+			Expect(i.Changes).To(Equal(expected.Changes), fmt.Sprintf("changes count mismatched for type %s", expected.Type))
+			Expect(i.Health).To(Equal(expected.Health), fmt.Sprintf("health mismatched for type %s", expected.Type))
+			Expect(i.Analysis).To(Equal(expected.Analysis), fmt.Sprintf("analysis count mismatched for type %s", expected.Type))
+		}
+
+		// We have separate test for 10 days since 30day, 7day and 3day summary is served from materialized views
 		// but any other time range is served from a view
 		summary10D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
-			GroupBy:  []string{"type"},
-			Changes:  query.ConfigSummaryRequestChanges{Since: "10d"},
-			Analysis: query.ConfigSummaryRequestAnalysis{Since: "10d"},
+			GroupBy: []string{"type"},
+			Changes: query.ConfigSummaryRequestChanges{Since: "10d"},
 		})
 		Expect(err).To(BeNil())
 
@@ -216,10 +240,10 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		for _, expected := range expectedTypeSummary10d {
 			i, found := lo.Find(rows10d, func(i summaryRow) bool { return i.Type == expected.Type })
 			Expect(found).To(BeTrue())
-			Expect(i.Count).To(Equal(expected.Count))
-			Expect(i.Changes).To(Equal(expected.Changes))
-			Expect(i.Health).To(Equal(expected.Health))
-			Expect(i.Analysis).To(Equal(expected.Analysis))
+			Expect(i.Count).To(Equal(expected.Count), fmt.Sprintf("count mismatched for type %s", expected.Type))
+			Expect(i.Changes).To(Equal(expected.Changes), fmt.Sprintf("changes count mismatched for type %s", expected.Type))
+			Expect(i.Health).To(Equal(expected.Health), fmt.Sprintf("health mismatched for type %s", expected.Type))
+			Expect(i.Analysis).To(Equal(expected.Analysis), fmt.Sprintf("analysis count mismatched for type %s", expected.Type))
 		}
 	})
 })
