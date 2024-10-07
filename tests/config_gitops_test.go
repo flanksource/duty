@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/gomplate/v3"
@@ -24,6 +25,10 @@ var _ = ginkgo.Describe("Config Gitops Source", ginkgo.Ordered, func() {
 		Expect(dummy.Kustomization.ID.String()).NotTo(BeEmpty())
 		Expect(dummy.GitRepository.ID.String()).NotTo(BeEmpty())
 		Expect(dummy.Namespace.ID.String()).NotTo(BeEmpty())
+
+		// Config Traverse uses the 7d summary view internally
+		err := job.RefreshConfigItemSummary7d(DefaultContext)
+		Expect(err).To(BeNil())
 
 		source, err := query.GetGitOpsSource(DefaultContext, dummy.Namespace.ID)
 		Expect(err).To(BeNil())
