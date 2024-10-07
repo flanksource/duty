@@ -36,7 +36,7 @@ func (t Canary) ConflictClause() clause.OnConflict {
 				),
 			},
 		},
-		DoUpdates: clause.AssignmentColumns([]string{"labels", "spec"}),
+		DoUpdates: clause.AssignmentColumns([]string{"labels", "spec", "annotations"}),
 	}
 }
 
