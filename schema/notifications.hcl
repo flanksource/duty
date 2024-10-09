@@ -272,26 +272,26 @@ table "notification_silences" {
   foreign_key "notification_silence_check_id_fkey" {
     columns     = [column.check_id]
     ref_columns = [table.checks.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "notification_silence_config_id_fkey" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "notification_silence_component_id_fkey" {
     columns     = [column.component_id]
     ref_columns = [table.components.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "notification_silence_canary_id_fkey" {
     columns     = [column.canary_id]
     ref_columns = [table.canaries.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "notification_silence_created_by_fkey" {
     columns     = [column.created_by]
