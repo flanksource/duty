@@ -17,6 +17,8 @@ var (
 	getterCache = cache.New(time.Second*90, time.Minute*5)
 
 	immutableCache = cache.New(cache.NoExpiration, time.Hour*12)
+
+	scopeCache = cache.New(time.Hour, time.Hour*2)
 )
 
 func FlushGettersCache() {
