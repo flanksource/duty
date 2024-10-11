@@ -33,10 +33,11 @@ type ResourceSelector struct {
 	//  Additionally, the special "self" value can be used to select resources without an agent.
 	Agent string `yaml:"agent,omitempty" json:"agent,omitempty"`
 
-	// Scope is the id parent of the resource to select.
-	// Example: For config items, the scope is the scraper id
-	// - for checks, it's canaries and
-	// - for components, it's topology.
+	// Scope is the reference for parent of the resource to select.
+	// For config items, the scope is the scraper id
+	// For checks, it's canaries and
+	// For components, it's topology.
+	// It can either be a uuid or namespace/name
 	Scope string `yaml:"scope,omitempty" json:"scope,omitempty"`
 
 	// Cache directives

@@ -179,13 +179,17 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	}
 
 	if resourceSelector.Scope != "" {
+		scope, err := getScopeID(ctx, resourceSelector.Scope, table)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching scope: %w", err)
+		}
 		switch table {
 		case "checks":
-			query = query.Where("canary_id = ?", resourceSelector.Scope)
+			query = query.Where("canary_id = ?", scope)
 		case "config_items":
-			query = query.Where("scraper_id = ?", resourceSelector.Scope)
+			query = query.Where("scraper_id = ?", scope)
 		case "components":
-			query = query.Where("topology_id = ?", resourceSelector.Scope)
+			query = query.Where("topology_id = ?", scope)
 		default:
 			return nil, api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 		}
@@ -479,4 +483,43 @@ func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *g
 	}
 
 	return q
+}
+
+// getScopeID takes either uuid or namespace/name and table to return the appropriate scope_id
+func getScopeID(ctx context.Context, scope string, table string) (string, error) {
+	// If scope is a valid uuid, return as is
+	if _, err := uuid.Parse(scope); err == nil {
+		return scope, nil
+	}
+
+	key := table + scope
+	if cacheVal, exists := scopeCache.Get(key); exists {
+		return cacheVal.(string), nil
+	}
+
+	parts := strings.Split(scope, "/")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("scope should be either uuid or namespace/name format")
+	}
+	namespace, name := parts[0], parts[1]
+
+	var scopeTable string
+	switch table {
+	case "checks":
+		scopeTable = "canaries"
+	case "config_items":
+		scopeTable = "config_scrapers"
+	case "components":
+		scopeTable = "topologies"
+	default:
+		return "", api.Errorf(api.EINVALID, "scope is not supported for %s", table)
+	}
+
+	var id string
+	if err := ctx.DB().Table(scopeTable).Select("id").Where("name = ? AND namespace = ?", name, namespace).Find(&id).Error; err != nil {
+		return "", err
+	}
+
+	scopeCache.Set(key, id, cache.NoExpiration)
+	return id, nil
 }
