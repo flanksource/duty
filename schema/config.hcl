@@ -208,8 +208,8 @@ table "config_changes" {
   index "config_changes_config_id_change_type_idx" {
     columns = [column.config_id, column.change_type]
   }
-  index "config_changes_fingerprint_idx" {
-    columns = [column.fingerprint]
+  index "config_changes_fingerprint_created_at_idx" {
+    columns = [column.fingerprint, column.created_at]
   }
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]
