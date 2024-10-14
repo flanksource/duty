@@ -178,8 +178,17 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
 
+	agentID, err := getAgentID(ctx, resourceSelector.Agent)
+	if err != nil {
+		return nil, err
+	}
+
+	if agentID != nil {
+		query = query.Where("agent_id = ?", *agentID)
+	}
+
 	if resourceSelector.Scope != "" {
-		scope, err := getScopeID(ctx, resourceSelector.Scope, table)
+		scope, err := getScopeID(ctx, resourceSelector.Scope, table, agentID)
 		if err != nil {
 			return nil, fmt.Errorf("error fetching scope: %w", err)
 		}
@@ -193,20 +202,6 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		default:
 			return nil, api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 		}
-	}
-
-	if resourceSelector.Agent == "" {
-		query = query.Where("agent_id = ?", uuid.Nil)
-	} else if resourceSelector.Agent == "all" {
-		// do nothing
-	} else if uid, err := uuid.Parse(resourceSelector.Agent); err == nil {
-		query = query.Where("agent_id = ?", uid)
-	} else { // assume it's an agent name
-		agent, err := FindCachedAgent(ctx, resourceSelector.Agent)
-		if err != nil {
-			return nil, err
-		}
-		query = query.Where("agent_id = ?", agent.ID)
 	}
 
 	if len(resourceSelector.TagSelector) > 0 {
@@ -486,7 +481,7 @@ func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *g
 }
 
 // getScopeID takes either uuid or namespace/name and table to return the appropriate scope_id
-func getScopeID(ctx context.Context, scope string, table string) (string, error) {
+func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.UUID) (string, error) {
 	// If scope is a valid uuid, return as is
 	if _, err := uuid.Parse(scope); err == nil {
 		return scope, nil
@@ -515,11 +510,43 @@ func getScopeID(ctx context.Context, scope string, table string) (string, error)
 		return "", api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 	}
 
+	q := ctx.DB().Table(scopeTable).Select("id").Where("name = ? AND namespace = ?", name, namespace)
+	if agentID != nil {
+		q = q.Where("agent_id = ?", *agentID)
+	}
+
 	var id string
-	if err := ctx.DB().Table(scopeTable).Select("id").Where("name = ? AND namespace = ?", name, namespace).Find(&id).Error; err != nil {
-		return "", err
+	tx := q.First(&id)
+	if tx.RowsAffected != 1 {
+		agentToLog := "all"
+		if agentID != nil {
+			agentToLog = agentID.String()
+		}
+		ctx.Warnf("multiple agents returned for resource selector with [scope=%s, table=%s, agent=%s]", scope, table, agentToLog)
+	}
+	if tx.Error != nil {
+		return "", tx.Error
 	}
 
 	scopeCache.Set(key, id, cache.NoExpiration)
 	return id, nil
+}
+
+func getAgentID(ctx context.Context, agent string) (*uuid.UUID, error) {
+	if agent == "" {
+		return &uuid.Nil, nil
+	}
+	if agent == "all" {
+		return nil, nil
+	}
+
+	if uid, err := uuid.Parse(agent); err == nil {
+		return &uid, nil
+	}
+
+	agentModel, err := FindCachedAgent(ctx, agent)
+	if err != nil {
+		return nil, fmt.Errorf("could not find agent[%s]: %w", agent, err)
+	}
+	return &agentModel.ID, nil
 }
