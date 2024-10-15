@@ -3,13 +3,14 @@ package shutdown
 import (
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/flanksource/commons/logger"
 )
 
 var shutdownHooks []func()
 
-func Shutdown() {
+var Shutdown = sync.OnceFunc(func() {
 	if len(shutdownHooks) == 0 {
 		return
 	}
@@ -18,7 +19,7 @@ func Shutdown() {
 		fn()
 	}
 	shutdownHooks = []func(){}
-}
+})
 
 func ShutdownAndExit(code int, msg string) {
 	Shutdown()
