@@ -20,16 +20,14 @@ import (
 )
 
 var (
-	hostname string
-	service  string
-
-	// namespace the pod is running on
-	namespace string
+	hostname     string
+	podNamespace string
+	service      string
 )
 
 const namespaceFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
-func podNamespace() (string, error) {
+func getPodNamespace() (string, error) {
 	// passed using K8s downwards API
 	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
 		return ns, nil
@@ -55,10 +53,8 @@ func init() {
 		log.Fatalf("failed to get hostname: %v", err)
 	}
 
-	if n, err := podNamespace(); err != nil {
-		log.Fatalf("failed to get pod namespace: %v", err)
-	} else {
-		namespace = n
+	if n, err := getPodNamespace(); err == nil {
+		podNamespace = n
 	}
 
 	service = strings.Split(hostname, "-")[0]
@@ -66,10 +62,17 @@ func init() {
 
 func Register(
 	ctx context.Context,
+	namespace string,
 	onLead func(ctx gocontext.Context),
 	onStoppedLead func(),
 	onNewLeader func(identity string),
 ) {
+	if namespace == "" {
+		namespace = podNamespace
+	}
+
+	ctx = ctx.WithNamespace(namespace)
+
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      service,
@@ -115,7 +118,7 @@ func updateLeaderLabel(ctx context.Context, set bool) {
 
 	backoff := retry.WithMaxRetries(3, retry.NewExponential(time.Second))
 	err := retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
-		_, err := ctx.Kubernetes().CoreV1().Pods(namespace).Patch(ctx,
+		_, err := ctx.Kubernetes().CoreV1().Pods(ctx.GetNamespace()).Patch(ctx,
 			hostname,
 			types.MergePatchType,
 			[]byte(payload),
