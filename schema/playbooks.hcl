@@ -119,11 +119,6 @@ table "playbook_approvals" {
   comment = "Keeps track of approvals on a playbook run"
 }
 
-enum "playbook_run_status" {
-  schema = schema.public
-  values = ["scheduled", "running", "cancelled", "completed", "failed", "pending", "sleeping"]
-}
-
 table "playbook_runs" {
   schema = schema.public
   column "id" {
@@ -143,7 +138,7 @@ table "playbook_runs" {
   column "status" {
     null    = false
     type    = text
-    default = "pending"
+    default = "scheduled"
   }
   column "created_at" {
     null    = false
