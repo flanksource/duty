@@ -228,6 +228,7 @@ SELECT
   notifications.created_by,
   notifications.source,
   notifications.repeat_interval,
+  notifications.wait_for,
   COUNT (event_queue.id) AS pending,
   notification_send_summary.avg_duration_ms,
   COALESCE(notification_send_summary.failed, 0) AS failed,
