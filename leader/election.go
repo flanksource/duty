@@ -19,6 +19,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/echo"
 	"github.com/flanksource/duty/shutdown"
 )
 
@@ -102,13 +103,23 @@ func Register(
 				updateLeaderLabel(ctx, app)
 				onLead(leadCtx)
 			},
-			OnStoppedLeading: onStoppedLead,
+			OnStoppedLeading: func() {
+				for _, k := range echo.Crons.Items() {
+					k.Stop()
+				}
+
+				if onStoppedLead != nil {
+					onStoppedLead()
+				}
+			},
 			OnNewLeader: func(identity string) {
 				if identity == hostname {
 					return
 				}
 
-				onNewLeader(identity)
+				if onNewLeader != nil {
+					onNewLeader(identity)
+				}
 			},
 		},
 	}
