@@ -70,7 +70,6 @@ func Register(
 	ctx context.Context,
 	app string,
 	namespace string,
-	service string,
 	onLead func(ctx gocontext.Context),
 	onStoppedLead func(),
 	onNewLeader func(identity string),
@@ -83,7 +82,7 @@ func Register(
 
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
-			Name:      service,
+			Name:      app,
 			Namespace: namespace,
 		},
 		Client: ctx.Kubernetes().CoordinationV1(),
@@ -127,7 +126,20 @@ func Register(
 		time.Sleep(time.Second * 2)
 	})
 
-	go elector.Run(leaderContext)
+	go func() {
+		// when a network failure occurs for a considerable amount of time (>30s)
+		// elector.Run terminates and never retries acquiring the lease.
+		//
+		// that's why it's run in a never ending loop
+		for {
+			select {
+			case <-leaderContext.Done():
+				return
+			default:
+				elector.Run(leaderContext)
+			}
+		}
+	}()
 	<-ctx.Done()
 
 	return nil
@@ -148,8 +160,6 @@ func updateLeaderLabel(ctx context.Context, app string) {
 
 		pods := lo.Map(podList.Items, func(p corev1.Pod, _ int) string { return p.Name })
 		pods = append(pods, hostname)
-
-		fmt.Println("Pods ", len(pods))
 
 		for _, podName := range pods {
 			var payload string
