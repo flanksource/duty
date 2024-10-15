@@ -19,14 +19,14 @@ import (
 type PlaybookRunStatus string
 
 const (
-	PlaybookRunStatusCancelled PlaybookRunStatus = "cancelled"
-	PlaybookRunStatusCompleted PlaybookRunStatus = "completed"
-	PlaybookRunStatusFailed    PlaybookRunStatus = "failed"
-	PlaybookRunStatusPending   PlaybookRunStatus = "pending" // pending approval
-	PlaybookRunStatusRunning   PlaybookRunStatus = "running"
-	PlaybookRunStatusScheduled PlaybookRunStatus = "scheduled"
-	PlaybookRunStatusSleeping  PlaybookRunStatus = "sleeping"
-	PlaybookRunStatusWaiting   PlaybookRunStatus = "waiting" // waiting for a consumer
+	PlaybookRunStatusCancelled       PlaybookRunStatus = "cancelled"
+	PlaybookRunStatusCompleted       PlaybookRunStatus = "completed"
+	PlaybookRunStatusFailed          PlaybookRunStatus = "failed"
+	PlaybookRunStatusPendingApproval PlaybookRunStatus = "pending_approval"
+	PlaybookRunStatusRunning         PlaybookRunStatus = "running"
+	PlaybookRunStatusScheduled       PlaybookRunStatus = "scheduled"
+	PlaybookRunStatusSleeping        PlaybookRunStatus = "sleeping"
+	PlaybookRunStatusWaiting         PlaybookRunStatus = "waiting" // waiting for a consumer
 )
 
 // PlaybookRunStatus are statuses for a playbook run and its actions.
@@ -56,13 +56,11 @@ func (p Playbook) PK() string {
 	return p.ID.String()
 }
 
-var (
-	PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
-		PlaybookRunStatusRunning,
-		PlaybookRunStatusScheduled,
-		PlaybookRunStatusCompleted,
-	}
-)
+var PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
+	PlaybookRunStatusRunning,
+	PlaybookRunStatusScheduled,
+	PlaybookRunStatusCompleted,
+}
 
 type Playbook struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
@@ -326,7 +324,6 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 		s += fmt.Sprintf("%s %s id=%s\n", playbook.Name, colorStatus(string(p.Status)), p.ID)
 	} else {
 		s += fmt.Sprintf("Playbook %s id=%s\n", colorStatus(string(p.Status)), p.ID)
-
 	}
 
 	actions, _ := p.GetActions(db)
@@ -445,7 +442,6 @@ func (p PlaybookRunAction) GetRun(db *gorm.DB) (*PlaybookRun, error) {
 	var run PlaybookRun
 	err := db.Where("id = ?", p.PlaybookRunID).First(&run).Error
 	return &run, oops.Tags("db").Wrap(err)
-
 }
 
 func (p PlaybookRunAction) Start(db *gorm.DB) error {
@@ -479,6 +475,7 @@ func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
 
 	return p.ScheduleRun(db)
 }
+
 func (p PlaybookRunAction) Skip(db *gorm.DB) error {
 	if err := p.Update(db, map[string]any{
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
