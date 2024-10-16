@@ -1,11 +1,11 @@
 module github.com/flanksource/duty
 
-go 1.22.5
+go 1.22.7
 
-toolchain go1.22.6
+toolchain go1.23.2
 
 require (
-	ariga.io/atlas v0.14.2
+	ariga.io/atlas v0.28.1
 	cloud.google.com/go/cloudsqlconn v1.5.1
 	cloud.google.com/go/storage v1.38.0
 	github.com/RaveNoX/go-jsonmerge v1.0.0
@@ -110,6 +110,7 @@ require (
 	github.com/aws/smithy-go v1.20.4 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
