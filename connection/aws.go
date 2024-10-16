@@ -68,7 +68,10 @@ func (t *AWSConnection) Populate(ctx ConnectionContext) error {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
-			return fmt.Errorf("could not parse EC2 access key: %v", err)
+			return fmt.Errorf("could not parse EC2 access key: %w", err)
+		}
+		if connection == nil {
+			return fmt.Errorf("connection[%s] not found", t.ConnectionName)
 		}
 
 		t.AccessKey.ValueStatic = connection.Username
