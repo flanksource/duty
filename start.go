@@ -156,6 +156,9 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 			return context.Context{}, stop, err
 		} else {
 			ctx = *c
+			stop = func() {
+				c.Pool().Close()
+			}
 		}
 	}
 
