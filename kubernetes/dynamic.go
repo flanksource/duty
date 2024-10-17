@@ -36,16 +36,23 @@ func NewKubeClient(client kubernetes.Interface, config *rest.Config) *DynamicCli
 	return &DynamicClient{config: config, client: client}
 }
 
-func (c *DynamicClient) FetchResources(ctx context.Context, resources ...unstructured.Unstructured) ([]unstructured.Unstructured, error) {
+func (c *DynamicClient) FetchResources(
+	ctx context.Context,
+	resources ...unstructured.Unstructured,
+) ([]unstructured.Unstructured, error) {
 	if len(resources) == 0 {
 		return nil, nil
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
-	var items = make(chan unstructured.Unstructured, len(resources))
+	items := make(chan unstructured.Unstructured, len(resources))
 	for i := range resources {
 		resource := resources[i]
-		client, err := c.GetClientByGroupVersionKind(resource.GroupVersionKind().Group, resource.GroupVersionKind().Version, resource.GetKind())
+		client, err := c.GetClientByGroupVersionKind(
+			resource.GroupVersionKind().Group,
+			resource.GroupVersionKind().Version,
+			resource.GetKind(),
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +76,9 @@ func (c *DynamicClient) FetchResources(ctx context.Context, resources ...unstruc
 	return output, nil
 }
 
-func (c *DynamicClient) GetClientByGroupVersionKind(group, version, kind string) (dynamic.NamespaceableResourceInterface, error) {
+func (c *DynamicClient) GetClientByGroupVersionKind(
+	group, version, kind string,
+) (dynamic.NamespaceableResourceInterface, error) {
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
 		return nil, err
@@ -94,6 +103,11 @@ func (c *DynamicClient) GetClientByGroupVersionKind(group, version, kind string)
 	return dynamicClient.Resource(mapping.Resource), nil
 }
 
+// WARN: "Kind" is not specific enough.
+// A cluster can have various resources with the same Kind.
+// example: helmchrats.helm.cattle.io & helmcharts.source.toolkit.fluxcd.io both have HelmChart as the kind.
+//
+// Use GetClientByGroupVersionKind instead.
 func (c *DynamicClient) GetClientByKind(kind string) (dynamic.NamespaceableResourceInterface, error) {
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
@@ -136,7 +150,12 @@ func (c *DynamicClient) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
-	cache, err := disk.NewCachedDiscoveryClientForConfig(c.config, cacheDir, "", properties.Duration(10*time.Minute, "kubernetes.cache.timeout"))
+	cache, err := disk.NewCachedDiscoveryClientForConfig(
+		c.config,
+		cacheDir,
+		"",
+		properties.Duration(10*time.Minute, "kubernetes.cache.timeout"),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +163,11 @@ func (c *DynamicClient) GetRestMapper() (meta.RESTMapper, error) {
 	return c.restMapper, err
 }
 
-func (c *DynamicClient) ExecutePodf(ctx context.Context, namespace, pod, container string, command ...string) (string, string, error) {
+func (c *DynamicClient) ExecutePodf(
+	ctx context.Context,
+	namespace, pod, container string,
+	command ...string,
+) (string, string, error) {
 	const tty = false
 	req := c.client.CoreV1().RESTClient().Post().
 		Resource("pods").
