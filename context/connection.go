@@ -231,6 +231,11 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		}
 	}
 
+	// Remove newlines and spaces around username,password & url
+	connection.URL = strings.TrimSpace(connection.URL)
+	connection.Username = strings.TrimSpace(connection.Username)
+	connection.Password = strings.TrimSpace(connection.Password)
+
 	domain := ""
 	parts := strings.Split(connection.Username, "@")
 	if len(parts) == 2 {
