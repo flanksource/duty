@@ -124,6 +124,24 @@ var _ = ginkgo.Describe("Connection Tests", func() {
 				},
 				expect: "postgres://the-username:the-password@localhost:5443/mission_control",
 			},
+			{
+				name: "space and newline trimming",
+				connection: models.Connection{
+					URL: `
+
+                        postgres://$(username):$(password)@$(properties.host):$(properties.port)/$(properties.database)
+
+                    `,
+					Username: "  the-username",
+					Password: "the-password  ",
+					Properties: map[string]string{
+						"host":     "localhost",
+						"database": "mission_control",
+						"port":     "5443",
+					},
+				},
+				expect: "postgres://the-username:the-password@localhost:5443/mission_control",
+			},
 		}
 
 		for _, tc := range testCases {
