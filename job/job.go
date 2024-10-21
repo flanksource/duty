@@ -42,7 +42,18 @@ const (
 var (
 	EvictedJobs       chan uuid.UUID
 	startedJobHistory = false
+
+	// startCronOnSchedule dictates whether to start the cron runner
+	// when a job is scheduled to it.
+	startCronOnSchedule = true
 )
+
+// DisableCronStartOnSchedule disables the default bahevior of
+// starting the cron runner when a job is scheduled via
+// `.AddToSchduler()`
+func DisableCronStartOnSchedule() {
+	startCronOnSchedule = false
+}
 
 func StartJobHistoryEvictor(ctx context.Context) {
 	if !startedJobHistory {
@@ -563,6 +574,9 @@ func (j *Job) GetResourcedName() string {
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 	echo.RegisterCron(cronRunner)
+	if startCronOnSchedule {
+		cronRunner.Start()
+	}
 
 	schedule := j.Schedule
 	if override, ok := j.GetProperty("schedule"); ok {
