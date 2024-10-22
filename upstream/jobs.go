@@ -103,8 +103,8 @@ func (t *ReconcileSummary) AddSkipped(tables ...pushableTable) {
 	}
 }
 
-func (t *ReconcileSummary) AddStat(table string, success, failed int, err error) {
-	if success == 0 && failed == 0 && err == nil {
+func (t *ReconcileSummary) AddStat(table string, success, foreignKeyFailures int, err error) {
+	if success == 0 && foreignKeyFailures == 0 && err == nil {
 		return
 	}
 
@@ -114,7 +114,7 @@ func (t *ReconcileSummary) AddStat(table string, success, failed int, err error)
 
 	v := (*t)[table]
 	v.Success = success
-	v.FKeyError = failed
+	v.FKeyError = foreignKeyFailures
 	if err != nil {
 		// For json marshaling
 		v.Error = lo.ToPtr(oops.Wrap(err).(oops.OopsError))
@@ -128,6 +128,10 @@ func (t ReconcileSummary) Error() error {
 	for table, summary := range t {
 		if summary.Error != nil {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
+		}
+
+		if summary.FKeyError > 0 {
+			allErrors = append(allErrors, fmt.Sprintf("%s: %d foreign key errors; ", table, summary.Error))
 		}
 	}
 
@@ -237,6 +241,8 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			return count, fkFailed, nil
 		}
 
+		var fkErrorOccured bool
+
 		ctx.Tracef("pushing %s %d to upstream", table.TableName(), len(items))
 		pushError := client.Push(ctx, NewPushData(items))
 		if pushError != nil {
@@ -249,6 +255,8 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			if err := json.Unmarshal([]byte(httpError.Data), &foreignKeyErr); err != nil {
 				return count, fkFailed, fmt.Errorf("failed to push %s to upstream (could not decode api error: %w): %w", table.TableName(), err, pushError)
 			}
+
+			fkErrorOccured = !foreignKeyErr.Empty()
 
 			failedOnes := lo.SliceToMap(foreignKeyErr.IDs, func(item string) (string, struct{}) {
 				return item, struct{}{}
@@ -303,6 +311,13 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			if err != nil {
 				return count, fkFailed, err
 			}
+		}
+
+		if fkErrorOccured {
+			// we stop reconciling for this table.
+			// In the next reconciliation run, the parents will be pushed
+			// and the fk error will resolve then.
+			return count, fkFailed, nil
 		}
 
 		if pushError != nil {

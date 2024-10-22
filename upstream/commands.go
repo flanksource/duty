@@ -23,6 +23,10 @@ type PushFKError struct {
 	IDs []string `json:"ids"`
 }
 
+func (t *PushFKError) Empty() bool {
+	return len(t.IDs) == 0
+}
+
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
 	var t models.Agent
 	tx := ctx.DB().Where("name = ?", name).First(&t)
