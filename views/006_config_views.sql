@@ -838,7 +838,7 @@ CREATE OR REPLACE VIEW config_detail AS
     json_build_object(
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
       'analysis', COALESCE(analysis.analysis_count, 0),
-      'changes', COALESCE(config_changes.changes_count, 0),
+      'changes', COALESCE(change_summary.changes_count, 0),
       'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0),
       'checks', COALESCE(config_checks.checks_count, 0)
     ) as summary,
@@ -851,17 +851,14 @@ CREATE OR REPLACE VIEW config_detail AS
       (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
       ON ci.id = reverse_related.related_id
     LEFT JOIN
-      (SELECT config_id, count(*) as analysis_count FROM config_analysis
-        WHERE last_observed > NOW() - interval '2 days'
+      (SELECT config_id, SUM(value::INT) as analysis_count FROM config_item_summary_7d 
+       CROSS JOIN LATERAL jsonb_each_text(config_analysis_type_counts)
         GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
     LEFT JOIN
-      (SELECT config_items.id as config_id, count(rcr.id) as changes_count
-        FROM config_items
-        LEFT JOIN LATERAL related_changes_recursive(config_items.id) rcr ON true
-        WHERE config_items.deleted_at IS NULL AND rcr.created_at > NOW() - interval '2 days'
-        GROUP BY config_items.id) as config_changes
-      ON ci.id = config_changes.config_id
+      (SELECT config_item_summary_7d.config_id, config_item_summary_7d.config_changes_count AS changes_count
+        FROM config_item_summary_7d) AS change_summary
+      ON ci.path LIKE '%' || change_summary.config_id || '%'
     LEFT JOIN
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
         WHERE start_time > NOW() - interval '30 days'
