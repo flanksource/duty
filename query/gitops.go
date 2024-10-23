@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 
 	"github.com/flanksource/duty/context"
@@ -15,7 +16,6 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 )
 
 type Kustomize struct {
@@ -48,14 +48,28 @@ func (t *Git) AsMap() map[string]any {
 	}
 }
 
+type GitSourceRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+func (t *GitSourceRef) AsMap() map[string]any {
+	return map[string]any{
+		"name":      t.Name,
+		"namespace": t.Namespace,
+	}
+}
+
 type GitOpsSource struct {
-	Git       Git       `json:"git"`
-	Kustomize Kustomize `json:"kustomize"`
+	Git       Git          `json:"git"`
+	SourceRef GitSourceRef `json:"sourceRef"`
+	Kustomize Kustomize    `json:"kustomize"`
 }
 
 func (t *GitOpsSource) AsMap() map[string]any {
 	return map[string]any{
 		"git":       t.Git.AsMap(),
+		"sourceRef": t.SourceRef.AsMap(),
 		"kustomize": t.Kustomize.AsMap(),
 	}
 }
@@ -91,6 +105,8 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 	if len(gitRepos) > 0 && gitRepos[0].Config != nil {
 		source.Git.URL = gitRepos[0].NestedString("spec", "url")
 		source.Git.Branch = gitRepos[0].NestedString("spec", "ref", "branch")
+		source.SourceRef.Name = lo.FromPtr(gitRepos[0].Name)
+		source.SourceRef.Namespace = gitRepos[0].GetNamespace()
 	}
 
 	if lo.FromPtr(ci.Type) == "Kubernetes::Kustomization" {
