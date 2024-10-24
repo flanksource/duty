@@ -115,4 +115,4 @@ UNION
   ) canary ON canary.id = nsh.resource_id
   WHERE nsh.source_event like 'canary.%'
 )
-SELECT combined.* FROM combined
+SELECT combined.* FROM combined;
