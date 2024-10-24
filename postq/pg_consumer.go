@@ -65,7 +65,6 @@ func NewPGConsumer(consumerFunc ConsumerFunc, opt *ConsumerOption) (*PGConsumer,
 		if opt.ErrorHandler != nil {
 			ec.errorHandler = opt.ErrorHandler
 		}
-
 	}
 
 	return ec, nil
