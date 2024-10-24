@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 
 	"github.com/flanksource/commons/logger"
 )
@@ -18,19 +19,30 @@ const (
 
 type shutdownHook func()
 
-var m sync.Mutex
-
-var shutdownTaskRegistry ShutdownTasks
+var (
+	registryLock         sync.Mutex
+	shutdownTaskRegistry ShutdownTasks
+)
 
 func init() {
 	heap.Init(&shutdownTaskRegistry)
 }
 
 var Shutdown = sync.OnceFunc(func() {
-	logger.Infof("shutting down")
-	for _, task := range shutdownTaskRegistry {
+	logger.Infof("begin shutdown")
+
+	for len(shutdownTaskRegistry) > 0 {
+		_task := heap.Pop(&shutdownTaskRegistry)
+		if _task == nil {
+			break
+		}
+
+		task := _task.(ShutdownTask)
 		logger.Infof("shutting down: %s", task.Label)
+
+		s := time.Now()
 		task.Hook()
+		logger.Infof("shutdown %s completed in %v", task.Label, time.Since(s))
 	}
 })
 
@@ -40,19 +52,23 @@ func ShutdownAndExit(code int, msg string) {
 	os.Exit(code)
 }
 
-// @Deprecated
+// Add a hook with the least priority.
+// Least priority hooks are run first.
+//
 // Prefer AddHookWithPriority()
 func AddHook(fn shutdownHook) {
-	m.Lock()
+	registryLock.Lock()
 	heap.Push(&shutdownTaskRegistry, ShutdownTask{Hook: fn, Priority: 0})
-	m.Unlock()
+	registryLock.Unlock()
 }
 
+// AddHookWithPriority adds a hook with a priority level.
+//
 // Execution order goes from lowest to highest priority numbers.
 func AddHookWithPriority(label string, priority int, fn shutdownHook) {
-	m.Lock()
+	registryLock.Lock()
 	heap.Push(&shutdownTaskRegistry, ShutdownTask{Label: label, Hook: fn, Priority: priority})
-	m.Unlock()
+	registryLock.Unlock()
 }
 
 func WaitForSignal() {
@@ -77,9 +93,8 @@ type ShutdownTasks []ShutdownTask
 
 func (st ShutdownTasks) Len() int { return len(st) }
 
-// Less defines higher priority numbers will be processed first
 func (st ShutdownTasks) Less(i, j int) bool {
-	return st[i].Priority > st[j].Priority // Higher priority numbers come first
+	return st[i].Priority < st[j].Priority
 }
 
 func (st ShutdownTasks) Swap(i, j int) {
