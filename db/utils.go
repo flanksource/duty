@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/samber/lo"
+	"github.com/samber/oops"
 )
 
 func ErrorDetails(err error) error {
@@ -31,6 +33,16 @@ func ErrorDetails(err error) error {
 		}
 	}
 	return err
+}
+
+func IsDBError(err error) bool {
+	if oe, ok := oops.AsOops(err); ok {
+		if lo.Contains(oe.Tags(), "db") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func IsForeignKeyError(err error) bool {
