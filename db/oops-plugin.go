@@ -54,7 +54,7 @@ func (p oopsPlugin) Initialize(db *gorm.DB) (err error) {
 func (p *oopsPlugin) after() gormHookFunc {
 	return func(tx *gorm.DB) {
 		if tx.Error != nil {
-			tx.Error = oops.Tags("db").Wrap(tx.Error)
+			tx.Error = oops.Tags("db").Wrap(ErrorDetails(tx.Error))
 		}
 	}
 }
