@@ -15,6 +15,7 @@ import (
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/timer"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/shutdown"
 	"github.com/google/gops/agent"
 	"github.com/labstack/echo/v4"
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -36,6 +37,13 @@ func init() {
 	if err := agent.Listen(agent.Options{}); err != nil {
 		logger.Errorf(err.Error())
 	}
+
+	// stop scheduling
+	shutdown.AddHookWithPriority("cron scheduler", shutdown.PriorityJobs-1, func() {
+		for cronScheduler := range Crons.IterBuffered() {
+			cronScheduler.Val.Stop()
+		}
+	})
 }
 
 // RestrictToLocalhost is a middleware that restricts access to localhost
