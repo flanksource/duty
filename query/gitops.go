@@ -15,6 +15,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type Kustomize struct {
@@ -81,16 +82,26 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 		return source, err
 	}
 
-	gitRepos := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization/Kubernetes::GitRepository", string(models.RelatedConfigTypeIncoming))
+	gitRepoRelationType := "Kubernetes::Kustomization/Kubernetes::GitRepository"
+	if lo.FromPtr(ci.Type) == "Kubernetes::Kustomization" {
+		gitRepoRelationType = "Kubernetes::GitRepository"
+	}
+
+	gitRepos := TraverseConfig(ctx, id.String(), gitRepoRelationType, string(models.RelatedConfigTypeIncoming))
 	if len(gitRepos) > 0 && gitRepos[0].Config != nil {
 		source.Git.URL = gitRepos[0].NestedString("spec", "url")
 		source.Git.Branch = gitRepos[0].NestedString("spec", "ref", "branch")
 	}
 
-	kustomization := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization", string(models.RelatedConfigTypeIncoming))
-	if len(kustomization) > 0 && kustomization[0].Config != nil {
-		source.Kustomize.Path = kustomization[0].NestedString("spec", "path")
+	if lo.FromPtr(ci.Type) == "Kubernetes::Kustomization" {
+		source.Kustomize.Path = ci.NestedString("spec", "path")
 		source.Kustomize.File = filepath.Join(source.Kustomize.Path, "kustomization.yaml")
+	} else {
+		kustomization := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization", string(models.RelatedConfigTypeIncoming))
+		if len(kustomization) > 0 && kustomization[0].Config != nil {
+			source.Kustomize.Path = kustomization[0].NestedString("spec", "path")
+			source.Kustomize.File = filepath.Join(source.Kustomize.Path, "kustomization.yaml")
+		}
 	}
 
 	origin, _ := getOrigin(ci)
