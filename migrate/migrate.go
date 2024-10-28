@@ -20,11 +20,6 @@ import (
 	"github.com/samber/oops"
 )
 
-type MigrateOptions struct {
-	Skip        bool // Skip running migrations
-	IgnoreFiles []string
-}
-
 func RunMigrations(pool *sql.DB, config api.Config) error {
 	l := logger.GetLogger("migrate")
 
@@ -38,6 +33,12 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 
 	if pool == nil {
 		return errors.New("pool is nil")
+	}
+
+	if config.EnableRLS {
+		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "035_rls_disable.sql")
+	} else {
+		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql")
 	}
 
 	row := pool.QueryRow("SELECT current_database();")
