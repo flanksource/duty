@@ -498,19 +498,18 @@ func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.U
 	}
 	namespace, name := parts[0], parts[1]
 
-	var scopeTable string
+	q := ctx.DB()
 	switch table {
 	case "checks":
-		scopeTable = "canaries"
+		q = q.Table("canaries").Select("id").Where("name = ? AND namespace = ?", name, namespace)
 	case "config_items":
-		scopeTable = "config_scrapers"
+		q = q.Table("config_scrapers").Select("id").Where("name = ?", namespace+"/"+name)
 	case "components":
-		scopeTable = "topologies"
+		q = q.Table("topologies").Select("id").Where("name = ? AND namespace = ?", name, namespace)
 	default:
 		return "", api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 	}
 
-	q := ctx.DB().Table(scopeTable).Select("id").Where("name = ? AND namespace = ?", name, namespace)
 	if agentID != nil {
 		q = q.Where("agent_id = ?", *agentID)
 	}
