@@ -31,7 +31,7 @@ func GetEmbeddedPGConfig(database string, port int) (embeddedPG.Config, string) 
 		Port(uint32(port)).
 		RuntimePath(runTimePath).
 		Logger(io.Discard).
-		Version(embeddedPG.V15)
+		Version(embeddedPG.V16)
 
 	dbString := fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, database)
 	return config, dbString
