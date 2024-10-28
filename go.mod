@@ -19,7 +19,7 @@ require (
 	github.com/eko/gocache/lib/v4 v4.1.6
 	github.com/eko/gocache/store/go_cache/v4 v4.2.2
 	github.com/exaring/otelpgx v0.6.2
-	github.com/fergusstrange/embedded-postgres v1.25.0
+	github.com/fergusstrange/embedded-postgres v1.29.0
 	github.com/flanksource/artifacts v1.0.14
 	github.com/flanksource/commons v1.35.3
 	github.com/flanksource/gomplate/v3 v3.24.49

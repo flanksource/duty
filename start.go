@@ -52,6 +52,11 @@ func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
 
 type StartOption func(config Config) Config
 
+var EnableRLS = func(config Config) Config {
+	config.EnableRLS = true
+	return config
+}
+
 var DisablePostgrest = func(config Config) Config {
 	config.Postgrest.Disable = true
 	return config

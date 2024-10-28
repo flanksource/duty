@@ -13,9 +13,12 @@ var _ = ginkgo.Describe("Schema", ginkgo.Label("slow"), func() {
 	ginkgo.It("should be able to run migrations", func() {
 		logger.Infof("Running migrations against %s", setup.PgUrl)
 		// run migrations again to ensure idempotency
-		err := duty.Migrate(api.NewConfig(setup.PgUrl))
+		conf := api.NewConfig(setup.PgUrl)
+		conf.EnableRLS = true
+		err := duty.Migrate(conf)
 		Expect(err).ToNot(HaveOccurred())
 	})
+
 	ginkgo.It("Gorm can connect", func() {
 		gormDB, err := duty.NewGorm(setup.PgUrl, duty.DefaultGormConfig())
 		Expect(err).ToNot(HaveOccurred())

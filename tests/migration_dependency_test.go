@@ -23,7 +23,7 @@ var _ = Describe("migration dependency", Ordered, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(BeZero())
-		Expect(len(views)).To(BeZero())
+		Expect(len(views)).To(Equal(1), "skipped RLS disable is picked up here")
 	})
 
 	It("should explicitly run script", func() {
