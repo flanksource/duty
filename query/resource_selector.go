@@ -516,7 +516,7 @@ func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.U
 	}
 
 	var id string
-	tx := q.First(&id)
+	tx := q.Find(&id)
 	if tx.RowsAffected != 1 {
 		agentToLog := "all"
 		if agentID != nil {
