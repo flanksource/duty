@@ -5,12 +5,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type Permission struct {
 	ID           uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Action       string     `json:"action"`
+	Object       string     `json:"object"`
 	ConnectionID *uuid.UUID `json:"connection_id,omitempty"`
 	CanaryID     *uuid.UUID `json:"canary_id,omitempty"`
 	ComponentID  *uuid.UUID `json:"component_id,omitempty"`
@@ -22,9 +25,16 @@ type Permission struct {
 	PersonID     *uuid.UUID `json:"person_id,omitempty"`
 	PlaybookID   *uuid.UUID `json:"playbook_id,omitempty"`
 	TeamID       *uuid.UUID `json:"team_id,omitempty"`
+	Source       string     `json:"source"`
 	Until        *time.Time `json:"until"`
 	UpdatedAt    *time.Time `json:"updated_at"`
 	UpdatedBy    *uuid.UUID `json:"updated_by"`
+
+	// List of agent ids whose configs/components are accessible to a person when RLS is enabled
+	Agents pq.StringArray `json:"agents,omitempty"`
+
+	// List of config/component tags a person is allowed access to when RLS is enabled
+	Tags types.JSONStringMap `json:"tags,omitempty"`
 }
 
 func (t *Permission) Principal() string {

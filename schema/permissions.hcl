@@ -90,6 +90,18 @@ table "permissions" {
     type = timestamptz
   }
 
+  column "agents" {
+    null = true
+    type = jsonb
+    comment = "a list of agent ids a user is allowed to access when row-level security is enabled"
+  }
+
+  column "tags" {
+    null = true
+    type = jsonb
+    comment = "a list of tags a user is allowed to access when row-level security is enabled"
+  }
+
   primary_key {
     columns = [column.id]
   }
