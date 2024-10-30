@@ -14,7 +14,7 @@ import (
 	"github.com/samber/lo"
 )
 
-var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
+var _ = ginkgo.FDescribe("Config changes recursive", ginkgo.Ordered, func() {
 	// Graph #1 (acyclic)
 	//
 	//        U

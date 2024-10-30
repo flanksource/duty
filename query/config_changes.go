@@ -347,7 +347,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	table := query.Table("catalog_changes")
 	if err := uuid.Validate(req.CatalogID); err == nil {
-		table = query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+		table = query.Table("related_changes_recursive(?,?,?,?, true)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
 	} else {
 		clause, err := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false)
 		if err != nil {
