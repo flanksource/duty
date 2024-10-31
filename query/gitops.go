@@ -54,10 +54,11 @@ type GitOpsSource struct {
 }
 
 func (t *GitOpsSource) AsMap() map[string]any {
-	return map[string]any{
-		"git":       t.Git.AsMap(),
-		"kustomize": t.Kustomize.AsMap(),
-	}
+	m := t.Git.AsMap()
+	// FIXME - git duplicated for backwards compatibility remove once all playbooks updated
+	m["git"] = t.Git.AsMap()
+	m["kustomize"] = t.Kustomize.AsMap()
+	return m
 }
 
 func getOrigin(ci *models.ConfigItem) (map[string]any, error) {
