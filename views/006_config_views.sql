@@ -793,7 +793,11 @@ BEGIN
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
-      LEFT JOIN (SELECT config_relationships.config_id FROM config_relationships WHERE relation != 'hard') AS cr ON cr.config_id = cc.config_id
+      LEFT JOIN 
+          (SELECT config_relationships.config_id, config_relationships.related_id 
+           FROM config_relationships 
+           WHERE relation != 'hard') AS cr 
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE starts_with(config_items.path, (
         SELECT CASE 
             WHEN config_items.path = '' THEN config_items.id::text 
@@ -802,7 +806,7 @@ BEGIN
         FROM config_items WHERE config_items.id = lookup_id 
         )) OR
         (cc.config_id = lookup_id) OR
-        (soft AND cr.config_id = lookup_id );
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
 
   ELSIF type_filter IN ('upstream') THEN
     RETURN query
@@ -811,10 +815,14 @@ BEGIN
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
-      LEFT JOIN (SELECT config_relationships.config_id FROM config_relationships WHERE relation != 'hard') AS cr ON cr.config_id = cc.config_id
+      LEFT JOIN 
+          (SELECT config_relationships.config_id, config_relationships.related_id 
+           FROM config_relationships 
+           WHERE relation != 'hard') AS cr 
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE cc.config_id IN (SELECT get_recursive_path.id FROM get_recursive_path(lookup_id)) OR
         (cc.config_id = lookup_id) OR
-        (soft AND cr.config_id = lookup_id );
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
 
   ELSE
     RETURN query

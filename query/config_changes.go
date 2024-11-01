@@ -58,7 +58,10 @@ type CatalogChangesSearchRequest struct {
 
 	// upstream | downstream | both
 	Recursive string `query:"recursive" json:"recursive"`
-	// FIXME: Soft only works when Recursive=both and not with upstream/downstream
+	// FIXME: Soft toggle does not work with Recursive=both
+	// In that case, soft relations are always returned
+	// It also returns ALL soft relations throughout the tree
+	// not just soft related to the main config item
 	Soft bool `query:"soft" json:"soft"`
 
 	fromParsed time.Time

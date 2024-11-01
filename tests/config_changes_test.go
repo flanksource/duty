@@ -18,13 +18,13 @@ import (
 var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	// Graph #1 (acyclic)
 	//
-	//        U
+	//          U --- (A)
+	//         / \
+	// (B)----V   W
 	//       / \
-	//      V   W
-	//     / \
-	//    X   Y
-	//   /
-	//  Z
+	// (C)--X   Y
+	//     /
+	//    Z--- (D)
 
 	// Create a list of ConfigItems
 	var (
@@ -47,7 +47,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		{ConfigID: U.ID.String(), RelatedID: A.ID.String(), Relation: "test-changes-UA"},
 		{ConfigID: V.ID.String(), RelatedID: B.ID.String(), Relation: "test-changes-VB"},
 		{ConfigID: X.ID.String(), RelatedID: C.ID.String(), Relation: "test-changes-XC"},
-		//{ConfigID: Z.ID.String(), RelatedID: D.ID.String(), Relation: "test-changes-ZD"},
+		{ConfigID: Z.ID.String(), RelatedID: D.ID.String(), Relation: "test-changes-ZD"},
 	}
 
 	// Create changes for each config
@@ -123,10 +123,10 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
 			Expect(err).To(BeNil())
 
-			Expect(len(relatedChanges.Changes)).To(Equal(5))
+			Expect(len(relatedChanges.Changes)).To(Equal(6))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID, CChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID, CChange.ID, DChange.ID}))
 		})
 	})
 
@@ -141,13 +141,43 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID}))
 		})
 
+		ginkgo.It("should return changes of a root node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID.String(),
+				Recursive: "downstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(7))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID, AChange.ID}))
+		})
+
 		ginkgo.It("should return changes of a leaf node", func() {
 			relatedChanges, err := findChanges(Z.ID, "all", false)
 			Expect(err).To(BeNil())
-			Expect(len(relatedChanges.Changes)).To(Equal(4))
+			Expect(len(relatedChanges.Changes)).To(Equal(5))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{ZChange.ID, XChange.ID, VChange.ID, UChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{ZChange.ID, XChange.ID, VChange.ID, UChange.ID, DChange.ID}))
+		})
+
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: X.ID.String(),
+				Recursive: "downstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(3))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{XChange.ID, ZChange.ID, CChange.ID}))
 		})
 	})
 
@@ -161,13 +191,43 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID}))
 		})
 
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID.String(),
+				Recursive: "upstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(2))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, AChange.ID}))
+		})
+
 		ginkgo.It("should return changes of a non-root node", func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
 			Expect(err).To(BeNil())
-			Expect(len(relatedChanges.Changes)).To(Equal(5))
+			Expect(len(relatedChanges.Changes)).To(Equal(6))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, ZChange.ID, XChange.ID, CChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, ZChange.ID, XChange.ID, CChange.ID, DChange.ID}))
+		})
+
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: X.ID.String(),
+				Recursive: "upstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(4))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{XChange.ID, UChange.ID, VChange.ID, CChange.ID}))
 		})
 	})
 
@@ -329,10 +389,10 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					Recursive: query.CatalogChangeRecursiveAll,
 				})
 				Expect(err).To(BeNil())
-				Expect(len(response.Changes)).To(Equal(7))
-				Expect(response.Total).To(Equal(int64(7)))
+				Expect(len(response.Changes)).To(Equal(8))
+				Expect(response.Total).To(Equal(int64(8)))
 				Expect(response.Summary["diff"]).To(Equal(3))
-				Expect(response.Summary["Pulled"]).To(Equal(3))
+				Expect(response.Summary["Pulled"]).To(Equal(4))
 				Expect(response.Summary["RegisterNode"]).To(Equal(1))
 			})
 		})
