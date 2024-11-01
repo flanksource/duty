@@ -753,7 +753,8 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
   lookup_id UUID,
   type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', 'all', 'none' or ''
   include_deleted_configs BOOLEAN DEFAULT FALSE,
-  max_depth INTEGER DEFAULT 5
+  max_depth INTEGER DEFAULT 5,
+  soft BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (
     id uuid,
     config_id uuid,
@@ -784,6 +785,45 @@ BEGIN
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
       WHERE cc.config_id = lookup_id;
+
+  ELSIF type_filter IN ('downstream') THEN
+    RETURN query
+        SELECT 
+          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items on config_items.id = cc.config_id
+      LEFT JOIN 
+          (SELECT config_relationships.config_id, config_relationships.related_id 
+           FROM config_relationships 
+           WHERE relation != 'hard') AS cr 
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
+      WHERE starts_with(config_items.path, (
+        SELECT CASE 
+            WHEN config_items.path = '' THEN config_items.id::text 
+            ELSE CONCAT(config_items.path, '.', config_items.id) 
+          END
+        FROM config_items WHERE config_items.id = lookup_id 
+        )) OR
+        (cc.config_id = lookup_id) OR
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
+
+  ELSIF type_filter IN ('upstream') THEN
+    RETURN query
+        SELECT 
+          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items on config_items.id = cc.config_id
+      LEFT JOIN 
+          (SELECT config_relationships.config_id, config_relationships.related_id 
+           FROM config_relationships 
+           WHERE relation != 'hard') AS cr 
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
+      WHERE cc.config_id IN (SELECT get_recursive_path.id FROM get_recursive_path(lookup_id)) OR
+        (cc.config_id = lookup_id) OR
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
+
   ELSE
     RETURN query
       SELECT
@@ -798,7 +838,6 @@ BEGIN
             lookup_id,
             CASE
               WHEN type_filter = 'upstream' THEN 'incoming'
-              WHEN type_filter = 'downstream' THEN 'outgoing'
               ELSE type_filter
             END,
             max_depth

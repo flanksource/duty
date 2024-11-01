@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"strings"
 	"time"
 
 	"github.com/flanksource/duty/db"
@@ -17,32 +18,36 @@ import (
 var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	// Graph #1 (acyclic)
 	//
-	//        U
+	//          U --- (A)
+	//         / \
+	// (B)----V   W
 	//       / \
-	//      V   W
-	//     / \
-	//    X   Y
-	//   /
-	//  Z
+	// (C)--X   Y
+	//     /
+	//    Z--- (D)
 
 	// Create a list of ConfigItems
 	var (
 		U = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Node"), Name: lo.ToPtr("U"), ConfigClass: "Node"}
-		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V"), ConfigClass: "Deployment"}
-		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W"), ConfigClass: "Pod"}
-		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X"), ConfigClass: "ReplicaSet"}
-		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y"), ConfigClass: "PersistentVolume"}
-		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z"), ConfigClass: "Pod"}
+		V = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Deployment"), Name: lo.ToPtr("V"), ConfigClass: "Deployment", ParentID: lo.ToPtr(U.ID), Path: U.ID.String()}
+		W = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("W"), ConfigClass: "Pod", ParentID: lo.ToPtr(U.ID), Path: U.ID.String()}
+		X = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ReplicaSet"), Name: lo.ToPtr("X"), ConfigClass: "ReplicaSet", ParentID: lo.ToPtr(V.ID), Path: strings.Join([]string{U.ID.String(), V.ID.String()}, ".")}
+		Y = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::PersistentVolume"), Name: lo.ToPtr("Y"), ConfigClass: "PersistentVolume", ParentID: lo.ToPtr(V.ID), Path: strings.Join([]string{U.ID.String(), V.ID.String()}, ".")}
+		Z = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::Pod"), Name: lo.ToPtr("Z"), ConfigClass: "Pod", ParentID: lo.ToPtr(X.ID), Path: strings.Join([]string{U.ID.String(), V.ID.String(), X.ID.String()}, ".")}
+
+		A = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ConfigMap"), Name: lo.ToPtr("A"), ConfigClass: "ConfigMap"}
+		B = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ConfigMap"), Name: lo.ToPtr("B"), ConfigClass: "ConfigMap"}
+		C = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ConfigMap"), Name: lo.ToPtr("C"), ConfigClass: "ConfigMap"}
+		D = models.ConfigItem{ID: uuid.New(), Tags: types.JSONStringMap{"namespace": "test-changes"}, Type: lo.ToPtr("Kubernetes::ConfigMap"), Name: lo.ToPtr("D"), ConfigClass: "ConfigMap"}
 	)
-	configItems := []models.ConfigItem{U, V, W, X, Y, Z}
+	configItems := []models.ConfigItem{U, V, W, X, Y, Z, A, B, C, D}
 
 	// Create relationships between ConfigItems
 	relationships := []models.ConfigRelationship{
-		{ConfigID: U.ID.String(), RelatedID: V.ID.String(), Relation: "test-changes-UV"},
-		{ConfigID: U.ID.String(), RelatedID: W.ID.String(), Relation: "test-changes-UW"},
-		{ConfigID: V.ID.String(), RelatedID: X.ID.String(), Relation: "test-changes-VX"},
-		{ConfigID: V.ID.String(), RelatedID: Y.ID.String(), Relation: "test-changes-VY"},
-		{ConfigID: X.ID.String(), RelatedID: Z.ID.String(), Relation: "test-changes-XZ"},
+		{ConfigID: U.ID.String(), RelatedID: A.ID.String(), Relation: "test-changes-UA"},
+		{ConfigID: V.ID.String(), RelatedID: B.ID.String(), Relation: "test-changes-VB"},
+		{ConfigID: X.ID.String(), RelatedID: C.ID.String(), Relation: "test-changes-XC"},
+		{ConfigID: Z.ID.String(), RelatedID: D.ID.String(), Relation: "test-changes-ZD"},
 	}
 
 	// Create changes for each config
@@ -54,7 +59,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		YChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 4)), Severity: "warn", ConfigID: Y.ID.String(), Summary: ".name.Y", ChangeType: "diff", Source: "test-changes"}
 		ZChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: Z.ID.String(), Summary: ".name.Z", ChangeType: "Pulled", Source: "test-changes"}
 
-		changes = []models.ConfigChange{UChange, VChange, WChange, XChange, YChange, ZChange}
+		AChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: A.ID.String(), Summary: ".name.A", ChangeType: "Pulled", Source: "test-changes"}
+		BChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: B.ID.String(), Summary: ".name.B", ChangeType: "Pulled", Source: "test-changes"}
+		CChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: C.ID.String(), Summary: ".name.C", ChangeType: "Pulled", Source: "test-changes"}
+		DChange = models.ConfigChange{ID: uuid.New().String(), CreatedAt: lo.ToPtr(time.Now().Add(-time.Hour * 5)), Severity: "info", ConfigID: D.ID.String(), Summary: ".name.D", ChangeType: "Pulled", Source: "test-changes"}
+
+		changes = []models.ConfigChange{UChange, VChange, WChange, XChange, YChange, ZChange, AChange, BChange, CChange, DChange}
 	)
 
 	ginkgo.BeforeAll(func() {
@@ -111,13 +121,12 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 	ginkgo.Context("Both ways", func() {
 		ginkgo.It("should return changes upstream and downstream", func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
-
 			Expect(err).To(BeNil())
 
-			Expect(len(relatedChanges.Changes)).To(Equal(4))
+			Expect(len(relatedChanges.Changes)).To(Equal(6))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, XChange.ID, ZChange.ID, CChange.ID, DChange.ID}))
 		})
 	})
 
@@ -132,13 +141,43 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID}))
 		})
 
+		ginkgo.It("should return changes of a root node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID.String(),
+				Recursive: "downstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(7))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, WChange.ID, XChange.ID, YChange.ID, ZChange.ID, AChange.ID}))
+		})
+
 		ginkgo.It("should return changes of a leaf node", func() {
 			relatedChanges, err := findChanges(Z.ID, "all", false)
 			Expect(err).To(BeNil())
-			Expect(len(relatedChanges.Changes)).To(Equal(4))
+			Expect(len(relatedChanges.Changes)).To(Equal(5))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{ZChange.ID, XChange.ID, VChange.ID, UChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{ZChange.ID, XChange.ID, VChange.ID, UChange.ID, DChange.ID}))
+		})
+
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: X.ID.String(),
+				Recursive: "downstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(3))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{XChange.ID, ZChange.ID, CChange.ID}))
 		})
 	})
 
@@ -152,13 +191,43 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID}))
 		})
 
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: U.ID.String(),
+				Recursive: "upstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
+			Expect(len(relatedChanges.Changes)).To(Equal(2))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, AChange.ID}))
+		})
+
 		ginkgo.It("should return changes of a non-root node", func() {
 			relatedChanges, err := findChanges(X.ID, "all", false)
 			Expect(err).To(BeNil())
+			Expect(len(relatedChanges.Changes)).To(Equal(6))
+
+			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
+			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, ZChange.ID, XChange.ID, CChange.ID, DChange.ID}))
+		})
+
+		ginkgo.It("should return changes of a leaf node along with soft", func() {
+			relatedChanges, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID: X.ID.String(),
+				Recursive: "upstream",
+				Soft:      true,
+			})
+
+			Expect(err).To(BeNil())
+
 			Expect(len(relatedChanges.Changes)).To(Equal(4))
 
 			relatedIDs := lo.Map(relatedChanges.Changes, func(rc query.ConfigChangeRow, _ int) string { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]string{UChange.ID, VChange.ID, ZChange.ID, XChange.ID}))
+			Expect(relatedIDs).To(ConsistOf([]string{XChange.ID, UChange.ID, VChange.ID, CChange.ID}))
 		})
 	})
 
@@ -320,10 +389,10 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					Recursive: query.CatalogChangeRecursiveAll,
 				})
 				Expect(err).To(BeNil())
-				Expect(len(response.Changes)).To(Equal(5))
-				Expect(response.Total).To(Equal(int64(5)))
+				Expect(len(response.Changes)).To(Equal(8))
+				Expect(response.Total).To(Equal(int64(8)))
 				Expect(response.Summary["diff"]).To(Equal(3))
-				Expect(response.Summary["Pulled"]).To(Equal(1))
+				Expect(response.Summary["Pulled"]).To(Equal(4))
 				Expect(response.Summary["RegisterNode"]).To(Equal(1))
 			})
 		})
