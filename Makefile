@@ -83,7 +83,7 @@ fmt_json:
 
 fmt_sql:
 	ls views/*.sql | while read -r sqlf; do \
-		sql-formatter -l postgresql --fix $$sqlf; \
+		pg_format -s 2 -o $$sqlf $$sqlf; \
 	done;
 
 tidy:
