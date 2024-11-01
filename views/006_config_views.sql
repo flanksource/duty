@@ -838,7 +838,7 @@ CREATE OR REPLACE VIEW config_detail AS
     json_build_object(
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
       'analysis', COALESCE(analysis.analysis_count, 0),
-      'changes', COALESCE(change_summary.changes_count, 0),
+      'changes', COALESCE(change_summary.total_changes_count, 0),
       'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0),
       'checks', COALESCE(config_checks.checks_count, 0)
     ) as summary,
@@ -856,9 +856,11 @@ CREATE OR REPLACE VIEW config_detail AS
         GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
     LEFT JOIN
-      (SELECT config_item_summary_7d.config_id, config_item_summary_7d.config_changes_count AS changes_count
-        FROM config_item_summary_7d) AS change_summary
-      ON ci.path LIKE '%' || change_summary.config_id || '%'
+      (SELECT ci.id AS config_id, SUM(cs.config_changes_count) AS total_changes_count
+        FROM config_items ci
+        LEFT JOIN config_item_summary_7d cs ON ci.path LIKE '%' || cs.config_id || '%'
+        GROUP BY ci.id) AS change_summary
+      ON ci.id = change_summary.config_id
     LEFT JOIN
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
         WHERE start_time > NOW() - interval '30 days'
