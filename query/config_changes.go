@@ -58,6 +58,8 @@ type CatalogChangesSearchRequest struct {
 
 	// upstream | downstream | both
 	Recursive string `query:"recursive" json:"recursive"`
+	// FIXME: Soft only works when Recursive=both and not with upstream/downstream
+	Soft bool `query:"soft" json:"soft"`
 
 	fromParsed time.Time
 	toParsed   time.Time
@@ -347,7 +349,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	table := query.Table("catalog_changes")
 	if err := uuid.Validate(req.CatalogID); err == nil {
-		table = query.Table("related_changes_recursive(?,?,?,?, true)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+		table = query.Table("related_changes_recursive(?,?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth, req.Soft)
 	} else {
 		clause, err := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false)
 		if err != nil {
