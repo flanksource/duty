@@ -47,11 +47,16 @@ var (
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
 )
 
+type ForeignKeyErrorSummary struct {
+	Count int      `json:"count,omitempty"`
+	IDs   []string `json:"ids,omitempty"`
+}
+
 type ReconcileTableSummary struct {
-	Success   int             `json:"success,omitempty"`
-	FKeyError int             `json:"foreign_error,omitempty"`
-	Skipped   bool            `json:"skipped,omitempty"`
-	Error     *oops.OopsError `json:"error,omitempty"`
+	Success   int                    `json:"success,omitempty"`
+	FKeyError ForeignKeyErrorSummary `json:"foreign_error,omitempty"`
+	Skipped   bool                   `json:"skipped,omitempty"`
+	Error     *oops.OopsError        `json:"error,omitempty"`
 }
 
 type ReconcileSummary map[string]ReconcileTableSummary
@@ -73,7 +78,7 @@ func (t ReconcileSummary) DidReconcile(tables []string) bool {
 			return false // this table hasn't been reconciled yet
 		}
 
-		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError == 0
+		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError.Count == 0
 		if !reconciled {
 			return false // table didn't reconcile successfully
 		}
@@ -86,7 +91,7 @@ func (t ReconcileSummary) GetSuccessFailure() (int, int) {
 	var success, failure int
 	for _, summary := range t {
 		success += summary.Success
-		failure += summary.FKeyError
+		failure += summary.FKeyError.Count
 	}
 	return success, failure
 }
@@ -103,8 +108,8 @@ func (t *ReconcileSummary) AddSkipped(tables ...pushableTable) {
 	}
 }
 
-func (t *ReconcileSummary) AddStat(table string, success, foreignKeyFailures int, err error) {
-	if success == 0 && foreignKeyFailures == 0 && err == nil {
+func (t *ReconcileSummary) AddStat(table string, success int, foreignKeyFailures ForeignKeyErrorSummary, err error) {
+	if success == 0 && foreignKeyFailures.Count == 0 && err == nil {
 		return
 	}
 
@@ -130,7 +135,7 @@ func (t ReconcileSummary) Error() error {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
 		}
 
-		if summary.FKeyError > 0 {
+		if summary.FKeyError.Count > 0 {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %d foreign key errors; ", table, summary.Error))
 		}
 	}
@@ -155,12 +160,12 @@ type PushGroup struct {
 
 var reconcileTableGroups = []PushGroup{
 	{
-		Name:   "topologies",
-		Tables: []pushableTable{models.Topology{}, models.Component{}, models.ComponentRelationship{}},
-	},
-	{
 		Name:   "configs",
 		Tables: []pushableTable{models.ConfigScraper{}, models.ConfigItem{}, models.ConfigChange{}, models.ConfigAnalysis{}, models.ConfigRelationship{}},
+	},
+	{
+		Name:   "topologies",
+		Tables: []pushableTable{models.Topology{}, models.Component{}, models.ComponentRelationship{}},
 	},
 	{
 		Name:   "canaries",
@@ -227,10 +232,11 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
-func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, int, error) {
+func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, ForeignKeyErrorSummary, error) {
 	client := NewUpstreamClient(config)
 
-	var count, fkFailed int
+	var count int
+	var fkFailed ForeignKeyErrorSummary
 	for {
 		items, err := table.GetUnpushed(ctx.DB().Limit(batchSize))
 		if err != nil {
@@ -263,9 +269,12 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			})
 			failedItems := lo.Filter(items, func(item models.DBTable, _ int) bool {
 				_, ok := failedOnes[item.PK()]
+				if ok {
+					fkFailed.IDs = append(fkFailed.IDs, item.PK())
+					fkFailed.Count += 1
+				}
 				return ok
 			})
-			fkFailed += len(failedItems)
 
 			if c, ok := table.(parentIsPushedUpdater); ok && len(failedItems) > 0 {
 				if err := c.UpdateParentsIsPushed(ctx.DB(), failedItems); err != nil {
