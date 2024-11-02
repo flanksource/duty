@@ -79,6 +79,10 @@ BEGIN
   DELETE FROM check_config_relationships
   WHERE config_id IN (SELECT id FROM config_items_to_delete);
 
+  -- Components are independent so we just unset config_id
+  UPDATE components SET config_id = NULL
+  WHERE config_id IN (SELECT id FROM config_items_to_delete);
+
   -- Finally, delete the config_items themselves
   DELETE FROM config_items
   WHERE id IN (SELECT id FROM config_items_to_delete);
