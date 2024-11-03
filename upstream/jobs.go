@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	dutil "github.com/flanksource/duty/db"
@@ -50,6 +51,18 @@ var (
 type ForeignKeyErrorSummary struct {
 	Count int      `json:"count,omitempty"`
 	IDs   []string `json:"ids,omitempty"`
+}
+
+const FKErrorIDCount = 10
+
+func (fks ForeignKeyErrorSummary) MarshalJSON() ([]byte, error) {
+	// Display less IDs to keep UI consistent
+	idLimit := properties.Int(FKErrorIDCount, "upstream.summary.fkerror_id_count")
+	fks.IDs = lo.Slice(fks.IDs, 0, idLimit)
+	if len(fks.IDs) >= idLimit {
+		fks.IDs = append(fks.IDs, "...")
+	}
+	return json.Marshal(fks)
 }
 
 type ReconcileTableSummary struct {
