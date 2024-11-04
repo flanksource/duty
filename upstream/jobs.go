@@ -62,7 +62,7 @@ func (fks ForeignKeyErrorSummary) MarshalJSON() ([]byte, error) {
 	if len(fks.IDs) >= idLimit {
 		fks.IDs = append(fks.IDs, "...")
 	}
-	return json.Marshal(fks)
+	return json.Marshal(map[string]any{"ids": fks.IDs, "count": fks.Count})
 }
 
 type ReconcileTableSummary struct {
