@@ -49,8 +49,7 @@ var (
 )
 
 type ForeignKeyErrorSummary struct {
-	count int
-	ids   []string
+	ids []string
 }
 
 func (fks ForeignKeyErrorSummary) Count() int     { return len(fks.ids) }
