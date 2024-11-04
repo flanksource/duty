@@ -49,20 +49,27 @@ var (
 )
 
 type ForeignKeyErrorSummary struct {
-	Count int      `json:"count,omitempty"`
-	IDs   []string `json:"ids,omitempty"`
+	count int
+	ids   []string
 }
+
+func (fks ForeignKeyErrorSummary) Count() int     { return len(fks.ids) }
+func (fks *ForeignKeyErrorSummary) Add(id string) { fks.ids = append(fks.ids, id) }
 
 const FKErrorIDCount = 10
 
 func (fks ForeignKeyErrorSummary) MarshalJSON() ([]byte, error) {
+	count := len(fks.ids)
+	if count == 0 {
+		return []byte(`null`), nil
+	}
 	// Display less IDs to keep UI consistent
 	idLimit := properties.Int(FKErrorIDCount, "upstream.summary.fkerror_id_count")
-	fks.IDs = lo.Slice(fks.IDs, 0, idLimit)
-	if len(fks.IDs) >= idLimit {
-		fks.IDs = append(fks.IDs, "...")
+	fks.ids = lo.Slice(fks.ids, 0, idLimit)
+	if len(fks.ids) >= idLimit {
+		fks.ids = append(fks.ids, "...")
 	}
-	return json.Marshal(map[string]any{"ids": fks.IDs, "count": fks.Count})
+	return json.Marshal(map[string]any{"ids": fks.ids, "count": count})
 }
 
 type ReconcileTableSummary struct {
@@ -91,7 +98,7 @@ func (t ReconcileSummary) DidReconcile(tables []string) bool {
 			return false // this table hasn't been reconciled yet
 		}
 
-		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError.Count == 0
+		reconciled := !summary.Skipped && summary.Error == nil && summary.FKeyError.Count() == 0
 		if !reconciled {
 			return false // table didn't reconcile successfully
 		}
@@ -104,7 +111,7 @@ func (t ReconcileSummary) GetSuccessFailure() (int, int) {
 	var success, failure int
 	for _, summary := range t {
 		success += summary.Success
-		failure += summary.FKeyError.Count
+		failure += summary.FKeyError.Count()
 	}
 	return success, failure
 }
@@ -122,7 +129,7 @@ func (t *ReconcileSummary) AddSkipped(tables ...pushableTable) {
 }
 
 func (t *ReconcileSummary) AddStat(table string, success int, foreignKeyFailures ForeignKeyErrorSummary, err error) {
-	if success == 0 && foreignKeyFailures.Count == 0 && err == nil {
+	if success == 0 && foreignKeyFailures.Count() == 0 && err == nil {
 		return
 	}
 
@@ -148,7 +155,7 @@ func (t ReconcileSummary) Error() error {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %s; ", table, summary.Error))
 		}
 
-		if summary.FKeyError.Count > 0 {
+		if summary.FKeyError.Count() > 0 {
 			allErrors = append(allErrors, fmt.Sprintf("%s: %d foreign key errors; ", table, summary.Error))
 		}
 	}
@@ -283,8 +290,7 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 			failedItems := lo.Filter(items, func(item models.DBTable, _ int) bool {
 				_, ok := failedOnes[item.PK()]
 				if ok {
-					fkFailed.IDs = append(fkFailed.IDs, item.PK())
-					fkFailed.Count += 1
+					fkFailed.Add(item.PK())
 				}
 				return ok
 			})
