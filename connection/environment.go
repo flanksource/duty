@@ -9,17 +9,16 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/types"
 
 	textTemplate "text/template"
 )
 
 // +kubebuilder:object:generate=true
 type ExecConnections struct {
-	Kubernetes *types.EnvVar    `yaml:"kubernetes,omitempty" json:"kubernetes,omitempty"`
-	AWS        *AWSConnection   `yaml:"aws,omitempty" json:"aws,omitempty"`
-	GCP        *GCPConnection   `yaml:"gcp,omitempty" json:"gcp,omitempty"`
-	Azure      *AzureConnection `yaml:"azure,omitempty" json:"azure,omitempty"`
+	Kubernetes *KubernetesConnection `yaml:"kubernetes,omitempty" json:"kubernetes,omitempty"`
+	AWS        *AWSConnection        `yaml:"aws,omitempty" json:"aws,omitempty"`
+	GCP        *GCPConnection        `yaml:"gcp,omitempty" json:"gcp,omitempty"`
+	Azure      *AzureConnection      `yaml:"azure,omitempty" json:"azure,omitempty"`
 }
 
 func saveConfig(configTemplate *textTemplate.Template, view any) (string, error) {
@@ -59,7 +58,7 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 
 	gcloudConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.Credentials}}`))
 
-	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.ValueStatic}}`))
+	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.KubeConfig.ValueStatic}}`))
 }
 
 // SetupCConnections creates the necessary credential files and injects env vars
@@ -72,7 +71,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	if connections.Kubernetes != nil {
 		configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to store AWS credentials: %w", err)
+			return nil, fmt.Errorf("failed to store kubernetes credentials: %w", err)
 		}
 
 		cleaner = func() error {
