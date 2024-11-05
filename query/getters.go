@@ -26,6 +26,12 @@ func FlushGettersCache() {
 	immutableCache.Flush()
 }
 
+// InvalidateCacheByID deletes a single item from the getters cache
+func InvalidateCacheByID[T any](id string) {
+	key := cacheKey[T]("id", id)
+	getterCache.Delete(key)
+}
+
 type GetterOption uint8
 
 const (
