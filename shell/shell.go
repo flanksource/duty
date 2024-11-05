@@ -107,8 +107,14 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		cmd.Dir = envParams.mountPoint
 	}
 
-	if err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
+	if cleanup, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
+	} else {
+		defer func() {
+			if err := cleanup(); err != nil {
+				logger.Errorf("failed to cleanup connection artifacts: %v", err)
+			}
+		}()
 	}
 
 	envParams.cmd = cmd
