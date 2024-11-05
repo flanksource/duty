@@ -26,8 +26,8 @@ func FlushGettersCache() {
 	immutableCache.Flush()
 }
 
-// GetterCacheDeleteByID deletes a single item from the getters cache
-func GetterCacheDeleteByID[T any](id string) {
+// InvalidateCacheByID deletes a single item from the getters cache
+func InvalidateCacheByID[T any](id string) {
 	key := cacheKey[T]("id", id)
 	getterCache.Delete(key)
 }
