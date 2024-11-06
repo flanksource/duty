@@ -103,6 +103,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
 							return nil, err
 						}
+
+						ctx = ctx.WithNamespace(configItem.GetNamespace())
 					}
 				}
 			}
