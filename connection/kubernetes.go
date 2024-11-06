@@ -9,8 +9,8 @@ import (
 
 // +kubebuilder:object:generate=true
 type KubernetesConnection struct {
-	ConnectionName string        `json:"connection,omitempty"`
-	KubeConfig     *types.EnvVar `json:"kubeconfig,omitempty"`
+	ConnectionName string       `json:"connection,omitempty"`
+	KubeConfig     types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
@@ -20,8 +20,6 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-// Populate populates KubernetesConnection with credentials.
-// If a connection name is specified, it'll be used to populate the certificate.
 func (t *KubernetesConnection) Populate(ctx ConnectionContext) error {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
@@ -32,6 +30,12 @@ func (t *KubernetesConnection) Populate(ctx ConnectionContext) error {
 		}
 
 		t.KubeConfig.ValueStatic = connection.Certificate
+	}
+
+	if v, err := ctx.GetEnvValueFromCache(t.KubeConfig, ctx.GetNamespace()); err != nil {
+		return err
+	} else {
+		t.KubeConfig.ValueStatic = v
 	}
 
 	return nil

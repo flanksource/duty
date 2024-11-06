@@ -9,12 +9,18 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	textTemplate "text/template"
 )
 
 // +kubebuilder:object:generate=true
 type ExecConnections struct {
+	FromConfigItem string `yaml:"fromConfigItem,omitempty" json:"fromConfigItem,omitempty" template:"true"`
+
 	Kubernetes *KubernetesConnection `yaml:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	AWS        *AWSConnection        `yaml:"aws,omitempty" json:"aws,omitempty"`
 	GCP        *GCPConnection        `yaml:"gcp,omitempty" json:"gcp,omitempty"`
@@ -66,6 +72,36 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (func() error, error) {
 	var cleaner = func() error {
 		return nil
+	}
+
+	if connections.FromConfigItem != "" {
+		var configItem models.ConfigItem
+		if err := ctx.DB().Where("id = ?", connections.FromConfigItem).First(&configItem).Error; err != nil {
+			return nil, fmt.Errorf("failed to get config (%s): %w", connections.FromConfigItem, err)
+		}
+
+		if lo.FromPtr(configItem.Type) != "MissionControl::ScrapeConfig" {
+			return nil, fmt.Errorf("provided config item (type=%s) cannot be used to populate connection. must be a MissionControl::ScrapeConfig", lo.FromPtr(configItem.Type))
+		}
+
+		if config, err := configItem.ConfigJSONStringMap(); err != nil {
+			return nil, fmt.Errorf("provided config item (id=%s) is malformed", configItem.ID)
+		} else {
+			if kubernetesScrapers, found, err := unstructured.NestedSlice(config, "spec", "kubernetes"); err != nil {
+				return nil, err
+			} else if found {
+				for _, kscraper := range kubernetesScrapers {
+					if kubeconfig, found, err := unstructured.NestedMap(kscraper.(map[string]any), "kubeconfig"); err != nil {
+						return nil, err
+					} else if found {
+						connections.Kubernetes = &KubernetesConnection{}
+						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if connections.Kubernetes != nil {
