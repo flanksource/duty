@@ -1,11 +1,13 @@
 package connection
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 	osExec "os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
@@ -75,37 +77,43 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	}
 
 	if lo.FromPtr(connections.FromConfigItem) != "" {
-		var configItem models.ConfigItem
-		if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).First(&configItem).Error; err != nil {
-			return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
-		}
+		var scraperNamespace string
+		var scraperSpec map[string]any
 
-		if lo.FromPtr(configItem.Type) != "MissionControl::ScrapeConfig" {
-			var scrapeConfig models.ConfigItem
-			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).First(&scrapeConfig).Error; err != nil {
-				return nil, fmt.Errorf("failed to get scraper config (%s): %w", lo.FromPtr(configItem.ScraperID), err)
+		{
+			var configItem models.ConfigItem
+			if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).First(&configItem).Error; err != nil {
+				return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
 			}
 
-			configItem = scrapeConfig
+			var scrapeConfig models.ConfigScraper
+			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).First(&scrapeConfig).Error; err != nil {
+				return nil, fmt.Errorf("failed to get scrapeconfig (%s): %w", lo.FromPtr(configItem.ScraperID), err)
+			}
+
+			// TODO: get the namespace directly after https://github.com/flanksource/duty/pull/1182
+			splits := strings.SplitN(scrapeConfig.Name, "/", 2)
+			scraperNamespace = splits[0]
+
+			if err := json.Unmarshal([]byte(scrapeConfig.Spec), &scraperSpec); err != nil {
+				return nil, fmt.Errorf("unable to unmarshal scrapeconfig spec (id=%s)", *configItem.ScraperID)
+			}
 		}
 
-		if config, err := configItem.ConfigJSONStringMap(); err != nil {
-			return nil, fmt.Errorf("provided config item (id=%s) is malformed", configItem.ID)
-		} else {
-			if kubernetesScrapers, found, err := unstructured.NestedSlice(config, "spec", "kubernetes"); err != nil {
-				return nil, err
-			} else if found {
-				for _, kscraper := range kubernetesScrapers {
-					if kubeconfig, found, err := unstructured.NestedMap(kscraper.(map[string]any), "kubeconfig"); err != nil {
+		if kubernetesScrapers, found, err := unstructured.NestedSlice(scraperSpec, "spec", "kubernetes"); err != nil {
+			return nil, err
+		} else if found {
+			for _, kscraper := range kubernetesScrapers {
+				if kubeconfig, found, err := unstructured.NestedMap(kscraper.(map[string]any), "kubeconfig"); err != nil {
+					return nil, err
+				} else if found {
+					connections.Kubernetes = &KubernetesConnection{}
+					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
 						return nil, err
-					} else if found {
-						connections.Kubernetes = &KubernetesConnection{}
-						if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
-							return nil, err
-						}
-
-						ctx = ctx.WithNamespace(configItem.GetNamespace())
 					}
+
+					ctx = ctx.WithNamespace(scraperNamespace)
+					break
 				}
 			}
 		}
