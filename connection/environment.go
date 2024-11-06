@@ -19,7 +19,7 @@ import (
 
 // +kubebuilder:object:generate=true
 type ExecConnections struct {
-	FromConfigItem string `yaml:"fromConfigItem,omitempty" json:"fromConfigItem,omitempty" template:"true"`
+	FromConfigItem *string `yaml:"fromConfigItem,omitempty" json:"fromConfigItem,omitempty" template:"true"`
 
 	Kubernetes *KubernetesConnection `yaml:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	AWS        *AWSConnection        `yaml:"aws,omitempty" json:"aws,omitempty"`
@@ -67,21 +67,26 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.KubeConfig.ValueStatic}}`))
 }
 
-// SetupCConnections creates the necessary credential files and injects env vars
+// SetupConnections creates the necessary credential files and injects env vars
 // into the cmd
 func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (func() error, error) {
 	var cleaner = func() error {
 		return nil
 	}
 
-	if connections.FromConfigItem != "" {
+	if lo.FromPtr(connections.FromConfigItem) != "" {
 		var configItem models.ConfigItem
-		if err := ctx.DB().Where("id = ?", connections.FromConfigItem).First(&configItem).Error; err != nil {
-			return nil, fmt.Errorf("failed to get config (%s): %w", connections.FromConfigItem, err)
+		if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).First(&configItem).Error; err != nil {
+			return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
 		}
 
 		if lo.FromPtr(configItem.Type) != "MissionControl::ScrapeConfig" {
-			return nil, fmt.Errorf("provided config item (type=%s) cannot be used to populate connection. must be a MissionControl::ScrapeConfig", lo.FromPtr(configItem.Type))
+			var scrapeConfig models.ConfigItem
+			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).First(&scrapeConfig).Error; err != nil {
+				return nil, fmt.Errorf("failed to get scraper config (%s): %w", lo.FromPtr(configItem.ScraperID), err)
+			}
+
+			configItem = scrapeConfig
 		}
 
 		if config, err := configItem.ConfigJSONStringMap(); err != nil {
@@ -105,6 +110,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	}
 
 	if connections.Kubernetes != nil {
+		if err := connections.Kubernetes.Populate(ctx); err != nil {
+			return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+		}
+
 		configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to store kubernetes credentials: %w", err)
