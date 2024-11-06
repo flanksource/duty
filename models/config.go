@@ -326,6 +326,7 @@ type ConfigScraper struct {
 	ID          uuid.UUID  `json:"id"`
 	AgentID     uuid.UUID  `json:"agent_id,omitempty"`
 	Name        string     `json:"name"`
+	Namespace   string     `json:"namespace"`
 	Description string     `json:"description,omitempty"`
 	Spec        string     `json:"spec,omitempty"`
 	Source      string     `json:"source,omitempty"`

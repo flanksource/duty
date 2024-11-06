@@ -546,6 +546,10 @@ table "config_scrapers" {
   column "name" {
     type = text
   }
+  column "namespace" {
+    null = true
+    type = text
+  }
   column "spec" {
     null = false
     type = jsonb
