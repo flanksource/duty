@@ -21,6 +21,7 @@ type ComponentConfigTraversalArgs struct {
 	Direction   string `yaml:"direction,omitempty" json:"direction,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
 type Functions struct {
 	// It uses the config_id linked to the componentID to lookup up all the config relations and returns
 	// a list of componentIDs that are linked to the found configIDs
