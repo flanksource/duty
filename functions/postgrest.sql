@@ -17,12 +17,9 @@ END $$;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgrest_api') THEN
-      -- CREATE a ROLE that will own all views where we need to enforce RLS.
-      CREATE ROLE api_views_owner NOSUPERUSER NOBYPASSRLS;
-
-      GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
-    END IF ;
+  -- CREATE a ROLE that will own all views where we need to enforce RLS.
+  CREATE ROLE api_views_owner NOSUPERUSER NOBYPASSRLS;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
 END
 $$;
 
