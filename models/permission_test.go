@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 )
 
@@ -32,6 +33,13 @@ func TestPermission_Condition(t *testing.T) {
 			name:     "No fields set",
 			perm:     Permission{},
 			expected: "",
+		},
+		{
+			name: "agents",
+			perm: Permission{
+				Agents: pq.StringArray([]string{"aws", "azure"}),
+			},
+			expected: "r.obj.config != undefined && r.obj.config.agent_id in ('aws','azure') && r.obj.component != undefined && r.obj.component.agent_id in ('aws','azure') && r.obj.canary != undefined && r.obj.canary.agent_id in ('aws','azure')",
 		},
 	}
 

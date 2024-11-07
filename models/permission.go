@@ -31,7 +31,7 @@ type Permission struct {
 	UpdatedBy    *uuid.UUID `json:"updated_by"`
 
 	// List of agent ids whose configs/components are accessible to a person when RLS is enabled
-	Agents pq.StringArray `json:"agents,omitempty"`
+	Agents pq.StringArray `json:"agents,omitempty" gorm:"type:[]text"`
 
 	// List of config/component tags a person is allowed access to when RLS is enabled
 	Tags types.JSONStringMap `json:"tags,omitempty"`
@@ -67,6 +67,25 @@ func (t *Permission) Condition() string {
 	if t.PlaybookID != nil {
 		rule = append(rule, fmt.Sprintf("r.obj.playbook != undefined && r.obj.playbook.id == %q", t.PlaybookID.String()))
 	}
+
+	if len(t.Agents) > 0 {
+		var agents []string
+		for _, agentID := range t.Agents {
+			agents = append(agents, fmt.Sprintf("'%s'", agentID))
+		}
+
+		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && r.obj.config.agent_id in (%s)", strings.Join(agents, ",")))
+		rule = append(rule, fmt.Sprintf("r.obj.component != undefined && r.obj.component.agent_id in (%s)", strings.Join(agents, ",")))
+		rule = append(rule, fmt.Sprintf("r.obj.canary != undefined && r.obj.canary.agent_id in (%s)", strings.Join(agents, ",")))
+	}
+
+	// if len(t.Tags) > 0 {
+	// 	var tagsClause []string
+	// 	for _, agentID := range t.Tags {
+	// 	}
+	//
+	// 	rule = append(rule, strings.Join(tagsClause, " || "))
+	// }
 
 	return strings.Join(rule, " && ")
 }

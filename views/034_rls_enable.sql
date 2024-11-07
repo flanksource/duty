@@ -5,6 +5,7 @@ ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 -- Policy config items
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
+-- TODO:: Don't re-add policy if it exists
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb
