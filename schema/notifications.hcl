@@ -208,6 +208,10 @@ table "notification_silences" {
     null = true
     type = text
   }
+  column "filter" {
+    null = true
+    type = text
+  }
   column "from" {
     null = false
     type = timestamptz
