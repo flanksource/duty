@@ -7,7 +7,6 @@ import (
 	"os"
 	osExec "os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
@@ -90,10 +89,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).First(&scrapeConfig).Error; err != nil {
 				return nil, fmt.Errorf("failed to get scrapeconfig (%s): %w", lo.FromPtr(configItem.ScraperID), err)
 			}
-
-			// TODO: get the namespace directly after https://github.com/flanksource/duty/pull/1182
-			splits := strings.SplitN(scrapeConfig.Name, "/", 2)
-			scraperNamespace = splits[0]
+			scraperNamespace = scrapeConfig.Namespace
 
 			if err := json.Unmarshal([]byte(scrapeConfig.Spec), &scraperSpec); err != nil {
 				return nil, fmt.Errorf("unable to unmarshal scrapeconfig spec (id=%s)", *configItem.ScraperID)
@@ -112,7 +108,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 						return nil, err
 					}
 
-					ctx = ctx.WithNamespace(scraperNamespace)
+					if err := connections.Kubernetes.Populate(ctx.WithNamespace(scraperNamespace)); err != nil {
+						return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+					}
+
 					break
 				}
 			}
@@ -120,8 +119,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	}
 
 	if connections.Kubernetes != nil {
-		if err := connections.Kubernetes.Populate(ctx); err != nil {
-			return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+		if lo.FromPtr(connections.FromConfigItem) == "" {
+			if err := connections.Kubernetes.Populate(ctx); err != nil {
+				return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+			}
 		}
 
 		configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
