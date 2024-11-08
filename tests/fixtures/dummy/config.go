@@ -91,6 +91,7 @@ var KubernetesCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
+	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
 	Tags: types.JSONStringMap{
 		"cluster": "demo",
 		"account": "flanksource",
@@ -304,7 +305,24 @@ var AzureConfigScraper = models.ConfigScraper{
 	Spec:   "{}",
 }
 
-var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper}
+var KubeScrapeConfig = models.ConfigScraper{
+	ID:        uuid.New(),
+	Name:      "kubernetes-scraper",
+	Namespace: "default",
+	Source:    models.SourceUI,
+	Spec: `{
+    "kubernetes": [
+      {
+        "clusterName": "kubernetes",
+        "kubeconfig": {
+          "value": "/etc/my-kube-config"
+        }
+      }
+    ]
+  }`,
+}
+
+var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper, KubeScrapeConfig}
 
 var ClusterNodeARelationship = models.ConfigRelationship{
 	ConfigID:  KubernetesCluster.ID.String(),

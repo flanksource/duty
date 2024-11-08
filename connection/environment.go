@@ -96,7 +96,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			}
 		}
 
-		if kubernetesScrapers, found, err := unstructured.NestedSlice(scraperSpec, "spec", "kubernetes"); err != nil {
+		if kubernetesScrapers, found, err := unstructured.NestedSlice(scraperSpec, "kubernetes"); err != nil {
 			return nil, err
 		} else if found {
 			for _, kscraper := range kubernetesScrapers {
