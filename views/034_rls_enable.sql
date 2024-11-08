@@ -5,11 +5,12 @@ ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 -- Policy config items
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
--- TODO:: Don't re-add policy if it exists
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb
-      OR current_setting('request.jwt.claims', TRUE)::json ->> 'agent_id' = agent_id::text);
+      OR current_setting('request.jwt.claims', TRUE)::json -> 'agents' ? 'agent_id'::text);
+
+DROP POLICY IF EXISTS config_items_view_owner_allow ON config_items;
 
 CREATE POLICY config_items_view_owner_allow ON config_items
   FOR ALL TO api_views_owner
@@ -20,9 +21,10 @@ DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
-    USING (current_setting('request.jwt.claims', TRUE)::json ->> 'agent_id' = agent_id::text);
+    USING (current_setting('request.jwt.claims', TRUE)::json -> 'agents' ? agent_id::text);
 
--- View owners
+DROP POLICY IF EXISTS components_view_owner_allow ON components;
+
 CREATE POLICY components_view_owner_allow ON components
   FOR ALL TO api_views_owner
     USING (TRUE);

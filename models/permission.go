@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -79,13 +80,10 @@ func (t *Permission) Condition() string {
 		rule = append(rule, fmt.Sprintf("r.obj.canary != undefined && r.obj.canary.agent_id in (%s)", strings.Join(agents, ",")))
 	}
 
-	// if len(t.Tags) > 0 {
-	// 	var tagsClause []string
-	// 	for _, agentID := range t.Tags {
-	// 	}
-	//
-	// 	rule = append(rule, strings.Join(tagsClause, " || "))
-	// }
+	if len(t.Tags) > 0 {
+		b, _ := json.Marshal(t.Tags)
+		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && mapContains(%q, r.obj.config.tags)", string(b)))
+	}
 
 	return strings.Join(rule, " && ")
 }
