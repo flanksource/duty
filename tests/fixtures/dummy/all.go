@@ -240,6 +240,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Topologies:                   append([]models.Topology{}, AllDummyTopologies...),
 		Components:                   append([]models.Component{}, AllDummyComponents...),
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
+		ConfigScrapers:               append([]models.ConfigScraper{}, AllConfigScrapers...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
