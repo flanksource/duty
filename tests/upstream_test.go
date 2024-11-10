@@ -67,6 +67,26 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		}
 	})
 
+	ginkgo.It("should sync config scrapers", func() {
+		{
+			var pushed int
+			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ConfigScraper{}).Scan(&pushed).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pushed).To(BeZero())
+		}
+
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_scrapers")
+		Expect(summary.Error()).To(BeNil())
+		count, fkFailed := summary.GetSuccessFailure()
+		Expect(fkFailed).To(Equal(0))
+		Expect(count).To(Equal(2))
+
+		var totalConfigScrapersPushed int
+		err := upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigScraper{}).Scan(&totalConfigScrapersPushed).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(totalConfigScrapersPushed).To(Equal(count))
+	})
+
 	ginkgo.It("should sync config items to upstream & deal with fk issue", func() {
 		{
 			var pushed int
