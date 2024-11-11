@@ -788,7 +788,7 @@ BEGIN
 
   ELSIF type_filter IN ('downstream') THEN
     RETURN query
-        SELECT 
+        SELECT DISTINCT ON (cc.id) 
           cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
@@ -798,19 +798,19 @@ BEGIN
            FROM config_relationships 
            WHERE relation != 'hard') AS cr 
            ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
-      WHERE starts_with(config_items.path, (
+      WHERE config_items.path LIKE (
         SELECT CASE 
             WHEN config_items.path = '' THEN config_items.id::text 
             ELSE CONCAT(config_items.path, '.', config_items.id) 
           END
         FROM config_items WHERE config_items.id = lookup_id 
-        )) OR
+        ) || '%' OR
         (cc.config_id = lookup_id) OR
         (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
 
   ELSIF type_filter IN ('upstream') THEN
     RETURN query
-        SELECT 
+        SELECT DISTINCT ON (cc.id) 
           cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
