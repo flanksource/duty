@@ -52,11 +52,12 @@ func (n Notification) AsMap(removeFields ...string) map[string]any {
 }
 
 const (
-	NotificationStatusError          = "error"
-	NotificationStatusSent           = "sent"
-	NotificationStatusSending        = "sending"
-	NotificationStatusSilenced       = "silenced"
-	NotificationStatusRepeatInterval = "repeat-interval"
+	NotificationStatusError           = "error"
+	NotificationStatusSent            = "sent"
+	NotificationStatusSending         = "sending"
+	NotificationStatusSilenced        = "silenced"
+	NotificationStatusWaitForResolved = "wait-for-resolved"
+	NotificationStatusRepeatInterval  = "repeat-interval"
 )
 
 type NotificationSendHistory struct {
@@ -106,6 +107,11 @@ func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHisto
 func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
 	t.Status = NotificationStatusSending
 	return t
+}
+
+func (t *NotificationSendHistory) WaitForResolved() *NotificationSendHistory {
+	t.Status = NotificationStatusWaitForResolved
+	return t.End()
 }
 
 func (t *NotificationSendHistory) Sent() *NotificationSendHistory {
