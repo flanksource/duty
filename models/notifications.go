@@ -69,6 +69,9 @@ type NotificationSendHistory struct {
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
 	Status         string    `json:"status,omitempty"`
 
+	// payload holds in original event properties for delayed/pending notifications
+	Payload types.JSONStringMap `json:"payload,omitempty"`
+
 	// The duration to delay sending after its creation.
 	Delay *time.Duration `json:"delay,omitempty"`
 
@@ -78,7 +81,7 @@ type NotificationSendHistory struct {
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this as the first observed timestamp.
-	FirstObserved time.Time `json:"first_observed"`
+	FirstObserved time.Time `json:"first_observed" gorm:"<-:false"`
 
 	// Name of the original event that caused this notification
 	SourceEvent string `json:"source_event"`

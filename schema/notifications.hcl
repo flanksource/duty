@@ -144,6 +144,11 @@ table "notification_send_history" {
     type    = bigint
     comment = "wait for this duration (nanoseconds)"
   }
+  column "payload" {
+    null = true
+    type = jsonb
+    comment = "holds in original event properties for delayed/pending notifications"
+  }
   column "count" {
     null    = false
     default = 1
