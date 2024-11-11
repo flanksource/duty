@@ -25,6 +25,11 @@ DECLARE
   severity text := 'info';
   summary text := '';
 BEGIN
+  -- If record belongs to agent, we ignore it
+  IF NEW.agent_id != '00000000-0000-0000-0000-000000000000' THEN
+    RETURN NEW;
+  END IF;
+
   IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
     RETURN NULL;
   END IF;
