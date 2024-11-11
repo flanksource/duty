@@ -139,6 +139,11 @@ table "notification_send_history" {
     null = true
     type = text
   }
+  column "delay" {
+    null    = true
+    type    = bigint
+    comment = "wait for this duration (nanoseconds)"
+  }
   column "count" {
     null    = false
     default = 1

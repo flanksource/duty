@@ -55,6 +55,7 @@ const (
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
 	NotificationStatusSending        = "sending"
+	NotificationStatusPending        = "pending" // delayed
 	NotificationStatusSilenced       = "silenced"
 	NotificationStatusRepeatInterval = "repeat-interval"
 )
@@ -67,6 +68,9 @@ type NotificationSendHistory struct {
 	DurationMillis int64     `json:"duration_millis,omitempty"`
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
 	Status         string    `json:"status,omitempty"`
+
+	// The duration to delay sending after its creation.
+	Delay *time.Duration `json:"delay,omitempty"`
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this counter.
