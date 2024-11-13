@@ -139,10 +139,14 @@ table "notification_send_history" {
     null = true
     type = text
   }
-  column "delay" {
+  column "not_before" {
     null    = true
-    type    = bigint
-    comment = "wait for this duration (nanoseconds)"
+    type    = timestamptz
+  }
+  column "retries" {
+    null = true
+    type = integer
+    comment = "number of retries of pending notifications"
   }
   column "payload" {
     null = true

@@ -72,8 +72,10 @@ type NotificationSendHistory struct {
 	// payload holds in original event properties for delayed/pending notifications
 	Payload types.JSONStringMap `json:"payload,omitempty"`
 
-	// The duration to delay sending after its creation.
-	Delay *time.Duration `json:"delay,omitempty"`
+	NotBefore *time.Time `json:"notBefore,omitempty"`
+
+	// number of retries of pending notifications
+	Retries int `json:"retries,omitempty" gorm:"default:null"`
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this counter.
@@ -108,6 +110,11 @@ func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHisto
 		NotificationID: notificationID,
 		timeStart:      time.Now(),
 	}
+}
+
+func (t *NotificationSendHistory) WithStartTime(s time.Time) *NotificationSendHistory {
+	t.timeStart = s
+	return t
 }
 
 func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
