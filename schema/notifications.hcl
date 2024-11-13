@@ -139,6 +139,20 @@ table "notification_send_history" {
     null = true
     type = text
   }
+  column "not_before" {
+    null    = true
+    type    = timestamptz
+  }
+  column "retries" {
+    null = true
+    type = integer
+    comment = "number of retries of pending notifications"
+  }
+  column "payload" {
+    null = true
+    type = jsonb
+    comment = "holds in original event properties for delayed/pending notifications"
+  }
   column "count" {
     null    = false
     default = 1

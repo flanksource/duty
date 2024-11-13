@@ -55,6 +55,7 @@ const (
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
 	NotificationStatusSending        = "sending"
+	NotificationStatusPending        = "pending" // delayed
 	NotificationStatusSilenced       = "silenced"
 	NotificationStatusRepeatInterval = "repeat-interval"
 )
@@ -68,13 +69,21 @@ type NotificationSendHistory struct {
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`
 	Status         string    `json:"status,omitempty"`
 
+	// payload holds in original event properties for delayed/pending notifications
+	Payload types.JSONStringMap `json:"payload,omitempty"`
+
+	NotBefore *time.Time `json:"notBefore,omitempty"`
+
+	// number of retries of pending notifications
+	Retries int `json:"retries,omitempty" gorm:"default:null"`
+
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this counter.
 	Count int `json:"count"`
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this as the first observed timestamp.
-	FirstObserved time.Time `json:"first_observed"`
+	FirstObserved time.Time `json:"first_observed" gorm:"<-:false"`
 
 	// Name of the original event that caused this notification
 	SourceEvent string `json:"source_event"`
@@ -101,6 +110,11 @@ func NewNotificationSendHistory(notificationID uuid.UUID) *NotificationSendHisto
 		NotificationID: notificationID,
 		timeStart:      time.Now(),
 	}
+}
+
+func (t *NotificationSendHistory) WithStartTime(s time.Time) *NotificationSendHistory {
+	t.timeStart = s
+	return t
 }
 
 func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
