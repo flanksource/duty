@@ -1,3 +1,5 @@
+-- dependsOn: functions/drop.sql 
+
 -- Handle before updates for notifications
 CREATE OR REPLACE FUNCTION reset_notification_error_before_update ()
   RETURNS TRIGGER
