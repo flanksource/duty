@@ -17,6 +17,25 @@ CREATE OR REPLACE TRIGGER reset_notification_error_before_update_trigger
   FOR EACH ROW
   EXECUTE PROCEDURE reset_notification_error_before_update ();
 
+--
+CREATE OR REPLACE FUNCTION reset_notification_silence_error_before_update ()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  IF OLD.filter != NEW.filter THEN
+    NEW.error = NULL;
+  END IF;
+
+  RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER reset_notification_silence_error_before_update_trigger
+  BEFORE UPDATE ON notification_silences
+  FOR EACH ROW
+  EXECUTE PROCEDURE reset_notification_silence_error_before_update ();
+
 --- A function to insert only those notifications that were unsent.
 --- It deals with the deduplication of inserting the same notification again if it was silenced or blocked by repeatInterval.
 CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (p_notification_id uuid, p_source_event text, p_resource_id uuid, p_status text, p_window interval)
