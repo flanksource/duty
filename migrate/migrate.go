@@ -1,17 +1,13 @@
 package migrate
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha1"
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
@@ -21,68 +17,12 @@ import (
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
-	"github.com/samber/lo"
 	"github.com/samber/oops"
 )
 
 type MigrateOptions struct {
 	Skip        bool // Skip running migrations
 	IgnoreFiles []string
-}
-
-func parseDependencies(f io.ReadCloser) ([]string, error) {
-	defer f.Close()
-
-	const dependencyHeader = "-- dependsOn: "
-	var dependencies []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, dependencyHeader) {
-			break
-		}
-
-		line = strings.TrimPrefix(line, dependencyHeader)
-		deps := strings.Split(line, ",")
-		dependencies = append(dependencies, lo.Map(deps, func(x string, _ int) string {
-			return strings.TrimSpace(x)
-		})...)
-	}
-
-	return dependencies, nil
-}
-
-func getDependencyGraph() (map[string][]string, error) {
-	graph := make(map[string][]string)
-
-	dirs := []string{"../functions", "../views"}
-	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-
-			path := filepath.Join(dir, entry.Name())
-			f, err := os.Open(path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open file: %w", err)
-			}
-
-			deps, err := parseDependencies(f)
-			if err != nil {
-				return nil, err
-			}
-
-			graph[entry.Name()] = append(graph[entry.Name()], deps...)
-		}
-	}
-
-	return graph, nil
 }
 
 func RunMigrations(pool *sql.DB, config api.Config) error {
@@ -111,19 +51,13 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to create migration log table: %w", err)
 	}
 
-	// depGraph := map[string][]string{
-	//   "functions/drop.sql": []string{"021_notifications.sql"}
-	// }
-
-	l.V(3).Infof("Getting functions")
-	funcs, err := functions.GetFunctions()
+	allFunctions, allViews, err := getExecutableScripts(pool)
 	if err != nil {
-		return fmt.Errorf("failed to get functions: %w", err)
+		return fmt.Errorf("failed to get executable scripts: %w", err)
 	}
 
 	l.V(3).Infof("Running scripts")
-	executedFuncs, err := runScripts(pool, nil, funcs, config.SkipMigrationFiles)
-	if err != nil {
+	if err := runScripts(pool, allFunctions, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
@@ -138,18 +72,119 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
-	l.V(3).Infof("Getting views")
-	views, err := views.GetViews()
-	if err != nil {
-		return fmt.Errorf("failed to get views: %w", err)
-	}
-
 	l.V(3).Infof("Running scripts for views")
-	if _, err := runScripts(pool, executedFuncs, views, config.SkipMigrationFiles); err != nil {
+	if err := runScripts(pool, allViews, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
 	return nil
+}
+
+// getExecutableScripts returns functions & views that must be executed
+// excluding any unchanged migration scripts & and taking dependencies into account.
+func getExecutableScripts(pool *sql.DB) (map[string]string, map[string]string, error) {
+	l := logger.GetLogger("migrate")
+
+	var (
+		allFunctions = map[string]string{}
+		allViews     = map[string]string{}
+	)
+
+	l.V(3).Infof("Getting functions")
+	funcs, err := functions.GetFunctions()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get functions: %w", err)
+	}
+
+	l.V(3).Infof("Getting views")
+	views, err := views.GetViews()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get views: %w", err)
+	}
+
+	depGraph, err := getDependencyTree()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to for dependency map: %w", err)
+	}
+
+	currentMigrationHashes, err := readMigrationLogs(pool)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for path, content := range funcs {
+		hash := sha1.Sum([]byte(content))
+		if ch, ok := currentMigrationHashes[path]; ok && ch == string(hash[:]) {
+			continue
+		}
+
+		allFunctions[path] = content
+
+		// other scripts that depend on this should also be executed
+		for _, dependent := range depGraph[filepath.Join("functions", path)] {
+			baseDir := filepath.Dir(dependent)
+			filename := filepath.Base(dependent)
+
+			switch baseDir {
+			case "functions":
+				allFunctions[filename] = funcs[filename]
+			case "views":
+				allViews[filename] = views[filename]
+			default:
+				panic("unhandled base dir")
+			}
+		}
+	}
+
+	for path, content := range views {
+		hash := sha1.Sum([]byte(content))
+		if ch, ok := currentMigrationHashes[path]; ok && ch == string(hash[:]) {
+			continue
+		}
+
+		allViews[path] = content
+
+		// other scripts that depend on this should also be executed
+		for _, dependent := range depGraph[filepath.Join("functions", path)] {
+			baseDir := filepath.Dir(dependent)
+			filename := filepath.Base(dependent)
+
+			switch baseDir {
+			case "functions":
+				allFunctions[filename] = funcs[filename]
+			case "views":
+				allViews[filename] = views[filename]
+			default:
+				panic("unhandled base dir")
+			}
+		}
+	}
+
+	return allFunctions, allViews, err
+}
+
+func readMigrationLogs(pool *sql.DB) (map[string]string, error) {
+	rows, err := pool.Query("SELECT path, hash FROM migration_logs")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read migration logs: %w", err)
+	}
+	defer rows.Close()
+
+	migrationHashes := make(map[string]string)
+	for rows.Next() {
+		var path, hash string
+		if err := rows.Scan(&path, &hash); err != nil {
+			return nil, err
+		}
+
+		migrationHashes[path] = hash
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return migrationHashes, nil
 }
 
 func createRole(db *sql.DB, roleName string, config api.Config, grants ...string) error {
@@ -231,7 +266,7 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 }
 
 // runScripts runs the given scripts & returns the ones that were ran.
-func runScripts(pool *sql.DB, previouslyRan []string, scripts map[string]string, ignoreFiles []string) ([]string, error) {
+func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) error {
 	l := logger.GetLogger("migrate")
 
 	var filenames []string
@@ -243,37 +278,24 @@ func runScripts(pool *sql.DB, previouslyRan []string, scripts map[string]string,
 	}
 	sort.Strings(filenames)
 
-	var executed []string
 	for _, file := range filenames {
 		content, ok := scripts[file]
 		if !ok {
 			continue
 		}
 
-		var currentHash string
-		if err := pool.QueryRow("SELECT hash FROM migration_logs WHERE path = $1", file).Scan(&currentHash); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-
 		hash := sha1.Sum([]byte(content))
-		if string(hash[:]) == currentHash {
-			l.V(3).Infof("Skipping script %s", file)
-			continue
-		}
-
 		l.Tracef("running script %s", file)
-		executed = append(executed, file)
-
 		if _, err := pool.Exec(scripts[file]); err != nil {
-			return nil, fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
+			return fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
 		}
 
 		if _, err := pool.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
-			return nil, fmt.Errorf("failed to save migration log %s: %w", file, err)
+			return fmt.Errorf("failed to save migration log %s: %w", file, err)
 		}
 	}
 
-	return executed, nil
+	return nil
 }
 
 func createMigrationLogTable(pool *sql.DB) error {

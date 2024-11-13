@@ -30,7 +30,7 @@ func TestParseDependencies(t *testing.T) {
 	for _, td := range testdata {
 		got, err := parseDependencies(td.data)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err.Error())
 		}
 
 		if diff := cmp.Diff(got, td.want); diff != "" {
@@ -39,13 +39,13 @@ func TestParseDependencies(t *testing.T) {
 	}
 }
 
-func TestDependencyGraph(t *testing.T) {
-	graph, err := getDependencyGraph()
+func TestDependencyMap(t *testing.T) {
+	graph, err := getDependencyTree()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
-	if diff := cmp.Diff(graph["021_notification.sql"], []string{"functions/drop.sql"}); diff != "" {
+	if diff := cmp.Diff(graph["functions/drop.sql"], []string{"views/021_notification.sql"}); diff != "" {
 		t.Fatalf("%v", diff)
 	}
 }
