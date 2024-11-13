@@ -226,6 +226,10 @@ table "notification_silences" {
     null = true
     type = text
   }
+  column "error" {
+    null = true
+    type = text
+  }
   column "from" {
     null = false
     type = timestamptz

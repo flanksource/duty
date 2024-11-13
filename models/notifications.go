@@ -167,6 +167,9 @@ type NotificationSilence struct {
 	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty"`
+
+	// Error contains cel expression error in the filter
+	Error *string `json:"error,omitempty"`
 }
 
 func (n NotificationSilence) AsMap(removeFields ...string) map[string]any {
