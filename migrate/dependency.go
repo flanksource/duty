@@ -2,21 +2,19 @@ package migrate
 
 import (
 	"bufio"
-	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/flanksource/duty/functions"
+	"github.com/flanksource/duty/views"
 	"github.com/samber/lo"
 )
 
-func parseDependencies(f io.ReadCloser) ([]string, error) {
-	defer f.Close()
-
+func parseDependencies(script string) ([]string, error) {
 	const dependencyHeader = "-- dependsOn: "
+
 	var dependencies []string
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(strings.NewReader(script))
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, dependencyHeader) {
@@ -48,31 +46,31 @@ type DependencyMap map[string][]string
 func getDependencyTree() (DependencyMap, error) {
 	graph := make(DependencyMap)
 
-	dirs := []string{"../functions", "../views"}
-	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			return nil, err
+	funcs, err := functions.GetFunctions()
+	if err != nil {
+		return nil, err
+	}
+
+	views, err := views.GetViews()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, dir := range []map[string]string{funcs, views} {
+		dirName := "functions"
+		if i == 1 {
+			dirName = "views"
 		}
 
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-
-			path := filepath.Join(dir, entry.Name())
-			f, err := os.Open(path)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open file: %w", err)
-			}
-
-			dependents, err := parseDependencies(f)
+		for entry, content := range dir {
+			path := filepath.Join(dirName, entry)
+			dependents, err := parseDependencies(content)
 			if err != nil {
 				return nil, err
 			}
 
-			for _, depedent := range dependents {
-				graph[depedent] = append(graph[depedent], strings.TrimPrefix(path, "../"))
+			for _, dependent := range dependents {
+				graph[dependent] = append(graph[dependent], strings.TrimPrefix(path, "../"))
 			}
 		}
 	}

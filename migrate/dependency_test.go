@@ -1,8 +1,6 @@
 package migrate
 
 import (
-	"io"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -10,25 +8,25 @@ import (
 
 func TestParseDependencies(t *testing.T) {
 	testdata := []struct {
-		data io.ReadCloser
-		want []string
+		script string
+		want   []string
 	}{
 		{
-			data: io.NopCloser(strings.NewReader("-- dependsOn: a.sql,   b.sql")),
-			want: []string{"a.sql", "b.sql"},
+			script: "-- dependsOn: a.sql,   b.sql",
+			want:   []string{"a.sql", "b.sql"},
 		},
 		{
-			data: io.NopCloser(strings.NewReader("SELECT 1;")),
-			want: nil,
+			script: "SELECT 1;",
+			want:   nil,
 		},
 		{
-			data: io.NopCloser(strings.NewReader("-- dependsOn: a.sql,   b.sql,c.sql")),
-			want: []string{"a.sql", "b.sql", "c.sql"},
+			script: "-- dependsOn: a.sql,   b.sql,c.sql",
+			want:   []string{"a.sql", "b.sql", "c.sql"},
 		},
 	}
 
 	for _, td := range testdata {
-		got, err := parseDependencies(td.data)
+		got, err := parseDependencies(td.script)
 		if err != nil {
 			t.Fatal(err.Error())
 		}

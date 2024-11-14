@@ -80,8 +80,8 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	return nil
 }
 
-// GetExecutableScripts returns functions & views that must be executed
-// excluding any unchanged migration scripts & and taking dependencies into account.
+// GetExecutableScripts returns functions & views that must be applied.
+// It takes dependencies into account & excludes any unchanged scripts.
 func GetExecutableScripts(pool *sql.DB) (map[string]string, map[string]string, error) {
 	l := logger.GetLogger("migrate")
 

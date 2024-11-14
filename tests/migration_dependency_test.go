@@ -2,6 +2,7 @@ package tests
 
 import (
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/migrate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,5 +33,19 @@ var _ = Describe("migration dependency", Ordered, func() {
 
 		Expect(collections.MapKeys(funcs)).To(Equal([]string{"drop.sql"}))
 		Expect(collections.MapKeys(views)).To(Equal([]string{"021_notification.sql"}))
+
+		{
+			// run the migrations again to ensure that the hashes are repopulated
+			migrate.RunMigrations(db, api.DefaultConfig)
+
+			// at the end, there should be no scrips to apply
+			db, err := DefaultContext.DB().DB()
+			Expect(err).To(BeNil())
+
+			funcs, views, err := migrate.GetExecutableScripts(db)
+			Expect(err).To(BeNil())
+			Expect(len(funcs)).To(BeZero())
+			Expect(len(views)).To(BeZero())
+		}
 	})
 })
