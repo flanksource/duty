@@ -51,7 +51,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to create migration log table: %w", err)
 	}
 
-	allFunctions, allViews, err := getExecutableScripts(pool)
+	allFunctions, allViews, err := GetExecutableScripts(pool)
 	if err != nil {
 		return fmt.Errorf("failed to get executable scripts: %w", err)
 	}
@@ -80,9 +80,9 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	return nil
 }
 
-// getExecutableScripts returns functions & views that must be executed
+// GetExecutableScripts returns functions & views that must be executed
 // excluding any unchanged migration scripts & and taking dependencies into account.
-func getExecutableScripts(pool *sql.DB) (map[string]string, map[string]string, error) {
+func GetExecutableScripts(pool *sql.DB) (map[string]string, map[string]string, error) {
 	l := logger.GetLogger("migrate")
 
 	var (
@@ -265,7 +265,6 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 	return true, nil
 }
 
-// runScripts runs the given scripts & returns the ones that were ran.
 func runScripts(pool *sql.DB, scripts map[string]string, ignoreFiles []string) error {
 	l := logger.GetLogger("migrate")
 
