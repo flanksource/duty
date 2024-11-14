@@ -55,7 +55,8 @@ const (
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
 	NotificationStatusSending        = "sending"
-	NotificationStatusPending        = "pending" // delayed
+	NotificationStatusPending        = "pending" // delayed due to waitFor evaluation
+	NotificationStatusSkipped        = "skipped" // due to waitFor evaluation
 	NotificationStatusSilenced       = "silenced"
 	NotificationStatusRepeatInterval = "repeat-interval"
 )
