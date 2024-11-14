@@ -3,7 +3,7 @@ package migrate
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/onsi/gomega"
 )
 
 func TestParseDependencies(t *testing.T) {
@@ -25,25 +25,34 @@ func TestParseDependencies(t *testing.T) {
 		},
 	}
 
+	g := gomega.NewWithT(t) // use gomega with std go tests
 	for _, td := range testdata {
 		got, err := parseDependencies(td.script)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 
-		if diff := cmp.Diff(got, td.want); diff != "" {
-			t.Fatalf("%s", diff)
-		}
+		g.Expect(got).To(gomega.Equal(td.want))
 	}
 }
 
 func TestDependencyMap(t *testing.T) {
+	g := gomega.NewWithT(t) // use gomega with std go tests
+
 	graph, err := getDependencyTree()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	if diff := cmp.Diff(graph["functions/drop.sql"], []string{"views/021_notification.sql"}); diff != "" {
-		t.Fatalf("%v", diff)
+	expected := map[string][]string{
+		"functions/drop.sql":         {"views/006_config_views.sql", "views/021_notification.sql"},
+		"views/006_config_views.sql": {"views/021_notification.sql"},
+	}
+
+	g.Expect(graph).To(gomega.HaveLen(len(expected)))
+
+	for key, expectedDeps := range expected {
+		g.Expect(graph).To(gomega.HaveKey(key))
+		g.Expect(graph[key]).To(gomega.ConsistOf(expectedDeps))
 	}
 }
