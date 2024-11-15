@@ -1,3 +1,5 @@
+-- dependsOn: functions/drop.sql
+
 -- Add cascade drops first to make sure all functions and views are always recreated
 DROP VIEW IF EXISTS configs CASCADE;
 
