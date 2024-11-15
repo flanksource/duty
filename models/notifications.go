@@ -59,6 +59,10 @@ const (
 	NotificationStatusSkipped        = "skipped" // due to waitFor evaluation
 	NotificationStatusSilenced       = "silenced"
 	NotificationStatusRepeatInterval = "repeat-interval"
+
+	// health related notifications of kubernetes config items get into this state
+	// to wait for the incremental scraper to re-evaluate the health.
+	NotificationStatusEvaluatingWaitFor = "evaluating-waitfor"
 )
 
 type NotificationSendHistory struct {
