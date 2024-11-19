@@ -8,7 +8,7 @@ DROP POLICY IF EXISTS config_items_auth ON config_items;
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb
-      OR current_setting('request.jwt.claims', TRUE)::json -> 'agents' ? 'agent_id'::text);
+      OR agent_id = ANY (ARRAY(SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims.local')::jsonb->'agents'))::uuid)));
 
 DROP POLICY IF EXISTS config_items_view_owner_allow ON config_items;
 
@@ -21,7 +21,7 @@ DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
-    USING (current_setting('request.jwt.claims', TRUE)::json -> 'agents' ? agent_id::text);
+    USING (agent_id = ANY (ARRAY(SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims.local')::jsonb->'agents'))::uuid)));
 
 DROP POLICY IF EXISTS components_view_owner_allow ON components;
 
