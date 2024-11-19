@@ -20,6 +20,7 @@ var gitopsFixtures = []struct {
 	{dummy.Namespace.ID.String(), gitopsPath},
 	{dummy.Namespace.AsMap(), gitopsPath},
 }
+
 var _ = ginkgo.Describe("Config Gitops Source", ginkgo.Ordered, func() {
 	ginkgo.It("should resolve kustomize references", func() {
 		Expect(dummy.Kustomization.ID.String()).NotTo(BeEmpty())

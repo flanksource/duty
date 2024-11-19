@@ -2,13 +2,17 @@ ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
+
 -- Policy config items
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb
-      OR agent_id = ANY (ARRAY(SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb->'agents'))::uuid)));
+      OR agent_id = ANY (ARRAY (
+        SELECT
+          (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)));
 
 DROP POLICY IF EXISTS config_items_view_owner_allow ON config_items;
 
@@ -21,7 +25,9 @@ DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
-    USING (agent_id = ANY (ARRAY(SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb->'agents'))::uuid)));
+    USING (agent_id = ANY (ARRAY (
+      SELECT
+        (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)));
 
 DROP POLICY IF EXISTS components_view_owner_allow ON components;
 
@@ -39,4 +45,10 @@ ALTER VIEW config_names OWNER TO api_views_owner;
 ALTER VIEW config_statuses OWNER TO api_views_owner;
 
 ALTER VIEW config_summary OWNER TO api_views_owner;
+
+ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
+
+ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
+
+ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
 

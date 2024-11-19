@@ -161,6 +161,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 	} else if url == "" {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
 		postgresServer = embeddedPG.NewDatabase(config)
+		logger.Infof("starting embedded postgres on port %d", port)
 		if err = postgresServer.Start(); err != nil {
 			panic(err.Error())
 		}
@@ -171,7 +172,7 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		})
 	}
 
-	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.RunMigrations, duty.WithUrl(PgUrl))
+	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.EnableRLS, duty.RunMigrations, duty.WithUrl(PgUrl))
 	if err != nil {
 		panic(err.Error())
 	}
