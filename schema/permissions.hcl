@@ -92,7 +92,7 @@ table "permissions" {
 
   column "agents" {
     null = true
-    type = jsonb
+    type = sql("text[]")
     comment = "a list of agent ids a user is allowed to access when row-level security is enabled"
   }
 
