@@ -1,8 +1,25 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT
+    FROM
+      pg_catalog.pg_roles
+    WHERE
+      rolname = 'api_views_owner') THEN
+  -- NOTE:In postgres v14, views are run using the view owner's permission.
+  -- When RLS is enabled, we want to run the view using the current user (postgres_anon for eg.)
+  -- Hence, we create a new role to make the owner of all the views that make use of RLS enabled tables.
+  -- The role is created using NOBYPASSRLS option so RLS is enforced.
+  CREATE ROLE api_views_owner NOSUPERUSER NOBYPASSRLS;
+END IF;
+END
+$$;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
+
 ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE components ENABLE ROW LEVEL SECURITY;
-
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
 
 -- Policy config items
 DROP POLICY IF EXISTS config_items_auth ON config_items;

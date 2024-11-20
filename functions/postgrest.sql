@@ -13,16 +13,3 @@ BEGIN
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO postgrest_anon;
     END IF;
 END $$;
-
-
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'api_views_owner') THEN
-    -- CREATE a ROLE that will own all views where we need to enforce RLS.
-    CREATE ROLE api_views_owner NOSUPERUSER NOBYPASSRLS;
-  END IF;
-
-  GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
-END
-$$;
-
