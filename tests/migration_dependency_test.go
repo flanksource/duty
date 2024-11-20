@@ -8,8 +8,6 @@ import (
 
 var _ = Describe("migration dependency", Ordered, func() {
 	It("should have no executable scripts", func() {
-		Skip("")
-
 		db, err := DefaultContext.DB().DB()
 		Expect(err).To(BeNil())
 

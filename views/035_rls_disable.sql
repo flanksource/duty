@@ -8,9 +8,19 @@ DROP POLICY IF EXISTS config_items_auth ON config_items;
 DROP POLICY IF EXISTS components_auth ON components;
 
 -- View owners
-ALTER VIEW config_detail OWNER TO current_user;
-ALTER VIEW config_summary OWNER TO current_user;
-ALTER VIEW config_labels OWNER TO current_user;
-ALTER VIEW config_names OWNER TO current_user;
-ALTER VIEW config_statuses OWNER TO current_user;
+ALTER VIEW config_detail OWNER TO CURRENT_USER;
+
+ALTER VIEW config_labels OWNER TO CURRENT_USER;
+
+ALTER VIEW config_names OWNER TO CURRENT_USER;
+
+ALTER VIEW config_statuses OWNER TO CURRENT_USER;
+
+ALTER VIEW config_summary OWNER TO CURRENT_USER;
+
+ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO CURRENT_USER;
+
+ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO CURRENT_USER;
+
+ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO CURRENT_USER;
 
