@@ -25,32 +25,33 @@ ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
 CREATE POLICY config_items_auth ON config_items
-  FOR ALL TO postgrest_api, postgrest_anon
-    USING (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb
-      OR agent_id = ANY (ARRAY (
-        SELECT
-          (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)));
+  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+    USING (
+      CASE WHEN current_setting('request.jwt.claims', TRUE) IS NULL THEN
+        TRUE
+      ELSE
+        (tags::jsonb @> (current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb OR agent_id = ANY (ARRAY (
+          SELECT
+            (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)))
+      END);
 
 DROP POLICY IF EXISTS config_items_view_owner_allow ON config_items;
-
-CREATE POLICY config_items_view_owner_allow ON config_items
-  FOR ALL TO api_views_owner
-    USING (TRUE);
 
 -- Policy components
 DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components
-  FOR ALL TO postgrest_api, postgrest_anon
-    USING (agent_id = ANY (ARRAY (
-      SELECT
-        (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)));
+  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+    USING (
+      CASE WHEN current_setting('request.jwt.claims', TRUE) IS NULL THEN
+        TRUE
+      ELSE
+        (agent_id = ANY (ARRAY (
+          SELECT
+            (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid)))
+      END);
 
 DROP POLICY IF EXISTS components_view_owner_allow ON components;
-
-CREATE POLICY components_view_owner_allow ON components
-  FOR ALL TO api_views_owner
-    USING (TRUE);
 
 -- TODO: Add more
 ALTER VIEW config_detail OWNER TO api_views_owner;
