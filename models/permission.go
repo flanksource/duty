@@ -35,7 +35,7 @@ type Permission struct {
 	Agents pq.StringArray `json:"agents,omitempty" gorm:"type:[]text"`
 
 	// List of config/component tags a person is allowed access to when RLS is enabled
-	Tags types.JSONStringMap `json:"tags,omitempty"`
+	Tags types.JSONMap `json:"tags,omitempty"`
 }
 
 func (t *Permission) Principal() string {
