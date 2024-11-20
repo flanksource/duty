@@ -3,6 +3,7 @@ package models
 import (
 	"testing"
 
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
@@ -41,13 +42,22 @@ func TestPermission_Condition(t *testing.T) {
 			},
 			expected: "r.obj.config != undefined && r.obj.config.agent_id in ('aws','azure') && r.obj.component != undefined && r.obj.component.agent_id in ('aws','azure') && r.obj.canary != undefined && r.obj.canary.agent_id in ('aws','azure')",
 		},
+		{
+			name: "tags",
+			perm: Permission{
+				Tags: types.JSONStringMap{
+					"cluster": "aws",
+				},
+			},
+			expected: `r.obj.config != undefined && mapContains("{\"cluster\":\"aws\"}", r.obj.config.tags)`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := tt.perm.Condition()
 			if tt.expected != result {
-				t.Errorf("Expected %s, got %s", tt.expected, result)
+				t.Errorf("Expected %s\nGot %s", tt.expected, result)
 			}
 		})
 	}
