@@ -15,7 +15,6 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -273,6 +272,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 	_ = ctx.DB().Use(extraClausePlugin.New())
 
 	groupBy := strings.Join(req.groupBy(), ",")
+	plainGroupBy := strings.Join(req.GroupBy, ",")
 
 	healthGrouped := exclause.NewWith(
 		"health_grouped",
@@ -289,7 +289,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		"aggregated_health_count",
 		ctx.DB().Select(req.plainSelectClause("jsonb_object_agg(health_grouped.health, count)::jsonb AS health")).
 			Table("health_grouped").
-			Group(strings.Join(req.GroupBy, ",")),
+			Group(plainGroupBy),
 	)
 
 	// Keep track of all the ctes in this query (in order)
@@ -321,15 +321,11 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 				Group(groupBy).Group("kv_pair.key"),
 		)
 
-		// Replace config_items. prefix as either sleect with tag or type will come from the changes_analysis_grouped view
-		selectClause := lo.Map(req.baseSelectClause("COALESCE(jsonb_object_agg(key, value_sum), '{}'::jsonb) AS total_analysis"), func(item string, _ int) string {
-			return strings.ReplaceAll(item, "config_items.", "")
-		})
 		aggregatedAnalysis := exclause.NewWith(
 			"aggregated_analysis",
-			ctx.DB().Select(selectClause).
+			ctx.DB().Select(req.plainSelectClause("COALESCE(jsonb_object_agg(key, value_sum), '{}'::jsonb) AS total_analysis")).
 				Table("changes_analysis_grouped").
-				Group(strings.ReplaceAll(groupBy, "config_items.", "")),
+				Group(plainGroupBy),
 		)
 
 		withClauses = append(withClauses, changesAnalysisGrouped, aggregatedAnalysis)
@@ -370,7 +366,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 			"aggregated_analysis_count",
 			ctx.DB().Select(req.plainSelectClause("json_object_agg(analysis_type, count)::jsonb AS analysis")).
 				Table("analysis_grouped").
-				Group(strings.Join(req.GroupBy, ",")),
+				Group(plainGroupBy),
 		)
 
 		summaryQuery = summaryQuery.Joins(req.analysisJoin()).Group("aggregated_analysis_count.analysis")
