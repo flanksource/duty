@@ -11,7 +11,6 @@ import (
 )
 
 type testCase struct {
-	name          string
 	jwtClaims     string
 	expectedCount *int64
 }
@@ -29,6 +28,7 @@ var _ = Describe("RLS test", Ordered, func() {
 		tx                           *gorm.DB
 		totalConfigs                 int64
 		numConfigsWithFlanksourceTag int64
+		awsAndDemoCluster            int64
 	)
 
 	BeforeAll(func() {
@@ -36,6 +36,7 @@ var _ = Describe("RLS test", Ordered, func() {
 
 		Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 		Expect(DefaultContext.DB().Where("tags->>'account' = 'flanksource'").Model(&models.ConfigItem{}).Count(&numConfigsWithFlanksourceTag).Error).To(BeNil())
+		Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' OR tags->>'cluster' = 'demo'").Model(&models.ConfigItem{}).Count(&awsAndDemoCluster).Error).To(BeNil())
 	})
 
 	AfterAll(func() {
@@ -58,19 +59,20 @@ var _ = Describe("RLS test", Ordered, func() {
 					verifyConfigCount(tx, tc.jwtClaims, *tc.expectedCount)
 				},
 				Entry("no permissions", testCase{
-					name:          "no permissions",
-					jwtClaims:     `{"tags": {"cluster": "testing-cluster"}, "agents": ["10000000-0000-0000-0000-000000000000"]}`,
+					jwtClaims:     `{"tags": [{"cluster": "testing-cluster"}], "agents": ["10000000-0000-0000-0000-000000000000"]}`,
 					expectedCount: lo.ToPtr(int64(0)),
 				}),
 				Entry("correct agent", testCase{
-					name:          "correct agent",
-					jwtClaims:     `{"tags": {"cluster": "testing-cluster"}, "agents": ["00000000-0000-0000-0000-000000000000"]}`,
+					jwtClaims:     `{"tags": [{"cluster": "testing-cluster"}], "agents": ["00000000-0000-0000-0000-000000000000"]}`,
 					expectedCount: &totalConfigs,
 				}),
 				Entry("correct tag", testCase{
-					name:          "correct tag",
-					jwtClaims:     `{"tags": {"account": "flanksource"}, "agents": ["10000000-0000-0000-0000-000000000000"]}`,
+					jwtClaims:     `{"tags": [{"account": "flanksource"}], "agents": ["10000000-0000-0000-0000-000000000000"]}`,
 					expectedCount: &numConfigsWithFlanksourceTag,
+				}),
+				Entry("multiple tags", testCase{
+					jwtClaims:     `{"tags": [{"cluster": "aws"}, {"cluster": "demo"}]}`,
+					expectedCount: &awsAndDemoCluster,
 				}),
 			)
 		})

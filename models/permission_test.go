@@ -45,11 +45,11 @@ func TestPermission_Condition(t *testing.T) {
 		{
 			name: "tags",
 			perm: Permission{
-				Tags: types.JSONStringMap{
-					"cluster": "aws",
+				Tags: types.JSONMap{
+					"cluster": []string{"aws"},
 				},
 			},
-			expected: `r.obj.config != undefined && mapContains("{\"cluster\":\"aws\"}", r.obj.config.tags)`,
+			expected: `r.obj.config != undefined && mapContains("{\"cluster\":[\"aws\"]}", r.obj.config.tags)`,
 		},
 	}
 
