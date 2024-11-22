@@ -27,7 +27,7 @@ CREATE POLICY config_items_auth ON config_items
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL 
-        OR (current_setting('request.jwt.claims', TRUE)::jsonb ->> 'tags' IS NULL AND current_setting('request.jwt.claims', TRUE)::jsonb ->> 'agents' IS NULL) 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
       ELSE (
@@ -51,7 +51,7 @@ CREATE POLICY config_changes_auth ON config_changes
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL 
-        OR (current_setting('request.jwt.claims', TRUE)::jsonb ->> 'tags' IS NULL AND current_setting('request.jwt.claims', TRUE)::jsonb ->> 'agents' IS NULL) 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
       ELSE EXISTS (
@@ -73,7 +73,7 @@ CREATE POLICY config_analysis_auth ON config_analysis
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL 
-        OR (current_setting('request.jwt.claims', TRUE)::jsonb ->> 'tags' IS NULL AND current_setting('request.jwt.claims', TRUE)::jsonb ->> 'agents' IS NULL) 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
       ELSE EXISTS (
@@ -95,7 +95,7 @@ CREATE POLICY components_auth ON components
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL 
-        OR (current_setting('request.jwt.claims', TRUE)::jsonb ->> 'tags' IS NULL AND current_setting('request.jwt.claims', TRUE)::jsonb ->> 'agents' IS NULL) 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
       ELSE (
