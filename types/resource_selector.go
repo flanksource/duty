@@ -60,11 +60,15 @@ type ResourceSelector struct {
 	ID            string `yaml:"id,omitempty" json:"id,omitempty"`
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
 	Namespace     string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-	Types         Items  `yaml:"types,omitempty" json:"types,omitempty"`
-	Statuses      Items  `yaml:"statuses,omitempty" json:"statuses,omitempty"`
 	TagSelector   string `yaml:"tagSelector,omitempty" json:"tagSelector,omitempty"`
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
+
+	// Types filter resources by the type
+	Types Items `yaml:"types,omitempty" json:"types,omitempty"`
+
+	// Statuses filter resources by the status
+	Statuses Items `yaml:"statuses,omitempty" json:"statuses,omitempty"`
 }
 
 func (c ResourceSelector) IsEmpty() bool {
