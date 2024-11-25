@@ -54,19 +54,19 @@ func (t *Permission) Condition() string {
 	var rule []string
 
 	if t.ComponentID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.component != undefined && r.obj.component.id == %q", t.ComponentID.String()))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.component != undefined && r.obj.component.id == %q", t.ComponentID.String()))
 	}
 
 	if t.ConfigID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && r.obj.config.id == %q", t.ConfigID.String()))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.config != undefined && r.obj.config.id == %q", t.ConfigID.String()))
 	}
 
 	if t.CanaryID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.canary != undefined && r.obj.canary.id == %q", t.CanaryID.String()))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.canary != undefined && r.obj.canary.id == %q", t.CanaryID.String()))
 	}
 
 	if t.PlaybookID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.playbook != undefined && r.obj.playbook.id == %q", t.PlaybookID.String()))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.playbook != undefined && r.obj.playbook.id == %q", t.PlaybookID.String()))
 	}
 
 	if len(t.Agents) > 0 {
@@ -75,14 +75,14 @@ func (t *Permission) Condition() string {
 			agents = append(agents, fmt.Sprintf("'%s'", agentID))
 		}
 
-		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && r.obj.config.agent_id in (%s)", strings.Join(agents, ",")))
-		rule = append(rule, fmt.Sprintf("r.obj.component != undefined && r.obj.component.agent_id in (%s)", strings.Join(agents, ",")))
-		rule = append(rule, fmt.Sprintf("r.obj.canary != undefined && r.obj.canary.agent_id in (%s)", strings.Join(agents, ",")))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.config != undefined && r.obj.config.agent_id in (%s)", strings.Join(agents, ",")))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.component != undefined && r.obj.component.agent_id in (%s)", strings.Join(agents, ",")))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.canary != undefined && r.obj.canary.agent_id in (%s)", strings.Join(agents, ",")))
 	}
 
 	if len(t.Tags) > 0 {
 		b, _ := json.Marshal(t.Tags)
-		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && mapContains(%q, r.obj.config.tags)", string(b)))
+		rule = append(rule, fmt.Sprintf("!isString(r.obj) && r.obj.config != undefined && mapContains(%q, r.obj.config.tags)", string(b)))
 	}
 
 	return strings.Join(rule, " && ")
