@@ -16,7 +16,6 @@ type Notification struct {
 	Namespace      string              `json:"namespace,omitempty"`
 	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
 	Title          string              `json:"title,omitempty"`
-	WaitFor        *time.Duration      `json:"wait_for,omitempty"`
 	Template       string              `json:"template,omitempty"`
 	Filter         string              `json:"filter,omitempty"`
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
@@ -31,7 +30,14 @@ type Notification struct {
 	CreatedAt      time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
 
-	// Error stores errors in notification filters (if any)
+	// Duration to wait before re-evaluating health of the resource.
+	WaitFor *time.Duration `json:"wait_for,omitempty"`
+
+	// Duration to wait after triggering incremental scrape for kubernetes config.
+	// Works together with waitFor duration.
+	WaitForEvalPeriod *time.Duration `json:"wait_for_eval_period,omitempty"`
+
+	// Error stores errors in notification filters (if any).
 	Error *string `json:"error,omitempty"`
 }
 

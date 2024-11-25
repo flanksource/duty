@@ -59,6 +59,11 @@ table "notifications" {
     type    = bigint
     comment = "duration in nanoseconds"
   }
+  column "wait_for_eval_period" {
+    null    = true
+    type    = bigint
+    comment = "duration in nanoseconds"
+  }
   column "group_by" {
     null    = true
     type    = sql("text[]")
