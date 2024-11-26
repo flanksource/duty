@@ -181,6 +181,12 @@ table "config_changes" {
     type    = bool
     comment = "is_pushed when set to true indicates that the config changes has been pushed to upstream."
   }
+  column "inserted_at" {
+    null = false
+    type = timestamptz
+    default = sql("now()")
+  }
+
   primary_key {
     columns = [column.id]
   }
@@ -344,6 +350,11 @@ table "config_items" {
   column "delete_reason" {
     null = true
     type = text
+  }
+  column "inserted_at" {
+    null = false
+    type = timestamptz
+    default = sql("now()")
   }
   primary_key {
     columns = [column.id]
