@@ -30,7 +30,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
+  IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) OR (OLD IS NULL AND NEW.health = 'unknown') THEN
     RETURN NULL;
   END IF;
 
