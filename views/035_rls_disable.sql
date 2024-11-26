@@ -34,8 +34,6 @@ ALTER VIEW config_analysis_items OWNER TO CURRENT_USER;
 
 ALTER VIEW config_changes_by_types OWNER TO CURRENT_USER;
 
-ALTER VIEW config_changes_items OWNER TO CURRENT_USER;
-
 ALTER VIEW config_class_summary OWNER TO CURRENT_USER;
 
 ALTER VIEW config_classes OWNER TO CURRENT_USER;
