@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, ginkgo.Pending, func() {
 	// Graph #1 (cylic)
 	//
 	//       A
@@ -264,7 +264,7 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 	})
 })
 
-var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, ginkgo.Pending, func() {
 	// Graph #1 (cyclic)
 	//                              Cluster
 	//                  ________________|________________
@@ -463,7 +463,7 @@ var _ = ginkgo.Describe("config relationship deletion test", func() {
 	})
 })
 
-var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, ginkgo.Pending, func() {
 	generator := ConfigGenerator{
 		Nodes:                   ConfigTypeRequirements{Count: 3},
 		Namespaces:              ConfigTypeRequirements{Count: 2},

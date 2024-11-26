@@ -128,7 +128,7 @@ ALTER VIEW configs OWNER TO api_views_owner;
 ALTER VIEW incidents_by_config OWNER TO api_views_owner;
 ALTER VIEW pg_config OWNER TO api_views_owner;
 
-ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
-ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
-ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
+-- ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
+-- ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
+-- ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
 
