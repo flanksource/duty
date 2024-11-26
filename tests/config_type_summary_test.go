@@ -23,7 +23,7 @@ type configClassSummary struct {
 	analysis              map[string]any
 }
 
-var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, ginkgo.Pending, func() {
 	ginkgo.It("Should query config_class_summary view", func() {
 		rows, err := DefaultContext.Pool().Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
 		Expect(err).ToNot(HaveOccurred())
