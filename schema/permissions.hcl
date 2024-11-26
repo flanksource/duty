@@ -99,7 +99,7 @@ table "permissions" {
   column "tags" {
     null = true
     type = jsonb
-    comment = "a list of tags a user is allowed to access when row-level security is enabled"
+    comment = "a list of tags user is allowed to access when row-level security is enabled"
   }
 
   primary_key {
