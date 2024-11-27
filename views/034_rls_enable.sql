@@ -27,7 +27,7 @@ CREATE POLICY config_items_auth ON config_items
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -52,7 +52,7 @@ CREATE POLICY config_changes_auth ON config_changes
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -75,7 +75,7 @@ CREATE POLICY config_analysis_auth ON config_analysis
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -98,7 +98,7 @@ CREATE POLICY config_relationships_auth ON config_relationships
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -121,7 +121,7 @@ CREATE POLICY config_component_relationships_auth ON config_component_relationsh
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -144,7 +144,7 @@ CREATE POLICY components_auth ON components
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
