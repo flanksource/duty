@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/flanksource/duty/models"
@@ -15,11 +16,11 @@ type testCase struct {
 	expectedCount *int64
 }
 
-func verifyConfigCount(session *gorm.DB, jwtClaims string, expectedCount int64) {
-	Expect(session.Exec(fmt.Sprintf("SET request.jwt.claims = '%s'", jwtClaims)).Error).To(BeNil())
+func verifyConfigCount(tx *gorm.DB, jwtClaims string, expectedCount int64) {
+	Expect(tx.Exec(fmt.Sprintf("SET LOCAL request.jwt.claims = '%s'", jwtClaims)).Error).To(BeNil())
 
 	var count int64
-	Expect(session.Model(&models.ConfigItem{}).Count(&count).Error).To(BeNil())
+	Expect(tx.Model(&models.ConfigItem{}).Count(&count).Error).To(BeNil())
 	Expect(count).To(Equal(expectedCount))
 }
 
@@ -32,7 +33,7 @@ var _ = Describe("RLS test", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		tx = DefaultContext.DB().Begin()
+		tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
 
 		Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 		Expect(DefaultContext.DB().Where("tags->>'account' = 'flanksource'").Model(&models.ConfigItem{}).Count(&numConfigsWithFlanksourceTag).Error).To(BeNil())
@@ -40,14 +41,13 @@ var _ = Describe("RLS test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		Expect(tx.Exec("RESET ROLE").Error).To(BeNil())
 		Expect(tx.Commit().Error).To(BeNil())
 	})
 
 	for _, role := range []string{"postgrest_anon", "postgrest_api"} {
 		Context(role, Ordered, func() {
 			BeforeAll(func() {
-				Expect(tx.Exec(fmt.Sprintf("SET ROLE '%s'", role)).Error).To(BeNil())
+				Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
 
 				var currentRole string
 				Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
