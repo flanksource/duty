@@ -26,7 +26,8 @@ CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -50,7 +51,8 @@ CREATE POLICY config_changes_auth ON config_changes
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -72,7 +74,8 @@ CREATE POLICY config_analysis_auth ON config_analysis
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -94,7 +97,8 @@ CREATE POLICY config_relationships_auth ON config_relationships
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -116,7 +120,8 @@ CREATE POLICY config_component_relationships_auth ON config_component_relationsh
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE
@@ -138,7 +143,8 @@ CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
     USING (
       CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL 
+        current_setting('request.jwt.claims', TRUE) IS NULL
+        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set it cannot be deleted. it's value is set to empty string.
         OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
       )
       THEN TRUE

@@ -37,7 +37,7 @@ var _ = Describe("RLS test", Ordered, func() {
 			Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws'").Model(&models.ConfigItem{}).Count(&awsConfigs).Error).To(BeNil())
 
-			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			tx = DefaultContext.DB().Begin()
 
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
 			Expect(tx.Exec(`SET LOCAL request.jwt.claims = '{"tags": [{"cluster": "aws"}]}'`).Error).To(BeNil())
@@ -47,6 +47,7 @@ var _ = Describe("RLS test", Ordered, func() {
 		})
 
 		AfterAll(func() {
+			Expect(tx.Exec(`SET LOCAL request.jwt.claims = '{"tags": [{"cluster": "aws"}]}'`).Error).To(BeNil())
 			Expect(tx.Commit().Error).To(BeNil())
 		})
 
