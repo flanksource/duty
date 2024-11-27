@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -21,21 +20,6 @@ var gitopsFixtures = []struct {
 	{dummy.Namespace.ID.String(), gitopsPath},
 	{dummy.Namespace.AsMap(), gitopsPath},
 }
-
-func RefreshConfigItemSummary7d(ctx context.Context) error {
-	// Not sure why but despite refreshing this view, the `configs` view
-	// doesn't produce accurate result. It returns fewer configs.
-	// Running this a couple of times to ensure it's refreshed.
-	for range 3 {
-		err := job.RefreshConfigItemSummary7d(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 var _ = ginkgo.Describe("Config Gitops Source", ginkgo.Ordered, func() {
 	ginkgo.It("should resolve kustomize references", func() {
 		Expect(dummy.Kustomization.ID.String()).NotTo(BeEmpty())
@@ -43,7 +27,7 @@ var _ = ginkgo.Describe("Config Gitops Source", ginkgo.Ordered, func() {
 		Expect(dummy.Namespace.ID.String()).NotTo(BeEmpty())
 
 		// Config Traverse uses the 7d summary view internally
-		err := RefreshConfigItemSummary7d(DefaultContext)
+		err := job.RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 
 		source, err := query.GetGitOpsSource(DefaultContext, dummy.Namespace.ID)

@@ -165,7 +165,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		analysis0 := gen.Generated.Analysis[0]
 		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("status", "closed")
 
-		err = RefreshConfigItemSummary7d(DefaultContext)
+		err = job.RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy: []string{"type"},
