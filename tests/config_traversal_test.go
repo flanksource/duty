@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/utils"
-	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/gomplate/v3"
@@ -33,7 +32,7 @@ func traverseTemplate(from models.ConfigItem, relationType string, direction str
 	return gotExpr
 }
 
-var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, ginkgo.Pending, func() {
+var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 	ginkgo.It("should be able to traverse config relationships via types", func() {
 		deployment := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment"), ConfigClass: "Deployment"}
 		helmRelease := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease"), ConfigClass: "HelmRelease"}
@@ -52,7 +51,7 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, ginkgo.Pending, func
 		err = ctx.DB().Clauses(clause.OnConflict{DoNothing: true}).Save(configRelations).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		err = job.RefreshConfigItemSummary7d(DefaultContext)
+		err = RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 
 		err = query.SyncConfigCache(DefaultContext)
