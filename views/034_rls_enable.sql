@@ -85,6 +85,50 @@ CREATE POLICY config_analysis_auth ON config_analysis
       END
     );
 
+-- Policy config_relationships
+ALTER TABLE config_relationships ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
+
+CREATE POLICY config_relationships_auth ON config_relationships
+  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+    USING (
+      CASE WHEN (
+        current_setting('request.jwt.claims', TRUE) IS NULL 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
+      )
+      THEN TRUE
+      ELSE EXISTS (
+        -- just leverage the RLS on config_items
+        SELECT 1
+        FROM config_items
+        WHERE config_items.id = config_relationships.config_id AND config_items.id = config_relationships.related_id
+      )
+      END
+    );
+
+-- Policy config_relationships
+ALTER TABLE config_component_relationships ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
+
+CREATE POLICY config_component_relationships_auth ON config_component_relationships
+  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+    USING (
+      CASE WHEN (
+        current_setting('request.jwt.claims', TRUE) IS NULL 
+        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
+      )
+      THEN TRUE
+      ELSE EXISTS (
+        -- just leverage the RLS on config_items
+        SELECT 1
+        FROM config_items
+        WHERE config_items.id = config_component_relationships.config_id
+      )
+      END
+    );
+
 -- Policy components
 ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 
@@ -128,7 +172,10 @@ ALTER VIEW configs OWNER TO api_views_owner;
 ALTER VIEW incidents_by_config OWNER TO api_views_owner;
 ALTER VIEW pg_config OWNER TO api_views_owner;
 
--- ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
--- ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
--- ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
+ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
+ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
+ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
+
+-- From postgres 17 only
+-- GRANT MAINTAIN ON config_item_summary_7d TO postgrest_api, postgrest_anon;
 
