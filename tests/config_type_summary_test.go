@@ -23,7 +23,7 @@ type configClassSummary struct {
 	analysis              map[string]any
 }
 
-var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, ginkgo.Pending, func() {
+var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query config_class_summary view", func() {
 		rows, err := DefaultContext.Pool().Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
 		Expect(err).ToNot(HaveOccurred())
@@ -165,7 +165,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, ginkg
 		analysis0 := gen.Generated.Analysis[0]
 		DefaultContext.DB().Model(&models.ConfigAnalysis{}).Where("id = ?", analysis0.ID).UpdateColumn("status", "closed")
 
-		err = job.RefreshConfigItemSummary7d(DefaultContext)
+		err = RefreshConfigItemSummary7d(DefaultContext)
 		Expect(err).To(BeNil())
 		summary7D, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
 			GroupBy: []string{"type"},

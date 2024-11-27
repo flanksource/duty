@@ -3,7 +3,6 @@ package tests
 import (
 	"encoding/json"
 
-	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -145,7 +144,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 
 	ginkgo.Context("should query changes by range", func() {
 		ginkgo.It("small range", func() {
-			err := job.RefreshConfigItemSummary7d(DefaultContext)
+			err := RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 
 			request := query.ConfigSummaryRequest{
