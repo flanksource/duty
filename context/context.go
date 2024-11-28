@@ -346,25 +346,18 @@ func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
 	if k.GetNamespace() == "" {
 		return nil, k.Oops().Errorf("namespace is required")
 	}
+
 	val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
 	if err != nil {
 		return k, k.Oops().Wrap(err)
 	}
 
-	var client kubernetes.Interface
-	var rest *rest.Config
-
-	if strings.HasPrefix(val, "/") {
-		if client, rest, err = dutyKubernetes.NewClient(k.Logger, val); err != nil {
-			return k, k.Oops().Wrap(err)
-		}
-	} else {
-		if client, rest, err = dutyKubernetes.NewClientWithConfig(k.Logger, []byte(val)); err != nil {
-			return k, k.Oops().Wrap(err)
-		}
+	clientset, restConfig, err := dutyKubernetes.NewClientFromPathOrConfig(k.Logger, val)
+	if err != nil {
+		return k, k.Oops().Wrap(err)
 	}
 
-	c := k.WithKubernetes(client, rest)
+	c := k.WithKubernetes(clientset, restConfig)
 
 	return &c, nil
 
