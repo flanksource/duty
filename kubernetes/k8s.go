@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/flanksource/commons/console"
@@ -98,6 +99,24 @@ func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.In
 		client, err := kubernetes.NewForConfig(trace(logger, config))
 		return cacheResult(string(kubeConfig), client, config, err)
 	}
+}
+
+func NewClientFromPathOrConfig(logger logger.Logger, kubeconfigOrPath string) (kubernetes.Interface, *rest.Config, error) {
+	var client kubernetes.Interface
+	var rest *rest.Config
+	var err error
+
+	if strings.HasPrefix(kubeconfigOrPath, "/") {
+		if client, rest, err = NewClient(logger, kubeconfigOrPath); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if client, rest, err = NewClientWithConfig(logger, []byte(kubeconfigOrPath)); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return client, rest, err
 }
 
 func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
