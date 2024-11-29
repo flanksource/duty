@@ -38,8 +38,8 @@ table "config_analysis" {
     type = text
   }
   column "status" {
-    null = true
-    type = text
+    null    = true
+    type    = text
     default = "open"
   }
   column "message" {
@@ -182,8 +182,8 @@ table "config_changes" {
     comment = "is_pushed when set to true indicates that the config changes has been pushed to upstream."
   }
   column "inserted_at" {
-    null = false
-    type = timestamptz
+    null    = false
+    type    = timestamptz
     default = sql("now()")
   }
 
@@ -352,8 +352,8 @@ table "config_items" {
     type = text
   }
   column "inserted_at" {
-    null = false
-    type = timestamptz
+    null    = false
+    type    = timestamptz
     default = sql("now()")
   }
   primary_key {
@@ -405,7 +405,7 @@ table "config_items" {
   }
   index "idx_config_items_scraper_id_deleted_at_null" {
     columns = [column.scraper_id]
-    where = "deleted_at IS NULL"
+    where   = "deleted_at IS NULL"
   }
   index "idx_config_items_path" {
     columns = [column.path]
@@ -614,5 +614,56 @@ table "config_scrapers" {
   index "config_scrapers_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+}
+
+table "scrape_plugins" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "name" {
+    type = text
+  }
+  column "namespace" {
+    null = true
+    type = text
+  }
+  column "spec" {
+    null = false
+    type = jsonb
+  }
+  column "source" {
+    null = false
+    type = enum.source
+  }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = true
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "config_scraper_plugins_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
