@@ -8,7 +8,7 @@ import (
 )
 
 type ScrapePlugin struct {
-	ID        uuid.UUID  `json:"id"`
+	ID        uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name      string     `json:"name"`
 	Namespace string     `json:"namespace"`
 	Spec      types.JSON `json:"spec,omitempty"`
