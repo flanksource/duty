@@ -45,6 +45,12 @@ type Config struct {
 	SkipMigrations     bool
 	SkipMigrationFiles []string
 	MigrationMode      MigrationMode
+
+	// If we are using Kratos auth, some migrations
+	// depend on kratos migrations being ran or not and
+	// can cause problems if mission-control mirations run
+	// before kratos migrations
+	KratosAuth bool
 }
 
 func (t *Config) Migrate() bool {

@@ -222,12 +222,33 @@ func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err err
 	}
 
 	if config.Migrate() {
+
+		// Some triggers are dependent on kratos tables
+		if config.KratosAuth {
+			if err = verifyKratosMigration(gormDB); err != nil {
+				return nil, nil, err
+			}
+		}
+
 		if err = Migrate(config); err != nil {
 			return
 		}
 	}
 
 	return
+}
+
+func verifyKratosMigration(db *gorm.DB) error {
+	var exists bool
+	err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'identities')`).Scan(&exists).Error
+	if err != nil {
+		return fmt.Errorf("error confirming if kratos migration ran: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("kratos created tables[identities] not found")
+	}
+
+	return nil
 }
 
 func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
