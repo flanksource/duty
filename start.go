@@ -102,6 +102,11 @@ var DisableKubernetes = func(config Config) Config {
 	return config
 }
 
+var KratosAuth = func(config Config) Config {
+	config.KratosAuth = true
+	return config
+}
+
 func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	config := DefaultConfig
 	for _, opt := range opts {
