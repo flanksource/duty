@@ -26,7 +26,7 @@ DECLARE
 BEGIN
   FOR table_name IN
   SELECT
-    unnest(ARRAY['notifications', 'playbooks', 'permissions', 'teams'])
+    unnest(ARRAY['notifications', 'playbooks', 'permissions', 'scrape_plugins', 'teams'])
     LOOP
       EXECUTE format('
       CREATE OR REPLACE TRIGGER notify_updates_and_deletes
