@@ -1,7 +1,13 @@
 package connection
 
 import (
+	"crypto/tls"
+	"net/http"
+
+	gcs "cloud.google.com/go/storage"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"google.golang.org/api/option"
 )
 
 // +kubebuilder:object:generate=true
@@ -16,6 +22,45 @@ func (g *GCSConnection) Validate() *GCSConnection {
 	}
 
 	return g
+}
+
+func (g *GCSConnection) Client(ctx context.Context) (*gcs.Client, error) {
+	g = g.Validate()
+	var client *gcs.Client
+	var err error
+
+	var clientOpts []option.ClientOption
+
+	if g.Endpoint != "" {
+		clientOpts = append(clientOpts, option.WithEndpoint(g.Endpoint))
+	}
+
+	if g.SkipTLSVerify {
+		insecureHTTPClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+
+		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
+	}
+
+	if g.Credentials != nil && !g.Credentials.IsEmpty() {
+		credential, err := ctx.GetEnvValueFromCache(*g.Credentials, ctx.GetNamespace())
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(credential)))
+	} else {
+		clientOpts = append(clientOpts, option.WithoutAuthentication())
+	}
+
+	client, err = gcs.NewClient(ctx.Context, clientOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 // HydrateConnection attempts to find the connection by name
