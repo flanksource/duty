@@ -32,7 +32,7 @@ func (t *EKSConnection) Populate(ctx ConnectionContext) error {
 	return t.AWSConnection.Populate(ctx)
 }
 
-func (t *EKSConnection) KubernetesClient(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *EKSConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	awsConfig, err := t.AWSConnection.Client(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -43,7 +43,7 @@ func (t *EKSConnection) KubernetesClient(ctx context.Context) (kubernetes.Interf
 		return nil, nil, err
 	}
 
-	token, err := getEKSToken(ctx, t.Cluster, awsConfig)
+	token, err := getEKSToken(ctx, t.Cluster, awsConfig, freshToken)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get token for EKS: %w", err)
 	}
@@ -79,15 +79,17 @@ func eksClusterDetails(ctx gocontext.Context, clusterName string, conf aws.Confi
 	return *cluster.Cluster.Endpoint, ca, nil
 }
 
-func getEKSToken(ctx gocontext.Context, cluster string, conf aws.Config) (string, error) {
+func getEKSToken(ctx gocontext.Context, cluster string, conf aws.Config, freshToken bool) (string, error) {
 	cred, err := conf.Credentials.Retrieve(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to retrive credentials from aws config: %w", err)
 	}
 
 	cacheKey := tokenCacheKey("eks", cred, cluster)
-	if found, ok := tokenCache.Get(cacheKey); ok {
-		return found.(string), nil
+	if !freshToken {
+		if found, ok := tokenCache.Get(cacheKey); ok {
+			return found.(string), nil
+		}
 	}
 
 	signedURI, err := getSignedSTSURI(ctx, cluster, cred)
@@ -96,7 +98,8 @@ func getEKSToken(ctx gocontext.Context, cluster string, conf aws.Config) (string
 	}
 
 	token := v1Prefix + base64.RawURLEncoding.EncodeToString([]byte(signedURI))
-	tokenCache.Set(cacheKey, token, time.Minute*15)
+	tokenTTL := time.Minute * 15
+	tokenCache.Set(cacheKey, token, tokenTTL-tokenSafetyMargin)
 	return token, nil
 }
 
