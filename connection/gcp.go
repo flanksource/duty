@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -64,6 +65,14 @@ func (g *GCPConnection) HydrateConnection(ctx ConnectionContext) error {
 	if connection != nil {
 		g.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
 		g.Endpoint = connection.URL
+	}
+
+	if g.Credentials != nil {
+		if cred, err := ctx.GetEnvValueFromCache(*g.Credentials, ctx.GetNamespace()); err != nil {
+			return fmt.Errorf("could get gcloud credentials from env var: %w", err)
+		} else {
+			g.Credentials.ValueStatic = cred
+		}
 	}
 
 	return nil
