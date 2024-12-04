@@ -105,10 +105,12 @@ func (g *GCPConnection) Validate() *GCPConnection {
 	return g
 }
 
-func (g *GCPConnection) Token(ctx context.Context, scopes ...string) (*oauth2.Token, error) {
+func (g *GCPConnection) Token(ctx context.Context, freshToken bool, scopes ...string) (*oauth2.Token, error) {
 	cacheKey := tokenCacheKey("gcp", hash.Sha256Hex(g.Credentials.ValueStatic), strings.Join(scopes, ","))
-	if found, ok := tokenCache.Get(cacheKey); ok {
-		return found.(*oauth2.Token), nil
+	if !freshToken {
+		if found, ok := tokenCache.Get(cacheKey); ok {
+			return found.(*oauth2.Token), nil
+		}
 	}
 
 	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
@@ -122,7 +124,7 @@ func (g *GCPConnection) Token(ctx context.Context, scopes ...string) (*oauth2.To
 		return nil, err
 	}
 
-	tokenCache.Set(cacheKey, token, time.Until(token.Expiry))
+	tokenCache.Set(cacheKey, token, time.Until(token.Expiry)-tokenSafetyMargin)
 	return token, nil
 }
 

@@ -25,8 +25,8 @@ func (t *CNRMConnection) Populate(ctx ConnectionContext) error {
 	return t.GKE.Populate(ctx)
 }
 
-func (t *CNRMConnection) KubernetesClient(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
-	cnrmCluster, restConfig, err := t.GKE.KubernetesClient(ctx)
+func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+	cnrmCluster, restConfig, err := t.GKE.KubernetesClient(ctx, freshToken)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create kubernetes client for GKE: %w", err)
 	}
@@ -42,7 +42,7 @@ func (t *CNRMConnection) KubernetesClient(ctx context.Context) (kubernetes.Inter
 		return nil, nil, err
 	}
 
-	clusterResourceRestConfig, err := t.createRestConfigForClusteResource(ctx, obj)
+	clusterResourceRestConfig, err := t.createRestConfigForClusteResource(ctx, freshToken, obj)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +55,7 @@ func (t *CNRMConnection) KubernetesClient(ctx context.Context) (kubernetes.Inter
 	return clientset, restConfig, nil
 }
 
-func (t *CNRMConnection) createRestConfigForClusteResource(ctx context.Context, clusterObj *unstructured.Unstructured) (*rest.Config, error) {
+func (t *CNRMConnection) createRestConfigForClusteResource(ctx context.Context, freshToken bool, clusterObj *unstructured.Unstructured) (*rest.Config, error) {
 	endpoint, found, err := unstructured.NestedString(clusterObj.Object, "status", "endpoint")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to extract cluster endpoint from cluster resource: %w", err)
@@ -71,7 +71,7 @@ func (t *CNRMConnection) createRestConfigForClusteResource(ctx context.Context, 
 		return nil, fmt.Errorf("unable to decode cluster CA certificate: %w", err)
 	}
 
-	token, err := t.GKE.Token(ctx, container.CloudPlatformScope)
+	token, err := t.GKE.Token(ctx, freshToken, container.CloudPlatformScope)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token for gke: %w", err)
 	}

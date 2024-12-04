@@ -71,7 +71,7 @@ func (t *GKEConnection) Client(ctx context.Context) (*container.Service, error) 
 	return svc, nil
 }
 
-func (t *GKEConnection) KubernetesClient(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *GKEConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	containerService, err := t.Client(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -83,7 +83,7 @@ func (t *GKEConnection) KubernetesClient(ctx context.Context) (kubernetes.Interf
 		return nil, nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
 
-	token, err := t.GCPConnection.Token(ctx, container.CloudPlatformScope)
+	token, err := t.GCPConnection.Token(ctx, freshToken, container.CloudPlatformScope)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get token for gke: %w", err)
 	}

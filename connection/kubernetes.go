@@ -60,7 +60,7 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, nil
 	} else if clientset != nil {
@@ -72,7 +72,7 @@ func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, err
 		}
 
-		return t.GKE.KubernetesClient(ctx)
+		return t.GKE.KubernetesClient(ctx, freshToken)
 	}
 
 	if t.EKS != nil {
@@ -80,7 +80,7 @@ func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, err
 		}
 
-		return t.EKS.KubernetesClient(ctx)
+		return t.EKS.KubernetesClient(ctx, freshToken)
 	}
 
 	if t.CNRM != nil {
@@ -88,7 +88,7 @@ func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, err
 		}
 
-		return t.CNRM.KubernetesClient(ctx)
+		return t.CNRM.KubernetesClient(ctx, freshToken)
 	}
 
 	return nil, nil, nil
