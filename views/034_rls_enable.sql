@@ -1,29 +1,10 @@
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT
-    FROM
-      pg_catalog.pg_roles
-    WHERE
-      rolname = 'api_views_owner') THEN
-  -- NOTE:In postgres v14, views are run using the view owner's permission.
-  -- When RLS is enabled, we want to run the view using the current user (postgres_anon for eg.)
-  -- Hence, we create a new role to make the owner of all the views that make use of RLS enabled tables.
-  -- The role is created using NOBYPASSRLS option so RLS is enforced.
-  CREATE ROLE api_views_owner NOSUPERUSER NOBYPASSRLS;
-END IF;
-END
-$$;
-
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO api_views_owner;
-
 -- Policy config items
 ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
 CREATE POLICY config_items_auth ON config_items
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -48,7 +29,7 @@ ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 
 CREATE POLICY config_changes_auth ON config_changes
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -71,7 +52,7 @@ ALTER TABLE config_analysis ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 
 CREATE POLICY config_analysis_auth ON config_analysis
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -94,7 +75,7 @@ ALTER TABLE config_relationships ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
 
 CREATE POLICY config_relationships_auth ON config_relationships
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -117,7 +98,7 @@ ALTER TABLE config_component_relationships ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
 
 CREATE POLICY config_component_relationships_auth ON config_component_relationships
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -140,7 +121,7 @@ ALTER TABLE components ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components
-  FOR ALL TO postgrest_api, postgrest_anon, api_views_owner
+  FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (
         current_setting('request.jwt.claims', TRUE) IS NULL
@@ -154,34 +135,28 @@ CREATE POLICY components_auth ON components
       END
     );
 
-ALTER VIEW analysis_by_config OWNER TO api_views_owner;
-ALTER VIEW catalog_changes OWNER TO api_views_owner;
-ALTER VIEW check_summary_by_config OWNER TO api_views_owner;
-ALTER VIEW check_summary_for_config OWNER TO api_views_owner;
-ALTER VIEW checks_by_config OWNER TO api_views_owner;
-ALTER VIEW config_analysis_analyzers OWNER TO api_views_owner;
-ALTER VIEW config_analysis_by_severity OWNER TO api_views_owner;
-ALTER VIEW config_analysis_items OWNER TO api_views_owner;
-ALTER VIEW config_changes_by_types OWNER TO api_views_owner;
-ALTER VIEW config_class_summary OWNER TO api_views_owner;
-ALTER VIEW config_classes OWNER TO api_views_owner;
-ALTER VIEW config_detail OWNER TO api_views_owner;
-ALTER VIEW config_items_aws OWNER TO api_views_owner;
-ALTER VIEW config_labels OWNER TO api_views_owner;
-ALTER VIEW config_names OWNER TO api_views_owner;
-ALTER VIEW config_scrapers_with_status OWNER TO api_views_owner;
-ALTER VIEW config_statuses OWNER TO api_views_owner;
-ALTER VIEW config_summary OWNER TO api_views_owner;
-ALTER VIEW config_tags OWNER TO api_views_owner;
-ALTER VIEW config_types OWNER TO api_views_owner;
-ALTER VIEW configs OWNER TO api_views_owner;
-ALTER VIEW incidents_by_config OWNER TO api_views_owner;
-ALTER VIEW pg_config OWNER TO api_views_owner;
+ALTER VIEW analysis_by_config SET (security_invoker = true);
+ALTER VIEW catalog_changes SET (security_invoker = true);
+ALTER VIEW check_summary_by_config SET (security_invoker = true);
+ALTER VIEW check_summary_for_config SET (security_invoker = true);
+ALTER VIEW checks_by_config SET (security_invoker = true);
+ALTER VIEW config_analysis_analyzers SET (security_invoker = true);
+ALTER VIEW config_analysis_by_severity SET (security_invoker = true);
+ALTER VIEW config_analysis_items SET (security_invoker = true);
+ALTER VIEW config_changes_by_types SET (security_invoker = true);
+ALTER VIEW config_class_summary SET (security_invoker = true);
+ALTER VIEW config_classes SET (security_invoker = true);
+ALTER VIEW config_detail SET (security_invoker = true);
+ALTER VIEW config_labels SET (security_invoker = true);
+ALTER VIEW config_names SET (security_invoker = true);
+ALTER VIEW config_scrapers_with_status SET (security_invoker = true);
+ALTER VIEW config_statuses SET (security_invoker = true);
+ALTER VIEW config_summary SET (security_invoker = true);
+ALTER VIEW config_tags SET (security_invoker = true);
+ALTER VIEW config_types SET (security_invoker = true);
+ALTER VIEW configs SET (security_invoker = true);
+ALTER VIEW incidents_by_config SET (security_invoker = true);
 
-ALTER MATERIALIZED VIEW config_item_summary_3d OWNER TO api_views_owner;
-ALTER MATERIALIZED VIEW config_item_summary_7d OWNER TO api_views_owner;
-ALTER MATERIALIZED VIEW config_item_summary_30d OWNER TO api_views_owner;
-
--- From postgres 17 only
--- GRANT MAINTAIN ON config_item_summary_7d TO postgrest_api, postgrest_anon;
-
+-- ALTER MATERIALIZED VIEW config_item_summary_3d SET (security_invoker = true);
+-- ALTER MATERIALIZED VIEW config_item_summary_7d SET (security_invoker = true);
+-- ALTER MATERIALIZED VIEW config_item_summary_30d SET (security_invoker = true);
