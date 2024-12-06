@@ -6,6 +6,10 @@ ginkgo:
 test: ginkgo
 	ginkgo -r  -v
 
+.PHONY: bench
+bench:
+	go run cmd/bench/bench.go
+
 fmt:
 	go fmt ./...
 

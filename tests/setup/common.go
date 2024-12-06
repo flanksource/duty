@@ -1,7 +1,6 @@
 package setup
 
 import (
-	gocontext "context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/shutdown"
 	"github.com/flanksource/duty/telemetry"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/labstack/echo/v4"
@@ -42,7 +42,6 @@ var dummyData dummy.DummyData
 
 var PgUrl string
 var postgresDBUrl string
-var dbName = "test"
 
 func init() {
 	logger.UseSlog()
@@ -80,14 +79,12 @@ func MustDB() *sql.DB {
 	return db
 }
 
+var WithoutRLS = "rsl_disabled"
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
 var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
 
-var ShutdownHooks []func(ctx gocontext.Context) error
-
 func findFileInPath(filename string, depth int) string {
-
 	if !path.IsAbs(filename) {
 		cwd, _ := os.Getwd()
 		filename = path.Join(cwd, filename)
@@ -107,15 +104,25 @@ func findFileInPath(filename string, depth int) string {
 }
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
+	ctx, err := SetupDB("test", args...)
+	if err != nil {
+		shutdown.ShutdownAndExit(1, fmt.Sprintf("failed to setup db: %v", err))
+	}
+
+	DefaultContext = ctx
+	return ctx
+}
+
+func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 	if err := properties.LoadFile(findFileInPath("test.properties", 2)); err != nil {
 		logger.Errorf("Failed to load test properties: %v", err)
 	}
 
-	ShutdownHooks = append(ShutdownHooks, telemetry.InitTracer())
+	shutdown.AddHookWithPriority("telemetry", 0, func() { telemetry.InitTracer() })
 
-	var err error
 	importDummyData := true
-
+	disableRLS := false
+	dbOptions := []duty.StartOption{duty.DisablePostgrest, duty.RunMigrations}
 	for _, arg := range args {
 		if arg == WithoutDummyData {
 			importDummyData = false
@@ -123,17 +130,20 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		if arg == WithExistingDatabase {
 			recreateDatabase = false
 		}
+		if arg == WithoutRLS {
+			disableRLS = true
+		}
 	}
 
-	if postgresServer != nil {
-		return DefaultContext
+	if !disableRLS {
+		dbOptions = append(dbOptions, duty.EnableRLS)
 	}
 
 	var port int
 	if val, ok := os.LookupEnv("TEST_DB_PORT"); ok {
 		parsed, err := strconv.ParseInt(val, 10, 32)
 		if err != nil {
-			panic(err)
+			return context.Context{}, err
 		}
 
 		port = int(parsed)
@@ -151,51 +161,55 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
 		_ = execPostgres(postgresDBUrl, "DROP DATABASE "+dbName)
 		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
-			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
+			return context.Context{}, fmt.Errorf("cannot create %s: %v", dbName, err)
 		}
 
-		ShutdownHooks = append(ShutdownHooks, func(ctx gocontext.Context) error {
-			return execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName))
+		shutdown.AddHookWithPriority("remote postgres", shutdown.PriorityCritical, func() {
+			if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
+				logger.Errorf("execPostgres: %v", err)
+			}
 		})
 
-	} else if url == "" {
+	} else if url == "" && postgresServer == nil {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
 		postgresServer = embeddedPG.NewDatabase(config)
-		if err = postgresServer.Start(); err != nil {
-			panic(err.Error())
+		logger.Infof("starting embedded postgres on port %d", port)
+		if err := postgresServer.Start(); err != nil {
+			return context.Context{}, err
 		}
 		logger.Infof("Started postgres on port %d", port)
-		ShutdownHooks = append(ShutdownHooks, func(ctx gocontext.Context) error {
-			logger.Infof("Stopping postgres")
-			return postgresServer.Stop()
+		shutdown.AddHookWithPriority("embedded pg", shutdown.PriorityCritical, func() {
+			if err := postgresServer.Stop(); err != nil {
+				logger.Errorf("postgresServer.Stop: %v", err)
+			}
 		})
 	}
 
-	ctx, _, err := duty.Start("test", duty.DisablePostgrest, duty.RunMigrations, duty.WithUrl(PgUrl))
+	dbOptions = append(dbOptions, duty.WithUrl(PgUrl))
+	ctx, _, err := duty.Start(dbName, dbOptions...)
 	if err != nil {
-		panic(err.Error())
+		return context.Context{}, err
 	}
 
-	DefaultContext = ctx
-	if err := DefaultContext.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
-		panic(err.Error())
+	if err := ctx.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
+		return context.Context{}, err
 	}
 
-	DefaultContext = DefaultContext.WithValue("db_name", dbName).WithValue("db_url", PgUrl)
+	ctx = ctx.WithValue("db_name", dbName).WithValue("db_url", PgUrl)
 
 	if importDummyData {
-		dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
-		if err := dummyData.Delete(DefaultContext.DB()); err != nil {
+		dummyData = dummy.GetStaticDummyData(ctx.DB())
+		if err := dummyData.Delete(ctx.DB()); err != nil {
 			logger.Errorf(err.Error())
 		}
-		err = dummyData.Populate(DefaultContext.DB())
+		err = dummyData.Populate(ctx.DB())
 		if err != nil {
-			panic(err.Error())
+			return context.Context{}, err
 		}
 		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
-	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
+	ctx = ctx.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",
@@ -212,18 +226,11 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 			"foo": []byte("secret"),
 		}}), nil)
 
-	return DefaultContext
+	return ctx, nil
 }
 
 func AfterSuiteFn() {
-	for _, fn := range ShutdownHooks {
-		if err := fn(DefaultContext); err != nil {
-			logger.Errorf(err.Error())
-		}
-	}
-	// clear out hooks so they don't run again
-	ShutdownHooks = []func(ctx gocontext.Context) error{}
-
+	shutdown.ShutdownAndExit(0, "")
 }
 
 // NewDB creates a new database from an existing context, and
@@ -238,7 +245,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 	}
 
 	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
-	newCtx, err := duty.InitDB(duty.RunMigrations(config))
+	newCtx, err := duty.InitDB(duty.EnableRLS(duty.RunMigrations(config)))
 	if err != nil {
 		return nil, nil, err
 	}
