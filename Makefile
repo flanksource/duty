@@ -6,6 +6,10 @@ ginkgo:
 test: ginkgo
 	ginkgo -r  -v
 
+.PHONY: bench
+bench:
+	go test -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
+
 fmt:
 	go fmt ./...
 

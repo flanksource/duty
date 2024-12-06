@@ -46,7 +46,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	if err := row.Scan(&name); err != nil {
 		return fmt.Errorf("failed to get current database: %w", err)
 	}
-	l.Infof("Migrating database %s", name)
+	l.V(1).Infof("Migrating database %s", name)
 
 	if err := createMigrationLogTable(pool); err != nil {
 		return fmt.Errorf("failed to create migration log table: %w", err)
@@ -57,7 +57,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to get executable scripts: %w", err)
 	}
 
-	l.V(3).Infof("Running scripts")
+	l.V(3).Infof("Running %d scripts (functions)", len(allFunctions))
 	if err := runScripts(pool, allFunctions, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
@@ -73,7 +73,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
-	l.V(3).Infof("Running scripts for views")
+	l.V(3).Infof("Running %d scripts (views)", len(allViews))
 	if err := runScripts(pool, allViews, config.SkipMigrationFiles); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}

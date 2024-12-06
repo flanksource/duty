@@ -87,7 +87,7 @@ func Apply(ctx context.Context, connection string) error {
 		return fmt.Errorf("applied %d changes and then failed: %w", len(changes), err)
 	}
 
-	log.Infof("Applied %d changes", len(changes))
+	log.V(1).Infof("Applied %d changes", len(changes))
 	return nil
 }
 
