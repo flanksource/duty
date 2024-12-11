@@ -122,7 +122,7 @@ CREATE or REPLACE VIEW configs AS
     config_item_summary_7d.config_changes_count AS changes,
     config_item_summary_7d.config_analysis_type_counts AS analysis
   FROM config_items AS ci
-  INNER JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id;
+  LEFT JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id;
 
 
 DROP VIEW IF EXISTS config_names;
