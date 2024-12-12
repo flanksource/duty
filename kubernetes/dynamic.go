@@ -1,16 +1,23 @@
 package kubernetes
 
 import (
+	"bufio"
 	"bytes"
+	"container/list"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
+	v1 "k8s.io/api/core/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -128,6 +135,21 @@ func (c *DynamicClient) GetClientByKind(kind string) (dynamic.NamespaceableResou
 	return dynamicClient.Resource(mapping.Resource), nil
 }
 
+func (c *DynamicClient) DeleteByGVK(ctx context.Context, namespace, name string, gvk schema.GroupVersionKind) (bool, error) {
+	client, err := c.GetClientByGroupVersionKind(gvk.Group, gvk.Version, gvk.Kind)
+	if err != nil {
+		return false, err
+	}
+
+	if err := client.Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		if apiErrors.IsNotFound(err) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 // GetDynamicClient creates a new k8s client
 func (c *DynamicClient) GetDynamicClient() (dynamic.Interface, error) {
 	if c.dynamicClient != nil {
@@ -204,6 +226,155 @@ func (c *DynamicClient) ExecutePodf(
 	}
 
 	return _stdout, _stderr, nil
+}
+
+func (c *DynamicClient) GetPodLogs(ctx context.Context, namespace, podName, container string) (io.ReadCloser, error) {
+	podLogOptions := v1.PodLogOptions{}
+	if container != "" {
+		podLogOptions.Container = container
+	}
+
+	req := c.client.CoreV1().Pods(namespace).GetLogs(podName, &podLogOptions)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return podLogs, nil
+}
+
+// WaitForPod waits for a pod to be in the specified phase, or returns an
+// error if the timeout is exceeded
+func (c *DynamicClient) WaitForPod(ctx context.Context, namespace, name string, timeout time.Duration, phases ...v1.PodPhase) error {
+	start := time.Now()
+
+	pods := c.client.CoreV1().Pods(namespace)
+	for {
+		pod, err := pods.Get(ctx, name, metav1.GetOptions{})
+		if start.Add(timeout).Before(time.Now()) {
+			return fmt.Errorf("timeout exceeded waiting for %s is %s, error: %v", name, pod.Status.Phase, err)
+		}
+
+		if pod == nil || pod.Status.Phase == v1.PodPending {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		if pod.Status.Phase == v1.PodFailed {
+			return nil
+		}
+
+		for _, phase := range phases {
+			if pod.Status.Phase == phase {
+				return nil
+			}
+		}
+	}
+}
+
+func (c *DynamicClient) StreamLogsV2(ctx context.Context, namespace, name string, timeout time.Duration, containerNames ...string) error {
+	podsClient := c.client.CoreV1().Pods(namespace)
+	pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if err := c.WaitForContainerStart(ctx, namespace, name, 120*time.Second, containerNames...); err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	containers := list.New()
+
+	for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
+		if len(containerNames) == 0 || lo.Contains(containerNames, container.Name) {
+			containers.PushBack(container)
+		}
+	}
+
+	// Loop over container list.
+	for element := containers.Front(); element != nil; element = element.Next() {
+		container := element.Value.(v1.Container)
+		logs := podsClient.GetLogs(pod.Name, &v1.PodLogOptions{
+			Container: container.Name,
+		})
+
+		prefix := pod.Name
+		if len(pod.Spec.Containers) > 1 {
+			prefix += "/" + container.Name
+		}
+
+		podLogs, err := logs.Stream(ctx)
+		if err != nil {
+			containers.PushBack(container)
+			logger.Tracef("failed to begin streaming %s/%s: %s", pod.Name, container.Name, err)
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		wg.Add(1)
+
+		go func() {
+			defer podLogs.Close()
+			defer wg.Done()
+
+			scanner := bufio.NewScanner(podLogs)
+			for scanner.Scan() {
+				incoming := scanner.Bytes()
+				buffer := make([]byte, len(incoming))
+				copy(buffer, incoming)
+				fmt.Printf("\x1b[38;5;244m[%s]\x1b[0m %s\n", prefix, string(buffer))
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	if err = c.WaitForPod(ctx, namespace, name, timeout, v1.PodSucceeded); err != nil {
+		return err
+	}
+
+	pod, err = podsClient.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if pod.Status.Phase == v1.PodSucceeded {
+		return nil
+	}
+
+	return fmt.Errorf("pod did not finish successfully %s - %s", pod.Status.Phase, pod.Status.Message)
+}
+
+// WaitForContainerStart waits for the specified containers to be started (or any container if no names are specified) - returns an error if the timeout is exceeded
+func (c *DynamicClient) WaitForContainerStart(ctx context.Context, namespace, name string, timeout time.Duration, containerNames ...string) error {
+	start := time.Now()
+
+	podsClient := c.client.CoreV1().Pods(namespace)
+	for {
+		pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			if apiErrors.IsNotFound(err) {
+				time.Sleep(time.Second)
+				continue
+			}
+
+			return err
+		}
+
+		if start.Add(timeout).Before(time.Now()) {
+			return fmt.Errorf("timeout exceeded waiting for %s is %s, error: %v", name, pod.Status.Phase, err)
+		}
+
+		for _, container := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+			if len(containerNames) > 0 && !lo.Contains(containerNames, container.Name) {
+				continue
+			}
+
+			if container.State.Running != nil || container.State.Terminated != nil {
+				return nil
+			}
+		}
+	}
 }
 
 func safeString(buf *bytes.Buffer) string {
