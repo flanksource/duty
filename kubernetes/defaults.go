@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+var defaulter = runtime.NewScheme()
+
 func Defaults(obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if obj == nil {
 		return nil, nil

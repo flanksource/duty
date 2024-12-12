@@ -426,22 +426,6 @@ func (c *Client) ApplyUnstructured(ctx context.Context, objects ...*unstructured
 			if err != nil {
 				return fmt.Errorf("%s: %w", obj.GetName(), err)
 			}
-		} else if hasChanges(existing, obj) {
-			newObject := obj.DeepCopy()
-			_, err := namespacedClient.Update(ctx, obj, metav1.UpdateOptions{})
-			if err != nil {
-				if !requiresReplacement(obj, err) {
-					return err
-				}
-
-				if err := namespacedClient.Delete(ctx, existing.GetName(), metav1.DeleteOptions{}); err != nil {
-					return fmt.Errorf("failed to delete %s, during replacement: %w", obj.GetName(), err)
-				}
-
-				if _, err := namespacedClient.Create(ctx, StripIdentifiers(newObject), metav1.CreateOptions{}); err != nil {
-					return fmt.Errorf("failed to recreate %s, during replacement, neither the new or old object remain: %w", obj.GetName(), err)
-				}
-			}
 		}
 	}
 
