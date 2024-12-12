@@ -336,8 +336,13 @@ func (k *Context) KubernetesRestConfig() *rest.Config {
 	return nil
 }
 
-func (k *Context) KubernetesDynamicClient() *dutyKubernetes.DynamicClient {
+func (k *Context) KubernetesClient() *dutyKubernetes.Client {
 	return dutyKubernetes.NewKubeClient(k.Kubernetes(), k.KubernetesRestConfig())
+}
+
+// Deprecated: Use KubernetesClient
+func (k *Context) KubernetesDynamicClient() *dutyKubernetes.Client {
+	return k.KubernetesClient()
 }
 
 func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
