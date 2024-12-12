@@ -14,7 +14,6 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
-	"github.com/flanksource/kommons"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
@@ -229,8 +228,7 @@ func (k Context) WithDebug() Context {
 func (k Context) WithKubernetes(client kubernetes.Interface, config *rest.Config) Context {
 	return k.
 		WithValue("kubernetes", client).
-		WithValue("kubernetes-rest", config).
-		WithValue("kommons", kommons.NewClient(config, k.Logger))
+		WithValue("kubernetes-rest", config)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
@@ -361,14 +359,6 @@ func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
 
 	return &c, nil
 
-}
-
-func (k *Context) Kommons() *kommons.Client {
-	v, ok := k.Value("kommons").(*kommons.Client)
-	if !ok || v == nil {
-		return nil
-	}
-	return v
 }
 
 func (k Context) Topology() any {
