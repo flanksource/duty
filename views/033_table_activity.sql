@@ -37,3 +37,25 @@ BEGIN
 END
 $$;
 
+---
+CREATE OR REPLACE FUNCTION notify_completed_playbook_actions ()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  IF NEW.agent_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF OLD.end_time IS NULL AND NEW.end_time IS NOT NULL THEN
+    PERFORM
+      pg_notify('table_activity', TG_TABLE_NAME || ' ' || NEW.id);
+  END IF;
+  RETURN NULL;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER newly_completed_actions
+  AFTER UPDATE ON playbook_run_actions
+  FOR EACH ROW
+  EXECUTE PROCEDURE notify_completed_playbook_actions();
+
