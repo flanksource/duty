@@ -40,6 +40,11 @@ table "notifications" {
     type    = jsonb
     comment = "Shoutrrr properties used when sending email to the person receipient."
   }
+  column "playbook_id" {
+    null    = true
+    type    = uuid
+    comment = "playbook to trigger"
+  }
   column "person_id" {
     null    = true
     type    = uuid
@@ -145,17 +150,17 @@ table "notification_send_history" {
     type = text
   }
   column "not_before" {
-    null    = true
-    type    = timestamptz
+    null = true
+    type = timestamptz
   }
   column "retries" {
-    null = true
-    type = integer
+    null    = true
+    type    = integer
     comment = "number of retries of pending notifications"
   }
   column "payload" {
-    null = true
-    type = jsonb
+    null    = true
+    type    = jsonb
     comment = "holds in original event properties for delayed/pending notifications"
   }
   column "count" {
@@ -181,6 +186,11 @@ table "notification_send_history" {
   column "person_id" {
     null = true
     type = uuid
+  }
+  column "playbook_run_id" {
+    null    = true
+    type    = uuid
+    comment = "playbook run created by this notification dispatch"
   }
   column "error" {
     null = true

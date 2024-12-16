@@ -18,6 +18,7 @@ type Notification struct {
 	Title          string              `json:"title,omitempty"`
 	Template       string              `json:"template,omitempty"`
 	Filter         string              `json:"filter,omitempty"`
+	PlaybookID     *uuid.UUID          `json:"playbook_id,omitempty"`
 	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
 	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
@@ -50,7 +51,7 @@ func (n Notification) PK() string {
 }
 
 func (n *Notification) HasRecipients() bool {
-	return n.TeamID != nil || n.PersonID != nil || len(n.CustomServices) != 0
+	return n.TeamID != nil || n.PersonID != nil || len(n.CustomServices) != 0 || n.PlaybookID != nil
 }
 
 func (n Notification) AsMap(removeFields ...string) map[string]any {
@@ -104,6 +105,9 @@ type NotificationSendHistory struct {
 
 	// ID of the person this notification is for.
 	PersonID *uuid.UUID `json:"person_id"`
+
+	// The run created by this notification
+	PlaybookRunID *uuid.UUID `json:"playbook_run_id"`
 
 	timeStart time.Time
 }
