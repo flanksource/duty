@@ -78,6 +78,14 @@ type Playbook struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (p *Playbook) NamespacedName() string {
+	if p.Namespace != "" {
+		return fmt.Sprintf("%s/%s", p.Namespace, p.Name)
+	}
+
+	return p.Name
+}
+
 func (p *Playbook) LoggerName() string {
 	return "playbook." + p.Name
 }
