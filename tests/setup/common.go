@@ -35,6 +35,14 @@ import (
 	_ "github.com/spf13/cobra"
 )
 
+// Env vars for embedded db
+const (
+	DUTY_DB_CREATE   = "DUTY_DB_CREATE"
+	DUTY_DB_DATA_DIR = "DUTY_DB_DATA_DIR"
+	DUTY_DB_URL      = "DUTY_DB_URL"
+	TEST_DB_PORT     = "TEST_DB_PORT"
+)
+
 var DefaultContext context.Context
 
 var postgresServer *embeddedPG.EmbeddedPostgres
@@ -82,7 +90,7 @@ func MustDB() *sql.DB {
 var WithoutRLS = "rsl_disabled"
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
-var recreateDatabase = os.Getenv("DUTY_DB_CREATE") != "false"
+var recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
 
 func findFileInPath(filename string, depth int) string {
 	if !path.IsAbs(filename) {
@@ -140,7 +148,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 	}
 
 	var port int
-	if val, ok := os.LookupEnv("TEST_DB_PORT"); ok {
+	if val, ok := os.LookupEnv(TEST_DB_PORT); ok {
 		parsed, err := strconv.ParseInt(val, 10, 32)
 		if err != nil {
 			return context.Context{}, err
@@ -152,7 +160,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 	}
 
 	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
-	url := os.Getenv("DUTY_DB_URL")
+	url := os.Getenv(DUTY_DB_URL)
 	if url != "" && !recreateDatabase {
 		PgUrl = url
 	} else if url != "" && recreateDatabase {
@@ -172,6 +180,12 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 
 	} else if url == "" && postgresServer == nil {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
+
+		// allow data dir override
+		if v, ok := os.LookupEnv(DUTY_DB_DATA_DIR); ok {
+			config = config.DataPath(v)
+		}
+
 		postgresServer = embeddedPG.NewDatabase(config)
 		logger.Infof("starting embedded postgres on port %d", port)
 		if err := postgresServer.Start(); err != nil {

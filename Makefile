@@ -8,7 +8,8 @@ test: ginkgo
 
 .PHONY: bench
 bench:
-	go run cmd/bench/bench.go
+	go build -o ./.bin/bench -v github.com/flanksource/duty/cmd/bench && \
+	./.bin/bench --count 250_000
 
 fmt:
 	go fmt ./...
