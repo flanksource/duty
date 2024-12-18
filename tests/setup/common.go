@@ -51,6 +51,14 @@ var dummyData dummy.DummyData
 var PgUrl string
 var postgresDBUrl string
 
+func RestartEmbeddedPG() error {
+	if err := postgresServer.Stop(); err != nil {
+		return err
+	}
+
+	return postgresServer.Start()
+}
+
 func init() {
 	logger.UseSlog()
 	logger.BindFlags(pflag.CommandLine)
