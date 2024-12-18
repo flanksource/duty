@@ -70,6 +70,11 @@ table "permissions" {
     type = uuid
   }
 
+  column "notification_id" {
+    null = true
+    type = uuid
+  }
+
   column "updated_by" {
     null = true
     type = uuid
@@ -130,7 +135,12 @@ table "permissions" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-
+  foreign_key "permissions_notification_fkey" {
+    columns     = [column.notification_id]
+    ref_columns = [table.notifications.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   foreign_key "permissions_person_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]

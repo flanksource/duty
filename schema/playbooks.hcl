@@ -6,8 +6,8 @@ table "playbooks" {
     default = sql("generate_ulid()")
   }
   column "namespace" {
-    null = false
-    type = text
+    null    = false
+    type    = text
     default = "default"
   }
   column "name" {
@@ -15,8 +15,8 @@ table "playbooks" {
     type = text
   }
   column "title" {
-    null = false
-    type = text
+    null    = false
+    type    = text
     default = ""
   }
   column "icon" {
@@ -40,8 +40,8 @@ table "playbooks" {
     type = enum.source
   }
   column "category" {
-    null = false
-    type = text
+    null    = false
+    type    = text
     default = ""
   }
   column "created_at" {
@@ -136,8 +136,8 @@ table "playbook_runs" {
     type = uuid
   }
   column "spec" {
-    null = false
-    type = jsonb
+    null    = false
+    type    = jsonb
     default = "{}" # temporary default value to make the migration possible. we can remove this later.
   }
   column "status" {
@@ -168,6 +168,11 @@ table "playbook_runs" {
   column "created_by" {
     null = true
     type = uuid
+  }
+  column "notification_send_id" {
+    null   = true
+    column = "the notification dispatch that triggered this run"
+    type   = uuid
   }
   column "check_id" {
     null = true
@@ -206,6 +211,12 @@ table "playbook_runs" {
     ref_columns = [table.playbooks.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "playbook_run_notification_send_id_fkey" {
+    columns     = [column.notification_send_id]
+    ref_columns = [table.notification_send_history.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "playbook_run_created_by_fkey" {
     columns     = [column.created_by]

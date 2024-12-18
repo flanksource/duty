@@ -181,6 +181,26 @@ func (k Context) WithUser(user *models.Person) Context {
 	return k.WithValue("user", user)
 }
 
+// Rbac subject
+func (k Context) WithSubject(subject string) Context {
+	k.GetSpan().SetAttributes(attribute.String("rbac-subject", subject))
+	return k.WithValue("rbac-subject", subject)
+}
+
+func (k Context) Subject() string {
+	subject := k.Value("rbac-subject")
+	if subject != "" {
+		return subject.(string)
+	}
+
+	user := k.User()
+	if user != nil {
+		return user.ID.String()
+	}
+
+	return ""
+}
+
 func (k Context) WithoutName() Context {
 	k.Logger = logger.GetLogger()
 	return k
