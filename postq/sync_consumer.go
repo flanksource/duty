@@ -55,7 +55,7 @@ func (t *SyncEventConsumer) Handle(ctx context.Context) (int, error) {
 		}
 
 		event.Attempts++
-		// event.SetError(err.Error())
+		event.SetError(err.Error())
 		const query = `UPDATE event_queue SET error=$1, attempts=$2, last_attempt=NOW() WHERE id=$3`
 		if _, err := ctx.Pool().Exec(ctx, query, event.Error, event.Attempts, event.ID); err != nil {
 			ctx.Debugf("error saving event attempt updates to event_queue: %v\n", err)

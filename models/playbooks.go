@@ -134,6 +134,8 @@ type PlaybookRun struct {
 	Parameters    types.JSONStringMap `json:"parameters,omitempty" gorm:"default:null"`
 	Request       types.JSONMap       `json:"request,omitempty" gorm:"default:null"`
 	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
+
+	NotificationSendID *uuid.UUID `json:"notification_send_id,omitempty"`
 }
 
 func (p PlaybookRun) TableName() string {
@@ -193,10 +195,28 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 		status = PlaybookRunStatusFailed
 	}
 
-	return p.Update(db, map[string]any{
+	if err := p.Update(db, map[string]any{
 		"status":   status,
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-	})
+	}); err != nil {
+		return err
+	}
+
+	if p.NotificationSendID != nil {
+		updates := map[string]any{}
+		if status == PlaybookRunStatusFailed {
+			updates["status"] = NotificationStatusError
+			updates["error"] = "playbook failed"
+		} else {
+			updates["status"] = NotificationStatusSent
+		}
+
+		if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p PlaybookRun) Assign(db *gorm.DB, agent *Agent, action string) error {
@@ -348,14 +368,14 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
 	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
 		return nil, err
 	}
-	output["playbook"] = playbook
+	output["playbook"] = playbook.AsMap()
 
 	if run.ComponentID != nil {
 		var component Component
 		if err := db.First(&component, run.ComponentID).Error; err != nil {
 			return nil, err
 		}
-		output["component"] = component
+		output["component"] = component.AsMap()
 	}
 
 	if run.CheckID != nil {
@@ -363,7 +383,7 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
 		if err := db.First(&check, run.CheckID).Error; err != nil {
 			return nil, err
 		}
-		output["check"] = check
+		output["check"] = check.AsMap()
 	}
 
 	if run.ConfigID != nil {
@@ -371,7 +391,7 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
 		if err := db.First(&config, run.ConfigID).Error; err != nil {
 			return nil, err
 		}
-		output["config"] = config
+		output["config"] = config.AsMap()
 	}
 
 	return output, nil

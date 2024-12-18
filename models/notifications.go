@@ -67,6 +67,12 @@ const (
 	NotificationStatusSilenced       = "silenced"
 	NotificationStatusRepeatInterval = "repeat-interval"
 
+	// an event was triggered and the notification is waiting for the playbook run to be triggered.
+	NotificationStatusPendingPlaybookRun = "pending_playbook_run"
+
+	// A playbook is currently in progress
+	NotificationStatusPendingPlaybookCompletion = "pending_playbook_completion"
+
 	// health related notifications of kubernetes config items get into this state
 	// to wait for the incremental scraper to re-evaluate the health.
 	NotificationStatusEvaluatingWaitFor = "evaluating-waitfor"
@@ -135,6 +141,11 @@ func (t *NotificationSendHistory) WithStartTime(s time.Time) *NotificationSendHi
 func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
 	t.Status = NotificationStatusSending
 	return t
+}
+
+func (t *NotificationSendHistory) PendingPlaybookRun() *NotificationSendHistory {
+	t.Status = NotificationStatusPendingPlaybookRun
+	return t.End()
 }
 
 func (t *NotificationSendHistory) Sent() *NotificationSendHistory {
