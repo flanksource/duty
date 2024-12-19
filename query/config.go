@@ -229,24 +229,24 @@ func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
 	var excludeClause *gorm.DB
 
 	for k, v := range t.Filter {
-		in, notIN, _, _, _ := ParseFilteringQuery(v, true)
+		query, _ := ParseFilteringQueryV2(v, true)
 
-		if len(notIN) > 0 {
+		if len(query.Not.In) > 0 {
 			if excludeClause == nil {
 				excludeClause = q
 			}
 
-			for _, excludeValue := range notIN {
+			for _, excludeValue := range query.Not.In {
 				excludeClause = excludeClause.Where("NOT (config_items.labels @> ?)", types.JSONStringMap{k: excludeValue.(string)})
 			}
 		}
 
-		if len(in) > 0 {
+		if len(query.In) > 0 {
 			if includeClause == nil {
 				includeClause = q
 			}
 
-			for _, includeValue := range in {
+			for _, includeValue := range query.In {
 				includeClause = includeClause.Or("config_items.labels @> ?", types.JSONStringMap{k: includeValue.(string)})
 			}
 		}
