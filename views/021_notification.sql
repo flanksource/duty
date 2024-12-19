@@ -1,5 +1,4 @@
 -- dependsOn: functions/drop.sql, views/006_config_views.sql
-
 -- Handle before updates for notifications
 CREATE OR REPLACE FUNCTION reset_notification_error_before_update ()
   RETURNS TRIGGER
@@ -8,7 +7,6 @@ BEGIN
   IF OLD.filter != NEW.filter OR OLD.custom_services != NEW.custom_services OR OLD.team_id != NEW.team_id THEN
     NEW.error = NULL;
   END IF;
-
   RETURN NEW;
 END
 $$
@@ -27,7 +25,6 @@ BEGIN
   IF OLD.filter != NEW.filter THEN
     NEW.error = NULL;
   END IF;
-
   RETURN NEW;
 END
 $$
@@ -49,7 +46,6 @@ BEGIN
   IF p_status NOT IN ('silenced', 'repeat-interval') THEN
     RAISE EXCEPTION 'Status must be silenced or repeat-interval';
   END IF;
-
   SELECT
     id INTO v_existing_id
   FROM
@@ -155,5 +151,4 @@ SELECT
   combined.*
 FROM
   combined;
-
 
