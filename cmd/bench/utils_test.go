@@ -1,10 +1,12 @@
 package bench_test
 
 import (
+	"crypto/rand"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -27,8 +29,13 @@ var randomTags = []map[string]string{
 }
 
 func getRandomTag() map[string]string {
-	max := len(randomTags)
-	return randomTags[rand.Intn(max)]
+	max := big.NewInt(int64(len(randomTags)))
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		panic(err)
+	}
+
+	return randomTags[n.Int64()]
 }
 
 func generateConfigItems(ctx context.Context, count int) ([]pkgGenerator.Generated, error) {
@@ -101,15 +108,6 @@ func fetchConfigNames(ctx context.Context, ids []uuid.UUID) error {
 	return nil
 }
 
-func fetchConfigTypes(ctx context.Context) error {
-	var types []string
-	if err := ctx.DB().Table("config_types").Scan(&types).Error; err != nil {
-		return fmt.Errorf("failed to fetch config types: %w", err)
-	}
-
-	return nil
-}
-
 func getAllConfigIDs(generatedList []pkgGenerator.Generated) []uuid.UUID {
 	var allIDs []uuid.UUID
 	idMap := make(map[uuid.UUID]struct{})
@@ -126,46 +124,65 @@ func getAllConfigIDs(generatedList []pkgGenerator.Generated) []uuid.UUID {
 	return allIDs
 }
 
-func shuffleAndPickNIDs(ids []uuid.UUID, size int) []uuid.UUID {
+func shuffleAndPickNIDs(ids []uuid.UUID, size int) ([]uuid.UUID, error) {
 	if size > len(ids) {
 		size = len(ids)
 	}
 
 	result := make([]uuid.UUID, len(ids))
 	copy(result, ids)
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for i := len(result) - 1; i > 0; i-- {
-		j := rng.Intn(i + 1)
-		result[i], result[j] = result[j], result[i]
+		// Generate cryptographically secure random number between 0 and i
+		maxInt := big.NewInt(int64(i + 1))
+		j, err := rand.Int(rand.Reader, maxInt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate random number: %w", err)
+		}
+
+		// Swap elements
+		result[i], result[j.Int64()] = result[j.Int64()], result[i]
 	}
 
-	return result[:size]
+	return result[:size], nil
 }
 
-func setupRLSPayload(ctx context.Context) error {
+func setupRLSPayload(ctx context.Context) (map[string]string, error) {
 	tags := getRandomTag()
 	bb, err := json.Marshal(tags)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sql := fmt.Sprintf(`SET request.jwt.claims = '{"tags": [%s]}'`, string(bb))
 	if err := ctx.DB().Exec(sql).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	var jwt string
 	if err := ctx.DB().Raw(`SELECT current_setting('request.jwt.claims', TRUE)`).Scan(&jwt).Error; err != nil {
-		return err
-	}
-
-	if jwt == "" {
-		return errors.New("jwt parameter not set")
+		return nil, err
 	}
 
 	if err := ctx.DB().Exec(`SET role = 'postgrest_api'`).Error; err != nil {
+		return nil, err
+	}
+
+	if err := verifyRLSPayload(ctx); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
+func verifyRLSPayload(ctx context.Context) error {
+	var jwt sql.NullString
+	if err := ctx.DB().Raw(`SELECT current_setting('request.jwt.claims', TRUE)`).Scan(&jwt).Error; err != nil {
 		return err
+	}
+
+	if !jwt.Valid {
+		return errors.New("jwt parameter not set")
 	}
 
 	var role string

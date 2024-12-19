@@ -8,7 +8,7 @@ test: ginkgo
 
 .PHONY: bench
 bench:
-	go test -bench=. -benchmem --count=5 -v github.com/flanksource/duty/cmd/bench
+	go test -bench=. -benchmem -benchtime=2x --count=5 -v github.com/flanksource/duty/cmd/bench
 
 fmt:
 	go fmt ./...

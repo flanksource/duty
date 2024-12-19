@@ -95,7 +95,7 @@ func MustDB() *sql.DB {
 	return db
 }
 
-var WithoutRLS = "rsl_disabled"
+var WithoutRLS = "rls_disabled"
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
 var recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
