@@ -74,7 +74,7 @@ migrate-test: hack/migrate/go.mod
 	cd hack/migrate && go run ./main.go
 
 cp-playbook-schema:
-	cp ../incident-commander/config/schemas/playbook-spec.schema.json schema/
+	cp ../mission-control/config/schemas/playbook-spec.schema.json schema/
 
 fmt_json:
 	ls fixtures/expectations/*.json | while read -r jf; do \

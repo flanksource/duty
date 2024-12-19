@@ -189,7 +189,7 @@ func (k Context) WithSubject(subject string) Context {
 
 func (k Context) Subject() string {
 	subject := k.Value("rbac-subject")
-	if subject != "" {
+	if subject != nil {
 		return subject.(string)
 	}
 
