@@ -233,6 +233,11 @@ table "notification_silences" {
     null = false
     type = text
   }
+  column "name" {
+    null    = false
+    type    = text
+    default = sql("generate_ulid()") # temporary default value to make the migration possible. we can remove this later.
+  }
   column "description" {
     null = true
     type = text
@@ -240,6 +245,11 @@ table "notification_silences" {
   column "filter" {
     null = true
     type = text
+  }
+  column "selectors" {
+    null = true
+    type = jsonb
+    comment = "list of resource selectors"
   }
   column "error" {
     null = true
