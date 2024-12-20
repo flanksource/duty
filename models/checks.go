@@ -129,7 +129,7 @@ func (c Check) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Check) GetFieldsMatcher() fields.Fields {
-	return checkFieldsProvider{c}
+	return noopMatcher{}
 }
 
 type checkLabelsProvider struct {
@@ -143,18 +143,6 @@ func (c checkLabelsProvider) Get(key string) string {
 func (c checkLabelsProvider) Has(key string) bool {
 	_, ok := c.Labels[key]
 	return ok
-}
-
-type checkFieldsProvider struct {
-	Check
-}
-
-func (c checkFieldsProvider) Get(key string) string {
-	return ""
-}
-
-func (c checkFieldsProvider) Has(key string) bool {
-	return false // field selector not applicalbe for checks
 }
 
 type Checks []*Check

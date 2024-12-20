@@ -8,6 +8,8 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Canary struct {
@@ -79,6 +81,34 @@ func (c Canary) AsMap(removeFields ...string) map[string]any {
 	return asMap(c, removeFields...)
 }
 
+func (c Canary) GetID() string {
+	return c.ID.String()
+}
+
+func (c Canary) GetName() string {
+	return c.Name
+}
+
+func (c Canary) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c Canary) GetType() string {
+	return ""
+}
+
+func (c Canary) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (c Canary) GetLabelsMatcher() labels.Labels {
+	return canaryLabels{c}
+}
+
+func (c Canary) GetFieldsMatcher() fields.Fields {
+	return noopMatcher{}
+}
+
 func DeleteChecksForCanary(db *gorm.DB, id string) ([]string, error) {
 	var checkIDs []string
 	var checks []Check
@@ -97,4 +127,36 @@ func DeleteChecksForCanary(db *gorm.DB, id string) ([]string, error) {
 
 func DeleteCheckComponentRelationshipsForCanary(db *gorm.DB, id string) error {
 	return db.Table("check_component_relationships").Where("canary_id = ?", id).UpdateColumn("deleted_at", Now()).Error
+}
+
+type noopMatcher struct {
+}
+
+func (t noopMatcher) Has(field string) (exists bool) {
+	return false
+}
+
+func (t noopMatcher) Get(field string) (value string) {
+	return ""
+}
+
+type canaryLabels struct {
+	Canary
+}
+
+func (t canaryLabels) Has(field string) (exists bool) {
+	if len(t.Labels) == 0 {
+		return false
+	}
+
+	_, ok := (t.Labels)[field]
+	return ok
+}
+
+func (t canaryLabels) Get(key string) (value string) {
+	if len(t.Labels) == 0 {
+		return ""
+	}
+
+	return (t.Labels)[key]
 }

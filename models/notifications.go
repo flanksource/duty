@@ -183,6 +183,7 @@ type NotificationSilence struct {
 
 	ID          uuid.UUID           `json:"id"  gorm:"default:generate_ulid()"`
 	Namespace   string              `json:"namespace,omitempty"`
+	Name        string              `json:"name,omitempty"`
 	Filter      types.CelExpression `json:"filter,omitempty"`
 	From        time.Time           `json:"from"`
 	Until       time.Time           `json:"until"`
@@ -193,6 +194,8 @@ type NotificationSilence struct {
 	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty"`
+
+	Selectors types.JSON `json:"selectors,omitempty"`
 
 	// Error contains cel expression error in the filter
 	Error *string `json:"error,omitempty"`
