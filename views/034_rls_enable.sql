@@ -15,7 +15,7 @@ DROP POLICY IF EXISTS config_items_auth ON config_items;
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE (
         agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
         OR 
@@ -35,7 +35,7 @@ DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 CREATE POLICY config_changes_auth ON config_changes
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -53,7 +53,7 @@ DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 CREATE POLICY config_analysis_auth ON config_analysis
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -71,7 +71,7 @@ DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
 CREATE POLICY config_relationships_auth ON config_relationships
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -89,7 +89,7 @@ DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_re
 CREATE POLICY config_component_relationships_auth ON config_component_relationships
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -107,7 +107,7 @@ DROP POLICY IF EXISTS components_auth ON components;
 CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN is_rls_disabled() THEN TRUE
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE (
         agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
       )
