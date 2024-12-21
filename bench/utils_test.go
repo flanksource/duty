@@ -15,7 +15,6 @@ import (
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/shutdown"
 	pkgGenerator "github.com/flanksource/duty/tests/generator"
 	"github.com/flanksource/duty/tests/setup"
 )
@@ -177,10 +176,5 @@ func resetPG(b *testing.B, rlsEnable bool) {
 		if err := duty.Migrate(duty.RunMigrations(api.NewConfig(connUrl))); err != nil {
 			b.Fatalf("failed to enable rls: %v", err)
 		}
-	}
-
-	// This is required due to a bug in how we handle rls_enable / disable scripts.
-	if err := testCtx.DB().Exec("DELETE FROM migration_logs").Error; err != nil {
-		shutdown.ShutdownAndExit(1, fmt.Sprintf("failed to delete migration logs: %v", err))
 	}
 }
