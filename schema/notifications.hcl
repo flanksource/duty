@@ -230,7 +230,7 @@ table "notification_silences" {
     default = sql("generate_ulid()")
   }
   column "namespace" {
-    null = false
+    null = true
     type = text
   }
   column "name" {
@@ -256,11 +256,11 @@ table "notification_silences" {
     type = text
   }
   column "from" {
-    null = false
+    null = true
     type = timestamptz
   }
   column "until" {
-    null = false
+    null = true
     type = timestamptz
   }
   column "recursive" {
