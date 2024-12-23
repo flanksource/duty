@@ -7,6 +7,10 @@ ALTER TABLE config_analysis DISABLE ROW LEVEL SECURITY;
 
 ALTER TABLE components DISABLE ROW LEVEL SECURITY;
 
+ALTER TABLE config_component_relationships DISABLE ROW LEVEL SECURITY;
+
+ALTER TABLE config_relationships DISABLE ROW LEVEL SECURITY;
+
 -- POLICIES
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 

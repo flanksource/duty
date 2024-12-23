@@ -2,26 +2,27 @@ package tests
 
 import (
 	"github.com/flanksource/duty/models"
+	pkgGenerator "github.com/flanksource/duty/tests/generator"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = ginkgo.Describe("Config Generator", ginkgo.Ordered, func() {
-	generator := ConfigGenerator{
-		Nodes: ConfigTypeRequirements{
+	generator := pkgGenerator.ConfigGenerator{
+		Nodes: pkgGenerator.ConfigTypeRequirements{
 			Count: 3,
 		},
-		Namespaces: ConfigTypeRequirements{
+		Namespaces: pkgGenerator.ConfigTypeRequirements{
 			Count: 2,
 		},
-		DeploymentPerNamespace: ConfigTypeRequirements{
+		DeploymentPerNamespace: pkgGenerator.ConfigTypeRequirements{
 			Count: 1,
 		},
-		ReplicaSetPerDeployment: ConfigTypeRequirements{
+		ReplicaSetPerDeployment: pkgGenerator.ConfigTypeRequirements{
 			Count:   4,
 			Deleted: 3,
 		},
-		PodsPerReplicaSet: ConfigTypeRequirements{
+		PodsPerReplicaSet: pkgGenerator.ConfigTypeRequirements{
 			Count:                1,
 			NumChangesPerConfig:  5,
 			NumInsightsPerConfig: 2,

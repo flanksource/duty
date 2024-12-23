@@ -1,3 +1,12 @@
+CREATE
+OR REPLACE FUNCTION is_rls_disabled () RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN (current_setting('request.jwt.claims', TRUE) IS NULL
+    OR current_setting('request.jwt.claims', TRUE) = ''
+    OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Policy config items
 ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;
 
@@ -6,12 +15,7 @@ DROP POLICY IF EXISTS config_items_auth ON config_items;
 CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE (
         agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
         OR 
@@ -31,12 +35,7 @@ DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 CREATE POLICY config_changes_auth ON config_changes
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -54,12 +53,7 @@ DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 CREATE POLICY config_analysis_auth ON config_analysis
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -77,12 +71,7 @@ DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
 CREATE POLICY config_relationships_auth ON config_relationships
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -100,12 +89,7 @@ DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_re
 CREATE POLICY config_component_relationships_auth ON config_component_relationships
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE EXISTS (
         -- just leverage the RLS on config_items
         SELECT 1
@@ -123,12 +107,7 @@ DROP POLICY IF EXISTS components_auth ON components;
 CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
-      CASE WHEN (
-        current_setting('request.jwt.claims', TRUE) IS NULL
-        OR current_setting('request.jwt.claims', TRUE) = '' -- when the parameter is set, it cannot be deleted. It's value is set to empty string.
-        OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL 
-      )
-      THEN TRUE
+      CASE WHEN is_rls_disabled() THEN TRUE
       ELSE (
         agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
       )
@@ -156,7 +135,3 @@ ALTER VIEW config_tags SET (security_invoker = true);
 ALTER VIEW config_types SET (security_invoker = true);
 ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
-
--- ALTER MATERIALIZED VIEW config_item_summary_3d SET (security_invoker = true);
--- ALTER MATERIALIZED VIEW config_item_summary_7d SET (security_invoker = true);
--- ALTER MATERIALIZED VIEW config_item_summary_30d SET (security_invoker = true);

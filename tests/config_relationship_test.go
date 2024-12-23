@@ -7,6 +7,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	pkgGenerator "github.com/flanksource/duty/tests/generator"
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/duty/upstream"
 	"github.com/google/uuid"
@@ -464,12 +465,12 @@ var _ = ginkgo.Describe("config relationship deletion test", func() {
 })
 
 var _ = ginkgo.Describe("config relationship depth", ginkgo.Ordered, func() {
-	generator := ConfigGenerator{
-		Nodes:                   ConfigTypeRequirements{Count: 3},
-		Namespaces:              ConfigTypeRequirements{Count: 2},
-		DeploymentPerNamespace:  ConfigTypeRequirements{Count: 2},
-		ReplicaSetPerDeployment: ConfigTypeRequirements{Count: 4, Deleted: 3},
-		PodsPerReplicaSet:       ConfigTypeRequirements{Count: 1, NumChangesPerConfig: 5, NumInsightsPerConfig: 2},
+	generator := pkgGenerator.ConfigGenerator{
+		Nodes:                   pkgGenerator.ConfigTypeRequirements{Count: 3},
+		Namespaces:              pkgGenerator.ConfigTypeRequirements{Count: 2},
+		DeploymentPerNamespace:  pkgGenerator.ConfigTypeRequirements{Count: 2},
+		ReplicaSetPerDeployment: pkgGenerator.ConfigTypeRequirements{Count: 4, Deleted: 3},
+		PodsPerReplicaSet:       pkgGenerator.ConfigTypeRequirements{Count: 1, NumChangesPerConfig: 5, NumInsightsPerConfig: 2},
 		Tags: map[string]string{
 			"test": "true",
 		},

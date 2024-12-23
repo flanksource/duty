@@ -59,19 +59,19 @@ func (t *Permission) Condition() string {
 	var rule []string
 
 	if t.ComponentID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.component != undefined && r.obj.component.id == %q", t.ComponentID.String()))
+		rule = append(rule, fmt.Sprintf("r.obj.component.id == %q", t.ComponentID.String()))
 	}
 
 	if t.ConfigID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.config != undefined && r.obj.config.id == %q", t.ConfigID.String()))
+		rule = append(rule, fmt.Sprintf("r.obj.config.id == %q", t.ConfigID.String()))
 	}
 
 	if t.CanaryID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.canary != undefined && r.obj.canary.id == %q", t.CanaryID.String()))
+		rule = append(rule, fmt.Sprintf("r.obj.canary.id == %q", t.CanaryID.String()))
 	}
 
 	if t.PlaybookID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.playbook != undefined && r.obj.playbook.id == %q", t.PlaybookID.String()))
+		rule = append(rule, fmt.Sprintf("r.obj.playbook.id == %q", t.PlaybookID.String()))
 	}
 
 	if len(t.Agents) > 0 || len(t.Tags) > 0 {
