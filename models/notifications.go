@@ -182,20 +182,20 @@ type NotificationSilence struct {
 	NotificationSilenceResource `json:",inline" yaml:",inline"`
 
 	ID          uuid.UUID           `json:"id"  gorm:"default:generate_ulid()"`
-	Namespace   string              `json:"namespace,omitempty"`
+	Namespace   string              `json:"namespace,omitempty" gorm:"default:NULL"`
 	Name        string              `json:"name,omitempty"`
-	Filter      types.CelExpression `json:"filter,omitempty"`
-	From        time.Time           `json:"from"`
-	Until       time.Time           `json:"until"`
+	Filter      types.CelExpression `json:"filter,omitempty" gorm:"default:NULL"`
+	From        *time.Time          `json:"from,omitempty"`
+	Until       *time.Time          `json:"until,omitempty"`
 	Source      string              `json:"source"`
 	Recursive   bool                `json:"recursive"`
-	Description string              `json:"description,omitempty"`
+	Description *string             `json:"description,omitempty" gorm:"default:NULL"`
 	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
 	CreatedAt   time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty"`
 
-	Selectors types.JSON `json:"selectors,omitempty"`
+	Selectors types.JSON `json:"selectors,omitempty" gorm:"default:NULL"`
 
 	// Error contains cel expression error in the filter
 	Error *string `json:"error,omitempty"`
