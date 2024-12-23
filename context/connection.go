@@ -132,9 +132,15 @@ func IsValidConnectionURL(connectionString string) bool {
 //   - connection://<namespace>/<name> or connection://<name>
 //   - the UUID of the connection.
 func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
+	db := ctx.DB()
+
+	if db == nil {
+		return nil, fmt.Errorf("db is not configured")
+	}
+
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
-		if err := ctx.DB().Where("id = ?", connectionString).First(&connection).Error; err != nil {
+		if err := db.Where("id = ?", connectionString).First(&connection).Error; err != nil {
 			return nil, err
 		}
 		return &connection, nil
@@ -161,7 +167,13 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		namespace = ctx.GetNamespace()
 	}
 
-	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).
+	db := ctx.DB()
+
+	if db == nil {
+		return nil, fmt.Errorf("db is not configured")
+	}
+
+	if err := db.Where("name = ? AND namespace = ?", name, namespace).
 		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
