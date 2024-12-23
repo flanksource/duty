@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/tests/generator"
 	"github.com/flanksource/duty/types"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -96,13 +97,13 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 	})
 
 	ginkgo.It("Should query config summary by type", func() {
-		gen := ConfigGenerator{}
-		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 4, NumInsightsPerConfig: 3})
-		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
-		gen.GenerateConfigItem("Test::type-A", "unhealthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
-		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 5, NumInsightsPerConfig: 1})
-		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 3})
-		gen.GenerateConfigItem("Test::type-C", "unhealthy", nil, nil, ConfigTypeRequirements{NumChangesPerConfig: 0, NumInsightsPerConfig: 0})
+		gen := generator.ConfigGenerator{}
+		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 4, NumInsightsPerConfig: 3})
+		gen.GenerateConfigItem("Test::type-A", "healthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
+		gen.GenerateConfigItem("Test::type-A", "unhealthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 2})
+		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 5, NumInsightsPerConfig: 1})
+		gen.GenerateConfigItem("Test::type-B", "healthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 1, NumInsightsPerConfig: 3})
+		gen.GenerateConfigItem("Test::type-C", "unhealthy", nil, nil, generator.ConfigTypeRequirements{NumChangesPerConfig: 0, NumInsightsPerConfig: 0})
 		for _, item := range gen.Generated.Configs {
 			DefaultContext.DB().Create(&item)
 		}

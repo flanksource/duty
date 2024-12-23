@@ -46,7 +46,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	if err := row.Scan(&name); err != nil {
 		return fmt.Errorf("failed to get current database: %w", err)
 	}
-	l.Infof("Migrating database %s", name)
+	l.V(1).Infof("Migrating database %s", name)
 
 	if err := createMigrationLogTable(pool); err != nil {
 		return fmt.Errorf("failed to create migration log table: %w", err)
