@@ -20,10 +20,40 @@ var _ = Describe("migration dependency", Ordered, func() {
 		db, err := DefaultContext.DB().DB()
 		Expect(err).To(BeNil())
 
-		funcs, views, err := migrate.GetExecutableScripts(db)
+		funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(BeZero())
 		Expect(len(views)).To(BeZero())
+	})
+
+	It("should explicitly run script", func() {
+		db, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+
+		funcs, views, err := migrate.GetExecutableScripts(db, []string{"incident_ids.sql"}, nil)
+		Expect(err).To(BeNil())
+		Expect(len(funcs)).To(Equal(1))
+		Expect(len(views)).To(BeZero())
+	})
+
+	It("should ignore changed hash run script", func() {
+		var currentHash string
+		err := DefaultContext.DB().Raw(`SELECT hash FROM migration_logs WHERE path = 'incident_ids.sql'`).Scan(&currentHash).Error
+		Expect(err).To(BeNil())
+
+		err = DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = 'dummy' WHERE path = 'incident_ids.sql'`).Error
+		Expect(err).To(BeNil())
+
+		db, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+
+		funcs, views, err := migrate.GetExecutableScripts(db, nil, []string{"incident_ids.sql"})
+		Expect(err).To(BeNil())
+		Expect(len(funcs)).To(BeZero())
+		Expect(len(views)).To(BeZero())
+
+		err = DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = ? WHERE path = 'incident_ids.sql'`, []byte(currentHash)[:]).Error
+		Expect(err).To(BeNil(), "failed to restore hash for incidents_ids.sql")
 	})
 
 	It("should get correct executable scripts", func() {
@@ -33,7 +63,7 @@ var _ = Describe("migration dependency", Ordered, func() {
 		sqlDB, err := DefaultContext.DB().DB()
 		Expect(err).To(BeNil())
 
-		funcs, views, err := migrate.GetExecutableScripts(sqlDB)
+		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
 		Expect(len(views)).To(Equal(2))
@@ -50,7 +80,7 @@ var _ = Describe("migration dependency", Ordered, func() {
 			db, err := DefaultContext.DB().DB()
 			Expect(err).To(BeNil())
 
-			funcs, views, err := migrate.GetExecutableScripts(db)
+			funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 			Expect(err).To(BeNil())
 			Expect(len(funcs)).To(BeZero())
 			Expect(len(views)).To(BeZero())

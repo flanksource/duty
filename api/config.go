@@ -46,6 +46,10 @@ type Config struct {
 	SkipMigrationFiles []string
 	MigrationMode      MigrationMode
 
+	// List of scripts that must run even if their hash hasn't changed.
+	// Need just the filename without the `functions/` or `views/` prefix.
+	MustRun []string
+
 	// If we are using Kratos auth, some migrations
 	// depend on kratos migrations being ran or not and
 	// can cause problems if mission-control mirations run
