@@ -110,7 +110,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 	})
 
-	var findChanges = func(id uuid.UUID, filter string, deleted bool) (*query.CatalogChangesSearchResponse, error) {
+	var findChanges = func(id uuid.UUID, filter query.ChangeRelationDirection, deleted bool) (*query.CatalogChangesSearchResponse, error) {
 		return query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 			CatalogID:             id.String(),
 			IncludeDeletedConfigs: deleted,
@@ -371,7 +371,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(response.Summary[WChange.ChangeType]).To(Equal(1))
 			})
 
-			ginkgo.It(query.CatalogChangeRecursiveDownstream, func() {
+			ginkgo.It(string(query.CatalogChangeRecursiveDownstream), func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: V.ID.String(),
 					Recursive: query.CatalogChangeRecursiveDownstream,
@@ -383,7 +383,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(response.Summary["Pulled"]).To(Equal(1))
 			})
 
-			ginkgo.It(query.CatalogChangeRecursiveAll, func() {
+			ginkgo.It(string(query.CatalogChangeRecursiveAll), func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					CatalogID: V.ID.String(),
 					Recursive: query.CatalogChangeRecursiveAll,

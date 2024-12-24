@@ -34,9 +34,6 @@ type RelatedConfig struct {
 	Path          string              `json:"path"`
 }
 
-type RelationType string
-type RelationDirection string
-
 type RelationQuery struct {
 	ID             uuid.UUID
 	Relation       RelationDirection
@@ -46,13 +43,33 @@ type RelationQuery struct {
 	MaxDepth       *int
 }
 
+type RelationDirection string
+
 const (
+	All      RelationDirection = "all"
 	Incoming RelationDirection = "incoming"
 	Outgoing RelationDirection = "outgoing"
-	Both     RelationType      = "both"
-	Hard     RelationType      = "hard"
-	Soft     RelationType      = "soft"
-	All      RelationDirection = "all"
+)
+
+func (t RelationDirection) ToChangeDirection() ChangeRelationDirection {
+	switch t {
+	case All:
+		return CatalogChangeRecursiveAll
+	case Incoming:
+		return CatalogChangeRecursiveUpstream
+	case Outgoing:
+		return CatalogChangeRecursiveDownstream
+	}
+
+	return CatalogChangeRecursiveNone
+}
+
+type RelationType string
+
+const (
+	Both RelationType = "both"
+	Hard RelationType = "hard"
+	Soft RelationType = "soft"
 )
 
 func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfig, error) {
