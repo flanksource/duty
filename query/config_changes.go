@@ -16,14 +16,16 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type ChangeRelationDirection string
+
 const (
-	CatalogChangeRecursiveUpstream   = "upstream"
-	CatalogChangeRecursiveDownstream = "downstream"
-	CatalogChangeRecursiveNone       = "none"
-	CatalogChangeRecursiveAll        = "all"
+	CatalogChangeRecursiveUpstream   ChangeRelationDirection = "upstream"
+	CatalogChangeRecursiveDownstream ChangeRelationDirection = "downstream"
+	CatalogChangeRecursiveNone       ChangeRelationDirection = "none"
+	CatalogChangeRecursiveAll        ChangeRelationDirection = "all"
 )
 
-var allRecursiveOptions = []string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveNone, CatalogChangeRecursiveAll}
+var allRecursiveOptions = []ChangeRelationDirection{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveNone, CatalogChangeRecursiveAll}
 
 var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at", "count"}
 
@@ -57,7 +59,8 @@ type CatalogChangesSearchRequest struct {
 	sortOrder string
 
 	// upstream | downstream | both
-	Recursive string `query:"recursive" json:"recursive"`
+	Recursive ChangeRelationDirection `query:"recursive" json:"recursive"`
+
 	// FIXME: Soft toggle does not work with Recursive=both
 	// In that case, soft relations are always returned
 	// It also returns ALL soft relations throughout the tree
@@ -152,7 +155,7 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 
 func (t *CatalogChangesSearchRequest) Validate() error {
 	if !lo.Contains(allRecursiveOptions, t.Recursive) {
-		return fmt.Errorf("'recursive' must be one of %s", strings.Join(allRecursiveOptions, ", "))
+		return fmt.Errorf("'recursive' must be one of %v", allRecursiveOptions)
 	}
 
 	if t.From != "" {
@@ -298,7 +301,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if req.Severity != "" {
 		clause, err := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse severity: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", err)
 		}
 		clauses = append(clauses, clause...)
 	}
@@ -306,7 +309,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if req.Summary != "" {
 		clause, err := parseAndBuildFilteringQuery(req.Summary, "summary", true)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse summary: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse summary: %v", err)
 		}
 		clauses = append(clauses, clause...)
 	}
@@ -314,7 +317,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if req.Source != "" {
 		clause, err := parseAndBuildFilteringQuery(req.Source, "source", true)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse source: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse source: %v", err)
 		}
 		clauses = append(clauses, clause...)
 	}
@@ -322,7 +325,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if req.Tags != "" {
 		parsedLabelSelector, err := labels.Parse(req.Tags)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
@@ -345,7 +348,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	if req.externalCreatedBy != "" {
 		clause, err := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse external createdby: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", err)
 		}
 		clauses = append(clauses, clause...)
 	}
