@@ -132,6 +132,25 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Healths",
+				resourceSelector: types.ResourceSelector{
+					Namespace: "default",
+					Healths:   []string{"healthy"},
+				},
+				selectable: models.ConfigItem{
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthHealthy),
+				},
+				unselectable: models.ConfigItem{
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthUnhealthy),
+				},
+			},
+			{
 				name: "Types",
 				resourceSelector: types.ResourceSelector{
 					Types: []string{"Kubernetes::Pod"},

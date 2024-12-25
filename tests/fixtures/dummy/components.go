@@ -18,6 +18,7 @@ var Logistics = models.Component{
 	Owner:      "logistics-team",
 	CreatedAt:  DummyCreatedAt,
 	Status:     types.ComponentStatusHealthy,
+	Health:     lo.ToPtr(models.HealthHealthy),
 }
 
 var LogisticsAPI = models.Component{

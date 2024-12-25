@@ -25,6 +25,8 @@ var CheckHealthStatuses = []CheckHealthStatus{
 	CheckStatusUnhealthy,
 }
 
+var _ types.ResourceSelectable = Check{}
+
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	CanaryID           uuid.UUID           `json:"canary_id"`
@@ -122,6 +124,14 @@ func (c Check) GetType() string {
 
 func (c Check) GetStatus() (string, error) {
 	return string(c.Status), nil
+}
+
+func (c Check) GetHealth() (string, error) {
+	if c.Status == CheckStatusHealthy {
+		return string(HealthHealthy), nil
+	}
+
+	return string(HealthUnhealthy), nil
 }
 
 func (c Check) GetLabelsMatcher() labels.Labels {

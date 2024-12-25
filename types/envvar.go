@@ -265,6 +265,7 @@ type EnvVarResourceSelector struct {
 	Namespace     ValueExpression   `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 	Types         []ValueExpression `yaml:"types,omitempty" json:"types,omitempty"`
 	Statuses      []ValueExpression `yaml:"statuses,omitempty" json:"statuses,omitempty"`
+	Healths       []ValueExpression `yaml:"healths,omitempty" json:"healths,omitempty"`
 	TagSelector   ValueExpression   `yaml:"tagSelector,omitempty" json:"tagSelector,omitempty"`
 	LabelSelector ValueExpression   `yaml:"labelSelector,omitempty" json:"labelSelector,omitempty"`
 	FieldSelector ValueExpression   `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
@@ -273,7 +274,7 @@ type EnvVarResourceSelector struct {
 func (t EnvVarResourceSelector) Empty() bool {
 	return t.Agent.Empty() && t.Scope == "" && t.Cache == "" && t.ID.Empty() &&
 		t.Name.Empty() && t.Namespace.Empty() && len(t.Types) == 0 && len(t.Statuses) == 0 &&
-		t.TagSelector.Empty() && t.LabelSelector.Empty() && t.FieldSelector.Empty()
+		len(t.Healths) == 0 && t.TagSelector.Empty() && t.LabelSelector.Empty() && t.FieldSelector.Empty()
 }
 
 func (t EnvVarResourceSelector) Hydrate(env map[string]any) (*ResourceSelector, error) {
@@ -336,6 +337,19 @@ func (t EnvVarResourceSelector) Hydrate(env map[string]any) (*ResourceSelector, 
 					return nil, fmt.Errorf("failed to evaluate status at index %d: %v", i, err)
 				}
 				rs.Statuses[i] = statusStr
+			}
+		}
+	}
+
+	if len(t.Healths) > 0 {
+		rs.Healths = make([]string, len(t.Healths))
+		for i, expr := range t.Healths {
+			if !expr.Empty() {
+				result, err := expr.Eval(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate health at index %d: %v", i, err)
+				}
+				rs.Healths[i] = result
 			}
 		}
 	}

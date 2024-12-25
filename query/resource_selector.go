@@ -177,6 +177,14 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if len(resourceSelector.Statuses) != 0 {
 		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
+	if len(resourceSelector.Healths) != 0 {
+		switch table {
+		case "checks":
+			query = query.Where("status IN ?", resourceSelector.Healths)
+		default:
+			query = query.Where("health IN ?", resourceSelector.Healths)
+		}
+	}
 
 	agentID, err := getAgentID(ctx, resourceSelector.Agent)
 	if err != nil {
@@ -290,6 +298,8 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 			rs.Types = append(rs.Types, strings.Split(items[1], ",")...)
 		case "status":
 			rs.Statuses = append(rs.Statuses, strings.Split(items[1], ",")...)
+		case "health":
+			rs.Healths = append(rs.Healths, strings.Split(items[1], ",")...)
 		case "limit":
 			l, _ := strconv.Atoi(items[1])
 			rs.Limit = l

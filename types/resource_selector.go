@@ -69,12 +69,16 @@ type ResourceSelector struct {
 
 	// Statuses filter resources by the status
 	Statuses Items `yaml:"statuses,omitempty" json:"statuses,omitempty"`
+
+	// Healths filter resources by the health
+	Healths Items `yaml:"healths,omitempty" json:"healths,omitempty"`
 }
 
 func (c ResourceSelector) IsEmpty() bool {
 	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
 		len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
+		len(c.Healths) == 0 &&
 		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
 		len(c.FieldSelector) == 0
@@ -100,7 +104,7 @@ func (c ResourceSelector) Immutable() bool {
 		return false // still not specific enough
 	}
 
-	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 {
+	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 || len(c.Healths) != 0 {
 		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
 		return false
 	}
@@ -117,6 +121,7 @@ func (c ResourceSelector) Hash() string {
 		c.Scope,
 		strings.Join(c.Types.Sort(), ","),
 		strings.Join(c.Statuses.Sort(), ","),
+		strings.Join(c.Types.Sort(), ","),
 		collections.SortedMap(collections.SelectorToMap(c.TagSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
@@ -148,6 +153,13 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		logger.Errorf("failed to get status: %v", err)
 		return false
 	} else if len(rs.Statuses) > 0 && !rs.Statuses.Contains(status) {
+		return false
+	}
+
+	if h, err := s.GetHealth(); err != nil {
+		logger.Errorf("failed to get health: %v", err)
+		return false
+	} else if len(rs.Healths) > 0 && !rs.Healths.Contains(h) {
 		return false
 	}
 
@@ -231,4 +243,5 @@ type ResourceSelectable interface {
 	GetNamespace() string
 	GetType() string
 	GetStatus() (string, error)
+	GetHealth() (string, error)
 }

@@ -77,6 +77,8 @@ const (
 	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
 )
 
+var _ types.ResourceSelectable = ConfigItem{}
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
 	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
@@ -239,6 +241,10 @@ func (c ConfigItem) GetType() string {
 		return ""
 	}
 	return *c.Type
+}
+
+func (c ConfigItem) GetHealth() (string, error) {
+	return string(lo.FromPtr(c.Health)), nil
 }
 
 func (c ConfigItem) GetStatus() (string, error) {

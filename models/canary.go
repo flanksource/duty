@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+var _ types.ResourceSelectable = Canary{}
+
 type Canary struct {
 	ID          uuid.UUID           `json:"id" yaml:"id" gorm:"default:generate_ulid()"`
 	Name        string              `json:"name" yaml:"name"`
@@ -98,6 +100,10 @@ func (c Canary) GetType() string {
 }
 
 func (c Canary) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (c Canary) GetHealth() (string, error) {
 	return "", nil
 }
 
