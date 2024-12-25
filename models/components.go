@@ -178,7 +178,7 @@ func (c Component) GetStatus() (string, error) {
 	return string(c.Status), nil
 }
 
-func (c Component) GetHealth() (Health, error) {
+func (c Component) GetHealth() (string, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{
 			"summary": c.Summary.AsEnv(),
@@ -189,7 +189,7 @@ func (c Component) GetHealth() (Health, error) {
 			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
 		}
 
-		return Health(out), nil
+		return out, nil
 	}
 
 	// When HealthExpr is not defined, we take worse of checks, children and the component itself
@@ -205,7 +205,7 @@ func (c Component) GetHealth() (Health, error) {
 	}
 
 	allHealths = append(allHealths, lo.Map(c.Components, func(item *Component, _ int) Health { return lo.FromPtr(item.Health) })...)
-	return WorseHealth(allHealths...), nil
+	return string(WorseHealth(allHealths...)), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {

@@ -20,7 +20,6 @@ func ExpectSearch(q query.SearchResourcesRequest) *query.SearchResourcesResponse
 }
 
 var _ = ginkgo.Describe("SearchResourceSelectors", func() {
-
 	testData := []struct {
 		description string
 		query       query.SearchResourcesRequest
@@ -38,6 +37,17 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Components: []models.Component{dummy.Logistics},
 			Checks:     []models.Check{dummy.LogisticsAPIHealthHTTPCheck},
 			Configs:    []models.ConfigItem{dummy.EKSCluster},
+		},
+		{
+			description: "health",
+			query: query.SearchResourcesRequest{
+				Configs:    []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
+				Components: []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
+				Checks:     []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
+			},
+			Components: []models.Component{dummy.Logistics},
+			Checks:     []models.Check{dummy.LogisticsAPIHealthHTTPCheck, dummy.LogisticsAPIHomeHTTPCheck},
+			Configs:    []models.ConfigItem{dummy.KubernetesNodeAKSPool1, dummy.KubernetesNodeA, dummy.KubernetesNodeB},
 		},
 		{
 			description: "name prefix | components",
@@ -198,18 +208,9 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				ginkgo.It(test.description, func() {
 					items, err := query.SearchResources(DefaultContext, test.query)
 					Expect(err).To(BeNil())
-					{
-						Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)))
-					}
-
-					{
-						Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)))
-					}
-
-					{
-						Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)))
-
-					}
+					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
+					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
+					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
 				})
 			}
 		})

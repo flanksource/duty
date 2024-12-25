@@ -122,6 +122,11 @@ func (in *EnvVarResourceSelector) DeepCopyInto(out *EnvVarResourceSelector) {
 		*out = make([]ValueExpression, len(*in))
 		copy(*out, *in)
 	}
+	if in.Healths != nil {
+		in, out := &in.Healths, &out.Healths
+		*out = make([]ValueExpression, len(*in))
+		copy(*out, *in)
+	}
 	out.TagSelector = in.TagSelector
 	out.LabelSelector = in.LabelSelector
 	out.FieldSelector = in.FieldSelector
@@ -352,6 +357,11 @@ func (in *ResourceSelector) DeepCopyInto(out *ResourceSelector) {
 	}
 	if in.Statuses != nil {
 		in, out := &in.Statuses, &out.Statuses
+		*out = make(Items, len(*in))
+		copy(*out, *in)
+	}
+	if in.Healths != nil {
+		in, out := &in.Healths, &out.Healths
 		*out = make(Items, len(*in))
 		copy(*out, *in)
 	}
