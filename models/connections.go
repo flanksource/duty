@@ -21,6 +21,7 @@ import (
 
 // List of all connection types
 const (
+	ConnectionTypeAnthropic      = "anthropic"
 	ConnectionTypeAWS            = "aws"
 	ConnectionTypeAzure          = "azure"
 	ConnectionTypeAzureDevops    = "azure_devops"
@@ -46,6 +47,8 @@ const (
 	ConnectionTypeMongo          = "mongo"
 	ConnectionTypeMySQL          = "mysql"
 	ConnectionTypeNtfy           = "ntfy"
+	ConnectionTypeOllama         = "ollama"
+	ConnectionTypeOpenAI         = "openai"
 	ConnectionTypeOpsGenie       = "opsgenie"
 	ConnectionTypePostgres       = "postgres"
 	ConnectionTypePrometheus     = "prometheus"
