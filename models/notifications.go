@@ -109,11 +109,17 @@ type NotificationSendHistory struct {
 	// ID of the resource this notification is for
 	ResourceID uuid.UUID `json:"resource_id"`
 
-	// ID of the person this notification is for.
-	PersonID *uuid.UUID `json:"person_id"`
+	// ID of the team this notification was dispatched to.
+	TeamID *uuid.UUID `json:"team_id,omitempty"`
+
+	// ID of the person this notification was dispatched to.
+	PersonID *uuid.UUID `json:"person_id,omitempty"`
+
+	// ID of the connection this notification was dispatched to.
+	ConnectionID *uuid.UUID `json:"connection_id,omitempty"`
 
 	// The run created by this notification
-	PlaybookRunID *uuid.UUID `json:"playbook_run_id"`
+	PlaybookRunID *uuid.UUID `json:"playbook_run_id,omitempty"`
 
 	timeStart time.Time
 }

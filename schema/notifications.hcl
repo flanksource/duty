@@ -184,8 +184,19 @@ table "notification_send_history" {
     comment = "The resource this notification is for"
   }
   column "person_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "recipient person"
+  }
+  column "team_id" {
+    null    = true
+    type    = uuid
+    comment = "recipient team"
+  }
+  column "connection_id" {
+    null    = true
+    type    = uuid
+    comment = "recipient connection"
   }
   column "playbook_run_id" {
     null    = true
@@ -247,8 +258,8 @@ table "notification_silences" {
     type = text
   }
   column "selectors" {
-    null = true
-    type = jsonb
+    null    = true
+    type    = jsonb
     comment = "list of resource selectors"
   }
   column "error" {
