@@ -122,7 +122,8 @@ func findFileInPath(filename string, depth int) string {
 func BeforeSuiteFn(args ...interface{}) context.Context {
 	ctx, err := SetupDB("test", args...)
 	if err != nil {
-		shutdown.ShutdownAndExit(1, fmt.Sprintf("failed to setup db: %v", err))
+		shutdown.Shutdown()
+		Expect(err).To(BeNil())
 	}
 
 	DefaultContext = ctx
@@ -252,7 +253,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 }
 
 func AfterSuiteFn() {
-	shutdown.ShutdownAndExit(0, "")
+	shutdown.Shutdown()
 }
 
 // NewDB creates a new database from an existing context, and
