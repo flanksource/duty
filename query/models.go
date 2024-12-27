@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -51,7 +53,7 @@ var ConfigQueryModel = QueryModel{
 	JSONColumn: "config",
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(fmt.Sprintf("%s", val)); err == nil {
+			if i, err := strconv.Atoi(val); err == nil {
 				return tx.Limit(i), nil
 			} else {
 				return nil, err
@@ -61,8 +63,8 @@ var ConfigQueryModel = QueryModel{
 			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
 		},
 		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(fmt.Sprintf("%s", val)); err == nil {
-				return tx.Limit(i), nil
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Offset(i), nil
 			} else {
 				return nil, err
 			}
@@ -91,6 +93,77 @@ var ConfigQueryModel = QueryModel{
 	},
 }
 
+var ComponentQueryModel = QueryModel{
+	Table:      "components",
+	JSONColumn: "component",
+	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Limit(i), nil
+			} else {
+				return nil, err
+			}
+		},
+		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
+			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
+		},
+		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Offset(i), nil
+			} else {
+				return nil, err
+			}
+		},
+		"component_config_traverse": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
+			// Args should be componentID, direction and types (compID,direction)
+			args := strings.Split(val, ",")
+			componentID := args[0]
+			direction := "outgoing"
+			if len(args) > 1 {
+				direction = args[1]
+			}
+			// NOTE: Direction is not supported as of now
+			_ = direction
+			tx = tx.Where("id IN (SELECT id from lookup_component_config_id_related_components(?))", componentID)
+			return tx, nil
+		},
+	},
+	Columns: []string{
+		"name", "topology_id", "type", "status", "health",
+	},
+	LabelsColumn: "labels",
+	Aliases: map[string]string{
+		"created":        "created_at",
+		"updated":        "updated_at",
+		"deleted":        "deleted_at",
+		"scraped":        "last_scraped_time",
+		"agent":          "agent_id",
+		"component_type": "type",
+		"namespace":      "@namespace",
+	},
+
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"agent_id":          AgentMapper,
+		"created_at":        DateMapper,
+		"updated_at":        DateMapper,
+		"deleted_at":        DateMapper,
+		"last_scraped_time": DateMapper,
+	},
+}
+
+func GetModelFromTable(table string) (QueryModel, error) {
+	switch table {
+	case models.ConfigItem{}.TableName():
+		return ConfigQueryModel, nil
+	case models.Component{}.TableName():
+		logger.Infof("Inside comp get")
+		return ComponentQueryModel, nil
+	default:
+		return QueryModel{}, fmt.Errorf("invalid table")
+	}
+}
+
 func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {
 		tx = ctx.DB().Table(qm.Table)
@@ -103,7 +176,7 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 			q.Field = alias
 		}
 
-		val := fmt.Sprintf("%s", q.Value)
+		val := fmt.Sprint(q.Value)
 		if mapper, ok := qm.FieldMapper[q.Field]; ok {
 			if q.Value, err = mapper(ctx, val); err != nil {
 				return nil, nil, err

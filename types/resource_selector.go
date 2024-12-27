@@ -169,7 +169,7 @@ func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN 
 }
 
 func (q QueryField) ToClauses() ([]clause.Expression, error) {
-	val := fmt.Sprintf("%s", q.Value)
+	val := fmt.Sprint(q.Value)
 
 	filters, err := ParseFilteringQueryV2(val, false)
 	if err != nil {
@@ -177,14 +177,16 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 	}
 
 	var clauses []clause.Expression
-	if q.Op == Eq {
+	switch q.Op {
+	case Eq:
 		clauses = append(clauses, filters.ToExpression(q.Field)...)
-	} else if q.Op == Neq {
+	case Neq:
 		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field)...))
-	} else if q.Op == Lt {
+	case Lt:
 		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
-	} else if q.Op == Gt {
+	case Gt:
 		clauses = append(clauses, clause.Gt{Column: q.Field, Value: q.Value})
+	default:
 		return nil, fmt.Errorf("invalid operator: %s", q.Op)
 	}
 

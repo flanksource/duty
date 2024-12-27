@@ -144,12 +144,19 @@ func stringFromChars(chars interface{}) string {
 	return str
 }
 
-func ParsePEG(peg string) (any, error) {
-
+func ParsePEG(peg string) (*types.QueryField, error) {
 	stats := Stats{}
 
 	v, err := Parse("", []byte(peg), Statistics(&stats, "no match"))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing peg: %w", err)
+	}
 
 	logger.Infof(logger.Pretty(stats))
-	return v, err
+
+	rv, ok := v.(*types.QueryField)
+	if !ok {
+		return nil, fmt.Errorf("return type not types.QueryField")
+	}
+	return rv, nil
 }

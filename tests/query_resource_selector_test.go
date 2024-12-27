@@ -5,7 +5,9 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 
+	//"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -281,4 +283,43 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 			})
 		}
 	})
+})
+
+var _ = ginkgo.FDescribe("Resoure Selector from PEG", ginkgo.Ordered, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	ginkgo.FIt("should query configs", func() {
+		//description: "labels | IN Query",
+		//query: query.SearchResourcesRequest{
+		//Configs: []types.ResourceSelector{{LabelSelector: "app in (frontend,backend)"}},
+		//},
+		//[]models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
+
+		rs := types.ResourceSelector{
+			Search: `name="node-b" type="Kubernetes::Node"`,
+		}
+
+		ci, err := query.FindConfigsByResourceSelector(DefaultContext, 1, rs)
+		Expect(err).To(BeNil())
+
+		Expect(len(ci)).To(Equal(1))
+		Expect(lo.FromPtr(ci[0].Name)).To(Equal(lo.FromPtr(dummy.KubernetesNodeB.Name)))
+
+	})
+
+	ginkgo.FIt("should query components", func() {
+		rs := types.ResourceSelector{
+			Search: `type="Application"`,
+		}
+
+		comps, err := query.FindComponents(DefaultContext, -1, rs)
+		Expect(err).To(BeNil())
+
+		Expect(len(comps)).To(Equal(4))
+		//Expect(lo.FromPtr(ci[0].Name)).To(Equal(lo.FromPtr(dummy.KubernetesNodeB.Name)))
+
+	})
+
 })

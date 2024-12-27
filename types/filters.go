@@ -74,7 +74,6 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 		}
 
 		var q expressions
-		q = result.expressions
 		if strings.HasPrefix(item, "!") {
 			q = result.Not
 			item = strings.TrimPrefix(item, "!")
@@ -86,6 +85,8 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 		} else {
 			q.In = append(q.In, item)
 		}
+
+		result.expressions = q
 	}
 
 	return result, nil
