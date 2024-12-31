@@ -1,7 +1,13 @@
 UPDATE
   permissions
 SET
-  subject = COALESCE(team_id, person_id, notification_id)
+  subject = COALESCE(team_id, person_id, notification_id),
+  subject_type = CASE 
+    WHEN team_id IS NOT NULL THEN 'team'
+    WHEN person_id IS NOT NULL THEN 'person'
+    WHEN notification_id IS NOT NULL THEN 'notification'
+    ELSE 'group'
+  END
 WHERE
   subject IS NULL
   OR subject = '';
