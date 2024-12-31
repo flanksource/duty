@@ -169,7 +169,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 			if err != nil {
 				logger.Errorf("bad tag selector: %v", err)
 				return false
-			} else if !parsed.Matches(tagsMatcher.GetTagssMatcher()) {
+			} else if !parsed.Matches(tagsMatcher.GetTagsMatcher()) {
 				return false
 			}
 		}
@@ -231,7 +231,7 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 }
 
 type TagsMatchable interface {
-	GetTagssMatcher() labels.Labels
+	GetTagsMatcher() labels.Labels
 }
 
 type ResourceSelectable interface {
