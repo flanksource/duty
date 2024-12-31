@@ -39,11 +39,13 @@ type Permission struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name        string     `json:"name"`
 	Namespace   string     `json:"namespace,omitempty" gorm:"default:NULL"`
-	Action      string     `json:"action"`
 	Deny        bool       `json:"deny"`
 	Description string     `json:"description"`
 	Source      string     `json:"source"`
 	Until       *time.Time `json:"until"`
+
+	// Action supports matchItem
+	Action string `json:"action"`
 
 	Subject     string                `json:"subject"`
 	SubjectType PermissionSubjectType `json:"subject_type,omitempty"`
