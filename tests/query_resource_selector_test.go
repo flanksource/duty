@@ -287,7 +287,7 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 	})
 })
 
-var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
 	})
@@ -375,7 +375,7 @@ var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	}
 
 	for _, tt := range testData {
-		ginkgo.FIt(tt.description, func() {
+		ginkgo.It(tt.description, func() {
 			f, ok := fmap[tt.resource]
 			Expect(ok).To(BeTrue())
 			ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
