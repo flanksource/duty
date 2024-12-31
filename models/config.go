@@ -77,7 +77,11 @@ const (
 	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
 )
 
-var _ types.ResourceSelectable = ConfigItem{}
+// Ensure interface compliance
+var (
+	_ types.ResourceSelectable = ConfigItem{}
+	_ types.TagsMatchable      = ConfigItem{}
+)
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
