@@ -150,12 +150,57 @@ var ComponentQueryModel = QueryModel{
 	},
 }
 
+var CheckQueryModel = QueryModel{
+	Table:      "checks",
+	JSONColumn: "",
+	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Limit(i), nil
+			} else {
+				return nil, err
+			}
+		},
+		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
+			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
+		},
+		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Offset(i), nil
+			} else {
+				return nil, err
+			}
+		},
+	},
+	Columns: []string{
+		"name", "canary_id", "type", "status",
+	},
+	LabelsColumn: "labels",
+	Aliases: map[string]string{
+		"created":    "created_at",
+		"updated":    "updated_at",
+		"deleted":    "deleted_at",
+		"agent":      "agent_id",
+		"check_type": "type",
+		"namespace":  "@namespace",
+	},
+
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"agent_id":   AgentMapper,
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
+	},
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
 		return ConfigQueryModel, nil
 	case models.Component{}.TableName():
 		return ComponentQueryModel, nil
+	case models.Check{}.TableName():
+		return CheckQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}

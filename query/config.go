@@ -229,7 +229,7 @@ func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
 	var excludeClause *gorm.DB
 
 	for k, v := range t.Filter {
-		query, _ := ParseFilteringQueryV2(v, true)
+		query, _ := types.ParseFilteringQueryV2(v, true)
 
 		if len(query.Not.In) > 0 {
 			if excludeClause == nil {

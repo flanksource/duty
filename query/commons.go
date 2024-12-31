@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -85,40 +86,6 @@ func (fq *FilteringQuery) ToExpression(field string) []clause.Expression {
 	return append(exprs, not)
 }
 
-func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error) {
-	result := FilteringQuery{}
-	if query == "" {
-		return result, nil
-	}
-
-	items := strings.Split(query, ",")
-	for _, item := range items {
-		if decodeURL {
-			var err error
-			item, err = url.QueryUnescape(item)
-			if err != nil {
-				return FilteringQuery{}, fmt.Errorf("failed to unescape query (%s): %v", item, err)
-			}
-		}
-
-		var q expressions
-		q = result.expressions
-		if strings.HasPrefix(item, "!") {
-			q = result.Not
-			item = strings.TrimPrefix(item, "!")
-		}
-		if strings.HasPrefix(item, "*") {
-			q.Suffix = append(q.Suffix, strings.TrimPrefix(item, "*"))
-		} else if strings.HasSuffix(item, "*") {
-			q.Prefix = append(q.Prefix, strings.TrimSuffix(item, "*"))
-		} else {
-			q.In = append(q.In, item)
-		}
-	}
-
-	return result, nil
-}
-
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
 func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
@@ -126,7 +93,7 @@ func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN 
 		return
 	}
 
-	q, err := ParseFilteringQueryV2(query, decodeURL)
+	q, err := types.ParseFilteringQueryV2(query, decodeURL)
 
 	if err != nil {
 		return nil, nil, nil, nil, err

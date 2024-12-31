@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -287,6 +288,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		if err != nil {
 			return nil, err
 		}
+		logger.Infof("Clause is %v", clause)
 		clauses = append(clauses, clause...)
 	}
 
