@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -23,7 +22,6 @@ var DateMapper = func(ctx context.Context, val string) (any, error) {
 	} else {
 		return expr.Time(), nil
 	}
-
 }
 
 var AgentMapper = func(ctx context.Context, id string) (any, error) {
@@ -157,7 +155,6 @@ func GetModelFromTable(table string) (QueryModel, error) {
 	case models.ConfigItem{}.TableName():
 		return ConfigQueryModel, nil
 	case models.Component{}.TableName():
-		logger.Infof("Inside comp get")
 		return ComponentQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")

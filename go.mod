@@ -70,7 +70,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.5.9
-	gorm.io/gorm v1.25.11
+	gorm.io/gorm v1.25.12
 	gorm.io/plugin/prometheus v0.1.0
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1

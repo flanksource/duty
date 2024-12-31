@@ -34,10 +34,10 @@ func makeSource(name interface{}, path interface{}) (string, error) {
 }
 
 func makeFQFromQuery(a interface{}) (interface{}, error) {
-	logger.Infof(logger.Pretty(a))
 	return a.(*types.QueryField), nil
 }
 
+//nolint:unused
 func makeCatchAll(f interface{}) (*types.QueryField, error) {
 	logger.Warnf("ctach all %v (%T)", f, f)
 
@@ -61,6 +61,7 @@ func makeFQFromField(f interface{}) (*types.QueryField, error) {
 	return f.(*types.QueryField), nil
 }
 
+//nolint:unused
 func makeQuery(a, b interface{}) (*types.QueryField, error) {
 	q := &types.QueryField{
 		Op: "or",
@@ -144,6 +145,17 @@ func stringFromChars(chars interface{}) string {
 	return str
 }
 
+func FlatFields(qf *types.QueryField) []string {
+	var fields []string
+	if qf.Field != "" {
+		fields = append(fields, qf.Field)
+	}
+	for _, f := range qf.Fields {
+		fields = append(fields, FlatFields(f)...)
+	}
+	return fields
+}
+
 func ParsePEG(peg string) (*types.QueryField, error) {
 	stats := Stats{}
 
@@ -151,8 +163,6 @@ func ParsePEG(peg string) (*types.QueryField, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing peg: %w", err)
 	}
-
-	logger.Infof(logger.Pretty(stats))
 
 	rv, ok := v.(*types.QueryField)
 	if !ok {

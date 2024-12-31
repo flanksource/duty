@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -137,24 +138,31 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	// We call setSearchQueryParams as it sets those params that
 	// might later be used by the query
 
-	// TODO: support funcs
+	searchSetAgent := false
 	if resourceSelector.Search != "" {
 		qf, err := grammar.ParsePEG(resourceSelector.Search)
 		if err != nil {
-			return nil, fmt.Errorf("")
+			return nil, fmt.Errorf("error parsing grammar[%s]: %w", resourceSelector.Search, err)
 		}
 		qm, err := GetModelFromTable(table)
 		if err != nil {
-			return nil, fmt.Errorf("")
+			return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
+		}
+
+		flatFields := grammar.FlatFields(qf)
+		if slices.ContainsFunc(flatFields, func(s string) bool { return s == "agent" || s == "agent_id" }) {
+			searchSetAgent = true
 		}
 
 		var clauses []clause.Expression
 		query, clauses, err = qm.Apply(ctx, *qf, query)
 		if err != nil {
-			return nil, fmt.Errorf("")
+			return nil, fmt.Errorf("error applying query model: %w", err)
 		}
+
 		query = query.Clauses(clauses...)
 
+		// Legacy logic
 		if false {
 			if strings.Contains(resourceSelector.Search, "=") {
 				setSearchQueryParams(&resourceSelector)
@@ -208,13 +216,16 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	agentID, err := getAgentID(ctx, resourceSelector.Agent)
-	if err != nil {
-		return nil, err
-	}
+	var agentID *uuid.UUID
+	if !searchSetAgent {
+		agentID, err := getAgentID(ctx, resourceSelector.Agent)
+		if err != nil {
+			return nil, err
+		}
 
-	if agentID != nil {
-		query = query.Where("agent_id = ?", *agentID)
+		if agentID != nil {
+			query = query.Where("agent_id = ?", *agentID)
+		}
 	}
 
 	if resourceSelector.Scope != "" {

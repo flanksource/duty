@@ -189,7 +189,7 @@ var FluxComponent = models.Component{
 	Name:       "flux",
 	ExternalId: "dummy/flux",
 	Type:       "Flux",
-	CreatedAt:  DummyCreatedAt,
+	CreatedAt:  DummyCreatedAtPlus1Year,
 	Labels:     types.JSONStringMap{"fluxcd.io/name": "flux"},
 	Status:     types.ComponentStatusHealthy,
 }

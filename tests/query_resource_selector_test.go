@@ -3,11 +3,13 @@ package tests
 import (
 	"fmt"
 
+	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
 	//"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -285,41 +287,101 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 	})
 })
 
-var _ = ginkgo.FDescribe("Resoure Selector from PEG", ginkgo.Ordered, func() {
+var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
 	})
 
-	ginkgo.FIt("should query configs", func() {
-		//description: "labels | IN Query",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{LabelSelector: "app in (frontend,backend)"}},
-		//},
-		//[]models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
+	// = , != , item in list, item not in list, prefix, suffix, date operations (created_at, updated_at), agent query
+	testData := []struct {
+		description string
+		query       string
+		expectedIDs []uuid.UUID
+		resource    string
+	}{
+		{
+			description: "config item query",
+			query:       `name="node-b" type="Kubernetes::Node"`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config item not equal to query",
+			query:       `name!="node-b" type="Kubernetes::Node"`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeAKSPool1.ID},
+			resource:    "config",
+		},
+		{
+			description: "component query",
+			query:       `type="Application"`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPI.ID, dummy.LogisticsUI.ID, dummy.LogisticsWorker.ID, dummy.KustomizeFluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			description: "component in query",
+			query:       `type="Application,Gap"`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPI.ID, dummy.LogisticsUI.ID, dummy.LogisticsWorker.ID, dummy.KustomizeFluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			description: "component agent query",
+			query:       `agent="GCP"`,
+			expectedIDs: []uuid.UUID{dummy.PaymentsAPI.ID},
+			resource:    "component",
+		},
+		{
+			description: "component agent_id query",
+			query:       fmt.Sprintf(`agent_id="%s"`, dummy.GCPAgent.ID.String()),
+			expectedIDs: []uuid.UUID{dummy.PaymentsAPI.ID},
+			resource:    "component",
+		},
+		{
+			description: "component created_at query",
+			query:       `created_at>2023-01-01`,
+			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			// This tests now-t feature of date time
+			// If this test fails, adjust relative time in query
+			// for the expected result
+			description: "component created_at now query",
+			query:       `created_at>"now-1y"`,
+			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			description: "component prefix and suffix query",
+			query:       `type="Kubernetes*" type="*Pod"`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsUIPod.ID, dummy.LogisticsAPIPod.ID, dummy.LogisticsWorkerPod.ID},
+			resource:    "component",
+		},
+		{
+			description: "component complex not in query",
+			query:       `type!="Application,Entity,Database,Kubernetes*,Flux*"`, // This covers all types in dummy components
+			expectedIDs: []uuid.UUID{},
+			resource:    "component",
+		},
+	}
 
-		rs := types.ResourceSelector{
-			Search: `name="node-b" type="Kubernetes::Node"`,
-		}
+	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
+		"config":    query.FindConfigIDsByResourceSelector,
+		"component": query.FindComponentIDs,
+		"checks":    query.FindCheckIDs,
+	}
 
-		ci, err := query.FindConfigsByResourceSelector(DefaultContext, 1, rs)
-		Expect(err).To(BeNil())
+	uuidSliceToString := func(uuids []uuid.UUID) []string {
+		return lo.Map(uuids, func(item uuid.UUID, _ int) string { return item.String() })
+	}
 
-		Expect(len(ci)).To(Equal(1))
-		Expect(lo.FromPtr(ci[0].Name)).To(Equal(lo.FromPtr(dummy.KubernetesNodeB.Name)))
-
-	})
-
-	ginkgo.FIt("should query components", func() {
-		rs := types.ResourceSelector{
-			Search: `type="Application"`,
-		}
-
-		comps, err := query.FindComponents(DefaultContext, -1, rs)
-		Expect(err).To(BeNil())
-
-		Expect(len(comps)).To(Equal(4))
-		//Expect(lo.FromPtr(ci[0].Name)).To(Equal(lo.FromPtr(dummy.KubernetesNodeB.Name)))
-
-	})
-
+	for _, tt := range testData {
+		ginkgo.FIt(tt.description, func() {
+			f, ok := fmap[tt.resource]
+			Expect(ok).To(BeTrue())
+			ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
+			Expect(err).To(BeNil())
+			// We convert to strings slice for readable output
+			Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+		})
+	}
 })

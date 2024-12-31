@@ -52,9 +52,14 @@ type FilteringQuery struct {
 }
 
 func (fq *FilteringQuery) ToExpression(field string) []clause.Expression {
-	exprs := fq.expressions.ToExpression(field)
-	not := clause.Not(fq.Not.ToExpression(field)...)
-	return append(exprs, not)
+	var clauses []clause.Expression
+	if len(fq.expressions.ToExpression(field)) > 0 {
+		clauses = append(clauses, fq.expressions.ToExpression(field)...)
+	}
+	if len(fq.Not.ToExpression(field)) > 0 {
+		clauses = append(clauses, clause.Not(fq.Not.ToExpression(field)...))
+	}
+	return clauses
 }
 
 func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error) {
@@ -73,9 +78,9 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 			}
 		}
 
-		var q expressions
+		q := &result.expressions
 		if strings.HasPrefix(item, "!") {
-			q = result.Not
+			q = &result.Not
 			item = strings.TrimPrefix(item, "!")
 		}
 		if strings.HasPrefix(item, "*") {
@@ -86,7 +91,6 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 			q.In = append(q.In, item)
 		}
 
-		result.expressions = q
 	}
 
 	return result, nil
