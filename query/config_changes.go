@@ -288,7 +288,6 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("Clause is %v", clause)
 		clauses = append(clauses, clause...)
 	}
 
