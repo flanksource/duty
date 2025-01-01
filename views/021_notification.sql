@@ -35,9 +35,19 @@ CREATE OR REPLACE TRIGGER reset_notification_silence_error_before_update_trigger
   FOR EACH ROW
   EXECUTE PROCEDURE reset_notification_silence_error_before_update ();
 
+-- Ensure the previous function is cleaned up.
+DROP FUNCTION IF EXISTS insert_unsent_notification_to_history(uuid, text, uuid, text, interval);
+
 --- A function to insert only those notifications that were unsent.
 --- It deals with the deduplication of inserting the same notification again if it was silenced or blocked by repeatInterval.
-CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (p_notification_id uuid, p_source_event text, p_resource_id uuid, p_status text, p_window interval)
+CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (
+  p_notification_id uuid, 
+  p_source_event text,
+  p_resource_id uuid, 
+  p_status text, 
+  p_window interval,
+  p_silenced_by uuid DEFAULT NULL
+)
   RETURNS VOID
   AS $$
 DECLARE
@@ -46,6 +56,7 @@ BEGIN
   IF p_status NOT IN ('silenced', 'repeat-interval') THEN
     RAISE EXCEPTION 'Status must be silenced or repeat-interval';
   END IF;
+
   SELECT
     id INTO v_existing_id
   FROM
@@ -59,6 +70,7 @@ BEGIN
   ORDER BY
     created_at DESC
   LIMIT 1;
+
   IF v_existing_id IS NOT NULL THEN
     UPDATE
       notification_send_history
@@ -68,8 +80,8 @@ BEGIN
     WHERE
       id = v_existing_id;
   ELSE
-    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id)
-      VALUES (p_notification_id, p_status, p_source_event, p_resource_id);
+    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id, silenced_by)
+      VALUES (p_notification_id, p_status, p_source_event, p_resource_id, p_silenced_by);
   END IF;
 END;
 $$
