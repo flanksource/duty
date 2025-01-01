@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,11 +16,13 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/pkg/kube/labels"
+	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/duty/types"
 )
 
@@ -134,22 +137,49 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 
 	// We call setSearchQueryParams as it sets those params that
 	// might later be used by the query
-	if resourceSelector.Search != "" {
-		if strings.Contains(resourceSelector.Search, "=") {
-			setSearchQueryParams(&resourceSelector)
-		} else {
-			var prefixQueries []*gorm.DB
-			if resourceSelector.Name == "" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
-			}
-			if resourceSelector.TagSelector == "" && table == "config_items" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-			}
-			if resourceSelector.LabelSelector == "" {
-				prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-			}
 
-			query = OrQueries(query, prefixQueries...)
+	searchSetAgent := false
+	if resourceSelector.Search != "" {
+		qf, err := grammar.ParsePEG(resourceSelector.Search)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing grammar[%s]: %w", resourceSelector.Search, err)
+		}
+		qm, err := GetModelFromTable(table)
+		if err != nil {
+			return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
+		}
+
+		flatFields := grammar.FlatFields(qf)
+		if slices.ContainsFunc(flatFields, func(s string) bool { return s == "agent" || s == "agent_id" }) {
+			searchSetAgent = true
+		}
+
+		var clauses []clause.Expression
+		query, clauses, err = qm.Apply(ctx, *qf, query)
+		if err != nil {
+			return nil, fmt.Errorf("error applying query model: %w", err)
+		}
+
+		query = query.Clauses(clauses...)
+
+		// Legacy logic
+		if false {
+			if strings.Contains(resourceSelector.Search, "=") {
+				setSearchQueryParams(&resourceSelector)
+			} else {
+				var prefixQueries []*gorm.DB
+				if resourceSelector.Name == "" {
+					prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
+				}
+				if resourceSelector.TagSelector == "" && table == "config_items" {
+					prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+				}
+				if resourceSelector.LabelSelector == "" {
+					prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
+				}
+
+				query = OrQueries(query, prefixQueries...)
+			}
 		}
 	}
 
@@ -186,13 +216,16 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	agentID, err := getAgentID(ctx, resourceSelector.Agent)
-	if err != nil {
-		return nil, err
-	}
+	var agentID *uuid.UUID
+	if !searchSetAgent {
+		agentID, err := getAgentID(ctx, resourceSelector.Agent)
+		if err != nil {
+			return nil, err
+		}
 
-	if agentID != nil {
-		query = query.Where("agent_id = ?", *agentID)
+		if agentID != nil {
+			query = query.Where("agent_id = ?", *agentID)
+		}
 	}
 
 	if resourceSelector.Scope != "" {
@@ -277,6 +310,7 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 		}
 
 		switch items[0] {
+		// TODO(yash): Move this to components query model
 		case "component_config_traverse":
 			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
 			// Args should be componentID, direction and types (compID,direction)

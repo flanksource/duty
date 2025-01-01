@@ -1,0 +1,113 @@
+{
+  package grammar
+}
+
+Query
+  = aq:AndQuery _ oq:OrQuery* _ {
+    return makeAndQuery(aq,oq)
+  }
+
+OrQuery
+  = _ '|' _ aq:AndQuery _ {
+    return aq, nil
+  }
+
+
+AndQuery
+  = _ fq:FieldQuery _  fqs:FieldQuery* _ {
+    return makeAndQuery(fq, fqs)
+  }
+
+FieldQuery
+   = _ '(' _ q:Query _ ')'_ {
+        return makeFQFromQuery(q)
+      }
+   / _ f:Field _ {
+        return makeFQFromField(f)
+      }
+
+   / _ "-" n:Word _  {
+        return &types.QueryField{Op: "not", Value:n}, nil
+   }
+
+   / _ n:Word _  {
+        return &types.QueryField{Op: "rest", Value:n}, nil
+   }
+
+
+Field
+  = src:Source _ op:Operator _ value:Value {
+      return &types.QueryField{Field:src.(string), Op: op.(types.QueryOperator), Value:value}, nil
+  }
+
+Source
+  = name:Identifier path:("." Identifier)* {
+      return makeSource(name,path)
+  }
+
+
+Not = "-"
+
+Operator
+  = op:(
+     "<="
+    / ">="
+    / "="
+    / ":"
+    / "!="
+    / "<"
+    / ">"
+  ){
+    return types.QueryOperator(c.text), nil
+  }
+
+Value
+  = val:(
+      Measure
+    / Float
+    / Integer
+    / Identifier
+    / String
+    ){
+    return makeValue(val)
+  }
+
+
+
+String
+  = '"' chars:[^"]* '"' {
+    return stringFromChars(chars), nil
+  }
+
+Word
+  = String / [-]? [a-zA-Z0-9]+ {
+      return string(c.text), nil
+  }
+
+Integer
+  = [+-]? [0-9]+ {
+    return strconv.ParseInt(string(c.text), 10, 64)
+  }
+
+Measure
+  = number:(Integer / Float) unit:Identifier {
+    return makeMeasure(number, unit)
+  }
+
+Float
+  = [+-]? ([0-9]* "." [0-9]+ ) {
+      return strconv.ParseFloat(string(c.text), 64)
+    }
+
+Identifier
+  = [a-zA-Z0-9_]+ {
+      return string(c.text), nil
+  }
+
+
+
+_
+  = [ \t]*
+
+EOF
+  = !.
