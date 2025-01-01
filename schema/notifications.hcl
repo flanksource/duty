@@ -198,6 +198,11 @@ table "notification_send_history" {
     type    = uuid
     comment = "recipient connection"
   }
+  column "silenced_by" {
+    null = true
+    type = uuid
+    comment = "the notification silence that silenced this notification"
+  }
   column "playbook_run_id" {
     null    = true
     type    = uuid
