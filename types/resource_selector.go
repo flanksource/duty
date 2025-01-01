@@ -193,14 +193,23 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 	return clauses, nil
 }
 
-func (c ResourceSelector) IsEmpty() bool {
-	return c.ID == "" && c.Name == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
+func (c ResourceSelector) allEmptyButName() bool {
+	return c.ID == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
 		len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
 		len(c.Healths) == 0 &&
 		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
 		len(c.FieldSelector) == 0
+}
+
+// A wildcard resource selector is one where it just has the name field set to '*'
+func (c ResourceSelector) Wildcard() bool {
+	return c.allEmptyButName() && c.Name == "*"
+}
+
+func (c ResourceSelector) IsEmpty() bool {
+	return c.allEmptyButName() && c.Name == ""
 }
 
 // Immutable returns true if the selector can be cached indefinitely
@@ -254,6 +263,9 @@ func (c ResourceSelector) Hash() string {
 func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if rs.IsEmpty() {
 		return false
+	}
+	if rs.Wildcard() {
+		return true
 	}
 	if rs.ID != "" && rs.ID != s.GetID() {
 		return false
