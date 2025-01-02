@@ -100,14 +100,14 @@ table "team_members" {
   foreign_key "team_members_person_id_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "team_members_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
 }
 

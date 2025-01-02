@@ -7,16 +7,28 @@ DROP FUNCTION IF EXISTS handle_notifications_updates_deletes;
 CREATE OR REPLACE FUNCTION notify_table_updates_and_deletes ()
   RETURNS TRIGGER
   AS $$
+DECLARE
+  payload text;
+  record_id text;
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    PERFORM
-      pg_notify('table_activity', TG_TABLE_NAME || ' ' || OLD.id);
+  IF TG_TABLE_NAME = 'team_members' THEN
+    IF TG_OP = 'DELETE' THEN
+      record_id := OLD.team_id::text || ' ' || OLD.person_id;
+    ELSE
+      record_id := NEW.team_id::text || ' ' || NEW.person_id;
+    END IF;
   ELSE
-    PERFORM
-      pg_notify('table_activity', TG_TABLE_NAME || ' ' || NEW.id);
+    IF TG_OP = 'DELETE' THEN
+      record_id := OLD.id::text;
+    ELSE
+      record_id := NEW.id::text;
+    END IF;
   END IF;
+
+  payload := format('%s %s %s', TG_TABLE_NAME, TG_OP, record_id);
+  PERFORM pg_notify('table_activity', payload);
   RETURN NULL;
-END
+END;
 $$
 LANGUAGE plpgsql;
 
@@ -26,7 +38,7 @@ DECLARE
 BEGIN
   FOR table_name IN
   SELECT
-    unnest(ARRAY['notifications', 'playbooks', 'permissions', 'scrape_plugins', 'teams'])
+    unnest(ARRAY['notifications', 'playbooks', 'permissions', 'scrape_plugins', 'teams', 'team_members'])
     LOOP
       EXECUTE format('
       CREATE OR REPLACE TRIGGER notify_updates_and_deletes
@@ -57,5 +69,5 @@ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER newly_completed_actions
   AFTER UPDATE ON playbook_run_actions
   FOR EACH ROW
-  EXECUTE PROCEDURE notify_completed_playbook_actions();
+  EXECUTE PROCEDURE notify_completed_playbook_actions ();
 
