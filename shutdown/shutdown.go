@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -79,9 +80,9 @@ func AddHookWithPriority(label string, priority int, fn shutdownHook) {
 func WaitForSignal() {
 	go func() {
 		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, os.Interrupt)
-		<-quit
-		logger.Infof("Caught Ctrl+C")
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+		sig := <-quit
+		logger.Infof("caught signal: %s", sig)
 		// call shutdown hooks explicitly, post-run cleanup hooks will be a no-op
 		Shutdown()
 	}()
