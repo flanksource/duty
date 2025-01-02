@@ -1,17 +1,75 @@
 package grammar
 
 import (
-	"github.com/flanksource/commons/logger"
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("grammer", func() {
+var _ = Describe("grammar", func() {
 
 	It("parses", func() {
 		result, err := ParsePEG("john:doe metadata.name=bob metadata.name!=harry spec.status.reason!=\"failed reson\"   -jane johnny type!=pod type!=replicaset  namespace!=\"a,b,c\"")
-		logger.Infof(logger.Pretty(result))
 		Expect(err).To(BeNil())
 
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+          "op": "and",
+          "fields": [
+            {
+              "op": "and",
+              "fields": [
+                {
+                  "field": "john",
+                  "value": "doe",
+                  "op": ":"
+                },
+                {
+                  "field": "metadata.name",
+                  "value": "bob",
+                  "op": "="
+                },
+                {
+                  "field": "metadata.name",
+                  "value": "harry",
+                  "op": "!="
+                },
+                {
+                  "field": "spec.status.reason",
+                  "value": "failed reson",
+                  "op": "!="
+                },
+                {
+                  "value": "jane",
+                  "op": "not"
+                },
+                {
+                  "value": "johnny",
+                  "op": "rest"
+                },
+                {
+                  "field": "type",
+                  "value": "pod",
+                  "op": "!="
+                },
+                {
+                  "field": "type",
+                  "value": "replicaset",
+                  "op": "!="
+                },
+                {
+                  "field": "namespace",
+                  "value": "a,b,c",
+                  "op": "!="
+                }
+              ]
+            }
+          ]
+        }
+        `
+
+		Expect(resultJSON).To(MatchJSON(expected))
 	})
 })
