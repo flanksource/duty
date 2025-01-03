@@ -201,18 +201,18 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 			query = query.Where("namespace = ?", resourceSelector.Namespace)
 		}
 	}
-	if len(resourceSelector.Types) != 0 {
-		query = query.Where("type IN ?", resourceSelector.Types)
+	if types := resourceSelector.GetTypes(); len(types) != 0 {
+		query = query.Where("type IN ?", types)
 	}
-	if len(resourceSelector.Statuses) != 0 {
-		query = query.Where("status IN ?", resourceSelector.Statuses)
+	if statuses := resourceSelector.GetStatuses(); len(statuses) != 0 {
+		query = query.Where("status IN ?", statuses)
 	}
-	if len(resourceSelector.Healths) != 0 {
+	if healths := resourceSelector.GetHealths(); len(healths) != 0 {
 		switch table {
 		case "checks":
-			query = query.Where("status IN ?", resourceSelector.Healths)
+			query = query.Where("status IN ?", healths)
 		default:
-			query = query.Where("health IN ?", resourceSelector.Healths)
+			query = query.Where("health IN ?", healths)
 		}
 	}
 
