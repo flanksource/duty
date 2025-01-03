@@ -121,6 +121,9 @@ type NotificationSendHistory struct {
 	// The run created by this notification
 	PlaybookRunID *uuid.UUID `json:"playbook_run_id,omitempty"`
 
+	// The notification silence that silenced this notification.
+	SilencedBy *uuid.UUID `json:"silenced_by,omitempty"`
+
 	timeStart time.Time
 }
 
