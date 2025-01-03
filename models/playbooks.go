@@ -13,6 +13,8 @@ import (
 	"github.com/samber/oops"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // PlaybookRunStatus are statuses for a playbook run and its actions.
@@ -62,6 +64,8 @@ var PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 	PlaybookRunStatusCompleted,
 }
 
+var _ types.ResourceSelectable = &Playbook{}
+
 type Playbook struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Namespace   string     `json:"namespace"`
@@ -76,6 +80,38 @@ type Playbook struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (p *Playbook) GetFieldsMatcher() fields.Fields {
+	return noopMatcher{}
+}
+
+func (p *Playbook) GetLabelsMatcher() labels.Labels {
+	return noopMatcher{}
+}
+
+func (p *Playbook) GetName() string {
+	return p.Name
+}
+
+func (p *Playbook) GetNamespace() string {
+	return p.Namespace
+}
+
+func (p *Playbook) GetID() string {
+	return p.ID.String()
+}
+
+func (p *Playbook) GetType() string {
+	return ""
+}
+
+func (p *Playbook) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (p *Playbook) GetHealth() (string, error) {
+	return string(HealthUnknown), nil
 }
 
 func (p *Playbook) NamespacedName() string {
@@ -361,21 +397,28 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 	return s
 }
 
-func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
-	output := map[string]any{}
+type RBACAttribute struct {
+	Playbook  *Playbook
+	Component *Component
+	Config    *ConfigItem
+	Check     *Check
+}
+
+func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
+	var output RBACAttribute
 
 	var playbook Playbook
 	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
 		return nil, err
 	}
-	output["playbook"] = playbook.AsMap()
+	output.Playbook = &playbook
 
 	if run.ComponentID != nil {
 		var component Component
 		if err := db.First(&component, run.ComponentID).Error; err != nil {
 			return nil, err
 		}
-		output["component"] = component.AsMap()
+		output.Component = &component
 	}
 
 	if run.CheckID != nil {
@@ -383,7 +426,7 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
 		if err := db.First(&check, run.CheckID).Error; err != nil {
 			return nil, err
 		}
-		output["check"] = check.AsMap()
+		output.Check = &check
 	}
 
 	if run.ConfigID != nil {
@@ -391,10 +434,10 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (map[string]any, error) {
 		if err := db.First(&config, run.ConfigID).Error; err != nil {
 			return nil, err
 		}
-		output["config"] = config.AsMap()
+		output.Config = &config
 	}
 
-	return output, nil
+	return &output, nil
 }
 
 type PlaybookRunAction struct {
