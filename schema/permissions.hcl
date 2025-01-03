@@ -5,12 +5,39 @@ table "permissions" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+
+  column "name" {
+    null    = false
+    type    = text
+    default = sql("generate_ulid()") # temporary to support migration. can be removed later.
+  }
+
+  column "namespace" {
+    null = true
+    type = text
+  }
+
   column "description" {
     null = true
     type = text
   }
 
   column "source" {
+    null    = false
+    type    = text
+    default = "UI"
+  }
+
+  column "subject_type" {
+    null    = false
+    type    = text
+    default = "group"
+  }
+
+  column "subject" {
+    # This should be non-nullable. 
+    # But since we're only adding this column now, we will use the migration to populate the value for existing records 
+    # and then make it non nullable.
     null = true
     type = text
   }
@@ -25,8 +52,14 @@ table "permissions" {
     type = text
   }
 
+  column "object_selector" {
+    null    = true
+    type    = jsonb
+    comment = "list of resource selectors to select the viable object"
+  }
+
   column "deny" {
-    type = boolean
+    type    = boolean
     default = false
   }
 
@@ -56,7 +89,7 @@ table "permissions" {
   }
 
   column "created_by" {
-    null = false
+    null = true
     type = uuid
   }
 
@@ -85,25 +118,32 @@ table "permissions" {
     type    = timestamptz
     default = sql("now()")
   }
+
   column "updated_at" {
     null    = false
     type    = timestamptz
     default = sql("now()")
   }
+
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+
   column "until" {
     null = true
     type = timestamptz
   }
 
   column "agents" {
-    null = true
-    type = sql("text[]")
+    null    = true
+    type    = sql("text[]")
     comment = "a list of agent ids a user is allowed to access when row-level security is enabled"
   }
 
   column "tags" {
-    null = true
-    type = jsonb
+    null    = true
+    type    = jsonb
     comment = "a list of tags user is allowed to access when row-level security is enabled"
   }
 
@@ -144,7 +184,7 @@ table "permissions" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
-    on_delete   = CASCADE
+    on_delete   = NO_ACTION
   }
   foreign_key "permissions_notification_fkey" {
     columns     = [column.notification_id]
@@ -171,5 +211,70 @@ table "permissions" {
 
   index "permissions_component_id_idx" {
     columns = [column.component_id]
+  }
+}
+
+table "permission_groups" {
+  schema = schema.public
+
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+
+  column "name" {
+    null = true
+    type = text
+  }
+
+  column "namespace" {
+    null = true
+    type = text
+  }
+
+  column "selectors" {
+    null    = false
+    type    = jsonb
+    comment = "a list of selectors (a toned down version of resource selector) to select primary mission control resources like - notifications, scrapers, playbooks, ..."
+  }
+
+  column "source" {
+    null    = false
+    type    = text
+    default = "UI"
+  }
+
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+
+  primary_key {
+    columns = [column.id]
+  }
+
+  foreign_key "permissions_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }

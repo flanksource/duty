@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -9,37 +10,78 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/samber/lo"
+)
+
+type PermissionGroup struct {
+	ID        uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	Name      string     `json:"name"`
+	Namespace string     `json:"namespace,omitempty" gorm:"default:NULL"`
+	Source    string     `json:"source"`
+	Selectors types.JSON `json:"selectors"`
+
+	CreatedBy *uuid.UUID `json:"created_by,omitempty" gorm:"default:NULL"`
+	CreatedAt time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+}
+
+type PermissionSubjectType string
+
+const (
+	PermissionSubjectTypeGroup        PermissionSubjectType = "group"
+	PermissionSubjectTypeNotification PermissionSubjectType = "notification"
+	PermissionSubjectTypePerson       PermissionSubjectType = "person"
+	PermissionSubjectTypeTeam         PermissionSubjectType = "team"
 )
 
 type Permission struct {
-	ID             uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
-	Action         string     `json:"action"`
-	Object         string     `json:"object"`
-	ConnectionID   *uuid.UUID `json:"connection_id,omitempty"`
-	CanaryID       *uuid.UUID `json:"canary_id,omitempty"`
+	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	Name        string     `json:"name"`
+	Namespace   string     `json:"namespace,omitempty" gorm:"default:NULL"`
+	Action      string     `json:"action"`
+	Deny        bool       `json:"deny"`
+	Description string     `json:"description"`
+	Source      string     `json:"source"`
+	Until       *time.Time `json:"until"`
+
+	Subject     string                `json:"subject"`
+	SubjectType PermissionSubjectType `json:"subject_type,omitempty"`
+	// Deprecated: Use Subject
+	PersonID *uuid.UUID `json:"person_id,omitempty"`
+	// Deprecated: Use Subject
 	NotificationID *uuid.UUID `json:"notification_id,omitempty"`
+	// Deprecated: Use Subject
+	TeamID *uuid.UUID `json:"team_id,omitempty"`
+
+	CanaryID       *uuid.UUID `json:"canary_id,omitempty"`
 	ComponentID    *uuid.UUID `json:"component_id,omitempty"`
 	ConfigID       *uuid.UUID `json:"config_id,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	CreatedBy      uuid.UUID  `json:"created_by"`
-	Deny           bool       `json:"deny"`
-	Description    string     `json:"description"`
-	PersonID       *uuid.UUID `json:"person_id,omitempty"`
+	ConnectionID   *uuid.UUID `json:"connection_id,omitempty"`
 	PlaybookID     *uuid.UUID `json:"playbook_id,omitempty"`
-	TeamID         *uuid.UUID `json:"team_id,omitempty"`
-	Source         string     `json:"source"`
-	Until          *time.Time `json:"until"`
-	UpdatedAt      *time.Time `json:"updated_at"`
-	UpdatedBy      *uuid.UUID `json:"updated_by"`
+	Object         string     `json:"object,omitempty" gorm:"default:NULL"`
+	ObjectSelector types.JSON `json:"object_selector,omitempty" gorm:"default:NULL"`
+
+	CreatedBy *uuid.UUID `json:"created_by,omitempty" gorm:"default:NULL"`
+	CreatedAt time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedBy *uuid.UUID `json:"updated_by"`
+	DeletedAt *time.Time `json:"deleted_at"`
 
 	// List of agent ids whose configs/components are accessible to a person when RLS is enabled
 	Agents pq.StringArray `json:"agents,omitempty" gorm:"type:[]text"`
 
 	// List of config/component tags a person is allowed access to when RLS is enabled
-	Tags types.JSONStringMap `json:"tags,omitempty"`
+	Tags types.JSONStringMap `json:"tags,omitempty" gorm:"default:NULL"`
 }
 
 func (t *Permission) Principal() string {
+	if t.Subject != "" {
+		return t.Subject
+	}
+
+	// NOTE: Person, team and notification ids are deprecated.
+	// A single "subject" field is sufficient.
 	if t.PersonID != nil {
 		return t.PersonID.String()
 	}
@@ -57,6 +99,11 @@ func (t *Permission) Principal() string {
 
 func (t *Permission) Condition() string {
 	var rule []string
+
+	if len(t.ObjectSelector) > 0 {
+		// TODO: Find a way to pass in the JSON encoded string instead of encoding with base64
+		rule = append(rule, fmt.Sprintf(`matchResourceSelector(r.obj, %q)`, base64.StdEncoding.EncodeToString([]byte(t.ObjectSelector))))
+	}
 
 	if t.ComponentID != nil {
 		rule = append(rule, fmt.Sprintf("r.obj.component.id == %q", t.ComponentID.String()))
@@ -84,6 +131,10 @@ func (t *Permission) Condition() string {
 	}
 
 	return strings.Join(rule, " && ")
+}
+
+func (t *Permission) GetObject() string {
+	return lo.CoalesceOrEmpty(t.Object, "*")
 }
 
 func (t *Permission) Effect() string {
