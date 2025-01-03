@@ -26,8 +26,8 @@ var _ = Describe("Resource Selector", func() {
 				Name:          "example",
 				Namespace:     "default",
 				Agent:         "123",
-				Types:         []string{"a", "b", "c"},
-				Statuses:      []string{"healthy", "unhealthy", "terminating"},
+				Type:          "a,b,c",
+				Status:        "health,unhealthy,terminating",
 				LabelSelector: "app=example,env=production",
 				FieldSelector: "owner=admin,path=/,icon=example.png",
 			},
@@ -101,7 +101,35 @@ var _ = Describe("Resource Selector", func() {
 			{
 				name: "Types",
 				resourceSelector: types.ResourceSelector{
-					Types: []string{"Kubernetes::Pod"},
+					Type: "Kubernetes::Pod",
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Pod"),
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Deployment"),
+				},
+			},
+			{
+				name: "Types multiple",
+				resourceSelector: types.ResourceSelector{
+					Type: "Kubernetes::Node,Kubernetes::Pod",
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Pod"),
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Deployment"),
+				},
+			},
+			{
+				name: "Type negatives",
+				resourceSelector: types.ResourceSelector{
+					Type: "!Kubernetes::Deployment,Kubernetes::Pod",
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -116,7 +144,7 @@ var _ = Describe("Resource Selector", func() {
 				name: "Statuses",
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
-					Statuses:  []string{"healthy"},
+					Status:    "healthy",
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -135,7 +163,7 @@ var _ = Describe("Resource Selector", func() {
 				name: "Healths",
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
-					Healths:   []string{"healthy"},
+					Health:    "healthy",
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -148,20 +176,6 @@ var _ = Describe("Resource Selector", func() {
 						"namespace": "default",
 					},
 					Health: lo.ToPtr(models.HealthUnhealthy),
-				},
-			},
-			{
-				name: "Types",
-				resourceSelector: types.ResourceSelector{
-					Types: []string{"Kubernetes::Pod"},
-				},
-				selectable: models.ConfigItem{
-					Name: lo.ToPtr("cert-manager"),
-					Type: lo.ToPtr("Kubernetes::Pod"),
-				},
-				unselectable: models.ConfigItem{
-					Name: lo.ToPtr("cert-manager"),
-					Type: lo.ToPtr("Kubernetes::Deployment"),
 				},
 			},
 			{
