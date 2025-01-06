@@ -200,3 +200,43 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		})
 	}
 })
+
+var _ = ginkgo.Describe("FindPlaybooks", func() {
+	type testRecord struct {
+		Name      string
+		Selectors []types.ResourceSelector
+		Results   []uuid.UUID
+	}
+
+	testData := []testRecord{
+		{
+			Name:      "empty",
+			Selectors: []types.ResourceSelector{},
+		},
+		{
+			Name:      "name",
+			Selectors: []types.ResourceSelector{{Name: dummy.EchoConfig.Name}},
+			Results:   []uuid.UUID{dummy.EchoConfig.ID},
+		},
+		{
+			Name:      "tags",
+			Selectors: []types.ResourceSelector{{TagSelector: "category=debug"}},
+			Results:   []uuid.UUID{dummy.EchoConfig.ID},
+		},
+		{
+			Name:      "namespace",
+			Selectors: []types.ResourceSelector{{Namespace: "default"}},
+			Results:   []uuid.UUID{dummy.EchoConfig.ID},
+		},
+	}
+
+	for i := range testData {
+		td := testData[i]
+
+		ginkgo.It(td.Name, func() {
+			result, err := query.FindPlaybookIDsByResourceSelector(DefaultContext, 0, td.Selectors...)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(ContainElements(testData[i].Results))
+		})
+	}
+})

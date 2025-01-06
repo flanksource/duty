@@ -26,6 +26,25 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+var (
+	tablesWithTags = map[string]struct{}{
+		"config_items": {},
+		"playbooks":    {},
+	}
+
+	tablesWithAgents = map[string]struct{}{
+		"config_items": {},
+		"checks":       {},
+		"components":   {},
+	}
+
+	tablesWithLabels = map[string]struct{}{
+		"config_items": {},
+		"checks":       {},
+		"components":   {},
+	}
+)
+
 type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
@@ -222,7 +241,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	}
 
 	var agentID *uuid.UUID
-	if !searchSetAgent {
+	if _, ok := tablesWithAgents[table]; ok && !searchSetAgent {
 		agentID, err := getAgentID(ctx, resourceSelector.Agent)
 		if err != nil {
 			return nil, err
@@ -251,8 +270,8 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	}
 
 	if len(resourceSelector.TagSelector) > 0 {
-		if table != "config_items" {
-			return nil, api.Errorf(api.EINVALID, "tag selector is only supported for config_items")
+		if _, ok := tablesWithTags[table]; !ok {
+			return nil, api.Errorf(api.EINVALID, "tag selector is not supported for table=%s", table)
 		} else {
 			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
 			if err != nil {
@@ -265,7 +284,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	if len(resourceSelector.LabelSelector) > 0 {
+	if _, ok := tablesWithLabels[table]; ok && len(resourceSelector.LabelSelector) > 0 {
 		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
@@ -597,4 +616,22 @@ func getAgentID(ctx context.Context, agent string) (*uuid.UUID, error) {
 		return nil, fmt.Errorf("could not find agent[%s]: %w", agent, err)
 	}
 	return &agentModel.ID, nil
+}
+
+func queryTableWithResourceSelectors(ctx context.Context, table string, allowedFields []string, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	var output []uuid.UUID
+
+	for _, resourceSelector := range resourceSelectors {
+		items, err := queryResourceSelector(ctx, limit, resourceSelector, table, allowedFields)
+		if err != nil {
+			return nil, err
+		}
+
+		output = append(output, items...)
+		if limit > 0 && len(output) >= limit {
+			return output[:limit], nil
+		}
+	}
+
+	return output, nil
 }
