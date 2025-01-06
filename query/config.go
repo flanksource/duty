@@ -266,7 +266,7 @@ func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
 func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, error) {
 	req.SetDefaults()
 	if err := req.Parse(); err != nil {
-		return nil, api.Errorf(api.EINVALID, err.Error())
+		return nil, api.Errorf(api.EINVALID, "%s", err)
 	}
 
 	_ = ctx.DB().Use(extraClausePlugin.New())
