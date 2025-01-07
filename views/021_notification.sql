@@ -87,6 +87,8 @@ END;
 $$
 LANGUAGE plpgsql;
 
+DROP VIEW IF EXISTS notification_send_history_summary;
+
 CREATE OR REPLACE VIEW notification_send_history_summary AS
 WITH combined AS (
   -- config
