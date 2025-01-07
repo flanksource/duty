@@ -60,6 +60,12 @@ func (p Playbook) PK() string {
 	return p.ID.String()
 }
 
+var PlaybookRunStatusFinalStates = []PlaybookRunStatus{
+	PlaybookRunStatusCancelled,
+	PlaybookRunStatusCompleted,
+	PlaybookRunStatusFailed,
+}
+
 var PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 	PlaybookRunStatusRunning,
 	PlaybookRunStatusScheduled,
@@ -186,6 +192,10 @@ type PlaybookRun struct {
 	Request       types.JSONMap       `json:"request,omitempty" gorm:"default:null"`
 	AgentID       *uuid.UUID          `json:"agent_id,omitempty"`
 
+	// Parent Run's id
+	ParentID *uuid.UUID `json:"parent_id,omitempty"`
+
+	// Parent notification send's id
 	NotificationSendID *uuid.UUID `json:"notification_send_id,omitempty"`
 }
 
