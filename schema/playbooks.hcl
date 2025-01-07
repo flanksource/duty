@@ -203,12 +203,23 @@ table "playbook_runs" {
     default = var.uuid_nil
     type    = uuid
   }
+  column "parent_id" {
+    null = true
+    type = uuid
+    comment = "references the run that triggered this run"
+  }
   column "error" {
     null = true
     type = text
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "playbook_run_parent_id_fkey" {
+    columns = [column.parent_id]
+    ref_columns = [table.playbook_runs.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "playbook_run_playbook_id_fkey" {
     columns     = [column.playbook_id]
@@ -251,6 +262,9 @@ table "playbook_runs" {
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "idx_playbook_runs_parent_id" {
+    columns = [column.parent_id]
   }
 }
 
