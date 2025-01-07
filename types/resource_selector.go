@@ -128,59 +128,15 @@ type ResourceSelector struct {
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 
-	// Type filters resources by the type.
-	// Multiple types can be provided separated by comma.
-	Type string `json:"type,omitempty"`
-
-	// Status filters resources by the status.
-	// Multiple statuses can be provided separated by comma.
-	Status string `json:"status,omitempty"`
-
 	// Health filters resources by the health.
 	// Multiple healths can be provided separated by comma.
-	Health string `json:"health,omitempty"`
+	Health MatchExpression `json:"health,omitempty"`
 
 	// Types filter resources by the type
-	// Deprecated: Use Type
 	Types Items `yaml:"types,omitempty" json:"types,omitempty"`
 
 	// Statuses filter resources by the status
-	// Deprecated: Use Status
 	Statuses Items `yaml:"statuses,omitempty" json:"statuses,omitempty"`
-
-	// Healths filter resources by the health
-	// Deprecated: Use Health
-	Healths Items `yaml:"healths,omitempty" json:"healths,omitempty"`
-}
-
-func (t *ResourceSelector) GetTypes() Items {
-	types := make([]string, len(t.Types))
-	copy(types, t.Types)
-	if t.Type != "" {
-		types = append(types, strings.Split(t.Type, ",")...)
-	}
-
-	return types
-}
-
-func (t *ResourceSelector) GetHealths() Items {
-	result := make([]string, len(t.Healths))
-	copy(result, t.Healths)
-	if t.Health != "" {
-		result = append(result, strings.Split(t.Health, ",")...)
-	}
-
-	return result
-}
-
-func (t *ResourceSelector) GetStatuses() Items {
-	result := make([]string, len(t.Statuses))
-	copy(result, t.Statuses)
-	if t.Status != "" {
-		result = append(result, strings.Split(t.Status, ",")...)
-	}
-
-	return result
 }
 
 // ParseFilteringQuery parses a filtering query string.
@@ -240,9 +196,9 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 
 func (c ResourceSelector) allEmptyButName() bool {
 	return c.ID == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
-		len(c.Types) == 0 && len(c.Type) == 0 &&
-		len(c.Statuses) == 0 && len(c.Status) == 0 &&
-		len(c.Healths) == 0 && len(c.Health) == 0 &&
+		len(c.Types) == 0 &&
+		len(c.Statuses) == 0 &&
+		len(c.Health) == 0 &&
 		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
 		len(c.FieldSelector) == 0
@@ -277,7 +233,7 @@ func (c ResourceSelector) Immutable() bool {
 		return false // still not specific enough
 	}
 
-	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 || len(c.Healths) != 0 {
+	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 || len(c.Health) != 0 {
 		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
 		return false
 	}
@@ -292,9 +248,9 @@ func (c ResourceSelector) Hash() string {
 		c.Namespace,
 		c.Agent,
 		c.Scope,
-		strings.Join(c.GetTypes().Sort(), ","),
-		strings.Join(c.GetStatuses().Sort(), ","),
-		strings.Join(c.GetHealths().Sort(), ","),
+		strings.Join(c.Types.Sort(), ","),
+		strings.Join(c.Statuses.Sort(), ","),
+		string(c.Health),
 		collections.SortedMap(collections.SelectorToMap(c.TagSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
@@ -322,21 +278,21 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		return false
 	}
 
-	if len(rs.GetTypes()) > 0 && !rs.GetTypes().Contains(s.GetType()) {
+	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
 		return false
 	}
 
 	if status, err := s.GetStatus(); err != nil {
 		logger.Errorf("failed to get status: %v", err)
 		return false
-	} else if len(rs.GetStatuses()) > 0 && !rs.GetStatuses().Contains(status) {
+	} else if len(rs.Statuses) > 0 && !rs.Statuses.Contains(status) {
 		return false
 	}
 
 	if h, err := s.GetHealth(); err != nil {
 		logger.Errorf("failed to get health: %v", err)
 		return false
-	} else if len(rs.GetHealths()) > 0 && !rs.GetHealths().Contains(h) {
+	} else if len(rs.Health) > 0 && !rs.Health.Match(h) {
 		return false
 	}
 

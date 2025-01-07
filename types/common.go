@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -28,7 +29,15 @@ func (t GoTemplate) Run(env map[string]any) (string, error) {
 type MatchExpression string
 
 func (t MatchExpression) Match(item string) bool {
-	return collections.MatchItems(item, string(t))
+	return collections.MatchItems(item, strings.Split(string(t), ",")...)
+}
+
+func (t *MatchExpression) Add(item string) {
+	if *t == "" {
+		*t = MatchExpression(item)
+	} else {
+		*t = MatchExpression(fmt.Sprintf("%s,%s", *t, item))
+	}
 }
 
 type MatchExpressions []MatchExpression

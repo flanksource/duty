@@ -201,18 +201,23 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 			query = query.Where("namespace = ?", resourceSelector.Namespace)
 		}
 	}
-	if types := resourceSelector.GetTypes(); len(types) != 0 {
-		query = query.Where("type IN ?", types)
+	if len(resourceSelector.Types) != 0 {
+		query = query.Where("type IN ?", resourceSelector.Types)
 	}
-	if statuses := resourceSelector.GetStatuses(); len(statuses) != 0 {
-		query = query.Where("status IN ?", statuses)
+	if len(resourceSelector.Statuses) != 0 {
+		query = query.Where("status IN ?", resourceSelector.Statuses)
 	}
-	if healths := resourceSelector.GetHealths(); len(healths) != 0 {
+	if len(resourceSelector.Health) != 0 {
+		// TODO: We need to support NOT IN AND LIKE queries in here
+		inclusion := lo.Filter(strings.Split(string(resourceSelector.Health), ","), func(s string, _ int) bool {
+			return !strings.HasPrefix(s, "!") && !strings.Contains(s, "*")
+		})
+
 		switch table {
 		case "checks":
-			query = query.Where("status IN ?", healths)
+			query = query.Where("status IN ?", inclusion)
 		default:
-			query = query.Where("health IN ?", healths)
+			query = query.Where("health IN ?", inclusion)
 		}
 	}
 
@@ -251,7 +256,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		} else {
 			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
 			if err != nil {
-				return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse tag selector: %v", err))
+				return nil, api.Errorf(api.EINVALID, "failed to parse tag selector: %v", err)
 			}
 			requirements, _ := parsedTagSelector.Requirements()
 			for _, r := range requirements {
@@ -263,7 +268,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if len(resourceSelector.LabelSelector) > 0 {
 		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
@@ -274,7 +279,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	if len(resourceSelector.FieldSelector) > 0 {
 		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse field selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse field selector: %v", err)
 		}
 
 		requirements, _ := parsedFieldSelector.Requirements()
@@ -333,7 +338,7 @@ func setSearchQueryParams(rs *types.ResourceSelector) {
 		case "status":
 			rs.Statuses = append(rs.Statuses, strings.Split(items[1], ",")...)
 		case "health":
-			rs.Healths = append(rs.Healths, strings.Split(items[1], ",")...)
+			rs.Health.Add(items[1])
 		case "limit":
 			l, _ := strconv.Atoi(items[1])
 			rs.Limit = l

@@ -45,9 +45,9 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		{
 			description: "health",
 			query: query.SearchResourcesRequest{
-				Configs:    []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
-				Components: []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
-				Checks:     []types.ResourceSelector{{Healths: []string{string(models.HealthHealthy)}}},
+				Configs:    []types.ResourceSelector{{Health: types.MatchExpression(models.HealthHealthy)}},
+				Components: []types.ResourceSelector{{Health: types.MatchExpression(models.HealthHealthy)}},
+				Checks:     []types.ResourceSelector{{Health: types.MatchExpression(models.HealthHealthy)}},
 			},
 			Components: []models.Component{dummy.Logistics},
 			Checks:     []models.Check{dummy.LogisticsAPIHealthHTTPCheck, dummy.LogisticsAPIHomeHTTPCheck},

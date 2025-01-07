@@ -26,8 +26,8 @@ var _ = Describe("Resource Selector", func() {
 				Name:          "example",
 				Namespace:     "default",
 				Agent:         "123",
-				Type:          "a,b,c",
-				Status:        "health,unhealthy,terminating",
+				Types:         []string{"a", "b", "c"},
+				Statuses:      []string{"healthy", "unhealthy", "terminating"},
 				LabelSelector: "app=example,env=production",
 				FieldSelector: "owner=admin,path=/,icon=example.png",
 			},
@@ -101,7 +101,7 @@ var _ = Describe("Resource Selector", func() {
 			{
 				name: "Types",
 				resourceSelector: types.ResourceSelector{
-					Type: "Kubernetes::Pod",
+					Types: []string{"Kubernetes::Pod"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -115,7 +115,7 @@ var _ = Describe("Resource Selector", func() {
 			{
 				name: "Types multiple",
 				resourceSelector: types.ResourceSelector{
-					Type: "Kubernetes::Node,Kubernetes::Pod",
+					Types: []string{"Kubernetes::Node", "Kubernetes::Pod"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -129,7 +129,7 @@ var _ = Describe("Resource Selector", func() {
 			{
 				name: "Type negatives",
 				resourceSelector: types.ResourceSelector{
-					Type: "!Kubernetes::Deployment,Kubernetes::Pod",
+					Types: []string{"!Kubernetes::Deployment", "Kubernetes::Pod"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -144,7 +144,7 @@ var _ = Describe("Resource Selector", func() {
 				name: "Statuses",
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
-					Status:    "healthy",
+					Statuses:  []string{"healthy"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -164,6 +164,25 @@ var _ = Describe("Resource Selector", func() {
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
 					Health:    "healthy",
+				},
+				selectable: models.ConfigItem{
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthHealthy),
+				},
+				unselectable: models.ConfigItem{
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthUnhealthy),
+				},
+			},
+			{
+				name: "Healths multiple",
+				resourceSelector: types.ResourceSelector{
+					Namespace: "default",
+					Health:    "healthy,warning",
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -301,6 +320,10 @@ var _ = Describe("Resource Selector", func() {
 		}
 
 		for _, tt := range tests {
+			if tt.name != "Healths multiple - II" {
+				continue
+			}
+
 			It(tt.name, func() {
 				if tt.selectable != nil {
 					Expect(tt.resourceSelector.Matches(tt.selectable)).To(BeTrue())

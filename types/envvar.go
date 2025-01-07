@@ -342,14 +342,13 @@ func (t EnvVarResourceSelector) Hydrate(env map[string]any) (*ResourceSelector, 
 	}
 
 	if len(t.Healths) > 0 {
-		rs.Healths = make([]string, len(t.Healths))
 		for i, expr := range t.Healths {
 			if !expr.Empty() {
 				result, err := expr.Eval(env)
 				if err != nil {
 					return nil, fmt.Errorf("failed to evaluate health at index %d: %v", i, err)
 				}
-				rs.Healths[i] = result
+				rs.Health.Add(result)
 			}
 		}
 	}
