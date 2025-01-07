@@ -128,14 +128,15 @@ type ResourceSelector struct {
 	LabelSelector string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 	FieldSelector string `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
 
+	// Health filters resources by the health.
+	// Multiple healths can be provided separated by comma.
+	Health MatchExpression `json:"health,omitempty"`
+
 	// Types filter resources by the type
 	Types Items `yaml:"types,omitempty" json:"types,omitempty"`
 
 	// Statuses filter resources by the status
 	Statuses Items `yaml:"statuses,omitempty" json:"statuses,omitempty"`
-
-	// Healths filter resources by the health
-	Healths Items `yaml:"healths,omitempty" json:"healths,omitempty"`
 }
 
 // ParseFilteringQuery parses a filtering query string.
@@ -197,7 +198,7 @@ func (c ResourceSelector) allEmptyButName() bool {
 	return c.ID == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
 		len(c.Types) == 0 &&
 		len(c.Statuses) == 0 &&
-		len(c.Healths) == 0 &&
+		len(c.Health) == 0 &&
 		len(c.TagSelector) == 0 &&
 		len(c.LabelSelector) == 0 &&
 		len(c.FieldSelector) == 0
@@ -232,7 +233,7 @@ func (c ResourceSelector) Immutable() bool {
 		return false // still not specific enough
 	}
 
-	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 || len(c.Healths) != 0 {
+	if len(c.TagSelector) != 0 || len(c.LabelSelector) != 0 || len(c.FieldSelector) != 0 || len(c.Statuses) != 0 || len(c.Health) != 0 {
 		// These selectors work on mutable part of the resource, so they can't be cached indefinitely
 		return false
 	}
@@ -249,7 +250,7 @@ func (c ResourceSelector) Hash() string {
 		c.Scope,
 		strings.Join(c.Types.Sort(), ","),
 		strings.Join(c.Statuses.Sort(), ","),
-		strings.Join(c.Types.Sort(), ","),
+		string(c.Health),
 		collections.SortedMap(collections.SelectorToMap(c.TagSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.LabelSelector)),
 		collections.SortedMap(collections.SelectorToMap(c.FieldSelector)),
@@ -276,6 +277,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if rs.Namespace != "" && rs.Namespace != s.GetNamespace() {
 		return false
 	}
+
 	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
 		return false
 	}
@@ -290,7 +292,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if h, err := s.GetHealth(); err != nil {
 		logger.Errorf("failed to get health: %v", err)
 		return false
-	} else if len(rs.Healths) > 0 && !rs.Healths.Contains(h) {
+	} else if len(rs.Health) > 0 && !rs.Health.Match(h) {
 		return false
 	}
 

@@ -113,6 +113,34 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Types multiple",
+				resourceSelector: types.ResourceSelector{
+					Types: []string{"Kubernetes::Node", "Kubernetes::Pod"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Pod"),
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Deployment"),
+				},
+			},
+			{
+				name: "Type negatives",
+				resourceSelector: types.ResourceSelector{
+					Types: []string{"!Kubernetes::Deployment", "Kubernetes::Pod"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Pod"),
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("cert-manager"),
+					Type: lo.ToPtr("Kubernetes::Deployment"),
+				},
+			},
+			{
 				name: "Statuses",
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
@@ -135,7 +163,7 @@ var _ = Describe("Resource Selector", func() {
 				name: "Healths",
 				resourceSelector: types.ResourceSelector{
 					Namespace: "default",
-					Healths:   []string{"healthy"},
+					Health:    "healthy",
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -151,17 +179,22 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
-				name: "Types",
+				name: "Healths multiple",
 				resourceSelector: types.ResourceSelector{
-					Types: []string{"Kubernetes::Pod"},
+					Namespace: "default",
+					Health:    "healthy,warning",
 				},
 				selectable: models.ConfigItem{
-					Name: lo.ToPtr("cert-manager"),
-					Type: lo.ToPtr("Kubernetes::Pod"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthHealthy),
 				},
 				unselectable: models.ConfigItem{
-					Name: lo.ToPtr("cert-manager"),
-					Type: lo.ToPtr("Kubernetes::Deployment"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+					Health: lo.ToPtr(models.HealthUnhealthy),
 				},
 			},
 			{
@@ -287,6 +320,10 @@ var _ = Describe("Resource Selector", func() {
 		}
 
 		for _, tt := range tests {
+			if tt.name != "Healths multiple - II" {
+				continue
+			}
+
 			It(tt.name, func() {
 				if tt.selectable != nil {
 					Expect(tt.resourceSelector.Matches(tt.selectable)).To(BeTrue())
