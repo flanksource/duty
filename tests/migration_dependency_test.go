@@ -9,11 +9,20 @@ import (
 	"github.com/flanksource/duty/migrate"
 )
 
-var _ = Describe("migration dependency", Ordered, func() {
+var _ = Describe("migration dependency", Ordered, Serial, func() {
 	var connString string
 
 	BeforeAll(func() {
 		connString = DefaultContext.Value("db_url").(string)
+	})
+
+	AfterAll(func() {
+		sqlDB, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+
+		// we re-enable RLS
+		err = migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString, EnableRLS: true})
+		Expect(err).To(BeNil())
 	})
 
 	It("should have no executable scripts", func() {
