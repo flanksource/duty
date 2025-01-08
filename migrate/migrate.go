@@ -216,7 +216,8 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 			return err
 		} else if !granted {
 			if _, err := db.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, roleName, user)); err != nil {
-				log.Errorf("Failed to grant role %s to %s", roleName, user)
+				log.Errorf("Failed to grant role %s to %s: %v", roleName, user, err)
+				return err
 			} else {
 				log.Infof("Granted %s to %s", roleName, user)
 			}
