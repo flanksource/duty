@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
@@ -115,4 +116,43 @@ type LogNameAccessor interface {
 
 type NamespaceScopeAccessor interface {
 	NamespaceScope() string
+}
+
+// genericTagsMatcher implements TagsMatchable
+type genericTagsMatcher struct {
+	Tags map[string]string
+}
+
+func (c genericTagsMatcher) Get(key string) string {
+	return c.Tags[key]
+}
+
+func (c genericTagsMatcher) Has(key string) bool {
+	_, ok := c.Tags[key]
+	return ok
+}
+
+// noopMatcher implements TagsMatchable
+type noopMatcher struct {
+}
+
+func (t noopMatcher) Has(field string) (exists bool) {
+	return false
+}
+
+func (t noopMatcher) Get(field string) (value string) {
+	return ""
+}
+
+type genericFieldMatcher struct {
+	Fields map[string]any
+}
+
+func (c genericFieldMatcher) Get(key string) string {
+	return fmt.Sprintf("%v", c.Fields[key])
+}
+
+func (c genericFieldMatcher) Has(key string) bool {
+	_, ok := c.Fields[key]
+	return ok
 }

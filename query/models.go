@@ -38,7 +38,6 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 type QueryModel struct {
 	Table        string
 	LabelsColumn string
-	JSONColumn   string
 	DateFields   []string
 	Columns      []string
 	FieldMapper  map[string]func(ctx context.Context, id string) (any, error)
@@ -47,8 +46,7 @@ type QueryModel struct {
 }
 
 var ConfigQueryModel = QueryModel{
-	Table:      "configs",
-	JSONColumn: "config",
+	Table: "configs",
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 			if i, err := strconv.Atoi(val); err == nil {
@@ -92,8 +90,7 @@ var ConfigQueryModel = QueryModel{
 }
 
 var ComponentQueryModel = QueryModel{
-	Table:      "components",
-	JSONColumn: "component",
+	Table: "components",
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 			if i, err := strconv.Atoi(val); err == nil {
@@ -151,8 +148,7 @@ var ComponentQueryModel = QueryModel{
 }
 
 var CheckQueryModel = QueryModel{
-	Table:      "checks",
-	JSONColumn: "",
+	Table: "checks",
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 			if i, err := strconv.Atoi(val); err == nil {
@@ -193,6 +189,40 @@ var CheckQueryModel = QueryModel{
 	},
 }
 
+var PlaybookQueryModel = QueryModel{
+	Table: models.Playbook{}.TableName(),
+	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Limit(i), nil
+			} else {
+				return nil, err
+			}
+		},
+		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
+			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
+		},
+		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+			if i, err := strconv.Atoi(val); err == nil {
+				return tx.Offset(i), nil
+			} else {
+				return nil, err
+			}
+		},
+	},
+	Aliases: map[string]string{
+		"created":   "created_at",
+		"updated":   "updated_at",
+		"deleted":   "deleted_at",
+		"namespace": "@namespace",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
+	},
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
@@ -201,6 +231,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return ComponentQueryModel, nil
 	case models.Check{}.TableName():
 		return CheckQueryModel, nil
+	case models.Playbook{}.TableName():
+		return PlaybookQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}
@@ -223,7 +255,6 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 			if q.Value, err = mapper(ctx, val); err != nil {
 				return nil, nil, err
 			}
-
 		}
 
 		if mapper, ok := qm.Custom[q.Field]; ok {

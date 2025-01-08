@@ -259,7 +259,7 @@ func (c ConfigItem) GetStatus() (string, error) {
 }
 
 func (c ConfigItem) GetTagsMatcher() labels.Labels {
-	return configTags{c}
+	return genericTagsMatcher{c.Tags}
 }
 
 func (c ConfigItem) GetLabelsMatcher() labels.Labels {
@@ -268,19 +268,6 @@ func (c ConfigItem) GetLabelsMatcher() labels.Labels {
 
 func (c ConfigItem) GetFieldsMatcher() fields.Fields {
 	return configFields{c}
-}
-
-type configTags struct {
-	ConfigItem
-}
-
-func (c configTags) Get(key string) string {
-	return c.Tags[key]
-}
-
-func (c configTags) Has(key string) bool {
-	_, ok := c.Tags[key]
-	return ok
 }
 
 type configFields struct {

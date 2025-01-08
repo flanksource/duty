@@ -31,18 +31,5 @@ func FindComponents(ctx context.Context, limit int, resourceSelectors ...types.R
 }
 
 func FindComponentIDs(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	var allComponents []uuid.UUID
-	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, limit, resourceSelector, "components", models.AllowedColumnFieldsInComponents)
-		if err != nil {
-			return nil, err
-		}
-
-		allComponents = append(allComponents, items...)
-		if limit > 0 && len(allComponents) >= limit {
-			return allComponents[:limit], nil
-		}
-	}
-
-	return allComponents, nil
+	return queryTableWithResourceSelectors(ctx, "components", models.AllowedColumnFieldsInComponents, limit, resourceSelectors...)
 }

@@ -17,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+var AllowedColumnFieldsInPlaybooks = []string{"category"}
+
 // PlaybookRunStatus are statuses for a playbook run and its actions.
 type PlaybookRunStatus string
 
@@ -67,27 +69,40 @@ var PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 var _ types.ResourceSelectable = &Playbook{}
 
 type Playbook struct {
-	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
-	Namespace   string     `json:"namespace"`
-	Name        string     `json:"name"`
-	Title       string     `json:"title"`
-	Icon        string     `json:"icon,omitempty"`
-	Description string     `json:"description,omitempty"`
-	Spec        types.JSON `json:"spec"`
-	Source      string     `json:"source"`
-	Category    string     `json:"category"`
-	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt   time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	UpdatedAt   time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+	ID          uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
+	Namespace   string              `json:"namespace"`
+	Name        string              `json:"name"`
+	Title       string              `json:"title"`
+	Icon        string              `json:"icon,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Spec        types.JSON          `json:"spec"`
+	Source      string              `json:"source"`
+	Category    string              `json:"category"`
+	Tags        types.JSONStringMap `json:"tags,omitempty" gorm:"default:NULL"`
+	CreatedBy   *uuid.UUID          `json:"created_by,omitempty"`
+	CreatedAt   time.Time           `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	UpdatedAt   time.Time           `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt   *time.Time          `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (p Playbook) SelectableFields() map[string]any {
+	return map[string]any{
+		"category": p.Category,
+	}
 }
 
 func (p *Playbook) GetFieldsMatcher() fields.Fields {
-	return noopMatcher{}
+	return genericFieldMatcher{
+		Fields: p.SelectableFields(),
+	}
 }
 
 func (p *Playbook) GetLabelsMatcher() labels.Labels {
 	return noopMatcher{}
+}
+
+func (p *Playbook) GetTagsMatcher() labels.Labels {
+	return genericTagsMatcher{p.Tags}
 }
 
 func (p *Playbook) GetName() string {

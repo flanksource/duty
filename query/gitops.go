@@ -200,7 +200,7 @@ func gitopsSourceTemplateFunction() func(ctx context.Context) any {
 
 			source, err = GetGitOpsSource(ctx, id)
 			if err != nil {
-				ctx.Errorf(err.Error())
+				ctx.Errorf("%s", err)
 			}
 			return source.AsMap()
 		}

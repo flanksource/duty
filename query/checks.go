@@ -25,20 +25,7 @@ func FindCheckIDs(ctx context.Context, limit int, resourceSelectors ...types.Res
 		}
 	}
 
-	var allChecks []uuid.UUID
-	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, limit, resourceSelector, "checks", nil)
-		if err != nil {
-			return nil, err
-		}
-
-		allChecks = append(allChecks, items...)
-		if limit > 0 && len(allChecks) >= limit {
-			return allChecks[:limit], nil
-		}
-	}
-
-	return allChecks, nil
+	return queryTableWithResourceSelectors(ctx, "checks", nil, limit, resourceSelectors...)
 }
 
 func GetChecksByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Check, error) {

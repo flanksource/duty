@@ -135,17 +135,6 @@ func DeleteCheckComponentRelationshipsForCanary(db *gorm.DB, id string) error {
 	return db.Table("check_component_relationships").Where("canary_id = ?", id).UpdateColumn("deleted_at", Now()).Error
 }
 
-type noopMatcher struct {
-}
-
-func (t noopMatcher) Has(field string) (exists bool) {
-	return false
-}
-
-func (t noopMatcher) Get(field string) (value string) {
-	return ""
-}
-
 type canaryLabels struct {
 	Canary
 }

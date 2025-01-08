@@ -363,6 +363,25 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 	return GormValue(rs)
 }
 
+// MatchSelectables returns only those selectables that have at matches with at least one of the given selectors.
+func MatchSelectables[T ResourceSelectable](selectables []T, selectors ...ResourceSelector) []T {
+	if len(selectors) == 0 {
+		return nil
+	}
+
+	var matches []T
+	for _, selectable := range selectables {
+		for _, selector := range selectors {
+			if selector.Matches(selectable) {
+				matches = append(matches, selectable)
+				break
+			}
+		}
+	}
+
+	return matches
+}
+
 type TagsMatchable interface {
 	GetTagsMatcher() labels.Labels
 }
