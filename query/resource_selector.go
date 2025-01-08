@@ -152,8 +152,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	return &output, nil
 }
 
-func setResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
-
+func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
 	// We call setSearchQueryParams as it sets those params that
 	// might later be used by the query
 
@@ -397,7 +396,7 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 		query = query.Limit(limit)
 	}
 
-	query, err := setResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
+	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
 	if err != nil {
 		return nil, err
 	}
