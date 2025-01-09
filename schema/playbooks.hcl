@@ -351,6 +351,12 @@ table "playbook_run_actions" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+  foreign_key "playbook_run_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   check "playbook_action_not_null_run_id" {
     expr    = <<EOF
     (playbook_run_id IS NULL AND agent_id IS NOT NULL) OR
