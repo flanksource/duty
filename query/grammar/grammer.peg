@@ -30,8 +30,8 @@ FieldQuery
         return &types.QueryField{Op: "not", Value:n}, nil
    }
 
-   / _ n:Word _  {
-        return &types.QueryField{Op: "rest", Value:n}, nil
+   / _ n:(Word / Identifier) _  {
+        return &types.QueryField{Field: "name", Op: "=", Value:n}, nil
    }
 
 
@@ -63,7 +63,10 @@ Operator
 
 Value
   = val:(
-      Measure
+      DateTime
+    / ISODate
+    / Time
+    / Measure
     / Float
     / Integer
     / Identifier
@@ -72,15 +75,28 @@ Value
     return makeValue(val)
   }
 
-
-
 String
   = '"' chars:[^"]* '"' {
     return stringFromChars(chars), nil
   }
 
+ISODate
+  = [0-9][0-9][0-9][0-9] "-" [0-9][0-9] "-" [0-9][0-9] {
+      return string(c.text), nil
+  }
+
+Time
+  = [0-2][0-9] ":" [0-5][0-9] ":" [0-5][0-9] {
+      return string(c.text), nil
+  }
+
+DateTime
+  = ISODate _ Time {
+      return string(c.text), nil
+  }
+
 Word
-  = String / [-]? [a-zA-Z0-9]+ {
+  = String / [-]? [a-zA-Z0-9_*-]+ {
       return string(c.text), nil
   }
 
@@ -100,11 +116,9 @@ Float
     }
 
 Identifier
-  = [a-zA-Z0-9_]+ {
+  = [a-zA-Z0-9_*-]+ {
       return string(c.text), nil
   }
-
-
 
 _
   = [ \t]*

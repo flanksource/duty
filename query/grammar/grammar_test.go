@@ -46,8 +46,9 @@ var _ = Describe("grammar", func() {
                   "op": "not"
                 },
                 {
+                  "field": "name",
                   "value": "johnny",
-                  "op": "rest"
+                  "op": "="
                 },
                 {
                   "field": "type",
