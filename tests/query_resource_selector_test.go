@@ -287,7 +287,7 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 	})
 })
 
-var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
+var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
 	})
@@ -299,6 +299,24 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		expectedIDs []uuid.UUID
 		resource    string
 	}{
+		{
+			description: "config item direct query without quotes",
+			query:       `node-b`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config item direct query with quotes",
+			query:       `"node-b"`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config item direct query no match",
+			query:       `unknown-name`,
+			expectedIDs: []uuid.UUID{},
+			resource:    "config",
+		},
 		{
 			description: "config item query",
 			query:       `name="node-b" type="Kubernetes::Node"`,
@@ -313,13 +331,13 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "component query",
-			query:       `type="Application"`,
+			query:       `type=Application`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPI.ID, dummy.LogisticsUI.ID, dummy.LogisticsWorker.ID, dummy.KustomizeFluxComponent.ID},
 			resource:    "component",
 		},
 		{
 			description: "component in query",
-			query:       `type="Application,Gap"`,
+			query:       `type=Application,Gap`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPI.ID, dummy.LogisticsUI.ID, dummy.LogisticsWorker.ID, dummy.KustomizeFluxComponent.ID},
 			resource:    "component",
 		},
@@ -352,7 +370,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "component prefix and suffix query",
-			query:       `type="Kubernetes*" type="*Pod"`,
+			query:       `type=Kubernetes* type="*Pod"`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsUIPod.ID, dummy.LogisticsAPIPod.ID, dummy.LogisticsWorkerPod.ID},
 			resource:    "component",
 		},

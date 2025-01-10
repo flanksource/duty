@@ -30,8 +30,8 @@ FieldQuery
         return &types.QueryField{Op: "not", Value:n}, nil
    }
 
-   / _ n:Word _  {
-        return &types.QueryField{Op: "rest", Value:n}, nil
+   / _ n:(Word / Identifier) _  {
+        return &types.QueryField{Field: "name", Op: "=", Value:n}, nil
    }
 
 
@@ -80,7 +80,7 @@ String
   }
 
 Word
-  = String / [-]? [a-zA-Z0-9]+ {
+  = String / [-]? [a-zA-Z0-9_*-]+ {
       return string(c.text), nil
   }
 
@@ -100,7 +100,7 @@ Float
     }
 
 Identifier
-  = [a-zA-Z0-9_]+ {
+  = [a-zA-Z0-9_*-]+ {
       return string(c.text), nil
   }
 
