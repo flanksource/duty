@@ -313,7 +313,13 @@ var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "config item direct query no match",
-			query:       `unknown-name`,
+			query:       `unknown-name-config`,
+			expectedIDs: []uuid.UUID{},
+			resource:    "config",
+		},
+		{
+			description: "config item name query no match",
+			query:       `name=unknown-name-config`,
 			expectedIDs: []uuid.UUID{},
 			resource:    "config",
 		},
@@ -356,6 +362,12 @@ var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		{
 			description: "component created_at query",
 			query:       `created_at>2023-01-01`,
+			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			description: "component created_at query with quotes",
+			query:       `created_at>"2023-01-01"`,
 			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
 			resource:    "component",
 		},
