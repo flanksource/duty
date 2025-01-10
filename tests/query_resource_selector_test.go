@@ -287,7 +287,7 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 	})
 })
 
-var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
 	})
@@ -376,6 +376,15 @@ var _ = ginkgo.FDescribe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			// If this test fails, adjust relative time in query
 			// for the expected result
 			description: "component created_at now query",
+			query:       `created_at>now-2y`,
+			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
+			resource:    "component",
+		},
+		{
+			// This tests now-t feature of date time
+			// If this test fails, adjust relative time in query
+			// for the expected result
+			description: "component created_at now query with quotes",
 			query:       `created_at>"now-2y"`,
 			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
 			resource:    "component",
