@@ -204,8 +204,8 @@ table "playbook_runs" {
     type    = uuid
   }
   column "parent_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
     comment = "references the run that triggered this run"
   }
   column "error" {
@@ -216,7 +216,7 @@ table "playbook_runs" {
     columns = [column.id]
   }
   foreign_key "playbook_run_parent_id_fkey" {
-    columns = [column.parent_id]
+    columns     = [column.parent_id]
     ref_columns = [table.playbook_runs.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
@@ -370,13 +370,6 @@ table "playbook_run_actions" {
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
-  }
-  check "playbook_action_not_null_run_id" {
-    expr    = <<EOF
-    (playbook_run_id IS NULL AND agent_id IS NOT NULL) OR
-    (playbook_run_id IS NOT NULL)
-    EOF
-    comment = "a run id is mandatory except for an agent"
   }
 
   index "playbook_run_actions_status_time_idx" {
