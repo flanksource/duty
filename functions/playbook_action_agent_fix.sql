@@ -1,0 +1,14 @@
+DO $$
+BEGIN
+  IF EXISTS (
+      SELECT 1
+      FROM pg_tables
+      WHERE schemaname = 'public'
+      AND tablename = 'playbook_run_actions'
+  ) THEN
+      -- Remove agent_id on playbook actions in agents to satisfy the foreign key.
+      UPDATE playbook_run_actions SET agent_id = NULL WHERE agent_id NOT IN (
+        SELECT id FROM agents
+      );
+  END IF;
+END $$;
