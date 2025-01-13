@@ -271,6 +271,12 @@ table "permission_groups" {
     columns = [column.id]
   }
 
+  index "permission_namespace_name_key" {
+    unique  = true
+    columns = [column.namespace, column.name]
+    where   = "deleted_at IS NULL"
+  }
+
   foreign_key "permissions_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
