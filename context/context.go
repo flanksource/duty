@@ -8,6 +8,7 @@ import (
 	"time"
 
 	commons "github.com/flanksource/commons/context"
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
@@ -339,6 +340,23 @@ func (k Context) Pool() *pgxpool.Pool {
 	}
 	return v
 
+}
+
+// KubeAuthFingerprint generates a unique SHA-256 hash to identify the Kubernetes API server
+// and client authentication details from the REST configuration.
+func (k *Context) KubeAuthFingerprint() string {
+	rs := k.KubernetesRestConfig()
+	if rs == nil {
+		return ""
+	}
+
+	return hash.Sha256Hex(fmt.Sprintf("%s/%s/%s/%s/%s/%s",
+		rs.Host,
+		rs.Username,
+		rs.Password,
+		rs.BearerToken,
+		rs.BearerTokenFile,
+		rs.TLSClientConfig.CertData))
 }
 
 func (k *Context) Kubernetes() kubernetes.Interface {
