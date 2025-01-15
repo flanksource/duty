@@ -377,9 +377,9 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 
 	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
 
-	// NOTE: When RLS is enabled, we need to scope the cache per user.
-	if ctx.Value("rls-enabled") != nil && ctx.User() != nil {
-		hash += fmt.Sprintf("-%s", ctx.User().ID)
+	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
+	if payload := ctx.RLSPayload(); payload != nil {
+		hash += fmt.Sprintf("-rls-%s", payload.Fingerprint())
 	}
 
 	cacheToUse := getterCache
