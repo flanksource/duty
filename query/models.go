@@ -36,9 +36,8 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 	return nil, fmt.Errorf("invalid agent: %s", id)
 }
 
-var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, path string, val string) (*gorm.DB, error) {
-	tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) = ?`, column, path), val)
-	return tx, nil
+var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, path string, val string) *gorm.DB {
+	return tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) = ?`, column, path), val)
 }
 
 var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
@@ -232,7 +231,7 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 
 		for _, column := range qm.JSONColumns {
 			if strings.HasPrefix(q.Field, column) {
-				tx, err = JSONPathMapper(ctx, tx, column, strings.TrimPrefix(q.Field, column+"."), val)
+				tx = JSONPathMapper(ctx, tx, column, strings.TrimPrefix(q.Field, column+"."), val)
 				q.Field = column
 			}
 		}
