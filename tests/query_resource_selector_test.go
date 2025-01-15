@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
-	//"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
@@ -401,6 +400,30 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			query:       `type!="Application,Entity,Database,Kubernetes*,Flux*"`, // This covers all types in dummy components
 			expectedIDs: []uuid.UUID{},
 			resource:    "component",
+		},
+		{
+			description: "config soft and limit query",
+			query:       `name=node-* type="Kubernetes::Node" limit=1 sort=name`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
+			description: "config json query",
+			query:       `config.metadata.name=node-a`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
+			description: "config json integer query",
+			query:       `config.spec.replicas=3`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels query",
+			query:       `labels.account=flanksource labels.environment=production`,
+			expectedIDs: []uuid.UUID{dummy.EKSCluster.ID, dummy.EC2InstanceB.ID},
+			resource:    "config",
 		},
 	}
 
