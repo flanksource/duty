@@ -10,7 +10,7 @@ import (
 var _ = Describe("grammar", func() {
 
 	It("parses", func() {
-		result, err := ParsePEG("john:doe metadata.name=bob metadata.name!=harry spec.status.reason!=\"failed reson\"   -jane johnny type!=pod type!=replicaset  namespace!=\"a,b,c\"")
+		result, err := ParsePEG("metadata.name=bob metadata.name!=harry spec.status.reason!=\"failed reson\"   -jane johnny type!=pod type!=replicaset  namespace!=\"a,b,c\"")
 		Expect(err).To(BeNil())
 
 		resultJSON, err := json.Marshal(result)
@@ -21,11 +21,6 @@ var _ = Describe("grammar", func() {
             {
               "op": "and",
               "fields": [
-                {
-                  "field": "john",
-                  "value": "doe",
-                  "op": ":"
-                },
                 {
                   "field": "metadata.name",
                   "value": "bob",

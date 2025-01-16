@@ -116,7 +116,7 @@ Float
     }
 
 Identifier
-  = [a-zA-Z0-9_*-]+ {
+  = [a-zA-Z0-9_*-:\\[\]]+ {
       return string(c.text), nil
   }
 
