@@ -884,9 +884,9 @@ var g = &grammar{
 					pos: position{line: 119, col: 5, offset: 1872},
 					expr: &charClassMatcher{
 						pos:        position{line: 119, col: 5, offset: 1872},
-						val:        "[a-zA-Z0-9_*-]",
-						chars:      []rune{'_', '*', '-'},
-						ranges:     []rune{'a', 'z', 'A', 'Z', '0', '9'},
+						val:        "[a-zA-Z0-9_*-:\\\\[\\]]",
+						chars:      []rune{'_', '\\', '[', ']'},
+						ranges:     []rune{'a', 'z', 'A', 'Z', '0', '9', '*', ':'},
 						ignoreCase: false,
 						inverted:   false,
 					},
@@ -895,11 +895,11 @@ var g = &grammar{
 		},
 		{
 			name: "_",
-			pos:  position{line: 123, col: 1, offset: 1928},
+			pos:  position{line: 123, col: 1, offset: 1934},
 			expr: &zeroOrMoreExpr{
-				pos: position{line: 124, col: 5, offset: 1934},
+				pos: position{line: 124, col: 5, offset: 1940},
 				expr: &charClassMatcher{
-					pos:        position{line: 124, col: 5, offset: 1934},
+					pos:        position{line: 124, col: 5, offset: 1940},
 					val:        "[ \\t]",
 					chars:      []rune{' ', '\t'},
 					ignoreCase: false,
@@ -909,11 +909,11 @@ var g = &grammar{
 		},
 		{
 			name: "EOF",
-			pos:  position{line: 126, col: 1, offset: 1942},
+			pos:  position{line: 126, col: 1, offset: 1948},
 			expr: &notExpr{
-				pos: position{line: 127, col: 5, offset: 1950},
+				pos: position{line: 127, col: 5, offset: 1956},
 				expr: &anyMatcher{
-					line: 127, col: 6, offset: 1951,
+					line: 127, col: 6, offset: 1957,
 				},
 			},
 		},

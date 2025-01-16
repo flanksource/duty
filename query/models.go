@@ -203,6 +203,7 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 	var err error
 
 	if q.Field != "" {
+		originalField := q.Field
 		q.Field = strings.ToLower(q.Field)
 		if alias, ok := qm.Aliases[q.Field]; ok {
 			q.Field = alias
@@ -230,8 +231,8 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 		}
 
 		for _, column := range qm.JSONColumns {
-			if strings.HasPrefix(q.Field, column) {
-				tx = JSONPathMapper(ctx, tx, column, strings.TrimPrefix(q.Field, column+"."), val)
+			if strings.HasPrefix(originalField, column) {
+				tx = JSONPathMapper(ctx, tx, column, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
 		}

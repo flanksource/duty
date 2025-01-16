@@ -324,7 +324,13 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
-			description: "config item query",
+			description: "config item query with :: in string",
+			query:       `name=node-b type=Kubernetes::Node`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config item query with quotes",
 			query:       `name="node-b" type="Kubernetes::Node"`,
 			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
 			resource:    "config",
@@ -403,7 +409,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "config soft and limit query",
-			query:       `name=node-* type="Kubernetes::Node" limit=1 sort=name`,
+			query:       `name=node-* type=Kubernetes::Node limit=1 sort=name`,
 			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
 			resource:    "config",
 		},
@@ -423,6 +429,18 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			description: "config labels query",
 			query:       `labels.account=flanksource labels.environment=production`,
 			expectedIDs: []uuid.UUID{dummy.EKSCluster.ID, dummy.EC2InstanceB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config array query",
+			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
+			resource:    "config",
+		},
+		{
+			description: "config array query with integer matching",
+			query:       `config.spec.template.spec.containers[0].ports[0].containerPort=80`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
 			resource:    "config",
 		},
 	}
