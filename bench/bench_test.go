@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/flanksource/commons/logger"
+
 	"github.com/flanksource/duty/context"
+	pkgRLS "github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/shutdown"
 	"github.com/flanksource/duty/tests/setup"
 )
@@ -19,6 +21,9 @@ type DistinctBenchConfig struct {
 	// when left empty all columns are fetched (this is left empty for views with single column)
 	column string
 }
+
+// views with `tags` column
+// var viewsWithTags = []string{"catalog_changes", "config_detail", "configs"}
 
 var benchConfigs = []DistinctBenchConfig{
 	{"catalog_changes", "change_type"},
@@ -108,19 +113,47 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig) {
 				name = "With RLS"
 			}
 
+			// Testing out the performance when the RLS payload is also used as a WHERE clause
+			// if rls && lo.Contains(viewsWithTags, config.relation) {
+			// 	b.Run(name+"-With-Clause", func(b *testing.B) {
+			// 		for i := 0; i < b.N; i++ {
+			// 			b.StopTimer()
+			// 			payload := pkgRLS.Payload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
+			// 			if err := payload.SetPostgresSessionRLS(testCtx.DB(), false); err != nil {
+			// 				b.Fatalf("failed to setup rls payload(%v): %v", payload, err)
+			// 			}
+			// 			b.StartTimer()
+
+			// 			if result, err := fetchView(testCtx, config.relation, config.column, payload.Tags[0]); err != nil {
+			// 				b.Fatalf("%v", err)
+			// 			} else if result == 0 {
+			// 				b.Fatalf("payload [%#v] got 0 results", payload)
+			// 			}
+			// 		}
+			// 	})
+			// 	resetPG(b, rls)
+			// }
+
 			b.Run(name, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
+					var payload pkgRLS.Payload
 					if rls {
 						b.StopTimer()
-						tags := sampleTags[i%len(sampleTags)]
-						if err := setupRLSPayload(testCtx, tags); err != nil {
-							b.Fatalf("failed to setup rls payload with tag(%v): %v", tags, err)
+						payload = pkgRLS.Payload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
+						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
+							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
+						}
+
+						if err := verifyRLSPayload(testCtx); err != nil {
+							b.Fatalf("rls payload wasn't setup: %v", err)
 						}
 						b.StartTimer()
 					}
 
-					if err := fetchView(testCtx, config.relation, config.column); err != nil {
+					if result, err := fetchView(testCtx, config.relation, config.column, nil); err != nil {
 						b.Fatalf("%v", err)
+					} else if result == 0 {
+						b.Fatalf("payload [%#v] got 0 results which doesn't seem right", payload)
 					}
 				}
 			})

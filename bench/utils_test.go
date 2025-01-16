@@ -1,12 +1,9 @@
 package bench_test
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,17 +28,8 @@ var sampleTags = []map[string]string{
 	{"region": "us-east-2"},
 }
 
-func getRandomTag() map[string]string {
-	max := big.NewInt(int64(len(sampleTags)))
-	n, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		panic(err)
-	}
-
-	return sampleTags[n.Int64()]
-}
-
 func generateConfigItems(ctx context.Context, count int) error {
+	var iter int
 	for {
 		var totalConfigs int64
 		if err := ctx.DB().Table("config_items").Count(&totalConfigs).Error; err != nil {
@@ -71,57 +59,36 @@ func generateConfigItems(ctx context.Context, count int) error {
 				NumChangesPerConfig:  1,
 				NumInsightsPerConfig: 2,
 			},
-			Tags: getRandomTag(),
+			Tags: sampleTags[iter%len(sampleTags)],
 		}
 
 		generator.GenerateKubernetes()
 		if err := generator.Save(ctx.DB()); err != nil {
 			return err
 		}
+		iter++
 	}
 
 	return nil
 }
 
-func fetchView(ctx context.Context, view, column string) error {
+func fetchView(ctx context.Context, view, column string, tags map[string]string) (int, error) {
 	selectColumns := "*"
 	if column != "" {
 		selectColumns = fmt.Sprintf("DISTINCT %s", column) // use distinct so we don't fetch a lot of rows
 	}
 
+	query := ctx.DB().Select(selectColumns).Table(view)
+	for k, v := range tags {
+		query.Where("tags ->> ? = ?", k, v)
+	}
+
 	var result []string
-	if err := ctx.DB().Select(selectColumns).Table(view).Scan(&result).Error; err != nil {
-		return fmt.Errorf("failed to fetch distinct types for %s: %w", view, err)
+	if err := query.Scan(&result).Error; err != nil {
+		return 0, fmt.Errorf("failed to fetch distinct types for %s: %w", view, err)
 	}
 
-	return nil
-}
-
-func setupRLSPayload(ctx context.Context, tags map[string]string) error {
-	bb, err := json.Marshal(tags)
-	if err != nil {
-		return err
-	}
-
-	sql := fmt.Sprintf(`SET request.jwt.claims = '{"tags": [%s]}'`, string(bb))
-	if err := ctx.DB().Exec(sql).Error; err != nil {
-		return err
-	}
-
-	var jwt string
-	if err := ctx.DB().Raw(`SELECT current_setting('request.jwt.claims', TRUE)`).Scan(&jwt).Error; err != nil {
-		return err
-	}
-
-	if err := ctx.DB().Exec(`SET role = 'postgrest_api'`).Error; err != nil {
-		return err
-	}
-
-	if err := verifyRLSPayload(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return len(result), nil
 }
 
 func verifyRLSPayload(ctx context.Context) error {
@@ -167,10 +134,6 @@ func resetPG(b *testing.B, rlsEnable bool) {
 	if rlsEnable {
 		if err := duty.Migrate(duty.EnableRLS(duty.RunMigrations(api.NewConfig(connUrl)))); err != nil {
 			b.Fatalf("failed to enable rls: %v", err)
-		}
-
-		if err := setupRLSPayload(testCtx, getRandomTag()); err != nil {
-			b.Fatalf("failed to setup tags after restart: %v", err)
 		}
 	} else {
 		if err := duty.Migrate(duty.RunMigrations(api.NewConfig(connUrl))); err != nil {
