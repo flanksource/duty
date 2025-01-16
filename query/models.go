@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -35,41 +36,46 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 	return nil, fmt.Errorf("invalid agent: %s", id)
 }
 
+var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, path string, val string) *gorm.DB {
+	return tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) = ?`, column, path), val)
+}
+
+var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+	"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+		if i, err := strconv.Atoi(val); err == nil {
+			return tx.Limit(i), nil
+		} else {
+			return nil, err
+		}
+	},
+	"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
+		return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
+	},
+	"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+		if i, err := strconv.Atoi(val); err == nil {
+			return tx.Offset(i), nil
+		} else {
+			return nil, err
+		}
+	},
+}
+
 type QueryModel struct {
-	Table        string
-	LabelsColumn string
-	DateFields   []string
-	Columns      []string
-	FieldMapper  map[string]func(ctx context.Context, id string) (any, error)
-	Custom       map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
-	Aliases      map[string]string
+	Table       string
+	JSONColumns []string
+	DateFields  []string
+	Columns     []string
+	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
+	Custom      map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
+	Aliases     map[string]string
 }
 
 var ConfigQueryModel = QueryModel{
 	Table: "configs",
-	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
-		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Limit(i), nil
-			} else {
-				return nil, err
-			}
-		},
-		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
-			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
-		},
-		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Offset(i), nil
-			} else {
-				return nil, err
-			}
-		},
-	},
 	Columns: []string{
 		"name", "source", "type", "status", "health",
 	},
-	LabelsColumn: "labels",
+	JSONColumns: []string{"labels", "tags", "config"},
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -92,23 +98,6 @@ var ConfigQueryModel = QueryModel{
 var ComponentQueryModel = QueryModel{
 	Table: "components",
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
-		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Limit(i), nil
-			} else {
-				return nil, err
-			}
-		},
-		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
-			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
-		},
-		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Offset(i), nil
-			} else {
-				return nil, err
-			}
-		},
 		"component_config_traverse": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
 			// Args should be componentID, direction and types (compID,direction)
@@ -127,7 +116,7 @@ var ComponentQueryModel = QueryModel{
 	Columns: []string{
 		"name", "topology_id", "type", "status", "health",
 	},
-	LabelsColumn: "labels",
+	JSONColumns: []string{"labels", "properties"},
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
@@ -149,29 +138,10 @@ var ComponentQueryModel = QueryModel{
 
 var CheckQueryModel = QueryModel{
 	Table: "checks",
-	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
-		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Limit(i), nil
-			} else {
-				return nil, err
-			}
-		},
-		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
-			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
-		},
-		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Offset(i), nil
-			} else {
-				return nil, err
-			}
-		},
-	},
 	Columns: []string{
 		"name", "canary_id", "type", "status",
 	},
-	LabelsColumn: "labels",
+	JSONColumns: []string{"labels"},
 	Aliases: map[string]string{
 		"created":    "created_at",
 		"updated":    "updated_at",
@@ -191,25 +161,6 @@ var CheckQueryModel = QueryModel{
 
 var PlaybookQueryModel = QueryModel{
 	Table: models.Playbook{}.TableName(),
-	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
-		"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Limit(i), nil
-			} else {
-				return nil, err
-			}
-		},
-		"sort": func(ctx context.Context, tx *gorm.DB, sort string) (*gorm.DB, error) {
-			return tx.Order(clause.OrderByColumn{Column: clause.Column{Name: sort}}), nil
-		},
-		"offset": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
-			if i, err := strconv.Atoi(val); err == nil {
-				return tx.Offset(i), nil
-			} else {
-				return nil, err
-			}
-		},
-	},
 	Aliases: map[string]string{
 		"created":   "created_at",
 		"updated":   "updated_at",
@@ -238,12 +189,19 @@ func GetModelFromTable(table string) (QueryModel, error) {
 	}
 }
 
+var (
+	// QueryModel.Apply will ignore these fields when converting to clauses
+	// as we modify the tx directly for them
+	ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags"}
+)
+
 func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {
 		tx = ctx.DB().Table(qm.Table)
 	}
 	clauses := []clause.Expression{}
 	var err error
+
 	if q.Field != "" {
 		q.Field = strings.ToLower(q.Field)
 		if alias, ok := qm.Aliases[q.Field]; ok {
@@ -257,6 +215,13 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 			}
 		}
 
+		if mapper, ok := CommonFields[q.Field]; ok {
+			tx, err = mapper(ctx, tx, val)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "Invalid value for %s", q.Field)
+			}
+		}
+
 		if mapper, ok := qm.Custom[q.Field]; ok {
 			tx, err = mapper(ctx, tx, val)
 			if err != nil {
@@ -264,10 +229,19 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 			}
 		}
 
-		if c, err := q.ToClauses(); err != nil {
-			return nil, nil, err
-		} else {
-			clauses = append(clauses, c...)
+		for _, column := range qm.JSONColumns {
+			if strings.HasPrefix(q.Field, column) {
+				tx = JSONPathMapper(ctx, tx, column, strings.TrimPrefix(q.Field, column+"."), val)
+				q.Field = column
+			}
+		}
+
+		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
+			if c, err := q.ToClauses(); err != nil {
+				return nil, nil, err
+			} else {
+				clauses = append(clauses, c...)
+			}
 		}
 	}
 

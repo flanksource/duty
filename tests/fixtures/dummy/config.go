@@ -208,7 +208,45 @@ var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("logistics-api"),
 	ConfigClass: models.ConfigClassDeployment,
-	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Config: lo.ToPtr(`{
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "logistics-api",
+        "labels": {
+          "app": "logistics-api"
+        }
+      },
+      "spec": {
+        "replicas": 3,
+        "selector": {
+          "matchLabels": {
+            "app": "logistics-api"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "logistics-api"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "logistics-api",
+                "image": "logistics-api:latest",
+                "ports": [
+                  {
+                    "containerPort": 80
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }`),
+	Type: lo.ToPtr("Kubernetes::Deployment"),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
