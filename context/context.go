@@ -13,6 +13,7 @@ import (
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,6 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 )
+
+type ContextKey string
+
+const rlsPayloadCtxKey ContextKey = "rls-payload"
 
 func init() {
 	logger.SkipFrameSuffixes = append(logger.SkipFrameSuffixes, "context/context.go")
@@ -401,7 +406,19 @@ func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
 	c := k.WithKubernetes(clientset, restConfig)
 
 	return &c, nil
+}
 
+func (k Context) WithRLSPayload(payload *rls.Payload) Context {
+	return k.WithValue(rlsPayloadCtxKey, payload)
+}
+
+func (k Context) RLSPayload() *rls.Payload {
+	v := k.Value(rlsPayloadCtxKey)
+	if v == nil {
+		return nil
+	}
+
+	return v.(*rls.Payload)
 }
 
 func (k Context) Topology() any {

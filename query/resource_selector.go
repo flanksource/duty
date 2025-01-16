@@ -376,6 +376,12 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 	}
 
 	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
+
+	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
+	if payload := ctx.RLSPayload(); payload != nil {
+		hash += fmt.Sprintf("-rls-%s", payload.Fingerprint())
+	}
+
 	cacheToUse := getterCache
 	if resourceSelector.Immutable() {
 		cacheToUse = immutableCache
