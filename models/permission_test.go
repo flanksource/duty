@@ -19,7 +19,7 @@ func TestPermission_Condition(t *testing.T) {
 			perm: Permission{
 				PlaybookID: lo.ToPtr(uuid.MustParse("33333333-3333-3333-3333-333333333333")),
 			},
-			expected: `r.obj.playbook.id == "33333333-3333-3333-3333-333333333333"`,
+			expected: `r.obj.Playbook.ID == "33333333-3333-3333-3333-333333333333"`,
 		},
 		{
 			name: "Multiple fields II",
@@ -27,7 +27,7 @@ func TestPermission_Condition(t *testing.T) {
 				ConfigID:   lo.ToPtr(uuid.MustParse("88888888-8888-8888-8888-888888888888")),
 				PlaybookID: lo.ToPtr(uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")),
 			},
-			expected: `r.obj.config.id == "88888888-8888-8888-8888-888888888888" && r.obj.playbook.id == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"`,
+			expected: `r.obj.Config.ID == "88888888-8888-8888-8888-888888888888" && r.obj.Playbook.ID == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"`,
 		},
 		{
 			name:     "No fields set",

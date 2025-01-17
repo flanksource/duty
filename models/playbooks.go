@@ -422,24 +422,8 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 	return s
 }
 
-type RBACAttribute struct {
-	Playbook  Playbook   `json:"playbook"`
-	Component Component  `json:"component"`
-	Config    ConfigItem `json:"config"`
-	Check     Check      `json:"check"`
-}
-
-func (r RBACAttribute) AsMap() map[string]any {
-	return map[string]any{
-		"component": r.Component.AsMap(),
-		"config":    r.Config.AsMap(),
-		"check":     r.Check.AsMap(),
-		"playbook":  r.Playbook.AsMap(),
-	}
-}
-
-func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
-	var output RBACAttribute
+func (run *PlaybookRun) GetABACAttributes(db *gorm.DB) (*ABACAttribute, error) {
+	var output ABACAttribute
 
 	var playbook Playbook
 	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {

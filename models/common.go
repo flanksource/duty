@@ -156,3 +156,13 @@ func (c genericFieldMatcher) Has(key string) bool {
 	_, ok := c.Fields[key]
 	return ok
 }
+
+// ABACAttribute is the object passed to casbin for authorization checks.
+//
+// NOTE: the fields are not a pointer to avoid nil pointer checks in the casbin policy.
+type ABACAttribute struct {
+	Playbook  Playbook
+	Component Component
+	Config    ConfigItem
+	Check     Check
+}
