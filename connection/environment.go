@@ -132,8 +132,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			}
 		}
 
-		if filepath.IsAbs(connections.Kubernetes.KubeConfig.ValueStatic) {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", connections.Kubernetes.KubeConfig.ValueStatic))
+		if filepath.IsAbs(connections.Kubernetes.Kubeconfig.ValueStatic) {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", connections.Kubernetes.Kubeconfig.ValueStatic))
 		} else {
 			configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
 			if err != nil {
