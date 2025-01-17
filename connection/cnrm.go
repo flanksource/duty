@@ -28,34 +28,34 @@ func (t *CNRMConnection) Populate(ctx ConnectionContext) error {
 func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	cnrmCluster, restConfig, err := t.GKE.KubernetesClient(ctx, freshToken)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create kubernetes client for GKE: %w", err)
+		return nil, nil, fmt.Errorf("failed to create Kubernetes client for GKE: %w", err)
 	}
 
 	containerResourceKubeClient, err := dutyKube.NewKubeClient(cnrmCluster, restConfig).
 		GetClientByGroupVersionKind("container.cnrm.cloud.google.com", "v1beta1", "ContainerCluster")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get client by GroupVersionKind: %w", err)
 	}
 
 	obj, err := containerResourceKubeClient.Namespace(t.ClusterResourceNamespace).Get(ctx, t.ClusterResource, metav1.GetOptions{})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get cluster resource: %w", err)
 	}
 
-	clusterResourceRestConfig, err := t.createRestConfigForClusteResource(ctx, freshToken, obj)
+	clusterResourceRestConfig, err := t.createRestConfigForClusterResource(ctx, freshToken, obj)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create REST config for cluster resource: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(clusterResourceRestConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create Kubernetes clientset: %w", err)
 	}
 
-	return clientset, restConfig, nil
+	return clientset, clusterResourceRestConfig, nil
 }
 
-func (t *CNRMConnection) createRestConfigForClusteResource(ctx context.Context, freshToken bool, clusterObj *unstructured.Unstructured) (*rest.Config, error) {
+func (t *CNRMConnection) createRestConfigForClusterResource(ctx context.Context, freshToken bool, clusterObj *unstructured.Unstructured) (*rest.Config, error) {
 	endpoint, found, err := unstructured.NestedString(clusterObj.Object, "status", "endpoint")
 	if err != nil || !found {
 		return nil, fmt.Errorf("failed to extract cluster endpoint from cluster resource: %w", err)

@@ -143,7 +143,7 @@ func (g *GCPConnection) HydrateConnection(ctx ConnectionContext) error {
 
 	if g.Credentials != nil {
 		if cred, err := ctx.GetEnvValueFromCache(*g.Credentials, ctx.GetNamespace()); err != nil {
-			return fmt.Errorf("could get gcloud credentials from env var: %w", err)
+			return fmt.Errorf("could not get GCP credentials from env var: %w", err)
 		} else {
 			g.Credentials.ValueStatic = cred
 		}
