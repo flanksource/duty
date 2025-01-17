@@ -68,12 +68,12 @@ func eksClusterDetails(ctx gocontext.Context, clusterName string, conf aws.Confi
 	eksClient := eks.NewFromConfig(conf)
 	cluster, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &clusterName})
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to get cluster info: %v", err)
+		return "", nil, fmt.Errorf("unable to get cluster info: %w", err)
 	}
 
 	ca, err := base64.URLEncoding.DecodeString(*cluster.Cluster.CertificateAuthority.Data)
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to presign URL: %v", err)
+		return "", nil, fmt.Errorf("unable to base64 decode ca: %w", err)
 	}
 
 	return *cluster.Cluster.Endpoint, ca, nil
