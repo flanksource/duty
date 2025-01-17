@@ -104,7 +104,7 @@ func (t *Permission) Condition() string {
 
 	if len(t.ObjectSelector) > 0 {
 		// TODO: Find a way to pass in the JSON encoded string instead of encoding with base64
-		rule = append(rule, fmt.Sprintf(`matchResourceSelector(r.obj, %q)`, base64.StdEncoding.EncodeToString([]byte(t.ObjectSelector))))
+		rule = append(rule, fmt.Sprintf(`matchResourceSelector(r.obj, '%s')`, base64.StdEncoding.EncodeToString([]byte(t.ObjectSelector))))
 	}
 
 	if t.ComponentID != nil {
@@ -129,7 +129,7 @@ func (t *Permission) Condition() string {
 			agents = append(agents, fmt.Sprintf("'%s'", agentID))
 		}
 
-		rule = append(rule, fmt.Sprintf(`"matchPerm(r.obj, (%s), '%s')"`, strings.Join(agents, ","), collections.SortedMap(t.Tags)))
+		rule = append(rule, fmt.Sprintf(`matchPerm(r.obj, (%s), '%s')`, strings.Join(agents, ","), collections.SortedMap(t.Tags)))
 	}
 
 	return strings.Join(rule, " && ")
