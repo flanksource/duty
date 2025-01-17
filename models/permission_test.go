@@ -39,7 +39,7 @@ func TestPermission_Condition(t *testing.T) {
 			perm: Permission{
 				Agents: pq.StringArray([]string{"aws", "azure"}),
 			},
-			expected: `"matchPerm(r.obj, ('aws','azure'), '')"`,
+			expected: `matchPerm(r.obj, ('aws','azure'), '')`,
 		},
 		{
 			name: "tags",
@@ -48,7 +48,7 @@ func TestPermission_Condition(t *testing.T) {
 					"cluster": "aws",
 				},
 			},
-			expected: `"matchPerm(r.obj, (), 'cluster=aws')"`,
+			expected: `matchPerm(r.obj, (), 'cluster=aws')`,
 		},
 	}
 

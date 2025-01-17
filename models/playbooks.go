@@ -423,10 +423,19 @@ func (p *PlaybookRun) String(db *gorm.DB) string {
 }
 
 type RBACAttribute struct {
-	Playbook  *Playbook
-	Component *Component
-	Config    *ConfigItem
-	Check     *Check
+	Playbook  Playbook   `json:"playbook"`
+	Component Component  `json:"component"`
+	Config    ConfigItem `json:"config"`
+	Check     Check      `json:"check"`
+}
+
+func (r RBACAttribute) AsMap() map[string]any {
+	return map[string]any{
+		"component": r.Component.AsMap(),
+		"config":    r.Config.AsMap(),
+		"check":     r.Check.AsMap(),
+		"playbook":  r.Playbook.AsMap(),
+	}
 }
 
 func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
@@ -436,14 +445,14 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
 	if err := db.First(&playbook, run.PlaybookID).Error; err != nil {
 		return nil, err
 	}
-	output.Playbook = &playbook
+	output.Playbook = playbook
 
 	if run.ComponentID != nil {
 		var component Component
 		if err := db.First(&component, run.ComponentID).Error; err != nil {
 			return nil, err
 		}
-		output.Component = &component
+		output.Component = component
 	}
 
 	if run.CheckID != nil {
@@ -451,7 +460,7 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
 		if err := db.First(&check, run.CheckID).Error; err != nil {
 			return nil, err
 		}
-		output.Check = &check
+		output.Check = check
 	}
 
 	if run.ConfigID != nil {
@@ -459,7 +468,7 @@ func (run *PlaybookRun) GetRBACAttributes(db *gorm.DB) (*RBACAttribute, error) {
 		if err := db.First(&config, run.ConfigID).Error; err != nil {
 			return nil, err
 		}
-		output.Config = &config
+		output.Config = config
 	}
 
 	return &output, nil
