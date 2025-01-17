@@ -210,10 +210,10 @@ github.com/flanksource/artifacts v1.0.14 h1:Vv70bccsae0MwGaf/uSPp34J5V1/PyKfct9z
 github.com/flanksource/artifacts v1.0.14/go.mod h1:qHVCnQu5k50aWNJ5UhpcAKEl7pAzqUrFFKGSm147G70=
 github.com/flanksource/commons v1.35.3 h1:EG46iWodmSQQbXywjvEAgK56ZH26jYtMv0RiPM3eKDE=
 github.com/flanksource/commons v1.35.3/go.mod h1:cLZURmvF0dw3wR5VyPuibRl/7h+NEiyMdo70WhJFB9Y=
-github.com/flanksource/gomplate/v3 v3.24.50 h1:z8wKtFqp6yqKf2aiNfKeiG57/JlvYmpGULApQI+4rM4=
-github.com/flanksource/gomplate/v3 v3.24.50/go.mod h1:N8lVd8fnm6gS0l3JWlcJgso2Ol9P2L7CW00gvuIHEk0=
-github.com/flanksource/is-healthy v1.0.57 h1:y9lyxu4GxWcghmT8uWAkg0gaC8bAUdJ4aOUGDpe4oQo=
-github.com/flanksource/is-healthy v1.0.57/go.mod h1:5MUvkRbq78aPVIpwGjpn+k89n5+1thBLIRdhfcozUcQ=
+github.com/flanksource/gomplate/v3 v3.24.51 h1:m8uhsik08tFzetzgfLUXJvX6pUG/Pw6mXALZ/uD8j7c=
+github.com/flanksource/gomplate/v3 v3.24.51/go.mod h1:Rs9M4eQiklEoNyNjXTOC+Gxeiy0P7/Pgq3xRCzGBY7E=
+github.com/flanksource/is-healthy v1.0.58 h1:bkhmlxbG7cF4NvfsMf7/WWKBvb0wOjTWViwMlKjlDds=
+github.com/flanksource/is-healthy v1.0.58/go.mod h1:5MUvkRbq78aPVIpwGjpn+k89n5+1thBLIRdhfcozUcQ=
 github.com/flanksource/kubectl-neat v1.0.4 h1:t5/9CqgE84oEtB0KitgJ2+WIeLfD+RhXSxYrqb4X8yI=
 github.com/flanksource/kubectl-neat v1.0.4/go.mod h1:Un/Voyh3cmiZNKQrW/TkAl28nAA7vwnwDGVjRErKjOw=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
@@ -470,6 +470,10 @@ github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD
 github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
 github.com/jinzhu/now v1.1.5 h1:/o9tlHleP7gOFmsnYNz3RGnqzefHA47wQpKrrdTIwXQ=
 github.com/jinzhu/now v1.1.5/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/z8=
+github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 h1:liMMTbpW34dhU4az1GN0pTPADwNmvoRSeoZ6PItiqnY=
+github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
+github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=
+github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=

@@ -20,7 +20,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.29.0
 	github.com/flanksource/artifacts v1.0.14
 	github.com/flanksource/commons v1.35.3
-	github.com/flanksource/gomplate/v3 v3.24.50
+	github.com/flanksource/gomplate/v3 v3.24.51
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.6.0
@@ -125,7 +125,7 @@ require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/flanksource/is-healthy v1.0.57 // indirect
+	github.com/flanksource/is-healthy v1.0.58 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
@@ -179,6 +179,7 @@ require (
 	github.com/jeremywohl/flatten v0.0.0-20180923035001-588fe0d4c603 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
