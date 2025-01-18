@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/samber/lo"
 
@@ -166,6 +167,22 @@ type GitConnection struct {
 	// Destination is the full path to where the contents of the URL should be downloaded to.
 	// If left empty, the sha256 hash of the URL will be used as the dir name.
 	Destination *string `yaml:"destination,omitempty" json:"destination,omitempty"`
+}
+
+func (git GitConnection) GetURL() types.EnvVar {
+	return types.EnvVar{ValueStatic: git.URL}
+}
+
+func (git GitConnection) GetUsername() types.EnvVar {
+	return utils.Deref(git.Username)
+}
+
+func (git GitConnection) GetPassword() types.EnvVar {
+	return utils.Deref(git.Password)
+}
+
+func (git GitConnection) GetCertificate() types.EnvVar {
+	return utils.Deref(git.Certificate)
 }
 
 func (c *GitConnection) HydrateConnection(ctx context.Context) error {

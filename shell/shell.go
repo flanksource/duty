@@ -199,7 +199,7 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 			"stdout", result.Stdout,
 			"extra", result.Extra,
 			"exit-code", result.ExitCode,
-		).Code(fmt.Sprintf("exited with %d", result.ExitCode)).Errorf(result.Error.Error())
+		).Code(fmt.Sprintf("exited with %d", result.ExitCode)).Errorf("%v", result.Error.Error())
 	}
 
 	return &result, nil

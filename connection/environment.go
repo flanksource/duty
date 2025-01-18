@@ -116,8 +116,6 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		}
 	}
 
-	cmd.Env = os.Environ()
-
 	if connections.Kubernetes != nil {
 		if lo.FromPtr(connections.FromConfigItem) == "" {
 			if err := connections.Kubernetes.Populate(ctx); err != nil {
