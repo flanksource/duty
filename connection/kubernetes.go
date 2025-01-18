@@ -3,40 +3,93 @@ package connection
 import (
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	"github.com/flanksource/duty/context"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 )
 
 // +kubebuilder:object:generate=true
+type KubeconfigConnection struct {
+	// Connection name to populate kubeconfig
+	ConnectionName string        `json:"connection,omitempty"`
+	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
+}
+
+func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+	if t.ConnectionName != "" {
+		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
+		if err != nil {
+			return nil, nil, err
+		} else if connection == nil {
+			return nil, nil, fmt.Errorf("connection[%s] not found", t.ConnectionName)
+		}
+
+		t.Kubeconfig.ValueStatic = connection.Certificate
+	}
+
+	if t.Kubeconfig != nil {
+		if v, err := ctx.GetEnvValueFromCache(*t.Kubeconfig, ctx.GetNamespace()); err != nil {
+			return nil, nil, err
+		} else {
+			t.Kubeconfig.ValueStatic = v
+		}
+
+		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
+	}
+
+	return nil, nil, nil
+}
+
+// +kubebuilder:object:generate=true
 type KubernetesConnection struct {
-	ConnectionName string       `json:"connection,omitempty"`
-	KubeConfig     types.EnvVar `json:"kubeconfig,omitempty"`
+	KubeconfigConnection `json:",inline"`
+
+	EKS  *EKSConnection  `json:"eks,omitempty"`
+	GKE  *GKEConnection  `json:"gke,omitempty"`
+	CNRM *CNRMConnection `json:"cnrm,omitempty"`
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
 	return models.Connection{
 		Type:        models.ConnectionTypeKubernetes,
-		Certificate: t.KubeConfig.ValueStatic,
+		Certificate: t.Kubeconfig.ValueStatic,
 	}
 }
 
-func (t *KubernetesConnection) Populate(ctx ConnectionContext) error {
-	if t.ConnectionName != "" {
-		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
-		if err != nil {
-			return err
-		} else if connection == nil {
-			return fmt.Errorf("connection[%s] not found", t.ConnectionName)
+func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
+	} else if clientset != nil {
+		return clientset, restConfig, nil
+	}
+
+	if t.GKE != nil {
+		if err := t.GKE.Populate(ctx); err != nil {
+			return nil, nil, err
 		}
 
-		t.KubeConfig.ValueStatic = connection.Certificate
+		return t.GKE.KubernetesClient(ctx, freshToken)
 	}
 
-	if v, err := ctx.GetEnvValueFromCache(t.KubeConfig, ctx.GetNamespace()); err != nil {
-		return err
-	} else {
-		t.KubeConfig.ValueStatic = v
+	if t.EKS != nil {
+		if err := t.EKS.Populate(ctx); err != nil {
+			return nil, nil, err
+		}
+
+		return t.EKS.KubernetesClient(ctx, freshToken)
 	}
 
-	return nil
+	if t.CNRM != nil {
+		if err := t.CNRM.Populate(ctx); err != nil {
+			return nil, nil, err
+		}
+
+		return t.CNRM.KubernetesClient(ctx, freshToken)
+	}
+
+	return nil, nil, nil
 }
