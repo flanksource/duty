@@ -79,13 +79,18 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 		{
 			var configItem models.ConfigItem
-			if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).First(&configItem).Error; err != nil {
+			if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).Find(&configItem).Error; err != nil {
 				return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
+			} else if configItem.ID.String() != *connections.FromConfigItem {
+				return nil, fmt.Errorf("cannot setup connection from config %s. not found", *connections.FromConfigItem)
 			}
 
 			var scrapeConfig models.ConfigScraper
-			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).First(&scrapeConfig).Error; err != nil {
+			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).Find(&scrapeConfig).Error; err != nil {
 				return nil, fmt.Errorf("failed to get scrapeconfig (%s): %w", lo.FromPtr(configItem.ScraperID), err)
+			} else if scrapeConfig.ID.String() != lo.FromPtr(configItem.ScraperID) {
+				return nil, fmt.Errorf("cannot setup connection from config %s. scraper %s not found", *connections.FromConfigItem,
+					lo.FromPtr(configItem.ScraperID))
 			}
 			scraperNamespace = scrapeConfig.Namespace
 
