@@ -71,9 +71,7 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 // SetupConnections creates the necessary credential files and injects env vars
 // into the cmd
 func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (func() error, error) {
-	var cleaner = func() error {
-		return nil
-	}
+	var cleaners []func() error
 
 	if lo.FromPtr(connections.FromConfigItem) != "" {
 		var scraperNamespace string
@@ -118,6 +116,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		}
 	}
 
+	cmd.Env = os.Environ()
+
 	if connections.Kubernetes != nil {
 		if lo.FromPtr(connections.FromConfigItem) == "" {
 			if err := connections.Kubernetes.Populate(ctx); err != nil {
@@ -125,17 +125,19 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			}
 		}
 
-		configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to store kubernetes credentials: %w", err)
-		}
+		if filepath.IsAbs(connections.Kubernetes.KubeConfig.ValueStatic) {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", connections.Kubernetes.KubeConfig.ValueStatic))
+		} else {
+			configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to store kubernetes credentials: %w", err)
+			}
+			cleaners = append(cleaners, func() error {
+				return os.RemoveAll(filepath.Dir(configPath))
+			})
 
-		cleaner = func() error {
-			return os.RemoveAll(filepath.Dir(configPath))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", configPath))
 		}
-
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", configPath))
 	}
 
 	if connections.AWS != nil {
@@ -148,11 +150,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			return nil, fmt.Errorf("failed to store AWS credentials: %w", err)
 		}
 
-		cleaner = func() error {
+		cleaners = append(cleaners, func() error {
 			return os.RemoveAll(filepath.Dir(configPath))
-		}
+		})
 
-		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "AWS_EC2_METADATA_DISABLED=true") // https://github.com/aws/aws-cli/issues/5262#issuecomment-705832151
 		cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_SHARED_CREDENTIALS_FILE=%s", configPath))
 		if connections.AWS.Region != "" {
@@ -182,9 +183,9 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			return nil, fmt.Errorf("failed to store gcloud credentials: %w", err)
 		}
 
-		cleaner = func() error {
+		cleaners = append(cleaners, func() error {
 			return os.RemoveAll(filepath.Dir(configPath))
-		}
+		})
 
 		// to configure gcloud CLI to use the service account specified in GOOGLE_APPLICATION_CREDENTIALS,
 		// we need to explicitly activate it
@@ -193,8 +194,22 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			return nil, fmt.Errorf("failed to activate GCP service account: %w", err)
 		}
 
-		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configPath))
+	}
+
+	var cleaner = func() error {
+		var errorList []error
+		for _, c := range cleaners {
+			if err := c(); err != nil {
+				errorList = append(errorList, err)
+			}
+		}
+
+		if len(errorList) > 0 {
+			return fmt.Errorf("failed to cleanup: %v", errorList)
+		}
+
+		return nil
 	}
 
 	return cleaner, nil
