@@ -148,7 +148,10 @@ func (j *Job) GetContext() map[string]any {
 }
 
 func (j *Job) PK() string {
-	return strings.TrimSuffix(strings.TrimSpace(fmt.Sprintf("%s/%s", j.Name, lo.CoalesceOrEmpty(j.ID, j.ResourceID))), "/")
+	return strings.TrimSuffix(
+		strings.TrimSpace(fmt.Sprintf("%s/%s", j.Name, lo.CoalesceOrEmpty(j.ID, j.ResourceID))),
+		"/",
+	)
 }
 
 type StatusRing struct {
@@ -282,7 +285,8 @@ func (j *JobRuntime) end() {
 	}
 	j.Job.statusRing.Add(j.History)
 
-	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
+	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).
+		Add(1)
 	j.Context.Histogram("job_duration", context.LongLatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).
 		Since(j.History.TimeStart)
 }
@@ -323,7 +327,13 @@ func (j *Job) FindHistory(statuses ...string) ([]models.JobHistory, error) {
 	var items []models.JobHistory
 	var err error
 	if len(statuses) == 0 {
-		err = j.WithoutTracing().WithDBLogger("jobs", logger.Trace1).DB().Where("name = ?", j.Name).Order("time_start DESC").Find(&items).Error
+		err = j.WithoutTracing().
+			WithDBLogger("jobs", logger.Trace1).
+			DB().
+			Where("name = ?", j.Name).
+			Order("time_start DESC").
+			Find(&items).
+			Error
 	} else {
 		err = j.WithoutTracing().WithDBLogger("jobs", logger.Trace1).DB().Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
 	}

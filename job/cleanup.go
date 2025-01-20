@@ -11,7 +11,12 @@ import (
 	"github.com/google/uuid"
 )
 
-func CleanupStaleHistory(ctx context.Context, age time.Duration, name, resourceID string, statuses ...string) (int, error) {
+func CleanupStaleHistory(
+	ctx context.Context,
+	age time.Duration,
+	name, resourceID string,
+	statuses ...string,
+) (int, error) {
 	ctx = ctx.WithName(fmt.Sprintf("job=%s", name)).WithName(fmt.Sprintf("resourceID=%s", resourceID))
 
 	query := ctx.FastDB("jobs").Where("NOW() - time_start >= ?", age)

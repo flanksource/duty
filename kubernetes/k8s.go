@@ -36,7 +36,12 @@ type kubeCacheData struct {
 	Config *rest.Config
 }
 
-func cacheResult(key string, k kubernetes.Interface, c *rest.Config, e error) (kubernetes.Interface, *rest.Config, error) {
+func cacheResult(
+	key string,
+	k kubernetes.Interface,
+	c *rest.Config,
+	e error,
+) (kubernetes.Interface, *rest.Config, error) {
 	if e != nil {
 		return nil, nil, e
 	}
@@ -101,7 +106,10 @@ func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.In
 	}
 }
 
-func NewClientFromPathOrConfig(logger logger.Logger, kubeconfigOrPath string) (kubernetes.Interface, *rest.Config, error) {
+func NewClientFromPathOrConfig(
+	logger logger.Logger,
+	kubeconfigOrPath string,
+) (kubernetes.Interface, *rest.Config, error) {
 	var client kubernetes.Interface
 	var rest *rest.Config
 	var err error
@@ -156,7 +164,9 @@ func GetClusterName(config *rest.Config) string {
 	if err != nil {
 		return ""
 	}
-	kubeadmConfig, err := clientset.CoreV1().ConfigMaps("kube-system").Get(context.TODO(), "kubeadm-config", metav1.GetOptions{})
+	kubeadmConfig, err := clientset.CoreV1().
+		ConfigMaps("kube-system").
+		Get(context.TODO(), "kubeadm-config", metav1.GetOptions{})
 	if err != nil {
 		return ""
 	}
