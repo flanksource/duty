@@ -26,6 +26,15 @@ type GCPConnection struct {
 	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
 }
 
+func (t *GCPConnection) ToModel() models.Connection {
+	return models.Connection{
+		Name:        t.ConnectionName,
+		URL:         t.Endpoint,
+		Certificate: t.Credentials.String(),
+		InsecureTLS: t.SkipTLSVerify,
+	}
+}
+
 func (t *GCPConnection) FromModel(connection models.Connection) {
 	t.ConnectionName = connection.Name
 	t.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
