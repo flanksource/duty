@@ -1,12 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/incident-commander/api/v1/notification",
-  "$ref": "#/$defs/Notification",
+  "$id": "https://github.com/flanksource/incident-commander/api/v1/notification-silence",
+  "$ref": "#/$defs/NotificationSilence",
   "$defs": {
     "FieldsV1": {
       "properties": {},
       "additionalProperties": false,
       "type": "object"
+    },
+    "Items": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "ManagedFieldsEntry": {
       "properties": {
@@ -35,7 +41,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Notification": {
+    "NotificationSilence": {
       "properties": {
         "kind": {
           "type": "string"
@@ -47,109 +53,44 @@
           "$ref": "#/$defs/ObjectMeta"
         },
         "spec": {
-          "$ref": "#/$defs/NotificationSpec"
+          "$ref": "#/$defs/NotificationSilenceSpec"
         },
         "status": {
-          "$ref": "#/$defs/NotificationStatus"
+          "$ref": "#/$defs/NotificationSilenceStatus"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "NotificationRecipientSpec": {
+    "NotificationSilenceSpec": {
       "properties": {
-        "person": {
+        "description": {
           "type": "string"
         },
-        "team": {
+        "from": {
           "type": "string"
         },
-        "email": {
+        "until": {
           "type": "string"
         },
-        "connection": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "properties": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
-        "playbook": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "NotificationSpec": {
-      "properties": {
-        "events": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "title": {
-          "type": "string"
-        },
-        "template": {
-          "type": "string"
+        "recursive": {
+          "type": "boolean"
         },
         "filter": {
           "type": "string"
         },
-        "repeatInterval": {
-          "type": "string"
-        },
-        "repeatGroup": {
+        "selectors": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/ResourceSelector"
           },
           "type": "array"
-        },
-        "to": {
-          "$ref": "#/$defs/NotificationRecipientSpec"
-        },
-        "waitFor": {
-          "type": "string"
-        },
-        "waitForEvalPeriod": {
-          "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "events",
-        "to"
-      ]
+      "type": "object"
     },
-    "NotificationStatus": {
-      "properties": {
-        "sent": {
-          "type": "integer"
-        },
-        "failed": {
-          "type": "integer"
-        },
-        "pending": {
-          "type": "integer"
-        },
-        "status": {
-          "type": "string"
-        },
-        "error": {
-          "type": "string"
-        },
-        "lastSent": {
-          "$ref": "#/$defs/Time"
-        }
-      },
+    "NotificationSilenceStatus": {
+      "properties": {},
       "additionalProperties": false,
       "type": "object"
     },
@@ -248,6 +189,57 @@
         "name",
         "uid"
       ]
+    },
+    "ResourceSelector": {
+      "properties": {
+        "agent": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "search": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "includeDeleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "tagSelector": {
+          "type": "string"
+        },
+        "labelSelector": {
+          "type": "string"
+        },
+        "fieldSelector": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Time": {
       "properties": {},

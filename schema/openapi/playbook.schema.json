@@ -3,6 +3,85 @@
   "$id": "https://github.com/flanksource/incident-commander/api/v1/playbook",
   "$ref": "#/$defs/Playbook",
   "$defs": {
+    "AIAction": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "apiKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "apiURL": {
+          "type": "string"
+        },
+        "config": {
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/TimeMetadata"
+        },
+        "analysis": {
+          "$ref": "#/$defs/TimeMetadata"
+        },
+        "relationships": {
+          "items": {
+            "$ref": "#/$defs/AIActionRelationship"
+          },
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "recommendPlaybooks": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "systemPrompt": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "formats": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "systemPrompt",
+        "prompt"
+      ]
+    },
+    "AIActionRelationship": {
+      "properties": {
+        "depth": {
+          "type": "integer"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/TimeMetadata"
+        },
+        "analysis": {
+          "$ref": "#/$defs/TimeMetadata"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AWSConnection": {
       "properties": {
         "connection": {
@@ -189,7 +268,7 @@
           "type": "array"
         },
         "checkout": {
-          "$ref": "#/$defs/GitCheckout"
+          "$ref": "#/$defs/GitConnection"
         }
       },
       "additionalProperties": false,
@@ -242,7 +321,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "GitCheckout": {
+    "GitConnection": {
       "properties": {
         "url": {
           "type": "string"
@@ -258,6 +337,12 @@
         },
         "certificate": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "type": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         },
         "destination": {
           "type": "string"
@@ -672,21 +757,6 @@
         "uid"
       ]
     },
-    "Permission": {
-      "properties": {
-        "role": {
-          "type": "string"
-        },
-        "team": {
-          "type": "string"
-        },
-        "ref": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "Playbook": {
       "properties": {
         "kind": {
@@ -730,6 +800,9 @@
         },
         "templatesOn": {
           "type": "string"
+        },
+        "ai": {
+          "$ref": "#/$defs/AIAction"
         },
         "exec": {
           "$ref": "#/$defs/ExecAction"
@@ -902,6 +975,21 @@
         "name"
       ]
     },
+    "PlaybookPermission": {
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "PlaybookSpec": {
       "properties": {
         "title": {
@@ -936,7 +1024,7 @@
         },
         "permissions": {
           "items": {
-            "$ref": "#/$defs/Permission"
+            "$ref": "#/$defs/PlaybookPermission"
           },
           "type": "array"
         },
@@ -1097,12 +1185,6 @@
         "namespace": {
           "type": "string"
         },
-        "types": {
-          "$ref": "#/$defs/Items"
-        },
-        "statuses": {
-          "$ref": "#/$defs/Items"
-        },
         "tagSelector": {
           "type": "string"
         },
@@ -1111,6 +1193,15 @@
         },
         "fieldSelector": {
           "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
         }
       },
       "additionalProperties": false,
@@ -1163,6 +1254,18 @@
       "properties": {},
       "additionalProperties": false,
       "type": "object"
+    },
+    "TimeMetadata": {
+      "properties": {
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "since"
+      ]
     }
   }
 }

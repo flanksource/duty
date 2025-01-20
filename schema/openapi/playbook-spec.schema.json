@@ -5,6 +5,9 @@
   "$defs": {
     "AIAction": {
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "apiKey": {
           "$ref": "#/$defs/EnvVar"
         },
@@ -32,13 +35,32 @@
           },
           "type": "array"
         },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "recommendPlaybooks": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "systemPrompt": {
+          "type": "string"
+        },
         "prompt": {
           "type": "string"
+        },
+        "formats": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
+        "systemPrompt",
         "prompt"
       ]
     },
@@ -246,7 +268,7 @@
           "type": "array"
         },
         "checkout": {
-          "$ref": "#/$defs/GitCheckout"
+          "$ref": "#/$defs/GitConnection"
         }
       },
       "additionalProperties": false,
@@ -294,7 +316,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "GitCheckout": {
+    "GitConnection": {
       "properties": {
         "url": {
           "type": "string"
@@ -310,6 +332,12 @@
         },
         "certificate": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "type": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         },
         "destination": {
           "type": "string"
@@ -601,21 +629,6 @@
         "message"
       ]
     },
-    "Permission": {
-      "properties": {
-        "role": {
-          "type": "string"
-        },
-        "team": {
-          "type": "string"
-        },
-        "ref": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "PlaybookAction": {
       "properties": {
         "name": {
@@ -813,6 +826,21 @@
         "name"
       ]
     },
+    "PlaybookPermission": {
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "PlaybookSpec": {
       "properties": {
         "title": {
@@ -847,7 +875,7 @@
         },
         "permissions": {
           "items": {
-            "$ref": "#/$defs/Permission"
+            "$ref": "#/$defs/PlaybookPermission"
           },
           "type": "array"
         },
@@ -1010,6 +1038,9 @@
           "type": "string"
         },
         "fieldSelector": {
+          "type": "string"
+        },
+        "health": {
           "type": "string"
         },
         "types": {

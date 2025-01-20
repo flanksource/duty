@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/incident-commander/api/v1/notification",
-  "$ref": "#/$defs/Notification",
+  "$id": "https://github.com/flanksource/incident-commander/api/v1/permission-group",
+  "$ref": "#/$defs/PermissionGroup",
   "$defs": {
     "FieldsV1": {
       "properties": {},
@@ -30,124 +30,6 @@
         },
         "subresource": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Notification": {
-      "properties": {
-        "kind": {
-          "type": "string"
-        },
-        "apiVersion": {
-          "type": "string"
-        },
-        "metadata": {
-          "$ref": "#/$defs/ObjectMeta"
-        },
-        "spec": {
-          "$ref": "#/$defs/NotificationSpec"
-        },
-        "status": {
-          "$ref": "#/$defs/NotificationStatus"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "NotificationRecipientSpec": {
-      "properties": {
-        "person": {
-          "type": "string"
-        },
-        "team": {
-          "type": "string"
-        },
-        "email": {
-          "type": "string"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "properties": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
-        "playbook": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "NotificationSpec": {
-      "properties": {
-        "events": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "title": {
-          "type": "string"
-        },
-        "template": {
-          "type": "string"
-        },
-        "filter": {
-          "type": "string"
-        },
-        "repeatInterval": {
-          "type": "string"
-        },
-        "repeatGroup": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "to": {
-          "$ref": "#/$defs/NotificationRecipientSpec"
-        },
-        "waitFor": {
-          "type": "string"
-        },
-        "waitForEvalPeriod": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "events",
-        "to"
-      ]
-    },
-    "NotificationStatus": {
-      "properties": {
-        "sent": {
-          "type": "integer"
-        },
-        "failed": {
-          "type": "integer"
-        },
-        "pending": {
-          "type": "integer"
-        },
-        "status": {
-          "type": "string"
-        },
-        "error": {
-          "type": "string"
-        },
-        "lastSent": {
-          "$ref": "#/$defs/Time"
         }
       },
       "additionalProperties": false,
@@ -248,6 +130,74 @@
         "name",
         "uid"
       ]
+    },
+    "PermissionGroup": {
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "apiVersion": {
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta"
+        },
+        "spec": {
+          "$ref": "#/$defs/PermissionGroupSpec"
+        },
+        "status": {
+          "$ref": "#/$defs/PermissionGroupStatus"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PermissionGroupSelector": {
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PermissionGroupSpec": {
+      "properties": {
+        "notifications": {
+          "items": {
+            "$ref": "#/$defs/PermissionGroupSelector"
+          },
+          "type": "array"
+        },
+        "people": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "teams": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ]
+    },
+    "PermissionGroupStatus": {
+      "properties": {},
+      "additionalProperties": false,
+      "type": "object"
     },
     "Time": {
       "properties": {},
