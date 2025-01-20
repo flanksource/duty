@@ -31,9 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-var (
-	ignoreDetail = cmpopts.IgnoreFields(field.Error{}, "Detail")
-)
+var ignoreDetail = cmpopts.IgnoreFields(field.Error{}, "Detail")
 
 func expectNoMatch(selector string, ls Set) {
 	lq, err := Parse(selector)
@@ -90,20 +88,17 @@ var _ = ginkgo.Describe("Selectors", func() {
 		})
 	}
 
-	var _ = ginkgo.It("Deterministic match", func() {
+	_ = ginkgo.It("Deterministic match", func() {
 		s1, err := Parse("x=a,a=x")
 		Expect(err).ToNot(HaveOccurred())
 		s2, err2 := Parse("a=x,x=a")
 		Expect(err2).ToNot(HaveOccurred())
 		Expect(s1.String()).To(Equal(s2.String()))
-
 	})
 
 	ginkgo.It("Everything", func() {
-
 		Expect(Everything().Matches(Set{"x": "y"})).To(BeTrue())
 		Expect(Everything().Empty()).To(BeTrue())
-
 	})
 
 	ginkgo.It("SelectorMatches", func() {
@@ -135,11 +130,9 @@ var _ = ginkgo.Describe("Selectors", func() {
 		expectNoMatch("foo=blah", labelset)
 		expectNoMatch("baz=bar", labelset)
 		expectNoMatch("foo=bar,foobar=bar,baz=blah", labelset)
-
 	})
 
 	ginkgo.It("Set matches", func() {
-
 		labelset := Set{
 			"foo": "bar",
 			"baz": "blah",
@@ -149,10 +142,10 @@ var _ = ginkgo.Describe("Selectors", func() {
 		expectMatchDirect(Set{"baz": "blah"}, labelset)
 		expectMatchDirect(Set{"foo": "bar", "baz": "blah"}, labelset)
 
-		//TODO: bad values not handled for the moment in SelectorFromSet
-		//expectNoMatchDirect( Set{"foo": "=blah"}, labelset)
-		//expectNoMatchDirect( Set{"baz": "=bar"}, labelset)
-		//expectNoMatchDirect( Set{"foo": "=bar", "foobar": "bar", "baz": "blah"}, labelset)
+		// TODO: bad values not handled for the moment in SelectorFromSet
+		// expectNoMatchDirect( Set{"foo": "=blah"}, labelset)
+		// expectNoMatchDirect( Set{"baz": "=bar"}, labelset)
+		// expectNoMatchDirect( Set{"foo": "=bar", "foobar": "bar", "baz": "blah"}, labelset)
 	})
 
 	ginkgo.It("NilMapIsValid", func() {
@@ -170,7 +163,6 @@ var _ = ginkgo.Describe("Selectors", func() {
 
 		nilSelector := NewSelector()
 		Expect(nilSelector.Empty()).To(BeTrue())
-
 	})
 
 	ginkgo.Describe("Lexer", func() {
@@ -186,12 +178,12 @@ var _ = ginkgo.Describe("Selectors", func() {
 			{"==", DoubleEqualsToken},
 			{">", GreaterThanToken},
 			{"<", LessThanToken},
-			//Note that Lex returns the longest valid token found
+			// Note that Lex returns the longest valid token found
 			{"!", DoesNotExistToken},
 			{"!=", NotEqualsToken},
 			{"(", OpenParToken},
 			{")", ClosedParToken},
-			//Non-"special" characters are considered part of an identifier
+			// Non-"special" characters are considered part of an identifier
 			{"~", IdentifierToken},
 			{"||", IdentifierToken},
 		}
@@ -252,6 +244,7 @@ var _ = ginkgo.Describe("Lexer", func() {
 		})
 	}
 })
+
 var _ = ginkgo.Describe("Parser", func() {
 	testcases := []struct {
 		s string
@@ -485,37 +478,52 @@ var _ = ginkgo.Describe("ToString", func() {
 		Out   string
 		Valid bool
 	}{
-
+		{
+			&internalSelector{
+				getRequirement("x", selection.In, sets.NewString("abc", "def")),
+				getRequirement("y", selection.NotIn, sets.NewString("jkl")),
+				getRequirement("z", selection.Exists, nil),
+			},
+			"x in (abc,def),y notin (jkl),z", true,
+		},
+		{
+			&internalSelector{
+				getRequirement("x", selection.NotIn, sets.NewString("abc", "def")),
+				getRequirement("y", selection.NotEquals, sets.NewString("jkl")),
+				getRequirement("z", selection.DoesNotExist, nil),
+			},
+			"x notin (abc,def),y!=jkl,!z", true,
+		},
 		{&internalSelector{
 			getRequirement("x", selection.In, sets.NewString("abc", "def")),
-			getRequirement("y", selection.NotIn, sets.NewString("jkl")),
-			getRequirement("z", selection.Exists, nil)},
-			"x in (abc,def),y notin (jkl),z", true},
-		{&internalSelector{
-			getRequirement("x", selection.NotIn, sets.NewString("abc", "def")),
-			getRequirement("y", selection.NotEquals, sets.NewString("jkl")),
-			getRequirement("z", selection.DoesNotExist, nil)},
-			"x notin (abc,def),y!=jkl,!z", true},
-		{&internalSelector{
-			getRequirement("x", selection.In, sets.NewString("abc", "def")),
-			req}, // adding empty req for the trailing ','
+			req,
+		}, // adding empty req for the trailing ','
 			"x in (abc,def),", false},
-		{&internalSelector{
-			getRequirement("x", selection.NotIn, sets.NewString("abc")),
-			getRequirement("y", selection.In, sets.NewString("jkl", "mno")),
-			getRequirement("z", selection.NotIn, sets.NewString(""))},
-			"x notin (abc),y in (jkl,mno),z notin ()", true},
-		{&internalSelector{
-			getRequirement("x", selection.Equals, sets.NewString("abc")),
-			getRequirement("y", selection.DoubleEquals, sets.NewString("jkl")),
-			getRequirement("z", selection.NotEquals, sets.NewString("a")),
-			getRequirement("z", selection.Exists, nil)},
-			"x=abc,y==jkl,z!=a,z", true},
-		{&internalSelector{
-			getRequirement("x", selection.GreaterThan, sets.NewString("2")),
-			getRequirement("y", selection.LessThan, sets.NewString("8")),
-			getRequirement("z", selection.Exists, nil)},
-			"x>2,y<8,z", true},
+		{
+			&internalSelector{
+				getRequirement("x", selection.NotIn, sets.NewString("abc")),
+				getRequirement("y", selection.In, sets.NewString("jkl", "mno")),
+				getRequirement("z", selection.NotIn, sets.NewString("")),
+			},
+			"x notin (abc),y in (jkl,mno),z notin ()", true,
+		},
+		{
+			&internalSelector{
+				getRequirement("x", selection.Equals, sets.NewString("abc")),
+				getRequirement("y", selection.DoubleEquals, sets.NewString("jkl")),
+				getRequirement("z", selection.NotEquals, sets.NewString("a")),
+				getRequirement("z", selection.Exists, nil),
+			},
+			"x=abc,y==jkl,z!=a,z", true,
+		},
+		{
+			&internalSelector{
+				getRequirement("x", selection.GreaterThan, sets.NewString("2")),
+				getRequirement("y", selection.LessThan, sets.NewString("8")),
+				getRequirement("z", selection.Exists, nil),
+			},
+			"x>2,y<8,z", true,
+		},
 	}
 	for _, ts := range toStringTests {
 		ts := ts // capture range variable
@@ -682,7 +690,6 @@ var _ = ginkgo.Describe("SetSelectorParser", func() {
 				} else {
 					Expect(sel).To(Equal(ssp.Out))
 				}
-
 			}
 		})
 	}

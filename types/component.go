@@ -23,15 +23,13 @@ const (
 	ComponentStatusInfo      ComponentStatus = "info"
 )
 
-var (
-	ComponentStatusOrder = map[ComponentStatus]int{
-		ComponentStatusInfo:      0,
-		ComponentStatusHealthy:   1,
-		ComponentStatusUnhealthy: 2,
-		ComponentStatusWarning:   3,
-		ComponentStatusError:     4,
-	}
-)
+var ComponentStatusOrder = map[ComponentStatus]int{
+	ComponentStatusInfo:      0,
+	ComponentStatusHealthy:   1,
+	ComponentStatusUnhealthy: 2,
+	ComponentStatusWarning:   3,
+	ComponentStatusError:     4,
+}
 
 func (status ComponentStatus) Compare(other ComponentStatus) int {
 	if status == other {

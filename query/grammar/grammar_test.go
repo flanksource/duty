@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("grammar", func() {
-
 	It("parses", func() {
 		result, err := ParsePEG("metadata.name=bob metadata.name!=harry spec.status.reason!=\"failed reson\"   -jane johnny type!=pod type!=replicaset  namespace!=\"a,b,c\"")
 		Expect(err).To(BeNil())
