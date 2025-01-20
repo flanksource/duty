@@ -233,3 +233,50 @@ geomean                                               13.45m         7.163m     
   - config_changes: ~6-7x speedup with RLS
   - config_summary: ~50-54x speedup with RLS
   - config_detail, config_names, configs: ~3-4x speedup with RLS
+
+
+
+## With Clauses appended
+
+Testing out if using the rls payload as WHERE clauses improves performance
+
+```
+pkg: github.com/flanksource/duty/bench
+cpu: Intel(R) Core(TM) i9-14900K
+BenchmarkMain/Sample-10000/catalog_changes/With_RLS-With-Clause-32                  2026           5783302 ns/op
+BenchmarkMain/Sample-10000/catalog_changes/With_RLS-32                              2899           3849648 ns/op
+BenchmarkMain/Sample-10000/catalog_changes/Without_RLS-32                           7126           1632845 ns/op
+BenchmarkMain/Sample-10000/config_detail/With_RLS-With-Clause-32                    4602           2538843 ns/op
+BenchmarkMain/Sample-10000/config_detail/With_RLS-32                                4842           2398737 ns/op
+BenchmarkMain/Sample-10000/config_detail/Without_RLS-32                             9142           1239478 ns/op
+BenchmarkMain/Sample-10000/configs/With_RLS-With-Clause-32                          4412           2632808 ns/op
+BenchmarkMain/Sample-10000/configs/With_RLS-32                                      4032           2483985 ns/op
+BenchmarkMain/Sample-10000/configs/Without_RLS-32                                   5593           2128625 ns/op
+BenchmarkMain/Sample-25000/catalog_changes/With_RLS-With-Clause-32                   852          13981123 ns/op
+BenchmarkMain/Sample-25000/catalog_changes/With_RLS-32                              1249           9420119 ns/op
+BenchmarkMain/Sample-25000/catalog_changes/Without_RLS-32                           3096           3879005 ns/op
+BenchmarkMain/Sample-25000/config_detail/With_RLS-With-Clause-32                    2006           5863158 ns/op
+BenchmarkMain/Sample-25000/config_detail/With_RLS-32                                2037           5856141 ns/op
+BenchmarkMain/Sample-25000/config_detail/Without_RLS-32                             3697           2977967 ns/op
+BenchmarkMain/Sample-25000/configs/With_RLS-With-Clause-32                          1962           6106637 ns/op
+BenchmarkMain/Sample-25000/configs/With_RLS-32                                      1992           6027257 ns/op
+BenchmarkMain/Sample-25000/configs/Without_RLS-32                                   2283           5059330 ns/op
+BenchmarkMain/Sample-50000/catalog_changes/With_RLS-With-Clause-32                   408          29456885 ns/op
+BenchmarkMain/Sample-50000/catalog_changes/With_RLS-32                               594          19630053 ns/op
+BenchmarkMain/Sample-50000/catalog_changes/Without_RLS-32                           1465           8190458 ns/op
+BenchmarkMain/Sample-50000/config_detail/With_RLS-With-Clause-32                     994          12086096 ns/op
+BenchmarkMain/Sample-50000/config_detail/With_RLS-32                                1033          11413711 ns/op
+BenchmarkMain/Sample-50000/config_detail/Without_RLS-32                             2044           5827890 ns/op
+BenchmarkMain/Sample-50000/configs/With_RLS-With-Clause-32                           973          12323323 ns/op
+BenchmarkMain/Sample-50000/configs/With_RLS-32                                      1023          11772035 ns/op
+BenchmarkMain/Sample-50000/configs/Without_RLS-32                                   1150          10265080 ns/op
+BenchmarkMain/Sample-100000/catalog_changes/With_RLS-With-Clause-32                  213          55548502 ns/op
+BenchmarkMain/Sample-100000/catalog_changes/With_RLS-32                              288          39636005 ns/op
+BenchmarkMain/Sample-100000/catalog_changes/Without_RLS-32                           626          17153132 ns/op
+BenchmarkMain/Sample-100000/config_detail/With_RLS-With-Clause-32                    487          24382695 ns/op
+BenchmarkMain/Sample-100000/config_detail/With_RLS-32                                514          23039022 ns/op
+BenchmarkMain/Sample-100000/config_detail/Without_RLS-32                             972          12149169 ns/op
+BenchmarkMain/Sample-100000/configs/With_RLS-With-Clause-32                          482          24730473 ns/op
+BenchmarkMain/Sample-100000/configs/With_RLS-32                                      495          23903118 ns/op
+BenchmarkMain/Sample-100000/configs/Without_RLS-32                                   555          21545467 ns/op
+```
