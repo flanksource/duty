@@ -1133,12 +1133,6 @@
         "namespace": {
           "type": "string"
         },
-        "types": {
-          "$ref": "#/$defs/Items"
-        },
-        "statuses": {
-          "$ref": "#/$defs/Items"
-        },
         "tagSelector": {
           "type": "string"
         },
@@ -1147,6 +1141,15 @@
         },
         "fieldSelector": {
           "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
         },
         "class": {
           "type": "string"
@@ -1693,7 +1696,7 @@
           "type": "array"
         },
         "checkout": {
-          "$ref": "#/$defs/GitCheckout"
+          "$ref": "#/$defs/GitConnection"
         },
         "artifacts": {
           "items": {
@@ -1711,6 +1714,12 @@
     },
     "ExecConnections": {
       "properties": {
+        "fromConfigItem": {
+          "type": "string"
+        },
+        "kubernetes": {
+          "$ref": "#/$defs/KubernetesConnection"
+        },
         "aws": {
           "$ref": "#/$defs/AWSConnection"
         },
@@ -1935,7 +1944,7 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "GitCheckout": {
+    "GitConnection": {
       "properties": {
         "url": {
           "type": "string"
@@ -1951,6 +1960,12 @@
         },
         "certificate": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "type": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         },
         "destination": {
           "type": "string"
@@ -2508,6 +2523,18 @@
         "name",
         "kind"
       ]
+    },
+    "KubernetesConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "kubeconfig": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "KubernetesResourceCheck": {
       "properties": {

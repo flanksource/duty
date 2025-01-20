@@ -47,7 +47,10 @@ func nilSafe(values ...interface{}) string {
 func newProp(prop PropertyType) {
 	if loaded := supportedProperties.SetIfAbsent(prop.Key, prop); loaded {
 		if prop.Value != nil && fmt.Sprintf("%v", prop.Default) != fmt.Sprintf("%v", prop.Value) {
-			logger.Debugf("Property overridden %s=%v (default=%v)", prop.Key, console.Greenf(nilSafe(prop.Value)), nilSafe(prop.Default))
+			logger.Debugf("Property overridden %s=%v (default=%v)", prop.Key,
+				console.Greenf("%s", nilSafe(prop.Value)),
+				nilSafe(prop.Default),
+			)
 		}
 	}
 }
