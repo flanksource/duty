@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"google.golang.org/api/option"
 )
@@ -21,6 +22,13 @@ type GCPConnection struct {
 
 	// Skip TLS verify
 	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
+}
+
+func (t *GCPConnection) FromModel(connection models.Connection) {
+	t.ConnectionName = connection.Name
+	t.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
+	t.Endpoint = connection.URL
+	t.SkipTLSVerify = connection.InsecureTLS
 }
 
 func (conn *GCPConnection) Client(ctx context.Context) (*gcs.Client, error) {

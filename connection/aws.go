@@ -48,6 +48,20 @@ func (t *AWSConnection) GetURL() types.EnvVar {
 	return types.EnvVar{ValueStatic: t.Endpoint}
 }
 
+func (t *AWSConnection) FromModel(connection models.Connection) {
+	t.ConnectionName = connection.Name
+	t.AccessKey = types.EnvVar{ValueStatic: connection.Username}
+	t.SecretKey = types.EnvVar{ValueStatic: connection.Password}
+	t.Endpoint = connection.URL
+	t.SkipTLSVerify = connection.InsecureTLS
+	if region, ok := connection.Properties["region"]; ok {
+		t.Region = region
+	}
+	if assumeRole, ok := connection.Properties["assumeRole"]; ok {
+		t.AssumeRole = assumeRole
+	}
+}
+
 func (t AWSConnection) ToModel() models.Connection {
 	return models.Connection{
 		Type:        models.ConnectionTypeAWS,
