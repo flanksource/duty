@@ -12,7 +12,7 @@ import (
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
-	. "github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/postgrest"
@@ -21,99 +21,99 @@ import (
 )
 
 func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
-	config := DefaultConfig
+	config := api.DefaultConfig
 	for _, opt := range opts {
 		config = opt(config)
 	}
 
 	_ = flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
-	flags.StringVar(&DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
-	flags.StringVar(&DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
-	flags.StringVar(&DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
-	flags.StringVar(&DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
-	flags.StringVar(&DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
-	flags.BoolVar(&DefaultConfig.Postgrest.Disable, "disable-postgrest", config.Postgrest.Disable, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
-	flags.StringVar(&DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
-	flags.StringVar(&DefaultConfig.Postgrest.AnonDBRole, "postgrest-anon-role", "postgrest_anon", "PostgREST role for unauthenticated connections")
+	flags.StringVar(&api.DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
+	flags.StringVar(&api.DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
+	flags.StringVar(&api.DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
+	flags.StringVar(&api.DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
+	flags.StringVar(&api.DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
+	flags.BoolVar(&api.DefaultConfig.Postgrest.Disable, "disable-postgrest", config.Postgrest.Disable, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
+	flags.StringVar(&api.DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
+	flags.StringVar(&api.DefaultConfig.Postgrest.AnonDBRole, "postgrest-anon-role", "postgrest_anon", "PostgREST role for unauthenticated connections")
 
-	flags.IntVar(&DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
-	flags.StringVar(&DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
-	flags.BoolVar(&DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
-	flags.BoolVar(&DefaultConfig.Metrics, "db-metrics", false, "Expose db metrics")
+	flags.IntVar(&api.DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
+	flags.StringVar(&api.DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
+	flags.BoolVar(&api.DefaultConfig.DisableKubernetes, "disable-kubernetes", false, "Disable Kubernetes integration")
+	flags.BoolVar(&api.DefaultConfig.Metrics, "db-metrics", false, "Expose db metrics")
 
-	if config.MigrationMode == SkipByDefault {
-		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", false, "Run database migrations")
+	if config.MigrationMode == api.SkipByDefault {
+		flags.BoolVar(&api.DefaultConfig.RunMigrations, "db-migrations", false, "Run database migrations")
 	} else {
-		flags.BoolVar(&DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
-		flags.BoolVar(&DefaultConfig.RunMigrations, "db-migrations", true, "Run database migrations")
+		flags.BoolVar(&api.DefaultConfig.SkipMigrations, "skip-migrations", false, "Skip database migrations")
+		flags.BoolVar(&api.DefaultConfig.RunMigrations, "db-migrations", true, "Run database migrations")
 		_ = flags.MarkDeprecated("db-migrations", "migrations are run by default. Use --skip-migrations to skip migrations.")
 	}
 }
 
-type StartOption func(config Config) Config
+type StartOption func(config api.Config) api.Config
 
-var EnableRLS = func(config Config) Config {
+var EnableRLS = func(config api.Config) api.Config {
 	config.EnableRLS = true
 	return config
 }
 
-var DisablePostgrest = func(config Config) Config {
+var DisablePostgrest = func(config api.Config) api.Config {
 	config.Postgrest.Disable = true
 	return config
 }
 
-var WithUrl = func(url string) func(config Config) Config {
-	return func(config Config) Config {
+var WithUrl = func(url string) func(config api.Config) api.Config {
+	return func(config api.Config) api.Config {
 		config.ConnectionString = url
 		return config
 	}
 }
 
-var SkipMigrationByDefaultMode = func(config Config) Config {
-	config.MigrationMode = SkipByDefault
+var SkipMigrationByDefaultMode = func(config api.Config) api.Config {
+	config.MigrationMode = api.SkipByDefault
 	return config
 }
 
-var SkipChangelogMigration = func(config Config) Config {
+var SkipChangelogMigration = func(config api.Config) api.Config {
 	config.SkipMigrationFiles = []string{"007_events.sql", "012_changelog_triggers_others.sql", "012_changelog_triggers_scrapers.sql"}
 	return config
 }
 
-var EnableMetrics = func(config Config) Config {
+var EnableMetrics = func(config api.Config) api.Config {
 	config.Metrics = true
 	return config
 }
 
-var RunMigrations = func(config Config) Config {
-	config.MigrationMode = SkipByDefault
+var RunMigrations = func(config api.Config) api.Config {
+	config.MigrationMode = api.SkipByDefault
 	config.RunMigrations = true
 	return config
 }
 
-var SkipMigrations = func(config Config) Config {
-	config.MigrationMode = RunByDefault
+var SkipMigrations = func(config api.Config) api.Config {
+	config.MigrationMode = api.RunByDefault
 	config.RunMigrations = false
 	return config
 }
 
-var ClientOnly = func(config Config) Config {
+var ClientOnly = func(config api.Config) api.Config {
 	config.Postgrest.Disable = true
 	config.SkipMigrations = true
 	return config
 }
 
-var DisableKubernetes = func(config Config) Config {
+var DisableKubernetes = func(config api.Config) api.Config {
 	config.DisableKubernetes = true
 	return config
 }
 
-var KratosAuth = func(config Config) Config {
+var KratosAuth = func(config api.Config) api.Config {
 	config.KratosAuth = true
 	return config
 }
 
 func Start(name string, opts ...StartOption) (context.Context, func(), error) {
-	config := DefaultConfig
+	config := api.DefaultConfig
 	for _, opt := range opts {
 		config = opt(config)
 	}
@@ -135,7 +135,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 
 		// override the embedded connection string with an actual postgres connection string
 		config.ConnectionString = embeddedDBConnectionString
-		DefaultConfig.ConnectionString = embeddedDBConnectionString
+		api.DefaultConfig.ConnectionString = embeddedDBConnectionString
 	}
 
 	if config.Postgrest.URL != "" && !config.Postgrest.Disable {
@@ -154,7 +154,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 			}
 			go postgrest.Start(config)
 		}
-		DefaultConfig = config
+		api.DefaultConfig = config
 	}
 
 	var ctx context.Context
