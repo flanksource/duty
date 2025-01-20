@@ -107,12 +107,14 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 					return nil, err
 				} else if found {
 					connections.Kubernetes = &KubernetesConnection{}
-					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
+					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.Kubeconfig); err != nil {
 						return nil, err
 					}
 
-					if err := connections.Kubernetes.Populate(ctx.WithNamespace(scraperNamespace)); err != nil {
+					if clientset, restConfig, err := connections.Kubernetes.Populate(ctx.WithNamespace(scraperNamespace), true); err != nil {
 						return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+					} else {
+						ctx = ctx.WithKubernetes(clientset, restConfig)
 					}
 
 					break
@@ -123,13 +125,15 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 	if connections.Kubernetes != nil {
 		if lo.FromPtr(connections.FromConfigItem) == "" {
-			if err := connections.Kubernetes.Populate(ctx); err != nil {
+			if clientset, restConfig, err := connections.Kubernetes.Populate(ctx, true); err != nil {
 				return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+			} else {
+				ctx = ctx.WithKubernetes(clientset, restConfig)
 			}
 		}
 
-		if filepath.IsAbs(connections.Kubernetes.KubeConfig.ValueStatic) {
-			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", connections.Kubernetes.KubeConfig.ValueStatic))
+		if filepath.IsAbs(connections.Kubernetes.Kubeconfig.ValueStatic) {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", connections.Kubernetes.Kubeconfig.ValueStatic))
 		} else {
 			configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
 			if err != nil {
