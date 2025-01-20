@@ -5,9 +5,12 @@ import (
 	"net/http"
 
 	gcs "cloud.google.com/go/storage"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"google.golang.org/api/option"
 )
@@ -21,6 +24,32 @@ type GCPConnection struct {
 
 	// Skip TLS verify
 	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
+}
+
+func (t *GCPConnection) ToModel() models.Connection {
+	return models.Connection{
+		Name:        t.ConnectionName,
+		URL:         t.Endpoint,
+		Certificate: t.Credentials.String(),
+		InsecureTLS: t.SkipTLSVerify,
+	}
+}
+
+func (t *GCPConnection) FromModel(connection models.Connection) {
+	t.ConnectionName = connection.Name
+	t.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
+	t.Endpoint = connection.URL
+	t.SkipTLSVerify = connection.InsecureTLS
+}
+
+func (g *GCPConnection) TokenSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
+	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenSource := creds.TokenSource
+	return tokenSource, nil
 }
 
 func (conn *GCPConnection) Client(ctx context.Context) (*gcs.Client, error) {

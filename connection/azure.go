@@ -1,6 +1,11 @@
 package connection
 
-import "github.com/flanksource/duty/types"
+import (
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
+)
 
 // +kubebuilder:object:generate=true
 type AzureConnection struct {
@@ -21,8 +26,33 @@ func (g *AzureConnection) HydrateConnection(ctx ConnectionContext) error {
 	if connection != nil {
 		g.ClientID = &types.EnvVar{ValueStatic: connection.Username}
 		g.ClientSecret = &types.EnvVar{ValueStatic: connection.Password}
-		g.TenantID = connection.Properties["tenantID"]
+		g.TenantID = connection.Properties["tenant"]
 	}
 
 	return nil
+}
+
+func (g *AzureConnection) FromModel(connection models.Connection) {
+	g.ConnectionName = connection.Name
+	g.ClientID = &types.EnvVar{ValueStatic: connection.Username}
+	g.ClientSecret = &types.EnvVar{ValueStatic: connection.Password}
+	if tenantID, ok := connection.Properties["tenant"]; ok {
+		g.TenantID = tenantID
+	}
+}
+
+func (g AzureConnection) ToModel() models.Connection {
+	return models.Connection{
+		Type:     models.ConnectionTypeAzure,
+		Name:     g.ConnectionName,
+		Username: g.ClientID.String(),
+		Password: g.ClientSecret.String(),
+		Properties: types.JSONStringMap{
+			"tenant": g.TenantID,
+		},
+	}
+}
+
+func (g *AzureConnection) TokenCredential() (azcore.TokenCredential, error) {
+	return azidentity.NewClientSecretCredential(g.TenantID, g.ClientID.String(), g.ClientSecret.String(), nil)
 }
