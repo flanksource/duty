@@ -93,5 +93,4 @@ func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfi
 		query.Outgoing).Find(&relatedConfigs).Error
 
 	return relatedConfigs, err
-
 }

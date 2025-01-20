@@ -13,10 +13,8 @@ import (
 	"github.com/samber/lo"
 )
 
-var (
-	// Default search window
-	DefaultCheckQueryWindow = "1h"
-)
+// Default search window
+var DefaultCheckQueryWindow = "1h"
 
 type Timeseries struct {
 	Key      string `json:"key,omitempty"`

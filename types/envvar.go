@@ -176,7 +176,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -192,7 +193,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -208,7 +210,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -220,7 +223,8 @@ func (e *EnvVar) Scan(value any) error {
 			*e = EnvVar{
 				ValueFrom: &EnvVarSource{
 					ServiceAccount: &segments[2],
-				}}
+				},
+			}
 			return nil
 		}
 

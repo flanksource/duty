@@ -80,7 +80,7 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 
 	query := fmt.Sprintf(`SELECT json_agg(%s) FROM check_summary AS result WHERE deleted_at is null`, selectField)
 
-	var args = pgx.NamedArgs{}
+	args := pgx.NamedArgs{}
 	if opt.DeleteFrom != nil {
 		query += " OR deleted_at > @from"
 		args["from"] = *opt.DeleteFrom

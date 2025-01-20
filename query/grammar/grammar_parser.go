@@ -15,7 +15,7 @@ type Source struct {
 }
 
 type NumberUnit struct {
-	Number interface{} `json:"number,omitempty"` //int64/float64
+	Number interface{} `json:"number,omitempty"` // int64/float64
 	Units  string      `json:"units,omitempty"`
 }
 
@@ -95,7 +95,6 @@ func makeQuery(a, b interface{}) (*types.QueryField, error) {
 }
 
 func makeAndQuery(a any, b any) (*types.QueryField, error) {
-
 	q := &types.QueryField{Op: "and"}
 
 	switch v := a.(type) {

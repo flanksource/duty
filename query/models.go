@@ -189,11 +189,9 @@ func GetModelFromTable(table string) (QueryModel, error) {
 	}
 }
 
-var (
-	// QueryModel.Apply will ignore these fields when converting to clauses
-	// as we modify the tx directly for them
-	ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags"}
-)
+// QueryModel.Apply will ignore these fields when converting to clauses
+// as we modify the tx directly for them
+var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags"}
 
 func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {

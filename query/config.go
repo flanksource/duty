@@ -24,8 +24,7 @@ type ConfigSummaryRequestChanges struct {
 	sinceParsed time.Duration
 }
 
-type ConfigSummaryRequestAnalysis struct {
-}
+type ConfigSummaryRequestAnalysis struct{}
 
 type ConfigSummaryRequest struct {
 	Changes  ConfigSummaryRequestChanges  `json:"changes"`

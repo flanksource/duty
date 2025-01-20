@@ -135,7 +135,6 @@ func gitopsSourceCELFunction() func(ctx context.Context) cel.EnvOption {
 				[]*cel.Type{cel.DynType},
 				cel.DynType,
 				cel.UnaryBinding(func(arg ref.Val) ref.Val {
-
 					id, err := getConfigId(arg.Value())
 					if err != nil {
 						ctx.Errorf("could not find id: %v", err)
@@ -186,7 +185,6 @@ func getConfigId(id any) (uuid.UUID, error) {
 func gitopsSourceTemplateFunction() func(ctx context.Context) any {
 	return func(ctx context.Context) any {
 		return func(args ...any) map[string]any {
-
 			var source GitOpsSource
 			if len(args) < 1 {
 				return source.AsMap()

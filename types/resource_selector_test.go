@@ -12,7 +12,7 @@ import (
 )
 
 var _ = Describe("Resource Selector", func() {
-	var iteration = 50
+	iteration := 50
 
 	tests := []struct {
 		name           string

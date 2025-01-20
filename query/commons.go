@@ -29,8 +29,8 @@ func postgrestValues(val []any) string {
 }
 
 func (query FilteringQuery) AppendPostgrest(key string,
-	queryParam url.Values) {
-
+	queryParam url.Values,
+) {
 	if len(query.In) > 0 {
 		queryParam.Add(key, fmt.Sprintf("in.(%s)", postgrestValues(query.In)))
 	}
@@ -46,11 +46,9 @@ func (query FilteringQuery) AppendPostgrest(key string,
 	for _, p := range query.Suffix {
 		queryParam.Add(key, fmt.Sprintf("like.*%s", p))
 	}
-
 }
 
 func (e expressions) ToExpression(field string) []clause.Expression {
-
 	var clauses []clause.Expression
 	if len(e.In) > 0 {
 		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: e.In})
@@ -94,7 +92,6 @@ func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN 
 	}
 
 	q, err := types.ParseFilteringQueryV2(query, decodeURL)
-
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

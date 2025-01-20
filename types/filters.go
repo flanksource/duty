@@ -17,12 +17,10 @@ type expressions struct {
 type Expressions []clause.Expression
 
 func (e expressions) ToExpression(field string) []clause.Expression {
-
 	var clauses []clause.Expression
 
 	if len(e.In) == 1 {
 		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: field}, Value: e.In[0]})
-
 	} else if len(e.In) > 1 {
 		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: e.In})
 	}

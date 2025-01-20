@@ -244,7 +244,7 @@ func formSeverityQuery(severity string) string {
 		return severity
 	}
 
-	var severities = []models.Severity{
+	severities := []models.Severity{
 		models.SeverityCritical,
 		models.SeverityHigh,
 		models.SeverityMedium,
@@ -375,9 +375,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	if req.SortBy != "" {
 		clauses = append(clauses,
-			clause.OrderBy{Columns: []clause.OrderByColumn{{
-				Column: clause.Column{Name: req.SortBy},
-				Desc:   req.sortOrder == "desc"},
+			clause.OrderBy{Columns: []clause.OrderByColumn{
+				{
+					Column: clause.Column{Name: req.SortBy},
+					Desc:   req.sortOrder == "desc",
+				},
 			}})
 	}
 
