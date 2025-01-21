@@ -23,7 +23,9 @@ import (
 const (
 	ConnectionTypeAnthropic      = "anthropic"
 	ConnectionTypeAWS            = "aws"
+	ConnectionTypeAWSKMS         = "aws_kms"
 	ConnectionTypeAzure          = "azure"
+	ConnectionTypeAzureKeyVault  = "azure_key_vault"
 	ConnectionTypeAzureDevops    = "azure_devops"
 	ConnectionTypeDiscord        = "discord"
 	ConnectionTypeDynatrace      = "dynatrace"
@@ -31,6 +33,7 @@ const (
 	ConnectionTypeEmail          = "email"
 	ConnectionTypeFolder         = "folder"
 	ConnectionTypeGCP            = "google_cloud"
+	ConnectionTypeGCPKMS         = "gcp_kms"
 	ConnectionTypeGCS            = "gcs"
 	ConnectionTypeGenericWebhook = "generic_webhook"
 	ConnectionTypeGit            = "git"
