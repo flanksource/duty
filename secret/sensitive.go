@@ -23,6 +23,7 @@ func (t Sensitive) MarshalText() ([]byte, error) {
 }
 
 func (t *Sensitive) Clear() {
+	*t = make([]byte, len(*t))
 	for i := range *t {
 		(*t)[i] = 0
 	}

@@ -1,23 +1,30 @@
 package secret
 
 import (
-	gocontext "context"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
+	"github.com/samber/oops"
 	"gocloud.dev/secrets"
 )
 
-var allowedConnectionTypes = []string{
-	models.ConnectionTypeAWSKMS,
-	models.ConnectionTypeGCPKMS,
-	models.ConnectionTypeAzureKeyVault,
-	// Vault not supported yet
-}
+var (
+	// KMSConnection is the connection to the key management service
+	// that's used to encrypt and decrypt secrets.
+	KMSConnection string
+
+	allowedConnectionTypes = []string{
+		models.ConnectionTypeAWSKMS,
+		models.ConnectionTypeGCPKMS,
+		models.ConnectionTypeAzureKeyVault,
+		// Vault not supported yet
+	}
+)
+
+// TODO: Cache secret keepeer with TTL.
 
 func KeeperFromConnection(ctx context.Context, connectionString string) (*secrets.Keeper, error) {
 	conn, err := ctx.HydrateConnectionByURL(connectionString)
@@ -51,26 +58,36 @@ func KeeperFromConnection(ctx context.Context, connectionString string) (*secret
 	return nil, nil
 }
 
-func DecryptB64WithConnection(ctx context.Context, secretKeeperConnection string, b64Ciphertext string) (Sensitive, error) {
-	ciphertext, err := base64.StdEncoding.DecodeString(b64Ciphertext)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64 ciphertext: %w", err)
+func Encrypt(ctx context.Context, sensitive Sensitive) (Ciphertext, error) {
+	if KMSConnection == "" {
+		return nil, oops.Errorf("secret keeper connection is not set")
 	}
 
-	return DecryptWithConnection(ctx, secretKeeperConnection, ciphertext)
-}
-
-func DecryptWithConnection(ctx context.Context, secretKeeperConnection string, ciphertext []byte) (Sensitive, error) {
-	keeper, err := KeeperFromConnection(ctx, secretKeeperConnection)
+	keeper, err := KeeperFromConnection(ctx, KMSConnection)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get secret keeper from connection (%s): %w", secretKeeperConnection, err)
+		return nil, fmt.Errorf("failed to get secret keeper from connection (%s): %w", KMSConnection, err)
 	}
 	defer keeper.Close()
 
-	return Decrypt(ctx, keeper, ciphertext)
+	ciphertext, err := keeper.Encrypt(ctx, []byte(sensitive.PlainText()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt secret: %w", err)
+	}
+
+	return ciphertext, nil
 }
 
-func Decrypt(ctx gocontext.Context, keeper *secrets.Keeper, ciphertext []byte) (Sensitive, error) {
+func Decrypt(ctx context.Context, ciphertext Ciphertext) (Sensitive, error) {
+	if KMSConnection == "" {
+		return nil, oops.Errorf("secret keeper connection is not set")
+	}
+
+	keeper, err := KeeperFromConnection(ctx, KMSConnection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret keeper from connection (%s): %w", KMSConnection, err)
+	}
+	defer keeper.Close()
+
 	decrypted, err := keeper.Decrypt(ctx, ciphertext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt secret: %w", err)
