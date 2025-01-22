@@ -7,6 +7,7 @@ import (
 	"os"
 	osExec "os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
@@ -17,6 +18,20 @@ import (
 
 	textTemplate "text/template"
 )
+
+// kubeEnvVars holds a list of environment variables that are commonly used
+// to configure access to the default Kubernetes cluster
+var kubeEnvVars = []string{
+	"KUBECONFIG",
+	"KUBERNETES_SERVICE_HOST",
+	"KUBERNETES_SERVICE_PORT",
+	"KUBERNETES_PORT_443_TCP",
+	"KUBERNETES_SERVICE_PORT_HTTPS",
+	"KUBERNETES_PORT_443_TCP_PROTO",
+	"KUBERNETES_PORT_443_TCP_ADDR",
+	"KUBERNETES_PORT",
+	"KUBERNETES_PORT_443_TCP_PORT",
+}
 
 // +kubebuilder:object:generate=true
 type ExecConnections struct {
@@ -102,10 +117,14 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if kubernetesScrapers, found, err := unstructured.NestedSlice(scraperSpec, "kubernetes"); err != nil {
 			return nil, err
 		} else if found {
+			var kubeconfigFound bool
+
 			for _, kscraper := range kubernetesScrapers {
 				if kubeconfig, found, err := unstructured.NestedMap(kscraper.(map[string]any), "kubeconfig"); err != nil {
 					return nil, err
 				} else if found {
+					kubeconfigFound = true
+
 					connections.Kubernetes = &KubernetesConnection{}
 					if err := runtime.DefaultUnstructuredConverter.FromUnstructured(kubeconfig, &connections.Kubernetes.KubeConfig); err != nil {
 						return nil, err
@@ -116,6 +135,18 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 					}
 
 					break
+				}
+			}
+
+			if !kubeconfigFound {
+				// If none of the kubernetes scrapers had kubeconfig setup,
+				// the scraper is using the default cluster.
+				// We allow these set of env vars that allow access to the default cluster.
+				for _, env := range os.Environ() {
+					key, _, ok := strings.Cut(env, "=")
+					if ok && lo.Contains(kubeEnvVars, key) {
+						cmd.Env = append(cmd.Env, env)
+					}
 				}
 			}
 		}
