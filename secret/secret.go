@@ -1,6 +1,8 @@
 package secret
 
 import (
+	gocontext "context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/flanksource/duty/connection"
@@ -47,4 +49,32 @@ func KeeperFromConnection(ctx context.Context, connectionString string) (*secret
 	}
 
 	return nil, nil
+}
+
+func DecryptB64WithConnection(ctx context.Context, secretKeeperConnection string, b64Ciphertext string) (Sensitive, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(b64Ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 ciphertext: %w", err)
+	}
+
+	return DecryptWithConnection(ctx, secretKeeperConnection, ciphertext)
+}
+
+func DecryptWithConnection(ctx context.Context, secretKeeperConnection string, ciphertext []byte) (Sensitive, error) {
+	keeper, err := KeeperFromConnection(ctx, secretKeeperConnection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret keeper from connection (%s): %w", secretKeeperConnection, err)
+	}
+	defer keeper.Close()
+
+	return Decrypt(ctx, keeper, ciphertext)
+}
+
+func Decrypt(ctx gocontext.Context, keeper *secrets.Keeper, ciphertext []byte) (Sensitive, error) {
+	decrypted, err := keeper.Decrypt(ctx, ciphertext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt secret: %w", err)
+	}
+
+	return Sensitive(decrypted), nil
 }
