@@ -124,6 +124,9 @@ type NotificationSendHistory struct {
 	// The notification silence that silenced this notification.
 	SilencedBy *uuid.UUID `json:"silenced_by,omitempty"`
 
+	// Hash for grouping resources with same message
+	GroupByHash string `json:"group_by_hash,omitempty"`
+
 	timeStart time.Time
 }
 

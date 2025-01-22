@@ -221,6 +221,11 @@ table "notification_send_history" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "group_by_hash" {
+    type = text
+    null    = false
+    default = ""
+  }
   primary_key {
     columns = [column.id]
   }
