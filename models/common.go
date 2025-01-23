@@ -166,3 +166,11 @@ type ABACAttribute struct {
 	Config    ConfigItem
 	Check     Check
 }
+
+type TaggableModel interface {
+	GetTags() map[string]string
+}
+
+type LabelableModel interface {
+	GetLabels() map[string]string
+}
