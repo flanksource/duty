@@ -14,10 +14,10 @@ import (
 	"gocloud.dev/secrets"
 )
 
-const keeperTTL = time.Minute * 10
+const defaultKeeperTTL = time.Minute * 10
 
 var (
-	keeperCache = cache.New(keeperTTL, keeperTTL*2)
+	keeperCache = cache.New(defaultKeeperTTL, defaultKeeperTTL*2)
 
 	// keeperLock locks access to the keeperCache
 	keeperLock sync.RWMutex
@@ -66,7 +66,8 @@ func createOrGetKeeper(ctx context.Context) (*secrets.Keeper, error) {
 		return nil, err
 	}
 
-	keeperCache.SetDefault("keeper", keeper)
+	ttl := ctx.Properties().Duration("secretkeeper.cache.ttl", defaultKeeperTTL)
+	keeperCache.Set("keeper", keeper, ttl)
 	return keeper, nil
 }
 
