@@ -77,7 +77,11 @@ var _ = ginkgo.Describe("Labels", func() {
 			}{
 				{map[string]string{}, map[string]string{}, map[string]string{}},
 				{map[string]string{"infra": "true"}, map[string]string{}, map[string]string{"infra": "true"}},
-				{map[string]string{"infra": "true"}, map[string]string{"env": "test", "color": "blue"}, map[string]string{"infra": "true", "env": "test", "color": "blue"}},
+				{
+					map[string]string{"infra": "true"},
+					map[string]string{"env": "test", "color": "blue"},
+					map[string]string{"infra": "true", "env": "test", "color": "blue"},
+				},
 			}
 			for _, test := range tests {
 				Expect(Merge(Set(test.labels1), Set(test.labels2))).To(MatchMap(test.mergedLabels))
@@ -96,8 +100,16 @@ var _ = ginkgo.Describe("Labels", func() {
 				{"x=a", map[string]string{"x": "a"}, true},
 				{"x=a,y=b,z=c", map[string]string{"x": "a", "y": "b", "z": "c"}, true},
 				{" x = a , y = b , z = c ", map[string]string{"x": "a", "y": "b", "z": "c"}, true},
-				{"color=green,env=test,service=front", map[string]string{"color": "green", "env": "test", "service": "front"}, true},
-				{"color=green, env=test, service=front", map[string]string{"color": "green", "env": "test", "service": "front"}, true},
+				{
+					"color=green,env=test,service=front",
+					map[string]string{"color": "green", "env": "test", "service": "front"},
+					true,
+				},
+				{
+					"color=green, env=test, service=front",
+					map[string]string{"color": "green", "env": "test", "service": "front"},
+					true,
+				},
 				{",", map[string]string{}, false},
 				{"x", map[string]string{}, false},
 				{"x,y", map[string]string{}, false},

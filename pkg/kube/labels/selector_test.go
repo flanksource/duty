@@ -46,12 +46,16 @@ func expectMatch(selector string, ls Set) {
 }
 
 func expectMatchDirect(selector, ls Set) {
-	Expect(SelectorFromSet(selector).Matches(ls)).To(BeTrue(), fmt.Sprintf("Wanted %s to match '%s', but ginkgo.It did not", selector, ls))
+	Expect(
+		SelectorFromSet(selector).Matches(ls),
+	).To(BeTrue(), fmt.Sprintf("Wanted %s to match '%s', but ginkgo.It did not", selector, ls))
 }
 
 //nolint:staticcheck,unused //iccheck // U1000 currently commented out in TODO of TestSetMatches
 func expectNoMatchDirect(selector, ls Set) {
-	Expect(SelectorFromSet(selector).Matches(ls)).To(BeFalse(), fmt.Sprintf("Wanted %s to not match '%s', but ginkgo.It did ", selector, ls))
+	Expect(
+		SelectorFromSet(selector).Matches(ls),
+	).To(BeFalse(), fmt.Sprintf("Wanted %s to not match '%s', but ginkgo.It did ", selector, ls))
 }
 
 var _ = ginkgo.Describe("Selectors", func() {
@@ -216,12 +220,18 @@ var _ = ginkgo.Describe("Lexer", func() {
 	}{
 		{"key in ( value )", []Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, ClosedParToken}},
 		{"key notin ( value )", []Token{IdentifierToken, NotInToken, OpenParToken, IdentifierToken, ClosedParToken}},
-		{"key in ( value1, value2 )", []Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, CommaToken, IdentifierToken, ClosedParToken}},
+		{
+			"key in ( value1, value2 )",
+			[]Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, CommaToken, IdentifierToken, ClosedParToken},
+		},
 		{"key", []Token{IdentifierToken}},
 		{"!key", []Token{DoesNotExistToken, IdentifierToken}},
 		{"()", []Token{OpenParToken, ClosedParToken}},
 		{"x in (),y", []Token{IdentifierToken, InToken, OpenParToken, ClosedParToken, CommaToken, IdentifierToken}},
-		{"== != (), = notin", []Token{DoubleEqualsToken, NotEqualsToken, OpenParToken, ClosedParToken, CommaToken, EqualsToken, NotInToken}},
+		{
+			"== != (), = notin",
+			[]Token{DoubleEqualsToken, NotEqualsToken, OpenParToken, ClosedParToken, CommaToken, EqualsToken, NotInToken},
+		},
 		{"key>2", []Token{IdentifierToken, GreaterThanToken, IdentifierToken}},
 		{"key<1", []Token{IdentifierToken, LessThanToken, IdentifierToken}},
 	}
@@ -250,15 +260,48 @@ var _ = ginkgo.Describe("Parser", func() {
 		s string
 		t []Token
 	}{
-		{"key in ( value )", []Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, ClosedParToken, EndOfStringToken}},
-		{"key notin ( value )", []Token{IdentifierToken, NotInToken, OpenParToken, IdentifierToken, ClosedParToken, EndOfStringToken}},
-		{"key in ( value1, value2 )", []Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, CommaToken, IdentifierToken, ClosedParToken, EndOfStringToken}},
+		{
+			"key in ( value )",
+			[]Token{IdentifierToken, InToken, OpenParToken, IdentifierToken, ClosedParToken, EndOfStringToken},
+		},
+		{
+			"key notin ( value )",
+			[]Token{IdentifierToken, NotInToken, OpenParToken, IdentifierToken, ClosedParToken, EndOfStringToken},
+		},
+		{
+			"key in ( value1, value2 )",
+			[]Token{
+				IdentifierToken,
+				InToken,
+				OpenParToken,
+				IdentifierToken,
+				CommaToken,
+				IdentifierToken,
+				ClosedParToken,
+				EndOfStringToken,
+			},
+		},
 		{"key", []Token{IdentifierToken, EndOfStringToken}},
 		{"!key", []Token{DoesNotExistToken, IdentifierToken, EndOfStringToken}},
 		{"()", []Token{OpenParToken, ClosedParToken, EndOfStringToken}},
 		{"", []Token{EndOfStringToken}},
-		{"x in (),y", []Token{IdentifierToken, InToken, OpenParToken, ClosedParToken, CommaToken, IdentifierToken, EndOfStringToken}},
-		{"== != (), = notin", []Token{DoubleEqualsToken, NotEqualsToken, OpenParToken, ClosedParToken, CommaToken, EqualsToken, NotInToken, EndOfStringToken}},
+		{
+			"x in (),y",
+			[]Token{IdentifierToken, InToken, OpenParToken, ClosedParToken, CommaToken, IdentifierToken, EndOfStringToken},
+		},
+		{
+			"== != (), = notin",
+			[]Token{
+				DoubleEqualsToken,
+				NotEqualsToken,
+				OpenParToken,
+				ClosedParToken,
+				CommaToken,
+				EqualsToken,
+				NotInToken,
+				EndOfStringToken,
+			},
+		},
 		{"key>2", []Token{IdentifierToken, GreaterThanToken, IdentifierToken, EndOfStringToken}},
 		{"key<1", []Token{IdentifierToken, LessThanToken, IdentifierToken, EndOfStringToken}},
 	}
