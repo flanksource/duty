@@ -432,6 +432,12 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config labels not equal query",
+			query:       `labels.account=flanksource labels.environment!=production`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesCluster.ID, dummy.EC2InstanceA.ID},
+			resource:    "config",
+		},
+		{
 			description: "config array query",
 			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
