@@ -40,7 +40,11 @@ var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op ty
 	if !slices.Contains([]types.QueryOperator{types.Eq, types.Neq}, op) {
 		op = types.Eq
 	}
-	return tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) %s ?`, column, path, op), val)
+	values := strings.Split(val, ",")
+	for _, v := range values {
+		tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) %s ?`, column, path, op), v)
+	}
+	return tx
 }
 
 var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){

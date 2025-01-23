@@ -438,6 +438,12 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config labels multiple with ,",
+			query:       `labels.account=flanksource labels.environment!=production,development`,
+			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
+			resource:    "config",
+		},
+		{
 			description: "config array query",
 			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
