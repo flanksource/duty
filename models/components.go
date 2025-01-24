@@ -30,6 +30,12 @@ var AllowedColumnFieldsInComponents = []string{
 	"type", // Deprecated. Use resource_selector.types instead
 }
 
+// Ensure interface compliance
+var (
+	_ types.ResourceSelectable = Component{}
+	_ LabelableModel           = Component{}
+)
+
 type Component struct {
 	ID              uuid.UUID               `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
 	TopologyID      *uuid.UUID              `json:"topology_id,omitempty"`
@@ -135,6 +141,10 @@ func (c Component) PK() string {
 
 func (c Component) TableName() string {
 	return "components"
+}
+
+func (t Component) GetLabels() map[string]string {
+	return t.Labels
 }
 
 func DeleteAllComponents(db *gorm.DB, components ...Component) error {

@@ -25,7 +25,11 @@ var CheckHealthStatuses = []CheckHealthStatus{
 	CheckStatusUnhealthy,
 }
 
-var _ types.ResourceSelectable = Check{}
+// Ensure interface compliance
+var (
+	_ types.ResourceSelectable = Check{}
+	_ LabelableModel           = Check{}
+)
 
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
@@ -92,6 +96,10 @@ func (c Check) PK() string {
 
 func (c Check) TableName() string {
 	return "checks"
+}
+
+func (t Check) GetLabels() map[string]string {
+	return t.Labels
 }
 
 func (c Check) ToString() string {

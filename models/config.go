@@ -81,6 +81,8 @@ const (
 var (
 	_ types.ResourceSelectable = ConfigItem{}
 	_ types.TagsMatchable      = ConfigItem{}
+	_ TaggableModel            = ConfigItem{}
+	_ LabelableModel           = ConfigItem{}
 )
 
 // ConfigItem represents the config item database table
@@ -168,6 +170,14 @@ func (c ConfigItem) Value() any {
 
 func (ConfigItem) TableName() string {
 	return "config_items"
+}
+
+func (t ConfigItem) GetTags() map[string]string {
+	return t.Tags
+}
+
+func (t ConfigItem) GetLabels() map[string]string {
+	return lo.FromPtr(t.Labels)
 }
 
 func (ci *ConfigItem) SetParent(parent *ConfigItem) {

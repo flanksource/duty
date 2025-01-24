@@ -1,4 +1,4 @@
-//go:generate go run github.com/mna/pigeon@v1.3.0 -o grammer.go grammer.peg
+//go:generate go run github.com/mna/pigeon@v1.3.0 -o grammar.go grammar.peg
 package grammar
 
 import (
