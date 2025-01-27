@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -20,6 +23,8 @@ type expressions struct {
 }
 
 type Expressions []clause.Expression
+
+var distinctTagsCache = cache.New(time.Minute*10, time.Hour)
 
 // postgrestValues returns ["a", "b", "c"] as `"a","b","c"`
 func postgrestValues(val []any) string {
@@ -151,4 +156,22 @@ func OrQueries(db *gorm.DB, queries ...*gorm.DB) *gorm.DB {
 	}
 
 	return db.Where(union)
+}
+
+func GetDistinctTags(ctx context.Context) ([]string, error) {
+	if cached, ok := distinctTagsCache.Get("key"); ok {
+		return cached.([]string), nil
+	}
+
+	var tags []string
+	query := `
+	SELECT jsonb_object_keys(tags) FROM config_items
+	UNION
+	SELECT jsonb_object_keys(tags) FROM playbooks`
+	if err := ctx.DB().Raw(query).Scan(&tags).Error; err != nil {
+		return nil, err
+	}
+
+	distinctTagsCache.SetDefault("key", tags)
+	return tags, nil
 }
