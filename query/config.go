@@ -431,7 +431,7 @@ func FindConfigsByResourceSelector(ctx context.Context, limit int, resourceSelec
 }
 
 func FindConfigIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	return queryTableWithResourceSelectors(ctx, "config_items", models.AllowedColumnFieldsInConfigs, limit, resourceSelectors...)
+	return queryTableWithResourceSelectors(ctx, "config_items", limit, resourceSelectors...)
 }
 
 func FindConfigForComponent(ctx context.Context, componentID, configType string) ([]models.ConfigItem, error) {

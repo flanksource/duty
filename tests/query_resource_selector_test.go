@@ -194,7 +194,14 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
 		},
 		{
-			description: "field selector | Property lookup Equals Query",
+			description: "search | field selector | prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Search: "config_class=Virtual*"}},
+			},
+			Configs: []models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
+		},
+		{
+			description: "field selector | Property lookup | configs",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{FieldSelector: "region=us-west-2"}},
 			},
@@ -257,9 +264,9 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		})
 
 		for _, test := range testData {
-			if test.description != "name prefix | configs" {
-				continue
-			}
+			// if test.description != "field selector | Property lookup Equals Query | 2" {
+			// 	continue
+			// }
 
 			ginkgo.It(test.description, func() {
 				items, err := query.SearchResources(DefaultContext, test.query)

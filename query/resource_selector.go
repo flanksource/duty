@@ -137,7 +137,6 @@ func SetResourceSelectorClause(
 	resourceSelector types.ResourceSelector,
 	query *gorm.DB,
 	table string,
-	allowedColumnsAsFields []string,
 ) (*gorm.DB, error) {
 	searchSetAgent := false
 
@@ -276,7 +275,7 @@ func SetResourceSelectorClause(
 
 		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
-			if collections.Contains(allowedColumnsAsFields, r.Key()) {
+			if collections.Contains(qm.Columns, r.Key()) {
 				query = fieldSelectorRequirementToSQLClause(query, r)
 			} else {
 				query = propertySelectorRequirementToSQLClause(query, r)
@@ -300,7 +299,6 @@ func queryResourceSelector(
 	limit int,
 	resourceSelector types.ResourceSelector,
 	table string,
-	allowedColumnsAsFields []string,
 ) ([]uuid.UUID, error) {
 	if resourceSelector.IsEmpty() {
 		return nil, nil
@@ -333,7 +331,7 @@ func queryResourceSelector(
 		query = query.Limit(limit)
 	}
 
-	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
+	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table)
 	if err != nil {
 		return nil, err
 	}
@@ -567,14 +565,13 @@ func getAgentID(ctx context.Context, agent string) (*uuid.UUID, error) {
 func queryTableWithResourceSelectors(
 	ctx context.Context,
 	table string,
-	allowedFields []string,
 	limit int,
 	resourceSelectors ...types.ResourceSelector,
 ) ([]uuid.UUID, error) {
 	var output []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, limit, resourceSelector, table, allowedFields)
+		items, err := queryResourceSelector(ctx, limit, resourceSelector, table)
 		if err != nil {
 			return nil, err
 		}

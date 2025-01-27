@@ -31,5 +31,5 @@ func FindComponents(ctx context.Context, limit int, resourceSelectors ...types.R
 }
 
 func FindComponentIDs(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	return queryTableWithResourceSelectors(ctx, "components", models.AllowedColumnFieldsInComponents, limit, resourceSelectors...)
+	return queryTableWithResourceSelectors(ctx, "components", limit, resourceSelectors...)
 }

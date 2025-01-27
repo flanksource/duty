@@ -8,11 +8,11 @@ import (
 )
 
 func FindPlaybookIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	return queryTableWithResourceSelectors(ctx, "playbooks", models.AllowedColumnFieldsInPlaybooks, limit, resourceSelectors...)
+	return queryTableWithResourceSelectors(ctx, "playbooks", limit, resourceSelectors...)
 }
 
 func FindPlaybooksByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.Playbook, error) {
-	ids, err := queryTableWithResourceSelectors(ctx, "playbooks", models.AllowedColumnFieldsInPlaybooks, limit, resourceSelectors...)
+	ids, err := queryTableWithResourceSelectors(ctx, "playbooks", limit, resourceSelectors...)
 	if err != nil {
 		return nil, err
 	}

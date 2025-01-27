@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
 
@@ -68,11 +69,16 @@ var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string)
 }
 
 type QueryModel struct {
-	Table       string
+	Table      string
+	DateFields []string
+	Custom     map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
+
+	// List of columns that are JSON type.
 	JSONColumns []string
-	DateFields  []string
-	Columns     []string
-	Custom      map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
+
+	// List of columns that can be addressed on the search query.
+	// Any other fields will be treated as a property lookup.
+	Columns []string
 
 	// Alias maps fields from the search query to the table columns
 	Aliases map[string]string
@@ -93,9 +99,9 @@ type QueryModel struct {
 var ConfigQueryModel = QueryModel{
 	Table: "configs",
 	Columns: []string{
-		"name", "source", "type", "status", "health",
+		"name", "source", "type", "status", "health", "external_id", "config_class",
 	},
-	JSONColumns: []string{"labels", "tags", "config"},
+	JSONColumns: []string{"labels", "tags", "config", "properties"},
 	HasTags:     true,
 	HasAgents:   true,
 	HasLabels:   true,
@@ -255,13 +261,15 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 		}
 
 		for _, column := range qm.JSONColumns {
-			if strings.HasPrefix(originalField, column) {
+			// Keys in JSON fields are addressable as <column>.<key>
+			// exampel: labels.cluster or tags.namespace
+			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
 				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
 		}
 
-		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
+		if !slices.Contains(ignoreFieldsForClauses, q.Field) && lo.Contains(qm.Columns, q.Field) {
 			if c, err := q.ToClauses(); err != nil {
 				return nil, nil, err
 			} else {
