@@ -208,6 +208,9 @@ var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("logistics-api"),
 	ConfigClass: models.ConfigClassDeployment,
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "Deployment",
@@ -260,7 +263,10 @@ var LogisticsAPIReplicaSet = models.ConfigItem{
 	ConfigClass: "ReplicaSet",
 	Name:        lo.ToPtr("logistics-api"),
 	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
-	ParentID:    lo.ToPtr(LogisticsAPIDeployment.ID),
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
+	ParentID: lo.ToPtr(LogisticsAPIDeployment.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
@@ -281,6 +287,9 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 		"owner":       "team-1",
 		"version":     "1.2.0",
 	}),
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
 }
 
 var LogisticsUIDeployment = models.ConfigItem{
@@ -294,6 +303,9 @@ var LogisticsUIDeployment = models.ConfigItem{
 		"owner":       "team-2",
 		"version":     "2.0.1",
 	}),
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
 }
 
 var LogisticsWorkerDeployment = models.ConfigItem{
@@ -306,6 +318,9 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 		"owner":       "team-3",
 		"version":     "1.5.0",
 	}),
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
 }
 
 var LogisticsDBRDS = models.ConfigItem{
@@ -318,6 +333,9 @@ var LogisticsDBRDS = models.ConfigItem{
 		"region":      "us-east-1",
 		"size":        "large",
 	}),
+	Tags: map[string]string{
+		"namespace": "missioncontrol",
+	},
 }
 
 var AllDummyConfigs = []models.ConfigItem{
