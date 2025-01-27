@@ -157,12 +157,12 @@ func SetResourceSelectorClause(
 		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", resourceSelector.Namespace))
 	}
 
-	for _, resourceType := range resourceSelector.Types {
-		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", resourceType))
+	if len(resourceSelector.Types) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(resourceSelector.Types, ",")))
 	}
 
-	for _, resourceType := range resourceSelector.Statuses {
-		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", resourceType))
+	if len(resourceSelector.Statuses) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(resourceSelector.Statuses, ",")))
 	}
 
 	if len(searchConditions) > 0 {

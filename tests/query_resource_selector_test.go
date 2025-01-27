@@ -53,34 +53,6 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
 		},
 		{
-			description: "namespace | search | configs",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{Search: "namespace=missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
-			},
-			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
-		},
-		{
-			description: "name prefix | components",
-			query: query.SearchResourcesRequest{
-				Components: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"Application"}}},
-			},
-			Components: []models.Component{dummy.LogisticsAPI, dummy.LogisticsUI, dummy.LogisticsWorker},
-		},
-		{
-			description: "name prefix | checks",
-			query: query.SearchResourcesRequest{
-				Checks: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"http"}}},
-			},
-			Checks: []models.Check{dummy.LogisticsAPIHomeHTTPCheck, dummy.LogisticsAPIHealthHTTPCheck},
-		},
-		{
-			description: "name prefix | configs",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{Search: "node*"}},
-			},
-			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
-		},
-		{
 			description: "name prefix | configs | By Field",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{Name: "node*"}},
@@ -519,6 +491,40 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			query:       `config.spec.template.spec.containers[0].ports[0].containerPort=80`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
 			resource:    "config",
+		},
+		{
+			description: "namespace | search | configs",
+			query:       "namespace=missioncontrol type=Logistics::DB::RDS",
+			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
+			resource:    "config",
+		},
+		{
+			description: "name prefix | components",
+			query:       "logistics-* type=Application",
+			expectedIDs: []uuid.UUID{
+				dummy.LogisticsAPI.ID,
+				dummy.LogisticsUI.ID,
+				dummy.LogisticsWorker.ID,
+			},
+			resource: "component",
+		},
+		{
+			description: "name prefix | checks",
+			query:       "logistics-* type=http",
+			expectedIDs: []uuid.UUID{
+				dummy.LogisticsAPIHomeHTTPCheck.ID,
+				dummy.LogisticsAPIHealthHTTPCheck.ID,
+			},
+			resource: "checks",
+		},
+		{
+			description: "name prefix | configs",
+			query:       "node*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
 		},
 	}
 
