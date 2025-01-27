@@ -73,6 +73,7 @@ var EKSCluster = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("Production EKS"),
 	ConfigClass: models.ConfigClassCluster,
+	Health:      lo.ToPtr(models.HealthUnknown),
 	Type:        lo.ToPtr("EKS::Cluster"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
@@ -92,6 +93,7 @@ var KubernetesCluster = models.ConfigItem{
 	ConfigClass: models.ConfigClassCluster,
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
 	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
+	Health:      lo.ToPtr(models.HealthUnknown),
 	Tags: types.JSONStringMap{
 		"cluster": "demo",
 		"account": "flanksource",
@@ -179,6 +181,7 @@ var KubernetesNodeB = models.ConfigItem{
 var EC2InstanceA = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("EC2::Instance"),
 	Tags: types.JSONStringMap{
 		"account": "flanksource",
@@ -193,6 +196,7 @@ var EC2InstanceA = models.ConfigItem{
 var EC2InstanceB = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassVirtualMachine,
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("EC2::Instance"),
 	Tags: types.JSONStringMap{
 		"account": "flanksource",
@@ -207,6 +211,7 @@ var EC2InstanceB = models.ConfigItem{
 var LogisticsAPIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("logistics-api"),
+	Health:      lo.ToPtr(models.HealthHealthy),
 	ConfigClass: models.ConfigClassDeployment,
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
@@ -263,6 +268,7 @@ var LogisticsAPIReplicaSet = models.ConfigItem{
 	ConfigClass: "ReplicaSet",
 	Name:        lo.ToPtr("logistics-api"),
 	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
 	},
@@ -280,6 +286,8 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	ConfigClass: models.ConfigClassPod,
 	Name:        lo.ToPtr("logistics-api-pod-1"),
 	Type:        lo.ToPtr("Kubernetes::Pod"),
+	Health:      lo.ToPtr(models.HealthHealthy),
+	Status:      lo.ToPtr("Running"),
 	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
@@ -296,6 +304,7 @@ var LogisticsUIDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("logistics-ui"),
 	ConfigClass: models.ConfigClassDeployment,
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Logistics::UI::Deployment"),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
@@ -311,6 +320,7 @@ var LogisticsUIDeployment = models.ConfigItem{
 var LogisticsWorkerDeployment = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDeployment,
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Logistics::Worker::Deployment"),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
@@ -326,6 +336,7 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 var LogisticsDBRDS = models.ConfigItem{
 	ID:          uuid.New(),
 	ConfigClass: models.ConfigClassDatabase,
+	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Logistics::DB::RDS"),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"database":    "logistics",

@@ -72,9 +72,22 @@ type QueryModel struct {
 	JSONColumns []string
 	DateFields  []string
 	Columns     []string
-	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
 	Custom      map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
-	Aliases     map[string]string
+
+	// Alias maps fields from the search query to the table columns
+	Aliases map[string]string
+
+	// True when the table has a "tags" column
+	HasTags bool
+
+	// True when the table has a "labels" column
+	HasLabels bool
+
+	// True when the table has an "agent_id" column
+	HasAgents bool
+
+	// FieldMapper maps the value of these fields
+	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
 }
 
 var ConfigQueryModel = QueryModel{
@@ -83,6 +96,9 @@ var ConfigQueryModel = QueryModel{
 		"name", "source", "type", "status", "health",
 	},
 	JSONColumns: []string{"labels", "tags", "config"},
+	HasTags:     true,
+	HasAgents:   true,
+	HasLabels:   true,
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -92,7 +108,6 @@ var ConfigQueryModel = QueryModel{
 		"config_type": "type",
 		"namespace":   "@namespace",
 	},
-
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
 		"created_at":        DateMapper,
@@ -133,7 +148,8 @@ var ComponentQueryModel = QueryModel{
 		"component_type": "type",
 		"namespace":      "@namespace",
 	},
-
+	HasAgents: true,
+	HasLabels: true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
 		"created_at":        DateMapper,
@@ -154,10 +170,12 @@ var CheckQueryModel = QueryModel{
 		"updated":    "updated_at",
 		"deleted":    "deleted_at",
 		"agent":      "agent_id",
+		"health":     "status",
 		"check_type": "type",
 		"namespace":  "@namespace",
 	},
-
+	HasAgents: true,
+	HasLabels: true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":   AgentMapper,
 		"created_at": DateMapper,
@@ -167,7 +185,8 @@ var CheckQueryModel = QueryModel{
 }
 
 var PlaybookQueryModel = QueryModel{
-	Table: models.Playbook{}.TableName(),
+	Table:   models.Playbook{}.TableName(),
+	HasTags: true,
 	Aliases: map[string]string{
 		"created":   "created_at",
 		"updated":   "updated_at",

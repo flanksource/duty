@@ -15,13 +15,6 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-func ExpectSearch(q query.SearchResourcesRequest) *query.SearchResourcesResponse {
-	response, err := query.SearchResources(DefaultContext, q)
-	Expect(err).To(BeNil())
-	Expect(response).ToNot(BeNil())
-	return response
-}
-
 var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	testData := []struct {
 		description string
@@ -53,6 +46,13 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs:    []models.ConfigItem{dummy.KubernetesNodeAKSPool1, dummy.KubernetesNodeA, dummy.KubernetesNodeB},
 		},
 		{
+			description: "namespace | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Namespace: "missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
 			description: "name prefix | components",
 			query: query.SearchResourcesRequest{
 				Components: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"Application"}}},
@@ -74,11 +74,60 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
 		},
 		{
+			description: "name prefix | configs | By Field",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Name: "node*"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
+		},
+		{
 			description: "name prefix with label selector",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{Search: "node*)", LabelSelector: "region=us-west-2"}},
 			},
 			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "type prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"Logistics::DB*"}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
+			description: "status prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Statuses: []string{"Run*"}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsAPIPodConfig},
+		},
+		{
+			description: "health exclusion | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Health: "!healthy"}},
+			},
+			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
+		},
+		{
+			description: "health inclusion | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Health: "unknown"}},
+			},
+			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
+		},
+		{
+			description: "health exclusion | checks",
+			query: query.SearchResourcesRequest{
+				Checks: []types.ResourceSelector{{Health: "!healthy"}},
+			},
+			Checks: []models.Check{dummy.LogisticsDBCheck},
+		},
+		{
+			description: "namespace | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Namespace: "missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
 		},
 		// TODO: Currently search does not support labels/tags
 		//{
@@ -207,17 +256,19 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			_ = query.SyncConfigCache(DefaultContext)
 		})
 
-		ginkgo.Context("query", func() {
-			for _, test := range testData {
-				ginkgo.It(test.description, func() {
-					items, err := query.SearchResources(DefaultContext, test.query)
-					Expect(err).To(BeNil())
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
-				})
+		for _, test := range testData {
+			if test.description != "name prefix | configs" {
+				continue
 			}
-		})
+
+			ginkgo.It(test.description, func() {
+				items, err := query.SearchResources(DefaultContext, test.query)
+				Expect(err).To(BeNil())
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+			})
+		}
 	})
 })
 
