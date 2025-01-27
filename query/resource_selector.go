@@ -153,6 +153,10 @@ func SetResourceSelectorClause(
 		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", resourceSelector.Health))
 	}
 
+	if resourceSelector.Namespace != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", resourceSelector.Namespace))
+	}
+
 	for _, resourceType := range resourceSelector.Types {
 		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", resourceType))
 	}
@@ -195,21 +199,8 @@ func SetResourceSelectorClause(
 		query = query.Where("deleted_at IS NULL")
 	}
 
-	if resourceSelector.Namespace != "" {
-		switch table {
-		case "config_items":
-			query = query.Where("tags->>'namespace' = ?", resourceSelector.Namespace)
-		default:
-			query = query.Where("namespace = ?", resourceSelector.Namespace)
-		}
-	}
-
 	var agentID *uuid.UUID
-	if !searchSetAgent {
-		if !qm.HasAgents {
-			return nil, api.Errorf(api.EINVALID, "agent search is not supported for table=%s", table)
-		}
-
+	if !searchSetAgent && qm.HasAgents {
 		agentID, err := getAgentID(ctx, resourceSelector.Agent)
 		if err != nil {
 			return nil, err

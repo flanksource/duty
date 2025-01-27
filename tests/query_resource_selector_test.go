@@ -53,6 +53,20 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
 		},
 		{
+			description: "namespace | search | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Search: "namespace=missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
+			description: "namespace | search | prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Search: "namespace=mission*", Types: []string{*dummy.LogisticsDBRDS.Type}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
 			description: "name prefix | components",
 			query: query.SearchResourcesRequest{
 				Components: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"Application"}}},

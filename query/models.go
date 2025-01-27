@@ -69,11 +69,12 @@ var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string)
 }
 
 type QueryModel struct {
-	Table      string
-	DateFields []string
-	Custom     map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
+	Table  string
+	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
 
 	// List of columns that are JSON type.
+	// These columns can be addressed using dot notation to access the JSON fields directly
+	// Example: tags.cluster or tags.namespace.
 	JSONColumns []string
 
 	// List of columns that can be addressed on the search query.
@@ -112,7 +113,7 @@ var ConfigQueryModel = QueryModel{
 		"scraped":     "last_scraped_time",
 		"agent":       "agent_id",
 		"config_type": "type",
-		"namespace":   "@namespace",
+		"namespace":   "tags.namespace",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
@@ -142,7 +143,7 @@ var ComponentQueryModel = QueryModel{
 		},
 	},
 	Columns: []string{
-		"name", "topology_id", "type", "status", "health",
+		"name", "namespace", "topology_id", "type", "status", "health",
 	},
 	JSONColumns: []string{"labels", "properties"},
 	Aliases: map[string]string{
@@ -152,7 +153,6 @@ var ComponentQueryModel = QueryModel{
 		"scraped":        "last_scraped_time",
 		"agent":          "agent_id",
 		"component_type": "type",
-		"namespace":      "@namespace",
 	},
 	HasAgents: true,
 	HasLabels: true,
@@ -168,7 +168,7 @@ var ComponentQueryModel = QueryModel{
 var CheckQueryModel = QueryModel{
 	Table: "checks",
 	Columns: []string{
-		"name", "canary_id", "type", "status",
+		"name", "namespace", "canary_id", "type", "status",
 	},
 	JSONColumns: []string{"labels"},
 	Aliases: map[string]string{
@@ -178,7 +178,6 @@ var CheckQueryModel = QueryModel{
 		"agent":      "agent_id",
 		"health":     "status",
 		"check_type": "type",
-		"namespace":  "@namespace",
 	},
 	HasAgents: true,
 	HasLabels: true,
@@ -193,11 +192,11 @@ var CheckQueryModel = QueryModel{
 var PlaybookQueryModel = QueryModel{
 	Table:   models.Playbook{}.TableName(),
 	HasTags: true,
+	Columns: []string{"name", "namespace"},
 	Aliases: map[string]string{
-		"created":   "created_at",
-		"updated":   "updated_at",
-		"deleted":   "deleted_at",
-		"namespace": "@namespace",
+		"created": "created_at",
+		"updated": "updated_at",
+		"deleted": "deleted_at",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"created_at": DateMapper,
