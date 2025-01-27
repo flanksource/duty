@@ -266,11 +266,10 @@ func SetResourceSelectorClause(
 
 		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
-			if collections.Contains(qm.Columns, r.Key()) {
-				query = fieldSelectorRequirementToSQLClause(query, r)
-			} else {
-				query = propertySelectorRequirementToSQLClause(query, r)
-			}
+			query = fieldSelectorRequirementToSQLClause(query, r)
+
+			// TODO: figure out how to address properties via field selectors
+			// query = propertySelectorRequirementToSQLClause(query, r)
 		}
 	}
 
@@ -456,27 +455,27 @@ func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm
 }
 
 // propertySelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
-	switch r.Operator() {
-	case selection.Equals, selection.DoubleEquals:
-		for val := range r.Values() {
-			q = q.Where("properties @> ?", types.Properties{{Name: r.Key(), Text: val}})
-		}
-	case selection.NotEquals:
-		for val := range r.Values() {
-			q = q.Where("NOT (properties @> ?)", types.Properties{{Name: r.Key(), Text: val}})
-		}
-	case selection.GreaterThan,
-		selection.LessThan,
-		selection.In,
-		selection.NotIn,
-		selection.Exists,
-		selection.DoesNotExist:
-		logger.Warnf("TODO: Implement %s for property lookup", r.Operator())
-	}
+// func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+// 	switch r.Operator() {
+// 	case selection.Equals, selection.DoubleEquals:
+// 		for val := range r.Values() {
+// 			q = q.Where("properties @> ?", types.Properties{{Name: r.Key(), Text: val}})
+// 		}
+// 	case selection.NotEquals:
+// 		for val := range r.Values() {
+// 			q = q.Where("NOT (properties @> ?)", types.Properties{{Name: r.Key(), Text: val}})
+// 		}
+// 	case selection.GreaterThan,
+// 		selection.LessThan,
+// 		selection.In,
+// 		selection.NotIn,
+// 		selection.Exists,
+// 		selection.DoesNotExist:
+// 		logger.Warnf("TODO: Implement %s for property lookup", r.Operator())
+// 	}
 
-	return q
-}
+// 	return q
+// }
 
 // getScopeID takes either uuid or namespace/name and table to return the appropriate scope_id
 func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.UUID) (string, error) {

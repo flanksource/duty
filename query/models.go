@@ -11,7 +11,6 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
 
@@ -100,7 +99,7 @@ type QueryModel struct {
 var ConfigQueryModel = QueryModel{
 	Table: "configs",
 	Columns: []string{
-		"name", "source", "type", "status", "health", "external_id", "config_class",
+		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 	},
 	JSONColumns: []string{"labels", "tags", "config", "properties"},
 	HasTags:     true,
@@ -266,9 +265,14 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
+
+			if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
+				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
+				q.Field = column
+			}
 		}
 
-		if !slices.Contains(ignoreFieldsForClauses, q.Field) && lo.Contains(qm.Columns, q.Field) {
+		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
 			if c, err := q.ToClauses(); err != nil {
 				return nil, nil, err
 			} else {
