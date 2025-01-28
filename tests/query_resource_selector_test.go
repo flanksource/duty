@@ -109,34 +109,39 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
 		},
 		// TODO: Currently search does not support labels/tags
-		//{
-		//description: "tag prefix - eg #1",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "aws*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.EKSCluster},
-		//},
-		//{
-		//description: "tag prefix - eg #2",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "demo*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.KubernetesCluster},
-		//},
-		//{
-		//description: "label prefix - eg #1",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "prod*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.EKSCluster},
-		//},
-		//{
-		//description: "label prefix - eg #2",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "develop*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.KubernetesCluster},
-		//},
+		// {
+		// 	description: "tag prefix - eg #1",
+		// 	Configs:     []models.ConfigItem{dummy.EKSCluster},
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{
+		// 			{
+		// 				// FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster),
+		// 				Search: "aws*",
+		// 			},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	description: "tag prefix - eg #2",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "demo*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.KubernetesCluster},
+		// },
+		// {
+		// 	description: "label prefix - eg #1",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "prod*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.EKSCluster},
+		// },
+		// {
+		// 	description: "label prefix - eg #2",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "develop*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.KubernetesCluster},
+		// },
 		{
 			description: "labels | Equals Query",
 			query: query.SearchResourcesRequest{
@@ -179,34 +184,6 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			},
 			Configs: []models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
 		},
-		// {
-		// 	description: "field selector | Property lookup | configs",
-		// 	query: query.SearchResourcesRequest{
-		// 		Configs: []types.ResourceSelector{{FieldSelector: "region=us-west-2"}},
-		// 	},
-		// 	Configs: []models.ConfigItem{dummy.KubernetesNodeB},
-		// },
-		// {
-		// 	description: "field selector | Property lookup Not Equals Query",
-		// 	query: query.SearchResourcesRequest{
-		// 		Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1", TagSelector: "cluster=aws"}},
-		// 	},
-		// 	Configs: []models.ConfigItem{dummy.KubernetesNodeB},
-		// },
-		// {
-		// 	description: "field selector | Property lookup Greater Than Query",
-		// 	query: query.SearchResourcesRequest{
-		// 		Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
-		// 	},
-		// 	Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
-		// },
-		// {
-		// 	description: "field selector | Property lookup Less Than Query",
-		// 	query: query.SearchResourcesRequest{
-		// 		Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
-		// 	},
-		// 	Configs: []models.ConfigItem{dummy.KubernetesNodeB},
-		// },
 		{
 			description: "field selector | IN Query",
 			query: query.SearchResourcesRequest{
@@ -243,10 +220,6 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		})
 
 		for _, test := range testData {
-			// if test.description != "namespace | search | prefix | configs" {
-			// 	continue
-			// }
-
 			ginkgo.It(test.description, func() {
 				items, err := query.SearchResources(DefaultContext, test.query)
 				Expect(err).To(BeNil())
@@ -256,6 +229,63 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			})
 		}
 	})
+})
+
+var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	testData := []struct {
+		description string
+		query       query.SearchResourcesRequest
+		Configs     []models.ConfigItem
+		Components  []models.Component
+		Checks      []models.Check
+	}{
+		{
+			description: "field selector | Property lookup | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Search: "properties.os=linux"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Not Equals Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1", TagSelector: "cluster=aws"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Greater Than Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Less Than Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+	}
+
+	for _, test := range testData {
+		if test.description != "field selector | Property lookup | configs" {
+			continue
+		}
+
+		ginkgo.It(test.description, func() {
+			items, err := query.SearchResources(DefaultContext, test.query)
+			Expect(err).To(BeNil())
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+		})
+	}
 })
 
 var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
@@ -539,10 +569,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	}
 
 	for _, tt := range testData {
-		// if tt.description != "component agent query" {
-		// 	continue
-		// }
-
 		ginkgo.It(tt.description, func() {
 			f, ok := fmap[tt.resource]
 			Expect(ok).To(BeTrue())
