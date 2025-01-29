@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,25 +23,6 @@ import (
 	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/duty/types"
-)
-
-var (
-	tablesWithTags = map[string]struct{}{
-		"config_items": {},
-		"playbooks":    {},
-	}
-
-	tablesWithAgents = map[string]struct{}{
-		"config_items": {},
-		"checks":       {},
-		"components":   {},
-	}
-
-	tablesWithLabels = map[string]struct{}{
-		"config_items": {},
-		"checks":       {},
-		"components":   {},
-	}
 )
 
 type SearchResourcesRequest struct {
@@ -152,19 +132,53 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	return &output, nil
 }
 
-func SetResourceSelectorClause(ctx context.Context, resourceSelector types.ResourceSelector, query *gorm.DB, table string, allowedColumnsAsFields []string) (*gorm.DB, error) {
-	// We call setSearchQueryParams as it sets those params that
-	// might later be used by the query
-
+func SetResourceSelectorClause(
+	ctx context.Context,
+	resourceSelector types.ResourceSelector,
+	query *gorm.DB,
+	table string,
+) (*gorm.DB, error) {
 	searchSetAgent := false
+
+	var searchConditions []string
+	if resourceSelector.Name != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("name = %q", resourceSelector.Name))
+	}
+
+	if resourceSelector.ID != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("id = %q", resourceSelector.ID))
+	}
+
+	if len(resourceSelector.Health) != 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", resourceSelector.Health))
+	}
+
+	if resourceSelector.Namespace != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", resourceSelector.Namespace))
+	}
+
+	if len(resourceSelector.Types) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(resourceSelector.Types, ",")))
+	}
+
+	if len(resourceSelector.Statuses) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(resourceSelector.Statuses, ",")))
+	}
+
+	if len(searchConditions) > 0 {
+		joined := strings.Join(searchConditions, " ")
+		resourceSelector.Search += fmt.Sprintf(" %s", joined)
+	}
+
+	qm, err := GetModelFromTable(table)
+	if err != nil {
+		return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
+	}
+
 	if resourceSelector.Search != "" {
 		qf, err := grammar.ParsePEG(resourceSelector.Search)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing grammar[%s]: %w", resourceSelector.Search, err)
-		}
-		qm, err := GetModelFromTable(table)
-		if err != nil {
-			return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
 		}
 
 		flatFields := grammar.FlatFields(qf)
@@ -179,68 +193,14 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 
 		query = query.Clauses(clauses...)
-
-		// Legacy logic
-		if false {
-			if strings.Contains(resourceSelector.Search, "=") {
-				setSearchQueryParams(&resourceSelector)
-			} else {
-				var prefixQueries []*gorm.DB
-				if resourceSelector.Name == "" {
-					prefixQueries = append(prefixQueries, ctx.DB().Where("name ILIKE ?", resourceSelector.Search+"%"))
-				}
-				if resourceSelector.TagSelector == "" && table == "config_items" {
-					prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(tags) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-				}
-				if resourceSelector.LabelSelector == "" {
-					prefixQueries = append(prefixQueries, ctx.DB().Where("EXISTS (SELECT 1 FROM jsonb_each_text(labels) WHERE value ILIKE ?)", resourceSelector.Search+"%"))
-				}
-
-				query = OrQueries(query, prefixQueries...)
-			}
-		}
 	}
 
 	if !resourceSelector.IncludeDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
 
-	if resourceSelector.ID != "" {
-		query = query.Where("id = ?", resourceSelector.ID)
-	}
-	if resourceSelector.Name != "" {
-		query = query.Where("name = ?", resourceSelector.Name)
-	}
-	if resourceSelector.Namespace != "" {
-		switch table {
-		case "config_items":
-			query = query.Where("tags->>'namespace' = ?", resourceSelector.Namespace)
-		default:
-			query = query.Where("namespace = ?", resourceSelector.Namespace)
-		}
-	}
-	if len(resourceSelector.Types) != 0 {
-		query = query.Where("type IN ?", resourceSelector.Types)
-	}
-	if len(resourceSelector.Statuses) != 0 {
-		query = query.Where("status IN ?", resourceSelector.Statuses)
-	}
-	if len(resourceSelector.Health) != 0 {
-		// TODO: We need to support NOT IN AND LIKE queries in here
-		inclusion := lo.Filter(strings.Split(string(resourceSelector.Health), ","), func(s string, _ int) bool {
-			return !strings.HasPrefix(s, "!") && !strings.Contains(s, "*")
-		})
-
-		switch table {
-		case "checks":
-			query = query.Where("status IN ?", inclusion)
-		default:
-			query = query.Where("health IN ?", inclusion)
-		}
-	}
-
 	var agentID *uuid.UUID
-	if _, ok := tablesWithAgents[table]; ok && !searchSetAgent {
+	if !searchSetAgent && qm.HasAgents {
 		agentID, err := getAgentID(ctx, resourceSelector.Agent)
 		if err != nil {
 			return nil, err
@@ -269,8 +229,8 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	}
 
 	if len(resourceSelector.TagSelector) > 0 {
-		if _, ok := tablesWithTags[table]; !ok {
-			return nil, api.Errorf(api.EINVALID, "tag selector is not supported for table=%s", table)
+		if !qm.HasTags {
+			return nil, api.Errorf(api.EINVALID, "tagSelector is not supported for table=%s", table)
 		} else {
 			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
 			if err != nil {
@@ -283,7 +243,11 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 		}
 	}
 
-	if _, ok := tablesWithLabels[table]; ok && len(resourceSelector.LabelSelector) > 0 {
+	if len(resourceSelector.LabelSelector) > 0 {
+		if !qm.HasLabels {
+			return nil, api.Errorf(api.EINVALID, "labelSelector is not supported for table=%s", table)
+		}
+
 		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
@@ -302,11 +266,7 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 
 		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
-			if collections.Contains(allowedColumnsAsFields, r.Key()) {
-				query = fieldSelectorRequirementToSQLClause(query, r)
-			} else {
-				query = propertySelectorRequirementToSQLClause(query, r)
-			}
+			query = fieldSelectorRequirementToSQLClause(query, r)
 		}
 	}
 
@@ -320,57 +280,13 @@ func SetResourceSelectorClause(ctx context.Context, resourceSelector types.Resou
 	return query, nil
 }
 
-func setSearchQueryParams(rs *types.ResourceSelector) {
-	if rs.Search == "" {
-		return
-	}
-
-	queries := strings.Split(rs.Search, " ")
-	for _, q := range queries {
-		items := strings.Split(q, "=")
-		if len(items) != 2 {
-			continue
-		}
-
-		switch items[0] {
-		// TODO(yash): Move this to components query model
-		case "component_config_traverse":
-			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
-			// Args should be componentID, direction and types (compID,direction)
-			// NOTE: Direction is not supported as of now
-			args := strings.Split(items[1], ",")
-			if len(args) == 2 {
-				rs.Functions.ComponentConfigTraversal = &types.ComponentConfigTraversalArgs{
-					ComponentID: args[0],
-					Direction:   args[1],
-				}
-			}
-		case "id":
-			rs.ID = items[1]
-		case "name":
-			rs.Name = items[1]
-		case "namespace":
-			rs.Namespace = items[1]
-		case "type":
-			rs.Types = append(rs.Types, strings.Split(items[1], ",")...)
-		case "status":
-			rs.Statuses = append(rs.Statuses, strings.Split(items[1], ",")...)
-		case "health":
-			rs.Health.Add(items[1])
-		case "limit":
-			l, _ := strconv.Atoi(items[1])
-			rs.Limit = l
-		case "scope":
-			rs.Scope = items[1]
-		default:
-			// key=val
-			rs.LabelSelector += strings.Join([]string{rs.LabelSelector, q}, ",")
-		}
-	}
-}
-
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
-func queryResourceSelector(ctx context.Context, limit int, resourceSelector types.ResourceSelector, table string, allowedColumnsAsFields []string) ([]uuid.UUID, error) {
+func queryResourceSelector(
+	ctx context.Context,
+	limit int,
+	resourceSelector types.ResourceSelector,
+	table string,
+) ([]uuid.UUID, error) {
 	if resourceSelector.IsEmpty() {
 		return nil, nil
 	}
@@ -402,7 +318,7 @@ func queryResourceSelector(ctx context.Context, limit int, resourceSelector type
 		query = query.Limit(limit)
 	}
 
-	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table, allowedColumnsAsFields)
+	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table)
 	if err != nil {
 		return nil, err
 	}
@@ -535,24 +451,6 @@ func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm
 	return q
 }
 
-// propertySelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func propertySelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
-	switch r.Operator() {
-	case selection.Equals, selection.DoubleEquals:
-		for val := range r.Values() {
-			q = q.Where("properties @> ?", types.Properties{{Name: r.Key(), Text: val}})
-		}
-	case selection.NotEquals:
-		for val := range r.Values() {
-			q = q.Where("NOT (properties @> ?)", types.Properties{{Name: r.Key(), Text: val}})
-		}
-	case selection.GreaterThan, selection.LessThan, selection.In, selection.NotIn, selection.Exists, selection.DoesNotExist:
-		logger.Warnf("TODO: Implement %s for property lookup", r.Operator())
-	}
-
-	return q
-}
-
 // getScopeID takes either uuid or namespace/name and table to return the appropriate scope_id
 func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.UUID) (string, error) {
 	// If scope is a valid uuid, return as is
@@ -594,7 +492,12 @@ func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.U
 		if agentID != nil {
 			agentToLog = agentID.String()
 		}
-		ctx.Warnf("multiple agents returned for resource selector with [scope=%s, table=%s, agent=%s]", scope, table, agentToLog)
+		ctx.Warnf(
+			"multiple agents returned for resource selector with [scope=%s, table=%s, agent=%s]",
+			scope,
+			table,
+			agentToLog,
+		)
 	}
 	if tx.Error != nil {
 		return "", tx.Error
@@ -623,11 +526,16 @@ func getAgentID(ctx context.Context, agent string) (*uuid.UUID, error) {
 	return &agentModel.ID, nil
 }
 
-func queryTableWithResourceSelectors(ctx context.Context, table string, allowedFields []string, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+func queryTableWithResourceSelectors(
+	ctx context.Context,
+	table string,
+	limit int,
+	resourceSelectors ...types.ResourceSelector,
+) ([]uuid.UUID, error) {
 	var output []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, limit, resourceSelector, table, allowedFields)
+		items, err := queryResourceSelector(ctx, limit, resourceSelector, table)
 		if err != nil {
 			return nil, err
 		}

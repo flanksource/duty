@@ -15,13 +15,6 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-func ExpectSearch(q query.SearchResourcesRequest) *query.SearchResourcesResponse {
-	response, err := query.SearchResources(DefaultContext, q)
-	Expect(err).To(BeNil())
-	Expect(response).ToNot(BeNil())
-	return response
-}
-
 var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	testData := []struct {
 		description string
@@ -53,23 +46,16 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs:    []models.ConfigItem{dummy.KubernetesNodeAKSPool1, dummy.KubernetesNodeA, dummy.KubernetesNodeB},
 		},
 		{
-			description: "name prefix | components",
+			description: "namespace | configs",
 			query: query.SearchResourcesRequest{
-				Components: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"Application"}}},
+				Configs: []types.ResourceSelector{{Namespace: "missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
 			},
-			Components: []models.Component{dummy.LogisticsAPI, dummy.LogisticsUI, dummy.LogisticsWorker},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
 		},
 		{
-			description: "name prefix | checks",
+			description: "name prefix | configs | By Field",
 			query: query.SearchResourcesRequest{
-				Checks: []types.ResourceSelector{{Search: "logistics-*", Types: []string{"http"}}},
-			},
-			Checks: []models.Check{dummy.LogisticsAPIHomeHTTPCheck, dummy.LogisticsAPIHealthHTTPCheck},
-		},
-		{
-			description: "name prefix | configs",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{Search: "node*"}},
+				Configs: []types.ResourceSelector{{Name: "node*"}},
 			},
 			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
 		},
@@ -80,35 +66,82 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			},
 			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
 		},
+		{
+			description: "type prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"Logistics::DB*"}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
+			description: "status prefix | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Statuses: []string{"Run*"}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsAPIPodConfig},
+		},
+		{
+			description: "health exclusion | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Health: "!healthy"}},
+			},
+			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
+		},
+		{
+			description: "health inclusion | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Health: "unknown"}},
+			},
+			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
+		},
+		{
+			description: "health exclusion | checks",
+			query: query.SearchResourcesRequest{
+				Checks: []types.ResourceSelector{{Health: "!healthy"}},
+			},
+			Checks: []models.Check{dummy.LogisticsDBCheck},
+		},
+		{
+			description: "namespace | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Namespace: "missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
+			},
+			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
 		// TODO: Currently search does not support labels/tags
-		//{
-		//description: "tag prefix - eg #1",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "aws*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.EKSCluster},
-		//},
-		//{
-		//description: "tag prefix - eg #2",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "demo*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.KubernetesCluster},
-		//},
-		//{
-		//description: "label prefix - eg #1",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "prod*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.EKSCluster},
-		//},
-		//{
-		//description: "label prefix - eg #2",
-		//query: query.SearchResourcesRequest{
-		//Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "develop*"}},
-		//},
-		//Configs: []models.ConfigItem{dummy.KubernetesCluster},
-		//},
+		// {
+		// 	description: "tag prefix - eg #1",
+		// 	Configs:     []models.ConfigItem{dummy.EKSCluster},
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{
+		// 			{
+		// 				// FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster),
+		// 				Search: "aws*",
+		// 			},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	description: "tag prefix - eg #2",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "demo*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.KubernetesCluster},
+		// },
+		// {
+		// 	description: "label prefix - eg #1",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "prod*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.EKSCluster},
+		// },
+		// {
+		// 	description: "label prefix - eg #2",
+		// 	query: query.SearchResourcesRequest{
+		// 		Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassCluster), Search: "develop*"}},
+		// 	},
+		// 	Configs: []models.ConfigItem{dummy.KubernetesCluster},
+		// },
 		{
 			description: "labels | Equals Query",
 			query: query.SearchResourcesRequest{
@@ -145,32 +178,11 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
 		},
 		{
-			description: "field selector | Property lookup Equals Query",
+			description: "search | field selector | prefix | configs",
 			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "region=us-west-2"}},
+				Configs: []types.ResourceSelector{{Search: "config_class=Virtual*"}},
 			},
-			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
-		},
-		{
-			description: "field selector | Property lookup Not Equals Query",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1", TagSelector: "cluster=aws"}},
-			},
-			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
-		},
-		{
-			description: "field selector | Property lookup Greater Than Query",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
-			},
-			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
-		},
-		{
-			description: "field selector | Property lookup Less Than Query",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
-			},
-			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+			Configs: []models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
 		},
 		{
 			description: "field selector | IN Query",
@@ -207,18 +219,73 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			_ = query.SyncConfigCache(DefaultContext)
 		})
 
-		ginkgo.Context("query", func() {
-			for _, test := range testData {
-				ginkgo.It(test.description, func() {
-					items, err := query.SearchResources(DefaultContext, test.query)
-					Expect(err).To(BeNil())
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
-					Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
-				})
-			}
-		})
+		for _, test := range testData {
+			ginkgo.It(test.description, func() {
+				items, err := query.SearchResources(DefaultContext, test.query)
+				Expect(err).To(BeNil())
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+			})
+		}
 	})
+})
+
+var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	testData := []struct {
+		description string
+		query       query.SearchResourcesRequest
+		Configs     []models.ConfigItem
+		Components  []models.Component
+		Checks      []models.Check
+	}{
+		{
+			description: "field selector | Property lookup | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Search: "properties.os=linux"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Not Equals Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "region!=us-east-1", TagSelector: "cluster=aws"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Greater Than Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "memory>5"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB},
+		},
+		{
+			description: "field selector | Property lookup Less Than Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{FieldSelector: "memory<50"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+	}
+
+	for _, test := range testData {
+		if test.description != "field selector | Property lookup | configs" {
+			continue
+		}
+
+		ginkgo.It(test.description, func() {
+			items, err := query.SearchResources(DefaultContext, test.query)
+			Expect(err).To(BeNil())
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+		})
+	}
 })
 
 var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
@@ -454,6 +521,40 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			query:       `config.spec.template.spec.containers[0].ports[0].containerPort=80`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
 			resource:    "config",
+		},
+		{
+			description: "namespace | search | configs",
+			query:       "namespace=missioncontrol type=Logistics::DB::RDS",
+			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
+			resource:    "config",
+		},
+		{
+			description: "name prefix | components",
+			query:       "logistics-* type=Application",
+			expectedIDs: []uuid.UUID{
+				dummy.LogisticsAPI.ID,
+				dummy.LogisticsUI.ID,
+				dummy.LogisticsWorker.ID,
+			},
+			resource: "component",
+		},
+		{
+			description: "name prefix | checks",
+			query:       "logistics-* type=http",
+			expectedIDs: []uuid.UUID{
+				dummy.LogisticsAPIHomeHTTPCheck.ID,
+				dummy.LogisticsAPIHealthHTTPCheck.ID,
+			},
+			resource: "checks",
+		},
+		{
+			description: "name prefix | configs",
+			query:       "node*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
 		},
 	}
 

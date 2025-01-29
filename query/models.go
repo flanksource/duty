@@ -68,21 +68,43 @@ var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string)
 }
 
 type QueryModel struct {
-	Table       string
+	Table  string
+	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
+
+	// List of columns that are JSON type.
+	// These columns can be addressed using dot notation to access the JSON fields directly
+	// Example: tags.cluster or tags.namespace.
 	JSONColumns []string
-	DateFields  []string
-	Columns     []string
+
+	// List of columns that can be addressed on the search query.
+	// Any other fields will be treated as a property lookup.
+	Columns []string
+
+	// Alias maps fields from the search query to the table columns
+	Aliases map[string]string
+
+	// True when the table has a "tags" column
+	HasTags bool
+
+	// True when the table has a "labels" column
+	HasLabels bool
+
+	// True when the table has an "agent_id" column
+	HasAgents bool
+
+	// FieldMapper maps the value of these fields
 	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
-	Custom      map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
-	Aliases     map[string]string
 }
 
 var ConfigQueryModel = QueryModel{
 	Table: "configs",
 	Columns: []string{
-		"name", "source", "type", "status", "health",
+		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 	},
-	JSONColumns: []string{"labels", "tags", "config"},
+	JSONColumns: []string{"labels", "tags", "config", "properties"},
+	HasTags:     true,
+	HasAgents:   true,
+	HasLabels:   true,
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -90,9 +112,8 @@ var ConfigQueryModel = QueryModel{
 		"scraped":     "last_scraped_time",
 		"agent":       "agent_id",
 		"config_type": "type",
-		"namespace":   "@namespace",
+		"namespace":   "tags.namespace",
 	},
-
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
 		"created_at":        DateMapper,
@@ -121,7 +142,7 @@ var ComponentQueryModel = QueryModel{
 		},
 	},
 	Columns: []string{
-		"name", "topology_id", "type", "status", "health",
+		"name", "namespace", "topology_id", "type", "status", "health",
 	},
 	JSONColumns: []string{"labels", "properties"},
 	Aliases: map[string]string{
@@ -131,9 +152,9 @@ var ComponentQueryModel = QueryModel{
 		"scraped":        "last_scraped_time",
 		"agent":          "agent_id",
 		"component_type": "type",
-		"namespace":      "@namespace",
 	},
-
+	HasAgents: true,
+	HasLabels: true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
 		"created_at":        DateMapper,
@@ -146,7 +167,7 @@ var ComponentQueryModel = QueryModel{
 var CheckQueryModel = QueryModel{
 	Table: "checks",
 	Columns: []string{
-		"name", "canary_id", "type", "status",
+		"name", "namespace", "canary_id", "type", "status",
 	},
 	JSONColumns: []string{"labels"},
 	Aliases: map[string]string{
@@ -154,10 +175,11 @@ var CheckQueryModel = QueryModel{
 		"updated":    "updated_at",
 		"deleted":    "deleted_at",
 		"agent":      "agent_id",
+		"health":     "status",
 		"check_type": "type",
-		"namespace":  "@namespace",
 	},
-
+	HasAgents: true,
+	HasLabels: true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":   AgentMapper,
 		"created_at": DateMapper,
@@ -167,12 +189,13 @@ var CheckQueryModel = QueryModel{
 }
 
 var PlaybookQueryModel = QueryModel{
-	Table: models.Playbook{}.TableName(),
+	Table:   models.Playbook{}.TableName(),
+	HasTags: true,
+	Columns: []string{"name", "namespace"},
 	Aliases: map[string]string{
-		"created":   "created_at",
-		"updated":   "updated_at",
-		"deleted":   "deleted_at",
-		"namespace": "@namespace",
+		"created": "created_at",
+		"updated": "updated_at",
+		"deleted": "deleted_at",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"created_at": DateMapper,
@@ -198,7 +221,7 @@ func GetModelFromTable(table string) (QueryModel, error) {
 
 // QueryModel.Apply will ignore these fields when converting to clauses
 // as we modify the tx directly for them
-var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags"}
+var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags", "properties"}
 
 func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {
@@ -236,8 +259,15 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 		}
 
 		for _, column := range qm.JSONColumns {
-			if strings.HasPrefix(originalField, column) {
+			// Keys in JSON fields are addressable as <column>.<key>
+			// exampel: labels.cluster or tags.namespace
+			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
 				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
+				q.Field = column
+			}
+
+			if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
+				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
 				q.Field = column
 			}
 		}

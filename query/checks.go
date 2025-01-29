@@ -25,7 +25,7 @@ func FindCheckIDs(ctx context.Context, limit int, resourceSelectors ...types.Res
 		}
 	}
 
-	return queryTableWithResourceSelectors(ctx, "checks", nil, limit, resourceSelectors...)
+	return queryTableWithResourceSelectors(ctx, "checks", limit, resourceSelectors...)
 }
 
 func GetChecksByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Check, error) {

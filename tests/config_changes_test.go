@@ -238,8 +238,9 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			})
 			Expect(err).To(BeNil())
 
-			Expect(response.Total).To(Equal(int64(3)))
-			Expect(len(response.Changes)).To(Equal(3))
+			Expect(response.Total).To(Equal(int64(5)))
+			Expect(len(response.Changes)).To(Equal(5))
+			Expect(response.Summary["Healthy"]).To(Equal(2))
 			Expect(response.Summary["Pulled"]).To(Equal(2))
 			Expect(response.Summary["diff"]).To(Equal(1))
 		})

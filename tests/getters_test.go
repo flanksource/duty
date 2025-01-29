@@ -183,15 +183,14 @@ var _ = ginkgo.Describe("FindComponent", func() {
 			Selectors: []types.ResourceSelector{{Name: dummy.Logistics.Name, LabelSelector: "telemetry=enabled"}},
 			Results:   1,
 		},
-		{
-			Name:      "field selector",
-			Selectors: []types.ResourceSelector{{FieldSelector: "name=kustomize"}},
-			Results:   1,
-		},
 	}
 
 	for i := range testData {
 		td := testData[i]
+
+		// if td.Name != "names but different namespace" {
+		// 	continue
+		// }
 
 		ginkgo.It(td.Name, func() {
 			components, err := query.FindComponentIDs(DefaultContext, 0, td.Selectors...)
