@@ -168,25 +168,5 @@ func ParsePEG(peg string) (*types.QueryField, error) {
 		return nil, fmt.Errorf("return type not types.QueryField")
 	}
 
-	nameFieldUnkeyed := !strings.Contains(strings.ReplaceAll(peg, " ", ""), "name=")
-	if nameFieldUnkeyed {
-		ConvertToPrefixQuery("name", rv)
-	}
-
 	return rv, nil
-}
-
-// ConvertToPrefixQuery recursively walks through all the query fields
-// and modifies the query value to a prefix search for the given field.
-func ConvertToPrefixQuery(targetField string, query *types.QueryField) {
-	if query.Field == targetField {
-		if v, ok := query.Value.(string); ok && !strings.Contains(v, "*") {
-			query.Value = v + "*"
-			return // First match is enough
-		}
-	}
-
-	for _, q := range query.Fields {
-		ConvertToPrefixQuery(targetField, q)
-	}
 }
