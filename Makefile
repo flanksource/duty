@@ -86,8 +86,8 @@ hack/migrate/go.mod: tidy
 migrate-test: hack/migrate/go.mod
 	cd hack/migrate && go run ./main.go
 
-cp-playbook-schema:
-	cp ../mission-control/config/schemas/playbook-spec.schema.json schema/openapi/
+cp-mission-control-openapi-schemas:
+	cp ../mission-control/config/schemas/*.json schema/openapi/
 
 fmt_json:
 	ls fixtures/expectations/*.json | while read -r jf; do \
