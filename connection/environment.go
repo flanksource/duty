@@ -37,6 +37,12 @@ var kubeEnvVars = []string{
 type ExecConnections struct {
 	FromConfigItem *string `yaml:"fromConfigItem,omitempty" json:"fromConfigItem,omitempty" template:"true"`
 
+	// EKSPodIdentity when enabled will allow access to AWS_* env vars
+	EKSPodIdentity bool `json:"eksPodIdentity,omitempty"`
+
+	// ServiceAccount when enabled will allow access to KUBERNETES env vars
+	ServiceAccount bool `json:"serviceAccount,omitempty"`
+
 	Kubernetes *KubernetesConnection `yaml:"kubernetes,omitempty" json:"kubernetes,omitempty"`
 	AWS        *AWSConnection        `yaml:"aws,omitempty" json:"aws,omitempty"`
 	GCP        *GCPConnection        `yaml:"gcp,omitempty" json:"gcp,omitempty"`
@@ -138,15 +144,20 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 				}
 			}
 
-			if !kubeconfigFound {
-				// If none of the kubernetes scrapers had kubeconfig setup,
-				// the scraper is using the default cluster.
-				// We allow these set of env vars that allow access to the default cluster.
-				for _, env := range os.Environ() {
-					key, _, ok := strings.Cut(env, "=")
-					if ok && lo.Contains(kubeEnvVars, key) {
-						cmd.Env = append(cmd.Env, env)
-					}
+			for _, env := range os.Environ() {
+				key, _, ok := strings.Cut(env, "=")
+				if !ok {
+					continue
+				}
+
+				if (connections.ServiceAccount || !kubeconfigFound) && lo.Contains(kubeEnvVars, key) {
+					// If none of the kubernetes scrapers had kubeconfig setup, the scraper is using the default cluster.
+					// We allow these set of env vars that allow access to the default cluster.
+					cmd.Env = append(cmd.Env, env)
+				}
+
+				if connections.EKSPodIdentity && strings.HasPrefix(key, "AWS_") {
+					cmd.Env = append(cmd.Env, env)
 				}
 			}
 		}
