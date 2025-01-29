@@ -291,12 +291,6 @@ func queryResourceSelector(
 		return nil, nil
 	}
 
-	unkeyedSearch := !strings.ContainsAny(resourceSelector.Search, ":=<>")
-	nonGlob := !strings.Contains(resourceSelector.Search, "*")
-	if resourceSelector.Search != "" && unkeyedSearch && nonGlob {
-		resourceSelector.Search += "*" // Make the search a prefix search
-	}
-
 	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
 
 	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
