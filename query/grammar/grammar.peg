@@ -19,20 +19,28 @@ AndQuery
   }
 
 FieldQuery
-   = _ '(' _ q:Query _ ')'_ {
-        return makeFQFromQuery(q)
-      }
-   / _ f:Field _ {
-        return makeFQFromField(f)
+  = _ '(' _ q:Query _ ')'_ {
+      return makeFQFromQuery(q)
+    }
+  / _ f:Field _ {
+      return makeFQFromField(f)
+    }
+
+  / _ "-" n:Word _  {
+      if nStr, ok := n.(string); ok && !strings.Contains(nStr, "*") {
+        n = nStr + "*"
       }
 
-   / _ "-" n:Word _  {
-        return &types.QueryField{Op: "not", Value:n}, nil
-   }
+      return &types.QueryField{Field: "name", Op: "not", Value: n}, nil
+  }
 
-   / _ n:(Word / Identifier) _  {
-        return &types.QueryField{Field: "name", Op: "=", Value:n}, nil
-   }
+  / _ n:(Word / Identifier) _  {
+      if nStr, ok := n.(string); ok && !strings.Contains(nStr, "*") {
+        n = nStr + "*"
+      }
+
+      return &types.QueryField{Field: "name", Op: "=", Value: n}, nil
+  }
 
 
 Field

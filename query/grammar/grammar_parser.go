@@ -167,5 +167,6 @@ func ParsePEG(peg string) (*types.QueryField, error) {
 	if !ok {
 		return nil, fmt.Errorf("return type not types.QueryField")
 	}
+
 	return rv, nil
 }

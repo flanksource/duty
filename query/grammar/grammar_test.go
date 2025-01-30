@@ -15,55 +15,134 @@ var _ = Describe("grammar", func() {
 		resultJSON, err := json.Marshal(result)
 		Expect(err).To(BeNil())
 		expected := `{
-          "op": "and",
-          "fields": [
-            {
-              "op": "and",
-              "fields": [
-                {
-                  "field": "metadata.name",
-                  "value": "bob",
-                  "op": "="
-                },
-                {
-                  "field": "metadata.name",
-                  "value": "harry",
-                  "op": "!="
-                },
-                {
-                  "field": "spec.status.reason",
-                  "value": "failed reson",
-                  "op": "!="
-                },
-                {
-                  "value": "jane",
-                  "op": "not"
-                },
-                {
-                  "field": "name",
-                  "value": "johnny",
-                  "op": "="
-                },
-                {
-                  "field": "type",
-                  "value": "pod",
-                  "op": "!="
-                },
-                {
-                  "field": "type",
-                  "value": "replicaset",
-                  "op": "!="
-                },
-                {
-                  "field": "namespace",
-                  "value": "a,b,c",
-                  "op": "!="
-                }
-              ]
-            }
-          ]
-        }
-        `
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "metadata.name",
+	                "value": "bob",
+	                "op": "="
+	              },
+	              {
+	                "field": "metadata.name",
+	                "value": "harry",
+	                "op": "!="
+	              },
+	              {
+	                "field": "spec.status.reason",
+	                "value": "failed reson",
+	                "op": "!="
+	              },
+	              {
+	                "field": "name",
+	                "value": "jane*",
+	                "op": "not"
+	              },
+	              {
+	                "field": "name",
+	                "value": "johnny*",
+	                "op": "="
+	              },
+	              {
+	                "field": "type",
+	                "value": "pod",
+	                "op": "!="
+	              },
+	              {
+	                "field": "type",
+	                "value": "replicaset",
+	                "op": "!="
+	              },
+	              {
+	                "field": "namespace",
+	                "value": "a,b,c",
+	                "op": "!="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("explicit name must not convert to prefix", func() {
+		result, err := ParsePEG("name=jane")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "name",
+	                "value": "jane",
+	                "op": "="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("explicit name exclusion must not convert to prefix", func() {
+		result, err := ParsePEG("name!=jane")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "name",
+	                "value": "jane",
+	                "op": "!="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("explicit name with prefix shouldn't double prefix", func() {
+		result, err := ParsePEG("name=jane*")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "name",
+	                "value": "jane*",
+	                "op": "="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
 
 		Expect(resultJSON).To(MatchJSON(expected))
 	})
