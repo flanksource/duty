@@ -308,6 +308,18 @@ table "config_items" {
     type    = jsonb
     comment = "contains a list of tags"
   }
+  column "tags_values" {
+    null    = true
+    type    = jsonb
+    comment = "a generated from tags column to get a better search on tag values"
+    as {
+      # without the ::jsonpath type casting
+      # we get this error from Atlas: failed to compute diff: failed to diff realms: 
+      # changing the generation expression for a column "tags_values" is not supported
+      expr = "(jsonb_path_query_array(tags, '$[*].*'::jsonpath))"
+      type = STORED
+    }
+  }
   column "properties" {
     null = true
     type = jsonb
@@ -398,6 +410,10 @@ table "config_items" {
   }
   index "idx_config_items_tags" {
     columns = [column.tags]
+    type    = GIN
+  }
+  index "idx_config_items_tags_values" {
+    columns = [column.tags_values]
     type    = GIN
   }
   index "idx_config_items_name" {
