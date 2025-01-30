@@ -276,8 +276,8 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 
 			// Another way to search jsonb maps is to do an unkeyed lookup on the values
 			// example: tags=default (matches tags={namespace: default})
-			if originalField == column && q.Op == types.Eq {
-				tx = JSONValueQuery(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
+			if originalField == column && (q.Op == types.Eq || q.Op == types.Neq) {
+				tx = FilterJSONColumnValues(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
 		}
@@ -303,18 +303,21 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 	return tx, clauses, nil
 }
 
-var JSONValueQuery = func(ctx context.Context, tx *gorm.DB, column string, op types.QueryOperator, path string, val string) *gorm.DB {
-	if !slices.Contains([]types.QueryOperator{types.Eq, types.Neq}, op) {
-		op = types.Eq
+func FilterJSONColumnValues(ctx context.Context, tx *gorm.DB, column string, op types.QueryOperator, path string, val string) *gorm.DB {
+	var subQueryCondition string
+	switch op {
+	case types.Neq:
+		subQueryCondition = "NOT EXISTS"
+	default:
+		subQueryCondition = "EXISTS"
 	}
 
 	values := strings.Split(val, ",")
-	for _, v := range values {
-		tx = tx.Where(fmt.Sprintf(`EXISTS (
+	tx = tx.Where(fmt.Sprintf(`%s (
 			SELECT 1 
 			FROM jsonb_each_text(%s) 
-			WHERE value %s ?
-		)`, column, op), v)
-	}
+			WHERE value IN ?
+		)`, subQueryCondition, column), values)
+
 	return tx
 }

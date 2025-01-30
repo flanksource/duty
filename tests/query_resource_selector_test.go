@@ -565,6 +565,14 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "tags value search negate",
+			query:       "type=Kubernetes::Node tags!=aws",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config",
+		},
+		{
 			description: "labels value search",
 			query:       "labels=managed",
 			expectedIDs: []uuid.UUID{
@@ -586,7 +594,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-			// if tt.description != "tags value search" {
+			// if tt.description != "tags value search negate" {
 			// 	continue
 			// }
 
