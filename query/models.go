@@ -10,7 +10,9 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
 
@@ -71,10 +73,10 @@ type QueryModel struct {
 	Table  string
 	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
 
-	// List of columns that are JSON type.
+	// List of jsonb columns that store a map.
 	// These columns can be addressed using dot notation to access the JSON fields directly
 	// Example: tags.cluster or tags.namespace.
-	JSONColumns []string
+	JSONMapColumns []string
 
 	// List of columns that can be addressed on the search query.
 	// Any other fields will be treated as a property lookup.
@@ -101,10 +103,10 @@ var ConfigQueryModel = QueryModel{
 	Columns: []string{
 		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 	},
-	JSONColumns: []string{"labels", "tags", "config", "properties"},
-	HasTags:     true,
-	HasAgents:   true,
-	HasLabels:   true,
+	JSONMapColumns: []string{"labels", "tags", "config"},
+	HasTags:        true,
+	HasAgents:      true,
+	HasLabels:      true,
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -144,7 +146,7 @@ var ComponentQueryModel = QueryModel{
 	Columns: []string{
 		"name", "namespace", "topology_id", "type", "status", "health",
 	},
-	JSONColumns: []string{"labels", "properties"},
+	JSONMapColumns: []string{"labels", "summary"},
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
@@ -169,7 +171,7 @@ var CheckQueryModel = QueryModel{
 	Columns: []string{
 		"name", "namespace", "canary_id", "type", "status",
 	},
-	JSONColumns: []string{"labels"},
+	JSONMapColumns: []string{"spec", "labels"},
 	Aliases: map[string]string{
 		"created":    "created_at",
 		"updated":    "updated_at",
@@ -258,16 +260,21 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 			}
 		}
 
-		for _, column := range qm.JSONColumns {
+		for _, column := range qm.JSONMapColumns {
 			// Keys in JSON fields are addressable as <column>.<key>
-			// exampel: labels.cluster or tags.namespace
+			// example: labels.cluster or tags.namespace
 			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
 				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
+			} else if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
+				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
+				q.Field = column
 			}
 
-			if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
-				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
+			// Another way to search jsonb maps is to do an unkeyed lookup on the values
+			// example: tags=default (matches tags={namespace: default})
+			if originalField == column && (q.Op == grammar.Eq || q.Op == grammar.Neq) {
+				tx = FilterJSONColumnValues(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
 		}
@@ -291,4 +298,33 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 	}
 
 	return tx, clauses, nil
+}
+
+func FilterJSONColumnValues(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
+	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
+		op = grammar.Eq
+	}
+
+	values := strings.Split(val, ",")
+
+	switch column {
+	case "tags":
+		// `tags` column uses the more performant tags_values column
+		switch op {
+		case grammar.Neq:
+			tx = tx.Where("NOT tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
+		default:
+			tx = tx.Where("tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
+		}
+
+	default:
+		subQueryCondition := lo.Ternary(op == grammar.Neq, "NOT EXISTS", "EXISTS")
+		tx = tx.Where(fmt.Sprintf(`%s (
+			SELECT 1 
+			FROM jsonb_each_text(%s) 
+			WHERE value IN ?
+		)`, subQueryCondition, column), values)
+	}
+
+	return tx
 }
