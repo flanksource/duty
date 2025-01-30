@@ -172,9 +172,9 @@ CREATE OR REPLACE FUNCTION insert_notification_history_config_change()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Only config item notifications need to be inserted
-    IF NEW.source_event LIKE 'config.%' THEN
+    IF NEW.source_event LIKE 'config.%' AND ((TG_OP = 'INSERT') OR (OLD.status != NEW.status)) THEN
         INSERT INTO config_changes (config_id, change_type, source, details, external_change_id)
-        VALUES (NEW.resource_id, NEW.status, 'notification', NEW.payload, NEW.id);
+        VALUES (NEW.resource_id, NEW.status, 'notification', NEW.payload, CONCAT(NEW.id, '-', NOW()));
     END IF;
 
     RETURN NEW;
