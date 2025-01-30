@@ -137,6 +137,7 @@ var KubernetesNodeA = models.ConfigItem{
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
+		"region":  "us-east-1",
 	},
 	Health: lo.ToPtr(models.HealthHealthy),
 	Labels: lo.ToPtr(types.JSONStringMap{

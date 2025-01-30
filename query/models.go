@@ -71,10 +71,13 @@ type QueryModel struct {
 	Table  string
 	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
 
-	// List of columns that are JSON type.
+	// List of jsonb columns that store a map.
 	// These columns can be addressed using dot notation to access the JSON fields directly
 	// Example: tags.cluster or tags.namespace.
-	JSONColumns []string
+	JSONMapColumns []string
+
+	// List of jsonb columns that store a list.
+	JSONArrayColumns []string
 
 	// List of columns that can be addressed on the search query.
 	// Any other fields will be treated as a property lookup.
@@ -101,10 +104,11 @@ var ConfigQueryModel = QueryModel{
 	Columns: []string{
 		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 	},
-	JSONColumns: []string{"labels", "tags", "config", "properties"},
-	HasTags:     true,
-	HasAgents:   true,
-	HasLabels:   true,
+	JSONMapColumns:   []string{"labels", "tags", "config"},
+	JSONArrayColumns: []string{"properties"},
+	HasTags:          true,
+	HasAgents:        true,
+	HasLabels:        true,
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -144,7 +148,8 @@ var ComponentQueryModel = QueryModel{
 	Columns: []string{
 		"name", "namespace", "topology_id", "type", "status", "health",
 	},
-	JSONColumns: []string{"labels", "properties"},
+	JSONMapColumns:   []string{"labels", "summary"},
+	JSONArrayColumns: []string{"properties"},
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
@@ -169,7 +174,7 @@ var CheckQueryModel = QueryModel{
 	Columns: []string{
 		"name", "namespace", "canary_id", "type", "status",
 	},
-	JSONColumns: []string{"labels"},
+	JSONMapColumns: []string{"spec", "labels"},
 	Aliases: map[string]string{
 		"created":    "created_at",
 		"updated":    "updated_at",
@@ -258,16 +263,21 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 			}
 		}
 
-		for _, column := range qm.JSONColumns {
+		for _, column := range qm.JSONMapColumns {
 			// Keys in JSON fields are addressable as <column>.<key>
-			// exampel: labels.cluster or tags.namespace
+			// example: labels.cluster or tags.namespace
 			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
 				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
+			} else if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
+				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
+				q.Field = column
 			}
 
-			if strings.HasPrefix(q.Field, fmt.Sprintf("%s.", column)) {
-				tx = JSONPathMapper(ctx, tx, column, q.Op, strings.TrimPrefix(q.Field, column+"."), val)
+			// Another way to search jsonb maps is to do an unkeyed lookup on the values
+			// example: tags=default (matches tags={namespace: default})
+			if originalField == column && q.Op == types.Eq {
+				tx = JSONValueQuery(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
 				q.Field = column
 			}
 		}
@@ -291,4 +301,20 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 	}
 
 	return tx, clauses, nil
+}
+
+var JSONValueQuery = func(ctx context.Context, tx *gorm.DB, column string, op types.QueryOperator, path string, val string) *gorm.DB {
+	if !slices.Contains([]types.QueryOperator{types.Eq, types.Neq}, op) {
+		op = types.Eq
+	}
+
+	values := strings.Split(val, ",")
+	for _, v := range values {
+		tx = tx.Where(fmt.Sprintf(`EXISTS (
+			SELECT 1 
+			FROM jsonb_each_text(%s) 
+			WHERE value %s ?
+		)`, column, op), v)
+	}
+	return tx
 }
