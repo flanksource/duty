@@ -320,9 +320,9 @@ var _ = Describe("Resource Selector", func() {
 		}
 
 		for _, tt := range tests {
-			if tt.name != "Healths multiple - II" {
-				continue
-			}
+			// if tt.name != "Healths multiple - II" {
+			// 	continue
+			// }
 
 			It(tt.name, func() {
 				if tt.selectable != nil {

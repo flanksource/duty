@@ -31,7 +31,7 @@ FieldQuery
         n = nStr + "*"
       }
 
-      return &types.QueryField{Field: "name", Op: "not", Value: n}, nil
+      return &QueryField{Field: "name", Op: "not", Value: n}, nil
   }
 
   / _ n:(Word / Identifier) _  {
@@ -39,13 +39,13 @@ FieldQuery
         n = nStr + "*"
       }
 
-      return &types.QueryField{Field: "name", Op: "=", Value: n}, nil
+      return &QueryField{Field: "name", Op: "=", Value: n}, nil
   }
 
 
 Field
   = src:Source _ op:Operator _ value:Value {
-      return &types.QueryField{Field:src.(string), Op: op.(types.QueryOperator), Value:value}, nil
+      return &QueryField{Field:src.(string), Op: op.(QueryOperator), Value:value}, nil
   }
 
 Source
@@ -66,7 +66,7 @@ Operator
     / "<"
     / ">"
   ){
-    return types.QueryOperator(c.text), nil
+    return QueryOperator(c.text), nil
   }
 
 Value
