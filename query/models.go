@@ -10,7 +10,9 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
 
@@ -304,20 +306,30 @@ func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB)
 }
 
 func FilterJSONColumnValues(ctx context.Context, tx *gorm.DB, column string, op types.QueryOperator, path string, val string) *gorm.DB {
-	var subQueryCondition string
-	switch op {
-	case types.Neq:
-		subQueryCondition = "NOT EXISTS"
-	default:
-		subQueryCondition = "EXISTS"
+	if !slices.Contains([]types.QueryOperator{types.Eq, types.Neq}, op) {
+		op = types.Eq
 	}
 
 	values := strings.Split(val, ",")
-	tx = tx.Where(fmt.Sprintf(`%s (
+
+	switch column {
+	case "tags":
+		// `tags` column uses the more performant tags_values column
+		switch op {
+		case types.Neq:
+			tx = tx.Where("NOT tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
+		default:
+			tx = tx.Where("tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
+		}
+
+	default:
+		subQueryCondition := lo.Ternary(op == types.Neq, "NOT EXISTS", "EXISTS")
+		tx = tx.Where(fmt.Sprintf(`%s (
 			SELECT 1 
 			FROM jsonb_each_text(%s) 
 			WHERE value IN ?
 		)`, subQueryCondition, column), values)
+	}
 
 	return tx
 }
