@@ -8,7 +8,7 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
+	"github.com/flanksource/duty/query/grammar"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/timberio/go-datemath"
@@ -36,9 +36,9 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 	return nil, fmt.Errorf("invalid agent: %s", id)
 }
 
-var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op types.QueryOperator, path string, val string) *gorm.DB {
-	if !slices.Contains([]types.QueryOperator{types.Eq, types.Neq}, op) {
-		op = types.Eq
+var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
+	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
+		op = grammar.Eq
 	}
 	values := strings.Split(val, ",")
 	for _, v := range values {
@@ -223,7 +223,7 @@ func GetModelFromTable(table string) (QueryModel, error) {
 // as we modify the tx directly for them
 var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags", "properties"}
 
-func (qm QueryModel) Apply(ctx context.Context, q types.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
+func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {
 		tx = ctx.DB().Table(qm.Table)
 	}

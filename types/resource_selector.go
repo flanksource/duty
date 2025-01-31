@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm/schema"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 )
 
 type ComponentConfigTraversalArgs struct {
@@ -28,68 +27,6 @@ type Functions struct {
 	// It uses the config_id linked to the componentID to lookup up all the config relations and returns
 	// a list of componentIDs that are linked to the found configIDs
 	ComponentConfigTraversal *ComponentConfigTraversalArgs `yaml:"component_config_traversal,omitempty" json:"component_config_traversal,omitempty"`
-}
-
-type QueryOperator string
-
-const (
-	Eq  QueryOperator = "="
-	Neq QueryOperator = "!="
-
-	Gt        QueryOperator = ">"
-	Lt        QueryOperator = "<"
-	In        QueryOperator = "in"
-	NotIn     QueryOperator = "notin"
-	Exists    QueryOperator = "exists"
-	NotExists QueryOperator = "!"
-)
-
-func (op QueryOperator) ToSelectionOperator() selection.Operator {
-	switch op {
-	case Eq:
-		return selection.Equals
-	case Neq:
-		return selection.NotEquals
-	case In:
-		return selection.In
-	case NotIn:
-		return selection.NotIn
-	case Exists:
-		return selection.Exists
-	case NotExists:
-		return selection.DoesNotExist
-	default:
-		return selection.Equals
-	}
-}
-
-type QueryField struct {
-	Field  string        `json:"field,omitempty"`
-	Value  interface{}   `json:"value,omitempty"`
-	Op     QueryOperator `json:"op,omitempty"`
-	Not    bool          `json:"not,omitempty"`
-	Fields []*QueryField `json:"fields,omitempty"`
-}
-
-var CommonFields = map[string]bool{
-	"id":   true,
-	"type": true,
-}
-
-func (f *QueryField) ToLabelSelector() (labels.Selector, error) {
-	selector := labels.NewSelector()
-	for _, field := range f.Fields {
-		if CommonFields[field.Field] {
-			continue
-		}
-		val := fmt.Sprintf("%s", field.Value)
-		req, err := labels.NewRequirement(field.Field, field.Op.ToSelectionOperator(), []string{val})
-		if err != nil {
-			return nil, err
-		}
-		selector = selector.Add(*req)
-	}
-	return selector, nil
 }
 
 // +kubebuilder:object:generate=true
@@ -167,31 +104,6 @@ func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN 
 	}
 
 	return
-}
-
-func (q QueryField) ToClauses() ([]clause.Expression, error) {
-	val := fmt.Sprint(q.Value)
-
-	filters, err := ParseFilteringQueryV2(val, false)
-	if err != nil {
-		return nil, err
-	}
-
-	var clauses []clause.Expression
-	switch q.Op {
-	case Eq:
-		clauses = append(clauses, filters.ToExpression(q.Field)...)
-	case Neq:
-		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field)...))
-	case Lt:
-		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
-	case Gt:
-		clauses = append(clauses, clause.Gt{Column: q.Field, Value: q.Value})
-	default:
-		return nil, fmt.Errorf("invalid operator: %s", q.Op)
-	}
-
-	return clauses, nil
 }
 
 func (c ResourceSelector) allEmptyButName() bool {
