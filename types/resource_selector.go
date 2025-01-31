@@ -10,6 +10,7 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/query/grammar"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -173,6 +174,42 @@ func (c ResourceSelector) Hash() string {
 	return hash.Sha256Hex(strings.Join(items, "|"))
 }
 
+func (rs ResourceSelector) ToPeg() string {
+	var searchConditions []string
+
+	if rs.ID != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("id = %q", rs.ID))
+	}
+
+	if rs.Name != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("name = %q", rs.Name))
+	}
+
+	if rs.Namespace != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", rs.Namespace))
+	}
+
+	if len(rs.Health) != 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", rs.Health))
+	}
+
+	if len(rs.Types) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(rs.Types, ",")))
+	}
+
+	if len(rs.Statuses) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(rs.Statuses, ",")))
+	}
+
+	peg := rs.Search
+	if len(searchConditions) > 0 {
+		joined := strings.Join(searchConditions, " ")
+		peg += fmt.Sprintf(" %s", joined)
+	}
+
+	return peg
+}
+
 func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if rs.IsEmpty() {
 		return false
@@ -238,6 +275,17 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		} else if !parsed.Matches(s.GetFieldsMatcher()) {
 			return false
 		}
+	}
+
+	if rs.Search != "" {
+		qf, err := grammar.ParsePEG(rs.Search)
+		if err != nil {
+			// TODO: handle error
+			return false
+		}
+
+		// TODO: Match against these query fields
+		fmt.Println(qf)
 	}
 
 	return true

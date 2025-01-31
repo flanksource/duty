@@ -99,6 +99,24 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Namespace & Name | search",
+				resourceSelector: types.ResourceSelector{
+					Search: "name=airsonic namespace=default",
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("airsonic"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+			},
+			{
 				name: "Types",
 				resourceSelector: types.ResourceSelector{
 					Types: []string{"Kubernetes::Pod"},
@@ -319,20 +337,22 @@ var _ = Describe("Resource Selector", func() {
 			},
 		}
 
-		for _, tt := range tests {
-			// if tt.name != "Healths multiple - II" {
-			// 	continue
-			// }
-
-			It(tt.name, func() {
-				if tt.selectable != nil {
-					Expect(tt.resourceSelector.Matches(tt.selectable)).To(BeTrue())
+		Describe("test", func() {
+			for _, tt := range tests {
+				if tt.name != "Namespace & Name | search" {
+					continue
 				}
 
-				if tt.unselectable != nil {
-					Expect(tt.resourceSelector.Matches(tt.unselectable)).To(BeFalse())
-				}
-			})
-		}
+				It(tt.name, func() {
+					if tt.selectable != nil {
+						Expect(tt.resourceSelector.Matches(tt.selectable)).To(BeTrue())
+					}
+
+					if tt.unselectable != nil {
+						Expect(tt.resourceSelector.Matches(tt.unselectable)).To(BeFalse())
+					}
+				})
+			}
+		})
 	})
 })
