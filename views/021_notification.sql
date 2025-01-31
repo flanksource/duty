@@ -166,3 +166,22 @@ SELECT
 FROM
   combined;
 
+
+-- Insert notification_send_history updates as config_changes
+CREATE OR REPLACE FUNCTION insert_notification_history_config_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only config item notifications need to be inserted
+    IF NEW.source_event LIKE 'config.%' AND ((TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND OLD.status != NEW.status)) THEN
+        INSERT INTO config_changes (config_id, change_type, source, details, external_change_id)
+        VALUES (NEW.resource_id, CONCAT('Notification', NEW.status), 'notification', NEW.payload, CONCAT(NEW.id, '-', NOW()));
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER insert_notification_history_config_change_trigger
+AFTER INSERT OR UPDATE ON notification_send_history
+FOR EACH ROW
+EXECUTE FUNCTION insert_notification_history_config_change();
