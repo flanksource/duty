@@ -140,45 +140,15 @@ func SetResourceSelectorClause(
 ) (*gorm.DB, error) {
 	searchSetAgent := false
 
-	var searchConditions []string
-	if resourceSelector.Name != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("name = %q", resourceSelector.Name))
-	}
-
-	if resourceSelector.ID != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("id = %q", resourceSelector.ID))
-	}
-
-	if len(resourceSelector.Health) != 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", resourceSelector.Health))
-	}
-
-	if resourceSelector.Namespace != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", resourceSelector.Namespace))
-	}
-
-	if len(resourceSelector.Types) > 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(resourceSelector.Types, ",")))
-	}
-
-	if len(resourceSelector.Statuses) > 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(resourceSelector.Statuses, ",")))
-	}
-
-	if len(searchConditions) > 0 {
-		joined := strings.Join(searchConditions, " ")
-		resourceSelector.Search += fmt.Sprintf(" %s", joined)
-	}
-
 	qm, err := GetModelFromTable(table)
 	if err != nil {
 		return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
 	}
 
-	if resourceSelector.Search != "" {
-		qf, err := grammar.ParsePEG(resourceSelector.Search)
+	if peg := resourceSelector.ToPeg(); peg != "" {
+		qf, err := grammar.ParsePEG(peg)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing grammar[%s]: %w", resourceSelector.Search, err)
+			return nil, fmt.Errorf("error parsing grammar[%s]: %w", peg, err)
 		}
 
 		flatFields := grammar.FlatFields(qf)
