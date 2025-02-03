@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
@@ -149,7 +148,14 @@ type genericFieldMatcher struct {
 }
 
 func (c genericFieldMatcher) Get(key string) string {
-	return fmt.Sprintf("%v", c.Fields[key])
+	val := c.Fields[key]
+	switch v := val.(type) {
+	case string:
+		return v
+	default:
+		marshalled, _ := json.Marshal(v)
+		return string(marshalled)
+	}
 }
 
 func (c genericFieldMatcher) Has(key string) bool {
