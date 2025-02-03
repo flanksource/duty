@@ -51,8 +51,7 @@ type Logger interface {
 }
 
 type Config struct {
-	// SlowThreshold in nanoseconds
-	SlowThreshold             int64
+	SlowThreshold             time.Duration
 	Colorful                  bool
 	IgnoreRecordNotFoundError bool
 	LogLevel                  int
@@ -91,7 +90,7 @@ func NewSqlLogger(logger *commons.SlogLogger) logger.Interface {
 	return &SqlLogger{
 		Config: Config{
 			Colorful:                  true,
-			SlowThreshold:             time.Second.Nanoseconds(),
+			SlowThreshold:             properties.Duration(time.Second, "log.db.slowThreshold"),
 			IgnoreRecordNotFoundError: true,
 		},
 		Logger:      logger,
@@ -122,9 +121,10 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 		return
 	}
 
-	elapsed := int64(time.Since(begin).Nanoseconds())
+	elapsed := time.Since(begin)
 	msg := ""
 	level := l.baseLevel
+
 	switch {
 	case err != nil && (!errors.Is(err, gorm.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
 		sql, rows := fc()
