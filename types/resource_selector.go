@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm/schema"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 type ComponentConfigTraversalArgs struct {
@@ -201,6 +202,18 @@ func (rs ResourceSelector) ToPeg() string {
 		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(rs.Statuses, ",")))
 	}
 
+	if rs.LabelSelector != "" {
+		searchConditions = append(searchConditions, selectorToPegCondition("labels.", rs.LabelSelector)...)
+	}
+
+	if rs.TagSelector != "" {
+		searchConditions = append(searchConditions, selectorToPegCondition("tags.", rs.TagSelector)...)
+	}
+
+	if rs.FieldSelector != "" {
+		searchConditions = append(searchConditions, selectorToPegCondition("", rs.FieldSelector)...)
+	}
+
 	peg := rs.Search
 	if len(searchConditions) > 0 {
 		joined := strings.Join(searchConditions, " ")
@@ -210,82 +223,122 @@ func (rs ResourceSelector) ToPeg() string {
 	return peg
 }
 
+func selectorToPegCondition(fieldPrefix, selector string) []string {
+	parsed, err := labels.Parse(selector)
+	if err != nil {
+		return nil
+	}
+
+	requirements, selectable := parsed.Requirements()
+	if !selectable {
+		return nil
+	}
+
+	var searchConditions []string
+	for _, requirement := range requirements {
+		operator := grammar.Eq
+
+		switch requirement.Operator() {
+		case selection.Equals, selection.In:
+			operator = grammar.Eq
+		case selection.NotEquals, selection.NotIn:
+			operator = grammar.Neq
+		}
+
+		condition := fmt.Sprintf("%s%s %s %q", fieldPrefix, requirement.Key(), operator, strings.Join(requirement.Values().List(), ","))
+		searchConditions = append(searchConditions, condition)
+	}
+
+	return searchConditions
+}
+
 func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if rs.IsEmpty() {
 		return false
 	}
+
 	if rs.Wildcard() {
 		return true
 	}
-	if rs.ID != "" && rs.ID != s.GetID() {
-		return false
-	}
-	if rs.Name != "" && rs.Name != s.GetName() {
-		return false
-	}
-	if rs.Namespace != "" && rs.Namespace != s.GetNamespace() {
+
+	peg := rs.ToPeg()
+	if peg == "" {
 		return false
 	}
 
-	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
+	qf, err := grammar.ParsePEG(peg)
+	if err != nil {
 		return false
 	}
 
-	if status, err := s.GetStatus(); err != nil {
-		logger.Errorf("failed to get status: %v", err)
-		return false
-	} else if len(rs.Statuses) > 0 && !rs.Statuses.Contains(status) {
-		return false
-	}
+	return rs.matchGrammar(qf, s)
+}
 
-	if h, err := s.GetHealth(); err != nil {
-		logger.Errorf("failed to get health: %v", err)
-		return false
-	} else if len(rs.Health) > 0 && !rs.Health.Match(h) {
-		return false
-	}
+func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelectable) bool {
+	if qf.Field != "" {
+		var err error
 
-	if len(rs.TagSelector) > 0 {
-		if tagsMatcher, ok := s.(TagsMatchable); ok {
-			parsed, err := labels.Parse(rs.TagSelector)
+		var value string
+		switch qf.Field {
+		case "name":
+			value = s.GetName()
+		case "namespace":
+			value = s.GetNamespace()
+		case "id":
+			value = s.GetID()
+		case "type":
+			value = s.GetType()
+		case "status":
+			value, err = s.GetStatus()
 			if err != nil {
-				logger.Errorf("bad tag selector: %v", err)
-				return false
-			} else if !parsed.Matches(tagsMatcher.GetTagsMatcher()) {
+				logger.Errorf("failed to get status: %v", err)
 				return false
 			}
+		case "health":
+			value, err = s.GetHealth()
+			if err != nil {
+				logger.Errorf("failed to get health: %v", err)
+				return false
+			}
+		default:
+			if strings.HasPrefix(qf.Field, "labels.") {
+				key := strings.TrimSpace(strings.TrimPrefix(qf.Field, "labels."))
+				value = s.GetLabelsMatcher().Get(key)
+			} else if strings.HasPrefix(qf.Field, "tags.") {
+				key := strings.TrimSpace(strings.TrimPrefix(qf.Field, "tags."))
+				if tagsMatcher, ok := s.(TagsMatchable); ok {
+					value = tagsMatcher.GetTagsMatcher().Get(key)
+				}
+			} else {
+				// Unknown key is a field selector
+				key := strings.TrimSpace(qf.Field)
+				value = s.GetFieldsMatcher().Get(key)
+			}
+		}
+
+		var patterns []string
+		if qfs, ok := qf.Value.(string); ok {
+			patterns = strings.Split(qfs, ",")
+		}
+
+		match := collections.MatchItems(value, patterns...)
+		switch qf.Op {
+		case grammar.Eq:
+			return match
+		case grammar.Neq:
+			return !match
+		default:
+			logger.WithValues("operation", qf.Op).Infof("matchGrammarnot-implemented")
+			return false
 		}
 	}
 
-	if len(rs.LabelSelector) > 0 {
-		parsed, err := labels.Parse(rs.LabelSelector)
-		if err != nil {
-			logger.Errorf("bad label selector: %v", err)
-			return false
-		} else if !parsed.Matches(s.GetLabelsMatcher()) {
+	for _, subQf := range qf.Fields {
+		// Consider subQf.Operation (AND vs OR)
+		match := rs.matchGrammar(subQf, s)
+		if !match {
 			return false
 		}
-	}
-
-	if len(rs.FieldSelector) > 0 {
-		parsed, err := labels.Parse(rs.FieldSelector)
-		if err != nil {
-			logger.Errorf("bad field selector: %v", err)
-			return false
-		} else if !parsed.Matches(s.GetFieldsMatcher()) {
-			return false
-		}
-	}
-
-	if rs.Search != "" {
-		qf, err := grammar.ParsePEG(rs.Search)
-		if err != nil {
-			// TODO: handle error
-			return false
-		}
-
-		// TODO: Match against these query fields
-		fmt.Println(qf)
 	}
 
 	return true
