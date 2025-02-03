@@ -344,7 +344,7 @@ var _ = Describe("Resource Selector", func() {
 
 		Describe("test", func() {
 			for _, tt := range tests {
-				// if tt.name != "Field selector property matcher (text)" {
+				// if tt.name != "Field selector" {
 				// 	continue
 				// }
 

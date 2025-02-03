@@ -177,7 +177,7 @@ func (c ResourceSelector) Hash() string {
 	return hash.Sha256Hex(strings.Join(items, "|"))
 }
 
-func (rs ResourceSelector) ToPeg() string {
+func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 	var searchConditions []string
 
 	if rs.ID != "" {
@@ -204,16 +204,19 @@ func (rs ResourceSelector) ToPeg() string {
 		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(rs.Statuses, ",")))
 	}
 
-	if rs.LabelSelector != "" {
-		searchConditions = append(searchConditions, selectorToPegCondition("labels.", rs.LabelSelector)...)
-	}
+	if convertSelectors {
+		// Adding this flag for now until we migrate matchItems support in the SQL query
+		if rs.LabelSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("labels.", rs.LabelSelector)...)
+		}
 
-	if rs.TagSelector != "" {
-		searchConditions = append(searchConditions, selectorToPegCondition("tags.", rs.TagSelector)...)
-	}
+		if rs.TagSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("tags.", rs.TagSelector)...)
+		}
 
-	if rs.FieldSelector != "" {
-		searchConditions = append(searchConditions, selectorToPegCondition("", rs.FieldSelector)...)
+		if rs.FieldSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("", rs.FieldSelector)...)
+		}
 	}
 
 	peg := rs.Search
@@ -267,7 +270,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		return true
 	}
 
-	peg := rs.ToPeg()
+	peg := rs.ToPeg(true)
 	if peg == "" {
 		return false
 	}
@@ -284,62 +287,10 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 	if qf.Field != "" {
 		var err error
 
-		var value string
-		switch qf.Field {
-		case "name":
-			value = s.GetName()
-		case "namespace":
-			value = s.GetNamespace()
-		case "id":
-			value = s.GetID()
-		case "type":
-			value = s.GetType()
-		case "status":
-			value, err = s.GetStatus()
-			if err != nil {
-				logger.Errorf("failed to get status: %v", err)
-				return false
-			}
-		case "health":
-			value, err = s.GetHealth()
-			if err != nil {
-				logger.Errorf("failed to get health: %v", err)
-				return false
-			}
-		default:
-			if strings.HasPrefix(qf.Field, "labels.") {
-				key := strings.TrimSpace(strings.TrimPrefix(qf.Field, "labels."))
-				value = s.GetLabelsMatcher().Get(key)
-			} else if strings.HasPrefix(qf.Field, "tags.") {
-				key := strings.TrimSpace(strings.TrimPrefix(qf.Field, "tags."))
-				if tagsMatcher, ok := s.(TagsMatchable); ok {
-					value = tagsMatcher.GetTagsMatcher().Get(key)
-				}
-			} else if strings.HasPrefix(qf.Field, "properties.") {
-				propertyName := strings.TrimSpace(strings.TrimPrefix(qf.Field, "properties."))
-				value = s.GetFieldsMatcher().Get("properties")
-				var properties Properties
-				if err := json.Unmarshal([]byte(value), &properties); err != nil {
-					logger.Errorf("failed to unmarshall properties")
-					return false
-				}
-
-				for _, p := range properties {
-					if p.Name != propertyName {
-						continue
-					}
-
-					if p.Text != "" {
-						value = p.Text
-					} else if p.Value != nil {
-						value = strconv.FormatInt(*p.Value, 10)
-					}
-				}
-			} else {
-				// Unknown key is a field selector
-				key := strings.TrimSpace(qf.Field)
-				value = s.GetFieldsMatcher().Get(key)
-			}
+		value, err := extractResourceFieldValue(s, qf.Field)
+		if err != nil {
+			logger.Errorf("failed to extract value for field: %v", qf.Field)
+			return false
 		}
 
 		var patterns []string
@@ -379,15 +330,19 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 		}
 	}
 
+	var matchAny bool
 	for _, subQf := range qf.Fields {
-		// Consider subQf.Operation (AND vs OR)
 		match := rs.matchGrammar(subQf, s)
-		if !match {
-			return false
+		if match {
+			matchAny = true
+		}
+
+		if qf.Op == "and" && !match {
+			return false // fail early
 		}
 	}
 
-	return true
+	return matchAny
 }
 
 type ResourceSelectors []ResourceSelector
@@ -455,4 +410,61 @@ type ResourceSelectable interface {
 	GetType() string
 	GetStatus() (string, error)
 	GetHealth() (string, error)
+}
+
+func extractResourceFieldValue(rs ResourceSelectable, field string) (string, error) {
+	switch field {
+	case "name":
+		return rs.GetName(), nil
+	case "namespace":
+		return rs.GetNamespace(), nil
+	case "id":
+		return rs.GetID(), nil
+	case "type":
+		return rs.GetType(), nil
+	case "status":
+		value, err := rs.GetStatus()
+		if err != nil {
+			return "", fmt.Errorf("failed to get status: %w", err)
+		}
+		return value, nil
+	case "health":
+		value, err := rs.GetHealth()
+		if err != nil {
+			return "", fmt.Errorf("failed to get health: %w", err)
+		}
+		return value, nil
+	}
+
+	if strings.HasPrefix(field, "labels.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "labels."))
+		return rs.GetLabelsMatcher().Get(key), nil
+	} else if strings.HasPrefix(field, "tags.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "tags."))
+		if tagsMatcher, ok := rs.(TagsMatchable); ok {
+			return tagsMatcher.GetTagsMatcher().Get(key), nil
+		}
+	} else if strings.HasPrefix(field, "properties.") {
+		propertyName := strings.TrimSpace(strings.TrimPrefix(field, "properties."))
+		propertiesJSON := rs.GetFieldsMatcher().Get("properties")
+		var properties Properties
+		if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			return "", fmt.Errorf("failed to unmarshall properties: %w", err)
+		}
+
+		for _, p := range properties {
+			if p.Name != propertyName {
+				continue
+			}
+
+			if p.Text != "" {
+				return p.Text, nil
+			} else if p.Value != nil {
+				return strconv.FormatInt(*p.Value, 10), nil
+			}
+		}
+	}
+
+	// Unknown key is a field selector
+	return rs.GetFieldsMatcher().Get(strings.TrimSpace(field)), nil
 }
