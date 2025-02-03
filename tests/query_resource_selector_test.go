@@ -577,6 +577,22 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "tags prefix search",
+			query:       "tags=us-*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "tags suffix search",
+			query:       "tags=*east-1",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
 			description: "labels value search",
 			query:       "labels=managed",
 			expectedIDs: []uuid.UUID{
@@ -598,7 +614,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-			// if tt.description != "tags value search negate" {
+			// if tt.description != "tags suffix search" {
 			// 	continue
 			// }
 

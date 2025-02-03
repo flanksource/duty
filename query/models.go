@@ -10,7 +10,6 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
@@ -274,7 +273,7 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 			// Another way to search jsonb maps is to do an unkeyed lookup on the values
 			// example: tags=default (matches tags={namespace: default})
 			if originalField == column && (q.Op == grammar.Eq || q.Op == grammar.Neq) {
-				tx = FilterJSONColumnValues(ctx, tx, column, q.Op, strings.TrimPrefix(originalField, column+"."), val)
+				tx = filterJSONColumnValues(tx, column, q.Op, val)
 				q.Field = column
 			}
 		}
@@ -300,7 +299,7 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 	return tx, clauses, nil
 }
 
-func FilterJSONColumnValues(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
+func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator, val string) *gorm.DB {
 	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
 		op = grammar.Eq
 	}
@@ -309,13 +308,13 @@ func FilterJSONColumnValues(ctx context.Context, tx *gorm.DB, column string, op 
 
 	switch column {
 	case "tags":
-		// `tags` column uses the more performant tags_values column
-		switch op {
-		case grammar.Neq:
-			tx = tx.Where("NOT tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
-		default:
-			tx = tx.Where("tags_values ? ?", gorm.Expr("?|"), pq.StringArray(values))
+		qf := grammar.QueryField{Field: "tags_values", FieldType: grammar.FieldTypeJsonbArray, Value: val, Op: op}
+		clauses, err := qf.ToClauses()
+		if err != nil {
+			return nil
 		}
+
+		tx = tx.Clauses(clauses...)
 
 	default:
 		subQueryCondition := lo.Ternary(op == grammar.Neq, "NOT EXISTS", "EXISTS")
