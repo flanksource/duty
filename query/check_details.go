@@ -3,14 +3,15 @@ package query
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/asecurityteam/rolling"
 	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
+	"gonum.org/v1/gonum/stat"
 )
 
 // Default search window
@@ -137,7 +138,7 @@ func (q CheckQueryParams) ExecuteDetails(ctx context.Context) ([]Timeseries, typ
 	end := q.GetEndTime().Format(time.RFC3339)
 
 	query := `
-With grouped_by_window AS (
+WITH grouped_by_window AS (
 	SELECT
 		duration,
 		status,
@@ -172,7 +173,7 @@ ORDER BY time
 		args = []any{start, end, q.Check}
 	}
 	uptime := types.Uptime{}
-	latencies := rolling.NewPointPolicy(rolling.NewWindow(100))
+	var latencies []float64
 
 	rows, err := ctx.Pool().Query(ctx, query, args...)
 	if err != nil {
@@ -189,15 +190,17 @@ ORDER BY time
 		}
 		uptime.Failed += datapoint.Failed
 		uptime.Passed += datapoint.Passed
-		latencies.Append(float64(datapoint.Duration))
+		latencies = append(latencies, float64(datapoint.Duration))
 		datapoint.Time = ts.Format(time.RFC3339)
 		results = append(results, datapoint)
 	}
 
+	// Sorting is required before calculating latencies else Quantile panics
+	slices.Sort(latencies)
 	latency := types.Latency{
-		Percentile99: latencies.Reduce(rolling.Percentile(99)),
-		Percentile97: latencies.Reduce(rolling.Percentile(97)),
-		Percentile95: latencies.Reduce(rolling.Percentile(95)),
+		Percentile99: stat.Quantile(0.99, stat.Empirical, latencies, nil),
+		Percentile97: stat.Quantile(0.97, stat.Empirical, latencies, nil),
+		Percentile95: stat.Quantile(0.95, stat.Empirical, latencies, nil),
 	}
 
 	return results, uptime, latency, nil
