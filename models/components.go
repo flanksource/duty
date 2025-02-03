@@ -22,14 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-var AllowedColumnFieldsInComponents = []string{
-	"owner",
-	"topology_type",
-	"topology_id",
-	"parent_id",
-	"type", // Deprecated. Use resource_selector.types instead
-}
-
 // Ensure interface compliance
 var (
 	_ types.ResourceSelectable = Component{}
@@ -340,7 +332,7 @@ func (c Component) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Component) GetFieldsMatcher() fields.Fields {
-	return componentFieldsProvider{c}
+	return genericFieldMatcher{c.AsMap()}
 }
 
 type componentLabelsProvider struct {
@@ -354,33 +346,6 @@ func (c componentLabelsProvider) Get(key string) string {
 func (c componentLabelsProvider) Has(key string) bool {
 	_, ok := c.Labels[key]
 	return ok
-}
-
-type componentFieldsProvider struct {
-	Component
-}
-
-func (c componentFieldsProvider) Get(key string) string {
-	if lo.Contains(AllowedColumnFieldsInComponents, key) {
-		return fmt.Sprintf("%v", c.AsMap()[key])
-	}
-
-	v := c.Properties.Find(key)
-	if v == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%v", v.GetValue())
-}
-
-func (c componentFieldsProvider) Has(key string) bool {
-	if lo.Contains(AllowedColumnFieldsInComponents, key) {
-		_, ok := c.AsMap()[key]
-		return ok
-	}
-
-	v := c.Properties.Find(key)
-	return v != nil
 }
 
 var ComponentID = func(c Component) string {

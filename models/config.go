@@ -68,8 +68,6 @@ const (
 	AnalysisTypeTechDebt       AnalysisType = "technical_debt"
 )
 
-var AllowedColumnFieldsInConfigs = []string{"config_class", "external_id"}
-
 type RelatedConfigDirection string
 
 const (
@@ -277,27 +275,7 @@ func (c ConfigItem) GetLabelsMatcher() labels.Labels {
 }
 
 func (c ConfigItem) GetFieldsMatcher() fields.Fields {
-	return configFields{c}
-}
-
-type configFields struct {
-	ConfigItem
-}
-
-func (c configFields) Get(key string) string {
-	val := c.AsMap()[key]
-	switch v := val.(type) {
-	case string:
-		return v
-	default:
-		marshalled, _ := json.Marshal(v)
-		return string(marshalled)
-	}
-}
-
-func (c configFields) Has(key string) bool {
-	_, ok := c.AsMap()[key]
-	return ok
+	return genericFieldMatcher{c.AsMap()}
 }
 
 type configLabels struct {
