@@ -15,14 +15,18 @@ import (
 )
 
 type Selectors struct {
-	Playbooks  []types.ResourceSelector `json:"playbooks,omitempty"`
-	Configs    []types.ResourceSelector `json:"configs,omitempty"`
-	Components []types.ResourceSelector `json:"components,omitempty"`
+	Playbooks   []types.ResourceSelector `json:"playbooks,omitempty"`
+	Connections []types.ResourceSelector `json:"connections,omitempty"`
+	Configs     []types.ResourceSelector `json:"configs,omitempty"`
+	Components  []types.ResourceSelector `json:"components,omitempty"`
 }
 
 func (t Selectors) RequiredMatchCount() int {
 	var count int
 	if len(t.Playbooks) > 0 {
+		count++
+	}
+	if len(t.Connections) > 0 {
 		count++
 	}
 	if len(t.Configs) > 0 {
@@ -135,6 +139,13 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 
 		for _, rs := range objectSelector.Playbooks {
 			if rs.Matches(&attr.Playbook) {
+				resourcesMatched++
+				break
+			}
+		}
+
+		for _, rs := range objectSelector.Connections {
+			if rs.Matches(&attr.Connection) {
 				resourcesMatched++
 				break
 			}

@@ -17,6 +17,8 @@ import (
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // List of all connection types
@@ -78,6 +80,8 @@ const (
 // until an ending space
 var passwordRegexp = regexp.MustCompile(`password=([^;]*)`)
 
+var _ types.ResourceSelectable = (*Connection)(nil)
+
 type Connection struct {
 	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id" faker:"uuid_hyphenated"  `
 	Name        string              `gorm:"column:name" json:"name" faker:"name"  `
@@ -93,6 +97,38 @@ type Connection struct {
 	CreatedAt   time.Time           `gorm:"column:created_at;default:now();<-:create" json:"created_at,omitempty" faker:"-"  `
 	UpdatedAt   time.Time           `gorm:"column:updated_at;default:now()" json:"updated_at,omitempty" faker:"-"  `
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
+}
+
+func (c *Connection) GetID() string {
+	return c.ID.String()
+}
+
+func (c *Connection) GetName() string {
+	return c.Name
+}
+
+func (c *Connection) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c *Connection) GetType() string {
+	return c.Type
+}
+
+func (c *Connection) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (c *Connection) GetHealth() (string, error) {
+	return "", nil
+}
+
+func (c *Connection) GetLabelsMatcher() labels.Labels {
+	return noopMatcher{}
+}
+
+func (c *Connection) GetFieldsMatcher() fields.Fields {
+	return noopMatcher{}
 }
 
 func (c *Connection) SetProperty(key, value string) {
