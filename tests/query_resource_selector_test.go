@@ -220,6 +220,10 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		})
 
 		for _, test := range testData {
+			// if test.description != "labels | IN Query" {
+			// 	continue
+			// }
+
 			ginkgo.It(test.description, func() {
 				items, err := query.SearchResources(DefaultContext, test.query)
 				Expect(err).To(BeNil())
