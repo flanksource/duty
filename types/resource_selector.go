@@ -3,8 +3,10 @@ package types
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
@@ -243,6 +245,10 @@ func selectorToPegCondition(fieldPrefix, selector string) []string {
 			operator = grammar.Eq
 		case selection.NotEquals, selection.NotIn:
 			operator = grammar.Neq
+		case selection.GreaterThan:
+			operator = grammar.Gt
+		case selection.LessThan:
+			operator = grammar.Lt
 		}
 
 		condition := fmt.Sprintf("%s%s %s %q", fieldPrefix, requirement.Key(), operator, strings.Join(requirement.Values().List(), ","))
@@ -309,6 +315,26 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 				if tagsMatcher, ok := s.(TagsMatchable); ok {
 					value = tagsMatcher.GetTagsMatcher().Get(key)
 				}
+			} else if strings.HasPrefix(qf.Field, "properties.") {
+				propertyName := strings.TrimSpace(strings.TrimPrefix(qf.Field, "properties."))
+				value = s.GetFieldsMatcher().Get("properties")
+				var properties Properties
+				if err := json.Unmarshal([]byte(value), &properties); err != nil {
+					logger.Errorf("failed to unmarshall properties")
+					return false
+				}
+
+				for _, p := range properties {
+					if p.Name != propertyName {
+						continue
+					}
+
+					if p.Text != "" {
+						value = p.Text
+					} else if p.Value != nil {
+						value = strconv.FormatInt(*p.Value, 10)
+					}
+				}
 			} else {
 				// Unknown key is a field selector
 				key := strings.TrimSpace(qf.Field)
@@ -321,14 +347,34 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 			patterns = strings.Split(qfs, ",")
 		}
 
-		match := collections.MatchItems(value, patterns...)
 		switch qf.Op {
 		case grammar.Eq:
-			return match
+			return collections.MatchItems(value, patterns...)
+
 		case grammar.Neq:
-			return !match
+			return !collections.MatchItems(value, patterns...)
+
+		case grammar.Gt, grammar.Lt:
+			propertyValue, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				logger.WithValues("value", value).Errorf("properties lessthan and greaterthan operator only supports numbers")
+				return false
+			}
+
+			queryValue, err := strconv.ParseFloat(qf.Value.(string), 64)
+			if err != nil {
+				logger.WithValues("value", value).Errorf("properties lessthan and greaterthan operator only supports numbers")
+				return false
+			}
+
+			if qf.Op == grammar.Gt {
+				return propertyValue > queryValue
+			}
+
+			return propertyValue < queryValue
+
 		default:
-			logger.WithValues("operation", qf.Op).Infof("matchGrammarnot-implemented")
+			logger.WithValues("operation", qf.Op).Infof("matchGrammar not-implemented")
 			return false
 		}
 	}

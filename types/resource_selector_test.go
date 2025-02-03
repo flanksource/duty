@@ -52,7 +52,7 @@ var _ = Describe("Resource Selector", func() {
 	Describe("Matches", func() {
 		tests := []struct {
 			name              string
-			resourceSelectors []types.ResourceSelector
+			resourceSelectors []types.ResourceSelector // canonical resource selectors
 			selectable        types.ResourceSelectable
 			unselectable      types.ResourceSelectable
 		}{
@@ -311,7 +311,7 @@ var _ = Describe("Resource Selector", func() {
 			{
 				name: "Field selector property matcher (text)",
 				resourceSelectors: []types.ResourceSelector{
-					{FieldSelector: "color=red"},
+					{FieldSelector: "properties.color=red"},
 				},
 				selectable: models.ConfigItem{
 					Properties: &types.Properties{
@@ -324,27 +324,27 @@ var _ = Describe("Resource Selector", func() {
 					},
 				},
 			},
-			// {
-			// 	name: "Field selector property matcher (value)",
-			// 	resourceSelectors: []types.ResourceSelector{
-			// 		{FieldSelector: "memory>50"},
-			// 	},
-			// 	selectable: models.ConfigItem{
-			// 		Properties: &types.Properties{
-			// 			{Name: "memory", Value: lo.ToPtr(int64(64))},
-			// 		},
-			// 	},
-			// 	unselectable: models.ConfigItem{
-			// 		Properties: &types.Properties{
-			// 			{Name: "memory", Value: lo.ToPtr(int64(32))},
-			// 		},
-			// 	},
-			// },
+			{
+				name: "Property selector",
+				resourceSelectors: []types.ResourceSelector{
+					{FieldSelector: "properties.memory>50"},
+				},
+				selectable: models.ConfigItem{
+					Properties: &types.Properties{
+						{Name: "memory", Value: lo.ToPtr(int64(64))},
+					},
+				},
+				unselectable: models.ConfigItem{
+					Properties: &types.Properties{
+						{Name: "memory", Value: lo.ToPtr(int64(32))},
+					},
+				},
+			},
 		}
 
 		Describe("test", func() {
 			for _, tt := range tests {
-				// if tt.name != "Label selector IN query" {
+				// if tt.name != "Field selector property matcher (text)" {
 				// 	continue
 				// }
 

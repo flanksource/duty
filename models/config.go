@@ -285,26 +285,19 @@ type configFields struct {
 }
 
 func (c configFields) Get(key string) string {
-	if lo.Contains(AllowedColumnFieldsInConfigs, key) {
-		return fmt.Sprintf("%v", c.AsMap()[key])
+	val := c.AsMap()[key]
+	switch v := val.(type) {
+	case string:
+		return v
+	default:
+		marshalled, _ := json.Marshal(v)
+		return string(marshalled)
 	}
-
-	v := c.Properties.Find(key)
-	if v == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%v", v.GetValue())
 }
 
 func (c configFields) Has(key string) bool {
-	if lo.Contains(AllowedColumnFieldsInConfigs, key) {
-		_, ok := c.AsMap()[key]
-		return ok
-	}
-
-	v := c.Properties.Find(key)
-	return v != nil
+	_, ok := c.AsMap()[key]
+	return ok
 }
 
 type configLabels struct {
