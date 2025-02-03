@@ -3,13 +3,16 @@ package types
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/query/grammar"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -28,68 +31,6 @@ type Functions struct {
 	// It uses the config_id linked to the componentID to lookup up all the config relations and returns
 	// a list of componentIDs that are linked to the found configIDs
 	ComponentConfigTraversal *ComponentConfigTraversalArgs `yaml:"component_config_traversal,omitempty" json:"component_config_traversal,omitempty"`
-}
-
-type QueryOperator string
-
-const (
-	Eq  QueryOperator = "="
-	Neq QueryOperator = "!="
-
-	Gt        QueryOperator = ">"
-	Lt        QueryOperator = "<"
-	In        QueryOperator = "in"
-	NotIn     QueryOperator = "notin"
-	Exists    QueryOperator = "exists"
-	NotExists QueryOperator = "!"
-)
-
-func (op QueryOperator) ToSelectionOperator() selection.Operator {
-	switch op {
-	case Eq:
-		return selection.Equals
-	case Neq:
-		return selection.NotEquals
-	case In:
-		return selection.In
-	case NotIn:
-		return selection.NotIn
-	case Exists:
-		return selection.Exists
-	case NotExists:
-		return selection.DoesNotExist
-	default:
-		return selection.Equals
-	}
-}
-
-type QueryField struct {
-	Field  string        `json:"field,omitempty"`
-	Value  interface{}   `json:"value,omitempty"`
-	Op     QueryOperator `json:"op,omitempty"`
-	Not    bool          `json:"not,omitempty"`
-	Fields []*QueryField `json:"fields,omitempty"`
-}
-
-var CommonFields = map[string]bool{
-	"id":   true,
-	"type": true,
-}
-
-func (f *QueryField) ToLabelSelector() (labels.Selector, error) {
-	selector := labels.NewSelector()
-	for _, field := range f.Fields {
-		if CommonFields[field.Field] {
-			continue
-		}
-		val := fmt.Sprintf("%s", field.Value)
-		req, err := labels.NewRequirement(field.Field, field.Op.ToSelectionOperator(), []string{val})
-		if err != nil {
-			return nil, err
-		}
-		selector = selector.Add(*req)
-	}
-	return selector, nil
 }
 
 // +kubebuilder:object:generate=true
@@ -169,31 +110,6 @@ func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN 
 	return
 }
 
-func (q QueryField) ToClauses() ([]clause.Expression, error) {
-	val := fmt.Sprint(q.Value)
-
-	filters, err := ParseFilteringQueryV2(val, false)
-	if err != nil {
-		return nil, err
-	}
-
-	var clauses []clause.Expression
-	switch q.Op {
-	case Eq:
-		clauses = append(clauses, filters.ToExpression(q.Field)...)
-	case Neq:
-		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field)...))
-	case Lt:
-		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
-	case Gt:
-		clauses = append(clauses, clause.Gt{Column: q.Field, Value: q.Value})
-	default:
-		return nil, fmt.Errorf("invalid operator: %s", q.Op)
-	}
-
-	return clauses, nil
-}
-
 func (c ResourceSelector) allEmptyButName() bool {
 	return c.ID == "" && c.Namespace == "" && c.Agent == "" && c.Scope == "" && c.Search == "" &&
 		len(c.Types) == 0 &&
@@ -261,74 +177,172 @@ func (c ResourceSelector) Hash() string {
 	return hash.Sha256Hex(strings.Join(items, "|"))
 }
 
+func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
+	var searchConditions []string
+
+	if rs.ID != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("id = %q", rs.ID))
+	}
+
+	if rs.Name != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("name = %q", rs.Name))
+	}
+
+	if rs.Namespace != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", rs.Namespace))
+	}
+
+	if len(rs.Health) != 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", rs.Health))
+	}
+
+	if len(rs.Types) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(rs.Types, ",")))
+	}
+
+	if len(rs.Statuses) > 0 {
+		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(rs.Statuses, ",")))
+	}
+
+	if convertSelectors {
+		// Adding this flag for now until we migrate matchItems support in the SQL query
+		if rs.LabelSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("labels.", rs.LabelSelector)...)
+		}
+
+		if rs.TagSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("tags.", rs.TagSelector)...)
+		}
+
+		if rs.FieldSelector != "" {
+			searchConditions = append(searchConditions, selectorToPegCondition("", rs.FieldSelector)...)
+		}
+	}
+
+	peg := rs.Search
+	if len(searchConditions) > 0 {
+		joined := strings.Join(searchConditions, " ")
+		peg += fmt.Sprintf(" %s", joined)
+	}
+
+	return peg
+}
+
+func selectorToPegCondition(fieldPrefix, selector string) []string {
+	parsed, err := labels.Parse(selector)
+	if err != nil {
+		return nil
+	}
+
+	requirements, selectable := parsed.Requirements()
+	if !selectable {
+		return nil
+	}
+
+	var searchConditions []string
+	for _, requirement := range requirements {
+		operator := grammar.Eq
+
+		switch requirement.Operator() {
+		case selection.Equals, selection.In:
+			operator = grammar.Eq
+		case selection.NotEquals, selection.NotIn:
+			operator = grammar.Neq
+		case selection.GreaterThan:
+			operator = grammar.Gt
+		case selection.LessThan:
+			operator = grammar.Lt
+		}
+
+		condition := fmt.Sprintf("%s%s %s %q", fieldPrefix, requirement.Key(), operator, strings.Join(requirement.Values().List(), ","))
+		searchConditions = append(searchConditions, condition)
+	}
+
+	return searchConditions
+}
+
 func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 	if rs.IsEmpty() {
 		return false
 	}
+
 	if rs.Wildcard() {
 		return true
 	}
-	if rs.ID != "" && rs.ID != s.GetID() {
-		return false
-	}
-	if rs.Name != "" && rs.Name != s.GetName() {
-		return false
-	}
-	if rs.Namespace != "" && rs.Namespace != s.GetNamespace() {
+
+	peg := rs.ToPeg(true)
+	if peg == "" {
 		return false
 	}
 
-	if len(rs.Types) > 0 && !rs.Types.Contains(s.GetType()) {
+	qf, err := grammar.ParsePEG(peg)
+	if err != nil {
 		return false
 	}
 
-	if status, err := s.GetStatus(); err != nil {
-		logger.Errorf("failed to get status: %v", err)
-		return false
-	} else if len(rs.Statuses) > 0 && !rs.Statuses.Contains(status) {
-		return false
-	}
+	return rs.matchGrammar(qf, s)
+}
 
-	if h, err := s.GetHealth(); err != nil {
-		logger.Errorf("failed to get health: %v", err)
-		return false
-	} else if len(rs.Health) > 0 && !rs.Health.Match(h) {
-		return false
-	}
+func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelectable) bool {
+	if qf.Field != "" {
+		var err error
 
-	if len(rs.TagSelector) > 0 {
-		if tagsMatcher, ok := s.(TagsMatchable); ok {
-			parsed, err := labels.Parse(rs.TagSelector)
+		value, err := extractResourceFieldValue(s, qf.Field)
+		if err != nil {
+			logger.Errorf("failed to extract value for field: %v", qf.Field)
+			return false
+		}
+
+		var patterns []string
+		if qfs, ok := qf.Value.(string); ok {
+			patterns = strings.Split(qfs, ",")
+		}
+
+		switch qf.Op {
+		case grammar.Eq:
+			return collections.MatchItems(value, patterns...)
+
+		case grammar.Neq:
+			return !collections.MatchItems(value, patterns...)
+
+		case grammar.Gt, grammar.Lt:
+			propertyValue, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				logger.Errorf("bad tag selector: %v", err)
-				return false
-			} else if !parsed.Matches(tagsMatcher.GetTagsMatcher()) {
+				logger.WithValues("value", value).Errorf("properties lessthan and greaterthan operator only supports numbers")
 				return false
 			}
-		}
-	}
 
-	if len(rs.LabelSelector) > 0 {
-		parsed, err := labels.Parse(rs.LabelSelector)
-		if err != nil {
-			logger.Errorf("bad label selector: %v", err)
-			return false
-		} else if !parsed.Matches(s.GetLabelsMatcher()) {
-			return false
-		}
-	}
+			queryValue, err := strconv.ParseFloat(qf.Value.(string), 64)
+			if err != nil {
+				logger.WithValues("value", value).Errorf("properties lessthan and greaterthan operator only supports numbers")
+				return false
+			}
 
-	if len(rs.FieldSelector) > 0 {
-		parsed, err := labels.Parse(rs.FieldSelector)
-		if err != nil {
-			logger.Errorf("bad field selector: %v", err)
-			return false
-		} else if !parsed.Matches(s.GetFieldsMatcher()) {
+			if qf.Op == grammar.Gt {
+				return propertyValue > queryValue
+			}
+
+			return propertyValue < queryValue
+
+		default:
+			logger.WithValues("operation", qf.Op).Infof("matchGrammar not-implemented")
 			return false
 		}
 	}
 
-	return true
+	var matchAny bool
+	for _, subQf := range qf.Fields {
+		match := rs.matchGrammar(subQf, s)
+		if match {
+			matchAny = true
+		}
+
+		if qf.Op == "and" && !match {
+			return false // fail early
+		}
+	}
+
+	return matchAny
 }
 
 type ResourceSelectors []ResourceSelector
@@ -396,4 +410,61 @@ type ResourceSelectable interface {
 	GetType() string
 	GetStatus() (string, error)
 	GetHealth() (string, error)
+}
+
+func extractResourceFieldValue(rs ResourceSelectable, field string) (string, error) {
+	switch field {
+	case "name":
+		return rs.GetName(), nil
+	case "namespace":
+		return rs.GetNamespace(), nil
+	case "id":
+		return rs.GetID(), nil
+	case "type":
+		return rs.GetType(), nil
+	case "status":
+		value, err := rs.GetStatus()
+		if err != nil {
+			return "", fmt.Errorf("failed to get status: %w", err)
+		}
+		return value, nil
+	case "health":
+		value, err := rs.GetHealth()
+		if err != nil {
+			return "", fmt.Errorf("failed to get health: %w", err)
+		}
+		return value, nil
+	}
+
+	if strings.HasPrefix(field, "labels.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "labels."))
+		return rs.GetLabelsMatcher().Get(key), nil
+	} else if strings.HasPrefix(field, "tags.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "tags."))
+		if tagsMatcher, ok := rs.(TagsMatchable); ok {
+			return tagsMatcher.GetTagsMatcher().Get(key), nil
+		}
+	} else if strings.HasPrefix(field, "properties.") {
+		propertyName := strings.TrimSpace(strings.TrimPrefix(field, "properties."))
+		propertiesJSON := rs.GetFieldsMatcher().Get("properties")
+		var properties Properties
+		if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			return "", fmt.Errorf("failed to unmarshall properties: %w", err)
+		}
+
+		for _, p := range properties {
+			if p.Name != propertyName {
+				continue
+			}
+
+			if p.Text != "" {
+				return p.Text, nil
+			} else if p.Value != nil {
+				return strconv.FormatInt(*p.Value, 10), nil
+			}
+		}
+	}
+
+	// Unknown key is a field selector
+	return rs.GetFieldsMatcher().Get(strings.TrimSpace(field)), nil
 }

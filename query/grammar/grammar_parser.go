@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/types"
 )
 
 type Source struct {
@@ -34,53 +33,53 @@ func makeSource(name interface{}, path interface{}) (string, error) {
 }
 
 func makeFQFromQuery(a interface{}) (interface{}, error) {
-	return a.(*types.QueryField), nil
+	return a.(*QueryField), nil
 }
 
 //nolint:unused
-func makeCatchAll(f interface{}) (*types.QueryField, error) {
+func makeCatchAll(f interface{}) (*QueryField, error) {
 	logger.Warnf("ctach all %v (%T)", f, f)
 
 	switch v := f.(type) {
 	case string:
-		return &types.QueryField{Op: "rest", Value: v}, nil
+		return &QueryField{Op: "rest", Value: v}, nil
 	case []byte:
-		return &types.QueryField{Op: "rest", Value: string(v)}, nil
+		return &QueryField{Op: "rest", Value: string(v)}, nil
 	case []interface{}:
 
 		rest := ""
 		for _, i := range v {
 			rest += fmt.Sprintf("%s", i)
 		}
-		return &types.QueryField{Op: "rest", Value: rest}, nil
+		return &QueryField{Op: "rest", Value: rest}, nil
 	}
-	return &types.QueryField{Op: "rest", Value: f}, nil
+	return &QueryField{Op: "rest", Value: f}, nil
 }
 
-func makeFQFromField(f interface{}) (*types.QueryField, error) {
-	return f.(*types.QueryField), nil
+func makeFQFromField(f interface{}) (*QueryField, error) {
+	return f.(*QueryField), nil
 }
 
 //nolint:unused
-func makeQuery(a, b interface{}) (*types.QueryField, error) {
-	q := &types.QueryField{
+func makeQuery(a, b interface{}) (*QueryField, error) {
+	q := &QueryField{
 		Op: "or",
 	}
 
 	switch v := a.(type) {
-	case *types.QueryField:
+	case *QueryField:
 		q.Fields = append(q.Fields, v)
 	default:
 		logger.Warnf("Unknown type for query.a: %v = %T", a, a)
 	}
 
 	switch v := b.(type) {
-	case *types.QueryField:
+	case *QueryField:
 		q.Fields = append(q.Fields, v)
 	case []interface{}:
 		for _, i := range v {
 			switch v2 := i.(type) {
-			case *types.QueryField:
+			case *QueryField:
 				q.Fields = append(q.Fields, v2)
 
 			default:
@@ -94,11 +93,11 @@ func makeQuery(a, b interface{}) (*types.QueryField, error) {
 	return q, nil
 }
 
-func makeAndQuery(a any, b any) (*types.QueryField, error) {
-	q := &types.QueryField{Op: "and"}
+func makeAndQuery(a any, b any) (*QueryField, error) {
+	q := &QueryField{Op: "and"}
 
 	switch v := a.(type) {
-	case *types.QueryField:
+	case *QueryField:
 		q.Fields = append(q.Fields, v)
 
 	default:
@@ -106,12 +105,12 @@ func makeAndQuery(a any, b any) (*types.QueryField, error) {
 	}
 
 	switch v := b.(type) {
-	case *types.QueryField:
+	case *QueryField:
 		q.Fields = append(q.Fields, v)
 	case []interface{}:
 		for _, i := range v {
 			switch v2 := i.(type) {
-			case *types.QueryField:
+			case *QueryField:
 				q.Fields = append(q.Fields, v2)
 			default:
 				logger.Warnf("Unknown array item: %v (%T)", i, i)
@@ -144,7 +143,7 @@ func stringFromChars(chars interface{}) string {
 	return str
 }
 
-func FlatFields(qf *types.QueryField) []string {
+func FlatFields(qf *QueryField) []string {
 	var fields []string
 	if qf.Field != "" {
 		fields = append(fields, qf.Field)
@@ -155,7 +154,7 @@ func FlatFields(qf *types.QueryField) []string {
 	return fields
 }
 
-func ParsePEG(peg string) (*types.QueryField, error) {
+func ParsePEG(peg string) (*QueryField, error) {
 	stats := Stats{}
 
 	v, err := Parse("", []byte(peg), Statistics(&stats, "no match"))
@@ -163,9 +162,9 @@ func ParsePEG(peg string) (*types.QueryField, error) {
 		return nil, fmt.Errorf("error parsing peg: %w", err)
 	}
 
-	rv, ok := v.(*types.QueryField)
+	rv, ok := v.(*QueryField)
 	if !ok {
-		return nil, fmt.Errorf("return type not types.QueryField")
+		return nil, fmt.Errorf("return type not QueryField")
 	}
 
 	return rv, nil

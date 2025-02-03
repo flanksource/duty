@@ -1,6 +1,8 @@
 package types_test
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
@@ -49,15 +51,15 @@ var _ = Describe("Resource Selector", func() {
 
 	Describe("Matches", func() {
 		tests := []struct {
-			name             string
-			resourceSelector types.ResourceSelector
-			selectable       types.ResourceSelectable
-			unselectable     types.ResourceSelectable
+			name              string
+			resourceSelectors []types.ResourceSelector // canonical resource selectors
+			selectable        types.ResourceSelectable
+			unselectable      types.ResourceSelectable
 		}{
 			{
-				name:             "Blank",
-				resourceSelector: types.ResourceSelector{},
-				selectable:       nil,
+				name:              "Blank",
+				resourceSelectors: []types.ResourceSelector{},
+				selectable:        nil,
 				unselectable: models.ConfigItem{
 					Name: lo.ToPtr("silverbullet"),
 					Labels: &types.JSONStringMap{
@@ -67,8 +69,8 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "ID",
-				resourceSelector: types.ResourceSelector{
-					ID: "4775d837-727a-4386-9225-1fa2c167cc96",
+				resourceSelectors: []types.ResourceSelector{
+					{ID: "4775d837-727a-4386-9225-1fa2c167cc96"},
 				},
 				selectable: models.ConfigItem{
 					ID:   uuid.MustParse("4775d837-727a-4386-9225-1fa2c167cc96"),
@@ -81,9 +83,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Namespace & Name",
-				resourceSelector: types.ResourceSelector{
-					Name:      "airsonic",
-					Namespace: "default",
+				resourceSelectors: []types.ResourceSelector{
+					{Name: "airsonic", Namespace: "default"},
+					{Search: "name=airsonic namespace=default"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("airsonic"),
@@ -100,8 +102,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Types",
-				resourceSelector: types.ResourceSelector{
-					Types: []string{"Kubernetes::Pod"},
+				resourceSelectors: []types.ResourceSelector{
+					{Types: []string{"Kubernetes::Pod"}},
+					{Search: "type=Kubernetes::Pod"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -114,8 +117,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Types multiple",
-				resourceSelector: types.ResourceSelector{
-					Types: []string{"Kubernetes::Node", "Kubernetes::Pod"},
+				resourceSelectors: []types.ResourceSelector{
+					{Types: []string{"Kubernetes::Node", "Kubernetes::Pod"}},
+					{Search: "type=Kubernetes::Node,Kubernetes::Pod"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -128,8 +132,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Type negatives",
-				resourceSelector: types.ResourceSelector{
-					Types: []string{"!Kubernetes::Deployment", "Kubernetes::Pod"},
+				resourceSelectors: []types.ResourceSelector{
+					{Types: []string{"!Kubernetes::Deployment", "Kubernetes::Pod"}},
+					{Search: "type=Kubernetes::Pod type!=Kubernetes::Deployment"},
 				},
 				selectable: models.ConfigItem{
 					Name: lo.ToPtr("cert-manager"),
@@ -142,9 +147,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Statuses",
-				resourceSelector: types.ResourceSelector{
-					Namespace: "default",
-					Statuses:  []string{"healthy"},
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", Statuses: []string{"healthy"}},
+					{Search: "namespace=default status=healthy"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -161,9 +166,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Healths",
-				resourceSelector: types.ResourceSelector{
-					Namespace: "default",
-					Health:    "healthy",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", Health: "healthy"},
+					{Search: "namespace=default health=healthy"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -180,9 +185,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Healths multiple",
-				resourceSelector: types.ResourceSelector{
-					Namespace: "default",
-					Health:    "healthy,warning",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", Health: "healthy,warning"},
+					{Search: "namespace=default health=healthy,warning"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -199,9 +204,9 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Label selector",
-				resourceSelector: types.ResourceSelector{
-					Namespace:     "default",
-					LabelSelector: "env=production",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", LabelSelector: "env=production"},
+					{Search: "namespace=default labels.env=production"},
 				},
 				selectable: models.ConfigItem{
 					ConfigClass: "Cluster",
@@ -224,9 +229,8 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Label selector IN query",
-				resourceSelector: types.ResourceSelector{
-					Namespace:     "default",
-					LabelSelector: "env in (production)",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", LabelSelector: "env in (production)"},
 				},
 				selectable: models.ConfigItem{
 					ConfigClass: "Cluster",
@@ -248,10 +252,30 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Tag selector",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", TagSelector: "cluster=aws"},
+					{Search: "namespace=default tags.cluster=aws"},
+				},
+				selectable: models.ConfigItem{
+					ConfigClass: "Cluster",
+					Tags: types.JSONStringMap{
+						"cluster":   "aws",
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					ConfigClass: "Cluster",
+					Tags: types.JSONStringMap{
+						"cluster":   "workload",
+						"namespace": "default",
+					},
+				},
+			},
+			{
 				name: "Field selector",
-				resourceSelector: types.ResourceSelector{
-					Namespace:     "default",
-					FieldSelector: "config_class=Cluster",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", FieldSelector: "config_class=Cluster"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -268,9 +292,8 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Field selector NOT IN query",
-				resourceSelector: types.ResourceSelector{
-					Namespace:     "default",
-					FieldSelector: "config_class notin (Cluster)",
+				resourceSelectors: []types.ResourceSelector{
+					{Namespace: "default", FieldSelector: "config_class notin (Cluster)"},
 				},
 				selectable: models.ConfigItem{
 					Tags: types.JSONStringMap{
@@ -287,8 +310,8 @@ var _ = Describe("Resource Selector", func() {
 			},
 			{
 				name: "Field selector property matcher (text)",
-				resourceSelector: types.ResourceSelector{
-					FieldSelector: "color=red",
+				resourceSelectors: []types.ResourceSelector{
+					{FieldSelector: "properties.color=red"},
 				},
 				selectable: models.ConfigItem{
 					Properties: &types.Properties{
@@ -302,9 +325,9 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
-				name: "Field selector property matcher (value)",
-				resourceSelector: types.ResourceSelector{
-					FieldSelector: "memory>50",
+				name: "Property selector",
+				resourceSelectors: []types.ResourceSelector{
+					{FieldSelector: "properties.memory>50"},
 				},
 				selectable: models.ConfigItem{
 					Properties: &types.Properties{
@@ -319,20 +342,26 @@ var _ = Describe("Resource Selector", func() {
 			},
 		}
 
-		for _, tt := range tests {
-			if tt.name != "Healths multiple - II" {
-				continue
+		Describe("test", func() {
+			for _, tt := range tests {
+				// if tt.name != "Field selector" {
+				// 	continue
+				// }
+
+				It(tt.name, func() {
+					if tt.selectable != nil {
+						for _, rs := range tt.resourceSelectors {
+							Expect(rs.Matches(tt.selectable)).To(BeTrue(), fmt.Sprintf("%v", rs))
+						}
+					}
+
+					if tt.unselectable != nil {
+						for _, rs := range tt.resourceSelectors {
+							Expect(rs.Matches(tt.unselectable)).To(BeFalse(), fmt.Sprintf("%v", rs))
+						}
+					}
+				})
 			}
-
-			It(tt.name, func() {
-				if tt.selectable != nil {
-					Expect(tt.resourceSelector.Matches(tt.selectable)).To(BeTrue())
-				}
-
-				if tt.unselectable != nil {
-					Expect(tt.resourceSelector.Matches(tt.unselectable)).To(BeFalse())
-				}
-			})
-		}
+		})
 	})
 })
