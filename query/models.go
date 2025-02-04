@@ -93,6 +93,9 @@ type QueryModel struct {
 	// True when the table has an "agent_id" column
 	HasAgents bool
 
+	// True when the table has properties column
+	HasProperties bool
+
 	// FieldMapper maps the value of these fields
 	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
 }
@@ -103,6 +106,7 @@ var ConfigQueryModel = QueryModel{
 		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 	},
 	JSONMapColumns: []string{"labels", "tags", "config"},
+	HasProperties:  true,
 	HasTags:        true,
 	HasAgents:      true,
 	HasLabels:      true,
@@ -154,8 +158,9 @@ var ComponentQueryModel = QueryModel{
 		"agent":          "agent_id",
 		"component_type": "type",
 	},
-	HasAgents: true,
-	HasLabels: true,
+	HasProperties: true,
+	HasAgents:     true,
+	HasLabels:     true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":          AgentMapper,
 		"created_at":        DateMapper,
@@ -278,6 +283,18 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 			}
 		}
 
+		if qm.HasProperties {
+			column := "properties"
+			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
+				name := strings.TrimPrefix(originalField, fmt.Sprintf("%s.", column))
+				tx = filterProperties(tx, q.Op, name, val)
+				q.Field = column
+			} else if originalField == column {
+				tx = filterJSONColumnValues(tx, column, q.Op, val)
+				q.Field = column
+			}
+		}
+
 		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
 			if c, err := q.ToClauses(); err != nil {
 				return nil, nil, err
@@ -316,6 +333,15 @@ func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator
 
 		tx = tx.Clauses(clauses...)
 
+	case "properties":
+		qf := grammar.QueryField{Field: "properties_values", FieldType: grammar.FieldTypeJsonbArray, Value: val, Op: op}
+		clauses, err := qf.ToClauses()
+		if err != nil {
+			return nil
+		}
+
+		tx = tx.Clauses(clauses...)
+
 	default:
 		subQueryCondition := lo.Ternary(op == grammar.Neq, "NOT EXISTS", "EXISTS")
 		tx = tx.Where(fmt.Sprintf(`%s (
@@ -325,5 +351,26 @@ func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator
 		)`, subQueryCondition, column), values)
 	}
 
+	return tx
+}
+
+func filterProperties(tx *gorm.DB, op grammar.QueryOperator, name string, text string) *gorm.DB {
+	var subQueryCondition string
+	switch op {
+	case grammar.Neq:
+		subQueryCondition = "NOT EXISTS"
+	default:
+		subQueryCondition = "EXISTS"
+	}
+
+	values := strings.Split(text, ",")
+	subquery := fmt.Sprintf(`%s (
+		SELECT 1
+		FROM jsonb_array_elements(properties) AS prop
+		WHERE prop->>'name' = ?
+		AND prop->>'text' IN ?
+	)`, subQueryCondition)
+
+	tx = tx.Where(subquery, name, values)
 	return tx
 }

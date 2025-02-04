@@ -175,6 +175,7 @@ var KubernetesNodeB = models.ConfigItem{
 	Properties: &types.Properties{
 		{Name: "memory", Value: lo.ToPtr(int64(32))},
 		{Name: "region", Text: "us-west-2"},
+		{Name: "os", Text: "linux"},
 	},
 	CostTotal30d: 1.5,
 }

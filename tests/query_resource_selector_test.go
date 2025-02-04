@@ -600,6 +600,30 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			},
 			resource: "config",
 		},
+		{
+			description: "properties unkeyed value search",
+			query:       "properties=linux",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "properties unkeyed value search | prefix",
+			query:       "properties=us-west*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "properties keyed value search",
+			query:       "properties.os=linux",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
@@ -614,7 +638,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-			// if tt.description != "tags suffix search" {
+			// if tt.description != "properties keyed value search" {
 			// 	continue
 			// }
 
