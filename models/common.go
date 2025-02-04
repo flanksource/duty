@@ -167,10 +167,11 @@ func (c genericFieldMatcher) Has(key string) bool {
 //
 // NOTE: the fields are not a pointer to avoid nil pointer checks in the casbin policy.
 type ABACAttribute struct {
-	Playbook  Playbook
-	Component Component
-	Config    ConfigItem
-	Check     Check
+	Playbook   Playbook
+	Connection Connection
+	Component  Component
+	Config     ConfigItem
+	Check      Check
 }
 
 type TaggableModel interface {
