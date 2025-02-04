@@ -308,6 +308,32 @@ table "config_items" {
     type    = jsonb
     comment = "contains a list of tags"
   }
+  column "tags_values" {
+    null    = true
+    type    = jsonb
+    comment = "derived from the tags column to enhance search performance for unkeyed tag values"
+    as {
+      # without the ::jsonpath type casting
+      # we get this error from Atlas: failed to compute diff: failed to diff realms: 
+      # changing the generation expression for a column "tags_values" is not supported
+      expr = "(jsonb_path_query_array(tags, '$[*].*'::jsonpath))"
+      type = STORED
+    }
+  }
+  column "properties_values" {
+    null    = true
+    type    = jsonb
+    comment = "derived from the properties column to improve search performance for unkeyed property values"
+    as {
+      expr = <<-EOF
+      CASE 
+        WHEN properties IS NULL THEN NULL 
+        ELSE jsonb_path_query_array(properties, '$[*].text'::jsonpath) || jsonb_path_query_array(properties, '$[*].value'::jsonpath) 
+      END
+      EOF
+      type = STORED
+    }
+  }
   column "properties" {
     null = true
     type = jsonb
@@ -398,6 +424,14 @@ table "config_items" {
   }
   index "idx_config_items_tags" {
     columns = [column.tags]
+    type    = GIN
+  }
+  index "idx_config_items_tags_values" {
+    columns = [column.tags_values]
+    type    = GIN
+  }
+  index "idx_config_items_properties_values" {
+    columns = [column.properties_values]
     type    = GIN
   }
   index "idx_config_items_name" {
