@@ -12,7 +12,6 @@ require (
 	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/TomOnTime/utfutil v0.0.0-20230223141146-125e65197b36
 	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.0
-	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/aws/aws-sdk-go-v2 v1.31.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.36
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.34
@@ -70,6 +69,7 @@ require (
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.10.0
+	gonum.org/v1/gonum v0.15.1
 	google.golang.org/api v0.198.0
 	google.golang.org/grpc v1.66.2
 	gopkg.in/yaml.v2 v2.4.0
