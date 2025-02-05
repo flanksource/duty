@@ -1,6 +1,9 @@
 package context
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/cel-go/cel"
@@ -24,6 +27,20 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 		return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
 	}
 	return val, nil
+}
+
+func (k Context) RunTemplateBool(t gomplate.Template, env map[string]any) (bool, error) {
+	output, err := k.RunTemplate(t, env)
+	if err != nil {
+		return false, err
+	}
+
+	result, err := strconv.ParseBool(output)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse template output (%s) as bool: %w", output, err)
+	}
+
+	return result, nil
 }
 
 func (k Context) NewStructTemplater(vals map[string]any, requiredTag string, funcs map[string]any) gomplate.StructTemplater {
