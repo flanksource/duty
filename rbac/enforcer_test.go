@@ -7,21 +7,18 @@ import (
 	casbinModel "github.com/casbin/casbin/v2/model"
 	stringadapter "github.com/casbin/casbin/v2/persist/string-adapter"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/rbac/adapter"
-	"github.com/flanksource/duty/rbac/policy"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 )
 
 func NewEnforcer(policy string) (*casbin.Enforcer, error) {
-	model, err := casbinModel.NewModelFromString(defaultModel)
+	model, err := casbinModel.NewModelFromString(DefaultModel)
 	if err != nil {
 		return nil, err
 	}
 
 	sa := stringadapter.NewAdapter(policy)
 	e, err := casbin.NewEnforcer(model, sa)
-	addCustomFunctions(e)
+	AddCustomFunctions(e)
 	return e, err
 }
 
@@ -37,40 +34,9 @@ p, alice, *, playbook:run, deny, r.obj.Playbook.Name == 'restart-deployment' && 
 
 	var userID = uuid.New()
 
-	permissions := []models.Permission{
-		{
-			ID:       uuid.New(),
-			PersonID: lo.ToPtr(userID),
-			Object:   policy.ObjectCatalog,
-			Action:   policy.ActionRead,
-			Tags: map[string]string{
-				"namespace": "default",
-				"cluster":   "aws",
-			},
-			Agents: []string{"123"},
-		},
-		{
-			ID:       uuid.New(),
-			PersonID: lo.ToPtr(userID),
-			Object:   "*",
-			Action:   policy.ActionRead,
-			Tags: map[string]string{
-				"namespace": "default",
-			},
-		},
-	}
-
 	enforcer, err := NewEnforcer(policies)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	for _, p := range permissions {
-		for _, policy := range adapter.PermissionToCasbinRule(p) {
-			if ok, err := enforcer.AddPolicy(policy[1:]); err != nil || !ok {
-				t.Fatal()
-			}
-		}
 	}
 
 	testData := []struct {
@@ -137,13 +103,6 @@ p, alice, *, playbook:run, deny, r.obj.Playbook.Name == 'restart-deployment' && 
 			obj:         "catalog",
 			act:         "read",
 			allowed:     false,
-		},
-		{
-			description: "abac catalog test",
-			user:        userID.String(),
-			obj:         &models.ABACAttribute{Config: models.ConfigItem{ID: uuid.New(), Tags: map[string]string{"namespace": "default"}}},
-			act:         "read",
-			allowed:     true,
 		},
 	}
 

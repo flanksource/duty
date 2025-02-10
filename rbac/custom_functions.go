@@ -9,10 +9,31 @@ import (
 	"github.com/casbin/govaluate"
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/rbac/types"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 )
+
+type Selectors struct {
+	Playbooks  []types.ResourceSelector `json:"playbooks,omitempty"`
+	Configs    []types.ResourceSelector `json:"configs,omitempty"`
+	Components []types.ResourceSelector `json:"components,omitempty"`
+}
+
+func (t Selectors) RequiredMatchCount() int {
+	var count int
+	if len(t.Playbooks) > 0 {
+		count++
+	}
+	if len(t.Configs) > 0 {
+		count++
+	}
+	if len(t.Components) > 0 {
+		count++
+	}
+
+	return count
+}
 
 func matchPerm(attr *models.ABACAttribute, _agents any, tagsEncoded string) (bool, error) {
 	var rAgents []string
@@ -43,7 +64,7 @@ type addableEnforcer interface {
 	AddFunction(name string, function govaluate.ExpressionFunction)
 }
 
-func addCustomFunctions(enforcer addableEnforcer) {
+func AddCustomFunctions(enforcer addableEnforcer) {
 	enforcer.AddFunction("matchPerm", func(args ...any) (any, error) {
 		if len(args) != 3 {
 			return false, fmt.Errorf("matchPerm needs 3 arguments. got %d", len(args))
@@ -98,7 +119,7 @@ func addCustomFunctions(enforcer addableEnforcer) {
 			return false, err
 		}
 
-		var objectSelector types.PermissionObject
+		var objectSelector Selectors
 		if err := json.Unmarshal([]byte(rs), &objectSelector); err != nil {
 			return false, err
 		}
