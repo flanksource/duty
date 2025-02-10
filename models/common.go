@@ -117,20 +117,6 @@ type NamespaceScopeAccessor interface {
 	NamespaceScope() string
 }
 
-// genericTagsMatcher implements TagsMatchable
-type genericTagsMatcher struct {
-	Tags map[string]string
-}
-
-func (c genericTagsMatcher) Get(key string) string {
-	return c.Tags[key]
-}
-
-func (c genericTagsMatcher) Has(key string) bool {
-	_, ok := c.Tags[key]
-	return ok
-}
-
 // noopMatcher implements TagsMatchable
 type noopMatcher struct {
 }
@@ -141,26 +127,6 @@ func (t noopMatcher) Has(field string) (exists bool) {
 
 func (t noopMatcher) Get(field string) (value string) {
 	return ""
-}
-
-type genericFieldMatcher struct {
-	Fields map[string]any
-}
-
-func (c genericFieldMatcher) Get(key string) string {
-	val := c.Fields[key]
-	switch v := val.(type) {
-	case string:
-		return v
-	default:
-		marshalled, _ := json.Marshal(v)
-		return string(marshalled)
-	}
-}
-
-func (c genericFieldMatcher) Has(key string) bool {
-	_, ok := c.Fields[key]
-	return ok
 }
 
 // ABACAttribute is the object passed to casbin for authorization checks.

@@ -332,7 +332,7 @@ func (c Component) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Component) GetFieldsMatcher() fields.Fields {
-	return genericFieldMatcher{c.AsMap()}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type componentLabelsProvider struct {

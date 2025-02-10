@@ -98,9 +98,7 @@ func (p Playbook) SelectableFields() map[string]any {
 }
 
 func (p *Playbook) GetFieldsMatcher() fields.Fields {
-	return genericFieldMatcher{
-		Fields: p.SelectableFields(),
-	}
+	return types.GenericFieldMatcher{Fields: p.SelectableFields()}
 }
 
 func (p *Playbook) GetLabelsMatcher() labels.Labels {
@@ -108,7 +106,7 @@ func (p *Playbook) GetLabelsMatcher() labels.Labels {
 }
 
 func (p *Playbook) GetTagsMatcher() labels.Labels {
-	return genericTagsMatcher{p.Tags}
+	return types.GenericLabelsMatcher{Map: p.Tags}
 }
 
 func (p *Playbook) GetName() string {
