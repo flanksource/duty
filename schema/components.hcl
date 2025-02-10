@@ -280,20 +280,6 @@ table "components" {
     null = true
     type = jsonb
   }
-  column "properties_values" {
-    null    = true
-    type    = jsonb
-    comment = "derived from the properties column to improve search performance for unkeyed property values"
-    as {
-      expr = <<-EOF
-      CASE 
-        WHEN properties IS NULL THEN NULL 
-        ELSE jsonb_path_query_array(properties, '$[*].text'::jsonpath) || jsonb_path_query_array(properties, '$[*].value'::jsonpath) 
-      END
-      EOF
-      type = STORED
-    }
-  }
   column "path" {
     null = true
     type = text
@@ -376,10 +362,6 @@ table "components" {
   }
   index "idx_components_properties" {
     columns = [column.properties]
-    type    = GIN
-  }
-  index "idx_components_properties_values" {
-    columns = [column.properties_values]
     type    = GIN
   }
   index "components_topology_id_type_name_parent_id_key" {

@@ -320,20 +320,6 @@ table "config_items" {
       type = STORED
     }
   }
-  column "properties_values" {
-    null    = true
-    type    = jsonb
-    comment = "derived from the properties column to improve search performance for unkeyed property values"
-    as {
-      expr = <<-EOF
-      CASE 
-        WHEN properties IS NULL THEN NULL 
-        ELSE jsonb_path_query_array(properties, '$[*].text'::jsonpath) || jsonb_path_query_array(properties, '$[*].value'::jsonpath) 
-      END
-      EOF
-      type = STORED
-    }
-  }
   column "properties" {
     null = true
     type = jsonb
@@ -428,10 +414,6 @@ table "config_items" {
   }
   index "idx_config_items_tags_values" {
     columns = [column.tags_values]
-    type    = GIN
-  }
-  index "idx_config_items_properties_values" {
-    columns = [column.properties_values]
     type    = GIN
   }
   index "idx_config_items_name" {
