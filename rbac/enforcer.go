@@ -8,12 +8,13 @@ import (
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
+	"github.com/casbin/casbin/v2/persist"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/query"
-	pkgAdapater "github.com/flanksource/duty/rbac/adapter"
 	"github.com/flanksource/duty/rbac/policy"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm"
 )
 
 var enforcer *casbin.SyncedCachedEnforcer
@@ -22,10 +23,12 @@ var enforcer *casbin.SyncedCachedEnforcer
 var defaultPolicies string
 
 //go:embed model.ini
-var defaultModel string
+var DefaultModel string
 
-func Init(ctx context.Context, adminUserID string) error {
-	model, err := model.NewModelFromString(defaultModel)
+type Adapter func(db *gorm.DB, main *gormadapter.Adapter) persist.Adapter
+
+func Init(ctx context.Context, adminUserID string, adapters ...Adapter) error {
+	model, err := model.NewModelFromString(DefaultModel)
 	if err != nil {
 		return fmt.Errorf("error creating rbac model: %v", err)
 	}
@@ -54,7 +57,11 @@ func Init(ctx context.Context, adminUserID string) error {
 		return fmt.Errorf("error creating rbac adapter: %v", err)
 	}
 
-	adapter := pkgAdapater.NewPermissionAdapter(db, casbinRuleAdapter)
+	var adapter any = casbinRuleAdapter
+	for _, a := range adapters {
+		adapter = a(db, casbinRuleAdapter)
+	}
+
 	enforcer, err = casbin.NewSyncedCachedEnforcer(model, adapter)
 	if err != nil {
 		return fmt.Errorf("error creating rbac enforcer: %v", err)
@@ -69,7 +76,7 @@ func Init(ctx context.Context, adminUserID string) error {
 		enforcer.EnableLog(true)
 	}
 
-	addCustomFunctions(enforcer)
+	AddCustomFunctions(enforcer)
 
 	if adminUserID != "" {
 		if _, err := enforcer.AddRoleForUser(adminUserID, policy.RoleAdmin); err != nil {
