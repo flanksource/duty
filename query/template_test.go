@@ -46,6 +46,9 @@ func TestMatchQuery(t *testing.T) {
 		{map[string]any{"component": component.AsMap()}, "matchQuery(component, 'name=azure*')", "true"},
 		{map[string]any{"component": component.AsMap()}, "matchQuery(component, 'namespace=*control')", "true"},
 		{map[string]any{"component": component.AsMap()}, "matchQuery(component, 'namespace=default')", "false"},
+
+		{map[string]any{"generic": map[string]any{"name": "navidrome", "namespace": "music"}}, "matchQuery(generic, 'name=navidrome,namespace=music')", "true"},
+		{map[string]any{"generic": map[string]any{"name": "navidrome", "namespace": "music"}}, "matchQuery(generic, 'name=airsonic,namespace=music')", "false"},
 	})
 }
 
