@@ -11,6 +11,7 @@ import (
 	"github.com/casbin/casbin/v2/persist"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/rbac/policy"
 	"gopkg.in/yaml.v3"
@@ -196,6 +197,35 @@ func Check(ctx context.Context, subject, object, action string) bool {
 	}
 	if ctx.IsTrace() {
 		ctx.Tracef("rbac: %s %s:%s = %v", subject, object, action, allowed)
+	}
+
+	return allowed
+}
+
+func CheckContext(ctx context.Context, object, action string) bool {
+	user := ctx.User()
+	if user == nil {
+		return false
+	}
+
+	// TODO: Everyone with an account is not a viewer. i.e. user role.
+	// Everyone with an account is a viewer
+	if action == policy.ActionRead && Check(ctx, policy.RoleViewer, object, action) {
+		return true
+	}
+
+	return Check(ctx, user.ID.String(), object, action)
+}
+
+func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribute, action string) bool {
+	if enforcer == nil {
+		return true
+	}
+
+	allowed, err := enforcer.Enforce(subject, attr, action)
+	if err != nil {
+		ctx.Errorf("error checking abac for subject=%s action=%s: %v", subject, action, err)
+		return false
 	}
 
 	return allowed
