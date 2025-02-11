@@ -260,6 +260,13 @@ CREATE OR REPLACE VIEW config_labels AS
   FROM config_items w JOIN json_each_text(labels::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
 
 
+-- config_tags_labels_keys
+DROP VIEW IF EXISTS config_tags_labels_keys;
+CREATE OR REPLACE VIEW config_tags_labels_keys AS
+  SELECT DISTINCT 'tag:' || jsonb_object_keys(tags) AS "key" FROM config_items
+  UNION
+  SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM config_items;
+
 -- config_type_summary
 DROP VIEW IF EXISTS config_summary;
 CREATE VIEW config_summary AS

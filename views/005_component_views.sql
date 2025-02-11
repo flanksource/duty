@@ -92,6 +92,11 @@ CREATE OR REPLACE VIEW component_labels AS
     key,
     value;
 
+-- component_labels_keys
+DROP VIEW IF EXISTS component_labels_keys;
+CREATE OR REPLACE VIEW component_labels_keys AS
+  SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM components;
+
 DROP VIEW IF EXISTS components_with_logs;
 CREATE OR REPLACE VIEW components_with_logs AS
   SELECT
