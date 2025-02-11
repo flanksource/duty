@@ -28,3 +28,8 @@ GROUP BY
 ORDER BY
   key,
   value;
+
+-- checks_labels_keys
+DROP VIEW IF EXISTS checks_labels_keys;
+CREATE OR REPLACE VIEW checks_labels_keys AS
+  SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM checks;
