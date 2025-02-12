@@ -85,12 +85,18 @@ func getEKSToken(ctx gocontext.Context, cluster string, conf aws.Config) (string
 		return "", fmt.Errorf("failed to retrive credentials from aws config: %w", err)
 	}
 
+	cacheKey := tokenCacheKey("eks", cred, cluster)
+	if found, ok := tokenCache.Get(cacheKey); ok {
+		return found.(string), nil
+	}
+
 	signedURI, err := getSignedSTSURI(ctx, cluster, cred)
 	if err != nil {
 		return "", fmt.Errorf("failed to get signed URI: %w", err)
 	}
 
 	token := v1Prefix + base64.RawURLEncoding.EncodeToString([]byte(signedURI))
+	tokenCache.Set(cacheKey, token, time.Minute*15)
 	return token, nil
 }
 

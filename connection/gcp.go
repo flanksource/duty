@@ -4,11 +4,16 @@ import (
 	"crypto/tls"
 	"net/http"
 
+	"strings"
+	"time"
+
 	gcs "cloud.google.com/go/storage"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -100,6 +105,11 @@ func (g *GCPConnection) Validate() *GCPConnection {
 }
 
 func (g *GCPConnection) Token(ctx context.Context, scopes ...string) (*oauth2.Token, error) {
+	cacheKey := tokenCacheKey("gcp", hash.Sha256Hex(g.Credentials.ValueStatic), strings.Join(scopes, ","))
+	if found, ok := tokenCache.Get(cacheKey); ok {
+		return found.(*oauth2.Token), nil
+	}
+
 	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
 	if err != nil {
 		return nil, err
@@ -111,6 +121,7 @@ func (g *GCPConnection) Token(ctx context.Context, scopes ...string) (*oauth2.To
 		return nil, err
 	}
 
+	tokenCache.Set(cacheKey, token, time.Until(token.Expiry))
 	return token, nil
 }
 
