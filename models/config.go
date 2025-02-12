@@ -267,7 +267,7 @@ func (c ConfigItem) GetStatus() (string, error) {
 }
 
 func (c ConfigItem) GetTagsMatcher() labels.Labels {
-	return genericTagsMatcher{c.Tags}
+	return types.GenericLabelsMatcher{Map: c.Tags}
 }
 
 func (c ConfigItem) GetLabelsMatcher() labels.Labels {
@@ -275,7 +275,7 @@ func (c ConfigItem) GetLabelsMatcher() labels.Labels {
 }
 
 func (c ConfigItem) GetFieldsMatcher() fields.Fields {
-	return genericFieldMatcher{c.AsMap()}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type configLabels struct {

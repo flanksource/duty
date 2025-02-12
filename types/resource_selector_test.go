@@ -340,6 +340,26 @@ var _ = Describe("Resource Selector", func() {
 					},
 				},
 			},
+			{
+				name: "Selectable Map",
+				resourceSelectors: []types.ResourceSelector{
+					{Name: "airsonic", Namespace: "music", Types: []string{"Kubernetes::Deployment"}},
+				},
+				selectable: types.ResourceSelectableMap{
+					"name": "airsonic",
+					"type": "Kubernetes::Deployment",
+					"tags": map[string]string{
+						"namespace": "music",
+					},
+				},
+				unselectable: types.ResourceSelectableMap{
+					"name": "airsonic",
+					"type": "Kubernetes::Pod",
+					"tags": map[string]string{
+						"namespace": "music",
+					},
+				},
+			},
 		}
 
 		Describe("test", func() {

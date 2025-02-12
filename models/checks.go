@@ -147,7 +147,7 @@ func (c Check) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Check) GetFieldsMatcher() fields.Fields {
-	return genericFieldMatcher{c.AsMap()}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type checkLabelsProvider struct {

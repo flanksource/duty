@@ -63,7 +63,7 @@ var LogisticsDB = models.Component{
 	ExternalId:   "dummy/logistics-db",
 	Type:         "Database",
 	Status:       types.ComponentStatusUnhealthy,
-	StatusReason: types.NullString{String: "database not accepting connections"},
+	StatusReason: "database not accepting connections",
 	ParentId:     &LogisticsAPI.ID,
 	Path:         Logistics.ID.String() + "." + LogisticsAPI.ID.String(),
 	CreatedAt:    DummyCreatedAt,

@@ -47,7 +47,7 @@ type Component struct {
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
 	Tooltip         string                  `json:"tooltip,omitempty"`
-	StatusReason    types.NullString        `json:"status_reason"`
+	StatusReason    string                  `json:"status_reason,omitempty" gorm:"default:null"`
 	Schedule        string                  `json:"schedule,omitempty"`
 	Icon            string                  `json:"icon,omitempty"`
 	Type            string                  `json:"type"`
@@ -332,7 +332,7 @@ func (c Component) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Component) GetFieldsMatcher() fields.Fields {
-	return genericFieldMatcher{c.AsMap()}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type componentLabelsProvider struct {

@@ -468,3 +468,99 @@ func extractResourceFieldValue(rs ResourceSelectable, field string) (string, err
 	// Unknown key is a field selector
 	return rs.GetFieldsMatcher().Get(strings.TrimSpace(field)), nil
 }
+
+var _ ResourceSelectable = ResourceSelectableMap{}
+
+type ResourceSelectableMap map[string]any
+
+func (t ResourceSelectableMap) GetFieldsMatcher() fields.Fields {
+	return GenericFieldMatcher{t}
+}
+
+func (r ResourceSelectableMap) GetLabelsMatcher() labels.Labels {
+	if labelsRaw, ok := r["labels"].(map[string]string); ok {
+		return GenericLabelsMatcher{labelsRaw}
+	}
+
+	return nil
+}
+
+func (t ResourceSelectableMap) GetID() string {
+	return t["id"].(string)
+}
+
+func (t ResourceSelectableMap) GetName() string {
+	return t["name"].(string)
+}
+
+func (t ResourceSelectableMap) GetNamespace() string {
+	if ns, ok := t["namespace"].(string); ok && ns != "" {
+		return ns
+	}
+
+	if tags, ok := t["tags"].(map[string]string); ok {
+		return tags["namespace"]
+	}
+
+	return ""
+}
+
+func (t ResourceSelectableMap) GetType() string {
+	itemType, ok := t["type"].(string)
+	if !ok {
+		return ""
+	}
+
+	return itemType
+}
+
+func (t ResourceSelectableMap) GetStatus() (string, error) {
+	status, ok := t["status"].(string)
+	if !ok {
+		return "", nil
+	}
+
+	return status, nil
+}
+
+func (t ResourceSelectableMap) GetHealth() (string, error) {
+	health, ok := t["health"].(string)
+	if !ok {
+		return "", nil
+	}
+
+	return health, nil
+}
+
+type GenericFieldMatcher struct {
+	Fields map[string]any
+}
+
+func (c GenericFieldMatcher) Get(key string) string {
+	val := c.Fields[key]
+	switch v := val.(type) {
+	case string:
+		return v
+	default:
+		marshalled, _ := json.Marshal(v)
+		return string(marshalled)
+	}
+}
+
+func (c GenericFieldMatcher) Has(key string) bool {
+	_, ok := c.Fields[key]
+	return ok
+}
+
+type GenericLabelsMatcher struct {
+	Map map[string]string
+}
+
+func (c GenericLabelsMatcher) Get(key string) string {
+	return c.Map[key]
+}
+
+func (c GenericLabelsMatcher) Has(key string) bool {
+	_, ok := c.Map[key]
+	return ok
+}
