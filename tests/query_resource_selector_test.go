@@ -560,6 +560,70 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			},
 			resource: "config",
 		},
+		{
+			description: "tags value search",
+			query:       "tags=us-east-1",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "tags value search negate",
+			query:       "type=Kubernetes::Node tags!=aws",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "tags prefix search",
+			query:       "tags=us-*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "tags suffix search",
+			query:       "tags=*east-1",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "labels value search",
+			query:       "labels=managed",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "properties unkeyed value search",
+			query:       "properties=linux",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "properties unkeyed value search | prefix",
+			query:       "properties=us-west*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "properties keyed value search",
+			query:       "properties.os=linux",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
@@ -572,14 +636,20 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		return lo.Map(uuids, func(item uuid.UUID, _ int) string { return item.String() })
 	}
 
-	for _, tt := range testData {
-		ginkgo.It(tt.description, func() {
-			f, ok := fmap[tt.resource]
-			Expect(ok).To(BeTrue())
-			ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
-			Expect(err).To(BeNil())
-			// We convert to strings slice for readable output
-			Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
-		})
-	}
+	ginkgo.Describe("peg search", func() {
+		for _, tt := range testData {
+			// if tt.description != "properties keyed value search" {
+			// 	continue
+			// }
+
+			ginkgo.It(tt.description, func() {
+				f, ok := fmap[tt.resource]
+				Expect(ok).To(BeTrue())
+				ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
+				Expect(err).To(BeNil())
+				// We convert to strings slice for readable output
+				Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+			})
+		}
+	})
 })

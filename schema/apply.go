@@ -45,7 +45,11 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 
 func Apply(ctx context.Context, connection string) error {
 	log := logger.GetLogger("migrate")
-	from, err := dbReader(ctx, connection, []string{})
+
+	// https://atlasgo.io/versioned/diff#exclude-objects
+	exclude := []string{"config_items.properties_values", "components.properties_values"}
+
+	from, err := dbReader(ctx, connection, exclude)
 	if err != nil {
 		return fmt.Errorf("failed to open connection: %w", err)
 	}

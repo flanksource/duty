@@ -5,7 +5,15 @@ import (
 	"net/url"
 	"strings"
 
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+type FieldType int
+
+const (
+	FieldTypeText FieldType = iota
+	FieldTypeJsonbArray
 )
 
 type expressions struct {
@@ -16,7 +24,44 @@ type expressions struct {
 
 type Expressions []clause.Expression
 
-func (e expressions) ToExpression(field string) []clause.Expression {
+func (e expressions) ToExpression(field string, fieldType FieldType) []clause.Expression {
+	if fieldType == FieldTypeJsonbArray {
+		return e.jsonbListFieldExpression(field)
+	}
+
+	return e.textFieldExpression(field)
+}
+
+func (e expressions) jsonbListFieldExpression(field string) []clause.Expression {
+	var clauses []clause.Expression
+
+	if len(e.In) > 0 {
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf(`%s ? ?`, field),
+			Vars: []any{gorm.Expr("?"), e.In},
+		})
+	}
+
+	for _, p := range e.Prefix {
+		regexp := fmt.Sprintf("^%s.*", p)
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf(`jsonb_path_exists(?, '$[*] ? (@ like_regex "%s")')`, regexp),
+			Vars: []any{clause.Column{Name: field}, gorm.Expr("?")},
+		})
+	}
+
+	for _, s := range e.Suffix {
+		regexp := fmt.Sprintf(".*%s$", s)
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf(`jsonb_path_exists(?, '$[*] ? (@ like_regex "%s")')`, regexp),
+			Vars: []any{clause.Column{Name: field}, gorm.Expr("?")},
+		})
+	}
+
+	return clauses
+}
+
+func (e expressions) textFieldExpression(field string) []clause.Expression {
 	var clauses []clause.Expression
 
 	if len(e.In) == 1 {
@@ -49,13 +94,13 @@ type FilteringQuery struct {
 	Not expressions
 }
 
-func (fq *FilteringQuery) ToExpression(field string) []clause.Expression {
+func (fq *FilteringQuery) ToExpression(field string, fieldType FieldType) []clause.Expression {
 	var clauses []clause.Expression
-	if len(fq.expressions.ToExpression(field)) > 0 {
-		clauses = append(clauses, fq.expressions.ToExpression(field)...)
+	if len(fq.expressions.ToExpression(field, fieldType)) > 0 {
+		clauses = append(clauses, fq.expressions.ToExpression(field, fieldType)...)
 	}
-	if len(fq.Not.ToExpression(field)) > 0 {
-		clauses = append(clauses, clause.Not(fq.Not.ToExpression(field)...))
+	if len(fq.Not.ToExpression(field, fieldType)) > 0 {
+		clauses = append(clauses, clause.Not(fq.Not.ToExpression(field, fieldType)...))
 	}
 	return clauses
 }

@@ -41,11 +41,12 @@ func (op QueryOperator) ToSelectionOperator() selection.Operator {
 }
 
 type QueryField struct {
-	Field  string        `json:"field,omitempty"`
-	Value  interface{}   `json:"value,omitempty"`
-	Op     QueryOperator `json:"op,omitempty"`
-	Not    bool          `json:"not,omitempty"`
-	Fields []*QueryField `json:"fields,omitempty"`
+	Field     string        `json:"field,omitempty"`
+	FieldType FieldType     `json:"fieldType,omitempty"`
+	Value     interface{}   `json:"value,omitempty"`
+	Op        QueryOperator `json:"op,omitempty"`
+	Not       bool          `json:"not,omitempty"`
+	Fields    []*QueryField `json:"fields,omitempty"`
 }
 
 func (q QueryField) ToClauses() ([]clause.Expression, error) {
@@ -59,9 +60,9 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 	var clauses []clause.Expression
 	switch q.Op {
 	case Eq:
-		clauses = append(clauses, filters.ToExpression(q.Field)...)
+		clauses = append(clauses, filters.ToExpression(q.Field, q.FieldType)...)
 	case Neq:
-		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field)...))
+		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field, q.FieldType)...))
 	case Lt:
 		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
 	case Gt:
