@@ -1,15 +1,8 @@
 package connection
 
 import (
-	gocontext "context"
-	"encoding/base64"
 	"fmt"
-	"net/http"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	signerv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -19,34 +12,14 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-const (
-	clusterIDHeader   = "x-k8s-aws-id"
-	emptyStringSha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-	v1Prefix          = "k8s-aws-v1."
-)
-
 // +kubebuilder:object:generate=true
-type EKSConnection struct {
-	AWSConnection `json:",inline" yaml:",inline"`
-
-	Cluster string `json:"cluster"`
+type KubeconfigConnection struct {
+	// Connection name to populate kubeconfig
+	ConnectionName string        `json:"connection,omitempty"`
+	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-// +kubebuilder:object:generate=true
-type KubernetesConnection struct {
-	ConnectionName string         `json:"connection,omitempty"`
-	KubeConfig     *types.EnvVar  `json:"kubeconfig,omitempty"`
-	EKS            *EKSConnection `json:"eks,omitempty"`
-}
-
-func (t KubernetesConnection) ToModel() models.Connection {
-	return models.Connection{
-		Type:        models.ConnectionTypeKubernetes,
-		Certificate: t.KubeConfig.ValueStatic,
-	}
-}
-
-func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
@@ -55,17 +28,51 @@ func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, fmt.Errorf("connection[%s] not found", t.ConnectionName)
 		}
 
-		t.KubeConfig.ValueStatic = connection.Certificate
+		t.Kubeconfig.ValueStatic = connection.Certificate
 	}
 
-	if t.KubeConfig != nil {
-		if v, err := ctx.GetEnvValueFromCache(*t.KubeConfig, ctx.GetNamespace()); err != nil {
+	if t.Kubeconfig != nil {
+		if v, err := ctx.GetEnvValueFromCache(*t.Kubeconfig, ctx.GetNamespace()); err != nil {
 			return nil, nil, err
 		} else {
-			t.KubeConfig.ValueStatic = v
+			t.Kubeconfig.ValueStatic = v
 		}
 
-		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.KubeConfig.ValueStatic)
+		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
+	}
+
+	return nil, nil, nil
+}
+
+// +kubebuilder:object:generate=true
+type KubernetesConnection struct {
+	KubeconfigConnection `json:",inline"`
+
+	EKS  *EKSConnection  `json:"eks,omitempty"`
+	GKE  *GKEConnection  `json:"gke,omitempty"`
+	CNRM *CNRMConnection `json:"cnrm,omitempty"`
+}
+
+func (t KubernetesConnection) ToModel() models.Connection {
+	return models.Connection{
+		Type:        models.ConnectionTypeKubernetes,
+		Certificate: t.Kubeconfig.ValueStatic,
+	}
+}
+
+func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
+		return nil, nil, nil
+	} else if clientset != nil {
+		return clientset, restConfig, nil
+	}
+
+	if t.GKE != nil {
+		if err := t.GKE.Populate(ctx); err != nil {
+			return nil, nil, err
+		}
+
+		return t.GKE.KubernetesClient(ctx)
 	}
 
 	if t.EKS != nil {
@@ -73,83 +80,16 @@ func (t *KubernetesConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, err
 		}
 
-		awsConfig, err := t.EKS.AWSConnection.Client(ctx)
-		if err != nil {
+		return t.EKS.KubernetesClient(ctx)
+	}
+
+	if t.CNRM != nil {
+		if err := t.CNRM.Populate(ctx); err != nil {
 			return nil, nil, err
 		}
 
-		eksEndpoint, ca, err := eksClusterDetails(ctx, t.EKS.Cluster, awsConfig)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		token, err := getEKSToken(ctx, t.EKS.Cluster, awsConfig)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get token for EKS: %w", err)
-		}
-
-		restConfig := &rest.Config{
-			Host:        eksEndpoint,
-			BearerToken: token,
-			TLSClientConfig: rest.TLSClientConfig{
-				CAData: ca,
-			},
-		}
-
-		clientset, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return clientset, restConfig, nil
+		return t.CNRM.KubernetesClient(ctx)
 	}
 
 	return nil, nil, nil
-}
-
-func eksClusterDetails(ctx gocontext.Context, clusterName string, conf aws.Config) (string, []byte, error) {
-	eksClient := eks.NewFromConfig(conf)
-	cluster, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &clusterName})
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to get cluster info: %v", err)
-	}
-
-	ca, err := base64.URLEncoding.DecodeString(*cluster.Cluster.CertificateAuthority.Data)
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to presign URL: %v", err)
-	}
-
-	return *cluster.Cluster.Endpoint, ca, nil
-}
-
-func getEKSToken(ctx gocontext.Context, cluster string, conf aws.Config) (string, error) {
-	cred, err := conf.Credentials.Retrieve(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to retrive credentials from aws config: %w", err)
-	}
-
-	signedURI, err := getSignedURI(ctx, cluster, cred)
-	if err != nil {
-		return "", fmt.Errorf("failed to get signed URI: %w", err)
-	}
-
-	token := v1Prefix + base64.RawURLEncoding.EncodeToString([]byte(signedURI))
-	return token, nil
-}
-
-func getSignedURI(ctx gocontext.Context, cluster string, cred aws.Credentials) (string, error) {
-	request, err := http.NewRequest(http.MethodGet, "https://sts.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15", nil)
-	if err != nil {
-		return "", err
-	}
-
-	request.Header.Add(clusterIDHeader, cluster)
-	request.Header.Add("X-Amz-Expires", "0")
-	signer := signerv4.NewSigner()
-	signedURI, _, err := signer.PresignHTTP(ctx, cred, request, emptyStringSha256, "sts", "us-east-1", time.Now())
-	if err != nil {
-		return "", err
-	}
-
-	return signedURI, nil
 }

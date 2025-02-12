@@ -7,12 +7,12 @@ import (
 	gcs "cloud.google.com/go/storage"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"google.golang.org/api/option"
 )
 
 // +kubebuilder:object:generate=true
@@ -97,6 +97,21 @@ func (g *GCPConnection) Validate() *GCPConnection {
 	}
 
 	return g
+}
+
+func (g *GCPConnection) Token(ctx context.Context, scopes ...string) (*oauth2.Token, error) {
+	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenSource := creds.TokenSource
+	token, err := tokenSource.Token()
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
 }
 
 // HydrateConnection attempts to find the connection by name
