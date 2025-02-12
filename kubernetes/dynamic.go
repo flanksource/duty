@@ -32,10 +32,11 @@ import (
 )
 
 type Client struct {
-	client        kubernetes.Interface
-	restMapper    *restmapper.DeferredDiscoveryRESTMapper
-	dynamicClient *dynamic.DynamicClient
-	config        *rest.Config
+	client         kubernetes.Interface
+	restMapper     *restmapper.DeferredDiscoveryRESTMapper
+	dynamicClient  *dynamic.DynamicClient
+	config         *rest.Config
+	gvkClientCache sync.Map
 }
 
 func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
@@ -85,6 +86,11 @@ func (c *Client) FetchResources(
 func (c *Client) GetClientByGroupVersionKind(
 	group, version, kind string,
 ) (dynamic.NamespaceableResourceInterface, error) {
+	cacheKey := group + version + kind
+	if dynamicClient, ok := c.gvkClientCache.Load(cacheKey); ok {
+		return dynamicClient.(dynamic.NamespaceableResourceInterface), nil
+	}
+
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
 		return nil, err
@@ -106,7 +112,9 @@ func (c *Client) GetClientByGroupVersionKind(
 		return nil, err
 	}
 
-	return dynamicClient.Resource(mapping.Resource), nil
+	gvkClient := dynamicClient.Resource(mapping.Resource)
+	c.gvkClientCache.Store(cacheKey, gvkClient)
+	return gvkClient, nil
 }
 
 // WARN: "Kind" is not specific enough.
