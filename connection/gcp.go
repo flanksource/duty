@@ -1,18 +1,12 @@
 package connection
 
 import (
-	"crypto/tls"
-	"net/http"
-
 	"fmt"
 	"strings"
 	"time"
 
-	gcs "cloud.google.com/go/storage"
-
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/option"
 
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/utils"
@@ -58,45 +52,6 @@ func (g *GCPConnection) TokenSource(ctx context.Context, scopes ...string) (oaut
 	return tokenSource, nil
 }
 
-func (conn *GCPConnection) Client(ctx context.Context) (*gcs.Client, error) {
-	conn = conn.Validate()
-	var client *gcs.Client
-	var err error
-
-	var clientOpts []option.ClientOption
-
-	if conn.Endpoint != "" {
-		clientOpts = append(clientOpts, option.WithEndpoint(conn.Endpoint))
-	}
-
-	if conn.SkipTLSVerify {
-		insecureHTTPClient := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-		}
-
-		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
-	}
-
-	if conn.Credentials != nil && !conn.Credentials.IsEmpty() {
-		credential, err := ctx.GetEnvValueFromCache(*conn.Credentials, ctx.GetNamespace())
-		if err != nil {
-			return nil, err
-		}
-		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(credential)))
-	} else {
-		clientOpts = append(clientOpts, option.WithoutAuthentication())
-	}
-
-	client, err = gcs.NewClient(ctx.Context, clientOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
 func (g *GCPConnection) Validate() *GCPConnection {
 	if g == nil {
 		return &GCPConnection{}
@@ -113,12 +68,11 @@ func (g *GCPConnection) Token(ctx context.Context, freshToken bool, scopes ...st
 		}
 	}
 
-	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
+	tokenSource, err := g.TokenSource(ctx, scopes...)
 	if err != nil {
 		return nil, err
 	}
 
-	tokenSource := creds.TokenSource
 	token, err := tokenSource.Token()
 	if err != nil {
 		return nil, err
