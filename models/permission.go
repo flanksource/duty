@@ -31,6 +31,7 @@ type PermissionSubjectType string
 const (
 	PermissionSubjectTypeGroup        PermissionSubjectType = "group"
 	PermissionSubjectTypeNotification PermissionSubjectType = "notification"
+	PermissionSubjectTypePlaybook     PermissionSubjectType = "playbook"
 	PermissionSubjectTypePerson       PermissionSubjectType = "person"
 	PermissionSubjectTypeTeam         PermissionSubjectType = "team"
 )
