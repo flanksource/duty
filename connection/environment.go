@@ -86,7 +86,7 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 
 	gcloudConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.Credentials}}`))
 
-	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.KubeConfig.ValueStatic}}`))
+	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.Kubeconfig.ValueStatic}}`))
 }
 
 // SetupConnections creates the necessary credential files and injects env vars
