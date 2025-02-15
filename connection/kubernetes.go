@@ -78,7 +78,7 @@ func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (*
 	}
 
 	c := dutyKubernetes.NewKubeClient(clientSet, restConfig)
-	k8sClientCache.Set(ctx, cacheKey, c)
+	_ = k8sClientCache.Set(ctx, cacheKey, c)
 	return c, nil
 }
 

@@ -120,7 +120,7 @@ func (c *Client) GetClientByGroupVersionKind(
 	}
 
 	gvkClient := dynamicClient.Resource(mapping.Resource)
-	c.gvkClientCache.Set(ctx, cacheKey, gvkClient)
+	_ = c.gvkClientCache.Set(ctx, cacheKey, gvkClient)
 	return gvkClient, nil
 }
 
