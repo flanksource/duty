@@ -16,6 +16,7 @@ import (
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/shutdown"
 	"github.com/flanksource/duty/telemetry"
@@ -232,7 +233,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
-	ctx = ctx.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",
@@ -247,7 +248,10 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		},
 		Data: map[string][]byte{
 			"foo": []byte("secret"),
-		}}), nil)
+		}})
+
+	cl := dutyKubernetes.NewKubeClient(clientset, nil)
+	ctx = ctx.WithKubernetes(cl)
 
 	return ctx, nil
 }
