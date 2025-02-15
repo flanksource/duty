@@ -2,10 +2,12 @@ package connection
 
 import (
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/flanksource/duty/cache"
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -19,6 +21,7 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
+// TODO: If everything empty, try local connection as well
 func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
@@ -51,6 +54,8 @@ type KubernetesConnection struct {
 	EKS  *EKSConnection  `json:"eks,omitempty"`
 	GKE  *GKEConnection  `json:"gke,omitempty"`
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
+
+	Client *dutyKubernetes.Client
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
@@ -60,7 +65,25 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+var k8sClientCache = cache.NewCache[*dutyKubernetes.Client]("k8s-client-cache", 24*time.Hour)
+
+func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (*dutyKubernetes.Client, error) {
+	clientSet, restConfig, err := t.populate(ctx, freshToken)
+	if err != nil {
+		return nil, fmt.Errorf("error populating kubernetes connection: %w", err)
+	}
+
+	cacheKey := dutyKubernetes.RestConfigFingerprint(restConfig)
+	if c, err := k8sClientCache.Get(ctx, cacheKey); err == nil {
+		return c, nil
+	}
+
+	c := dutyKubernetes.NewKubeClient(clientSet, restConfig)
+	k8sClientCache.Set(ctx, cacheKey, c)
+	return c, nil
+}
+
+func (t *KubernetesConnection) populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {

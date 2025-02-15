@@ -8,7 +8,6 @@ import (
 	"time"
 
 	commons "github.com/flanksource/commons/context"
-	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
@@ -25,9 +24,6 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 )
 
 type ContextKey string
@@ -251,10 +247,8 @@ func (k Context) WithDebug() Context {
 	}
 }
 
-func (k Context) WithKubernetes(client kubernetes.Interface, config *rest.Config) Context {
-	return k.
-		WithValue("kubernetes", client).
-		WithValue("kubernetes-rest", config)
+func (k Context) WithKubernetes(client *dutyKubernetes.Client) Context {
+	return k.WithValue("kubernetes", client)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
@@ -350,37 +344,26 @@ func (k Context) Pool() *pgxpool.Pool {
 // KubeAuthFingerprint generates a unique SHA-256 hash to identify the Kubernetes API server
 // and client authentication details from the REST configuration.
 func (k *Context) KubeAuthFingerprint() string {
-	rs := k.KubernetesRestConfig()
-	if rs == nil {
+	rc := k.Kubernetes().RestConfig()
+	if rc == nil {
 		return ""
 	}
-
-	return hash.Sha256Hex(fmt.Sprintf("%s/%s/%s/%s/%s/%s",
-		rs.Host,
-		rs.Username,
-		rs.Password,
-		rs.BearerToken,
-		rs.BearerTokenFile,
-		rs.TLSClientConfig.CertData))
+	return dutyKubernetes.RestConfigFingerprint(rc)
 }
 
-func (k *Context) Kubernetes() kubernetes.Interface {
-	v, ok := k.Value("kubernetes").(kubernetes.Interface)
-	if !ok || v == nil {
-		return fake.NewSimpleClientset()
-	}
-	return v
-}
-
-func (k *Context) KubernetesRestConfig() *rest.Config {
-	if v, ok := k.Value("kubernetes-rest").(*rest.Config); ok {
+func (k *Context) Kubernetes() *dutyKubernetes.Client {
+	if v, ok := k.Value("kubernetes-client").(*dutyKubernetes.Client); ok {
 		return v
 	}
 	return nil
+
 }
 
 func (k *Context) KubernetesClient() *dutyKubernetes.Client {
-	return dutyKubernetes.NewKubeClient(k.Kubernetes(), k.KubernetesRestConfig())
+	if v, ok := k.Value("kubernetes-client").(*dutyKubernetes.Client); ok {
+		return v
+	}
+	return nil
 }
 
 // Deprecated: Use KubernetesClient
@@ -393,19 +376,18 @@ func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
 		return nil, k.Oops().Errorf("namespace is required")
 	}
 
-	val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
-	if err != nil {
-		return k, k.Oops().Wrap(err)
-	}
+	//val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
+	//if err != nil {
+	//return k, k.Oops().Wrap(err)
+	//}
 
-	clientset, restConfig, err := dutyKubernetes.NewClientFromPathOrConfig(k.Logger, val)
-	if err != nil {
-		return k, k.Oops().Wrap(err)
-	}
+	//clientset, restConfig, err := dutyKubernetes.NewClientFromPathOrConfig(k.Logger, val)
+	//if err != nil {
+	//return k, k.Oops().Wrap(err)
+	//}
 
-	c := k.WithKubernetes(clientset, restConfig)
-
-	return &c, nil
+	//c := k.WithKubernetes(clientset, restConfig)
+	return k, nil
 }
 
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {
@@ -564,7 +546,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
-		WithKubernetes(k.Kubernetes(), k.KubernetesRestConfig()).
+		WithKubernetes(k.Kubernetes()).
 		WithNamespace(k.GetNamespace())
 }
 

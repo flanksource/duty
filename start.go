@@ -186,10 +186,10 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 
 	if !config.DisableKubernetes {
 		if client, config, err := kubernetes.NewClient(logger.GetLogger("k8s")); err == nil {
-			ctx = ctx.WithKubernetes(client, config)
+			ctx = ctx.WithKubernetes(kubernetes.NewKubeClient(client, config))
 		} else {
 			ctx.Infof("Kubernetes client not available: %v", err)
-			ctx = ctx.WithKubernetes(kubernetes.Nil, nil)
+			ctx = ctx.WithKubernetes(kubernetes.NewKubeClient(kubernetes.Nil, nil))
 		}
 	}
 
