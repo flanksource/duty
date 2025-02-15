@@ -248,7 +248,7 @@ func (k Context) WithDebug() Context {
 }
 
 func (k Context) WithKubernetes(client *dutyKubernetes.Client) Context {
-	return k.WithValue("kubernetes", client)
+	return k.WithValue("kubernetes-client", client)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
