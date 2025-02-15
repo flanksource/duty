@@ -21,7 +21,6 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-// TODO: If everything empty, try local connection as well
 func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
@@ -44,7 +43,7 @@ func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfa
 		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
 	}
 
-	return nil, nil, nil
+	return dutyKubernetes.NewClient(ctx.Logger)
 }
 
 // +kubebuilder:object:generate=true
