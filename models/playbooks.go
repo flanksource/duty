@@ -30,6 +30,7 @@ const (
 	PlaybookRunStatusRunning         PlaybookRunStatus = "running"
 	PlaybookRunStatusScheduled       PlaybookRunStatus = "scheduled"
 	PlaybookRunStatusSleeping        PlaybookRunStatus = "sleeping"
+	PlaybookRunStatusRetrying        PlaybookRunStatus = "retrying"
 	PlaybookRunStatusWaiting         PlaybookRunStatus = "waiting" // waiting for a consumer
 )
 
@@ -220,6 +221,14 @@ func (p PlaybookRun) Schedule(db *gorm.DB) error {
 	})
 }
 
+func (p PlaybookRun) Retry(db *gorm.DB, delay time.Duration) error {
+	return p.Update(db, map[string]any{
+		"status":         PlaybookRunStatusRetrying,
+		"start_time":     gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
+		"scheduled_time": gorm.Expr(fmt.Sprintf("CLOCK_TIMESTAMP() + INTERVAL '%d SECONDS'", int(delay.Seconds()))),
+	})
+}
+
 func (p PlaybookRun) Delay(db *gorm.DB, delay time.Duration) error {
 	return p.Update(db, map[string]any{
 		"status":         PlaybookRunStatusSleeping,
@@ -289,6 +298,19 @@ func (p PlaybookRun) Assign(db *gorm.DB, agent *Agent, action string) error {
 		return err
 	}
 	return p.Waiting(db)
+}
+
+func (p PlaybookRun) RetryAction(db *gorm.DB, action string, retryCount int) (*PlaybookRunAction, error) {
+	runAction := PlaybookRunAction{
+		PlaybookRunID: p.ID,
+		Name:          action,
+		Status:        PlaybookActionStatusScheduled,
+		RetryCount:    retryCount,
+	}
+	if err := db.Save(&runAction).Error; err != nil {
+		return nil, oops.Tags("db").Wrap(err)
+	}
+	return &runAction, p.Running(db)
 }
 
 func (p PlaybookRun) StartAction(db *gorm.DB, action string) (*PlaybookRunAction, error) {
@@ -468,6 +490,9 @@ type PlaybookRunAction struct {
 	Error         *string              `json:"error,omitempty" gorm:"default:null"`
 	IsPushed      bool                 `json:"is_pushed"`
 	AgentID       *uuid.UUID           `json:"agent_id,omitempty"`
+
+	// RetryCount represents the Nth retry of this action
+	RetryCount int `json:"attempt,omitempty" gorm:"default:NULL"`
 }
 
 func (p PlaybookRunAction) JSON() (out map[string]any) {

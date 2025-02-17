@@ -319,6 +319,11 @@ table "playbook_run_actions" {
     type    = text
     default = "running"
   }
+  column "retry_count" {
+    null    = true
+    type    = integer
+    comment = "the nth retry of this action"
+  }
   column "playbook_run_id" {
     null    = true
     type    = uuid
