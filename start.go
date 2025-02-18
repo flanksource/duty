@@ -202,14 +202,19 @@ func embeddedDB(database, connectionString string, port uint32) (string, func() 
 		logger.Errorf("failed to chmod %s: %v", embeddedPath, err)
 	}
 
+	dataPath := path.Join(embeddedPath, "data")
+	if err := os.MkdirAll(dataPath, 750); err != nil {
+		logger.Errorf("failed to create data dir %s: %v", dataPath, err)
+	}
+
 	logger.Infof("Starting embedded postgres server at %s", embeddedPath)
 
 	embeddedPGServer := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
 		Port(port).
-		DataPath(path.Join(embeddedPath, "data")).
+		DataPath(dataPath).
 		RuntimePath(path.Join(embeddedPath, "runtime")).
 		BinariesPath(path.Join(embeddedPath, "bin")).
-		Version(embeddedpostgres.V14).
+		Version(embeddedpostgres.V15).
 		Username("postgres").Password("postgres").
 		Database(database))
 
