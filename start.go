@@ -203,7 +203,7 @@ func embeddedDB(database, connectionString string, port uint32) (string, func() 
 	}
 
 	dataPath := path.Join(embeddedPath, "data")
-	if err := os.MkdirAll(dataPath, 750); err != nil {
+	if err := os.MkdirAll(dataPath, 0750); err != nil {
 		logger.Errorf("failed to create data dir %s: %v", dataPath, err)
 	}
 
