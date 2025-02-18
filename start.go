@@ -203,8 +203,25 @@ func embeddedDB(database, connectionString string, port uint32) (string, func() 
 	}
 
 	dataPath := path.Join(embeddedPath, "data")
-	if err := os.MkdirAll(dataPath, 0750); err != nil {
-		logger.Errorf("failed to create data dir %s: %v", dataPath, err)
+	pgVersion := embeddedpostgres.V16
+	if _, err := os.Stat(dataPath); err != nil && os.IsNotExist(err) {
+		if err := os.MkdirAll(dataPath, 0750); err != nil {
+			logger.Errorf("failed to create data dir %s: %v", dataPath, err)
+		}
+	} else {
+		pgVersionBytes, err := os.ReadFile(path.Join(dataPath, "PG_VERSION"))
+		if err != nil {
+			logger.Errorf("error reading PG_VERSION file: %v", err)
+		} else {
+			switch strings.TrimSpace(string(pgVersionBytes)) {
+			case "14":
+				pgVersion = embeddedpostgres.V14
+			case "15":
+				pgVersion = embeddedpostgres.V15
+			case "16":
+				pgVersion = embeddedpostgres.V16
+			}
+		}
 	}
 
 	logger.Infof("Starting embedded postgres server at %s", embeddedPath)
@@ -214,7 +231,7 @@ func embeddedDB(database, connectionString string, port uint32) (string, func() 
 		DataPath(dataPath).
 		RuntimePath(path.Join(embeddedPath, "runtime")).
 		BinariesPath(path.Join(embeddedPath, "bin")).
-		Version(embeddedpostgres.V15).
+		Version(pgVersion).
 		Username("postgres").Password("postgres").
 		Database(database))
 
