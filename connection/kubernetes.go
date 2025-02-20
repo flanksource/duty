@@ -67,6 +67,12 @@ func (c KubernetesConnection) Hash() string {
 	if c.EKS != nil {
 		return fmt.Sprintf("eks=%s/%v", c.EKS.Cluster, c.EKS.ToModel())
 	}
+	if c.GKE != nil {
+		return fmt.Sprintf("gke=%s/%v", c.GKE.Cluster, c.GKE.ToModel())
+	}
+	if c.CNRM != nil {
+		return fmt.Sprintf("cnrm=%s/%v", c.CNRM.ClusterResource, c.GKE.ToModel())
+	}
 	return "local"
 }
 
