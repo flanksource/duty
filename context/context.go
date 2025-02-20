@@ -401,13 +401,6 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	return client.Client, nil
 }
 
-func (k *Context) KubernetesClient() *dutyKubernetes.Client {
-	if v, ok := k.Value("kubernetes-client").(*dutyKubernetes.Client); ok {
-		return v
-	}
-	return nil
-}
-
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {
 	return k.WithValue(rlsPayloadCtxKey, payload)
 }

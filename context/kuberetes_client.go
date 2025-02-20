@@ -30,6 +30,9 @@ func (c *KubernetesClient) RefreshWithExpiry(ctx Context, d time.Duration) error
 	c.Config.Host = rc.Host
 	c.Config.TLSClientConfig = rc.TLSClientConfig
 	c.Config.BearerToken = rc.BearerToken
+	c.Config.BearerTokenFile = rc.BearerTokenFile
+	c.Config.Username = rc.Username
+	c.Config.Password = rc.Password
 
 	c.SetExpiry(15 * time.Minute)
 	return nil

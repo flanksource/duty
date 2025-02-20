@@ -10,6 +10,7 @@ import (
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
+	"github.com/samber/lo"
 )
 
 // +kubebuilder:object:generate=true
@@ -19,7 +20,7 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
@@ -77,7 +78,10 @@ func (c KubernetesConnection) Hash() string {
 }
 
 func (c KubernetesConnection) CanExpire() bool {
-	return c.EKS != nil || c.GKE != nil || c.CNRM != nil
+	return c.EKS != nil ||
+		c.GKE != nil ||
+		c.CNRM != nil ||
+		lo.FromPtr(c.Kubeconfig).ValueStatic == ""
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
