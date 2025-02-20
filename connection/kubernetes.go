@@ -81,7 +81,7 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	if t.CustomClientSet != nil {
 		return t.CustomClientSet, t.CustomRestConfig, nil
 	}
