@@ -71,7 +71,7 @@ func (c KubernetesConnection) Hash() string {
 }
 
 func (c KubernetesConnection) CanExpire() bool {
-	return c.EKS != nil || c.GKE != nil || c.EKS != nil
+	return c.EKS != nil || c.GKE != nil || c.CNRM != nil
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {

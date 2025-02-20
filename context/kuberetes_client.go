@@ -23,7 +23,7 @@ func (c *KubernetesClient) RefreshWithExpiry(ctx Context, d time.Duration) error
 	}
 	_, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
 
 	// Update rest config in place for easy reuse
