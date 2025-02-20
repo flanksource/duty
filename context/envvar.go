@@ -82,7 +82,12 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
 	}
 
-	secretList, err := ctx.Kubernetes().CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
+	client, err := ctx.Kubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+
+	secretList, err := client.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("type=%s", helmSecretType),
 		LabelSelector: fmt.Sprintf("status=deployed,name=%s", releaseName),
 		Limit:         1,
@@ -160,8 +165,12 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
+	client, err := ctx.Kubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
 
-	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
 	}
@@ -184,7 +193,11 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	client, err := ctx.Kubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not get configmap %s/%s: %s", namespace, name, err)
 	}
@@ -206,7 +219,11 @@ func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount stri
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	tokenRequest, err := ctx.Kubernetes().CoreV1().ServiceAccounts(namespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
+	client, err := ctx.Kubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+	tokenRequest, err := client.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not get token for service account %s/%s: %w", namespace, serviceAccount, err)
 	}

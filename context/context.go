@@ -9,6 +9,7 @@ import (
 
 	commons "github.com/flanksource/commons/context"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/cache"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -24,6 +25,8 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 type ContextKey string
@@ -247,8 +250,17 @@ func (k Context) WithDebug() Context {
 	}
 }
 
-func (k Context) WithKubernetes(client *dutyKubernetes.Client) Context {
-	return k.WithValue("kubernetes-client", client)
+type KubernetesConnection interface {
+	Populate(Context, bool) (kubernetes.Interface, *rest.Config, error)
+	Hash() string
+	CanExpire() bool
+}
+
+func (k Context) WithKubernetes(conn KubernetesConnection) Context {
+	if conn == nil {
+		return k
+	}
+	return k.WithValue("kubernetes-connection", conn)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
@@ -344,19 +356,83 @@ func (k Context) Pool() *pgxpool.Pool {
 // KubeAuthFingerprint generates a unique SHA-256 hash to identify the Kubernetes API server
 // and client authentication details from the REST configuration.
 func (k *Context) KubeAuthFingerprint() string {
-	rc := k.Kubernetes().RestConfig()
+	kc, _ := k.Kubernetes()
+	if kc == nil {
+		return ""
+	}
+	rc := kc.RestConfig()
 	if rc == nil {
 		return ""
 	}
 	return dutyKubernetes.RestConfigFingerprint(rc)
 }
 
-func (k *Context) Kubernetes() *dutyKubernetes.Client {
-	if v, ok := k.Value("kubernetes-client").(*dutyKubernetes.Client); ok {
+func (k *Context) KubernetesConnection() KubernetesConnection {
+	if v, ok := k.Value("kubernetes-connection").(KubernetesConnection); ok {
 		return v
 	}
 	return nil
+}
 
+type KubernetesClient struct {
+	*dutyKubernetes.Client
+	Connection KubernetesConnection
+	expiry     time.Time
+}
+
+func (c *KubernetesClient) SetExpiry(d time.Duration) {
+	c.expiry = time.Now().Add(d)
+}
+
+func (c *KubernetesClient) RefreshWithExpiry(ctx Context, d time.Duration) error {
+	if !c.HasExpired() {
+		return nil
+	}
+	_, rc, err := c.Connection.Populate(ctx, true)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+
+	// Update rest config in place for easy reuse
+	c.Config.Host = rc.Host
+	c.Config.TLSClientConfig = rc.TLSClientConfig
+	c.Config.BearerToken = rc.BearerToken
+
+	c.SetExpiry(15 * time.Minute)
+	return nil
+}
+
+func (c KubernetesClient) HasExpired() bool {
+	if c.Connection.CanExpire() {
+		return time.Until(c.expiry) <= 0
+	}
+	return false
+}
+
+var k8sclientcache = cache.NewCache[*KubernetesClient]("k8s-client-cache", 24*time.Hour)
+
+func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
+	conn, ok := k.Value("kubernetes-connection").(KubernetesConnection)
+	if !ok {
+		return nil, fmt.Errorf("invalid type for KubernetesConnection")
+	}
+	connHash := conn.Hash()
+	if client, exists := k8sclientcache.Get(k, connHash); exists == nil {
+		client.RefreshWithExpiry(k, 15*time.Minute)
+		logger.Infof("From client cache")
+		return client.Client, nil
+	}
+	c, rc, err := conn.Populate(k, true)
+	if err != nil {
+		return nil, err
+	}
+	client := &KubernetesClient{
+		Client:     dutyKubernetes.NewKubeClient(c, rc),
+		Connection: conn,
+	}
+	client.SetExpiry(15 * time.Minute)
+	k8sclientcache.Set(k, connHash, client)
+	return client.Client, nil
 }
 
 func (k *Context) KubernetesClient() *dutyKubernetes.Client {
@@ -364,30 +440,6 @@ func (k *Context) KubernetesClient() *dutyKubernetes.Client {
 		return v
 	}
 	return nil
-}
-
-// Deprecated: Use KubernetesClient
-func (k *Context) KubernetesDynamicClient() *dutyKubernetes.Client {
-	return k.KubernetesClient()
-}
-
-func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
-	if k.GetNamespace() == "" {
-		return nil, k.Oops().Errorf("namespace is required")
-	}
-
-	//val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
-	//if err != nil {
-	//return k, k.Oops().Wrap(err)
-	//}
-
-	//clientset, restConfig, err := dutyKubernetes.NewClientFromPathOrConfig(k.Logger, val)
-	//if err != nil {
-	//return k, k.Oops().Wrap(err)
-	//}
-
-	//c := k.WithKubernetes(clientset, restConfig)
-	return k, nil
 }
 
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {
@@ -546,7 +598,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
-		WithKubernetes(k.Kubernetes()).
+		WithKubernetes(k.KubernetesConnection()).
 		WithNamespace(k.GetNamespace())
 }
 

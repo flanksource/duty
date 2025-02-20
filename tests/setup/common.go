@@ -14,6 +14,7 @@ import (
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
@@ -250,8 +251,10 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 			"foo": []byte("secret"),
 		}})
 
-	cl := dutyKubernetes.NewKubeClient(clientset, nil)
-	ctx = ctx.WithKubernetes(cl)
+	conn := connection.KubernetesConnection{
+		CustomClientSet: dutyKubernetes.NewKubeClient(clientset, nil),
+	}
+	ctx = ctx.WithKubernetes(&conn)
 
 	return ctx, nil
 }

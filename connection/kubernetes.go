@@ -2,12 +2,10 @@ package connection
 
 import (
 	"fmt"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/flanksource/duty/cache"
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -54,7 +52,26 @@ type KubernetesConnection struct {
 	GKE  *GKEConnection  `json:"gke,omitempty"`
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
 
-	Client *dutyKubernetes.Client
+	// For tests and special cases
+	CustomClientSet  kubernetes.Interface
+	CustomRestConfig *rest.Config
+}
+
+func (c KubernetesConnection) Hash() string {
+	if c.ConnectionName != "" {
+		return "connection=" + c.ConnectionName
+	}
+	if c.Kubeconfig != nil {
+		return "kubeconfig=" + c.Kubeconfig.String()
+	}
+	if c.EKS != nil {
+		return fmt.Sprintf("eks=%s/%v", c.EKS.Cluster, c.EKS.ToModel())
+	}
+	return "local"
+}
+
+func (c KubernetesConnection) CanExpire() bool {
+	return c.EKS != nil || c.GKE != nil || c.EKS != nil
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
@@ -64,25 +81,11 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-var k8sClientCache = cache.NewCache[*dutyKubernetes.Client]("k8s-client-cache", 24*time.Hour)
-
-func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (*dutyKubernetes.Client, error) {
-	clientSet, restConfig, err := t.populate(ctx, freshToken)
-	if err != nil {
-		return nil, fmt.Errorf("error populating kubernetes connection: %w", err)
+func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+	if t.CustomClientSet != nil {
+		return t.CustomClientSet, t.CustomRestConfig, nil
 	}
 
-	cacheKey := dutyKubernetes.RestConfigFingerprint(restConfig)
-	if c, err := k8sClientCache.Get(ctx, cacheKey); err == nil {
-		return c, nil
-	}
-
-	c := dutyKubernetes.NewKubeClient(clientSet, restConfig)
-	_ = k8sClientCache.Set(ctx, cacheKey, c)
-	return c, nil
-}
-
-func (t *KubernetesConnection) populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {

@@ -37,14 +37,14 @@ type Client struct {
 	kubernetes.Interface
 	restMapper     *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient  *dynamic.DynamicClient
-	config         *rest.Config
+	Config         *rest.Config // Prefer updaating token in place
 	gvkClientCache cachev4.CacheInterface[dynamic.NamespaceableResourceInterface]
 }
 
 func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 	return &Client{
 		Interface:      client,
-		config:         config,
+		Config:         config,
 		gvkClientCache: cache.NewCache[dynamic.NamespaceableResourceInterface]("gvk-cache", 24*time.Hour),
 	}
 }
@@ -95,6 +95,7 @@ func (c *Client) GetClientByGroupVersionKind(
 ) (dynamic.NamespaceableResourceInterface, error) {
 	cacheKey := group + version + kind
 	if dynamicClient, err := c.gvkClientCache.Get(ctx, cacheKey); err == nil {
+		logger.Infof("Cache hit for %s/%s/%s", group, version, kind)
 		return dynamicClient, nil
 	}
 
@@ -125,7 +126,7 @@ func (c *Client) GetClientByGroupVersionKind(
 }
 
 func (c *Client) RestConfig() *rest.Config {
-	return c.config
+	return c.Config
 }
 
 // WARN: "Kind" is not specific enough.
@@ -175,7 +176,7 @@ func (c *Client) GetDynamicClient() (dynamic.Interface, error) {
 	}
 
 	var err error
-	c.dynamicClient, err = dynamic.NewForConfig(c.config)
+	c.dynamicClient, err = dynamic.NewForConfig(c.Config)
 	return c.dynamicClient, err
 }
 
@@ -185,13 +186,13 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	}
 
 	// re-use kubectl cache
-	host := c.config.Host
+	host := c.Config.Host
 	host = strings.ReplaceAll(host, "https://", "")
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
-		c.config,
+		c.Config,
 		cacheDir,
 		"",
 		properties.Duration(10*time.Minute, "kubernetes.cache.timeout"),
@@ -224,7 +225,7 @@ func (c *Client) ExecutePodf(
 		req.Param("command", c)
 	}
 
-	exec, err := remotecommand.NewSPDYExecutor(c.config, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(c.Config, "POST", req.URL())
 	if err != nil {
 		return "", "", fmt.Errorf("ExecutePodf: Failed to get SPDY Executor: %v", err)
 	}
