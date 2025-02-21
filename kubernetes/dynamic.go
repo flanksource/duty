@@ -95,7 +95,6 @@ func (c *Client) GetClientByGroupVersionKind(
 ) (dynamic.NamespaceableResourceInterface, error) {
 	cacheKey := group + version + kind
 	if dynamicClient, err := c.gvkClientCache.Get(ctx, cacheKey); err == nil {
-		logger.Infof("Cache hit for %s/%s/%s", group, version, kind)
 		return dynamicClient, nil
 	}
 

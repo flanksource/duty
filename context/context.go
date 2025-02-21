@@ -382,7 +382,7 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 		return nil, fmt.Errorf("invalid type for KubernetesConnection")
 	}
 	connHash := conn.Hash()
-	if client, exists := k8sclientcache.Get(k, connHash); exists == nil {
+	if client, err := k8sclientcache.Get(k, connHash); err == nil {
 		if err := client.Refresh(k); err != nil {
 			return nil, err
 		}
@@ -394,6 +394,26 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	}
 	_ = k8sclientcache.Set(k, connHash, client)
 	return client.Client, nil
+}
+
+func (k Context) WithLocalKubernetes(client *dutyKubernetes.Client) Context {
+	return k.WithValue("localKubernetes", client)
+}
+
+func (k *Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
+	if v := k.Value("localKubernetes"); v != nil {
+		if client, ok := v.(*dutyKubernetes.Client); ok {
+			return client, nil
+		}
+	}
+
+	c, rc, err := dutyKubernetes.NewClient(k.Logger)
+	if err != nil {
+		return nil, err
+	}
+	client := dutyKubernetes.NewKubeClient(c, rc)
+	k.WithValue("localKubernetes", client)
+	return client, nil
 }
 
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {

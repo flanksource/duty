@@ -82,7 +82,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
 	}
 
-	client, err := ctx.Kubernetes()
+	client, err := ctx.LocalKubernetes()
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
@@ -165,7 +165,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	client, err := ctx.Kubernetes()
+	client, err := ctx.LocalKubernetes()
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
@@ -193,7 +193,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	client, err := ctx.Kubernetes()
+	client, err := ctx.LocalKubernetes()
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
@@ -219,7 +219,7 @@ func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount stri
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	client, err := ctx.Kubernetes()
+	client, err := ctx.LocalKubernetes()
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}

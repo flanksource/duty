@@ -255,6 +255,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		CustomClientSet: dutyKubernetes.NewKubeClient(clientset, nil),
 	}
 	ctx = ctx.WithKubernetes(&conn)
+	ctx = ctx.WithLocalKubernetes(dutyKubernetes.NewKubeClient(clientset, nil))
 
 	return ctx, nil
 }

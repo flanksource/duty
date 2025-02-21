@@ -80,7 +80,7 @@ func Register(
 	}
 
 	ctx = ctx.WithNamespace(namespace)
-	client, err := ctx.Kubernetes()
+	client, err := ctx.LocalKubernetes()
 	if err != nil {
 		return fmt.Errorf("error creating kubernetes client: %w", err)
 	}
@@ -177,7 +177,7 @@ func updateLeaderLabel(ctx context.Context, app string) {
 	backoff := retry.WithMaxRetries(3, retry.NewExponential(time.Second))
 	err := retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
 		labelSelector := fmt.Sprintf("%s/leader=true", app)
-		client, err := ctx.Kubernetes()
+		client, err := ctx.LocalKubernetes()
 		if err != nil {
 			return fmt.Errorf("error creating kubernetes client: %w", err)
 		}
@@ -201,10 +201,6 @@ func updateLeaderLabel(ctx context.Context, app string) {
 				payload = fmt.Sprintf(`{"metadata":{"labels":{"%s/leader": null}}}`, app)
 			}
 
-			client, err := ctx.Kubernetes()
-			if err != nil {
-				return fmt.Errorf("error creating kubernetes client: %w", err)
-			}
 			_, err = client.CoreV1().Pods(ctx.GetNamespace()).Patch(ctx,
 				podName,
 				types.MergePatchType,
