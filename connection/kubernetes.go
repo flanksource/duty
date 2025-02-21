@@ -10,6 +10,7 @@ import (
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
+	"github.com/samber/lo"
 )
 
 // +kubebuilder:object:generate=true
@@ -19,7 +20,7 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
@@ -41,7 +42,7 @@ func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfa
 		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
 	}
 
-	return nil, nil, nil
+	return dutyKubernetes.NewClient(ctx.Logger)
 }
 
 // +kubebuilder:object:generate=true
@@ -51,6 +52,36 @@ type KubernetesConnection struct {
 	EKS  *EKSConnection  `json:"eks,omitempty"`
 	GKE  *GKEConnection  `json:"gke,omitempty"`
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
+
+	// For tests and special cases
+	CustomClientSet  kubernetes.Interface
+	CustomRestConfig *rest.Config
+}
+
+func (c KubernetesConnection) Hash() string {
+	if c.ConnectionName != "" {
+		return "connection=" + c.ConnectionName
+	}
+	if c.Kubeconfig != nil {
+		return "kubeconfig=" + c.Kubeconfig.String()
+	}
+	if c.EKS != nil {
+		return fmt.Sprintf("eks=%s/%v", c.EKS.Cluster, c.EKS.ToModel())
+	}
+	if c.GKE != nil {
+		return fmt.Sprintf("gke=%s/%v", c.GKE.Cluster, c.GKE.ToModel())
+	}
+	if c.CNRM != nil {
+		return fmt.Sprintf("cnrm=%s/%v", c.CNRM.ClusterResource, c.GKE.ToModel())
+	}
+	return "local"
+}
+
+func (c KubernetesConnection) CanExpire() bool {
+	return c.EKS != nil ||
+		c.GKE != nil ||
+		c.CNRM != nil ||
+		lo.FromPtr(c.Kubeconfig).ValueStatic == ""
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
@@ -60,7 +91,11 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-func (t *KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+	if t.CustomClientSet != nil {
+		return t.CustomClientSet, t.CustomRestConfig, nil
+	}
+
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {

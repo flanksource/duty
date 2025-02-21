@@ -14,6 +14,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/duty/cache"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	cachev4 "github.com/eko/gocache/lib/v4/cache"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -32,15 +34,19 @@ import (
 )
 
 type Client struct {
-	client         kubernetes.Interface
+	kubernetes.Interface
 	restMapper     *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient  *dynamic.DynamicClient
-	config         *rest.Config
-	gvkClientCache sync.Map
+	Config         *rest.Config // Prefer updaating token in place
+	gvkClientCache cachev4.CacheInterface[dynamic.NamespaceableResourceInterface]
 }
 
 func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
-	return &Client{config: config, client: client}
+	return &Client{
+		Interface:      client,
+		Config:         config,
+		gvkClientCache: cache.NewCache[dynamic.NamespaceableResourceInterface]("gvk-cache", 24*time.Hour),
+	}
 }
 
 func (c *Client) FetchResources(
@@ -56,6 +62,7 @@ func (c *Client) FetchResources(
 	for i := range resources {
 		resource := resources[i]
 		client, err := c.GetClientByGroupVersionKind(
+			ctx,
 			resource.GroupVersionKind().Group,
 			resource.GroupVersionKind().Version,
 			resource.GetKind(),
@@ -84,11 +91,11 @@ func (c *Client) FetchResources(
 }
 
 func (c *Client) GetClientByGroupVersionKind(
-	group, version, kind string,
+	ctx context.Context, group, version, kind string,
 ) (dynamic.NamespaceableResourceInterface, error) {
 	cacheKey := group + version + kind
-	if dynamicClient, ok := c.gvkClientCache.Load(cacheKey); ok {
-		return dynamicClient.(dynamic.NamespaceableResourceInterface), nil
+	if dynamicClient, err := c.gvkClientCache.Get(ctx, cacheKey); err == nil {
+		return dynamicClient, nil
 	}
 
 	dynamicClient, err := c.GetDynamicClient()
@@ -113,8 +120,12 @@ func (c *Client) GetClientByGroupVersionKind(
 	}
 
 	gvkClient := dynamicClient.Resource(mapping.Resource)
-	c.gvkClientCache.Store(cacheKey, gvkClient)
+	_ = c.gvkClientCache.Set(ctx, cacheKey, gvkClient)
 	return gvkClient, nil
+}
+
+func (c *Client) RestConfig() *rest.Config {
+	return c.Config
 }
 
 // WARN: "Kind" is not specific enough.
@@ -143,7 +154,7 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 }
 
 func (c *Client) DeleteByGVK(ctx context.Context, namespace, name string, gvk schema.GroupVersionKind) (bool, error) {
-	client, err := c.GetClientByGroupVersionKind(gvk.Group, gvk.Version, gvk.Kind)
+	client, err := c.GetClientByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
 	if err != nil {
 		return false, err
 	}
@@ -164,7 +175,7 @@ func (c *Client) GetDynamicClient() (dynamic.Interface, error) {
 	}
 
 	var err error
-	c.dynamicClient, err = dynamic.NewForConfig(c.config)
+	c.dynamicClient, err = dynamic.NewForConfig(c.Config)
 	return c.dynamicClient, err
 }
 
@@ -174,13 +185,13 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	}
 
 	// re-use kubectl cache
-	host := c.config.Host
+	host := c.Config.Host
 	host = strings.ReplaceAll(host, "https://", "")
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
-		c.config,
+		c.Config,
 		cacheDir,
 		"",
 		properties.Duration(10*time.Minute, "kubernetes.cache.timeout"),
@@ -198,7 +209,7 @@ func (c *Client) ExecutePodf(
 	command ...string,
 ) (string, string, error) {
 	const tty = false
-	req := c.client.CoreV1().RESTClient().Post().
+	req := c.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod).
 		Namespace(namespace).
@@ -213,7 +224,7 @@ func (c *Client) ExecutePodf(
 		req.Param("command", c)
 	}
 
-	exec, err := remotecommand.NewSPDYExecutor(c.config, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(c.Config, "POST", req.URL())
 	if err != nil {
 		return "", "", fmt.Errorf("ExecutePodf: Failed to get SPDY Executor: %v", err)
 	}
@@ -241,7 +252,7 @@ func (c *Client) GetPodLogs(ctx context.Context, namespace, podName, container s
 		podLogOptions.Container = container
 	}
 
-	req := c.client.CoreV1().Pods(namespace).GetLogs(podName, &podLogOptions)
+	req := c.CoreV1().Pods(namespace).GetLogs(podName, &podLogOptions)
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
 		return nil, err
@@ -260,7 +271,7 @@ func (c *Client) WaitForPod(
 ) error {
 	start := time.Now()
 
-	pods := c.client.CoreV1().Pods(namespace)
+	pods := c.CoreV1().Pods(namespace)
 	for {
 		pod, err := pods.Get(ctx, name, metav1.GetOptions{})
 		if start.Add(timeout).Before(time.Now()) {
@@ -289,7 +300,7 @@ func (c *Client) StreamLogsV2(
 	timeout time.Duration,
 	containerNames ...string,
 ) error {
-	podsClient := c.client.CoreV1().Pods(namespace)
+	podsClient := c.CoreV1().Pods(namespace)
 	pod, err := podsClient.Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -372,7 +383,7 @@ func (c *Client) WaitForContainerStart(
 	timeoutTimer := time.NewTimer(timeout)
 	defer timeoutTimer.Stop()
 
-	podsClient := c.client.CoreV1().Pods(namespace)
+	podsClient := c.CoreV1().Pods(namespace)
 	for {
 		select {
 		case <-timeoutTimer.C:

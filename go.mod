@@ -28,6 +28,7 @@ require (
 	github.com/flanksource/commons v1.36.1
 	github.com/flanksource/gomplate/v3 v3.24.55
 	github.com/go-git/go-git/v5 v5.12.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/gops v0.3.28
@@ -168,7 +169,6 @@ require (
 	github.com/goccy/go-yaml v1.12.0 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect

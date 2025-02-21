@@ -80,13 +80,17 @@ func Register(
 	}
 
 	ctx = ctx.WithNamespace(namespace)
+	client, err := ctx.LocalKubernetes()
+	if err != nil {
+		return fmt.Errorf("error creating kubernetes client: %w", err)
+	}
 
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      app,
 			Namespace: namespace,
 		},
-		Client: ctx.Kubernetes().CoordinationV1(),
+		Client: client.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity: hostname,
 		},
@@ -173,7 +177,11 @@ func updateLeaderLabel(ctx context.Context, app string) {
 	backoff := retry.WithMaxRetries(3, retry.NewExponential(time.Second))
 	err := retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
 		labelSelector := fmt.Sprintf("%s/leader=true", app)
-		podList, err := ctx.Kubernetes().CoreV1().Pods(ctx.GetNamespace()).List(ctx, metav1.ListOptions{
+		client, err := ctx.LocalKubernetes()
+		if err != nil {
+			return fmt.Errorf("error creating kubernetes client: %w", err)
+		}
+		podList, err := client.CoreV1().Pods(ctx.GetNamespace()).List(ctx, metav1.ListOptions{
 			LabelSelector: labelSelector,
 		})
 		if err != nil {
@@ -193,7 +201,7 @@ func updateLeaderLabel(ctx context.Context, app string) {
 				payload = fmt.Sprintf(`{"metadata":{"labels":{"%s/leader": null}}}`, app)
 			}
 
-			_, err := ctx.Kubernetes().CoreV1().Pods(ctx.GetNamespace()).Patch(ctx,
+			_, err = client.CoreV1().Pods(ctx.GetNamespace()).Patch(ctx,
 				podName,
 				types.MergePatchType,
 				[]byte(payload),

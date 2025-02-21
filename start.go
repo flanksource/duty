@@ -13,8 +13,8 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/postgrest"
 	"github.com/spf13/pflag"
 	"gorm.io/plugin/prometheus"
@@ -185,12 +185,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	if !config.DisableKubernetes {
-		if client, config, err := kubernetes.NewClient(logger.GetLogger("k8s")); err == nil {
-			ctx = ctx.WithKubernetes(client, config)
-		} else {
-			ctx.Infof("Kubernetes client not available: %v", err)
-			ctx = ctx.WithKubernetes(kubernetes.Nil, nil)
-		}
+		ctx = ctx.WithKubernetes(connection.KubernetesConnection{})
 	}
 
 	return ctx, stop, nil

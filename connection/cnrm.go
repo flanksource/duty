@@ -32,7 +32,7 @@ func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool) 
 	}
 
 	containerResourceKubeClient, err := dutyKube.NewKubeClient(cnrmCluster, restConfig).
-		GetClientByGroupVersionKind("container.cnrm.cloud.google.com", "v1beta1", "ContainerCluster")
+		GetClientByGroupVersionKind(ctx, "container.cnrm.cloud.google.com", "v1beta1", "ContainerCluster")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get client by GroupVersionKind: %w", err)
 	}
