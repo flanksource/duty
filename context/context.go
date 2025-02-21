@@ -383,20 +383,15 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	}
 	connHash := conn.Hash()
 	if client, exists := k8sclientcache.Get(k, connHash); exists == nil {
-		if err := client.RefreshWithExpiry(k, 15*time.Minute); err != nil {
+		if err := client.Refresh(k); err != nil {
 			return nil, err
 		}
 		return client.Client, nil
 	}
-	c, rc, err := conn.Populate(k, true)
+	client, err := NewKubernetesClient(k, conn)
 	if err != nil {
 		return nil, err
 	}
-	client := &KubernetesClient{
-		Client:     dutyKubernetes.NewKubeClient(c, rc),
-		Connection: conn,
-	}
-	client.SetExpiry(15 * time.Minute)
 	_ = k8sclientcache.Set(k, connHash, client)
 	return client.Client, nil
 }

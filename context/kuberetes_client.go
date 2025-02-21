@@ -6,6 +6,7 @@ import (
 
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/lo"
 )
 
 type KubernetesClient struct {
@@ -14,16 +15,32 @@ type KubernetesClient struct {
 	expiry     time.Time
 }
 
-func (c *KubernetesClient) SetExpiry(d time.Duration) {
-	c.expiry = time.Now().Add(d)
+var defaultExpiry = 15 * time.Minute
+
+func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
+	c, rc, err := conn.Populate(ctx, true)
+	if err != nil {
+		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)
+	}
+	client := &KubernetesClient{
+		Client:     dutyKubernetes.NewKubeClient(c, rc),
+		Connection: conn,
+	}
+
+	client.SetExpiry(defaultExpiry)
+	return client, nil
 }
-func (c *KubernetesClient) ExpireAt(t time.Time) {
-	if !t.IsZero() {
-		c.expiry = t
+
+func (c *KubernetesClient) SetExpiry(def time.Duration) {
+	// Try parsing BearerToken as JWT and extract expiry
+	if expiry := extractExpiryFromJWT(lo.FromPtr(c.Config).BearerToken); !expiry.IsZero() {
+		c.expiry = expiry
+	} else {
+		c.expiry = time.Now().Add(def)
 	}
 }
 
-func (c *KubernetesClient) RefreshWithExpiry(ctx Context, d time.Duration) error {
+func (c *KubernetesClient) Refresh(ctx Context) error {
 	if !c.HasExpired() {
 		return nil
 	}
@@ -40,18 +57,12 @@ func (c *KubernetesClient) RefreshWithExpiry(ctx Context, d time.Duration) error
 	c.Config.Username = rc.Username
 	c.Config.Password = rc.Password
 
-	// Try parsing BearerToken as JWT and extract expiry
-	if expiry := extractExpiryFromJWT(c.Config.BearerToken); !expiry.IsZero() {
-		c.ExpireAt(expiry)
-	} else {
-		c.SetExpiry(d)
-	}
-
+	c.SetExpiry(defaultExpiry)
 	return nil
 }
 
 func (c KubernetesClient) HasExpired() bool {
-	if c.Connection.CanExpire() {
+	if c.Connection.CanExpire() && !c.expiry.IsZero() {
 		// We give a 1 minute window as a buffer
 		return time.Until(c.expiry) <= time.Minute
 	}
