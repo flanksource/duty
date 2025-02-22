@@ -412,7 +412,7 @@ func (k *Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
 		return nil, err
 	}
 	client := dutyKubernetes.NewKubeClient(c, rc)
-	k.WithValue("localKubernetes", client)
+	*k = k.WithValue("localKubernetes", client)
 	return client, nil
 }
 
