@@ -146,4 +146,36 @@ var _ = Describe("grammar", func() {
 
 		Expect(resultJSON).To(MatchJSON(expected))
 	})
+
+	It("Should correctly handle comma", func() {
+		result, err := ParsePEG("component_config_traverse=019220c4-3773-1c83-4e49-847fabf999b7,outgoing type=Kubernetes::Pod")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+                "fields": [
+                  {
+                    "field": "component_config_traverse",
+                    "value": "019220c4-3773-1c83-4e49-847fabf999b7,outgoing",
+                    "op": "="
+                  },
+                  {
+                    "field": "type",
+                    "value": "Kubernetes::Pod",
+                    "op": "="
+                  }
+                ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+
+	})
 })

@@ -109,7 +109,8 @@ Word
   }
 
 Integer
-  = [+-]? [0-9]+ {
+  // We need to ignore alphanumerics starting with numbers being parsed as Integer
+  = [+-]? [0-9]+ ![a-zA-Z0-9_-] {
     return strconv.ParseInt(string(c.text), 10, 64)
   }
 
@@ -124,7 +125,7 @@ Float
     }
 
 Identifier
-  = [a-zA-Z0-9_*-:\\[\]]+ {
+  = [a-zA-Z0-9_*\\,-:\\[\]]+ {
       return string(c.text), nil
   }
 
