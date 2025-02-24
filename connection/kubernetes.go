@@ -52,10 +52,6 @@ type KubernetesConnection struct {
 	EKS  *EKSConnection  `json:"eks,omitempty"`
 	GKE  *GKEConnection  `json:"gke,omitempty"`
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
-
-	// For tests and special cases
-	CustomClientSet  kubernetes.Interface
-	CustomRestConfig *rest.Config
 }
 
 func (c KubernetesConnection) Hash() string {
@@ -92,10 +88,6 @@ func (t KubernetesConnection) ToModel() models.Connection {
 }
 
 func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
-	if t.CustomClientSet != nil {
-		return t.CustomClientSet, t.CustomRestConfig, nil
-	}
-
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {
