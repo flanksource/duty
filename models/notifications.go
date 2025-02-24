@@ -18,18 +18,26 @@ type Notification struct {
 	Title          string              `json:"title,omitempty"`
 	Template       string              `json:"template,omitempty"`
 	Filter         string              `json:"filter,omitempty"`
-	PlaybookID     *uuid.UUID          `json:"playbook_id,omitempty"`
-	PersonID       *uuid.UUID          `json:"person_id,omitempty"`
-	TeamID         *uuid.UUID          `json:"team_id,omitempty"`
 	Properties     types.JSONStringMap `json:"properties,omitempty"`
 	Source         string              `json:"source"`
 	RepeatInterval string              `json:"repeat_interval,omitempty"`
 	GroupBy        pq.StringArray      `json:"group_by" gorm:"type:[]text"`
-	CustomServices types.JSON          `json:"custom_services,omitempty" gorm:"column:custom_services"`
 	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
 	UpdatedAt      time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	CreatedAt      time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
+
+	// Receipients
+	PlaybookID     *uuid.UUID `json:"playbook_id,omitempty"`
+	PersonID       *uuid.UUID `json:"person_id,omitempty"`
+	TeamID         *uuid.UUID `json:"team_id,omitempty"`
+	CustomServices types.JSON `json:"custom_services,omitempty" gorm:"column:custom_services"`
+
+	// Fallback Receipients
+	FallbackPlaybookID     *uuid.UUID `json:"fallback_playbook_id,omitempty"`
+	FallbackPersonID       *uuid.UUID `json:"fallback_person_id,omitempty"`
+	FallbackTeamID         *uuid.UUID `json:"fallback_team_id,omitempty"`
+	FallbackCustomServices types.JSON `json:"fallback_custom_services,omitempty"`
 
 	// Duration to wait before re-evaluating health of the resource.
 	WaitFor *time.Duration `json:"wait_for,omitempty"`
@@ -61,7 +69,6 @@ func (n Notification) AsMap(removeFields ...string) map[string]any {
 const (
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
-	NotificationStatusSending        = "sending"
 	NotificationStatusPending        = "pending" // delayed due to waitFor evaluation
 	NotificationStatusSkipped        = "skipped" // due to waitFor evaluation
 	NotificationStatusSilenced       = "silenced"
@@ -76,6 +83,12 @@ const (
 	// health related notifications of kubernetes config items get into this state
 	// to wait for the incremental scraper to re-evaluate the health.
 	NotificationStatusEvaluatingWaitFor = "evaluating-waitfor"
+
+	// Checking fallback channel configuration after primary channel failure
+	NotificationStatusCheckingFallback = "checking_fallback"
+
+	// Attempting delivery through fallback channel
+	NotificationStatusAttemptingFallback = "attempting_fallback"
 )
 
 type NotificationSendHistory struct {
@@ -127,6 +140,8 @@ type NotificationSendHistory struct {
 	// Hash for grouping resources with same message
 	GroupByHash string `json:"group_by_hash,omitempty"`
 
+	IsFallback bool `json:"is_fallback,omitempty"`
+
 	timeStart time.Time
 }
 
@@ -150,11 +165,6 @@ func (t *NotificationSendHistory) WithStartTime(s time.Time) *NotificationSendHi
 	return t
 }
 
-func (t *NotificationSendHistory) Sending() *NotificationSendHistory {
-	t.Status = NotificationStatusSending
-	return t
-}
-
 func (t *NotificationSendHistory) PendingPlaybookRun() *NotificationSendHistory {
 	t.Status = NotificationStatusPendingPlaybookRun
 	return t.End()
@@ -162,12 +172,6 @@ func (t *NotificationSendHistory) PendingPlaybookRun() *NotificationSendHistory 
 
 func (t *NotificationSendHistory) Sent() *NotificationSendHistory {
 	t.Status = NotificationStatusSent
-	return t.End()
-}
-
-func (t *NotificationSendHistory) Failed(e error) *NotificationSendHistory {
-	t.Status = NotificationStatusError
-	t.Error = lo.ToPtr(e.Error())
 	return t.End()
 }
 

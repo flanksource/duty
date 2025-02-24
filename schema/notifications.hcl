@@ -79,6 +79,22 @@ table "notifications" {
     type    = jsonb
     comment = "other 3rd party services for the notification like Slack, Telegram, ..."
   }
+  column "fallback_custom_services" {
+    null    = true
+    type    = jsonb
+  }
+  column "fallback_playbook_id" {
+    null    = true
+    type    = uuid
+  }
+  column "fallback_person_id" {
+    null    = true
+    type    = uuid
+  }
+  column "fallback_team_id" {
+    null    = true
+    type    = uuid
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -199,8 +215,8 @@ table "notification_send_history" {
     comment = "recipient connection"
   }
   column "silenced_by" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
     comment = "the notification silence that silenced this notification"
   }
   column "playbook_run_id" {
@@ -222,9 +238,14 @@ table "notification_send_history" {
     default = sql("now()")
   }
   column "group_by_hash" {
-    type = text
+    type    = text
     null    = false
     default = ""
+  }
+  column "is_fallback" {
+    null    = true
+    default = null
+    type    = bool
   }
   primary_key {
     columns = [column.id]
