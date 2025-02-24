@@ -273,7 +273,7 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 	if p.NotificationSendID != nil {
 		updates := map[string]any{}
 		if status == PlaybookRunStatusFailed {
-			updates["status"] = NotificationStatusError
+			updates["status"] = NotificationStatusCheckingFallback
 			updates["error"] = "playbook failed"
 		} else {
 			updates["status"] = NotificationStatusSent
