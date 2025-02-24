@@ -355,6 +355,8 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		query       string
 		expectedIDs []uuid.UUID
 		resource    string
+		err         bool
+		errMsg      string
 	}{
 		{
 			description: "config item direct query without quotes",
@@ -610,6 +612,13 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			},
 			resource: "config",
 		},
+		{
+			description: "should throw error for unsupported column",
+			query:       "random=column",
+			resource:    "config",
+			err:         true,
+			errMsg:      "not supported",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
@@ -624,17 +633,20 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-			// if tt.description != "properties keyed value search" {
-			// 	continue
-			// }
 
 			ginkgo.It(tt.description, func() {
 				f, ok := fmap[tt.resource]
 				Expect(ok).To(BeTrue())
 				ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
-				Expect(err).To(BeNil())
-				// We convert to strings slice for readable output
-				Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+
+				if tt.err {
+					Expect(err).ToNot(BeNil())
+					Expect(err.Error()).To(ContainSubstring(tt.errMsg))
+				} else {
+					Expect(err).To(BeNil())
+					// We convert to strings slice for readable output
+					Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+				}
 			})
 		}
 	})
