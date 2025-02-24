@@ -136,12 +136,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 						return nil, err
 					}
 
-					if clientset, restConfig, err := connections.Kubernetes.Populate(ctx.WithNamespace(scraperNamespace), true); err != nil {
-						return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
-					} else {
-						ctx = ctx.WithKubernetes(clientset, restConfig)
-					}
-
+					ctx = ctx.WithNamespace(scraperNamespace).WithKubernetes(connections.Kubernetes)
 					break
 				}
 			}
@@ -167,11 +162,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 	if connections.Kubernetes != nil {
 		if lo.FromPtr(connections.FromConfigItem) == "" {
-			if clientset, restConfig, err := connections.Kubernetes.Populate(ctx, true); err != nil {
-				return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
-			} else {
-				ctx = ctx.WithKubernetes(clientset, restConfig)
-			}
+			ctx = ctx.WithKubernetes(connections.Kubernetes)
 		}
 
 		if filepath.IsAbs(connections.Kubernetes.Kubeconfig.ValueStatic) {

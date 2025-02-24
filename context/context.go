@@ -8,8 +8,8 @@ import (
 	"time"
 
 	commons "github.com/flanksource/commons/context"
-	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/cache"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -26,7 +26,6 @@ import (
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 )
 
@@ -251,10 +250,17 @@ func (k Context) WithDebug() Context {
 	}
 }
 
-func (k Context) WithKubernetes(client kubernetes.Interface, config *rest.Config) Context {
-	return k.
-		WithValue("kubernetes", client).
-		WithValue("kubernetes-rest", config)
+type KubernetesConnection interface {
+	Populate(Context, bool) (kubernetes.Interface, *rest.Config, error)
+	Hash() string
+	CanExpire() bool
+}
+
+func (k Context) WithKubernetes(conn KubernetesConnection) Context {
+	if conn == nil {
+		return k
+	}
+	return k.WithValue("kubernetes-connection", conn)
 }
 
 func (k Context) WithNamespace(namespace string) Context {
@@ -350,62 +356,64 @@ func (k Context) Pool() *pgxpool.Pool {
 // KubeAuthFingerprint generates a unique SHA-256 hash to identify the Kubernetes API server
 // and client authentication details from the REST configuration.
 func (k *Context) KubeAuthFingerprint() string {
-	rs := k.KubernetesRestConfig()
-	if rs == nil {
+	kc, _ := k.Kubernetes()
+	if kc == nil {
 		return ""
 	}
-
-	return hash.Sha256Hex(fmt.Sprintf("%s/%s/%s/%s/%s/%s",
-		rs.Host,
-		rs.Username,
-		rs.Password,
-		rs.BearerToken,
-		rs.BearerTokenFile,
-		rs.TLSClientConfig.CertData))
-}
-
-func (k *Context) Kubernetes() kubernetes.Interface {
-	v, ok := k.Value("kubernetes").(kubernetes.Interface)
-	if !ok || v == nil {
-		return fake.NewSimpleClientset()
+	rc := kc.RestConfig()
+	if rc == nil {
+		return ""
 	}
-	return v
+	return dutyKubernetes.RestConfigFingerprint(rc)
 }
 
-func (k *Context) KubernetesRestConfig() *rest.Config {
-	if v, ok := k.Value("kubernetes-rest").(*rest.Config); ok {
+func (k *Context) KubernetesConnection() KubernetesConnection {
+	if v, ok := k.Value("kubernetes-connection").(KubernetesConnection); ok {
 		return v
 	}
 	return nil
 }
 
-func (k *Context) KubernetesClient() *dutyKubernetes.Client {
-	return dutyKubernetes.NewKubeClient(k.Kubernetes(), k.KubernetesRestConfig())
+var k8sclientcache = cache.NewCache[*KubernetesClient]("k8s-client-cache", 24*time.Hour)
+
+func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
+	conn, ok := k.Value("kubernetes-connection").(KubernetesConnection)
+	if !ok {
+		return nil, fmt.Errorf("invalid type for KubernetesConnection")
+	}
+	connHash := conn.Hash()
+	if client, err := k8sclientcache.Get(k, connHash); err == nil {
+		if err := client.Refresh(k); err != nil {
+			return nil, err
+		}
+		return client.Client, nil
+	}
+	client, err := NewKubernetesClient(k, conn)
+	if err != nil {
+		return nil, err
+	}
+	_ = k8sclientcache.Set(k, connHash, client)
+	return client.Client, nil
 }
 
-// Deprecated: Use KubernetesClient
-func (k *Context) KubernetesDynamicClient() *dutyKubernetes.Client {
-	return k.KubernetesClient()
+var localKubernetes *dutyKubernetes.Client
+
+func (k Context) WithLocalKubernetes(client *dutyKubernetes.Client) Context {
+	localKubernetes = client
+	return k
 }
 
-func (k *Context) WithKubeconfig(input types.EnvVar) (*Context, error) {
-	if k.GetNamespace() == "" {
-		return nil, k.Oops().Errorf("namespace is required")
+func (k *Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
+	if localKubernetes != nil {
+		return localKubernetes, nil
 	}
 
-	val, err := k.GetEnvValueFromCache(input, k.GetNamespace())
+	c, rc, err := dutyKubernetes.NewClient(k.Logger)
 	if err != nil {
-		return k, k.Oops().Wrap(err)
+		return nil, err
 	}
-
-	clientset, restConfig, err := dutyKubernetes.NewClientFromPathOrConfig(k.Logger, val)
-	if err != nil {
-		return k, k.Oops().Wrap(err)
-	}
-
-	c := k.WithKubernetes(clientset, restConfig)
-
-	return &c, nil
+	localKubernetes = dutyKubernetes.NewKubeClient(c, rc)
+	return localKubernetes, nil
 }
 
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {
@@ -564,7 +572,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
-		WithKubernetes(k.Kubernetes(), k.KubernetesRestConfig()).
+		WithKubernetes(k.KubernetesConnection()).
 		WithNamespace(k.GetNamespace())
 }
 

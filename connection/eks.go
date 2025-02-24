@@ -110,7 +110,7 @@ func getSignedSTSURI(ctx gocontext.Context, cluster string, cred aws.Credentials
 	}
 
 	request.Header.Add(clusterIDHeader, cluster)
-	request.Header.Add("X-Amz-Expires", "0")
+	request.Header.Add("X-Amz-Expires", "86400") // 24 hours
 	signer := signerv4.NewSigner()
 	signedURI, _, err := signer.PresignHTTP(ctx, cred, request, emptyStringSha256, "sts", "us-east-1", time.Now())
 	if err != nil {
