@@ -103,7 +103,7 @@ type QueryModel struct {
 var ConfigQueryModel = QueryModel{
 	Table: models.ConfigItem{}.TableName(),
 	Columns: []string{
-		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
+		"id", "name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 		"created_at", "updated_at", "deleted_at", "last_scraped_time",
 	},
 	JSONMapColumns: []string{"labels", "tags", "config"},
@@ -148,7 +148,7 @@ var ComponentQueryModel = QueryModel{
 		},
 	},
 	Columns: []string{
-		"name", "namespace", "topology_id", "type", "status", "health", "agent_id",
+		"id", "name", "namespace", "topology_id", "type", "status", "health", "agent_id",
 		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"labels", "summary"},
@@ -174,7 +174,7 @@ var ComponentQueryModel = QueryModel{
 var CheckQueryModel = QueryModel{
 	Table: models.Check{}.TableName(),
 	Columns: []string{
-		"name", "namespace", "canary_id", "type", "status", "agent_id",
+		"id", "name", "namespace", "canary_id", "type", "status", "agent_id",
 		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"spec", "labels"},
@@ -199,7 +199,7 @@ var CheckQueryModel = QueryModel{
 var PlaybookQueryModel = QueryModel{
 	Table:   models.Playbook{}.TableName(),
 	HasTags: true,
-	Columns: []string{"name", "namespace", "created_at", "updated_at", "deleted_at"},
+	Columns: []string{"id", "name", "namespace", "created_at", "updated_at", "deleted_at"},
 	Aliases: map[string]string{
 		"created": "created_at",
 		"updated": "updated_at",
