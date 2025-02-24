@@ -8,7 +8,6 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
-	"github.com/flanksource/commons/logger"
 
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
@@ -208,7 +207,7 @@ func SetResourceSelectorClause(
 			}
 			requirements, _ := parsedTagSelector.Requirements()
 			for _, r := range requirements {
-				query = tagSelectorRequirementsToSQLClause(query, r)
+				query = jsonColumnRequirementsToSQLClause(query, "tags", r)
 			}
 		}
 	}
@@ -224,7 +223,7 @@ func SetResourceSelectorClause(
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
-			query = labelSelectorRequirementToSQLClause(query, r)
+			query = jsonColumnRequirementsToSQLClause(query, "labels", r)
 		}
 	}
 
@@ -236,7 +235,7 @@ func SetResourceSelectorClause(
 
 		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
-			query = fieldSelectorRequirementToSQLClause(query, r)
+			query = jsonColumnRequirementsToSQLClause(query, "properties", r)
 		}
 	}
 
@@ -319,103 +318,35 @@ func queryResourceSelector(
 	return output, nil
 }
 
-// tagSelectorRequirementsToSQLClause to converts each selector requirement into a gorm SQL clause
-func tagSelectorRequirementsToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
+// jsonColumnRequirementsToSQLClause to converts each selector requirement into a gorm SQL clause for a column
+func jsonColumnRequirementsToSQLClause(q *gorm.DB, column string, r labels.Requirement) *gorm.DB {
 	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
 		for val := range r.Values() {
-			q = q.Where("tags @> ?", types.JSONStringMap{r.Key(): val})
+			q = q.Where(fmt.Sprintf("%s @> ?", column), types.JSONStringMap{r.Key(): val})
 		}
 	case selection.NotEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("tags->>'%s' != ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			q = q.Where(fmt.Sprintf("%s->>'%s' != ?", column, r.Key()), lo.Ternary[any](val == "nil", nil, val))
 		}
 	case selection.In:
-		q = q.Where(fmt.Sprintf("tags->>'%s' IN ?", r.Key()), collections.MapKeys(r.Values()))
+		q = q.Where(fmt.Sprintf("%s->>'%s' IN ?", column, r.Key()), collections.MapKeys(r.Values()))
 	case selection.NotIn:
-		q = q.Where(fmt.Sprintf("tags->>'%s' NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
+		q = q.Where(fmt.Sprintf("%s->>'%s' NOT IN ?", column, r.Key()), collections.MapKeys(r.Values()))
 	case selection.DoesNotExist:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("tags->>'%s' IS NULL", val))
+			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", column, val))
 		}
 	case selection.Exists:
-		q = q.Where("tags ? ?", gorm.Expr("?"), r.Key())
+		q = q.Where(fmt.Sprintf("%s ? ?", column), gorm.Expr("?"), r.Key())
 	case selection.GreaterThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("tags->>'%s' > ?", r.Key()), val)
+			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", column, r.Key()), val)
 		}
 	case selection.LessThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("tags->>'%s' < ?", r.Key()), val)
+			q = q.Where(fmt.Sprintf("%s->>'%s' < ?", column, r.Key()), val)
 		}
-	}
-
-	return q
-}
-
-// labelSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func labelSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
-	switch r.Operator() {
-	case selection.Equals, selection.DoubleEquals:
-		for val := range r.Values() {
-			q = q.Where("labels @> ?", types.JSONStringMap{r.Key(): val})
-		}
-	case selection.NotEquals:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("labels->>'%s' != ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
-		}
-	case selection.In:
-		q = q.Where(fmt.Sprintf("labels->>'%s' IN ?", r.Key()), collections.MapKeys(r.Values()))
-	case selection.NotIn:
-		q = q.Where(fmt.Sprintf("labels->>'%s' NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
-	case selection.DoesNotExist:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("labels->>'%s' IS NULL", val))
-		}
-	case selection.Exists:
-		q = q.Where("labels ? ?", gorm.Expr("?"), r.Key())
-	case selection.GreaterThan:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("labels->>'%s' > ?", r.Key()), val)
-		}
-	case selection.LessThan:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("labels->>'%s' < ?", r.Key()), val)
-		}
-	}
-
-	return q
-}
-
-// fieldSelectorRequirementToSQLClause to converts each selector requirement into a gorm SQL clause
-func fieldSelectorRequirementToSQLClause(q *gorm.DB, r labels.Requirement) *gorm.DB {
-	switch r.Operator() {
-	case selection.Equals, selection.DoubleEquals:
-		for val := range r.Values() {
-			if r.Key() == "external_id" {
-				q = q.Where(fmt.Sprintf("? = ANY(%s)", r.Key()), lo.Ternary[any](val == "nil", nil, val))
-			} else {
-				q = q.Where(fmt.Sprintf("%s = ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
-			}
-		}
-	case selection.NotEquals:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s <> ?", r.Key()), lo.Ternary[any](val == "nil", nil, val))
-		}
-	case selection.In:
-		q = q.Where(fmt.Sprintf("%s IN ?", r.Key()), collections.MapKeys(r.Values()))
-	case selection.NotIn:
-		q = q.Where(fmt.Sprintf("%s NOT IN ?", r.Key()), collections.MapKeys(r.Values()))
-	case selection.GreaterThan:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s > ?", r.Key()), val)
-		}
-	case selection.LessThan:
-		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s < ?", r.Key()), val)
-		}
-	case selection.Exists, selection.DoesNotExist:
-		logger.Warnf("Operators %s is not supported for property lookup", r.Operator())
 	}
 
 	return q

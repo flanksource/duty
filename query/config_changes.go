@@ -329,7 +329,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
-			query = tagSelectorRequirementsToSQLClause(query, r)
+			query = jsonColumnRequirementsToSQLClause(query, "tags", r)
 		}
 	}
 
