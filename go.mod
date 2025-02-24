@@ -62,13 +62,13 @@ require (
 	github.com/timberio/go-datemath v0.1.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zclconf/go-cty v1.15.0
-	go.opentelemetry.io/otel v1.29.0
+	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.28.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.22.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.21.0
-	go.opentelemetry.io/otel/sdk v1.28.0
-	go.opentelemetry.io/otel/trace v1.29.0
+	go.opentelemetry.io/otel/sdk v1.34.0
+	go.opentelemetry.io/otel/trace v1.34.0
 	gocloud.dev v0.40.0
 	golang.org/x/crypto v0.30.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
@@ -241,7 +241,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/robertkrimen/otto v0.3.0 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
@@ -270,13 +270,14 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
-	go.opentelemetry.io/otel/metric v1.29.0 // indirect
+	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.32.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
