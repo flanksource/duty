@@ -396,24 +396,24 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	return client.Client, nil
 }
 
+var localKubernetes *dutyKubernetes.Client
+
 func (k Context) WithLocalKubernetes(client *dutyKubernetes.Client) Context {
-	return k.WithValue("localKubernetes", client)
+	localKubernetes = client
+	return k
 }
 
 func (k *Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
-	if v := k.Value("localKubernetes"); v != nil {
-		if client, ok := v.(*dutyKubernetes.Client); ok {
-			return client, nil
-		}
+	if localKubernetes != nil {
+		return localKubernetes, nil
 	}
 
 	c, rc, err := dutyKubernetes.NewClient(k.Logger)
 	if err != nil {
 		return nil, err
 	}
-	client := dutyKubernetes.NewKubeClient(c, rc)
-	*k = k.WithValue("localKubernetes", client)
-	return client, nil
+	localKubernetes = dutyKubernetes.NewKubeClient(c, rc)
+	return localKubernetes, nil
 }
 
 func (k Context) WithRLSPayload(payload *rls.Payload) Context {
