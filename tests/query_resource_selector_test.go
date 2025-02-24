@@ -185,20 +185,6 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
 		},
 		{
-			description: "field selector | IN Query",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "config_class in (Cluster)"}},
-			},
-			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
-		},
-		{
-			description: "field selector | NOT IN Query",
-			query: query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{FieldSelector: "config_class notin (Node,Deployment,Database,Pod,Cluster)"}},
-			},
-			Configs: []models.ConfigItem{dummy.EC2InstanceA, dummy.EC2InstanceB},
-		},
-		{
 			description: "field selector | Tag selector Equals Query",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{Types: []string{"EKS::Cluster"}, TagSelector: "cluster=aws,account=flanksource"}},
@@ -302,7 +288,7 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 			ginkgo.It(fmt.Sprintf("should work with %d page size", limit), func() {
 				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 					Limit:   limit,
-					Configs: []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
+					Configs: []types.ResourceSelector{{Search: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
 				})
 
 				Expect(err).To(BeNil())
@@ -344,7 +330,7 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 			ginkgo.It(fmt.Sprintf("should work with %d page size", pageSize), func() {
 				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 					Limit:      pageSize,
-					Configs:    []types.ResourceSelector{{FieldSelector: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
+					Configs:    []types.ResourceSelector{{Search: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
 					Components: []types.ResourceSelector{{Types: []string{"Application"}}},
 					Checks:     []types.ResourceSelector{{Types: []string{"http"}, Agent: "all"}},
 				})

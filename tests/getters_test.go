@@ -114,7 +114,7 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		},
 		{
 			Name:      "field selector",
-			Selectors: []types.ResourceSelector{{FieldSelector: "config_class=Deployment"}},
+			Selectors: []types.ResourceSelector{{Search: "config_class=Deployment"}},
 			Results:   []uuid.UUID{dummy.LogisticsUIDeployment.ID, dummy.LogisticsAPIDeployment.ID},
 		},
 	}
