@@ -101,9 +101,10 @@ type QueryModel struct {
 }
 
 var ConfigQueryModel = QueryModel{
-	Table: "configs",
+	Table: models.ConfigItem{}.TableName(),
 	Columns: []string{
 		"name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
+		"created_at", "updated_at", "deleted_at", "last_scraped_time",
 	},
 	JSONMapColumns: []string{"labels", "tags", "config"},
 	HasProperties:  true,
@@ -129,7 +130,7 @@ var ConfigQueryModel = QueryModel{
 }
 
 var ComponentQueryModel = QueryModel{
-	Table: "components",
+	Table: models.Component{}.TableName(),
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"component_config_traverse": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 			// search: component_config_traverse=72143d48-da4a-477f-bac1-1e9decf188a6,outgoing
@@ -147,14 +148,14 @@ var ComponentQueryModel = QueryModel{
 		},
 	},
 	Columns: []string{
-		"name", "namespace", "topology_id", "type", "status", "health",
+		"name", "namespace", "topology_id", "type", "status", "health", "agent_id",
+		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"labels", "summary"},
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
 		"deleted":        "deleted_at",
-		"scraped":        "last_scraped_time",
 		"agent":          "agent_id",
 		"component_type": "type",
 	},
@@ -171,9 +172,10 @@ var ComponentQueryModel = QueryModel{
 }
 
 var CheckQueryModel = QueryModel{
-	Table: "checks",
+	Table: models.Check{}.TableName(),
 	Columns: []string{
-		"name", "namespace", "canary_id", "type", "status",
+		"name", "namespace", "canary_id", "type", "status", "agent_id",
+		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"spec", "labels"},
 	Aliases: map[string]string{
@@ -197,7 +199,7 @@ var CheckQueryModel = QueryModel{
 var PlaybookQueryModel = QueryModel{
 	Table:   models.Playbook{}.TableName(),
 	HasTags: true,
-	Columns: []string{"name", "namespace"},
+	Columns: []string{"name", "namespace", "created_at", "updated_at", "deleted_at"},
 	Aliases: map[string]string{
 		"created": "created_at",
 		"updated": "updated_at",
@@ -296,6 +298,9 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		}
 
 		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
+			if !slices.Contains(qm.Columns, q.Field) {
+				return nil, nil, fmt.Errorf("query for column:%s in table:%s not supported", q.Field, qm.Table)
+			}
 			if c, err := q.ToClauses(); err != nil {
 				return nil, nil, err
 			} else {
