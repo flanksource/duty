@@ -355,7 +355,7 @@ func (k Context) Pool() *pgxpool.Pool {
 
 // KubeAuthFingerprint generates a unique SHA-256 hash to identify the Kubernetes API server
 // and client authentication details from the REST configuration.
-func (k *Context) KubeAuthFingerprint() string {
+func (k Context) KubeAuthFingerprint() string {
 	kc, _ := k.Kubernetes()
 	if kc == nil {
 		return ""
@@ -367,8 +367,12 @@ func (k *Context) KubeAuthFingerprint() string {
 	return dutyKubernetes.RestConfigFingerprint(rc)
 }
 
-func (k *Context) KubernetesConnection() KubernetesConnection {
-	if v, ok := k.Value("kubernetes-connection").(KubernetesConnection); ok {
+func (k Context) KubernetesConnection() KubernetesConnection {
+	val := k.Value("kubernetes-connection")
+	if val == nil {
+		return nil
+	}
+	if v, ok := val.(KubernetesConnection); ok {
 		return v
 	}
 	return nil
@@ -377,9 +381,9 @@ func (k *Context) KubernetesConnection() KubernetesConnection {
 var k8sclientcache = cache.NewCache[*KubernetesClient]("k8s-client-cache", 24*time.Hour)
 
 func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
-	conn, ok := k.Value("kubernetes-connection").(KubernetesConnection)
-	if !ok {
-		return nil, fmt.Errorf("invalid type for KubernetesConnection")
+	conn := k.KubernetesConnection()
+	if conn == nil {
+		return nil, fmt.Errorf("kubernetes connection not set")
 	}
 	connHash := conn.Hash()
 	if client, err := k8sclientcache.Get(k, connHash); err == nil {
@@ -403,7 +407,7 @@ func (k Context) WithLocalKubernetes(client *dutyKubernetes.Client) Context {
 	return k
 }
 
-func (k *Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
+func (k Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
 	if localKubernetes != nil {
 		return localKubernetes, nil
 	}
