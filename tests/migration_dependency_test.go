@@ -5,7 +5,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/migrate"
 )
@@ -93,7 +92,6 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 			funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 			Expect(err).To(BeNil())
 			Expect(len(funcs)).To(BeZero())
-			logger.Infof("%+v VIEWS", views)
 			Expect(len(views)).To(BeZero())
 		}
 	})

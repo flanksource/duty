@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/job"
+	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/models"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,12 +39,19 @@ var _ = Describe("RLS test", Ordered, func() {
 			Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws'").Model(&models.ConfigItem{}).Count(&awsConfigs).Error).To(BeNil())
 
+			sqldb, err := DefaultContext.DB().DB()
+			Expect(err).To(BeNil())
+
+			connString := DefaultContext.Value("db_url").(string)
+			err = migrate.RunMigrations(sqldb, api.Config{ConnectionString: connString, EnableRLS: true})
+			Expect(err).To(BeNil())
+
 			tx = DefaultContext.DB().Begin()
 
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
 			Expect(tx.Exec(`SET LOCAL request.jwt.claims = '{"tags": [{"cluster": "aws"}]}'`).Error).To(BeNil())
 
-			err := job.RefreshConfigItemSummary7d(DefaultContext)
+			err = job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 		})
 
