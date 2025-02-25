@@ -7,9 +7,35 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Policy config items
-ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;
+-- Enable RLS for tables
+DO $$
+BEGIN
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_items') THEN
+        EXECUTE 'ALTER TABLE config_items ENABLE ROW LEVEL SECURITY;';
+    END IF;
 
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_changes') THEN
+        EXECUTE 'ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_analysis') THEN
+        EXECUTE 'ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'components') THEN
+        EXECUTE 'ALTER TABLE components ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_component_relationships') THEN
+        EXECUTE 'ALTER TABLE config_component_relationships ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_relationships') THEN
+        EXECUTE 'ALTER TABLE config_relationships ENABLE ROW LEVEL SECURITY;';
+    END IF;
+END $$;
+
+-- Policy config items
 DROP POLICY IF EXISTS config_items_auth ON config_items;
 
 CREATE POLICY config_items_auth ON config_items
@@ -28,8 +54,6 @@ CREATE POLICY config_items_auth ON config_items
     );
 
 -- Policy config_changes 
-ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 
 CREATE POLICY config_changes_auth ON config_changes
@@ -46,8 +70,6 @@ CREATE POLICY config_changes_auth ON config_changes
     );
 
 -- Policy config_analysis
-ALTER TABLE config_analysis ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 
 CREATE POLICY config_analysis_auth ON config_analysis
@@ -64,8 +86,6 @@ CREATE POLICY config_analysis_auth ON config_analysis
     );
 
 -- Policy config_relationships
-ALTER TABLE config_relationships ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
 
 CREATE POLICY config_relationships_auth ON config_relationships
@@ -81,9 +101,7 @@ CREATE POLICY config_relationships_auth ON config_relationships
       END
     );
 
--- Policy config_relationships
-ALTER TABLE config_component_relationships ENABLE ROW LEVEL SECURITY;
-
+-- Policy config_component_relationships
 DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
 
 CREATE POLICY config_component_relationships_auth ON config_component_relationships
@@ -100,8 +118,6 @@ CREATE POLICY config_component_relationships_auth ON config_component_relationsh
     );
 
 -- Policy components
-ALTER TABLE components ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS components_auth ON components;
 
 CREATE POLICY components_auth ON components

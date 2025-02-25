@@ -42,6 +42,7 @@ type Config struct {
 	LogName                  string
 
 	EnableRLS          bool // Enable Row-level security
+	DisableRLS         bool // Disable Row-level security
 	RunMigrations      bool
 	SkipMigrations     bool
 	SkipMigrationFiles []string
