@@ -40,6 +40,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "035_rls_disable.sql")
 	} else if config.DisableRLS {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql")
+	} else {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql", "035_rls_disable.sql")
 	}
 
