@@ -39,8 +39,13 @@ var _ = Describe("RLS test", Ordered, func() {
 			Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws'").Model(&models.ConfigItem{}).Count(&awsConfigs).Error).To(BeNil())
 
+			Expect(totalConfigs).To(Not(Equal(awsConfigs)))
+
 			sqldb, err := DefaultContext.DB().DB()
 			Expect(err).To(BeNil())
+
+			// The migration_dependency_test can mess with the migration_logs so we clean and run migrations again
+			Expect(DefaultContext.DB().Exec("DELETE FROM migration_logs").Error).To(BeNil())
 
 			connString := DefaultContext.Value("db_url").(string)
 			err = migrate.RunMigrations(sqldb, api.Config{ConnectionString: connString, EnableRLS: true})
