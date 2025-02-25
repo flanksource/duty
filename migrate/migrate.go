@@ -35,12 +35,13 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return errors.New("pool is nil")
 	}
 
+	// RLS enable/disable should always be explicit
 	if config.EnableRLS {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "035_rls_disable.sql")
-		config.MustRun = append(config.MustRun, "034_rls_enable.sql")
-	} else {
+	} else if config.DisableRLS {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql")
-		config.MustRun = append(config.MustRun, "035_rls_disable.sql")
+	} else {
+		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql", "035_rls_disable.sql")
 	}
 
 	row := pool.QueryRow("SELECT current_database();")

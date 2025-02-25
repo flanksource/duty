@@ -72,7 +72,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		sqlDB, err := DefaultContext.DB().DB()
 		Expect(err).To(BeNil())
 
-		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"035_rls_disable.sql"})
+		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"034_rls_enable.sql", "035_rls_disable.sql"})
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
 		Expect(len(views)).To(Equal(2))
@@ -82,10 +82,10 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 
 		{
 			// run the migrations again to ensure that the hashes are repopulated
-			err := migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString})
+			err := migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString, DisableRLS: true})
 			Expect(err).To(BeNil())
 
-			// at the end, there should be no scrips to apply
+			// at the end, there should be no scripts to apply
 			db, err := DefaultContext.DB().DB()
 			Expect(err).To(BeNil())
 
