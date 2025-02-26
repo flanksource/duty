@@ -34,10 +34,11 @@ type Notification struct {
 	CustomServices types.JSON `json:"custom_services,omitempty" gorm:"column:custom_services"`
 
 	// Fallback Receipients
-	FallbackPlaybookID     *uuid.UUID `json:"fallback_playbook_id,omitempty"`
-	FallbackPersonID       *uuid.UUID `json:"fallback_person_id,omitempty"`
-	FallbackTeamID         *uuid.UUID `json:"fallback_team_id,omitempty"`
-	FallbackCustomServices types.JSON `json:"fallback_custom_services,omitempty"`
+	FallbackPlaybookID     *uuid.UUID     `json:"fallback_playbook_id,omitempty"`
+	FallbackPersonID       *uuid.UUID     `json:"fallback_person_id,omitempty"`
+	FallbackTeamID         *uuid.UUID     `json:"fallback_team_id,omitempty"`
+	FallbackCustomServices types.JSON     `json:"fallback_custom_services,omitempty"`
+	FallbackDelay          *time.Duration `json:"fallback_delay,omitempty"`
 
 	// Duration to wait before re-evaluating health of the resource.
 	WaitFor *time.Duration `json:"wait_for,omitempty"`
@@ -140,7 +141,8 @@ type NotificationSendHistory struct {
 	// Hash for grouping resources with same message
 	GroupByHash string `json:"group_by_hash,omitempty"`
 
-	IsFallback bool `json:"is_fallback,omitempty"`
+	// ID of the original send history this notification history is a fallback of.
+	ParentID *uuid.UUID `json:"parent_id,omitempty"`
 
 	timeStart time.Time
 }
