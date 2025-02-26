@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
@@ -21,10 +21,7 @@ import (
 )
 
 // Maintained by a job
-var allTypesCache struct {
-	Types []string
-	lock  sync.RWMutex
-}
+var allTypesCache atomic.Value
 
 var DateMapper = func(ctx context.Context, val string) (any, error) {
 	if expr, err := datemath.Parse(val); err != nil {
@@ -315,14 +312,14 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 				// e.g. search query "type=POD" should match "Kubernetes::Pod"
 
 				matchPattern := fmt.Sprintf("*%s", strings.ToLower(q.Value.(string)))
-				allTypesCache.lock.RLock()
-				for _, resourceType := range allTypesCache.Types {
-					if collections.MatchItems(strings.ToLower(resourceType), matchPattern) {
-						q.Value = resourceType
-						break
+				if aValue := allTypesCache.Load(); aValue != nil {
+					for _, resourceType := range aValue.([]string) {
+						if collections.MatchItems(strings.ToLower(resourceType), matchPattern) {
+							q.Value = resourceType
+							break
+						}
 					}
 				}
-				allTypesCache.lock.RUnlock()
 			}
 
 			if c, err := q.ToClauses(); err != nil {
