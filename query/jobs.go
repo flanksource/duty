@@ -29,7 +29,9 @@ var updateTypesCache = &job.Job{
 			return err
 		}
 
-		allTypesCache.SetDefault("allTypes", types)
+		allTypesCache.lock.Lock()
+		allTypesCache.Types = types
+		allTypesCache.lock.Unlock()
 		return nil
 	},
 }
