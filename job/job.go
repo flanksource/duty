@@ -109,9 +109,16 @@ var RetentionHigh = Retention{
 
 type Job struct {
 	context.Context
+	entryID     *cron.EntryID
+	lock        *sync.Mutex
+	initialized bool
+	unschedule  func()
+	statusRing  StatusRing
+
 	Name                     string
 	Schedule                 string
 	Singleton                bool
+	JitterDisable            bool
 	Debug, Trace             bool
 	Timeout                  time.Duration
 	Fn                       func(ctx JobRuntime) error
@@ -120,14 +127,9 @@ type Job struct {
 	ID                       string
 	ResourceID, ResourceType string
 	IgnoreSuccessHistory     bool
-	entryID                  *cron.EntryID
-	lock                     *sync.Mutex
 	lastHistoryCleanup       time.Time
 	Retention                Retention
 	LastJob                  *models.JobHistory
-	initialized              bool
-	unschedule               func()
-	statusRing               StatusRing
 
 	// Semaphores control concurrent execution of related jobs.
 	// They are acquired sequentially and released in reverse order.
@@ -356,7 +358,7 @@ func (j *Job) SetID(id string) *Job {
 }
 
 func (j *Job) Run() {
-	if !j.Context.Properties().On(false, "job.jitter.disable") && j.Schedule != "" {
+	if !j.Context.Properties().On(false, "job.jitter.disable") && !j.JitterDisable && j.Schedule != "" {
 		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
 		// NOTE: Only works for fixed interval schedules.
 		parsedSchedule, err := cron.ParseStandard(j.Schedule)
