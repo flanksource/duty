@@ -79,6 +79,11 @@ table "notifications" {
     type    = jsonb
     comment = "other 3rd party services for the notification like Slack, Telegram, ..."
   }
+  column "fallback_delay" {
+    null    = true
+    type    = bigint
+    comment = "duration in nanoseconds"
+  }
   column "fallback_custom_services" {
     null    = true
     type    = jsonb
@@ -242,13 +247,19 @@ table "notification_send_history" {
     null    = false
     default = ""
   }
-  column "is_fallback" {
+  column "parent_id" {
     null    = true
     default = null
-    type    = bool
+    type    = uuid
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "parent_id_fkey" {
+    columns     = [column.parent_id]
+    ref_columns = [table.notification_send_history.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "notification_id_fkey" {
     columns     = [column.notification_id]
