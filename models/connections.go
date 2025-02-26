@@ -38,6 +38,7 @@ const (
 	ConnectionTypeGCPKMS         = "gcp_kms"
 	ConnectionTypeGCS            = "gcs"
 	ConnectionTypeGenericWebhook = "generic_webhook"
+	ConnectionTypeGemini         = "gemini"
 	ConnectionTypeGit            = "git"
 	ConnectionTypeGithub         = "github"
 	ConnectionTypeGitlab         = "gitlab"
