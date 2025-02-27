@@ -254,6 +254,7 @@ type KubernetesConnection interface {
 	Populate(Context, bool) (kubernetes.Interface, *rest.Config, error)
 	Hash() string
 	CanExpire() bool
+	String() string
 }
 
 func (k Context) WithKubernetes(conn KubernetesConnection) Context {

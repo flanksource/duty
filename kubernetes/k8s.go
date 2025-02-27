@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
 	"gopkg.in/yaml.v2"
@@ -29,7 +30,7 @@ var sensitiveUrls = []*regexp.Regexp{
 	regexp.MustCompile("/api/v1/namespaces/.*/serviceaccounts/default/token"),
 }
 
-var kubeCache = cache.NewCache[kubeCacheData]("kube-clients", time.Hour)
+var kubeCache = cache.NewCache[kubeCacheData]("kube-clients", properties.Duration(time.Hour, "kubernetes.client-cache.timeout"))
 
 type kubeCacheData struct {
 	Client kubernetes.Interface
@@ -55,7 +56,7 @@ func cacheResult(
 	return k, c, e
 }
 
-func NewClient(logger logger.Logger, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
+func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
 	if len(kubeconfigPaths) == 0 {
 		kubeconfigPaths = []string{os.Getenv("KUBECONFIG"), os.ExpandEnv("$HOME/.kube/config")}
 	}
@@ -68,8 +69,8 @@ func NewClient(logger logger.Logger, kubeconfigPaths ...string) (kubernetes.Inte
 			if configBytes, err := os.ReadFile(path); err != nil {
 				return nil, nil, err
 			} else {
-				logger.Infof("Using kubeconfig %s", path)
-				client, config, err := NewClientWithConfig(logger, configBytes)
+				log.Infof("Using kubeconfig %s", path)
+				client, config, err := NewClientWithConfig(log, configBytes)
 				return cacheResult(path, client, config, err)
 			}
 		}
@@ -81,7 +82,7 @@ func NewClient(logger logger.Logger, kubeconfigPaths ...string) (kubernetes.Inte
 	}
 
 	if config, err := rest.InClusterConfig(); err == nil {
-		client, err := kubernetes.NewForConfig(trace(logger, config))
+		client, err := kubernetes.NewForConfig(trace(log, config))
 		return cacheResult(inCluster, client, config, err)
 	}
 	return Nil, nil, nil
@@ -128,10 +129,10 @@ func NewClientFromPathOrConfig(
 }
 
 func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
+	clogger.Infof("creating new client-go for %s ", config.Host)
 	if clogger.IsLevelEnabled(7) {
 		clogger.Infof("tracing kubernetes API calls")
 		logger := &httpretty.Logger{
-
 			Time:           true,
 			TLS:            clogger.IsLevelEnabled(8),
 			RequestHeader:  true,

@@ -3,14 +3,14 @@ package connection
 import (
 	"fmt"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // +kubebuilder:object:generate=true
@@ -54,6 +54,40 @@ type KubernetesConnection struct {
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
 }
 
+// String returns a human readable string representation of the KubernetesConnection
+func (c KubernetesConnection) String() string {
+	if c.ConnectionName != "" {
+		return "connection://" + c.ConnectionName
+	}
+	if c.Kubeconfig != nil {
+		if c.Kubeconfig.ValueStatic != "" {
+			config, err := clientcmd.Load([]byte(c.Kubeconfig.ValueStatic))
+			if err == nil {
+				if !lo.Contains([]string{"", "default", "gke_default", "kubernetes"}, config.CurrentContext) {
+					// context name is usually more descriptive
+					return "kubeconfig://" + config.CurrentContext
+				}
+				for k, _ := range config.Clusters {
+					return "kubeconfig://" + k
+				}
+			}
+		}
+		return "kubeconfig://" + c.Kubeconfig.String()
+	}
+	if c.EKS != nil {
+		return fmt.Sprintf("eks://%s", c.EKS.Cluster)
+	}
+	if c.GKE != nil {
+		return fmt.Sprintf("gke://%s", c.GKE.Cluster)
+	}
+	if c.CNRM != nil {
+		return fmt.Sprintf("cnrm://%s", c.CNRM.ClusterResource)
+	}
+	return "local://"
+
+}
+
+// Hash returns a unique identifier of a KubernetesConnection, suitable for caching
 func (c KubernetesConnection) Hash() string {
 	if c.ConnectionName != "" {
 		return "connection=" + c.ConnectionName
