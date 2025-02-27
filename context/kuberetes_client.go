@@ -35,7 +35,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	}
 
 	client.SetExpiry(defaultExpiry)
-	client.logger.Infof("created new client for %s with expiry: %s", rc.Host, client.expiry)
+	client.logger.Infof("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry)
 	return client, nil
 }
 

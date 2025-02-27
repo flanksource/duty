@@ -47,7 +47,7 @@ func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 		Interface:      client,
 		Config:         config,
 		gvkClientCache: cache.NewCache[dynamic.NamespaceableResourceInterface]("gvk-cache", 24*time.Hour),
-		logger:         logger.GetLogger("k8s").Named(config.Host),
+		logger:         logger.GetLogger("k8s").Named(lo.FromPtr(config).Host),
 	}
 }
 

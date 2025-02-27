@@ -67,7 +67,7 @@ func (c KubernetesConnection) String() string {
 					// context name is usually more descriptive
 					return "kubeconfig://" + config.CurrentContext
 				}
-				for k, _ := range config.Clusters {
+				for k := range config.Clusters {
 					return "kubeconfig://" + k
 				}
 			}
