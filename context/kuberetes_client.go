@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/samber/lo"
@@ -13,6 +14,7 @@ type KubernetesClient struct {
 	*dutyKubernetes.Client
 	Connection KubernetesConnection
 	expiry     time.Time
+	logger     logger.Logger
 }
 
 var defaultExpiry = 15 * time.Minute
@@ -25,9 +27,15 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	client := &KubernetesClient{
 		Client:     dutyKubernetes.NewKubeClient(c, rc),
 		Connection: conn,
+		logger:     logger.GetLogger("k8s").Named(conn.String()),
+	}
+
+	if client.logger.IsLevelEnabled(logger.Trace1) {
+		client.logger.V(logger.Trace1).Infof(logger.Stacktrace())
 	}
 
 	client.SetExpiry(defaultExpiry)
+	client.logger.Infof("created new client for %s with expiry: %s", rc.Host, client.expiry)
 	return client, nil
 }
 
@@ -42,6 +50,7 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) error {
 	if !c.HasExpired() {
+		c.logger.Tracef("Skipping refresh, client has not expired")
 		return nil
 	}
 	_, rc, err := c.Connection.Populate(ctx, true)
@@ -58,6 +67,7 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	c.Config.Password = rc.Password
 
 	c.SetExpiry(defaultExpiry)
+	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
 	return nil
 }
 

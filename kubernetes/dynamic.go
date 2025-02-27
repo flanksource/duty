@@ -39,6 +39,7 @@ type Client struct {
 	dynamicClient  *dynamic.DynamicClient
 	Config         *rest.Config // Prefer updaating token in place
 	gvkClientCache cachev4.CacheInterface[dynamic.NamespaceableResourceInterface]
+	logger         logger.Logger
 }
 
 func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
@@ -46,6 +47,7 @@ func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 		Interface:      client,
 		Config:         config,
 		gvkClientCache: cache.NewCache[dynamic.NamespaceableResourceInterface]("gvk-cache", 24*time.Hour),
+		logger:         logger.GetLogger("k8s").Named(config.Host),
 	}
 }
 
@@ -174,6 +176,7 @@ func (c *Client) GetDynamicClient() (dynamic.Interface, error) {
 		return c.dynamicClient, nil
 	}
 
+	c.logger.Debugf("creating new dynamic client")
 	var err error
 	c.dynamicClient, err = dynamic.NewForConfig(c.Config)
 	return c.dynamicClient, err
@@ -190,11 +193,13 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
+	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
+	c.logger.Debugf("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,
 		cacheDir,
-		"",
-		properties.Duration(10*time.Minute, "kubernetes.cache.timeout"),
+		cacheDir,
+		timeout,
 	)
 	if err != nil {
 		return nil, err
