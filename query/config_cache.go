@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	gocache "github.com/patrickmn/go-cache"
 
@@ -111,14 +110,4 @@ func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, err
 
 func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
 	return configRelationCache.Get(ctx, configRelationCacheKey(id))
-}
-
-var SyncConfigCacheJob = &job.Job{
-	Name:       "SyncConfigCache",
-	Schedule:   "@every 5m",
-	JobHistory: true,
-	Retention:  job.RetentionFew,
-	Fn: func(ctx job.JobRuntime) error {
-		return SyncConfigCache(ctx.Context)
-	},
 }

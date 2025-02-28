@@ -5,7 +5,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
@@ -17,6 +19,9 @@ import (
 
 	"gorm.io/gorm/clause"
 )
+
+// Maintained by a job
+var allTypesCache atomic.Value
 
 var DateMapper = func(ctx context.Context, val string) (any, error) {
 	if expr, err := datemath.Parse(val); err != nil {
@@ -301,6 +306,22 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 			if !slices.Contains(qm.Columns, q.Field) {
 				return nil, nil, fmt.Errorf("query for column:%s in table:%s not supported", q.Field, qm.Table)
 			}
+
+			if q.Field == "type" {
+				// allow case-insensitive suffix matching on the "type" field
+				// e.g. search query "type=POD" should match "Kubernetes::Pod"
+
+				matchPattern := fmt.Sprintf("*%s", strings.ToLower(q.Value.(string)))
+				if aValue := allTypesCache.Load(); aValue != nil {
+					for _, resourceType := range aValue.([]string) {
+						if collections.MatchItems(strings.ToLower(resourceType), matchPattern) {
+							q.Value = resourceType
+							break
+						}
+					}
+				}
+			}
+
 			if c, err := q.ToClauses(); err != nil {
 				return nil, nil, err
 			} else {
