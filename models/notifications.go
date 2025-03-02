@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // Notification represents the notifications table
@@ -51,6 +52,10 @@ type Notification struct {
 	Error *string `json:"error,omitempty"`
 }
 
+func (n Notification) HasFallbackSet() bool {
+	return n.FallbackTeamID != nil || n.FallbackPersonID != nil || len(n.FallbackCustomServices) != 0 || n.FallbackPlaybookID != nil
+}
+
 func (n Notification) TableName() string {
 	return "notifications"
 }
@@ -85,10 +90,7 @@ const (
 	// to wait for the incremental scraper to re-evaluate the health.
 	NotificationStatusEvaluatingWaitFor = "evaluating-waitfor"
 
-	// Checking fallback channel configuration after primary channel failure
-	NotificationStatusCheckingFallback = "checking_fallback"
-
-	// Attempting delivery through fallback channel
+	// Attempting delivery through a fallback channel
 	NotificationStatusAttemptingFallback = "attempting_fallback"
 )
 
@@ -225,4 +227,44 @@ func (n NotificationSilence) AsMap(removeFields ...string) map[string]any {
 
 func (t *NotificationSilence) TableName() string {
 	return "notification_silences"
+}
+
+// GenerateFallbackAttempt creates a new notification history record
+// based on the provided history for retrying with fallback recipients.
+func GenerateFallbackAttempt(db *gorm.DB, notification Notification, history NotificationSendHistory) error {
+	// We need to create a new payload whose recipient points towards the fallback recipients
+	payload := make(types.JSONStringMap)
+	for k, v := range history.Payload {
+		payload[k] = v
+	}
+
+	if notification.FallbackTeamID != nil {
+		payload["team_id"] = notification.FallbackTeamID.String()
+	}
+	if notification.FallbackPersonID != nil {
+		payload["person_id"] = notification.FallbackPersonID.String()
+	}
+	if notification.FallbackPlaybookID != nil {
+		payload["playbook_id"] = notification.FallbackPlaybookID.String()
+	}
+	if len(notification.CustomServices) != 0 {
+		payload["custom_service"] = string(notification.FallbackCustomServices)
+	}
+
+	newHistory := NotificationSendHistory{
+		Payload:        payload,
+		NotificationID: history.NotificationID,
+		Status:         NotificationStatusAttemptingFallback,
+		FirstObserved:  history.FirstObserved,
+		SourceEvent:    history.SourceEvent,
+		ParentID:       &history.ID,
+		ResourceID:     history.ResourceID,
+		NotBefore:      lo.ToPtr(time.Now()),
+	}
+
+	if notification.FallbackDelay != nil {
+		newHistory.NotBefore = lo.ToPtr(time.Now().Add(*notification.FallbackDelay))
+	}
+
+	return db.Create(&newHistory).Error
 }
