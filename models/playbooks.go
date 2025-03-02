@@ -273,7 +273,7 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 	if p.NotificationSendID != nil {
 		updates := map[string]any{}
 		if status == PlaybookRunStatusFailed {
-			updates["status"] = NotificationStatusCheckingFallback
+			updates["status"] = NotificationStatusError
 			updates["error"] = "playbook failed"
 		} else {
 			updates["status"] = NotificationStatusSent
@@ -281,6 +281,21 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 
 		if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
 			return err
+		}
+
+		var notif Notification
+		var sendHistory NotificationSendHistory
+		if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
+			return fmt.Errorf("failed to get notification send history: %w", err)
+		}
+		if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
+			return fmt.Errorf("failed to get notification: %w", err)
+		}
+
+		if notif.HasFallbackSet() {
+			if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
+				return fmt.Errorf("failed to generate fallback attempt: %w", err)
+			}
 		}
 	}
 
