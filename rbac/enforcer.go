@@ -28,7 +28,7 @@ var DefaultModel string
 
 type Adapter func(db *gorm.DB, main *gormadapter.Adapter) persist.Adapter
 
-func Init(ctx context.Context, adminUserID string, adapters ...Adapter) error {
+func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error {
 	model, err := model.NewModelFromString(DefaultModel)
 	if err != nil {
 		return fmt.Errorf("error creating rbac model: %v", err)
@@ -79,8 +79,8 @@ func Init(ctx context.Context, adminUserID string, adapters ...Adapter) error {
 
 	AddCustomFunctions(enforcer)
 
-	if adminUserID != "" {
-		if _, err := enforcer.AddRoleForUser(adminUserID, policy.RoleAdmin); err != nil {
+	for _, userID := range superUserIDs {
+		if _, err := enforcer.AddRoleForUser(userID, policy.RoleAdmin); err != nil {
 			return fmt.Errorf("error adding role for admin user: %v", err)
 		}
 	}
