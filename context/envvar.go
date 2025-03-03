@@ -72,7 +72,7 @@ func GetEnvStringFromCache(ctx Context, env string, namespace string) (string, e
 }
 
 func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (string, error) {
-	id := fmt.Sprintf("helm/%s/%s/%s/%s", ctx.KubeAuthFingerprint(), namespace, releaseName, key)
+	id := fmt.Sprintf("helm/%s/%s/%s", namespace, releaseName, key)
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
@@ -161,7 +161,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 }
 
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("secret/%s/%s/%s/%s", ctx.KubeAuthFingerprint(), namespace, name, key)
+	id := fmt.Sprintf("secret/%s/%s/%s", namespace, name, key)
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
@@ -189,7 +189,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 }
 
 func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("cm/%s/%s/%s/%s", ctx.KubeAuthFingerprint(), namespace, name, key)
+	id := fmt.Sprintf("cm/%s/%s/%s", namespace, name, key)
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
@@ -215,7 +215,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 }
 
 func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount string) (string, error) {
-	id := fmt.Sprintf("sa-token/%s/%s/%s", ctx.KubeAuthFingerprint(), namespace, serviceAccount)
+	id := fmt.Sprintf("sa-token/%s/%s", namespace, serviceAccount)
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
