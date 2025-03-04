@@ -59,6 +59,10 @@ table "notifications" {
     null = true
     type = text
   }
+  column "inhibitions" {
+    null    = true
+    type    = jsonb
+  }
   column "wait_for" {
     null    = true
     type    = bigint

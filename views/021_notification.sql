@@ -53,8 +53,8 @@ CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (
 DECLARE
   v_existing_id uuid;
 BEGIN
-  IF p_status NOT IN ('silenced', 'repeat-interval') THEN
-    RAISE EXCEPTION 'Status must be silenced or repeat-interval';
+  IF p_status NOT IN ('silenced', 'inhibited', 'repeat-interval') THEN
+    RAISE EXCEPTION 'Status must be silenced, inhibited or repeat-interval';
   END IF;
 
   SELECT
