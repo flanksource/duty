@@ -46,7 +46,8 @@ CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (
   p_resource_id uuid, 
   p_status text, 
   p_window interval,
-  p_silenced_by uuid DEFAULT NULL
+  p_silenced_by uuid DEFAULT NULL,
+  p_parent_id uuid DEFAULT NULL
 )
   RETURNS VOID
   AS $$
@@ -80,8 +81,8 @@ BEGIN
     WHERE
       id = v_existing_id;
   ELSE
-    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id, silenced_by)
-      VALUES (p_notification_id, p_status, p_source_event, p_resource_id, p_silenced_by);
+    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id, parent_id, silenced_by)
+      VALUES (p_notification_id, p_status, p_source_event, p_resource_id, p_parent_id, p_silenced_by);
   END IF;
 END;
 $$
