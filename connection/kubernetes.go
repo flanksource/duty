@@ -111,7 +111,7 @@ func (c KubernetesConnection) CanExpire() bool {
 	return c.EKS != nil ||
 		c.GKE != nil ||
 		c.CNRM != nil ||
-		lo.FromPtr(c.Kubeconfig).ValueStatic == ""
+		lo.FromPtr(c.Kubeconfig).ValueFrom != nil
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
