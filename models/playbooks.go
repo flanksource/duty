@@ -292,7 +292,7 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 			return fmt.Errorf("failed to get notification: %w", err)
 		}
 
-		if notif.HasFallbackSet() {
+		if status == PlaybookRunStatusFailed && notif.HasFallbackSet() {
 			if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
 				return fmt.Errorf("failed to generate fallback attempt: %w", err)
 			}
