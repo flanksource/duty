@@ -59,32 +59,28 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	}
 
 	doRefresh := false
-	// Update rest config in place for easy reuse
-	c.Config.Host = rc.Host
-	c.Config.TLSClientConfig = rc.TLSClientConfig
-	if c.Config.BearerToken != rc.BearerToken {
-		logger.Infof("=== BEARER TOKEN UPDATED FOR host: %s", c.Config.Host)
-		doRefresh = true
-		c.Config.BearerToken = rc.BearerToken
-	}
-	if c.Config.Password != rc.Password {
+	if c.Config.BearerToken != rc.BearerToken || c.Config.Password != rc.Password {
+		logger.Infof("=== BEARER TOKEN/PASSWORD UPDATED FOR host: %s", c.Config.Host)
 		doRefresh = true
 	}
 
+	// Update rest config in place for easy reuse
+	c.Config.Host = rc.Host
+	c.Config.TLSClientConfig = rc.TLSClientConfig
+	c.Config.BearerToken = rc.BearerToken
 	c.Config.BearerTokenFile = rc.BearerTokenFile
 	c.Config.Username = rc.Username
 	c.Config.Password = rc.Password
 
 	logger.Infof("Host %s", rc.Host)
 	logger.Infof("BearerToken %+v", rc.BearerToken)
-	logger.Infof("Address of bt in Refresh is %p", &c.Client.Config.BearerToken)
 
 	if doRefresh {
 		logger.Infof("Refreshing client for host %s", rc.Host)
-		c.Client.Interface = client
-		c.Client.Refresh()
+		c.Client.Reset()
 	}
 
+	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
 	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
 	return nil

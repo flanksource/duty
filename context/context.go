@@ -391,7 +391,6 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 		if err := client.Refresh(k); err != nil {
 			return nil, err
 		}
-		logger.Infof("Address of bt in context is %p", &client.Client.Config.BearerToken)
 		return client.Client, nil
 	}
 	client, err := NewKubernetesClient(k, conn)

@@ -51,14 +51,8 @@ func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 	}
 }
 
-func (c *Client) Refresh() {
-	if properties.On(false, "reset.restmapper") {
-		c.restMapper = nil
-	}
+func (c *Client) Reset() {
 	c.dynamicClient = nil
-	if properties.On(false, "reset.gvkcache") {
-		c.gvkClientResourceCache.Clear(context.Background())
-	}
 }
 
 func (c *Client) FetchResources(

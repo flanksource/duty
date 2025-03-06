@@ -110,15 +110,10 @@ func (c KubernetesConnection) Hash() string {
 }
 
 func (c KubernetesConnection) CanExpire() bool {
-	logger.Infof("In CanExpire c.Kubeconfig is %s", c.Kubeconfig)
-	logger.Infof("In CanExpire c.Kubeconfig.ValueStatic is %s", lo.FromPtr(c.Kubeconfig).ValueStatic)
-	logger.Infof("In CanExpire c.Kubeconfig.ValueFrom is %s", lo.FromPtr(c.Kubeconfig).ValueFrom)
-	z := c.EKS != nil ||
+	return c.EKS != nil ||
 		c.GKE != nil ||
 		c.CNRM != nil ||
 		lo.FromPtr(c.Kubeconfig).ValueFrom != nil
-	logger.Infof("In CanExpire c.Kubeconfig.ValueFrom is %s retval=%v", lo.FromPtr(c.Kubeconfig).ValueFrom, z)
-	return z
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {
