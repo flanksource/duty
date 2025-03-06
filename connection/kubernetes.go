@@ -3,6 +3,7 @@ package connection
 import (
 	"fmt"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -37,6 +38,7 @@ func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfac
 			return nil, nil, err
 		} else {
 			t.Kubeconfig.ValueStatic = v
+			logger.Infof("KUBECONFIG val is %v", t.Kubeconfig.ValueStatic)
 		}
 
 		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
@@ -108,10 +110,15 @@ func (c KubernetesConnection) Hash() string {
 }
 
 func (c KubernetesConnection) CanExpire() bool {
-	return c.EKS != nil ||
+	logger.Infof("In CanExpire c.Kubeconfig is %s", c.Kubeconfig)
+	logger.Infof("In CanExpire c.Kubeconfig.ValueStatic is %s", lo.FromPtr(c.Kubeconfig).ValueStatic)
+	logger.Infof("In CanExpire c.Kubeconfig.ValueFrom is %s", lo.FromPtr(c.Kubeconfig).ValueFrom)
+	z := c.EKS != nil ||
 		c.GKE != nil ||
 		c.CNRM != nil ||
 		lo.FromPtr(c.Kubeconfig).ValueFrom != nil
+	logger.Infof("In CanExpire c.Kubeconfig.ValueFrom is %s retval=%v", lo.FromPtr(c.Kubeconfig).ValueFrom, z)
+	return z
 }
 
 func (t KubernetesConnection) ToModel() models.Connection {

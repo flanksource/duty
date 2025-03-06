@@ -89,7 +89,6 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 }
 
 func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
-
 	if cached, _ := kubeCache.Get(context.TODO(), string(kubeConfig)); cached.Config != nil {
 		return cached.Client, cached.Config, nil
 	}

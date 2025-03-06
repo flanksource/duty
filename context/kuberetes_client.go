@@ -17,7 +17,7 @@ type KubernetesClient struct {
 	logger     logger.Logger
 }
 
-var defaultExpiry = 15 * time.Minute
+var defaultExpiry = 1 * time.Minute
 
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
 	c, rc, err := conn.Populate(ctx, true)
@@ -50,21 +50,40 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) error {
 	if !c.HasExpired() {
-		c.logger.Tracef("Skipping refresh, client has not expired")
+		c.logger.Infof("Skipping refresh, client has not expired %s", c.Config.Host)
 		return nil
 	}
-	_, rc, err := c.Connection.Populate(ctx, true)
+	client, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
 		return fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
 
+	doRefresh := false
 	// Update rest config in place for easy reuse
 	c.Config.Host = rc.Host
 	c.Config.TLSClientConfig = rc.TLSClientConfig
-	c.Config.BearerToken = rc.BearerToken
+	if c.Config.BearerToken != rc.BearerToken {
+		logger.Infof("=== BEARER TOKEN UPDATED FOR host: %s", c.Config.Host)
+		doRefresh = true
+		c.Config.BearerToken = rc.BearerToken
+	}
+	if c.Config.Password != rc.Password {
+		doRefresh = true
+	}
+
 	c.Config.BearerTokenFile = rc.BearerTokenFile
 	c.Config.Username = rc.Username
 	c.Config.Password = rc.Password
+
+	logger.Infof("Host %s", rc.Host)
+	logger.Infof("BearerToken %+v", rc.BearerToken)
+	logger.Infof("Address of bt in Refresh is %p", &c.Client.Config.BearerToken)
+
+	if doRefresh {
+		logger.Infof("Refreshing client for host %s", rc.Host)
+		c.Client.Interface = client
+		c.Client.Refresh()
+	}
 
 	c.SetExpiry(defaultExpiry)
 	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
@@ -74,7 +93,9 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 func (c KubernetesClient) HasExpired() bool {
 	if c.Connection.CanExpire() && !c.expiry.IsZero() {
 		// We give a 1 minute window as a buffer
-		return time.Until(c.expiry) <= time.Minute
+		g := time.Until(c.expiry) <= time.Minute
+		logger.Infof("Has expired for %s is %v", c.RestConfig().Host, g)
+		return g
 	}
 	return false
 }

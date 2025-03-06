@@ -51,6 +51,16 @@ func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 	}
 }
 
+func (c *Client) Refresh() {
+	if properties.On(false, "reset.restmapper") {
+		c.restMapper = nil
+	}
+	c.dynamicClient = nil
+	if properties.On(false, "reset.gvkcache") {
+		c.gvkClientCache.Clear(context.Background())
+	}
+}
+
 func (c *Client) FetchResources(
 	ctx context.Context,
 	resources ...unstructured.Unstructured,
@@ -193,12 +203,12 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
-	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
-	c.logger.Debugf("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
+	timeout := properties.Duration(1*time.Minute, "kubernetes.cache.timeout")
+	c.logger.Infof("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,
 		cacheDir,
-		cacheDir,
+		"",
 		timeout,
 	)
 	if err != nil {
