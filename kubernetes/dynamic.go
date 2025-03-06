@@ -35,19 +35,19 @@ import (
 
 type Client struct {
 	kubernetes.Interface
-	restMapper     *restmapper.DeferredDiscoveryRESTMapper
-	dynamicClient  *dynamic.DynamicClient
-	Config         *rest.Config // Prefer updaating token in place
-	gvkClientCache cachev4.CacheInterface[dynamic.NamespaceableResourceInterface]
-	logger         logger.Logger
+	restMapper             *restmapper.DeferredDiscoveryRESTMapper
+	dynamicClient          *dynamic.DynamicClient
+	Config                 *rest.Config // Prefer updaating token in place
+	gvkClientResourceCache cachev4.CacheInterface[schema.GroupVersionResource]
+	logger                 logger.Logger
 }
 
 func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
 	return &Client{
-		Interface:      client,
-		Config:         config,
-		gvkClientCache: cache.NewCache[dynamic.NamespaceableResourceInterface]("gvk-cache", 24*time.Hour),
-		logger:         logger.GetLogger("k8s").Named(lo.FromPtr(config).Host),
+		Interface:              client,
+		Config:                 config,
+		gvkClientResourceCache: cache.NewCache[schema.GroupVersionResource]("gvk-cache", 24*time.Hour),
+		logger:                 logger.GetLogger("k8s").Named(lo.FromPtr(config).Host),
 	}
 }
 
@@ -57,7 +57,7 @@ func (c *Client) Refresh() {
 	}
 	c.dynamicClient = nil
 	if properties.On(false, "reset.gvkcache") {
-		c.gvkClientCache.Clear(context.Background())
+		c.gvkClientResourceCache.Clear(context.Background())
 	}
 }
 
@@ -105,14 +105,14 @@ func (c *Client) FetchResources(
 func (c *Client) GetClientByGroupVersionKind(
 	ctx context.Context, group, version, kind string,
 ) (dynamic.NamespaceableResourceInterface, error) {
-	cacheKey := group + version + kind
-	if dynamicClient, err := c.gvkClientCache.Get(ctx, cacheKey); err == nil {
-		return dynamicClient, nil
-	}
-
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
 		return nil, err
+	}
+
+	cacheKey := group + version + kind
+	if res, err := c.gvkClientResourceCache.Get(ctx, cacheKey); err == nil {
+		return dynamicClient.Resource(res), nil
 	}
 
 	rm, _ := c.GetRestMapper()
@@ -131,9 +131,8 @@ func (c *Client) GetClientByGroupVersionKind(
 		return nil, err
 	}
 
-	gvkClient := dynamicClient.Resource(mapping.Resource)
-	_ = c.gvkClientCache.Set(ctx, cacheKey, gvkClient)
-	return gvkClient, nil
+	_ = c.gvkClientResourceCache.Set(ctx, cacheKey, mapping.Resource)
+	return dynamicClient.Resource(mapping.Resource), nil
 }
 
 func (c *Client) RestConfig() *rest.Config {
@@ -150,6 +149,9 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 	if err != nil {
 		return nil, err
 	}
+	if res, err := c.gvkClientResourceCache.Get(context.Background(), kind); err == nil {
+		return dynamicClient.Resource(res), nil
+	}
 	rm, _ := c.GetRestMapper()
 	gvk, err := rm.KindFor(schema.GroupVersionResource{
 		Resource: kind,
@@ -162,6 +164,7 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 	if err != nil {
 		return nil, err
 	}
+	_ = c.gvkClientResourceCache.Set(context.Background(), kind, mapping.Resource)
 	return dynamicClient.Resource(mapping.Resource), nil
 }
 
@@ -203,7 +206,7 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
-	timeout := properties.Duration(1*time.Minute, "kubernetes.cache.timeout")
+	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
 	c.logger.Infof("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,

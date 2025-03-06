@@ -94,7 +94,6 @@ func (c KubernetesClient) HasExpired() bool {
 	if c.Connection.CanExpire() && !c.expiry.IsZero() {
 		// We give a 1 minute window as a buffer
 		g := time.Until(c.expiry) <= time.Minute
-		logger.Infof("Has expired for %s is %v", c.RestConfig().Host, g)
 		return g
 	}
 	return false

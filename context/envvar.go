@@ -17,7 +17,6 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
 	authenticationv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -173,15 +172,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		ns, err2 := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-		if err2 != nil {
-			panic(err2)
-		}
-		nss := lo.Map(ns.Items, func(n corev1.Namespace, _ int) string {
-			return n.GetName()
-		})
-		g := strings.Join(nss, ",")
-		return "", fmt.Errorf("could not find secret %s/%s: %s [%s]", namespace, name, err, g)
+		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
 	}
 
 	if secret == nil {
