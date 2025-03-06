@@ -62,16 +62,12 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 	}
 
 	for _, path := range kubeconfigPaths {
-		if cached, _ := kubeCache.Get(context.TODO(), path); cached.Config != nil {
-			return cached.Client, cached.Config, nil
-		}
 		if files.Exists(path) {
 			if configBytes, err := os.ReadFile(path); err != nil {
 				return nil, nil, err
 			} else {
 				log.Infof("Using kubeconfig %s", path)
-				client, config, err := NewClientWithConfig(log, configBytes)
-				return cacheResult(path, client, config, err)
+				return NewClientWithConfig(log, configBytes)
 			}
 		}
 	}
@@ -89,7 +85,7 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 }
 
 func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
-	if cached, _ := kubeCache.Get(context.TODO(), string(kubeConfig)); cached.Config != nil {
+	if cached, _ := kubeCache.Get(context.Background(), string(kubeConfig)); cached.Config != nil {
 		return cached.Client, cached.Config, nil
 	}
 

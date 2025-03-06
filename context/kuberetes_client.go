@@ -17,7 +17,7 @@ type KubernetesClient struct {
 	logger     logger.Logger
 }
 
-var defaultExpiry = 1 * time.Minute
+var defaultExpiry = 15 * time.Minute
 
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
 	c, rc, err := conn.Populate(ctx, true)
@@ -50,7 +50,7 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) error {
 	if !c.HasExpired() {
-		c.logger.Infof("Skipping refresh, client has not expired %s", c.Config.Host)
+		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
 		return nil
 	}
 	client, rc, err := c.Connection.Populate(ctx, true)
@@ -58,27 +58,22 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 		return fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
 
-	doRefresh := false
-	if c.Config.BearerToken != rc.BearerToken || c.Config.Password != rc.Password {
-		logger.Infof("=== BEARER TOKEN/PASSWORD UPDATED FOR host: %s", c.Config.Host)
-		doRefresh = true
-	}
-
 	// Update rest config in place for easy reuse
 	c.Config.Host = rc.Host
 	c.Config.TLSClientConfig = rc.TLSClientConfig
-	c.Config.BearerToken = rc.BearerToken
 	c.Config.BearerTokenFile = rc.BearerTokenFile
 	c.Config.Username = rc.Username
-	c.Config.Password = rc.Password
+
+	if c.Config.BearerToken != rc.BearerToken || c.Config.Password != rc.Password {
+		logger.Infof("=== BEARER TOKEN/PASSWORD UPDATED FOR host: %s", c.Config.Host)
+
+		c.Config.BearerToken = rc.BearerToken
+		c.Config.Password = rc.Password
+		c.Client.Reset()
+	}
 
 	logger.Infof("Host %s", rc.Host)
 	logger.Infof("BearerToken %+v", rc.BearerToken)
-
-	if doRefresh {
-		logger.Infof("Refreshing client for host %s", rc.Host)
-		c.Client.Reset()
-	}
 
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
@@ -89,8 +84,7 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 func (c KubernetesClient) HasExpired() bool {
 	if c.Connection.CanExpire() && !c.expiry.IsZero() {
 		// We give a 1 minute window as a buffer
-		g := time.Until(c.expiry) <= time.Minute
-		return g
+		return time.Until(c.expiry) <= time.Minute
 	}
 	return false
 }
