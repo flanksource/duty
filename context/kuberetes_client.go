@@ -65,15 +65,10 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	c.Config.Username = rc.Username
 
 	if c.Config.BearerToken != rc.BearerToken || c.Config.Password != rc.Password {
-		logger.Infof("=== BEARER TOKEN/PASSWORD UPDATED FOR host: %s", c.Config.Host)
-
 		c.Config.BearerToken = rc.BearerToken
 		c.Config.Password = rc.Password
 		c.Client.Reset()
 	}
-
-	logger.Infof("Host %s", rc.Host)
-	logger.Infof("BearerToken %+v", rc.BearerToken)
 
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)

@@ -201,7 +201,7 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
 	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
-	c.logger.Infof("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
+	c.logger.Debugf("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,
 		cacheDir,

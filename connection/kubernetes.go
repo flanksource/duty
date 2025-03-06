@@ -3,7 +3,6 @@ package connection
 import (
 	"fmt"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -38,7 +37,6 @@ func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfac
 			return nil, nil, err
 		} else {
 			t.Kubeconfig.ValueStatic = v
-			logger.Infof("KUBECONFIG val is %v", t.Kubeconfig.ValueStatic)
 		}
 
 		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
