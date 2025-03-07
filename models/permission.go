@@ -29,11 +29,14 @@ type PermissionGroup struct {
 type PermissionSubjectType string
 
 const (
+	PermissionSubjectTypeCanary       PermissionSubjectType = "canary"
 	PermissionSubjectTypeGroup        PermissionSubjectType = "group"
 	PermissionSubjectTypeNotification PermissionSubjectType = "notification"
-	PermissionSubjectTypePlaybook     PermissionSubjectType = "playbook"
 	PermissionSubjectTypePerson       PermissionSubjectType = "person"
+	PermissionSubjectTypePlaybook     PermissionSubjectType = "playbook"
+	PermissionSubjectTypeScraper      PermissionSubjectType = "scraper"
 	PermissionSubjectTypeTeam         PermissionSubjectType = "team"
+	PermissionSubjectTypeTopology     PermissionSubjectType = "topology"
 )
 
 type Permission struct {
