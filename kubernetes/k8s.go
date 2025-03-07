@@ -6,13 +6,10 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,70 +27,30 @@ var sensitiveUrls = []*regexp.Regexp{
 	regexp.MustCompile("/api/v1/namespaces/.*/serviceaccounts/default/token"),
 }
 
-var kubeCache = cache.NewCache[kubeCacheData]("kube-clients", properties.Duration(time.Hour, "kubernetes.client-cache.timeout"))
-
-type kubeCacheData struct {
-	Client kubernetes.Interface
-	Config *rest.Config
-}
-
-func cacheResult(
-	key string,
-	k kubernetes.Interface,
-	c *rest.Config,
-	e error,
-) (kubernetes.Interface, *rest.Config, error) {
-	if e != nil {
-		return nil, nil, e
-	}
-
-	data := kubeCacheData{
-		Client: k,
-		Config: c,
-	}
-
-	_ = kubeCache.Set(context.TODO(), key, data)
-	return k, c, e
-}
-
 func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
 	if len(kubeconfigPaths) == 0 {
 		kubeconfigPaths = []string{os.Getenv("KUBECONFIG"), os.ExpandEnv("$HOME/.kube/config")}
 	}
 
 	for _, path := range kubeconfigPaths {
-		if cached, _ := kubeCache.Get(context.TODO(), path); cached.Config != nil {
-			return cached.Client, cached.Config, nil
-		}
 		if files.Exists(path) {
 			if configBytes, err := os.ReadFile(path); err != nil {
 				return nil, nil, err
 			} else {
 				log.Infof("Using kubeconfig %s", path)
-				client, config, err := NewClientWithConfig(log, configBytes)
-				return cacheResult(path, client, config, err)
+				return NewClientWithConfig(log, configBytes)
 			}
 		}
 	}
 
-	inCluster := "in-cluster"
-	if cached, _ := kubeCache.Get(context.TODO(), inCluster); cached.Config != nil {
-		return cached.Client, cached.Config, nil
-	}
-
 	if config, err := rest.InClusterConfig(); err == nil {
 		client, err := kubernetes.NewForConfig(trace(log, config))
-		return cacheResult(inCluster, client, config, err)
+		return client, config, err
 	}
 	return Nil, nil, nil
 }
 
 func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
-
-	if cached, _ := kubeCache.Get(context.TODO(), string(kubeConfig)); cached.Config != nil {
-		return cached.Client, cached.Config, nil
-	}
-
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
 	if err != nil {
 		return nil, nil, err
@@ -103,7 +60,7 @@ func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.In
 		return nil, nil, err
 	} else {
 		client, err := kubernetes.NewForConfig(trace(logger, config))
-		return cacheResult(string(kubeConfig), client, config, err)
+		return client, config, err
 	}
 }
 

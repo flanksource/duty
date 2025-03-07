@@ -50,10 +50,10 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) error {
 	if !c.HasExpired() {
-		c.logger.Tracef("Skipping refresh, client has not expired")
+		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
 		return nil
 	}
-	_, rc, err := c.Connection.Populate(ctx, true)
+	client, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
 		return fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
@@ -61,11 +61,16 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	// Update rest config in place for easy reuse
 	c.Config.Host = rc.Host
 	c.Config.TLSClientConfig = rc.TLSClientConfig
-	c.Config.BearerToken = rc.BearerToken
 	c.Config.BearerTokenFile = rc.BearerTokenFile
 	c.Config.Username = rc.Username
-	c.Config.Password = rc.Password
 
+	if c.Config.BearerToken != rc.BearerToken || c.Config.Password != rc.Password {
+		c.Config.BearerToken = rc.BearerToken
+		c.Config.Password = rc.Password
+		c.Client.Reset()
+	}
+
+	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
 	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
 	return nil
