@@ -6,6 +6,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/pkg/kube/auth"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/samber/lo"
 )
@@ -36,6 +37,20 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	client.SetExpiry(defaultExpiry)
 	client.logger.Infof("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry)
+
+	cbWrapper := func() error {
+		return client.Refresh(ctx)
+	}
+	tc, err := client.RestConfig().TransportConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error in fetching TransportConfig: %w", err)
+	}
+	ap, err := auth.GetAuthenticator(cbWrapper)
+	if err != nil {
+		return nil, fmt.Errorf("error in creating auth provider: %w", err)
+	}
+	ap.UpdateTransportConfig(tc)
+
 	return client, nil
 }
 
