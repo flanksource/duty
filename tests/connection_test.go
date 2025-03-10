@@ -1,10 +1,69 @@
 package tests
 
 import (
-	"github.com/flanksource/duty/models"
+	"os/exec"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 )
+
+var _ = Describe("Exec Connection", Ordered, func() {
+	Context("fromConfigItem", func() {
+		It("should error out early with no db error", func() {
+			txError := DefaultContext.DB().Transaction(func(tx *gorm.DB) error {
+				execConnection := connection.ExecConnections{
+					FromConfigItem: lo.ToPtr("$(.config.id)"),
+				}
+
+				cmd := exec.Cmd{}
+				_, err := connection.SetupConnection(DefaultContext, execConnection, &cmd)
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring("is not a valid uuid"))
+
+				return nil
+			})
+			Expect(txError).To(BeNil())
+		})
+
+		It("should error out early with no db error", func() {
+			txError := DefaultContext.DB().Transaction(func(tx *gorm.DB) error {
+				execConnection := connection.ExecConnections{
+					FromConfigItem: lo.ToPtr(dummy.EKSCluster.ID.String()), // has no scraper
+				}
+
+				cmd := exec.Cmd{}
+				_, err := connection.SetupConnection(DefaultContext, execConnection, &cmd)
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(ContainSubstring("config item does not have a scraper"))
+
+				return nil
+			})
+			Expect(txError).To(BeNil())
+		})
+
+		It("should setup kubeconfig on the cmd environment", func() {
+			txError := DefaultContext.DB().Transaction(func(tx *gorm.DB) error {
+				execConnection := connection.ExecConnections{
+					FromConfigItem: lo.ToPtr(dummy.KubernetesCluster.ID.String()), // has a scraper
+				}
+
+				cmd := exec.Cmd{}
+				_, err := connection.SetupConnection(DefaultContext, execConnection, &cmd)
+				Expect(err).To(BeNil())
+				Expect(cmd.Env[0]).To(Equal("KUBECONFIG=/etc/my-kube-config"))
+
+				return nil
+			})
+			Expect(txError).To(BeNil())
+		})
+	})
+})
 
 var _ = Describe("Connection", Ordered, func() {
 	var azureconnection = models.Connection{
