@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -95,6 +97,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	var cleaners []func() error
 
 	if lo.FromPtr(connections.FromConfigItem) != "" {
+		if err := uuid.Validate(lo.FromPtr(connections.FromConfigItem)); err != nil {
+			return nil, fmt.Errorf("connection.fromConfigItem is not a valid uuid: %s", lo.FromPtr(connections.FromConfigItem))
+		}
+
 		var scraperNamespace string
 		var scraperSpec map[string]any
 
@@ -102,8 +108,13 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			var configItem models.ConfigItem
 			if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).Find(&configItem).Error; err != nil {
 				return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
-			} else if configItem.ID.String() != *connections.FromConfigItem {
-				return nil, fmt.Errorf("cannot setup connection from config %s. not found", *connections.FromConfigItem)
+			} else if configItem.ID == uuid.Nil {
+				return nil, fmt.Errorf("cannot setup connection from config %s. config item not found", *connections.FromConfigItem)
+			}
+
+			if lo.FromPtr(configItem.ScraperID) == "" {
+				return nil, fmt.Errorf("cannot setup connection from config %s. config item does not have a scraper",
+					configItem.ID.String())
 			}
 
 			var scrapeConfig models.ConfigScraper
