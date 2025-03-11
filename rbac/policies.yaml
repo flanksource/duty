@@ -18,7 +18,6 @@
 - principal: guest
   inherit:
     - everyone
-    - viewer # remove this. the UI should handle just the guest role.
 - principal: commander
   acl:
     - objects: incident
