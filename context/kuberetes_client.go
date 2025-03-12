@@ -2,7 +2,13 @@ package context
 
 import (
 	"fmt"
+	//"net/http"
 	"time"
+
+	"k8s.io/client-go/rest"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	//"k8s.io/client-go/transport"
 
 	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
@@ -20,6 +26,19 @@ type KubernetesClient struct {
 
 var defaultExpiry = 15 * time.Minute
 
+//func factoryfun(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (AuthProvider, error) {
+//ap, err := auth.GetAuthenticator(callback)
+//return ap, err
+//}
+
+func factorywrap(callback func() error) rest.Factory {
+	return func(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
+		ap, err := auth.GetAuthenticator(callback)
+		return ap, err
+	}
+
+}
+
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
 	c, rc, err := conn.Populate(ctx, true)
 	if err != nil {
@@ -36,21 +55,20 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	}
 
 	client.SetExpiry(defaultExpiry)
+
+	if rc.ExecProvider == nil {
+		logger.Infof("Setting custom auth provider")
+		cbWrapper := func() error {
+			logger.Infof("CALLBACKED client addr %p", client)
+			return client.Refresh(ctx)
+		}
+		rest.RegisterAuthProviderPlugin("duty"+rc.Host, factorywrap(cbWrapper))
+		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
+			Name: "duty" + rc.Host,
+		}
+	}
+
 	client.logger.Infof("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry)
-
-	cbWrapper := func() error {
-		return client.Refresh(ctx)
-	}
-	tc, err := client.RestConfig().TransportConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error in fetching TransportConfig: %w", err)
-	}
-	ap, err := auth.GetAuthenticator(cbWrapper)
-	if err != nil {
-		return nil, fmt.Errorf("error in creating auth provider: %w", err)
-	}
-	ap.UpdateTransportConfig(tc)
-
 	return client, nil
 }
 
@@ -108,3 +126,35 @@ func extractExpiryFromJWT(token string) time.Time {
 	}
 	return time.Time{}
 }
+
+//func TransportConfig(c *rest.Config) *transport.Config {
+//conf := &transport.Config{
+//UserAgent:          c.UserAgent,
+//Transport:          c.Transport,
+//WrapTransport:      c.WrapTransport,
+//DisableCompression: c.DisableCompression,
+//TLS: transport.TLSConfig{
+//Insecure:   c.Insecure,
+//ServerName: c.ServerName,
+//CAFile:     c.CAFile,
+//CAData:     c.CAData,
+//CertFile:   c.CertFile,
+//CertData:   c.CertData,
+//KeyFile:    c.KeyFile,
+//KeyData:    c.KeyData,
+//NextProtos: c.NextProtos,
+//},
+//Username:        c.Username,
+//Password:        c.Password,
+//BearerToken:     c.BearerToken,
+//BearerTokenFile: c.BearerTokenFile,
+//Impersonate: transport.ImpersonationConfig{
+//UserName: c.Impersonate.UserName,
+//UID:      c.Impersonate.UID,
+//Groups:   c.Impersonate.Groups,
+//Extra:    c.Impersonate.Extra,
+//},
+//Proxy: c.Proxy,
+//}
+//return conf
+//}
