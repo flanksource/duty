@@ -13,10 +13,10 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -24,8 +24,6 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/pkg/apis/clientauthentication"
 	"k8s.io/client-go/pkg/apis/clientauthentication/install"
-	clientauthenticationv1 "k8s.io/client-go/pkg/apis/clientauthentication/v1"
-	clientauthenticationv1beta1 "k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/transport"
@@ -35,12 +33,6 @@ import (
 )
 
 const execInfoEnv = "KUBERNETES_EXEC_INFO"
-const installHintVerboseHelp = `
-
-It looks like you are trying to use a client-go credential plugin that is not installed.
-
-To learn more about this feature, consult the documentation available at:
-      https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins`
 
 var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
@@ -53,11 +45,6 @@ var (
 	// Since transports can be constantly re-initialized by programs like kubectl,
 	// keep a cache of initialized authenticators keyed by a hash of their config.
 	globalCache = newCache()
-	// The list of API versions we accept.
-	apiVersions = map[string]schema.GroupVersion{
-		clientauthenticationv1beta1.SchemeGroupVersion.String(): clientauthenticationv1beta1.SchemeGroupVersion,
-		clientauthenticationv1.SchemeGroupVersion.String():      clientauthenticationv1.SchemeGroupVersion,
-	}
 )
 
 func newCache() *cache {
@@ -115,6 +102,7 @@ type sometimes struct {
 }
 
 func (s *sometimes) Do(f func()) {
+	logger.Infof("Sometimes od called")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -144,11 +132,6 @@ func GetAuthenticator(callback func() error) (*Authenticator, error) {
 }
 
 func newAuthenticator(callback func() error) (*Authenticator, error) {
-	// Call callback
-	if err := callback(); err != nil {
-		return nil, fmt.Errorf("error calling callback: %w", err)
-	}
-
 	connTracker := connrotation.NewConnectionTracker()
 	defaultDialer := connrotation.NewDialerWithTracker(
 		(&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
@@ -168,6 +151,7 @@ func newAuthenticator(callback func() error) (*Authenticator, error) {
 		environ: os.Environ,
 
 		connTracker: connTracker,
+		callback:    callback,
 	}
 
 	// these functions are made comparable and stored in the cache so that repeated clientset
@@ -202,6 +186,8 @@ type Authenticator struct {
 	now             func() time.Time
 	environ         func() []string
 
+	callback func() error
+
 	// connTracker tracks all connections opened that we need to close when rotating a client certificate
 	connTracker *connrotation.ConnectionTracker
 
@@ -234,24 +220,32 @@ func (a *Authenticator) UpdateTransportConfig(c *transport.Config) error {
 	// like "kubectl get --token (token) pods" we should assume the intention is to
 	// use the provided token for authentication. The same can be said for when the
 	// user specifies basic auth or cert auth.
+	logger.Infof("000- AAAA")
 	if c.HasTokenAuth() || c.HasBasicAuth() || c.HasCertAuth() {
+		logger.Infof("AAAA")
 		return nil
 	}
 
+	logger.Infof("111- AAAA")
 	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return &roundTripper{a, rt}
+		return &YroundTripper{a, rt}
 	})
 
+	logger.Infof("222- AAAA")
 	if c.HasCertCallback() {
-		return errors.New("can't add TLS certificate callback: transport.Config.TLS.GetCert already set")
+		logger.Infof("This err")
+		//return errors.New("can't add TLS certificate callback: transport.Config.TLS.GetCert already set")
 	}
 	c.TLS.GetCertHolder = a.getCert // comparable for TLS config caching
 
+	logger.Infof("333- AAAA")
 	if c.DialHolder != nil {
+		logger.Infof("444- AAAA")
 		if c.DialHolder.Dial == nil {
 			return errors.New("invalid transport.Config.DialHolder: wrapped Dial function is nil")
 		}
 
+		logger.Infof("555- AAAA")
 		// if c has a custom dialer, we have to wrap it
 		// TLS config caching is not supported for this config
 		d := connrotation.NewDialerWithTracker(c.DialHolder.Dial, a.connTracker)
@@ -260,33 +254,34 @@ func (a *Authenticator) UpdateTransportConfig(c *transport.Config) error {
 		c.DialHolder = a.dial // comparable for TLS config caching
 	}
 
+	logger.Infof("222- AAAA")
 	return nil
 }
 
-var _ utilnet.RoundTripperWrapper = &roundTripper{}
+var _ utilnet.RoundTripperWrapper = &YroundTripper{}
 
-type roundTripper struct {
+type YroundTripper struct {
 	a    *Authenticator
 	base http.RoundTripper
 }
 
-func (r *roundTripper) WrappedRoundTripper() http.RoundTripper {
+func (r *YroundTripper) WrappedRoundTripper() http.RoundTripper {
+	logger.Infof("IN WRAPPED ROUND TRIP")
 	return r.base
 }
 
-func (r *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If a user has already set credentials, use that. This makes commands like
 	// "kubectl get --token (token) pods" work.
 	if req.Header.Get("Authorization") != "" {
+		logger.Infof("IN ROUND TRIP auth header set is %s", req.Header.Get("Authorization"))
 		return r.base.RoundTrip(req)
 	}
 
+	logger.Infof("IN ROUND TRIP")
 	creds, err := r.a.getCreds()
 	if err != nil {
 		return nil, fmt.Errorf("getting credentials: %v", err)
-	}
-	if creds.token != "" {
-		req.Header.Set("Authorization", "Bearer "+creds.token)
 	}
 
 	res, err := r.base.RoundTrip(req)
@@ -294,6 +289,7 @@ func (r *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	if res.StatusCode == http.StatusUnauthorized {
+		logger.Infof("Unauth")
 		if err := r.a.maybeRefreshCreds(creds); err != nil {
 			klog.Errorf("refreshing credentials: %v", err)
 		}
@@ -302,6 +298,7 @@ func (r *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (a *Authenticator) credsExpired() bool {
+	logger.Infof("credsExpired called")
 	if a.exp.IsZero() {
 		return false
 	}
@@ -309,6 +306,7 @@ func (a *Authenticator) credsExpired() bool {
 }
 
 func (a *Authenticator) cert() (*tls.Certificate, error) {
+	logger.Infof("CERT CALLED")
 	creds, err := a.getCreds()
 	if err != nil {
 		return nil, err
@@ -316,13 +314,24 @@ func (a *Authenticator) cert() (*tls.Certificate, error) {
 	return creds.cert, nil
 }
 
+func (a *Authenticator) WrapTransport(rt http.RoundTripper) http.RoundTripper {
+	logger.Infof("WrapTransport from a")
+	return &YroundTripper{a, rt}
+}
+
+func (a *Authenticator) Login() error {
+	logger.Infof("Login")
+	return a.callback()
+}
+
 func (a *Authenticator) getCreds() (*credentials, error) {
+	logger.Infof("get creds called")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if a.cachedCreds != nil && !a.credsExpired() {
-		return a.cachedCreds, nil
-	}
+	//if a.cachedCreds != nil && !a.credsExpired() {
+	//return a.cachedCreds, nil
+	//}
 
 	if err := a.refreshCredsLocked(); err != nil {
 		return nil, err
@@ -334,6 +343,7 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 // maybeRefreshCreds executes the plugin to force a rotation of the
 // credentials, unless they were rotated already.
 func (a *Authenticator) maybeRefreshCreds(creds *credentials) error {
+	logger.Infof("maybe frefresh creds called")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -350,6 +360,15 @@ func (a *Authenticator) maybeRefreshCreds(creds *credentials) error {
 // refreshCredsLocked executes the plugin and reads the credentials from
 // stdout. It must be called while holding the Authenticator's mutex.
 func (a *Authenticator) refreshCredsLocked() error {
+
+	logger.Infof("refreshCredsLocked called")
+	// Call callback
+	if err := a.callback(); err != nil {
+		return fmt.Errorf("error calling callback: %w", err)
+	}
+	if true {
+		return nil
+	}
 	interactive, err := a.interactiveFunc()
 	if err != nil {
 		return fmt.Errorf("exec plugin cannot support interactive mode: %w", err)
@@ -382,7 +401,7 @@ func (a *Authenticator) refreshCredsLocked() error {
 
 	err = cmd.Run()
 	if err != nil {
-		return a.wrapCmdRunErrorLocked(err)
+		return err
 	}
 
 	_, gvk, err := codecs.UniversalDecoder(a.group).Decode(stdout.Bytes(), nil, cred)
@@ -445,36 +464,4 @@ func (a *Authenticator) refreshCredsLocked() error {
 	}
 
 	return nil
-}
-
-// wrapCmdRunErrorLocked pulls out the code to construct a helpful error message
-// for when the exec plugin's binary fails to Run().
-//
-// It must be called while holding the Authenticator's mutex.
-func (a *Authenticator) wrapCmdRunErrorLocked(err error) error {
-	switch err.(type) {
-	case *exec.Error: // Binary does not exist (see exec.Error).
-		builder := strings.Builder{}
-		fmt.Fprintf(&builder, "exec: executable %s not found", a.cmd)
-
-		a.sometimes.Do(func() {
-			fmt.Fprint(&builder, installHintVerboseHelp)
-			if a.installHint != "" {
-				fmt.Fprintf(&builder, "\n\n%s", a.installHint)
-			}
-		})
-
-		return errors.New(builder.String())
-
-	case *exec.ExitError: // Binary execution failed (see exec.Cmd.Run()).
-		e := err.(*exec.ExitError)
-		return fmt.Errorf(
-			"exec: executable %s failed with exit code %d",
-			a.cmd,
-			e.ProcessState.ExitCode(),
-		)
-
-	default:
-		return fmt.Errorf("exec: %v", err)
-	}
 }
