@@ -147,6 +147,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 						return nil, err
 					}
 
+					if _, _, err := connections.Kubernetes.Populate(ctx, true); err != nil {
+						return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+					}
+
 					ctx = ctx.WithNamespace(scraperNamespace).WithKubernetes(connections.Kubernetes)
 					break
 				}
@@ -173,7 +177,11 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 	if connections.Kubernetes != nil {
 		if lo.FromPtr(connections.FromConfigItem) == "" {
+			// If the kubernetes connection didn't come from `fromConfigItem`, we hydrate it here
 			ctx = ctx.WithKubernetes(connections.Kubernetes)
+			if _, _, err := connections.Kubernetes.Populate(ctx, true); err != nil {
+				return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
+			}
 		}
 
 		if filepath.IsAbs(connections.Kubernetes.Kubeconfig.ValueStatic) {
