@@ -5,3 +5,4 @@ ginkgo.report
 nohup.out
 *.test
 .aider*
+.creds/
