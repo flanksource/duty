@@ -91,12 +91,20 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 	kubernetesConfigTemplate = textTemplate.Must(textTemplate.New("").Parse(`{{.Kubeconfig.ValueStatic}}`))
 }
 
-// SetupConnections creates the necessary credential files and injects env vars
-// into the cmd
-func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (func() error, error) {
+type ConnectionSetupResult struct {
+	Sources   []string `json:"source,omitempty"`
+	ApiServer string   `json:"apiServer,omitempty"`
+
+	Cleanup func() error `json:"-"`
+}
+
+// SetupConnections creates the necessary credential files and injects env vars into the cmd
+func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (*ConnectionSetupResult, error) {
+	var output ConnectionSetupResult
 	var cleaners []func() error
 
 	if lo.FromPtr(connections.FromConfigItem) != "" {
+		output.Sources = append(output.Sources, fmt.Sprintf("fromConfigItem: %s", *connections.FromConfigItem))
 		if err := uuid.Validate(lo.FromPtr(connections.FromConfigItem)); err != nil {
 			return nil, fmt.Errorf("connection.fromConfigItem is not a valid uuid: %s", lo.FromPtr(connections.FromConfigItem))
 		}
@@ -147,6 +155,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 						return nil, err
 					}
 
+					output.Sources = append(output.Sources, fmt.Sprintf("envVar: %s", *connections.Kubernetes.Kubeconfig))
 					if _, _, err := connections.Kubernetes.Populate(ctx, true); err != nil {
 						return nil, fmt.Errorf("failed to hydrate kubernetes connection: %w", err)
 					}
@@ -204,6 +213,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			return nil, fmt.Errorf("failed to hydrate aws connection: %w", err)
 		}
 
+		output.Sources = append(output.Sources, fmt.Sprintf("awsConnection: %s", connections.AWS.ConnectionName))
 		configPath, err := saveConfig(awsConfigTemplate, connections.AWS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to store AWS credentials: %w", err)
@@ -224,6 +234,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if err := connections.Azure.HydrateConnection(ctx); err != nil {
 			return nil, fmt.Errorf("failed to hydrate connection %w", err)
 		}
+		output.Sources = append(output.Sources, fmt.Sprintf("azureConnection: %s", connections.Azure.ConnectionName))
 
 		// login with service principal
 		runCmd := osExec.Command("az", "login", "--service-principal", "--username", connections.Azure.ClientID.ValueStatic, "--password", connections.Azure.ClientSecret.ValueStatic, "--tenant", connections.Azure.TenantID)
@@ -236,6 +247,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if err := connections.GCP.HydrateConnection(ctx); err != nil {
 			return nil, fmt.Errorf("failed to hydrate connection %w", err)
 		}
+
+		output.Sources = append(output.Sources, fmt.Sprintf("gcpConnection: %s", connections.GCP.ConnectionName))
 
 		configPath, err := saveConfig(gcloudConfigTemplate, connections.GCP)
 		if err != nil {
@@ -256,7 +269,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configPath))
 	}
 
-	var cleaner = func() error {
+	output.Cleanup = func() error {
 		var errorList []error
 		for _, c := range cleaners {
 			if err := c(); err != nil {
@@ -271,5 +284,5 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		return nil
 	}
 
-	return cleaner, nil
+	return &output, nil
 }
