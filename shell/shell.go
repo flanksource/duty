@@ -107,11 +107,12 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		cmd.Dir = envParams.mountPoint
 	}
 
-	if cleanup, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
+	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	} else {
+		ctx = ctx.WithLoggingValues("connection", setupResult)
 		defer func() {
-			if err := cleanup(); err != nil {
+			if err := setupResult.Cleanup(); err != nil {
 				logger.Errorf("failed to cleanup connection artifacts: %v", err)
 			}
 		}()
@@ -123,12 +124,16 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 }
 
 type commandContext struct {
-	cmd        *osExec.Cmd
-	artifacts  []Artifact
-	EnvVars    []types.EnvVar
-	extra      map[string]any
-	envs       []string
+	cmd       *osExec.Cmd
+	artifacts []Artifact
+	EnvVars   []types.EnvVar
+	extra     map[string]any
+
+	// Working directory for the command
 	mountPoint string
+
+	// Additional env vars to be exported into the shell
+	envs []string
 }
 
 func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {

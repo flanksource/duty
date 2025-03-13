@@ -384,7 +384,7 @@ var KubeScrapeConfig = models.ConfigScraper{
       {
         "clusterName": "kubernetes",
         "kubeconfig": {
-          "value": "/etc/my-kube-config"
+          "value": "testdata/my-kube-config.yaml"
         }
       }
     ]

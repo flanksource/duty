@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
@@ -72,7 +71,7 @@ func NewClientFromPathOrConfig(
 	var rest *rest.Config
 	var err error
 
-	if strings.HasPrefix(kubeconfigOrPath, "/") {
+	if _, pathErr := os.Stat(kubeconfigOrPath); pathErr == nil {
 		if client, rest, err = NewClient(logger, kubeconfigOrPath); err != nil {
 			return nil, nil, err
 		}

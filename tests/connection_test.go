@@ -56,7 +56,7 @@ var _ = Describe("Exec Connection", Ordered, func() {
 				cmd := exec.Cmd{}
 				_, err := connection.SetupConnection(DefaultContext, execConnection, &cmd)
 				Expect(err).To(BeNil())
-				Expect(cmd.Env[0]).To(Equal("KUBECONFIG=/etc/my-kube-config"))
+				Expect(cmd.Env[0]).To(Equal("KUBECONFIG=testdata/my-kube-config.yaml"))
 
 				return nil
 			})
