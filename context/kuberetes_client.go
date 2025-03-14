@@ -2,10 +2,15 @@ package context
 
 import (
 	"fmt"
+	//"net/http"
 	"time"
+
+	"k8s.io/client-go/rest"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/pkg/kube/auth"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/samber/lo"
 )
@@ -18,6 +23,12 @@ type KubernetesClient struct {
 }
 
 var defaultExpiry = 15 * time.Minute
+
+func fact(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
+	connHash := config["conn"]
+	ap, err := auth.GetAuthenticator(connHash)
+	return ap, err
+}
 
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
 	c, rc, err := conn.Populate(ctx, true)
@@ -35,6 +46,25 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	}
 
 	client.SetExpiry(defaultExpiry)
+
+	if rc.ExecProvider == nil {
+		cbWrapper := func() (*rest.Config, error) {
+			logger.Infof("CALLBACKED client addr %p", client)
+			rc, err := client.Refresh(ctx)
+			return rc, err
+		}
+		rc.BearerToken = ""
+		rc.Password = ""
+		logger.Infof("rc beaer token empty addr %p", rc)
+		if err := auth.K8sclientcache2.Set(ctx, conn.Hash(), cbWrapper); err != nil {
+			return nil, err
+		}
+		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
+			Name:   "duty",
+			Config: map[string]string{"conn": conn.Hash()},
+		}
+	}
+
 	client.logger.Infof("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry)
 	return client, nil
 }
@@ -48,14 +78,15 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 	}
 }
 
-func (c *KubernetesClient) Refresh(ctx Context) error {
-	if !c.HasExpired() {
+func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
+	if c.Config.BearerToken != "" && !c.HasExpired() {
 		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
-		return nil
+		return c.RestConfig(), nil
 	}
+	c.logger.Infof("Refreshed host :%s", c.Config.Host)
 	client, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
-		return fmt.Errorf("error refreshing kubernetes client: %w", err)
+		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
 
 	// Update rest config in place for easy reuse
@@ -73,7 +104,7 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
 	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
-	return nil
+	return c.Config, nil
 }
 
 func (c KubernetesClient) HasExpired() bool {
@@ -92,4 +123,8 @@ func extractExpiryFromJWT(token string) time.Time {
 		return t.Time
 	}
 	return time.Time{}
+}
+
+func init() {
+	rest.RegisterAuthProviderPlugin("duty", fact)
 }
