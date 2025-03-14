@@ -5,42 +5,25 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/flanksource/commons/logger"
 	dutyCache "github.com/flanksource/duty/cache"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/dump"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/pkg/apis/clientauthentication"
-	"k8s.io/client-go/pkg/apis/clientauthentication/install"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/transport"
 	"k8s.io/client-go/util/connrotation"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/clock"
 )
-
-const execInfoEnv = "KUBERNETES_EXEC_INFO"
-
-var scheme = runtime.NewScheme()
-var codecs = serializer.NewCodecFactory(scheme)
-
-func init() {
-	install.Install(scheme)
-}
 
 var (
 	// Since transports can be constantly re-initialized by programs like kubectl,
@@ -88,45 +71,6 @@ func (c *cache) put(s string, a *Authenticator) *Authenticator {
 	return a
 }
 
-// sometimes rate limits how often a function f() is called. Specifically, Do()
-// will run the provided function f() up to threshold times every interval
-// duration.
-type sometimes struct {
-	threshold int
-	interval  time.Duration
-
-	clock clock.Clock
-	mu    sync.Mutex
-
-	count  int       // times we have called f() in this window
-	window time.Time // beginning of current window of length interval
-}
-
-func (s *sometimes) Do(f func()) {
-	logger.Infof("Sometimes od called")
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	now := s.clock.Now()
-	if s.window.IsZero() {
-		s.window = now
-	}
-
-	// If we are no longer in our saved time window, then we get to reset our run
-	// count back to 0 and start increasing towards the threshold again.
-	if inWindow := now.Sub(s.window) < s.interval; !inWindow {
-		s.window = now
-		s.count = 0
-	}
-
-	// If we have not run the function more than threshold times in this current
-	// time window, we get to run it now!
-	if underThreshold := s.count < s.threshold; underThreshold {
-		s.count++
-		f()
-	}
-}
-
 // GetAuthenticator returns an exec-based plugin for providing client credentials.
 func GetAuthenticator(connHash string) (*Authenticator, error) {
 	return newAuthenticator(connHash)
@@ -144,22 +88,13 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 		connTracker,
 	)
 
-	logger.Infof("newAuthenticator")
+	logger.Infof("newAuthenticator for conn: %s", connHash)
 	callback, err := K8sclientcache2.Get(context.Background(), connHash)
 	if err != nil {
 		return nil, err
 	}
 	a := &Authenticator{
-		sometimes: &sometimes{
-			threshold: 10,
-			interval:  time.Hour,
-			clock:     clock.RealClock{},
-		},
-
-		stdin:   os.Stdin,
-		stderr:  os.Stderr,
-		now:     time.Now,
-		environ: os.Environ,
+		now: time.Now,
 
 		connTracker: connTracker,
 		callback:    callback,
@@ -176,26 +111,8 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 // Authenticator is a client credential provider that rotates credentials by executing a plugin.
 // The plugin input and output are defined by the API group client.authentication.k8s.io.
 type Authenticator struct {
-	// Set by the config
-	cmd                string
-	args               []string
-	group              schema.GroupVersion
-	env                []string
-	cluster            *clientauthentication.Cluster
-	provideClusterInfo bool
-
-	// Used to avoid log spew by rate limiting install hint printing. We didn't do
-	// this by interval based rate limiting alone since that way may have prevented
-	// the install hint from showing up for kubectl users.
-	sometimes   *sometimes
-	installHint string
-
 	// Stubbable for testing
-	stdin           io.Reader
-	stderr          io.Writer
-	interactiveFunc func() (bool, error)
-	now             func() time.Time
-	environ         func() []string
+	now func() time.Time
 
 	callback CB
 
@@ -222,56 +139,6 @@ type credentials struct {
 	cert  *tls.Certificate `datapolicy:"secret-key"`
 }
 
-// UpdateTransportConfig updates the transport.Config to use credentials
-// returned by the plugin.
-func (a *Authenticator) UpdateTransportConfig(c *transport.Config) error {
-	// If a bearer token is present in the request - avoid the GetCert callback when
-	// setting up the transport, as that triggers the exec action if the server is
-	// also configured to allow client certificates for authentication. For requests
-	// like "kubectl get --token (token) pods" we should assume the intention is to
-	// use the provided token for authentication. The same can be said for when the
-	// user specifies basic auth or cert auth.
-	logger.Infof("000- AAAA")
-	if c.HasTokenAuth() || c.HasBasicAuth() || c.HasCertAuth() {
-		logger.Infof("AAAA")
-		return nil
-	}
-
-	logger.Infof("111- AAAA")
-	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return &YroundTripper{
-			a:    a,
-			base: rt,
-		}
-	})
-
-	logger.Infof("222- AAAA")
-	if c.HasCertCallback() {
-		logger.Infof("This err")
-		//return errors.New("can't add TLS certificate callback: transport.Config.TLS.GetCert already set")
-	}
-	c.TLS.GetCertHolder = a.getCert // comparable for TLS config caching
-
-	logger.Infof("333- AAAA")
-	if c.DialHolder != nil {
-		logger.Infof("444- AAAA")
-		if c.DialHolder.Dial == nil {
-			return errors.New("invalid transport.Config.DialHolder: wrapped Dial function is nil")
-		}
-
-		logger.Infof("555- AAAA")
-		// if c has a custom dialer, we have to wrap it
-		// TLS config caching is not supported for this config
-		d := connrotation.NewDialerWithTracker(c.DialHolder.Dial, a.connTracker)
-		c.DialHolder = &transport.DialHolder{Dial: d.DialContext}
-	} else {
-		c.DialHolder = a.dial // comparable for TLS config caching
-	}
-
-	logger.Infof("222- AAAA")
-	return nil
-}
-
 var _ utilnet.RoundTripperWrapper = &YroundTripper{}
 
 type YroundTripper struct {
@@ -287,18 +154,24 @@ func (r *YroundTripper) WrappedRoundTripper() http.RoundTripper {
 func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If a user has already set credentials, use that. This makes commands like
 	// "kubectl get --token (token) pods" work.
-	if req.Header.Get("Authorization") != "" {
-		return r.base.RoundTrip(req)
-	}
+	//if req.Header.Get("Authorization") != "" {
+	//return r.base.RoundTrip(req)
+	//}
 
 	creds, err := r.a.getCreds()
 	if err != nil {
 		return nil, fmt.Errorf("getting credentials: %v", err)
 	}
-	logger.Infof("IN ROUND TRIP Got Creds: %+v", creds)
+
+	if req.Header.Get("Authorization") != "Bearer "+creds.token {
+		//logger.Infof("Mismatch for set header[%s] and creds.token=%s", req.Header.Get("Authorization"), "Bearer "+creds.token)
+		logger.Infof("Auth header mismatch, doing refreshCredsLocked")
+		if err := r.a.refreshCredsLocked(); err != nil {
+			return nil, fmt.Errorf("error refreshing creds: %w", err)
+		}
+	}
 
 	if creds.token != "" {
-		logger.Infof("IN ROUND TRIP Set auth header to %s", creds.token)
 		req.Header.Set("Authorization", "Bearer "+creds.token)
 	}
 
@@ -316,8 +189,8 @@ func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (a *Authenticator) credsExpired() bool {
-	logger.Infof("credsExpired called")
 	if a.exp.IsZero() {
+		logger.Infof("credsExpired called 0 expiry")
 		return false
 	}
 	return a.now().After(a.exp)
@@ -344,7 +217,6 @@ func (a *Authenticator) Login() error {
 }
 
 func (a *Authenticator) getCreds() (*credentials, error) {
-	logger.Infof("get creds called")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -352,6 +224,7 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 		return a.cachedCreds, nil
 	}
 
+	logger.Infof("cached creds not returned")
 	if err := a.refreshCredsLocked(); err != nil {
 		return nil, err
 	}
