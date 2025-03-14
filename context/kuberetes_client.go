@@ -8,8 +8,6 @@ import (
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	//"k8s.io/client-go/transport"
-
 	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/pkg/kube/auth"
@@ -26,17 +24,10 @@ type KubernetesClient struct {
 
 var defaultExpiry = 15 * time.Minute
 
-//func factoryfun(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (AuthProvider, error) {
-//ap, err := auth.GetAuthenticator(callback)
-//return ap, err
-//}
-
-func factorywrap(callback func() error) rest.Factory {
-	return func(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
-		ap, err := auth.GetAuthenticator(callback)
-		return ap, err
-	}
-
+func fact(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
+	connHash := config["conn"]
+	ap, err := auth.GetAuthenticator(connHash)
+	return ap, err
 }
 
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
@@ -57,14 +48,20 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	client.SetExpiry(defaultExpiry)
 
 	if rc.ExecProvider == nil {
-		logger.Infof("Setting custom auth provider")
-		cbWrapper := func() error {
+		cbWrapper := func() (*rest.Config, error) {
 			logger.Infof("CALLBACKED client addr %p", client)
-			return client.Refresh(ctx)
+			rc, err := client.Refresh(ctx)
+			return rc, err
 		}
-		rest.RegisterAuthProviderPlugin("duty"+rc.Host, factorywrap(cbWrapper))
+		rc.BearerToken = ""
+		rc.Password = ""
+		logger.Infof("rc beaer token empty addr %p", rc)
+		if err := auth.K8sclientcache2.Set(ctx, conn.Hash(), cbWrapper); err != nil {
+			return nil, err
+		}
 		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
-			Name: "duty" + rc.Host,
+			Name:   "duty",
+			Config: map[string]string{"conn": conn.Hash()},
 		}
 	}
 
@@ -81,14 +78,15 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 	}
 }
 
-func (c *KubernetesClient) Refresh(ctx Context) error {
-	if !c.HasExpired() {
+func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
+	if c.Config.BearerToken != "" && !c.HasExpired() {
 		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
-		return nil
+		return c.RestConfig(), nil
 	}
+	c.logger.Infof("Refreshed host :%s", c.Config.Host)
 	client, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
-		return fmt.Errorf("error refreshing kubernetes client: %w", err)
+		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
 
 	// Update rest config in place for easy reuse
@@ -106,7 +104,7 @@ func (c *KubernetesClient) Refresh(ctx Context) error {
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
 	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
-	return nil
+	return c.Config, nil
 }
 
 func (c KubernetesClient) HasExpired() bool {
@@ -127,34 +125,6 @@ func extractExpiryFromJWT(token string) time.Time {
 	return time.Time{}
 }
 
-//func TransportConfig(c *rest.Config) *transport.Config {
-//conf := &transport.Config{
-//UserAgent:          c.UserAgent,
-//Transport:          c.Transport,
-//WrapTransport:      c.WrapTransport,
-//DisableCompression: c.DisableCompression,
-//TLS: transport.TLSConfig{
-//Insecure:   c.Insecure,
-//ServerName: c.ServerName,
-//CAFile:     c.CAFile,
-//CAData:     c.CAData,
-//CertFile:   c.CertFile,
-//CertData:   c.CertData,
-//KeyFile:    c.KeyFile,
-//KeyData:    c.KeyData,
-//NextProtos: c.NextProtos,
-//},
-//Username:        c.Username,
-//Password:        c.Password,
-//BearerToken:     c.BearerToken,
-//BearerTokenFile: c.BearerTokenFile,
-//Impersonate: transport.ImpersonationConfig{
-//UserName: c.Impersonate.UserName,
-//UID:      c.Impersonate.UID,
-//Groups:   c.Impersonate.Groups,
-//Extra:    c.Impersonate.Extra,
-//},
-//Proxy: c.Proxy,
-//}
-//return conf
-//}
+func init() {
+	rest.RegisterAuthProviderPlugin("duty", fact)
+}

@@ -2,7 +2,7 @@
 package auth
 
 import (
-	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,12 +11,12 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/flanksource/commons/logger"
+	dutyCache "github.com/flanksource/duty/cache"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -24,6 +24,7 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/pkg/apis/clientauthentication"
 	"k8s.io/client-go/pkg/apis/clientauthentication/install"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/transport"
@@ -127,17 +128,27 @@ func (s *sometimes) Do(f func()) {
 }
 
 // GetAuthenticator returns an exec-based plugin for providing client credentials.
-func GetAuthenticator(callback func() error) (*Authenticator, error) {
-	return newAuthenticator(callback)
+func GetAuthenticator(connHash string) (*Authenticator, error) {
+	return newAuthenticator(connHash)
 }
 
-func newAuthenticator(callback func() error) (*Authenticator, error) {
+type CB func() (*rest.Config, error)
+
+var K8sclientcache2 = dutyCache.NewCache[CB]("k8s-client-cache", 24*time.Hour)
+var sm sync.Map
+
+func newAuthenticator(connHash string) (*Authenticator, error) {
 	connTracker := connrotation.NewConnectionTracker()
 	defaultDialer := connrotation.NewDialerWithTracker(
 		(&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 		connTracker,
 	)
 
+	logger.Infof("newAuthenticator")
+	callback, err := K8sclientcache2.Get(context.Background(), connHash)
+	if err != nil {
+		return nil, err
+	}
 	a := &Authenticator{
 		sometimes: &sometimes{
 			threshold: 10,
@@ -186,7 +197,7 @@ type Authenticator struct {
 	now             func() time.Time
 	environ         func() []string
 
-	callback func() error
+	callback CB
 
 	// connTracker tracks all connections opened that we need to close when rotating a client certificate
 	connTracker *connrotation.ConnectionTracker
@@ -228,7 +239,10 @@ func (a *Authenticator) UpdateTransportConfig(c *transport.Config) error {
 
 	logger.Infof("111- AAAA")
 	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return &YroundTripper{a, rt}
+		return &YroundTripper{
+			a:    a,
+			base: rt,
+		}
 	})
 
 	logger.Infof("222- AAAA")
@@ -274,14 +288,18 @@ func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If a user has already set credentials, use that. This makes commands like
 	// "kubectl get --token (token) pods" work.
 	if req.Header.Get("Authorization") != "" {
-		logger.Infof("IN ROUND TRIP auth header set is %s", req.Header.Get("Authorization"))
 		return r.base.RoundTrip(req)
 	}
 
-	logger.Infof("IN ROUND TRIP")
 	creds, err := r.a.getCreds()
 	if err != nil {
 		return nil, fmt.Errorf("getting credentials: %v", err)
+	}
+	logger.Infof("IN ROUND TRIP Got Creds: %+v", creds)
+
+	if creds.token != "" {
+		logger.Infof("IN ROUND TRIP Set auth header to %s", creds.token)
+		req.Header.Set("Authorization", "Bearer "+creds.token)
 	}
 
 	res, err := r.base.RoundTrip(req)
@@ -321,7 +339,8 @@ func (a *Authenticator) WrapTransport(rt http.RoundTripper) http.RoundTripper {
 
 func (a *Authenticator) Login() error {
 	logger.Infof("Login")
-	return a.callback()
+	_, err := a.callback()
+	return err
 }
 
 func (a *Authenticator) getCreds() (*credentials, error) {
@@ -329,9 +348,9 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	//if a.cachedCreds != nil && !a.credsExpired() {
-	//return a.cachedCreds, nil
-	//}
+	if a.cachedCreds != nil && !a.credsExpired() {
+		return a.cachedCreds, nil
+	}
 
 	if err := a.refreshCredsLocked(); err != nil {
 		return nil, err
@@ -363,70 +382,31 @@ func (a *Authenticator) refreshCredsLocked() error {
 
 	logger.Infof("refreshCredsLocked called")
 	// Call callback
-	if err := a.callback(); err != nil {
+	rc, err := a.callback()
+	if err != nil {
 		return fmt.Errorf("error calling callback: %w", err)
 	}
-	if true {
-		return nil
-	}
-	interactive, err := a.interactiveFunc()
-	if err != nil {
-		return fmt.Errorf("exec plugin cannot support interactive mode: %w", err)
-	}
+	logger.Infof("GOT RC token=%s rc.KeyData=%s rc.CertData=%s", rc.BearerToken, string(rc.KeyData), string(rc.CertData))
 
 	cred := &clientauthentication.ExecCredential{
-		Spec: clientauthentication.ExecCredentialSpec{
-			Interactive: interactive,
+		Status: &clientauthentication.ExecCredentialStatus{
+			Token:                 rc.BearerToken,
+			ClientKeyData:         string(rc.KeyData),
+			ClientCertificateData: string(rc.CertData),
 		},
 	}
-	if a.provideClusterInfo {
-		cred.Spec.Cluster = a.cluster
-	}
 
-	env := append(a.environ(), a.env...)
-	data, err := runtime.Encode(codecs.LegacyCodec(a.group), cred)
-	if err != nil {
-		return fmt.Errorf("encode ExecCredentials: %v", err)
-	}
-	env = append(env, fmt.Sprintf("%s=%s", execInfoEnv, data))
-
-	stdout := &bytes.Buffer{}
-	cmd := exec.Command(a.cmd, a.args...)
-	cmd.Env = env
-	cmd.Stderr = a.stderr
-	cmd.Stdout = stdout
-	if interactive {
-		cmd.Stdin = a.stdin
-	}
-
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	_, gvk, err := codecs.UniversalDecoder(a.group).Decode(stdout.Bytes(), nil, cred)
-	if err != nil {
-		return fmt.Errorf("decoding stdout: %v", err)
-	}
-	if gvk.Group != a.group.Group || gvk.Version != a.group.Version {
-		return fmt.Errorf("exec plugin is configured to use API version %s, plugin returned version %s",
-			a.group, schema.GroupVersion{Group: gvk.Group, Version: gvk.Version})
-	}
-
-	if cred.Status == nil {
-		return fmt.Errorf("exec plugin didn't return a status field")
-	}
 	if cred.Status.Token == "" && cred.Status.ClientCertificateData == "" && cred.Status.ClientKeyData == "" {
 		return fmt.Errorf("exec plugin didn't return a token or cert/key pair")
 	}
 	if (cred.Status.ClientCertificateData == "") != (cred.Status.ClientKeyData == "") {
-		return fmt.Errorf("exec plugin returned only certificate or key, not both")
+		return fmt.Errorf("plugin returned only certificate or key, not both")
 	}
 
 	if cred.Status.ExpirationTimestamp != nil {
 		a.exp = cred.Status.ExpirationTimestamp.Time
 	} else {
-		a.exp = time.Time{}
+		a.exp = time.Now().Add(15 * time.Minute)
 	}
 
 	newCreds := &credentials{
