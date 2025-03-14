@@ -204,10 +204,11 @@ CREATE OR REPLACE VIEW notifications_summary AS
 WITH notification_send_summary AS (
   SELECT
     notification_id,
-    ROUND(AVG(CASE WHEN notification_send_history.error IS NOT NULL THEN notification_send_history.duration_millis ELSE NULL END), 2) AS avg_duration_ms,
-    COUNT (CASE WHEN notification_send_history.error IS NOT NULL THEN 1 END) AS failed,
-    COUNT (CASE WHEN notification_send_history.error IS NULL THEN 1 END) AS sent,
-    mode() WITHIN GROUP (ORDER BY notification_send_history.error) AS most_common_error
+    ROUND(AVG(CASE WHEN error IS NOT NULL THEN duration_millis ELSE NULL END), 2) AS avg_duration_ms,
+    COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS failed,
+    COUNT(CASE WHEN status = 'sent' THEN 1 END) AS sent,
+    mode() WITHIN GROUP (ORDER BY error) AS most_common_error,
+    MAX(CASE WHEN error IS NOT NULL THEN created_at ELSE NULL END) AS last_failed_at
   FROM
     notification_send_history
   GROUP BY notification_id
@@ -233,7 +234,8 @@ SELECT
   notification_send_summary.avg_duration_ms,
   COALESCE(notification_send_summary.failed, 0) AS failed,
   COALESCE(notification_send_summary.sent, 0) AS sent,
-  notification_send_summary.most_common_error
+  notification_send_summary.most_common_error,
+  notification_send_summary.last_failed_at
 FROM
   notifications
   LEFT JOIN notification_send_summary ON notifications.id = notification_send_summary.notification_id
@@ -247,7 +249,8 @@ GROUP BY notifications.id,
 notification_send_summary.avg_duration_ms,
 notification_send_summary.failed,
 notification_send_summary.sent,
-notification_send_summary.most_common_error;
+notification_send_summary.most_common_error,
+notification_send_summary.last_failed_at;
 
 CREATE VIEW integrations_with_status AS
 WITH combined AS (
