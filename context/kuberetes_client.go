@@ -56,7 +56,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		rc.BearerToken = ""
 		rc.Password = ""
 		logger.Infof("rc beaer token empty addr %p", rc)
-		if err := auth.K8sclientcache2.Set(ctx, conn.Hash(), cbWrapper); err != nil {
+		if err := auth.K8sCB.Set(ctx, conn.Hash(), cbWrapper); err != nil {
 			return nil, err
 		}
 		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{

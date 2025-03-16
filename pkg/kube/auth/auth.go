@@ -78,7 +78,7 @@ func GetAuthenticator(connHash string) (*Authenticator, error) {
 
 type CB func() (*rest.Config, error)
 
-var K8sclientcache2 = dutyCache.NewCache[CB]("k8s-client-cache", 24*time.Hour)
+var K8sCB = dutyCache.NewCache[CB]("k8s-cb-cache", 0)
 var sm sync.Map
 
 func newAuthenticator(connHash string) (*Authenticator, error) {
@@ -89,13 +89,11 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 	)
 
 	logger.Infof("newAuthenticator for conn: %s", connHash)
-	callback, err := K8sclientcache2.Get(context.Background(), connHash)
+	callback, err := K8sCB.Get(context.Background(), connHash)
 	if err != nil {
 		return nil, err
 	}
 	a := &Authenticator{
-		now: time.Now,
-
 		connTracker: connTracker,
 		callback:    callback,
 	}
@@ -111,9 +109,6 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 // Authenticator is a client credential provider that rotates credentials by executing a plugin.
 // The plugin input and output are defined by the API group client.authentication.k8s.io.
 type Authenticator struct {
-	// Stubbable for testing
-	now func() time.Time
-
 	callback CB
 
 	// connTracker tracks all connections opened that we need to close when rotating a client certificate
@@ -163,13 +158,17 @@ func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("getting credentials: %v", err)
 	}
 
-	if req.Header.Get("Authorization") != "Bearer "+creds.token {
-		//logger.Infof("Mismatch for set header[%s] and creds.token=%s", req.Header.Get("Authorization"), "Bearer "+creds.token)
-		logger.Infof("Auth header mismatch, doing refreshCredsLocked")
-		if err := r.a.refreshCredsLocked(); err != nil {
-			return nil, fmt.Errorf("error refreshing creds: %w", err)
-		}
-	}
+	// This is happening very often, where does the Header get originally set?
+	// It gets set in the transport.HTTPWrappersForConfig function, see how rest/transport.go calls it
+	// Commenting auth matching for now, and we'll always set the token to what we want and ignore the one which is set
+	/*
+		if req.Header.Get("Authorization") != "Bearer "+creds.token {
+			//logger.Infof("Mismatch for set header[%s] and creds.token=%s", req.Header.Get("Authorization"), "Bearer "+creds.token)
+			logger.Infof("Auth header mismatch, doing refreshCredsLocked")
+			if err := r.a.refreshCredsLocked(); err != nil {
+				return nil, fmt.Errorf("error refreshing creds: %w", err)
+			}
+		}*/
 
 	if creds.token != "" {
 		req.Header.Set("Authorization", "Bearer "+creds.token)
@@ -193,7 +192,11 @@ func (a *Authenticator) credsExpired() bool {
 		logger.Infof("credsExpired called 0 expiry")
 		return false
 	}
-	return a.now().After(a.exp)
+	retval := time.Now().After(a.exp)
+	if retval {
+		logger.Infof("credsExpired, exp was %s", time.Since(a.exp))
+	}
+	return retval
 }
 
 func (a *Authenticator) cert() (*tls.Certificate, error) {
@@ -224,7 +227,7 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 		return a.cachedCreds, nil
 	}
 
-	logger.Infof("cached creds not returned")
+	logger.Infof("cached creds not returned because cached_creds_nil=%v credsExpired=%v", a.cachedCreds != nil, !a.credsExpired())
 	if err := a.refreshCredsLocked(); err != nil {
 		return nil, err
 	}
@@ -252,14 +255,11 @@ func (a *Authenticator) maybeRefreshCreds(creds *credentials) error {
 // refreshCredsLocked executes the plugin and reads the credentials from
 // stdout. It must be called while holding the Authenticator's mutex.
 func (a *Authenticator) refreshCredsLocked() error {
-
-	logger.Infof("refreshCredsLocked called")
 	// Call callback
 	rc, err := a.callback()
 	if err != nil {
 		return fmt.Errorf("error calling callback: %w", err)
 	}
-	logger.Infof("GOT RC token=%s rc.KeyData=%s rc.CertData=%s", rc.BearerToken, string(rc.KeyData), string(rc.CertData))
 
 	cred := &clientauthentication.ExecCredential{
 		Status: &clientauthentication.ExecCredentialStatus{
