@@ -49,7 +49,6 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	if rc.ExecProvider == nil {
 		cbWrapper := func() (*rest.Config, error) {
-			logger.Infof("CALLBACKED client addr %p", client)
 			rc, err := client.Refresh(ctx)
 			return rc, err
 		}
@@ -83,7 +82,6 @@ func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
 		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
 		return c.RestConfig(), nil
 	}
-	c.logger.Infof("Refreshed host :%s", c.Config.Host)
 	client, rc, err := c.Connection.Populate(ctx, true)
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)

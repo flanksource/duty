@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flanksource/commons/logger"
 	dutyCache "github.com/flanksource/duty/cache"
 	"k8s.io/apimachinery/pkg/util/dump"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -88,7 +87,6 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 		connTracker,
 	)
 
-	logger.Infof("newAuthenticator for conn: %s", connHash)
 	callback, err := K8sCB.Get(context.Background(), connHash)
 	if err != nil {
 		return nil, err
@@ -142,7 +140,6 @@ type YroundTripper struct {
 }
 
 func (r *YroundTripper) WrappedRoundTripper() http.RoundTripper {
-	logger.Infof("IN WRAPPED ROUND TRIP")
 	return r.base
 }
 
@@ -179,7 +176,6 @@ func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	if res.StatusCode == http.StatusUnauthorized {
-		logger.Infof("Unauth")
 		if err := r.a.maybeRefreshCreds(creds); err != nil {
 			klog.Errorf("refreshing credentials: %v", err)
 		}
@@ -189,18 +185,12 @@ func (r *YroundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func (a *Authenticator) credsExpired() bool {
 	if a.exp.IsZero() {
-		logger.Infof("credsExpired called 0 expiry")
 		return false
 	}
-	retval := time.Now().After(a.exp)
-	if retval {
-		logger.Infof("credsExpired, exp was %s", time.Since(a.exp))
-	}
-	return retval
+	return time.Now().After(a.exp)
 }
 
 func (a *Authenticator) cert() (*tls.Certificate, error) {
-	logger.Infof("CERT CALLED")
 	creds, err := a.getCreds()
 	if err != nil {
 		return nil, err
@@ -209,12 +199,10 @@ func (a *Authenticator) cert() (*tls.Certificate, error) {
 }
 
 func (a *Authenticator) WrapTransport(rt http.RoundTripper) http.RoundTripper {
-	logger.Infof("WrapTransport from a")
 	return &YroundTripper{a, rt}
 }
 
 func (a *Authenticator) Login() error {
-	logger.Infof("Login")
 	_, err := a.callback()
 	return err
 }
@@ -227,7 +215,6 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 		return a.cachedCreds, nil
 	}
 
-	logger.Infof("cached creds not returned because cached_creds_nil=%v credsExpired=%v", a.cachedCreds != nil, !a.credsExpired())
 	if err := a.refreshCredsLocked(); err != nil {
 		return nil, err
 	}
@@ -238,7 +225,6 @@ func (a *Authenticator) getCreds() (*credentials, error) {
 // maybeRefreshCreds executes the plugin to force a rotation of the
 // credentials, unless they were rotated already.
 func (a *Authenticator) maybeRefreshCreds(creds *credentials) error {
-	logger.Infof("maybe frefresh creds called")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
