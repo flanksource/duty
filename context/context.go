@@ -388,7 +388,8 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	}
 	connHash := conn.Hash()
 	if client, err := k8sclientcache.Get(k, connHash); err == nil {
-		if err := client.Refresh(k); err != nil {
+		k.Counter("context_kubernetes_client_cache_hit", "connection", connHash).Add(1)
+		if _, err := client.Refresh(k); err != nil {
 			return nil, err
 		}
 		return client.Client, nil
@@ -398,6 +399,7 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 		return nil, err
 	}
 	_ = k8sclientcache.Set(k, connHash, client)
+	k.Counter("context_kubernetes_client_cache_miss", "connection", connHash).Add(1)
 	return client.Client, nil
 }
 
