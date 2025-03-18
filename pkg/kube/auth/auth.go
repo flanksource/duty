@@ -27,10 +27,9 @@ func GetAuthenticator(connHash string) (*Authenticator, error) {
 	return newAuthenticator(connHash)
 }
 
-type CB func() (*rest.Config, error)
+type CallbackFunc func() (*rest.Config, error)
 
-var K8sCB = dutyCache.NewCache[CB]("k8s-cb-cache", 0)
-var sm sync.Map
+var AuthKubernetesCallbackCache = dutyCache.NewCache[CallbackFunc]("k8s-cb-cache", 0)
 
 func newAuthenticator(connHash string) (*Authenticator, error) {
 	connTracker := connrotation.NewConnectionTracker()
@@ -39,7 +38,7 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 		connTracker,
 	)
 
-	callback, err := K8sCB.Get(context.Background(), connHash)
+	callback, err := AuthKubernetesCallbackCache.Get(context.Background(), connHash)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +58,7 @@ func newAuthenticator(connHash string) (*Authenticator, error) {
 // Authenticator is a client credential provider that rotates credentials by executing a plugin.
 // The plugin input and output are defined by the API group client.authentication.k8s.io.
 type Authenticator struct {
-	callback CB
+	callback CallbackFunc
 
 	// connTracker tracks all connections opened that we need to close when rotating a client certificate
 	connTracker *connrotation.ConnectionTracker

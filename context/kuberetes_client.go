@@ -26,6 +26,9 @@ var defaultExpiry = 15 * time.Minute
 
 func authProvider(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
 	connHash := config["conn"]
+	if connHash == "" {
+		return nil, fmt.Errorf("key[conn] with connection hash not set")
+	}
 	ap, err := auth.GetAuthenticator(connHash)
 	return ap, err
 }
@@ -48,13 +51,12 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	client.SetExpiry(defaultExpiry)
 
 	if rc.ExecProvider == nil {
-		cbWrapper := func() (*rest.Config, error) {
+		refreshCallback := func() (*rest.Config, error) {
 			rc, err := client.Refresh(ctx)
 			return rc, err
 		}
 		rc.BearerToken = ""
-		rc.Password = ""
-		if err := auth.K8sCB.Set(ctx, conn.Hash(), cbWrapper); err != nil {
+		if err := auth.AuthKubernetesCallbackCache.Set(ctx, conn.Hash(), refreshCallback); err != nil {
 			return nil, err
 		}
 		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
@@ -123,5 +125,5 @@ func extractExpiryFromJWT(token string) time.Time {
 }
 
 func init() {
-	rest.RegisterAuthProviderPlugin("duty", authProvider)
+	_ = rest.RegisterAuthProviderPlugin("duty", authProvider)
 }
