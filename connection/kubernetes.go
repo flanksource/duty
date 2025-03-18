@@ -3,7 +3,6 @@ package connection
 import (
 	"fmt"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
@@ -123,7 +122,8 @@ func (t KubernetesConnection) ToModel() models.Connection {
 }
 
 func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
-	logger.Infof("Populate called for conn: %s", t.Hash())
+	ctx.Counter("kubernetes_connection_populated", "connection", t.Hash()).Add(1)
+
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {

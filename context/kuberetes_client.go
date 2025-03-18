@@ -24,7 +24,7 @@ type KubernetesClient struct {
 
 var defaultExpiry = 15 * time.Minute
 
-func fact(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
+func authProvider(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
 	connHash := config["conn"]
 	ap, err := auth.GetAuthenticator(connHash)
 	return ap, err
@@ -54,7 +54,6 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		}
 		rc.BearerToken = ""
 		rc.Password = ""
-		logger.Infof("rc beaer token empty addr %p", rc)
 		if err := auth.K8sCB.Set(ctx, conn.Hash(), cbWrapper); err != nil {
 			return nil, err
 		}
@@ -124,5 +123,5 @@ func extractExpiryFromJWT(token string) time.Time {
 }
 
 func init() {
-	rest.RegisterAuthProviderPlugin("duty", fact)
+	rest.RegisterAuthProviderPlugin("duty", authProvider)
 }
