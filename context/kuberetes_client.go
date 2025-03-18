@@ -2,7 +2,6 @@ package context
 
 import (
 	"fmt"
-	//"net/http"
 	"time"
 
 	"k8s.io/client-go/rest"
@@ -50,13 +49,15 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	client.SetExpiry(defaultExpiry)
 
+	connHash := conn.Hash()
 	if rc.ExecProvider == nil {
 		refreshCallback := func() (*rest.Config, error) {
+			ctx.Counter("kubernetes_auth_plugin_refreshed", "connection", connHash).Add(1)
 			rc, err := client.Refresh(ctx)
 			return rc, err
 		}
 		rc.BearerToken = ""
-		if err := auth.AuthKubernetesCallbackCache.Set(ctx, conn.Hash(), refreshCallback); err != nil {
+		if err := auth.AuthKubernetesCallbackCache.Set(ctx, connHash, refreshCallback); err != nil {
 			return nil, err
 		}
 		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
