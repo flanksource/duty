@@ -13,62 +13,14 @@ import (
 	"time"
 
 	dutyCache "github.com/flanksource/duty/cache"
-	"k8s.io/apimachinery/pkg/util/dump"
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/pkg/apis/clientauthentication"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/metrics"
 	"k8s.io/client-go/transport"
 	"k8s.io/client-go/util/connrotation"
 	"k8s.io/klog/v2"
 )
-
-var (
-	// Since transports can be constantly re-initialized by programs like kubectl,
-	// keep a cache of initialized authenticators keyed by a hash of their config.
-	globalCache = newCache()
-)
-
-func newCache() *cache {
-	return &cache{m: make(map[string]*Authenticator)}
-}
-
-func cacheKey(conf *api.ExecConfig, cluster *clientauthentication.Cluster) string {
-	key := struct {
-		conf    *api.ExecConfig
-		cluster *clientauthentication.Cluster
-	}{
-		conf:    conf,
-		cluster: cluster,
-	}
-	return dump.Pretty(key)
-}
-
-type cache struct {
-	mu sync.Mutex
-	m  map[string]*Authenticator
-}
-
-func (c *cache) get(s string) (*Authenticator, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	a, ok := c.m[s]
-	return a, ok
-}
-
-// put inserts an authenticator into the cache. If an authenticator is already
-// associated with the key, the first one is returned instead.
-func (c *cache) put(s string, a *Authenticator) *Authenticator {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	existing, ok := c.m[s]
-	if ok {
-		return existing
-	}
-	c.m[s] = a
-	return a
-}
 
 // GetAuthenticator returns an exec-based plugin for providing client credentials.
 func GetAuthenticator(connHash string) (*Authenticator, error) {
