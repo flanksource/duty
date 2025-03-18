@@ -17,6 +17,7 @@ import (
 
 	"github.com/flanksource/duty/types"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -33,6 +34,7 @@ type GitClient struct {
 	URL                 string
 	Owner, Repo, Branch string
 	Depth               int
+	AzureDevops         bool
 }
 
 func (gitClient GitClient) GetContext() map[string]any {
@@ -68,6 +70,12 @@ func (gitClient GitClient) LoggerName() string {
 }
 
 func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]any, error) {
+
+	if gitClient.AzureDevops {
+		transport.UnsupportedCapabilities = []capability.Capability{
+			capability.ThinPack,
+		}
+	}
 
 	ctx = ctx.WithObject(*gitClient)
 	if ctx.Logger.IsLevelEnabled(4) {
@@ -281,6 +289,7 @@ func CreateGitConfig(ctx context.Context, conn *GitConnection) (*GitClient, erro
 	} else if azureOrg, azureProject, repo, ok := parseAzureDevopsRepo(conn.URL); ok {
 		config.Owner = fmt.Sprintf("%s/%s", azureOrg, azureProject)
 		config.Repo = repo
+		config.AzureDevops = true
 	}
 	if strings.HasPrefix(conn.URL, "ssh://") {
 		sshURL := conn.URL[6:]
