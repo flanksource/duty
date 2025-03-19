@@ -193,6 +193,7 @@ const (
 	// Playbooks
 	ActionPlaybookRun     = "playbook:run"
 	ActionPlaybookApprove = "playbook:approve"
+	ActionPlaybookCancel  = "playbook:cancel"
 )
 
 var AllActions = []string{
