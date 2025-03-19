@@ -195,6 +195,11 @@ ORDER BY time
 		results = append(results, datapoint)
 	}
 
+	// stat.Quantile panics on empty lists so we return early
+	if len(results) == 0 {
+		return nil, uptime, types.Latency{}, nil
+	}
+
 	// Sorting is required before calculating latencies else Quantile panics
 	slices.Sort(latencies)
 	latency := types.Latency{
