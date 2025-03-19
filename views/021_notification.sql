@@ -96,7 +96,21 @@ WITH combined AS (
   SELECT
     nsh.*,
     'config' AS "resource_type",
-    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class) AS resource
+    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class) AS resource,
+    CASE
+      WHEN nsh.playbook_run_id IS NOT NULL THEN (
+        SELECT jsonb_build_object(
+          'id', pr.id::text,
+          'playbook_id', pr.playbook_id::text,
+          'status', pr.status,
+          'playbook_name', COALESCE(p.title, p.name)
+        )
+        FROM playbook_runs pr
+        JOIN playbooks p ON p.id = pr.playbook_id
+        WHERE pr.id = nsh.playbook_run_id
+      )
+      ELSE NULL
+    END::jsonb AS playbook_run
   FROM
     notification_send_history nsh
     LEFT JOIN (
@@ -114,7 +128,21 @@ WITH combined AS (
     SELECT
       nsh.*,
       'component' AS "resource_type",
-      jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon) AS resource
+      jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon) AS resource,
+      CASE
+        WHEN nsh.playbook_run_id IS NOT NULL THEN (
+          SELECT jsonb_build_object(
+            'id', pr.id::text,
+            'playbook_id', pr.playbook_id::text,
+            'status', pr.status,
+            'playbook_name', COALESCE(p.title, p.name)
+          )
+          FROM playbook_runs pr
+          JOIN playbooks p ON p.id = pr.playbook_id
+          WHERE pr.id = nsh.playbook_run_id
+        )
+        ELSE NULL
+      END::jsonb AS playbook_run
     FROM
       notification_send_history nsh
     LEFT JOIN (
@@ -131,7 +159,21 @@ WITH combined AS (
     SELECT
       nsh.*,
       'check' AS "resource_type",
-      jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon) AS resource
+      jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon) AS resource,
+      CASE
+        WHEN nsh.playbook_run_id IS NOT NULL THEN (
+          SELECT jsonb_build_object(
+            'id', pr.id::text,
+            'playbook_id', pr.playbook_id::text,
+            'status', pr.status,
+            'playbook_name', COALESCE(p.title, p.name)
+          )
+          FROM playbook_runs pr
+          JOIN playbooks p ON p.id = pr.playbook_id
+          WHERE pr.id = nsh.playbook_run_id
+        )
+        ELSE NULL
+      END::jsonb AS playbook_run
     FROM
       notification_send_history nsh
     LEFT JOIN (
@@ -150,7 +192,21 @@ WITH combined AS (
     SELECT
       nsh.*,
       'canary' AS "resource_type",
-      jsonb_build_object('id', canary.id, 'name', canary.name) AS resource
+      jsonb_build_object('id', canary.id, 'name', canary.name) AS resource,
+      CASE
+        WHEN nsh.playbook_run_id IS NOT NULL THEN (
+          SELECT jsonb_build_object(
+            'id', pr.id::text,
+            'playbook_id', pr.playbook_id::text,
+            'status', pr.status,
+            'playbook_name', COALESCE(p.title, p.name)
+          )
+          FROM playbook_runs pr
+          JOIN playbooks p ON p.id = pr.playbook_id
+          WHERE pr.id = nsh.playbook_run_id
+        )
+        ELSE NULL
+      END::jsonb AS playbook_run
     FROM
       notification_send_history nsh
     LEFT JOIN (
