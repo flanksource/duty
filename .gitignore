@@ -6,3 +6,4 @@ nohup.out
 *.test
 .aider*
 .creds/
+.cursor/

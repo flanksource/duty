@@ -252,8 +252,16 @@ func (p PlaybookRun) Running(db *gorm.DB) error {
 }
 
 func (p PlaybookRun) End(db *gorm.DB) error {
-	status := PlaybookRunStatusCompleted
+	return p.endWithDeterminedStatus(db)
+}
 
+func (p PlaybookRun) Cancel(db *gorm.DB) error {
+	return p.endWithStatus(db, PlaybookRunStatusCancelled)
+}
+
+// endWithDeterminedStatus ends the playbook run with a status determined by its actions
+func (p PlaybookRun) endWithDeterminedStatus(db *gorm.DB) error {
+	status := PlaybookRunStatusCompleted
 	var statuses []PlaybookActionStatus
 	if err := db.Select("status").Model(&PlaybookRunAction{}).Where("playbook_run_id = ?", p.ID).Find(&statuses).Error; err != nil {
 		return oops.Tags("db").Wrap(err)
@@ -263,6 +271,11 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 		status = PlaybookRunStatusFailed
 	}
 
+	return p.endWithStatus(db, status)
+}
+
+// endWithStatus ends the playbook run with the specified status
+func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error {
 	if err := p.Update(db, map[string]any{
 		"status":   status,
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
