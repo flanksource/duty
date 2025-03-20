@@ -31,8 +31,7 @@ func fetchEvents(ctx context.Context, tx *gorm.DB, watchEvents []string, batchSi
 	}
 
 	const selectEventsQuery = `
-		DELETE FROM event_queue
-		WHERE id IN (
+		WITH to_delete AS (
 			SELECT id FROM event_queue
 			WHERE
 				(delay IS NULL OR created_at + (delay * INTERVAL '1 second' / 1000000000)  <= NOW()) AND
@@ -43,6 +42,8 @@ func fetchEvents(ctx context.Context, tx *gorm.DB, watchEvents []string, batchSi
 			FOR UPDATE SKIP LOCKED
 			LIMIT @BatchSize
 		)
+		DELETE FROM event_queue
+		WHERE id IN (SELECT id FROM to_delete)
 		RETURNING *
 	`
 
