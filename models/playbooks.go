@@ -38,13 +38,15 @@ const (
 type PlaybookActionStatus string
 
 const (
-	PlaybookActionStatusCompleted PlaybookActionStatus = "completed"
-	PlaybookActionStatusFailed    PlaybookActionStatus = "failed"
-	PlaybookActionStatusRunning   PlaybookActionStatus = "running"
-	PlaybookActionStatusScheduled PlaybookActionStatus = "scheduled"
-	PlaybookActionStatusWaiting   PlaybookActionStatus = "waiting"
-	PlaybookActionStatusSkipped   PlaybookActionStatus = "skipped"
-	PlaybookActionStatusSleeping  PlaybookActionStatus = "sleeping"
+	// Waiting for child playbook runs to complete
+	PlaybookActionStatusWaitingChildren PlaybookActionStatus = "waiting_children"
+	PlaybookActionStatusCompleted       PlaybookActionStatus = "completed"
+	PlaybookActionStatusFailed          PlaybookActionStatus = "failed"
+	PlaybookActionStatusRunning         PlaybookActionStatus = "running"
+	PlaybookActionStatusScheduled       PlaybookActionStatus = "scheduled"
+	PlaybookActionStatusWaiting         PlaybookActionStatus = "waiting" // Waiting for agents
+	PlaybookActionStatusSkipped         PlaybookActionStatus = "skipped"
+	PlaybookActionStatusSleeping        PlaybookActionStatus = "sleeping"
 )
 
 var PlaybookActionFinalStates = []PlaybookActionStatus{
@@ -312,7 +314,52 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 		}
 	}
 
+	if p.ParentID != nil {
+		parentRun := PlaybookRun{ID: *p.ParentID}
+		if err := parentRun.resumeChildrenWaitingAction(db); err != nil {
+			return fmt.Errorf("failed to resume action awaiting children: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// resumeChildrenWaitingAction resumes the action that's awaiting children
+// if all its children have terminated.
+func (p PlaybookRun) resumeChildrenWaitingAction(db *gorm.DB) error {
+	query := `
+	SELECT COUNT(*)
+	FROM playbook_runs AS parent
+	WHERE parent.id = ?
+	AND parent.status = ?
+	AND NOT EXISTS (
+		SELECT 1
+		FROM playbook_runs AS child
+		WHERE child.parent_id = parent.id
+		AND child.status NOT IN (?)
+	)
+	`
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Raw(query, p.ID, PlaybookRunStatusRunning, PlaybookRunStatusFinalStates).Scan(&count).Error; err != nil {
+			return fmt.Errorf("failed to query parent playbook runs: %w", err)
+		}
+
+		if count == 0 {
+			return nil
+		}
+
+		// Reschedule the action that's awaiting children
+		if err := tx.Model(&PlaybookRunAction{}).
+			Where("playbook_run_id = ?", p.ID).
+			Where("status = ?", PlaybookActionStatusWaitingChildren).
+			Update("status", PlaybookActionStatusScheduled).Error; err != nil {
+			return fmt.Errorf("failed to update parent playbook runs: %w", err)
+		}
+
+		return nil
+	})
 }
 
 func (p PlaybookRun) Assign(db *gorm.DB, agent *Agent, action string) error {
@@ -653,6 +700,12 @@ func marshallResult(result any) string {
 		"result": maybeJson,
 	})
 	return string(b)
+}
+
+func (p PlaybookRunAction) WaitForChildren(db *gorm.DB) error {
+	return p.Update(db, map[string]any{
+		"status": PlaybookActionStatusWaitingChildren,
+	})
 }
 
 func (p PlaybookRunAction) Complete(db *gorm.DB, result any) error {
