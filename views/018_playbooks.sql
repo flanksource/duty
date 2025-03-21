@@ -92,3 +92,42 @@ CREATE OR REPLACE VIEW playbook_names AS
     deleted_at IS NULL
   ORDER BY
     name;
+
+---
+DROP FUNCTION IF EXISTS get_playbook_run_actions;
+
+CREATE OR REPLACE FUNCTION get_playbook_run_actions(run_id uuid)
+RETURNS TABLE (
+    id uuid,
+    name text,
+    playbook_run_id uuid,
+    status text,
+    scheduled_time timestamp with time zone,
+    start_time timestamp with time zone,
+    end_time timestamp with time zone,
+    agent_id uuid,
+    retry_count integer,
+    agent_name text
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH child_runs AS (
+    SELECT child.id AS child_id FROM playbook_runs AS child WHERE child.parent_id = run_id
+  )
+  SELECT
+    playbook_run_actions.id,
+    playbook_run_actions.name,
+    playbook_run_actions.playbook_run_id,
+    playbook_run_actions.status,
+    playbook_run_actions.scheduled_time,
+    playbook_run_actions.start_time,
+    playbook_run_actions.end_time,
+    playbook_run_actions.agent_id,
+    playbook_run_actions.retry_count,
+    agents.name AS agent_name
+  FROM playbook_run_actions
+  LEFT JOIN agents ON playbook_run_actions.agent_id = agents.id
+  WHERE playbook_run_actions.playbook_run_id IN (SELECT child_id FROM child_runs) OR playbook_run_actions.playbook_run_id = run_id
+  ORDER BY playbook_run_actions.start_time;
+END;
+$$ LANGUAGE plpgsql;
