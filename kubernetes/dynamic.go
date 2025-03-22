@@ -430,6 +430,39 @@ func (c *Client) WaitForContainerStart(
 	}
 }
 
+func (c *Client) ApplyUnstructured(ctx context.Context, objects ...*unstructured.Unstructured) error {
+	for _, obj := range objects {
+		if obj == nil {
+			continue
+		}
+
+		gvk := obj.GetObjectKind().GroupVersionKind()
+		client, err := c.GetClientByGroupVersionKind(gvk.Group, gvk.Version, gvk.Kind)
+		if err != nil {
+			return fmt.Errorf("failed to get dynamic client from %v: %w", gvk, err)
+		}
+
+		namespacedClient := client.Namespace(obj.GetNamespace())
+
+		// apply defaults to objects beforehand to prevent uncessary configured logs
+		if obj, err = Defaults(obj); err != nil {
+			return err
+		}
+
+		existing, err := namespacedClient.Get(ctx, obj.GetName(), metav1.GetOptions{})
+		if err != nil && !apiErrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get object %s: %w", obj.GetName(), err)
+		} else if existing == nil {
+			_, err = namespacedClient.Create(ctx, obj, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("%s: %w", obj.GetName(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func safeString(buf *bytes.Buffer) string {
 	if buf == nil || buf.Len() == 0 {
 		return ""

@@ -8,9 +8,19 @@ import (
 
 	"github.com/TomOnTime/utfutil"
 	"github.com/flanksource/commons/logger"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
+
+func ToYaml(to *unstructured.Unstructured) string {
+	if to == nil {
+		return ""
+	}
+
+	data, _ := yaml.Marshal(to)
+	return string(data)
+}
 
 func BytesToUtf8Lf(file []byte) (string, error) {
 	decoded := utfutil.BytesReader(file, utfutil.UTF8)
