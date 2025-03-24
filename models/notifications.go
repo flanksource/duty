@@ -75,6 +75,10 @@ func (n Notification) AsMap(removeFields ...string) map[string]any {
 	return asMap(n, removeFields...)
 }
 
+func (n Notification) GetNamespace() string {
+	return n.Namespace
+}
+
 const (
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
@@ -233,6 +237,10 @@ func (n NotificationSilence) AsMap(removeFields ...string) map[string]any {
 
 func (t *NotificationSilence) TableName() string {
 	return "notification_silences"
+}
+
+func (t NotificationSilence) GetNamespace() string {
+	return t.Namespace
 }
 
 // GenerateFallbackAttempt creates a new notification history record

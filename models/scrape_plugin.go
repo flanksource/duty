@@ -18,3 +18,7 @@ type ScrapePlugin struct {
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
+
+func (s ScrapePlugin) GetNamespace() string {
+	return s.Namespace
+}

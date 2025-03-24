@@ -603,10 +603,6 @@ func colorStatus(s string) string {
 	return s
 }
 
-func (p *Playbook) NamespaceScope() string {
-	return p.Namespace
-}
-
 func (p PlaybookRunAction) Context() map[string]any {
 	return map[string]any{
 		"action_id":   p.ID.String(),

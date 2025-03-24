@@ -114,7 +114,7 @@ type LogNameAccessor interface {
 }
 
 type NamespaceScopeAccessor interface {
-	NamespaceScope() string
+	GetNamespace() string
 }
 
 // noopMatcher implements TagsMatchable
