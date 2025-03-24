@@ -768,6 +768,7 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     id uuid,
     config_id uuid,
     name TEXT,
+    deleted_at TIMESTAMP WITH TIME ZONE,
     type TEXT,
     tags jsonb,
     external_created_by TEXT,
@@ -789,7 +790,7 @@ BEGIN
   IF type_filter IN ('none', '',null) THEN
     RETURN query
       SELECT
-          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
@@ -797,8 +798,8 @@ BEGIN
 
   ELSIF type_filter IN ('downstream') THEN
     RETURN query
-        SELECT DISTINCT ON (cc.id) 
-          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+      SELECT DISTINCT ON (cc.id) 
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
@@ -819,8 +820,8 @@ BEGIN
 
   ELSIF type_filter IN ('upstream') THEN
     RETURN query
-        SELECT DISTINCT ON (cc.id) 
-          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
+      SELECT DISTINCT ON (cc.id) 
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
@@ -836,7 +837,7 @@ BEGIN
   ELSE
     RETURN query
       SELECT
-          cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
+          cc.id, cc.config_id, c.name, c.deleted_at, c.type, c.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, c.agent_id
       FROM config_changes cc
       LEFT JOIN config_items c on c.id = cc.config_id
@@ -863,6 +864,7 @@ CREATE OR REPLACE VIEW catalog_changes AS
     cc.id,
     cc.config_id,
     c.name,
+    c.deleted_at,
     c.type,
     c.tags,
     cc.external_created_by,
