@@ -885,6 +885,7 @@ DROP VIEW IF EXISTS config_detail;
 CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,
+    agents.name as agent_name,
     json_build_object(
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
       'analysis', COALESCE(analysis.analysis_count, 0),
@@ -894,6 +895,7 @@ CREATE OR REPLACE VIEW config_detail AS
     ) as summary,
     components
   FROM config_items as ci
+    LEFT JOIN agents ON agents.id = ci.agent_id
     LEFT JOIN
       (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
       ON ci.id = related.config_id
