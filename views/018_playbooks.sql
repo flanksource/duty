@@ -107,12 +107,14 @@ RETURNS TABLE (
     end_time timestamp with time zone,
     agent_id uuid,
     retry_count integer,
-    agent_name text
+    agent jsonb
 ) AS $$
 BEGIN
   RETURN QUERY
-  WITH child_runs AS (
-    SELECT child.id AS child_id FROM playbook_runs AS child WHERE child.parent_id = run_id
+  WITH all_runs AS (
+    SELECT playbook_runs.id, playbook_runs.agent_id 
+    FROM playbook_runs  
+    WHERE playbook_runs.parent_id = run_id OR playbook_runs.id = run_id
   )
   SELECT
     playbook_run_actions.id,
@@ -124,10 +126,13 @@ BEGIN
     playbook_run_actions.end_time,
     playbook_run_actions.agent_id,
     playbook_run_actions.retry_count,
-    agents.name AS agent_name
+    jsonb_build_object(
+      'id', agents.id,
+      'name', agents.name
+    ) AS agent
   FROM playbook_run_actions
-  LEFT JOIN agents ON playbook_run_actions.agent_id = agents.id
-  WHERE playbook_run_actions.playbook_run_id IN (SELECT child_id FROM child_runs) OR playbook_run_actions.playbook_run_id = run_id
+  INNER JOIN all_runs ON playbook_run_actions.playbook_run_id = all_runs.id
+  LEFT JOIN agents ON COALESCE(playbook_run_actions.agent_id, all_runs.agent_id) = agents.id
   ORDER BY playbook_run_actions.start_time;
 END;
 $$ LANGUAGE plpgsql;
