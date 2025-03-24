@@ -211,6 +211,7 @@ type ConfigChangeRow struct {
 	ExternalChangeId  string              `gorm:"column:external_change_id" json:"external_change_id"`
 	ID                string              `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
 	ConfigID          string              `gorm:"column:config_id;default:''" json:"config_id"`
+	DeletedAt         *time.Time          `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
 	ChangeType        string              `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff"`
 	Severity          string              `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
 	Source            string              `gorm:"column:source" json:"source"`
@@ -351,6 +352,10 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", err)
 		}
 		clauses = append(clauses, clause...)
+	}
+
+	if !req.IncludeDeletedConfigs {
+		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "deleted_at"}, Value: nil})
 	}
 
 	table := query.Table("catalog_changes")
