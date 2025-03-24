@@ -63,3 +63,7 @@ func (t *Topology) Save(db *gorm.DB) error {
 	err := db.Clauses(Topology{}.OnConflictClause()).Create(t).Error
 	return err
 }
+
+func (t Topology) GetNamespace() string {
+	return t.Namespace
+}

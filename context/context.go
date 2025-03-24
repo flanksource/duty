@@ -148,7 +148,7 @@ func (k Context) WithObject(object ...any) Context {
 	for _, o := range object {
 		switch v := o.(type) {
 		case models.NamespaceScopeAccessor:
-			ctx = ctx.WithNamespace(v.NamespaceScope())
+			ctx = ctx.WithNamespace(v.GetNamespace())
 		}
 		switch v := o.(type) {
 		case models.LogNameAccessor:

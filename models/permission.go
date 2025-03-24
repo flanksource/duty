@@ -26,6 +26,10 @@ type PermissionGroup struct {
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (p PermissionGroup) GetNamespace() string {
+	return p.Namespace
+}
+
 type PermissionSubjectType string
 
 const (
@@ -79,6 +83,10 @@ type Permission struct {
 
 	// List of config/component tags a person is allowed access to when RLS is enabled
 	Tags types.JSONStringMap `json:"tags,omitempty" gorm:"default:NULL"`
+}
+
+func (p Permission) GetNamespace() string {
+	return p.Namespace
 }
 
 func (t *Permission) Principal() string {

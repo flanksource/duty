@@ -135,6 +135,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 			}
 			scraperNamespace = scrapeConfig.Namespace
 
+			ctx = ctx.WithObject(scrapeConfig)
+
 			if err := json.Unmarshal([]byte(scrapeConfig.Spec), &scraperSpec); err != nil {
 				return nil, fmt.Errorf("unable to unmarshal scrapeconfig spec (id=%s)", *configItem.ScraperID)
 			}

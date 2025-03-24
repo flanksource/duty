@@ -314,7 +314,11 @@ type ConfigScraper struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
-func (t ConfigScraper) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+func (c ConfigScraper) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c ConfigScraper) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigScraper
 	err := db.Where("is_pushed IS FALSE").Find(&items).Error
 	return lo.Map(items, func(i ConfigScraper, _ int) DBTable { return i }), err
