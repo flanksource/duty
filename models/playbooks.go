@@ -24,6 +24,7 @@ type PlaybookRunStatus string
 
 const (
 	PlaybookRunStatusCancelled       PlaybookRunStatus = "cancelled"
+	PlaybookRunStatusTimedOut        PlaybookRunStatus = "timed_out"
 	PlaybookRunStatusCompleted       PlaybookRunStatus = "completed"
 	PlaybookRunStatusFailed          PlaybookRunStatus = "failed"
 	PlaybookRunStatusPendingApproval PlaybookRunStatus = "pending_approval"
@@ -67,12 +68,16 @@ var PlaybookRunStatusFinalStates = []PlaybookRunStatus{
 	PlaybookRunStatusCancelled,
 	PlaybookRunStatusCompleted,
 	PlaybookRunStatusFailed,
+	PlaybookRunStatusTimedOut,
 }
 
 var PlaybookRunStatusExecutingGroup = []PlaybookRunStatus{
 	PlaybookRunStatusRunning,
 	PlaybookRunStatusScheduled,
-	PlaybookRunStatusCompleted,
+	PlaybookRunStatusSleeping,
+	PlaybookRunStatusRetrying,
+	PlaybookRunStatusWaiting,
+	PlaybookRunStatusPendingApproval,
 }
 
 var _ types.ResourceSelectable = &Playbook{}
@@ -184,6 +189,7 @@ type PlaybookRun struct {
 	StartTime     *time.Time          `json:"start_time,omitempty" time_format:"postgres_timestamp"`
 	ScheduledTime time.Time           `json:"scheduled_time,omitempty" time_format:"postgres_timestamp" gorm:"default:NOW(), NOT NULL"`
 	EndTime       *time.Time          `json:"end_time,omitempty" time_format:"postgres_timestamp"`
+	Timeout       time.Duration       `json:"timeout,omitempty"`
 	CreatedBy     *uuid.UUID          `json:"created_by,omitempty"`
 	ComponentID   *uuid.UUID          `json:"component_id,omitempty"`
 	CheckID       *uuid.UUID          `json:"check_id,omitempty"`
