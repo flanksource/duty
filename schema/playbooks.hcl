@@ -169,6 +169,12 @@ table "playbook_runs" {
     null = true
     type = timestamptz
   }
+  column "timeout" {
+    null    = false
+    type    = bigint
+    comment = "duration in nanoseconds"
+    default = 1800000000000 # 30 minutes
+  }
   column "created_by" {
     null = true
     type = uuid
