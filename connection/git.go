@@ -201,17 +201,19 @@ func (c *GitConnection) HydrateConnection(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if conn.Username != "" {
-			c.Username = &types.EnvVar{ValueStatic: conn.Username}
-		}
-		if conn.Password != "" {
-			c.Password = &types.EnvVar{ValueStatic: conn.Password}
-		}
-		if conn.Certificate != "" {
-			c.Certificate = &types.EnvVar{ValueStatic: conn.Certificate}
-		}
-		if c.URL == "" {
-			c.URL = conn.URL
+		if conn != nil {
+			if conn.Username != "" {
+				c.Username = &types.EnvVar{ValueStatic: conn.Username}
+			}
+			if conn.Password != "" {
+				c.Password = &types.EnvVar{ValueStatic: conn.Password}
+			}
+			if conn.Certificate != "" {
+				c.Certificate = &types.EnvVar{ValueStatic: conn.Certificate}
+			}
+			if c.URL == "" {
+				c.URL = conn.URL
+			}
 		}
 	}
 
