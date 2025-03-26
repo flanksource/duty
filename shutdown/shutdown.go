@@ -48,13 +48,13 @@ var Shutdown = sync.OnceFunc(func() {
 })
 
 func ShutdownAndExit(code int, msg string) {
-	Shutdown()
 	if code == 0 {
 		logger.StandardLogger().WithSkipReportLevel(1).Infof(msg)
 	} else {
 		logger.StandardLogger().WithSkipReportLevel(1).Errorf(msg)
 	}
 
+	Shutdown()
 	os.Exit(code)
 }
 

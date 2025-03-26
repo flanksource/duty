@@ -21,24 +21,6 @@ type Selectors struct {
 	Components  []types.ResourceSelector `json:"components,omitempty"`
 }
 
-func (t Selectors) RequiredMatchCount() int {
-	var count int
-	if len(t.Playbooks) > 0 {
-		count++
-	}
-	if len(t.Connections) > 0 {
-		count++
-	}
-	if len(t.Configs) > 0 {
-		count++
-	}
-	if len(t.Components) > 0 {
-		count++
-	}
-
-	return count
-}
-
 func matchPerm(attr *models.ABACAttribute, _agents any, tagsEncoded string) (bool, error) {
 	var rAgents []string
 	switch v := _agents.(type) {
@@ -66,6 +48,46 @@ func matchPerm(attr *models.ABACAttribute, _agents any, tagsEncoded string) (boo
 
 type addableEnforcer interface {
 	AddFunction(name string, function govaluate.ExpressionFunction)
+}
+
+// matchResourceSelector matches an ABACAttribute against resource selectors
+func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool, error) {
+	type resourcePair struct {
+		attrField    uuid.UUID
+		attrResource types.ResourceSelectable
+		selectors    []types.ResourceSelector
+	}
+
+	resourcePairs := []resourcePair{
+		{attr.Playbook.ID, &attr.Playbook, selector.Playbooks},
+		{attr.Component.ID, attr.Component, selector.Components},
+		{attr.Connection.ID, &attr.Connection, selector.Connections},
+		{attr.Config.ID, attr.Config, selector.Configs},
+	}
+
+	for _, pair := range resourcePairs {
+		if pair.attrField != uuid.Nil {
+			if len(pair.selectors) == 0 {
+				// An attribute was provided but there's no selector to match it against
+				//
+				// Essentially, what's happening here is that the permission was not restrictive enough.
+				// The selector in the permission doesn't care about this attribute.
+				// So it's authorized.
+				continue
+			}
+
+			for _, rs := range pair.selectors {
+				if !rs.Matches(pair.attrResource) {
+					return false, nil
+				}
+			}
+		} else if len(pair.selectors) > 0 {
+			// A selector was provided but there's no attribute to match it against
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {
@@ -103,7 +125,6 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 		}
 
 		attributeSet := args[0]
-
 		if _, ok := attributeSet.(string); ok {
 			return false, nil
 		}
@@ -118,6 +139,10 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 			return false, fmt.Errorf("[matchResourceSelector] selector must be a string")
 		}
 
+		if attr == nil {
+			return false, errors.New("attribute cannot be nil")
+		}
+
 		rs, err := base64.StdEncoding.DecodeString(selector)
 		if err != nil {
 			return false, err
@@ -128,37 +153,7 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 			return false, err
 		}
 
-		var resourcesMatched int
-
-		for _, rs := range objectSelector.Components {
-			if rs.Matches(attr.Component) {
-				resourcesMatched++
-				break
-			}
-		}
-
-		for _, rs := range objectSelector.Playbooks {
-			if rs.Matches(&attr.Playbook) {
-				resourcesMatched++
-				break
-			}
-		}
-
-		for _, rs := range objectSelector.Connections {
-			if rs.Matches(&attr.Connection) {
-				resourcesMatched++
-				break
-			}
-		}
-
-		for _, rs := range objectSelector.Configs {
-			if rs.Matches(attr.Config) {
-				resourcesMatched++
-				break
-			}
-		}
-
-		return resourcesMatched == objectSelector.RequiredMatchCount(), nil
+		return matchResourceSelector(attr, objectSelector)
 	})
 }
 
