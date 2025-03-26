@@ -50,7 +50,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	client.SetExpiry(defaultExpiry)
 
 	connHash := conn.Hash()
-	if rc.ExecProvider == nil {
+	if rc.ExecProvider == nil && rc.BearerToken != "" {
 		refreshCallback := func() (*rest.Config, error) {
 			ctx.Counter("kubernetes_auth_plugin_refreshed", "connection", connHash).Add(1)
 			rc, err := client.Refresh(ctx)
