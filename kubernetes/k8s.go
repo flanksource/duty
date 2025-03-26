@@ -85,7 +85,7 @@ func NewClientFromPathOrConfig(
 }
 
 func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
-	clogger.Infof("creating new client-go for %s ", config.Host)
+	clogger.Tracef("creating new client-go for %s ", config.Host)
 	if clogger.IsLevelEnabled(7) {
 		clogger.Infof("tracing kubernetes API calls")
 		logger := &httpretty.Logger{

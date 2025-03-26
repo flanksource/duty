@@ -43,7 +43,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		logger:     logger.GetLogger("k8s").Named(conn.String()),
 	}
 
-	if client.logger.IsLevelEnabled(logger.Trace1) {
+	if client.logger.IsLevelEnabled(logger.Trace4) {
 		client.logger.V(logger.Trace1).Infof(logger.Stacktrace())
 	}
 
@@ -66,7 +66,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		}
 	}
 
-	client.logger.Infof("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry)
+	client.logger.Tracef("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry.Format(time.RFC3339))
 	return client, nil
 }
 
@@ -103,7 +103,7 @@ func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
 
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
-	c.logger.Debugf("Refreshed %s, expires at %s", rc.Host, c.expiry)
+	c.logger.Tracef("Refreshed %s, expires at %s", rc.Host, c.expiry.Format(time.RFC3339))
 	return c.Config, nil
 }
 

@@ -183,7 +183,7 @@ func (c *Client) GetDynamicClient() (dynamic.Interface, error) {
 		return c.dynamicClient, nil
 	}
 
-	c.logger.Debugf("creating new dynamic client")
+	c.logger.V(3).Infof("creating new dynamic client")
 	var err error
 	c.dynamicClient, err = dynamic.NewForConfig(c.Config)
 	return c.dynamicClient, err
@@ -201,7 +201,7 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
 	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
-	c.logger.Debugf("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
+	c.logger.V(3).Infof("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,
 		cacheDir,
