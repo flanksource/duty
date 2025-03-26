@@ -27,6 +27,7 @@ require (
 	github.com/flanksource/artifacts v1.0.14
 	github.com/flanksource/commons v1.36.1
 	github.com/flanksource/gomplate/v3 v3.24.55
+	github.com/flanksource/is-healthy v1.0.60
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/cel-go v0.22.1
@@ -146,7 +147,6 @@ require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/flanksource/is-healthy v1.0.60 // indirect
 	github.com/flanksource/kubectl-neat v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
