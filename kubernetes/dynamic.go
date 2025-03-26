@@ -15,6 +15,7 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/cache"
+	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -428,6 +429,41 @@ func (c *Client) WaitForContainerStart(
 			time.Sleep(time.Second)
 		}
 	}
+}
+
+func (c *Client) QueryResources(ctx context.Context, kind string, selector types.ResourceSelector) ([]unstructured.Unstructured, error) {
+	client, err := c.GetClientByKind(kind)
+	if err != nil {
+		return nil, err
+	}
+
+	if _namespace, name, ok := selector.ToGetOptions(); ok {
+		resource, err := client.Namespace(_namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return []unstructured.Unstructured{*resource}, nil
+	}
+
+	list, _namespace, full := selector.ToListOptions()
+
+	resourceList, err := client.Namespace(_namespace).List(ctx, list)
+	if err != nil {
+		return nil, err
+	}
+
+	if full {
+		return resourceList.Items, nil
+	}
+
+	var resources []unstructured.Unstructured
+	for _, resource := range resourceList.Items {
+		if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
+			resources = append(resources, resource)
+		}
+	}
+
+	return resources, nil
 }
 
 func safeString(buf *bytes.Buffer) string {

@@ -13,9 +13,12 @@ import (
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/query/grammar"
+	"github.com/flanksource/is-healthy/pkg/health"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -127,6 +130,41 @@ func (c ResourceSelector) Wildcard() bool {
 
 func (c ResourceSelector) IsEmpty() bool {
 	return c.allEmptyButName() && c.Name == ""
+}
+
+func isMatchItem(q string) bool {
+	return q == "*" || strings.HasPrefix(q, "*") || strings.HasSuffix(q, "*") || strings.HasPrefix(q, "!")
+}
+
+// ToListOptions converts the resource selector to a ListOptions, using the supported optiions by Kubernetes List, it returns true if the query can be executed entirely by Kubernetes
+func (c ResourceSelector) ToListOptions() (metav1.ListOptions, string, bool) {
+	opts := metav1.ListOptions{
+		LabelSelector: c.LabelSelector,
+		FieldSelector: c.FieldSelector,
+	}
+
+	namespace := ""
+	if isMatchItem(namespace) {
+		// need to perform filtering after the list is fetched
+		namespace = ""
+	}
+
+	if c.Search != "" || isMatchItem(c.Name) || isMatchItem(c.Namespace) {
+		return opts, namespace, false
+	}
+	return opts, namespace, true
+}
+
+func (c ResourceSelector) ToGetOptions() (string, string, bool) {
+
+	namespace := c.Namespace
+	name := c.Name
+
+	if name != "" && c.Search == "" && !isMatchItem(namespace) && !isMatchItem(name) {
+		return namespace, name, true
+	}
+
+	return "", "", false
 }
 
 // Immutable returns true if the selector can be cached indefinitely
@@ -563,4 +601,48 @@ func (c GenericLabelsMatcher) Get(key string) string {
 func (c GenericLabelsMatcher) Has(key string) bool {
 	_, ok := c.Map[key]
 	return ok
+}
+
+type UnstructuredResource struct {
+	*unstructured.Unstructured
+}
+
+func (u *UnstructuredResource) GetFieldsMatcher() fields.Fields {
+	return GenericFieldMatcher{Fields: u.Object}
+}
+
+func (u *UnstructuredResource) GetLabelsMatcher() labels.Labels {
+	return labels.Set(u.GetLabels())
+}
+
+func (u *UnstructuredResource) GetID() string {
+	return string(u.Unstructured.GetUID())
+}
+
+func (u *UnstructuredResource) GetName() string {
+	return u.Unstructured.GetName()
+}
+
+func (u *UnstructuredResource) GetNamespace() string {
+	return u.Unstructured.GetNamespace()
+}
+
+func (u *UnstructuredResource) GetType() string {
+	return u.GetKind()
+}
+
+func (u *UnstructuredResource) GetStatus() (string, error) {
+	healthStatus, err := health.GetDefaultHealth(u.Unstructured)
+	if err != nil {
+		return "", err
+	}
+	return string(healthStatus.Status), nil
+}
+
+func (u UnstructuredResource) GetHealth() (string, error) {
+	healthStatus, err := health.GetDefaultHealth(u.Unstructured)
+	if err != nil {
+		return "", err
+	}
+	return string(healthStatus.Health), nil
 }
