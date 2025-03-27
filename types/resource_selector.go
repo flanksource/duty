@@ -132,39 +132,31 @@ func (c ResourceSelector) IsEmpty() bool {
 	return c.allEmptyButName() && c.Name == ""
 }
 
-func isMatchItem(q string) bool {
-	return q == "*" || strings.HasPrefix(q, "*") || strings.HasSuffix(q, "*") || strings.HasPrefix(q, "!")
+func IsMatchItem(q string) bool {
+	return strings.ContainsAny(q, "*!,")
 }
 
 // ToListOptions converts the resource selector to a ListOptions, using the supported optiions by Kubernetes List, it returns true if the query can be executed entirely by Kubernetes
-func (c ResourceSelector) ToListOptions() (metav1.ListOptions, string, bool) {
+func (c ResourceSelector) ToListOptions() (metav1.ListOptions, bool) {
 	opts := metav1.ListOptions{
 		LabelSelector: c.LabelSelector,
 		FieldSelector: c.FieldSelector,
 	}
 
-	namespace := ""
-	if isMatchItem(namespace) {
-		// need to perform filtering after the list is fetched
-		namespace = ""
+	if c.Search != "" || IsMatchItem(c.Name) {
+		return opts, false
 	}
-
-	if c.Search != "" || isMatchItem(c.Name) || isMatchItem(c.Namespace) {
-		return opts, namespace, false
-	}
-	return opts, namespace, true
+	return opts, true
 }
 
-func (c ResourceSelector) ToGetOptions() (string, string, bool) {
-
-	namespace := c.Namespace
+func (c ResourceSelector) ToGetOptions() (string, bool) {
 	name := c.Name
 
-	if name != "" && c.Search == "" && !isMatchItem(namespace) && !isMatchItem(name) {
-		return namespace, name, true
+	if name != "" && c.Search == "" && !IsMatchItem(name) {
+		return name, true
 	}
 
-	return "", "", false
+	return "", false
 }
 
 // Immutable returns true if the selector can be cached indefinitely
@@ -215,31 +207,35 @@ func (c ResourceSelector) Hash() string {
 	return hash.Sha256Hex(strings.Join(items, "|"))
 }
 
+func quote(s string) string {
+	//FIXME only quote if needed, remove quotes if unnecessary
+	return s
+}
 func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 	var searchConditions []string
 
 	if rs.ID != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("id = %q", rs.ID))
+		searchConditions = append(searchConditions, fmt.Sprintf("id=%q", quote(rs.ID)))
 	}
 
 	if rs.Name != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("name = %q", rs.Name))
+		searchConditions = append(searchConditions, fmt.Sprintf("name=%q", quote(rs.Name)))
 	}
 
 	if rs.Namespace != "" {
-		searchConditions = append(searchConditions, fmt.Sprintf("namespace = %q", rs.Namespace))
+		searchConditions = append(searchConditions, fmt.Sprintf("namespace=%q", quote(rs.Namespace)))
 	}
 
 	if len(rs.Health) != 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("health = %q", rs.Health))
+		searchConditions = append(searchConditions, fmt.Sprintf("health=%q", quote(string(rs.Health))))
 	}
 
 	if len(rs.Types) > 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("type = %q", strings.Join(rs.Types, ",")))
+		searchConditions = append(searchConditions, fmt.Sprintf("type=%q", strings.Join(rs.Types, ",")))
 	}
 
 	if len(rs.Statuses) > 0 {
-		searchConditions = append(searchConditions, fmt.Sprintf("status = %q", strings.Join(rs.Statuses, ",")))
+		searchConditions = append(searchConditions, fmt.Sprintf("status=%q", strings.Join(rs.Statuses, ",")))
 	}
 
 	if convertSelectors {
@@ -389,7 +385,7 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 }
 
 func (rs ResourceSelector) String() string {
-	return rs.ToPeg(true)
+	return strings.Trim(rs.ToPeg(true), " ")
 }
 
 type ResourceSelectors []ResourceSelector

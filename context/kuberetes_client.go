@@ -69,7 +69,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	client.SetLogger(logger.GetLogger("k8s." + dutyKubernetes.GetClusterName(rc)))
 
-	client.logger.Tracef("created new client with expiry: %s", client.expiry.Format(time.RFC3339))
+	client.logger.V(3).Infof("created new client with expiry: %s", client.expiry.Format(time.RFC3339))
 	return client, nil
 }
 

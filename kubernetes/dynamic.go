@@ -436,6 +436,28 @@ func (c *Client) WaitForContainerStart(
 	}
 }
 
+func (c *Client) ExpandNamespaces(ctx context.Context, namespace string) ([]string, error) {
+	namespaces := []string{}
+	if namespace == "*" || namespace == "" {
+		return []string{""}, nil
+	}
+
+	if !types.IsMatchItem(namespace) {
+		return []string{namespace}, nil
+	}
+
+	resources, err := c.QueryResources(ctx, types.ResourceSelector{Name: namespace}.Type("Namesapce"))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, resource := range resources {
+		namespaces = append(namespaces, resource.GetName())
+	}
+
+	return namespaces, nil
+}
+
 func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSelector) ([]unstructured.Unstructured, error) {
 	timer := timer.NewTimer()
 
@@ -446,35 +468,43 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 			return nil, err
 		}
 
-		if _namespace, name, ok := selector.ToGetOptions(); ok {
-			resource, err := client.Namespace(_namespace).Get(ctx, name, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
-			}
-			resources = append(resources, *resource)
-			continue
-		}
-
-		list, _namespace, full := selector.ToListOptions()
-
-		resourceList, err := client.Namespace(_namespace).List(ctx, list)
+		namespaces, err := c.ExpandNamespaces(ctx, selector.Namespace)
 		if err != nil {
 			return nil, err
 		}
 
-		if full {
-			resources = append(resources, resourceList.Items...)
-			continue
-		}
+		for _, namespace := range namespaces {
 
-		for _, resource := range resourceList.Items {
-			if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
-				resources = append(resources, resource)
+			if name, ok := selector.ToGetOptions(); ok && !types.IsMatchItem(name) {
+				resource, err := client.Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				resources = append(resources, *resource)
+				continue
+			}
+
+			list, full := selector.ToListOptions()
+
+			resourceList, err := client.Namespace(namespace).List(ctx, list)
+			if err != nil {
+				return nil, err
+			}
+
+			if full {
+				resources = append(resources, resourceList.Items...)
+				continue
+			}
+
+			for _, resource := range resourceList.Items {
+				if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
+					resources = append(resources, resource)
+				}
 			}
 		}
 	}
 
-	c.logger.Tracef("%s => count=%d duration=%s", selector, len(resources), timer)
+	c.logger.Debugf("%s => count=%d duration=%s", selector, len(resources), timer)
 	return resources, nil
 }
 
