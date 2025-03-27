@@ -14,6 +14,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/commons/timer"
 	"github.com/flanksource/duty/cache"
 	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
@@ -43,12 +44,16 @@ type Client struct {
 	logger                 logger.Logger
 }
 
-func NewKubeClient(client kubernetes.Interface, config *rest.Config) *Client {
+func (c *Client) SetLogger(logger logger.Logger) {
+	c.logger = logger
+}
+
+func NewKubeClient(logger logger.Logger, client kubernetes.Interface, config *rest.Config) *Client {
 	return &Client{
 		Interface:              client,
 		Config:                 config,
 		gvkClientResourceCache: cache.NewCache[schema.GroupVersionResource]("gvk-cache", 24*time.Hour),
-		logger:                 logger.GetLogger("k8s").Named(lo.FromPtr(config).Host),
+		logger:                 logger,
 	}
 }
 
@@ -431,38 +436,45 @@ func (c *Client) WaitForContainerStart(
 	}
 }
 
-func (c *Client) QueryResources(ctx context.Context, kind string, selector types.ResourceSelector) ([]unstructured.Unstructured, error) {
-	client, err := c.GetClientByKind(kind)
-	if err != nil {
-		return nil, err
-	}
+func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSelector) ([]unstructured.Unstructured, error) {
+	timer := timer.NewTimer()
 
-	if _namespace, name, ok := selector.ToGetOptions(); ok {
-		resource, err := client.Namespace(_namespace).Get(ctx, name, metav1.GetOptions{})
+	var resources []unstructured.Unstructured
+	for _, kind := range selector.Types {
+		client, err := c.GetClientByKind(kind)
 		if err != nil {
 			return nil, err
 		}
-		return []unstructured.Unstructured{*resource}, nil
-	}
 
-	list, _namespace, full := selector.ToListOptions()
+		if _namespace, name, ok := selector.ToGetOptions(); ok {
+			resource, err := client.Namespace(_namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			resources = append(resources, *resource)
+			continue
+		}
 
-	resourceList, err := client.Namespace(_namespace).List(ctx, list)
-	if err != nil {
-		return nil, err
-	}
+		list, _namespace, full := selector.ToListOptions()
 
-	if full {
-		return resourceList.Items, nil
-	}
+		resourceList, err := client.Namespace(_namespace).List(ctx, list)
+		if err != nil {
+			return nil, err
+		}
 
-	var resources []unstructured.Unstructured
-	for _, resource := range resourceList.Items {
-		if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
-			resources = append(resources, resource)
+		if full {
+			resources = append(resources, resourceList.Items...)
+			continue
+		}
+
+		for _, resource := range resourceList.Items {
+			if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
+				resources = append(resources, resource)
+			}
 		}
 	}
 
+	c.logger.Tracef("%s => count=%d duration=%s", selector, len(resources), timer)
 	return resources, nil
 }
 

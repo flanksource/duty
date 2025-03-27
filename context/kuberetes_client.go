@@ -37,10 +37,11 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)
 	}
+	log := logger.GetLogger("k8s." + conn.String())
 	client := &KubernetesClient{
-		Client:     dutyKubernetes.NewKubeClient(c, rc),
+		Client:     dutyKubernetes.NewKubeClient(log, c, rc),
 		Connection: conn,
-		logger:     logger.GetLogger("k8s").Named(conn.String()),
+		logger:     logger.GetLogger("k8s"),
 	}
 
 	if client.logger.IsLevelEnabled(logger.Trace4) {
@@ -66,8 +67,15 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		}
 	}
 
-	client.logger.Tracef("created new client for %s with expiry: %s", lo.FromPtr(rc).Host, client.expiry.Format(time.RFC3339))
+	client.SetLogger(logger.GetLogger("k8s." + dutyKubernetes.GetClusterName(rc)))
+
+	client.logger.Tracef("created new client with expiry: %s", client.expiry.Format(time.RFC3339))
 	return client, nil
+}
+
+func (c *KubernetesClient) SetLogger(log logger.Logger) {
+	c.logger = log
+	c.Client.SetLogger(log)
 }
 
 func (c *KubernetesClient) SetExpiry(def time.Duration) {
@@ -81,7 +89,7 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
 	if !c.HasExpired() && (c.Config.AuthProvider == nil || c.Config.BearerToken != "") {
-		c.logger.Tracef("Skipping refresh, client has not expired for host:%s", c.Config.Host)
+		c.logger.V(5).Infof("Skipping refresh, client has not expired")
 		return c.RestConfig(), nil
 	}
 	client, rc, err := c.Connection.Populate(ctx, true)
@@ -103,8 +111,8 @@ func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
 
 	c.Client.Interface = client
 	c.SetExpiry(defaultExpiry)
-	c.logger.Tracef("Refreshed %s, expires at %s", rc.Host, c.expiry.Format(time.RFC3339))
-	return c.Config, nil
+	c.logger.V(5).Infof("token refreshed, expires at %s", c.expiry.Format(time.RFC3339))
+	return rc, nil
 }
 
 func (c KubernetesClient) HasExpired() bool {

@@ -5,17 +5,20 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
-	"gopkg.in/yaml.v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/samber/lo"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 var Nil = fake.NewSimpleClientset()
@@ -49,16 +52,23 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 	return Nil, nil, nil
 }
 
-func NewClientWithConfig(logger logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
+func NewClientWithConfig(log logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	apiConfig, err := clientConfig.MergedRawConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	name, server := GetClusterNameFromKubeconfig(&apiConfig)
+	_ = clusterNames.Set(context.TODO(), server, name)
+
 	if config, err := clientConfig.ClientConfig(); err != nil {
 		return nil, nil, err
 	} else {
-		client, err := kubernetes.NewForConfig(trace(logger, config))
+		client, err := kubernetes.NewForConfig(trace(logger.GetLogger("k8s."+name), config))
 		return client, config, err
 	}
 }
@@ -84,8 +94,10 @@ func NewClientFromPathOrConfig(
 	return client, rest, err
 }
 
+var clusterNames = cache.NewCache[string]("clusterNames", time.Hour*24)
+
 func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
-	clogger.Tracef("creating new client-go for %s ", config.Host)
+	clogger.Tracef("creating new client-go for %s ", GetClusterName(config))
 	if clogger.IsLevelEnabled(7) {
 		clogger.Infof("tracing kubernetes API calls")
 		logger := &httpretty.Logger{
@@ -115,22 +127,76 @@ func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
 	return config
 }
 
-// ExecutePodf runs the specified shell command inside a container of the specified pod
-func GetClusterName(config *rest.Config) string {
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return ""
-	}
-	kubeadmConfig, err := clientset.CoreV1().
-		ConfigMaps("kube-system").
-		Get(context.TODO(), "kubeadm-config", metav1.GetOptions{})
-	if err != nil {
-		return ""
-	}
-	clusterConfiguration := make(map[string]interface{})
+func argsToMap(args []string) map[string]string {
+	m := make(map[string]string)
+	k := ""
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--") {
+			k = arg[2:]
+		} else if strings.HasPrefix(arg, "-") {
+			k = arg[1:]
+		} else if k != "" {
+			m[k] = arg
+			k = ""
+		}
 
-	if err := yaml.Unmarshal([]byte(kubeadmConfig.Data["ClusterConfiguration"]), &clusterConfiguration); err != nil {
-		return ""
 	}
-	return clusterConfiguration["clusterName"].(string)
+	return m
+}
+
+func GetClusterNameFromKubeconfig(config *clientcmdapi.Config) (clusterName string, server string) {
+	auth := config.AuthInfos[config.CurrentContext]
+	cluster := config.Clusters[config.CurrentContext]
+	if cluster != nil {
+		server = cluster.Server
+	}
+
+	if auth != nil && auth.Exec != nil {
+		if strings.Contains(auth.Exec.Command, "gcloud") {
+			clusterName = "gke:" + config.CurrentContext
+			return
+		}
+		if auth.Exec.Command == "aws" {
+			args := argsToMap(auth.Exec.Args)
+			if name, ok := args["cluster-name"]; ok {
+				clusterName = "eks:" + name
+				return
+			}
+		}
+	}
+
+	if !lo.Contains([]string{"", "default", "gke_default", "kubernetes"}, config.CurrentContext) {
+		// context name is usually more descriptive
+		clusterName = "kubeconfig:" + config.CurrentContext
+	}
+	return clusterName, server
+}
+
+// GetClusterName returns the name of the cluster
+func GetClusterName(config *rest.Config) string {
+	if name, err := clusterNames.Get(context.TODO(), config.Host); err == nil && name != "" {
+		return name
+	}
+
+	clusterName := ""
+	if config.ExecProvider != nil {
+		if config.ExecProvider.Command == "aws" {
+			args := argsToMap(config.ExecProvider.Args)
+			if name, ok := args["cluster-name"]; ok {
+				clusterName = "eks:" + name
+			}
+		} else if config.ExecProvider.Command == "gke-gcloud-auth-plugin" {
+			args := argsToMap(config.ExecProvider.Args)
+			if name, ok := args["cluster"]; ok {
+				clusterName = "gke:" + name
+			}
+		}
+	}
+
+	if clusterName != "" {
+		_ = clusterNames.Set(context.TODO(), config.Host, clusterName)
+		return clusterName
+	}
+
+	return config.Host
 }
