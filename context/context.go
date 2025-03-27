@@ -415,11 +415,12 @@ func (k Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
 		return localKubernetes, nil
 	}
 
-	c, rc, err := dutyKubernetes.NewClient(k.Logger)
+	var k8s = logger.GetLogger("k8s")
+	c, rc, err := dutyKubernetes.NewClient(k8s)
 	if err != nil {
 		return nil, err
 	}
-	localKubernetes = dutyKubernetes.NewKubeClient(c, rc)
+	localKubernetes = dutyKubernetes.NewKubeClient(k8s, c, rc)
 	return localKubernetes, nil
 }
 

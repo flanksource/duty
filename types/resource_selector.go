@@ -266,6 +266,11 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 	return peg
 }
 
+func (rs ResourceSelector) Type(t string) ResourceSelector {
+	rs.Types = append(rs.Types, t)
+	return rs
+}
+
 func selectorToPegCondition(fieldPrefix, selector string) []string {
 	parsed, err := labels.Parse(selector)
 	if err != nil {
@@ -381,6 +386,10 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 	}
 
 	return matchAny
+}
+
+func (rs ResourceSelector) String() string {
+	return rs.ToPeg(true)
 }
 
 type ResourceSelectors []ResourceSelector

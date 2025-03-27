@@ -250,7 +250,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 			"foo": []byte("secret"),
 		}})
 
-	ctx = ctx.WithLocalKubernetes(dutyKubernetes.NewKubeClient(clientset, nil))
+	ctx = ctx.WithLocalKubernetes(dutyKubernetes.NewKubeClient(logger.GetLogger("k8s"), clientset, nil))
 
 	return ctx, nil
 }
