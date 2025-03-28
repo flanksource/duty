@@ -96,7 +96,7 @@ WITH combined AS (
   SELECT
     nsh.*,
     'config' AS "resource_type",
-    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class) AS resource,
+    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class, 'health', config.health, 'status', config.status) AS resource,
     CASE
       WHEN nsh.playbook_run_id IS NOT NULL THEN (
         SELECT jsonb_build_object(
@@ -118,7 +118,9 @@ WITH combined AS (
         id,
         name,
         type,
-        config_class
+        config_class,
+        health,
+        status
       FROM
         configs AS configs) config ON config.id = nsh.resource_id
     WHERE
@@ -128,7 +130,7 @@ WITH combined AS (
     SELECT
       nsh.*,
       'component' AS "resource_type",
-      jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon) AS resource,
+      jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon, 'health', component.health, 'status', component.status) AS resource,
       CASE
         WHEN nsh.playbook_run_id IS NOT NULL THEN (
           SELECT jsonb_build_object(
@@ -149,7 +151,9 @@ WITH combined AS (
       SELECT
         id,
         name,
-        icon
+        icon,
+        health,
+        status
       FROM
         components) component ON component.id = nsh.resource_id
     WHERE
@@ -159,7 +163,7 @@ WITH combined AS (
     SELECT
       nsh.*,
       'check' AS "resource_type",
-      jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon) AS resource,
+      jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon, 'health', check_details.status) AS resource,
       CASE
         WHEN nsh.playbook_run_id IS NOT NULL THEN (
           SELECT jsonb_build_object(
