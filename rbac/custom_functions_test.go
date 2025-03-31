@@ -190,6 +190,24 @@ func Test_matchResourceSelector(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "1 attribute, 2 selectors for same resource, match",
+			want: true,
+			args: args{
+				attr: models.ABACAttribute{
+					Connection: models.Connection{
+						ID:   uuid.New(),
+						Name: "gemini",
+					},
+				},
+				selector: Selectors{
+					Connections: []types.ResourceSelector{
+						{Name: "anthropic"},
+						{Name: "gemini"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -49,15 +49,14 @@ func matchPerm(attr *models.ABACAttribute, _agents any, tagsEncoded string) (boo
 type addableEnforcer interface {
 	AddFunction(name string, function govaluate.ExpressionFunction)
 }
+type resourcePair struct {
+	attrField    uuid.UUID
+	attrResource types.ResourceSelectable
+	selectors    []types.ResourceSelector
+}
 
 // matchResourceSelector matches an ABACAttribute against resource selectors
 func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool, error) {
-	type resourcePair struct {
-		attrField    uuid.UUID
-		attrResource types.ResourceSelectable
-		selectors    []types.ResourceSelector
-	}
-
 	resourcePairs := []resourcePair{
 		{attr.Playbook.ID, &attr.Playbook, selector.Playbooks},
 		{attr.Component.ID, attr.Component, selector.Components},
@@ -66,28 +65,40 @@ func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool
 	}
 
 	for _, pair := range resourcePairs {
-		if pair.attrField != uuid.Nil {
-			if len(pair.selectors) == 0 {
-				// An attribute was provided but there's no selector to match it against
-				//
-				// Essentially, what's happening here is that the permission was not restrictive enough.
-				// The selector in the permission doesn't care about this attribute.
-				// So it's authorized.
-				continue
-			}
-
-			for _, rs := range pair.selectors {
-				if !rs.Matches(pair.attrResource) {
-					return false, nil
-				}
-			}
-		} else if len(pair.selectors) > 0 {
-			// A selector was provided but there's no attribute to match it against
+		if !matchResourceSelectorPair(pair) {
 			return false, nil
 		}
 	}
 
 	return true, nil
+}
+
+func matchResourceSelectorPair(pair resourcePair) bool {
+	if pair.attrField != uuid.Nil {
+		if len(pair.selectors) == 0 {
+			// An attribute was provided but there's no selector to match it against
+			//
+			// Essentially, what's happening here is that the permission was not restrictive enough.
+			// The selector in the permission doesn't care about this attribute.
+			// So it's authorized.
+			return true
+		}
+
+		// Must match one of the selectors
+		for _, rs := range pair.selectors {
+			if rs.Matches(pair.attrResource) {
+				return true
+			}
+		}
+
+		// matched none
+		return false
+	} else if len(pair.selectors) > 0 {
+		// A selector was provided but there's no attribute to match it against
+		return false
+	}
+
+	return true
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {
