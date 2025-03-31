@@ -64,6 +64,12 @@ func (p Playbook) PK() string {
 	return p.ID.String()
 }
 
+var UnsuccessfulPlaybookRunFinalStates = []PlaybookRunStatus{
+	PlaybookRunStatusCancelled,
+	PlaybookRunStatusFailed,
+	PlaybookRunStatusTimedOut,
+}
+
 var PlaybookRunStatusFinalStates = []PlaybookRunStatus{
 	PlaybookRunStatusCancelled,
 	PlaybookRunStatusCompleted,
@@ -263,6 +269,10 @@ func (p PlaybookRun) End(db *gorm.DB) error {
 	return p.endWithDeterminedStatus(db)
 }
 
+func (p PlaybookRun) EndAsTimedOut(db *gorm.DB) error {
+	return p.endWithStatus(db, PlaybookRunStatusTimedOut)
+}
+
 func (p PlaybookRun) Cancel(db *gorm.DB) error {
 	return p.endWithStatus(db, PlaybookRunStatusCancelled)
 }
@@ -293,9 +303,17 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 
 	if p.NotificationSendID != nil {
 		updates := map[string]any{}
-		if status == PlaybookRunStatusFailed {
+		runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
+		if runFailed {
 			updates["status"] = NotificationStatusError
-			updates["error"] = "playbook failed"
+			switch status {
+			case PlaybookRunStatusTimedOut:
+				updates["error"] = "playbook timed out"
+			case PlaybookRunStatusCancelled:
+				updates["error"] = "playbook was cancelled"
+			default:
+				updates["error"] = "playbook failed with an error. For more details, see playbook run"
+			}
 		} else {
 			updates["status"] = NotificationStatusSent
 		}
@@ -313,7 +331,7 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 			return fmt.Errorf("failed to get notification: %w", err)
 		}
 
-		if status == PlaybookRunStatusFailed && notif.HasFallbackSet() {
+		if runFailed && notif.HasFallbackSet() {
 			if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
 				return fmt.Errorf("failed to generate fallback attempt: %w", err)
 			}
