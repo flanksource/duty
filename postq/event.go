@@ -85,5 +85,10 @@ func fetchEvents(ctx context.Context, tx *gorm.DB, watchEvents []string, batchSi
 	if len(events) > 0 {
 		ctx.Tracef("queue=%s fetched=%d", strings.Join(watchEvents, ","), len(events))
 	}
+
+	if len(events) > batchSize {
+		ctx.Errorf("fetched more events (%d) than the requested batch size (%d)", len(events), batchSize)
+	}
+
 	return events, nil
 }
