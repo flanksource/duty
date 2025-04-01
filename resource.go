@@ -32,7 +32,9 @@ func GetResourceContext(ctx context.Context, resource types.ResourceSelectable) 
 			output["health"] = health
 		}
 		if table, ok := resource.(models.TaggableModel); ok {
-			tags = table.GetTags()
+			if tableTags := table.GetTags(); tableTags != nil {
+				tags = tableTags
+			}
 		}
 		if table, ok := resource.(models.LabelableModel); ok {
 			output["labels"] = table.GetLabels()
