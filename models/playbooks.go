@@ -340,7 +340,7 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 
 	if p.ParentID != nil {
 		parentRun := PlaybookRun{ID: *p.ParentID}
-		if err := parentRun.resumeChildrenWaitingAction(db); err != nil {
+		if err := parentRun.ResumeChildrenWaitingAction(db); err != nil {
 			return fmt.Errorf("failed to resume action awaiting children: %w", err)
 		}
 	}
@@ -348,9 +348,9 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 	return nil
 }
 
-// resumeChildrenWaitingAction resumes the action that's awaiting children
+// ResumeChildrenWaitingAction resumes the action that's awaiting children
 // if all its children have terminated.
-func (p PlaybookRun) resumeChildrenWaitingAction(db *gorm.DB) error {
+func (p PlaybookRun) ResumeChildrenWaitingAction(db *gorm.DB) error {
 	query := `
 	SELECT COUNT(*)
 	FROM playbook_runs AS parent
