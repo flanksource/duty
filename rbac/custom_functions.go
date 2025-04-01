@@ -78,10 +78,14 @@ func matchResourceSelectorPair(pair resourcePair) bool {
 		if len(pair.selectors) == 0 {
 			// An attribute was provided but there's no selector to match it against
 			//
-			// Essentially, what's happening here is that the permission was not restrictive enough.
-			// The selector in the permission doesn't care about this attribute.
-			// So it's authorized.
-			return true
+			// Essentially, what's happening here is that the permission is not specific enough.
+			//
+			// Example:
+			// Request: (playbook:run, subject:john, object:playbook.name='foo')
+			// Should fail when a playbook and config is passed (because the permission has not specified the config)
+			//
+			// The request must have been: (playbook:run, subject:john, object:playbook.name='foo'&config:bar)
+			return false
 		}
 
 		// Must match one of the selectors
