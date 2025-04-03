@@ -123,7 +123,7 @@ type NotificationSendHistory struct {
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this counter.
-	Count int `json:"count"`
+	Count int `json:"count" gorm:"default:1"`
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this as the first observed timestamp.
