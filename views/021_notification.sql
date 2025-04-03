@@ -88,6 +88,61 @@ END;
 $$
 LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION skip_notification_send_history(
+  p_send_history_id uuid, -- the original send history id that is to be skipped
+  p_window interval
+)
+  RETURNS VOID
+  AS $$
+DECLARE
+  v_existing_skipped uuid;
+  v_existing_send_history record;
+BEGIN
+  -- Get the existing send history
+  SELECT * INTO v_existing_send_history
+  FROM notification_send_history
+  WHERE id = p_send_history_id;
+
+  IF v_existing_send_history.status NOT IN ('pending', 'evaluating-waitfor') THEN
+    RAISE EXCEPTION 'status must be pending or evaluating-waitfor';
+  END IF;
+
+  -- Check if there is an existing send history with the status 'skipped'
+  SELECT
+    id INTO v_existing_skipped
+  FROM
+    notification_send_history
+  WHERE
+    notification_id = v_existing_send_history.notification_id
+    AND source_event = v_existing_send_history.source_event
+    AND resource_id = v_existing_send_history.resource_id
+    AND status = 'skipped'
+    AND created_at > NOW() - p_window
+  ORDER BY
+    created_at DESC
+  LIMIT 1;
+
+  IF v_existing_skipped IS NOT NULL THEN
+    UPDATE
+      notification_send_history
+    SET
+      count = count + 1,
+      created_at = CURRENT_TIMESTAMP
+    WHERE
+      id = v_existing_skipped;
+
+    -- Delete the old notification send history
+    DELETE FROM notification_send_history
+    WHERE id = p_send_history_id;
+  ELSE
+    UPDATE notification_send_history
+    SET status = 'skipped'
+    WHERE id = p_send_history_id;
+  END IF;
+END;
+$$
+LANGUAGE plpgsql;
+
 DROP VIEW IF EXISTS notification_send_history_summary;
 
 CREATE OR REPLACE VIEW notification_send_history_summary AS
