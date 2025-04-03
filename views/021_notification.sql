@@ -68,6 +68,7 @@ BEGIN
     AND resource_id = p_resource_id
     AND status = p_status
     AND created_at > NOW() - p_window
+    AND (p_status != 'inhibited' OR parent_id = p_parent_id)
   ORDER BY
     created_at DESC
   LIMIT 1;
