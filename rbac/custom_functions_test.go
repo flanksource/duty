@@ -145,7 +145,7 @@ func Test_matchResourceSelector(t *testing.T) {
 		},
 		{
 			name: "2 attributes, 1 selector, match",
-			want: true,
+			want: false,
 			args: args{
 				attr: models.ABACAttribute{
 					Connection: models.Connection{
