@@ -102,6 +102,9 @@ const (
 
 	// Attempting delivery through a fallback channel
 	NotificationStatusAttemptingFallback = "attempting_fallback"
+
+	// Grouped with other notifications
+	NotificationStatusGrouped = "grouped"
 )
 
 type NotificationSendHistory struct {

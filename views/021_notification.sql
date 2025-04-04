@@ -287,11 +287,27 @@ FROM
 -- Insert notification_send_history updates as config_changes
 CREATE OR REPLACE FUNCTION insert_notification_history_config_change()
 RETURNS TRIGGER AS $$
+DECLARE
+    severity TEXT := 'info';
+    change_type TEXT;
 BEGIN
+
+    -- All other status changes can be ignored
+    IF NOT (NEW.status IN ('sent', 'attempting_fallback', 'error', 'silenced', 'inhibited', 'grouped', 'repeat-interval')) THEN
+        RETURN NEW;
+    END IF;
+
+    -- Set severity based on status
+    severity := CASE NEW.status
+        WHEN 'error'    THEN 'high'
+        WHEN 'attempting_fallback' THEN 'medium'
+        ELSE 'info'
+    END;
+
     -- Only config item notifications need to be inserted
     IF NEW.source_event LIKE 'config.%' AND ((TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND OLD.status != NEW.status)) AND NEW.status != '' THEN
-        INSERT INTO config_changes (config_id, change_type, source, details, external_change_id)
-        VALUES (NEW.resource_id, CONCAT('Notification', INITCAP(NEW.status)), 'notification', NEW.payload, CONCAT(NEW.id, '-', NEW.status, '-', CURRENT_TIMESTAMP));
+        INSERT INTO config_changes (config_id, change_type, source, details, external_change_id, severity)
+        VALUES (NEW.resource_id, CONCAT('Notification', INITCAP(NEW.status)), 'notification', NEW.payload, CONCAT(NEW.id, '-', NEW.status, '-', CURRENT_TIMESTAMP), severity);
     END IF;
 
     RETURN NEW;
