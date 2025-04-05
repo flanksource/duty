@@ -404,3 +404,91 @@ table "notification_silences" {
     on_delete   = NO_ACTION
   }
 }
+
+table "notification_groups" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "notification_send_history_id" {
+    null = false
+    type = uuid
+  }
+  column "hash" {
+    null = false
+    type = text
+  }
+  column "notification_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "notification_groups_notification_id_fkey" {
+    columns     = [column.notification_id]
+    ref_columns = [table.notifications.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_groups_send_history_id_fkey" {
+    columns     = [column.notification_send_history_id]
+    ref_columns = [table.notification_send_history.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+}
+
+table "notification_group_resources" {
+  schema = schema.public
+  column "group_id" {
+    null = false
+    type = uuid
+  }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
+  column "check_id" {
+    null = true
+    type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
+  }
+  check "single_resource_type" {
+    expr = "(num_nonnulls(config_id, check_id, component_id) = 1)"
+  }
+  foreign_key "notification_group_resources_group_id_fkey" {
+    columns     = [column.group_id]
+    ref_columns = [table.notification_groups.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_component_id_fkey" {
+    columns     = [column.component_id]
+    ref_columns = [table.components.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+}
