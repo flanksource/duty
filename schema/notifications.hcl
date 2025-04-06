@@ -78,6 +78,11 @@ table "notifications" {
     type    = sql("text[]")
     comment = "group by fields for repeat interval"
   }
+  column "group_by_interval" {
+    null = true
+    type = bigint
+    comment = "duration in nanoseconds"
+  }
   column "custom_services" {
     null    = true
     type    = jsonb
@@ -251,6 +256,11 @@ table "notification_send_history" {
     null    = false
     default = ""
   }
+  column "group_id" {
+    type    = uuid
+    null    = true
+    comment = "Represents the group this notification was sent for"
+  }
   column "parent_id" {
     null    = true
     default = null
@@ -412,10 +422,6 @@ table "notification_groups" {
     type    = uuid
     default = sql("generate_ulid()")
   }
-  column "notification_send_history_id" {
-    null = false
-    type = uuid
-  }
   column "hash" {
     null = false
     type = text
@@ -435,12 +441,6 @@ table "notification_groups" {
   foreign_key "notification_groups_notification_id_fkey" {
     columns     = [column.notification_id]
     ref_columns = [table.notifications.column.id]
-    on_update   = CASCADE
-    on_delete   = CASCADE
-  }
-  foreign_key "notification_groups_send_history_id_fkey" {
-    columns     = [column.notification_send_history_id]
-    ref_columns = [table.notification_send_history.column.id]
     on_update   = CASCADE
     on_delete   = CASCADE
   }
