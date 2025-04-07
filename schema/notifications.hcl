@@ -464,8 +464,20 @@ table "notification_group_resources" {
     null = true
     type = uuid
   }
-  check "single_resource_type" {
-    expr = "(num_nonnulls(config_id, check_id, component_id) = 1)"
+  index "notification_group_config" {
+    unique  = true
+    columns = [column.group_id, column.config_id]
+    where   = "check_id IS NULL AND component_id IS NULL"
+  }
+  index "notification_group_check" {
+    unique  = true
+    columns = [column.group_id, column.check_id]
+    where   = "config_id IS NULL AND component_id IS NULL"
+  }
+  index "notification_group_component" {
+    unique  = true
+    columns = [column.group_id, column.component_id]
+    where   = "config_id IS NULL AND check_id IS NULL"
   }
   foreign_key "notification_group_resources_group_id_fkey" {
     columns     = [column.group_id]

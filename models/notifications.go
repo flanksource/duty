@@ -293,7 +293,6 @@ func GenerateFallbackAttempt(db *gorm.DB, notification Notification, history Not
 type NotificationGroup struct {
 	ID             uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
 	NotificationID uuid.UUID `json:"notification_id"`
-	SendHistoryID  uuid.UUID `json:"send_history_id"`
 	Hash           string    `json:"hash"`
 	CreatedAt      time.Time `json:"created_at" gorm:"<-:false"`
 }
@@ -303,10 +302,10 @@ func (t NotificationGroup) TableName() string {
 }
 
 type NotificationGroupResource struct {
-	NotificationGroupID uuid.UUID  `json:"notification_group_id"`
-	ConfigID            *uuid.UUID `json:"config_id,omitempty"`
-	CheckID             *uuid.UUID `json:"check_id,omitempty"`
-	ComponentID         *uuid.UUID `json:"component_id,omitempty"`
+	GroupID     uuid.UUID  `json:"group_id"`
+	ConfigID    *uuid.UUID `json:"config_id,omitempty"`
+	CheckID     *uuid.UUID `json:"check_id,omitempty"`
+	ComponentID *uuid.UUID `json:"component_id,omitempty"`
 }
 
 func (t NotificationGroupResource) TableName() string {
