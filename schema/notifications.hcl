@@ -251,11 +251,6 @@ table "notification_send_history" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "group_by_hash" {
-    type    = text
-    null    = false
-    default = ""
-  }
   column "group_id" {
     type    = uuid
     null    = true
