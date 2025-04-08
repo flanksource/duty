@@ -47,7 +47,11 @@ CREATE OR REPLACE FUNCTION insert_unsent_notification_to_history (
   p_status text, 
   p_window interval,
   p_silenced_by uuid DEFAULT NULL,
-  p_parent_id uuid DEFAULT NULL
+  p_parent_id uuid DEFAULT NULL,
+  p_person_id uuid DEFAULT NULL,
+  p_team_id uuid DEFAULT NULL,
+  p_connection_id uuid DEFAULT NULL,
+  p_playbook_run_id uuid DEFAULT NULL
 )
   RETURNS VOID
   AS $$
@@ -82,8 +86,8 @@ BEGIN
     WHERE
       id = v_existing_id;
   ELSE
-    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id, parent_id, silenced_by)
-      VALUES (p_notification_id, p_status, p_source_event, p_resource_id, p_parent_id, p_silenced_by);
+    INSERT INTO notification_send_history (notification_id, status, source_event, resource_id, parent_id, silenced_by, person_id, team_id, connection_id, playbook_run_id)
+      VALUES (p_notification_id, p_status, p_source_event, p_resource_id, p_parent_id, p_silenced_by, p_person_id, p_team_id, p_connection_id, p_playbook_run_id);
   END IF;
 END;
 $$
