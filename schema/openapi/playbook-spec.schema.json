@@ -35,6 +35,12 @@
           },
           "type": "array"
         },
+        "playbooks": {
+          "items": {
+            "$ref": "#/$defs/AIActionContextProviderPlaybook"
+          },
+          "type": "array"
+        },
         "dryRun": {
           "type": "boolean"
         },
@@ -62,6 +68,31 @@
       "required": [
         "systemPrompt",
         "prompt"
+      ]
+    },
+    "AIActionContextProviderPlaybook": {
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "if": {
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "namespace",
+        "name"
       ]
     },
     "AIActionRelationship": {
@@ -199,6 +230,26 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CNRMConnection": {
+      "properties": {
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "clusterResource": {
+          "type": "string"
+        },
+        "clusterResourceNamespace": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "gke",
+        "clusterResource",
+        "clusterResourceNamespace"
+      ]
+    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -212,6 +263,42 @@
       "type": "object",
       "required": [
         "key"
+      ]
+    },
+    "EKSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "cluster": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "cluster"
       ]
     },
     "EnvVar": {
@@ -321,6 +408,38 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "GKEConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "projectID": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        },
+        "cluster": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "projectID",
+        "zone",
+        "cluster"
+      ]
     },
     "GitConnection": {
       "properties": {
@@ -602,6 +721,15 @@
         },
         "kubeconfig": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
         }
       },
       "additionalProperties": false,
@@ -642,6 +770,9 @@
         },
         "delay": {
           "type": "string"
+        },
+        "retry": {
+          "$ref": "#/$defs/PlaybookActionRetry"
         },
         "timeout": {
           "type": "string"
@@ -690,6 +821,29 @@
       "type": "object",
       "required": [
         "name"
+      ]
+    },
+    "PlaybookActionRetry": {
+      "properties": {
+        "limit": {
+          "type": "integer"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "jitter": {
+          "type": "integer"
+        },
+        "exponent": {
+          "$ref": "#/$defs/RetryExponent"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "limit",
+        "duration",
+        "exponent"
       ]
     },
     "PlaybookApproval": {
@@ -859,6 +1013,9 @@
           "type": "string"
         },
         "icon": {
+          "type": "string"
+        },
+        "timeout": {
           "type": "string"
         },
         "on": {
@@ -1064,6 +1221,18 @@
         "$ref": "#/$defs/ResourceSelector"
       },
       "type": "array"
+    },
+    "RetryExponent": {
+      "properties": {
+        "multiplier": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "multiplier"
+      ]
     },
     "SQLAction": {
       "properties": {

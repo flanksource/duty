@@ -56,6 +56,68 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "NotificationFallback": {
+      "properties": {
+        "person": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "playbook": {
+          "type": "string"
+        },
+        "delay": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NotificationInihibition": {
+      "properties": {
+        "direction": {
+          "type": "string"
+        },
+        "soft": {
+          "type": "boolean"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "direction",
+        "from",
+        "to"
+      ]
+    },
     "NotificationRecipientSpec": {
       "properties": {
         "person": {
@@ -106,20 +168,29 @@
         "repeatInterval": {
           "type": "string"
         },
-        "repeatGroup": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
         "to": {
           "$ref": "#/$defs/NotificationRecipientSpec"
+        },
+        "fallback": {
+          "$ref": "#/$defs/NotificationFallback"
         },
         "waitFor": {
           "type": "string"
         },
         "waitForEvalPeriod": {
           "type": "string"
+        },
+        "groupBy": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "inhibitions": {
+          "items": {
+            "$ref": "#/$defs/NotificationInihibition"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -147,6 +218,9 @@
           "type": "string"
         },
         "lastSent": {
+          "$ref": "#/$defs/Time"
+        },
+        "lastFailed": {
           "$ref": "#/$defs/Time"
         }
       },
