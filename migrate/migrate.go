@@ -44,6 +44,10 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql", "035_rls_disable.sql")
 	}
 
+	// Always run this to prevent queries from failing after an upgrade.
+	// It's idempotent, so it's safe to run multiple times.
+	config.MustRun = append(config.MustRun, "037_notification_group_resources.sql")
+
 	row := pool.QueryRow("SELECT current_database();")
 	var name string
 	if err := row.Scan(&name); err != nil {
