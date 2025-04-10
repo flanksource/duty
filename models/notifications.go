@@ -300,6 +300,9 @@ type NotificationGroupResource struct {
 	ConfigID    *uuid.UUID `json:"config_id,omitempty"`
 	CheckID     *uuid.UUID `json:"check_id,omitempty"`
 	ComponentID *uuid.UUID `json:"component_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"<-:false"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
 }
 
 func (t NotificationGroupResource) TableName() string {
