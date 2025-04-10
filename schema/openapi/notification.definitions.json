@@ -53,6 +53,68 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "NotificationFallback": {
+      "properties": {
+        "person": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "playbook": {
+          "type": "string"
+        },
+        "delay": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NotificationInihibition": {
+      "properties": {
+        "direction": {
+          "type": "string"
+        },
+        "soft": {
+          "type": "boolean"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "direction",
+        "from",
+        "to"
+      ]
+    },
     "NotificationRecipientSpec": {
       "properties": {
         "person": {
@@ -75,6 +137,9 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "playbook": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -100,17 +165,29 @@
         "repeatInterval": {
           "type": "string"
         },
-        "repeatGroup": {
+        "to": {
+          "$ref": "#/$defs/NotificationRecipientSpec"
+        },
+        "fallback": {
+          "$ref": "#/$defs/NotificationFallback"
+        },
+        "waitFor": {
+          "type": "string"
+        },
+        "waitForEvalPeriod": {
+          "type": "string"
+        },
+        "groupBy": {
           "items": {
             "type": "string"
           },
           "type": "array"
         },
-        "to": {
-          "$ref": "#/$defs/NotificationRecipientSpec"
-        },
-        "waitFor": {
-          "type": "string"
+        "inhibitions": {
+          "items": {
+            "$ref": "#/$defs/NotificationInihibition"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -121,7 +198,29 @@
       ]
     },
     "NotificationStatus": {
-      "properties": {},
+      "properties": {
+        "sent": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "pending": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "lastSent": {
+          "$ref": "#/$defs/Time"
+        },
+        "lastFailed": {
+          "$ref": "#/$defs/Time"
+        }
+      },
       "additionalProperties": false,
       "type": "object"
     },

@@ -401,6 +401,26 @@
         "thresholdMillis"
       ]
     },
+    "CNRMConnection": {
+      "properties": {
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "clusterResource": {
+          "type": "string"
+        },
+        "clusterResourceNamespace": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "gke",
+        "clusterResource",
+        "clusterResourceNamespace"
+      ]
+    },
     "CanarySpec": {
       "properties": {
         "replicas": {
@@ -1235,6 +1255,54 @@
         "image"
       ]
     },
+    "Crawl": {
+      "properties": {
+        "filters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disallowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "allowedURLFilters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disallowedURLFilters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delay": {
+          "$ref": "#/$defs/Duration"
+        },
+        "randomDelay": {
+          "$ref": "#/$defs/Duration"
+        },
+        "parallelism": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DNSCheck": {
       "properties": {
         "description": {
@@ -1340,7 +1408,7 @@
           "$ref": "#/$defs/GCPDatabase"
         },
         "maxAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         }
       },
       "additionalProperties": false,
@@ -1459,6 +1527,10 @@
         "image"
       ]
     },
+    "Duration": {
+      "type": "string",
+      "description": "Duration e.g. 500ms, 2h, 2m"
+    },
     "DynatraceCheck": {
       "properties": {
         "description": {
@@ -1514,6 +1586,42 @@
       "type": "object",
       "required": [
         "name"
+      ]
+    },
+    "EKSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "cluster": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "cluster"
       ]
     },
     "ElasticsearchCheck": {
@@ -1687,6 +1795,12 @@
         "fromConfigItem": {
           "type": "string"
         },
+        "eksPodIdentity": {
+          "type": "boolean"
+        },
+        "serviceAccount": {
+          "type": "boolean"
+        },
         "kubernetes": {
           "$ref": "#/$defs/KubernetesConnection"
         },
@@ -1756,10 +1870,10 @@
           "$ref": "#/$defs/FolderFilter"
         },
         "minAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "maxAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "minCount": {
           "type": "integer"
@@ -1802,10 +1916,10 @@
     "FolderFilter": {
       "properties": {
         "minAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "maxAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "since": {
           "type": "string"
@@ -1913,6 +2027,38 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "GKEConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "projectID": {
+          "type": "string"
+        },
+        "zone": {
+          "type": "string"
+        },
+        "cluster": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "projectID",
+        "zone",
+        "cluster"
+      ]
     },
     "GitConnection": {
       "properties": {
@@ -2162,6 +2308,9 @@
         },
         "tlsConfig": {
           "$ref": "#/$defs/TLSConfig"
+        },
+        "crawl": {
+          "$ref": "#/$defs/Crawl"
         }
       },
       "additionalProperties": false,
@@ -2504,8 +2653,20 @@
         "resource": {
           "$ref": "#/$defs/ResourceSelector"
         },
+        "connection": {
+          "type": "string"
+        },
         "kubeconfig": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
         },
         "ignore": {
           "items": {
@@ -2537,6 +2698,15 @@
         },
         "kubeconfig": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
         }
       },
       "additionalProperties": false,
@@ -2604,8 +2774,20 @@
         "clearResources": {
           "type": "boolean"
         },
+        "connection": {
+          "type": "string"
+        },
         "kubeconfig": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
         },
         "waitFor": {
           "$ref": "#/$defs/KubernetesResourceCheckWaitFor"
@@ -2621,13 +2803,13 @@
     "KubernetesResourceCheckRetries": {
       "properties": {
         "delay": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "timeout": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "interval": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         }
       },
       "additionalProperties": false,
@@ -2645,10 +2827,10 @@
           "type": "boolean"
         },
         "timeout": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "interval": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         }
       },
       "additionalProperties": false,
@@ -3900,6 +4082,9 @@
         "color": {
           "type": "string"
         },
+        "hidden": {
+          "type": "boolean"
+        },
         "unit": {
           "type": "string"
         },
@@ -4187,6 +4372,9 @@
         },
         "bucketName": {
           "type": "string"
+        },
+        "storageClass": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -4387,7 +4575,7 @@
           "type": "boolean"
         },
         "handshakeTimeout": {
-          "type": "integer"
+          "$ref": "#/$defs/Duration"
         },
         "ca": {
           "$ref": "#/$defs/EnvVar"
