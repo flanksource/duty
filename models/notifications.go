@@ -12,21 +12,22 @@ import (
 
 // Notification represents the notifications table
 type Notification struct {
-	ID             uuid.UUID           `json:"id"`
-	Name           string              `json:"name"`
-	Namespace      string              `json:"namespace,omitempty"`
-	Events         pq.StringArray      `json:"events" gorm:"type:[]text"`
-	Title          string              `json:"title,omitempty"`
-	Template       string              `json:"template,omitempty"`
-	Filter         string              `json:"filter,omitempty"`
-	Properties     types.JSONStringMap `json:"properties,omitempty"`
-	Source         string              `json:"source"`
-	RepeatInterval string              `json:"repeat_interval,omitempty"`
-	GroupBy        pq.StringArray      `json:"group_by" gorm:"type:[]text"`
-	CreatedBy      *uuid.UUID          `json:"created_by,omitempty"`
-	UpdatedAt      time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
-	CreatedAt      time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
-	DeletedAt      *time.Time          `json:"deleted_at,omitempty"`
+	ID              uuid.UUID           `json:"id"`
+	Name            string              `json:"name"`
+	Namespace       string              `json:"namespace,omitempty"`
+	Events          pq.StringArray      `json:"events" gorm:"type:[]text"`
+	Title           string              `json:"title,omitempty"`
+	Template        string              `json:"template,omitempty"`
+	Filter          string              `json:"filter,omitempty"`
+	Properties      types.JSONStringMap `json:"properties,omitempty"`
+	Source          string              `json:"source"`
+	RepeatInterval  string              `json:"repeat_interval,omitempty"`
+	GroupBy         pq.StringArray      `json:"group_by" gorm:"type:[]text"`
+	GroupByInterval time.Duration       `json:"group_by_interval,omitempty"`
+	CreatedBy       *uuid.UUID          `json:"created_by,omitempty"`
+	UpdatedAt       time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	CreatedAt       time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt       *time.Time          `json:"deleted_at,omitempty"`
 
 	// List of inhibition config
 	Inhibitions types.JSON `json:"inhibitions,omitempty" gorm:"default:NULL"`
@@ -102,9 +103,6 @@ const (
 
 	// Attempting delivery through a fallback channel
 	NotificationStatusAttemptingFallback = "attempting_fallback"
-
-	// Grouped with other notifications
-	NotificationStatusGrouped = "grouped"
 )
 
 type NotificationSendHistory struct {
@@ -153,8 +151,8 @@ type NotificationSendHistory struct {
 	// The notification silence that silenced this notification.
 	SilencedBy *uuid.UUID `json:"silenced_by,omitempty"`
 
-	// Hash for grouping resources with same message
-	GroupByHash string `json:"group_by_hash,omitempty"`
+	// ID of the group this notification was sent for
+	GroupID *uuid.UUID `json:"group_id,omitempty"`
 
 	// ID of the original send history this notification history is a fallback of.
 	ParentID *uuid.UUID `json:"parent_id,omitempty"`
@@ -284,4 +282,26 @@ func GenerateFallbackAttempt(db *gorm.DB, notification Notification, history Not
 	}
 
 	return db.Create(&newHistory).Error
+}
+
+type NotificationGroup struct {
+	ID             uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
+	NotificationID uuid.UUID `json:"notification_id"`
+	Hash           string    `json:"hash"`
+	CreatedAt      time.Time `json:"created_at" gorm:"<-:false"`
+}
+
+func (t NotificationGroup) TableName() string {
+	return "notification_groups"
+}
+
+type NotificationGroupResource struct {
+	GroupID     uuid.UUID  `json:"group_id"`
+	ConfigID    *uuid.UUID `json:"config_id,omitempty"`
+	CheckID     *uuid.UUID `json:"check_id,omitempty"`
+	ComponentID *uuid.UUID `json:"component_id,omitempty"`
+}
+
+func (t NotificationGroupResource) TableName() string {
+	return "notification_group_resources"
 }

@@ -78,6 +78,11 @@ table "notifications" {
     type    = sql("text[]")
     comment = "group by fields for repeat interval"
   }
+  column "group_by_interval" {
+    null = true
+    type = bigint
+    comment = "duration in nanoseconds"
+  }
   column "custom_services" {
     null    = true
     type    = jsonb
@@ -246,10 +251,10 @@ table "notification_send_history" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "group_by_hash" {
-    type    = text
-    null    = false
-    default = ""
+  column "group_id" {
+    type    = uuid
+    null    = true
+    comment = "Represents the group this notification was sent for"
   }
   column "parent_id" {
     null    = true
@@ -402,5 +407,95 @@ table "notification_silences" {
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+}
+
+table "notification_groups" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "hash" {
+    null = false
+    type = text
+  }
+  column "notification_id" {
+    null = false
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "notification_groups_notification_id_fkey" {
+    columns     = [column.notification_id]
+    ref_columns = [table.notifications.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+}
+
+table "notification_group_resources" {
+  schema = schema.public
+  column "group_id" {
+    null = false
+    type = uuid
+  }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
+  column "check_id" {
+    null = true
+    type = uuid
+  }
+  column "component_id" {
+    null = true
+    type = uuid
+  }
+  index "notification_group_config" {
+    unique  = true
+    columns = [column.group_id, column.config_id]
+    where   = "check_id IS NULL AND component_id IS NULL"
+  }
+  index "notification_group_check" {
+    unique  = true
+    columns = [column.group_id, column.check_id]
+    where   = "config_id IS NULL AND component_id IS NULL"
+  }
+  index "notification_group_component" {
+    unique  = true
+    columns = [column.group_id, column.component_id]
+    where   = "config_id IS NULL AND check_id IS NULL"
+  }
+  foreign_key "notification_group_resources_group_id_fkey" {
+    columns     = [column.group_id]
+    ref_columns = [table.notification_groups.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
+  foreign_key "notification_group_resources_component_id_fkey" {
+    columns     = [column.component_id]
+    ref_columns = [table.components.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
 }
