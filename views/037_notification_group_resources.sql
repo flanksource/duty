@@ -13,10 +13,12 @@ BEGIN
     DROP INDEX IF EXISTS unique_notification_group_resources_unresolved_check;
     DROP INDEX IF EXISTS unique_notification_group_resources_unresolved_component;
     
-    CREATE UNIQUE INDEX IF NOT EXISTS unique_notification_group_resources_unresolved
+    -- use EXECUTE to avoid error during parsing in PostgreSQL versions < 15,
+    -- since NULLS NOT DISTINCT is only supported starting in Postgres 15.
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS unique_notification_group_resources_unresolved
     ON public.notification_group_resources (group_id, config_id, check_id, component_id)
     NULLS NOT DISTINCT
-    WHERE resolved_at IS NULL;
+    WHERE resolved_at IS NULL';
   ELSE
     DROP INDEX IF EXISTS unique_notification_group_resources_unresolved;
     
