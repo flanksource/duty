@@ -1,3 +1,7 @@
+-- runs: always
+-- Always run this to prevent queries from failing after an upgrade.
+-- It's idempotent, so it's safe to run multiple times.
+
 DO $$
 DECLARE
   v_major_version integer;
