@@ -60,8 +60,8 @@ table "notifications" {
     type = text
   }
   column "inhibitions" {
-    null    = true
-    type    = jsonb
+    null = true
+    type = jsonb
   }
   column "wait_for" {
     null    = true
@@ -79,8 +79,8 @@ table "notifications" {
     comment = "group by fields for repeat interval"
   }
   column "group_by_interval" {
-    null = true
-    type = bigint
+    null    = true
+    type    = bigint
     comment = "duration in nanoseconds"
   }
   column "custom_services" {
@@ -94,20 +94,20 @@ table "notifications" {
     comment = "duration in nanoseconds"
   }
   column "fallback_custom_services" {
-    null    = true
-    type    = jsonb
+    null = true
+    type = jsonb
   }
   column "fallback_playbook_id" {
-    null    = true
-    type    = uuid
+    null = true
+    type = uuid
   }
   column "fallback_person_id" {
-    null    = true
-    type    = uuid
+    null = true
+    type = uuid
   }
   column "fallback_team_id" {
-    null    = true
-    type    = uuid
+    null = true
+    type = uuid
   }
   column "created_by" {
     null = true
@@ -459,20 +459,19 @@ table "notification_group_resources" {
     null = true
     type = uuid
   }
-  index "notification_group_config" {
-    unique  = true
-    columns = [column.group_id, column.config_id]
-    where   = "check_id IS NULL AND component_id IS NULL"
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
   }
-  index "notification_group_check" {
-    unique  = true
-    columns = [column.group_id, column.check_id]
-    where   = "config_id IS NULL AND component_id IS NULL"
+  column "updated_at" {
+    null = true
+    type = timestamptz
   }
-  index "notification_group_component" {
-    unique  = true
-    columns = [column.group_id, column.component_id]
-    where   = "config_id IS NULL AND check_id IS NULL"
+  column "resolved_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The resource was resolved and removed from the group"
   }
   foreign_key "notification_group_resources_group_id_fkey" {
     columns     = [column.group_id]

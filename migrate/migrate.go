@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha1"
 	"database/sql"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
@@ -143,7 +145,8 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 	}
 
 	for path, content := range views {
-		if lo.Contains(mustRun, path) {
+		if lo.Contains(mustRun, path) || isMarkedForAlwaysRun(content) {
+			l.V(3).Infof("marked for always run: %s", path)
 			// proceeed. do not check hash
 		} else if lo.Contains(skip, path) {
 			continue
@@ -168,6 +171,26 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 	}
 
 	return allFunctions, allViews, err
+}
+
+func isMarkedForAlwaysRun(content string) bool {
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if line == "-- runs: always" {
+			return true
+		}
+		if !strings.HasPrefix(line, "--") {
+			// If we hit a non-comment line, assume we're past the header section
+			// stop looking for the directive.
+			break
+		}
+	}
+
+	return false
 }
 
 func readMigrationLogs(pool *sql.DB) (map[string]string, error) {

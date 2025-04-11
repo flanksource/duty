@@ -47,7 +47,17 @@ func Apply(ctx context.Context, connection string) error {
 	log := logger.GetLogger("migrate")
 
 	// https://atlasgo.io/versioned/diff#exclude-objects
-	exclude := []string{"config_items.properties_values", "components.properties_values"}
+	exclude := []string{
+		"config_items.properties_values",
+		"components.properties_values",
+
+		// These indexes are managed in the views/037_notification_group_resources.sql file
+		// as they are dependent on the PostgreSQL version.
+		"notification_group_resources.unique_notification_group_resources_unresolved",
+		"notification_group_resources.unique_notification_group_resources_unresolved_config",
+		"notification_group_resources.unique_notification_group_resources_unresolved_check",
+		"notification_group_resources.unique_notification_group_resources_unresolved_component",
+	}
 
 	from, err := dbReader(ctx, connection, exclude)
 	if err != nil {

@@ -1,13 +1,16 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
+	dbutil "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Notification represents the notifications table
@@ -300,8 +303,45 @@ type NotificationGroupResource struct {
 	ConfigID    *uuid.UUID `json:"config_id,omitempty"`
 	CheckID     *uuid.UUID `json:"check_id,omitempty"`
 	ComponentID *uuid.UUID `json:"component_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"<-:false"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
 }
 
 func (t NotificationGroupResource) TableName() string {
 	return "notification_group_resources"
+}
+
+func (t *NotificationGroupResource) Upsert(db *gorm.DB) error {
+	// Note: The unique constraint on this table depends on the version of PostgreSQL.
+	// For PostgreSQL 14 and below, there are multiple unique constraints depending on the resource type.
+	// For PostgreSQL 15 and above, there is only one unique constraint.
+
+	ver, err := dbutil.PGMajorVersion(db)
+	if err != nil {
+		return fmt.Errorf("failed to get pg version: %w", err)
+	}
+
+	var columns []clause.Column
+	if ver < 15 {
+		if t.ConfigID != nil {
+			columns = []clause.Column{{Name: "group_id"}, {Name: "config_id"}}
+		} else if t.CheckID != nil {
+			columns = []clause.Column{{Name: "group_id"}, {Name: "check_id"}}
+		} else if t.ComponentID != nil {
+			columns = []clause.Column{{Name: "group_id"}, {Name: "component_id"}}
+		}
+	} else {
+		columns = []clause.Column{{Name: "group_id"}, {Name: "config_id"}, {Name: "check_id"}, {Name: "component_id"}}
+	}
+
+	if err := db.Clauses(clause.OnConflict{
+		Columns:     columns,
+		TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Name: "resolved_at"}, Value: nil}}},
+		DoUpdates:   clause.Assignments(map[string]any{"updated_at": Now()}),
+	}).Create(t).Error; err != nil {
+		return fmt.Errorf("failed to add resource to group: %w", err)
+	}
+
+	return nil
 }

@@ -4,12 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
+	"gorm.io/gorm"
 )
+
+var pgMajorVersion atomic.Int32
 
 func ErrorDetails(err error) error {
 	if err == nil {
@@ -61,4 +65,22 @@ func IsDeadlockError(err error) bool {
 	}
 
 	return false
+}
+
+// PGMajorVersion retrieves the PostgreSQL major version
+func PGMajorVersion(db *gorm.DB) (int, error) {
+	version := pgMajorVersion.Load()
+	if version != 0 {
+		return int(version), nil
+	}
+
+	var versionNum int
+	err := db.Raw("SELECT current_setting('server_version_num')::integer;").Scan(&versionNum).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to query postgresql version number: %w", err)
+	}
+
+	newVersion := int32(versionNum / 10_000)
+	pgMajorVersion.Store(newVersion)
+	return int(newVersion), nil
 }
