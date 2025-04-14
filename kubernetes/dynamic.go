@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -471,17 +472,43 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 		if err != nil {
 			return nil, err
 		}
+		var namespaces []string
 
-		namespaces, err := c.ExpandNamespaces(ctx, selector.Namespace)
-		if err != nil {
-			return nil, err
+		if strings.ToLower(kind) == "namespace" {
+			if name, ok := selector.ToGetOptions(); ok {
+				if selector.IsMetadataOnly() {
+					return []unstructured.Unstructured{
+						unstructured.Unstructured{
+							Object: map[string]any{
+								"kind":        "Namespace",
+								"apiVersion:": "v1",
+								"metadata": map[string]any{
+									"name": name,
+								},
+							},
+						},
+					}, nil
+				}
+				namespaces = []string{name}
+			} else {
+				namespaces = []string{""}
+			}
+		} else {
+			namespaces, err = c.ExpandNamespaces(ctx, selector.Namespace)
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
 		}
 
 		for _, namespace := range namespaces {
 
-			if name, ok := selector.ToGetOptions(); ok && !types.IsMatchItem(name) {
+			if name, ok := selector.ToGetOptions(); ok && !types.IsMatchItem(name) && namespace != "" {
 				resource, err := client.Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-				if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				} else if err != nil {
 					return nil, err
 				}
 				resources = append(resources, *resource)

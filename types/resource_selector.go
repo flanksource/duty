@@ -152,7 +152,7 @@ func (c ResourceSelector) ToListOptions() (metav1.ListOptions, bool) {
 func (c ResourceSelector) ToGetOptions() (string, bool) {
 	name := c.Name
 
-	if name != "" && c.Search == "" && !IsMatchItem(name) {
+	if name != "" && c.Search == "" && !IsMatchItem(name) && (c.Namespace != "" || c.Types.Contains("namespace")) {
 		return name, true
 	}
 
@@ -265,6 +265,15 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 func (rs ResourceSelector) Type(t string) ResourceSelector {
 	rs.Types = append(rs.Types, t)
 	return rs
+}
+
+func (rs ResourceSelector) MetadataOnly() ResourceSelector {
+	rs.Cache = "metadata"
+	return rs
+}
+
+func (rs ResourceSelector) IsMetadataOnly() bool {
+	return rs.Cache == "metadata"
 }
 
 func selectorToPegCondition(fieldPrefix, selector string) []string {
