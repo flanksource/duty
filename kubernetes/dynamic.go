@@ -61,6 +61,10 @@ func (c *Client) Reset() {
 	c.dynamicClient = nil
 }
 
+func (c *Client) ResetRestMapper() {
+	c.restMapper.Reset()
+}
+
 func (c *Client) FetchResources(
 	ctx context.Context,
 	resources ...unstructured.Unstructured,

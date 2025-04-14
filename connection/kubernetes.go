@@ -32,7 +32,7 @@ func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfac
 		t.Kubeconfig.ValueStatic = connection.Certificate
 	}
 
-	if t.Kubeconfig != nil {
+	if t.Kubeconfig != nil && !t.Kubeconfig.IsEmpty() {
 		if v, err := ctx.GetEnvValueFromCache(*t.Kubeconfig, ctx.GetNamespace()); err != nil {
 			return nil, nil, err
 		} else {
