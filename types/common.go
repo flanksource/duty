@@ -94,7 +94,7 @@ func (items Items) Contains(item string) bool {
 		if strings.HasPrefix(i, "!") {
 			continue
 		}
-		if i == "*" || item == i {
+		if i == "*" || strings.EqualFold(item, i) {
 			return true
 		}
 	}
