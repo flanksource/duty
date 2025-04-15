@@ -5,10 +5,66 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+var _ = ginkgo.Describe("notification group resources", ginkgo.Ordered, func() {
+	var group models.NotificationGroup
+	var notification models.Notification
+
+	ginkgo.BeforeAll(func() {
+		notification = models.Notification{
+			Name:     "group_resource_test",
+			Events:   []string{"check.failed", "check.passed"},
+			Source:   models.SourceCRD,
+			Template: "test",
+		}
+
+		err := DefaultContext.DB().Create(&notification).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.AfterAll(func() {
+		err := DefaultContext.DB().Delete(&group).Error
+		Expect(err).To(BeNil())
+
+		err = DefaultContext.DB().Where("id = ?", notification.ID).Delete(&notification).Error
+		Expect(err).To(BeNil())
+	})
+
+	ginkgo.It("should upsert", func() {
+		group = models.NotificationGroup{
+			Hash:           "test",
+			NotificationID: notification.ID,
+		}
+
+		err := DefaultContext.DB().Create(&group).Error
+		Expect(err).To(BeNil())
+
+		Expect(group.ID).ToNot(Equal(uuid.Nil))
+
+		var updatedAt time.Time
+		for range 5 {
+			notificationGroupResource := models.NotificationGroupResource{
+				GroupID:  group.ID,
+				ConfigID: &dummy.KubernetesCluster.ID,
+			}
+
+			err = notificationGroupResource.Upsert(DefaultContext.DB())
+			Expect(err).To(BeNil())
+
+			var fetched models.NotificationGroupResource
+			err = DefaultContext.DB().Where("group_id = ?", group.ID).Where("config_id = ?", dummy.KubernetesCluster.ID).First(&fetched).Error
+			Expect(err).To(BeNil())
+
+			Expect(*fetched.UpdatedAt).To(BeTemporally(">", updatedAt))
+			updatedAt = *fetched.UpdatedAt
+		}
+	})
+})
 
 var _ = ginkgo.Describe("unsent notification", ginkgo.Ordered, func() {
 	notification := models.Notification{
