@@ -34,6 +34,29 @@ var allowedEnvVars = map[string]struct{}{
 	"PS_VERSION":                            {},
 	"PSModuleAnalysisCachePath":             {},
 	"USER":                                  {},
+"MANPATH":                               {},
+	"TERM":                                  {},
+	"LANG":                                  {},
+	"SHELL":                                 {},
+	"SHLVL":                                 {},
+	"LC_ALL":                                {},
+	"JAVA_HOME":                             {},
+	"SDKMAN_DIR":                            {},
+	"LSCOLORS":                              {},
+	"CLICOLOR":                              {},
+	"COLORTERM":                             {},
+	"TERM_PROGRAM":                          {},
+	"TERM_PROGRAM_VERSION":                  {},
+	"TERM_SESSION_ID":                       {},
+	"COLORFGBG":                             {},
+	"COLORTERM_SESSION_ID":                  {},
+}
+
+func init() {
+	for _, env := range strings.Split(properties.String("", "shell.allowed.envs"), ",") {
+		logger.V(5).Infof("allowing env var %s", env)
+		allowedEnvVars[env] = struct{}{}
+	}
 }
 
 var checkoutLocks = utils.NamedLock{}
@@ -99,7 +122,6 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 	}
 
 	if len(envParams.envs) != 0 {
-		ctx.Logger.V(6).Infof("using environment %s", logger.Pretty(envParams.envs))
 		cmd.Env = append(cmd.Env, envParams.envs...)
 	}
 

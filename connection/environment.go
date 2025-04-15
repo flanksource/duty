@@ -99,46 +99,61 @@ type ConnectionSetupResult struct {
 	Cleanup func() error `json:"-"`
 }
 
+func injectEksPodIdentity(ctx context.Context, cmd *osExec.Cmd) {
+	ctx.Logger.V(3).Infof("Injecting EKS Pod Identity")
+
+	for _, env := range os.Environ() {
+		key, _, ok := strings.Cut(env, "=")
+		if !ok {
+			continue
+		}
+
+		if strings.HasPrefix(key, "AWS_") {
+			cmd.Env = append(cmd.Env, env)
+		}
+	}
+}
+
+func injectKubernetesServiceAccount(ctx context.Context, cmd *osExec.Cmd) {
+	ctx.Logger.V(3).Infof("Injecting Kubernetes service account")
+	for _, env := range os.Environ() {
+		key, _, ok := strings.Cut(env, "=")
+		if !ok {
+			continue
+		}
+		if lo.Contains(kubeEnvVars, key) {
+			cmd.Env = append(cmd.Env, env)
+		}
+	}
+}
+
 // SetupConnections creates the necessary credential files and injects env vars into the cmd
 func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osExec.Cmd) (*ConnectionSetupResult, error) {
 	var output ConnectionSetupResult
 	var cleaners []func() error
 
 	if lo.FromPtr(connections.FromConfigItem) != "" {
-		output.Sources = append(output.Sources, fmt.Sprintf("fromConfigItem: %s", *connections.FromConfigItem))
-		if err := uuid.Validate(lo.FromPtr(connections.FromConfigItem)); err != nil {
-			return nil, fmt.Errorf("connection.fromConfigItem is not a valid uuid: %s", lo.FromPtr(connections.FromConfigItem))
+		configId := lo.FromPtr(connections.FromConfigItem)
+		output.Sources = append(output.Sources, fmt.Sprintf("fromConfigItem: %s", configId))
+		if err := uuid.Validate(configId); err != nil {
+			return nil, fmt.Errorf("connection.fromConfigItem is not a valid uuid: %s", configId)
 		}
 
 		var scraperNamespace string
 		var scraperSpec map[string]any
 
 		{
-			var configItem models.ConfigItem
-			if err := ctx.DB().Where("id = ?", *connections.FromConfigItem).Find(&configItem).Error; err != nil {
-				return nil, fmt.Errorf("failed to get config (%s): %w", *connections.FromConfigItem, err)
-			} else if configItem.ID == uuid.Nil {
-				return nil, fmt.Errorf("cannot setup connection from config %s. config item not found", *connections.FromConfigItem)
-			}
 
-			if lo.FromPtr(configItem.ScraperID) == "" {
-				return nil, fmt.Errorf("cannot setup connection from config %s. config item does not have a scraper",
-					configItem.ID.String())
-			}
-
-			var scrapeConfig models.ConfigScraper
-			if err := ctx.DB().Where("id = ?", lo.FromPtr(configItem.ScraperID)).Find(&scrapeConfig).Error; err != nil {
-				return nil, fmt.Errorf("failed to get scrapeconfig (%s): %w", lo.FromPtr(configItem.ScraperID), err)
-			} else if scrapeConfig.ID.String() != lo.FromPtr(configItem.ScraperID) {
-				return nil, fmt.Errorf("cannot setup connection from config %s. scraper %s not found", *connections.FromConfigItem,
-					lo.FromPtr(configItem.ScraperID))
+			var scrapeConfig, err = models.FindScraperByConfigId(ctx.DB(), configId)
+			if err != nil {
+				return nil, fmt.Errorf("cannot setup connection from config %s: %v", configId, err)
 			}
 			scraperNamespace = scrapeConfig.Namespace
 
 			ctx = ctx.WithObject(scrapeConfig)
 
 			if err := json.Unmarshal([]byte(scrapeConfig.Spec), &scraperSpec); err != nil {
-				return nil, fmt.Errorf("unable to unmarshal scrapeconfig spec (id=%s)", *configItem.ScraperID)
+				return nil, fmt.Errorf("unable to unmarshal scrapeconfig spec (id=%s)", scrapeConfig.ID.String())
 			}
 		}
 
@@ -168,21 +183,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 				}
 			}
 
-			for _, env := range os.Environ() {
-				key, _, ok := strings.Cut(env, "=")
-				if !ok {
-					continue
-				}
-
-				if (connections.ServiceAccount || !kubeconfigFound) && lo.Contains(kubeEnvVars, key) {
-					// If none of the kubernetes scrapers had kubeconfig setup, the scraper is using the default cluster.
-					// We allow these set of env vars that allow access to the default cluster.
-					cmd.Env = append(cmd.Env, env)
-				}
-
-				if connections.EKSPodIdentity && strings.HasPrefix(key, "AWS_") {
-					cmd.Env = append(cmd.Env, env)
-				}
+			if !kubeconfigFound && connections.ServiceAccount {
+				injectKubernetesServiceAccount(ctx, cmd)
 			}
 		}
 	}
@@ -225,6 +227,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		}
 	}
 
+	if connections.ServiceAccount {
+		injectKubernetesServiceAccount(ctx, cmd)
+	}
+
 	if connections.AWS != nil {
 		if err := connections.AWS.Populate(ctx); err != nil {
 			return nil, fmt.Errorf("failed to hydrate aws connection: %w", err)
@@ -245,6 +251,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if connections.AWS.Region != "" {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", connections.AWS.Region))
 		}
+	} else if connections.EKSPodIdentity {
+		injectEksPodIdentity(ctx, cmd)
 	}
 
 	if connections.Azure != nil {

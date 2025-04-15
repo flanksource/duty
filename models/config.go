@@ -314,6 +314,28 @@ type ConfigScraper struct {
 	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
 }
 
+func FindScraperByConfigId(db *gorm.DB, configId string) (*ConfigScraper, error) {
+	var configItem ConfigItem
+	if err := db.Where("id = ?", configId).Find(&configItem).Error; err != nil {
+		return nil, fmt.Errorf("failed to get config (%s): %w", configId, err)
+	} else if configItem.ID == uuid.Nil {
+		return nil, fmt.Errorf("config item not found: %s", configId)
+	}
+
+	if lo.FromPtr(configItem.ScraperID) == "" {
+		return nil, fmt.Errorf("config item does not have a scraper: %s", configId)
+	}
+
+	var scrapeConfig ConfigScraper
+	if err := db.Where("id = ?", lo.FromPtr(configItem.ScraperID)).Find(&scrapeConfig).Error; err != nil {
+		return nil, fmt.Errorf("failed to get scrapeconfig (%s): %w", lo.FromPtr(configItem.ScraperID), err)
+	} else if scrapeConfig.ID.String() != lo.FromPtr(configItem.ScraperID) {
+		return nil, fmt.Errorf("scraper not found: %s", lo.FromPtr(configItem.ScraperID))
+	}
+
+	return &scrapeConfig, nil
+}
+
 func (c ConfigScraper) GetNamespace() string {
 	return c.Namespace
 }
