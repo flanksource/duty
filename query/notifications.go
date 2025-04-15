@@ -9,11 +9,12 @@ import (
 
 // GetNotificationStats retrieves statistics for a notification
 func GetNotificationStats(ctx context.Context, notificationIDs ...string) ([]models.NotificationSummary, error) {
-	q := ctx.DB().
-		Table("notifications_summary").
-		Where("name != '' AND namespace != '' AND source = ?", models.SourceCRD)
+	q := ctx.DB()
+
 	if len(notificationIDs) > 0 {
 		q = q.Where("id in ?", notificationIDs)
+	} else {
+		q = q.Where("name != '' AND namespace != '' AND source = ?", models.SourceCRD)
 	}
 
 	var summaries []models.NotificationSummary
