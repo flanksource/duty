@@ -83,6 +83,11 @@ table "notifications" {
     type    = bigint
     comment = "duration in nanoseconds"
   }
+  column "watchdog_interval" {
+    null    = true
+    type    = bigint
+    comment = "duration in nanoseconds"
+  }
   column "custom_services" {
     null    = true
     type    = jsonb

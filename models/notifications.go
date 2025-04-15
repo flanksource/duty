@@ -15,22 +15,23 @@ import (
 
 // Notification represents the notifications table
 type Notification struct {
-	ID              uuid.UUID           `json:"id"`
-	Name            string              `json:"name"`
-	Namespace       string              `json:"namespace,omitempty"`
-	Events          pq.StringArray      `json:"events" gorm:"type:[]text"`
-	Title           string              `json:"title,omitempty"`
-	Template        string              `json:"template,omitempty"`
-	Filter          string              `json:"filter,omitempty"`
-	Properties      types.JSONStringMap `json:"properties,omitempty"`
-	Source          string              `json:"source"`
-	RepeatInterval  string              `json:"repeat_interval,omitempty"`
-	GroupBy         pq.StringArray      `json:"group_by" gorm:"type:[]text"`
-	GroupByInterval time.Duration       `json:"group_by_interval,omitempty"`
-	CreatedBy       *uuid.UUID          `json:"created_by,omitempty"`
-	UpdatedAt       time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
-	CreatedAt       time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
-	DeletedAt       *time.Time          `json:"deleted_at,omitempty"`
+	ID               uuid.UUID           `json:"id"`
+	Name             string              `json:"name"`
+	Namespace        string              `json:"namespace,omitempty"`
+	Events           pq.StringArray      `json:"events" gorm:"type:[]text"`
+	Title            string              `json:"title,omitempty"`
+	Template         string              `json:"template,omitempty"`
+	Filter           string              `json:"filter,omitempty"`
+	Properties       types.JSONStringMap `json:"properties,omitempty"`
+	Source           string              `json:"source"`
+	RepeatInterval   string              `json:"repeat_interval,omitempty"`
+	GroupBy          pq.StringArray      `json:"group_by" gorm:"type:[]text"`
+	GroupByInterval  time.Duration       `json:"group_by_interval,omitempty"`
+	WatchdogInterval *time.Duration      `json:"watchdog_interval,omitempty"`
+	CreatedBy        *uuid.UUID          `json:"created_by,omitempty"`
+	UpdatedAt        time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	CreatedAt        time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
+	DeletedAt        *time.Time          `json:"deleted_at,omitempty"`
 
 	// List of inhibition config
 	Inhibitions types.JSON `json:"inhibitions,omitempty" gorm:"default:NULL"`
@@ -344,4 +345,16 @@ func (t *NotificationGroupResource) Upsert(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+type NotificationSummary struct {
+	ID           string
+	Name         string
+	Namespace    string
+	Sent         int
+	Failed       int
+	Pending      int
+	UpdatedAt    time.Time
+	Error        string
+	LastFailedAt time.Time
 }
