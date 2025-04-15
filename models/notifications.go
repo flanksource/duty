@@ -352,6 +352,7 @@ func (t *NotificationGroupResource) Upsert(db *gorm.DB) error {
 	return nil
 }
 
+// NotificationSummary represents the notifications_summary view
 type NotificationSummary struct {
 	ID           string
 	Name         string
@@ -362,6 +363,10 @@ type NotificationSummary struct {
 	UpdatedAt    time.Time
 	Error        string
 	LastFailedAt time.Time
+}
+
+func (t NotificationSummary) TableName() string {
+	return "notifications_summary"
 }
 
 func (t NotificationSummary) AsMap() map[string]any {

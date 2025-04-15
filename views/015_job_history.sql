@@ -211,6 +211,8 @@ WITH notification_send_summary AS (
     MAX(CASE WHEN error IS NOT NULL THEN created_at ELSE NULL END) AS last_failed_at
   FROM
     notification_send_history
+  WHERE
+    source_event <> 'notification.watchdog'
   GROUP BY notification_id
 )
 SELECT
