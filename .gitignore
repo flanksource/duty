@@ -7,3 +7,4 @@ nohup.out
 .aider*
 .creds/
 .cursor/
+.db/
