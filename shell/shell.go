@@ -2,6 +2,7 @@ package shell
 
 import (
 	"bytes"
+	gocontext "context"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	fileUtils "github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
@@ -34,7 +36,7 @@ var allowedEnvVars = map[string]struct{}{
 	"PS_VERSION":                            {},
 	"PSModuleAnalysisCachePath":             {},
 	"USER":                                  {},
-"MANPATH":                               {},
+	"MANPATH":                               {},
 	"TERM":                                  {},
 	"LANG":                                  {},
 	"SHELL":                                 {},
@@ -47,9 +49,7 @@ var allowedEnvVars = map[string]struct{}{
 	"COLORTERM":                             {},
 	"TERM_PROGRAM":                          {},
 	"TERM_PROGRAM_VERSION":                  {},
-	"TERM_SESSION_ID":                       {},
 	"COLORFGBG":                             {},
-	"COLORTERM_SESSION_ID":                  {},
 }
 
 func init() {
@@ -99,12 +99,42 @@ func (e *ExecDetails) GetArtifacts() []artifacts.Artifact {
 	return e.Artifacts
 }
 
+func JQ(ctx context.Context, path string, script string) (string, error) {
+	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.jq.timeout"))
+	defer cancel()
+	cmd := osExec.CommandContext(_ctx, "jq", script, path)
+	result, err := RunCmd(ctx, Exec{
+		Chroot: path,
+	}, cmd)
+	if err != nil {
+		return "", err
+	}
+	return result.Stdout, nil
+}
+
+func YQ(ctx context.Context, path string, script string) (string, error) {
+	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.yq.timeout", "shell.jq.timeout"))
+	defer cancel()
+	cmd := osExec.CommandContext(_ctx, "yq", script, path)
+	result, err := RunCmd(ctx, Exec{
+		Chroot: path,
+	}, cmd)
+	if err != nil {
+		return "", err
+	}
+	return result.Stdout, nil
+}
+
 func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 	cmd, err := CreateCommandFromScript(ctx, exec.Script)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrap(err)
 	}
 
+	return RunCmd(ctx, exec, cmd)
+}
+
+func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, error) {
 	ctx.Logger.V(3).Infof("running: %s %s", cmd.Path, lo.Map(cmd.Args, func(arg string, _ int) string { return strings.TrimSpace(arg) }))
 	envParams, err := prepareEnvironment(ctx, exec)
 	if err != nil {
@@ -168,6 +198,7 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 	cmd.cmd.Stdout = &stdout
 	cmd.cmd.Stderr = &stderr
 
+	ctx.Logger.V(6).Infof("using environment \n%s", strings.Join(cmd.cmd.Env, "\n"))
 	result.Error = cmd.cmd.Run()
 	result.Args = cmd.cmd.Args
 	result.Extra = cmd.extra
