@@ -249,7 +249,7 @@ func embeddedDB(database, connectionString string, port uint32) (string, func(),
 			if opts := files.SafeRead(postMasterOpts); opts != "" {
 				args := strings.Split(opts, "\n")
 				portString := args[posmasterLinePort]
-				if p, err := strconv.Atoi(portString); err == nil {
+				if p, err := strconv.ParseUint(portString, 10, 32); err == nil {
 					port = uint32(p)
 					logger.Infof("Postgres already running on %d", port)
 				}
