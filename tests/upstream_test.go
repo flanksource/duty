@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
@@ -374,7 +375,8 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 			ginkgo.AfterAll(func() {
 				var err error
-				for _, a := range lo.Reverse(all) {
+				mutable.Reverse(all)
+				for _, a := range all {
 					switch v := a.(type) {
 					case *models.ConfigRelationship:
 						err = DefaultContext.DB().Where("selector_id = ?", v.SelectorID).Delete(a).Error

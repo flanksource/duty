@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,8 +41,8 @@ var _ = Describe("Resource Selector", func() {
 	for _, tt := range tests {
 		It(tt.name, func() {
 			for i := 0; i < iteration; i++ {
-				tt.resourceSelect.Types = lo.Shuffle(tt.resourceSelect.Types)
-				tt.resourceSelect.Statuses = lo.Shuffle(tt.resourceSelect.Statuses)
+				mutable.Shuffle(tt.resourceSelect.Types)
+				mutable.Shuffle(tt.resourceSelect.Statuses)
 
 				actualHash := tt.resourceSelect.Hash()
 				Expect(actualHash).To(Equal(tt.resourceSelect.Hash()))
