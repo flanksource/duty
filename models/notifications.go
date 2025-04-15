@@ -15,7 +15,7 @@ import (
 
 // Notification represents the notifications table
 type Notification struct {
-	ID               uuid.UUID           `json:"id"`
+	ID               uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
 	Name             string              `json:"name"`
 	Namespace        string              `json:"namespace,omitempty"`
 	Events           pq.StringArray      `json:"events" gorm:"type:[]text"`
@@ -323,14 +323,19 @@ func (t *NotificationGroupResource) Upsert(db *gorm.DB) error {
 		return fmt.Errorf("failed to get pg version: %w", err)
 	}
 
+	constraintTargetClause := []clause.Expression{clause.Expr{SQL: "resolved_at IS NULL"}}
+
 	var columns []clause.Column
 	if ver < 15 {
 		if t.ConfigID != nil {
 			columns = []clause.Column{{Name: "group_id"}, {Name: "config_id"}}
+			constraintTargetClause = append(constraintTargetClause, clause.Expr{SQL: "config_id IS NOT NULL"})
 		} else if t.CheckID != nil {
 			columns = []clause.Column{{Name: "group_id"}, {Name: "check_id"}}
+			constraintTargetClause = append(constraintTargetClause, clause.Expr{SQL: "check_id IS NOT NULL"})
 		} else if t.ComponentID != nil {
 			columns = []clause.Column{{Name: "group_id"}, {Name: "component_id"}}
+			constraintTargetClause = append(constraintTargetClause, clause.Expr{SQL: "component_id IS NOT NULL"})
 		}
 	} else {
 		columns = []clause.Column{{Name: "group_id"}, {Name: "config_id"}, {Name: "check_id"}, {Name: "component_id"}}
@@ -338,7 +343,7 @@ func (t *NotificationGroupResource) Upsert(db *gorm.DB) error {
 
 	if err := db.Clauses(clause.OnConflict{
 		Columns:     columns,
-		TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Name: "resolved_at"}, Value: nil}}},
+		TargetWhere: clause.Where{Exprs: constraintTargetClause},
 		DoUpdates:   clause.Assignments(map[string]any{"updated_at": Now()}),
 	}).Create(t).Error; err != nil {
 		return fmt.Errorf("failed to add resource to group: %w", err)
@@ -357,4 +362,18 @@ type NotificationSummary struct {
 	UpdatedAt    time.Time
 	Error        string
 	LastFailedAt time.Time
+}
+
+func (t NotificationSummary) AsMap() map[string]any {
+	return map[string]any{
+		"id":             t.ID,
+		"name":           t.Name,
+		"namespace":      t.Namespace,
+		"sent":           t.Sent,
+		"failed":         t.Failed,
+		"pending":        t.Pending,
+		"updated_at":     t.UpdatedAt,
+		"error":          t.Error,
+		"last_failed_at": t.LastFailedAt,
+	}
 }
