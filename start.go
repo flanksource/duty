@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
+	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/api"
@@ -132,11 +133,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 			return context.Context{}, nil, fmt.Errorf("failed to setup embedded postgres: %w", err)
 		}
 
-		stop = func() {
-			if err := stopper(); err != nil {
-				logger.Errorf("error stopping embedded postgres: %v", err)
-			}
-		}
+		stop = stopper
 
 		// override the embedded connection string with an actual postgres connection string
 		config.ConnectionString = embeddedDBConnectionString
@@ -171,8 +168,10 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 			return context.Context{}, stop, err
 		} else {
 			ctx = *c
+			dbStop := stop
 			stop = func() {
 				c.Pool().Close()
+				dbStop()
 			}
 		}
 	}
@@ -196,7 +195,9 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	return ctx, stop, nil
 }
 
-func embeddedDB(database, connectionString string, port uint32) (string, func() error, error) {
+const posmasterLinePort = 3
+
+func embeddedDB(database, connectionString string, port uint32) (string, func(), error) {
 	embeddedPath := strings.TrimSuffix(strings.TrimPrefix(connectionString, "embedded://"), "/")
 	if err := os.Chmod(embeddedPath, 0750); err != nil {
 		logger.Errorf("failed to chmod %s: %v", embeddedPath, err)
@@ -235,11 +236,30 @@ func embeddedDB(database, connectionString string, port uint32) (string, func() 
 		Username("postgres").Password("postgres").
 		Database(database))
 
-	if err := embeddedPGServer.Start(); err != nil {
-		return "", nil, fmt.Errorf("error starting embedded postgres: %w", err)
+	stop := func() {
+		logger.Infof("Stopping embedded db")
+		if err := embeddedPGServer.Stop(); err != nil {
+			logger.Errorf(err.Error())
+		}
 	}
 
-	return fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, database), embeddedPGServer.Stop, nil
+	if err := embeddedPGServer.Start(); err != nil {
+		if strings.Contains(err.Error(), "Is another postmaster") && strings.Contains(err.Error(), "running in data directory") {
+			postMasterOpts := path.Join(embeddedPath, "data", "postmaster.pid")
+			if opts := files.SafeRead(postMasterOpts); opts != "" {
+				args := strings.Split(opts, "\n")
+				portString := args[posmasterLinePort]
+				if p, err := strconv.Atoi(portString); err == nil {
+					port = uint32(p)
+					logger.Infof("Postgres already running on %d", port)
+				}
+			}
+		} else {
+			return "", nil, fmt.Errorf("error starting embedded postgres: %w", err)
+		}
+	}
+
+	return fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, database), stop, nil
 }
 
 func FreePort() int {
