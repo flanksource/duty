@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	osExec "os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -67,6 +68,7 @@ type Exec struct {
 	Checkout    *connection.GitConnection
 	Artifacts   []Artifact
 	EnvVars     []types.EnvVar
+	Chroot      string
 }
 
 // +kubebuilder:object:generate=true
@@ -141,6 +143,14 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		return nil, ctx.Oops().Wrap(err)
 	}
 
+	if exec.Chroot == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		exec.Chroot = path.Join(cwd, ".shell-tmp")
+	}
+
 	// Set to a non-nil empty slice to prevent access to current environment variables
 	cmd.Env = []string{}
 
@@ -198,7 +208,8 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 	cmd.cmd.Stdout = &stdout
 	cmd.cmd.Stderr = &stderr
 
-	ctx.Logger.V(6).Infof("using environment \n%s", strings.Join(cmd.cmd.Env, "\n"))
+	ctx.Logger.V(6).Infof("working directory: %s\nenvironment:\n%s", cmd.mountPoint, strings.Join(cmd.cmd.Env, "\n"))
+
 	result.Error = cmd.cmd.Run()
 	result.Args = cmd.cmd.Args
 	result.Extra = cmd.extra
@@ -224,7 +235,7 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 			})
 
 		default:
-			paths, err := fileUtils.UnfoldGlobs(artifactConfig.Path)
+			paths, err := fileUtils.DoubleStarGlob(cmd.mountPoint, []string{artifactConfig.Path})
 			if err != nil {
 				return nil, err
 			}
@@ -268,6 +279,19 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 		extra: make(map[string]any),
 	}
 
+	if exec.Chroot != "" {
+		if stat, err := os.Stat(exec.Chroot); err != nil {
+			return nil, fmt.Errorf("%s does not exist", exec.Chroot)
+		} else if stat.IsDir() {
+			result.mountPoint = stat.Name()
+			return nil, fmt.Errorf("%s is not a directory", exec.Chroot)
+		} else {
+			result.mountPoint = filepath.Dir(stat.Name())
+		}
+	} else {
+		result.mountPoint = os.TempDir()
+	}
+
 	for _, env := range exec.EnvVars {
 		val, err := ctx.GetEnvValueFromCache(env, ctx.GetNamespace())
 		if err != nil {
@@ -284,9 +308,10 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 			return nil, fmt.Errorf("error hydrating connection: %w", err)
 		}
 
-		result.mountPoint = lo.FromPtr(checkout.Destination)
-		if result.mountPoint == "" {
-			result.mountPoint = filepath.Join(os.TempDir(), "exec-checkout", hash.Sha256Hex(checkout.URL))
+		if dir := lo.FromPtr(checkout.Destination); dir != "" {
+			result.mountPoint = filepath.Join(result.mountPoint, dir)
+		} else {
+			result.mountPoint = filepath.Join(result.mountPoint, "exec-checkout", hash.Sha256Hex(checkout.URL))
 		}
 		// We allow multiple checks to use the same checkout location, for disk space and performance reasons
 		// however git does not allow multiple operations to be performed, so we need to lock it
