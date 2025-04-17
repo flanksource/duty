@@ -28,6 +28,12 @@ jobs:
         run: make test
   migrate:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres-version:
+          - { tag: "14", sha: "sha256:6fa2c95ae2da36b7ecdfbcf91e20039ea2c3d4312d38b2d96ff475c2cea15d06" }
+          - { tag: "15", sha: "sha256:ee2f170c46df225310c923010230434e269238a65307539f9aced9da6ca44fad" }
+          - { tag: "16", sha: "sha256:e63e99458dbfdc8e09e9e48dbe8898b59ffc44aebd76ec89f24aa393ecf7d800" }
     env:
       migrate_command: make -B tidy hack/migrate/go.mod && cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
     steps:
@@ -47,7 +53,7 @@ jobs:
         run: ${{ env.migrate_command }}
     services:
       postgres:
-        image: postgres:15.5@sha256:ee2f170c46df225310c923010230434e269238a65307539f9aced9da6ca44fad
+        image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
         ports:
           - 5432:5432
         env:
