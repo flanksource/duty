@@ -105,6 +105,7 @@ RETURNS TABLE (
     scheduled_time timestamp with time zone,
     start_time timestamp with time zone,
     end_time timestamp with time zone,
+    result jsonb,
     agent_id uuid,
     retry_count integer,
     agent jsonb
@@ -124,6 +125,7 @@ BEGIN
     playbook_run_actions.scheduled_time,
     playbook_run_actions.start_time,
     playbook_run_actions.end_time,
+    playbook_run_actions.result,
     playbook_run_actions.agent_id,
     playbook_run_actions.retry_count,
     jsonb_build_object(
