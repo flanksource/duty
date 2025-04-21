@@ -108,7 +108,8 @@ RETURNS TABLE (
     result jsonb,
     agent_id uuid,
     retry_count integer,
-    agent jsonb
+    agent jsonb,
+    artifacts jsonb
 ) AS $$
 BEGIN
   RETURN QUERY
@@ -116,6 +117,13 @@ BEGIN
     SELECT playbook_runs.id, playbook_runs.agent_id 
     FROM playbook_runs  
     WHERE playbook_runs.parent_id = run_id OR playbook_runs.id = run_id
+  ),
+  artifacts_by_action AS (
+    SELECT 
+      playbook_run_action_id,
+      jsonb_agg(to_jsonb(artifacts.*)) as artifacts
+    FROM artifacts
+    GROUP BY playbook_run_action_id
   )
   SELECT
     playbook_run_actions.id,
@@ -131,10 +139,12 @@ BEGIN
     jsonb_build_object(
       'id', agents.id,
       'name', agents.name
-    ) AS agent
+    ) AS agent,
+    artifacts_by_action.artifacts as artifacts
   FROM playbook_run_actions
   INNER JOIN all_runs ON playbook_run_actions.playbook_run_id = all_runs.id
   LEFT JOIN agents ON COALESCE(playbook_run_actions.agent_id, all_runs.agent_id) = agents.id
+  LEFT JOIN artifacts_by_action ON artifacts_by_action.playbook_run_action_id = playbook_run_actions.id
   ORDER BY playbook_run_actions.start_time;
 END;
 $$ LANGUAGE plpgsql;
