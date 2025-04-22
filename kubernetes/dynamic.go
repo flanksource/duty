@@ -474,6 +474,20 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 
 	var resources []unstructured.Unstructured
 	for _, kind := range selector.Types {
+		if strings.ToLower(kind) == "namespace" && selector.IsMetadataOnly() {
+			if name, ok := selector.ToGetOptions(); ok {
+				return []unstructured.Unstructured{{
+					Object: map[string]any{
+						"apiVersion:": "v1",
+						"kind":        "Namespace",
+						"metadata": map[string]any{
+							"name": name,
+						},
+					},
+				}}, nil
+			}
+		}
+
 		client, rm, err := c.GetClientByKind(strings.TrimPrefix(kind, "Kubernetes::"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get client for %s: %w", kind, err)
