@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -149,28 +148,35 @@ func (c *Client) RestConfig() *rest.Config {
 // example: helmchrats.helm.cattle.io & helmcharts.source.toolkit.fluxcd.io both have HelmChart as the kind.
 //
 // Use GetClientByGroupVersionKind instead.
-func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInterface, error) {
+func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInterface, *meta.RESTMapping, error) {
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to get dynamic client: %w", err)
 	}
+
 	if res, err := c.gvkClientResourceCache.Get(context.Background(), kind); err == nil {
-		return dynamicClient.Resource(res), nil
+		return dynamicClient.Resource(res), nil, nil
 	}
+
 	rm, _ := c.GetRestMapper()
 	gvk, err := rm.KindFor(schema.GroupVersionResource{
 		Resource: kind,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to get kind for %s: %w", kind, err)
 	}
+
 	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
 	mapping, err := rm.RESTMapping(gk, gvk.Version)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to get rest mapping for %s: %w", kind, err)
 	}
-	_ = c.gvkClientResourceCache.Set(context.Background(), kind, mapping.Resource)
-	return dynamicClient.Resource(mapping.Resource), nil
+
+	if err := c.gvkClientResourceCache.Set(context.Background(), kind, mapping.Resource); err != nil {
+		c.logger.Errorf("failed to set gvk cache for %s: %s", kind, err)
+	}
+
+	return dynamicClient.Resource(mapping.Resource), mapping, nil
 }
 
 func (c *Client) DeleteByGVK(ctx context.Context, namespace, name string, gvk schema.GroupVersionKind) (bool, error) {
@@ -468,58 +474,61 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 
 	var resources []unstructured.Unstructured
 	for _, kind := range selector.Types {
-		client, err := c.GetClientByKind(kind)
-		if err != nil {
-			return nil, err
-		}
-		var namespaces []string
-
-		if strings.ToLower(kind) == "namespace" {
+		if strings.ToLower(kind) == "namespace" && selector.IsMetadataOnly() {
 			if name, ok := selector.ToGetOptions(); ok {
-				if selector.IsMetadataOnly() {
-					return []unstructured.Unstructured{
-						unstructured.Unstructured{
-							Object: map[string]any{
-								"kind":        "Namespace",
-								"apiVersion:": "v1",
-								"metadata": map[string]any{
-									"name": name,
-								},
-							},
+				return []unstructured.Unstructured{{
+					Object: map[string]any{
+						"apiVersion:": "v1",
+						"kind":        "Namespace",
+						"metadata": map[string]any{
+							"name": name,
 						},
-					}, nil
-				}
-				namespaces = []string{name}
-			} else {
-				namespaces = []string{""}
+					},
+				}}, nil
 			}
+		}
+
+		client, rm, err := c.GetClientByKind(strings.TrimPrefix(kind, "Kubernetes::"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get client for %s: %w", kind, err)
+		}
+
+		isClusterScoped := rm.Scope.Name() == meta.RESTScopeNameRoot
+
+		var namespaces []string
+		if isClusterScoped {
+			namespaces = []string{""}
 		} else {
 			namespaces, err = c.ExpandNamespaces(ctx, selector.Namespace)
-			if errors.IsNotFound(err) {
+			if apiErrors.IsNotFound(err) {
 				continue
 			} else if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to expand namespaces for %s: %w", kind, err)
 			}
 		}
 
 		for _, namespace := range namespaces {
+			cc := client.Namespace(namespace)
+			if isClusterScoped {
+				cc = client
+			}
 
-			if name, ok := selector.ToGetOptions(); ok && !types.IsMatchItem(name) && namespace != "" {
-				resource, err := client.Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
+			if name, ok := selector.ToGetOptions(); ok && !types.IsMatchItem(name) {
+				resource, err := cc.Get(ctx, name, metav1.GetOptions{})
+				if apiErrors.IsNotFound(err) {
 					continue
 				} else if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to get resource %s/%s: %w", namespace, name, err)
 				}
+
 				resources = append(resources, *resource)
 				continue
 			}
 
 			list, full := selector.ToListOptions()
-
-			resourceList, err := client.Namespace(namespace).List(ctx, list)
+			resourceList, err := cc.List(ctx, list)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to list resources %s/%s: %w", namespace, selector.Name, err)
 			}
 
 			if full {
