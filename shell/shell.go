@@ -180,6 +180,7 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		}()
 	}
 
+	envParams.artifacts = exec.Artifacts
 	envParams.cmd = cmd
 
 	return runCmd(ctx, envParams)
