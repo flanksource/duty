@@ -35,12 +35,17 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
+type gvkClientResourceCacheValue struct {
+	gvr     schema.GroupVersionResource
+	mapping *meta.RESTMapping
+}
+
 type Client struct {
 	kubernetes.Interface
 	restMapper             *restmapper.DeferredDiscoveryRESTMapper
 	dynamicClient          *dynamic.DynamicClient
 	Config                 *rest.Config // Prefer updaating token in place
-	gvkClientResourceCache cachev4.CacheInterface[schema.GroupVersionResource]
+	gvkClientResourceCache cachev4.CacheInterface[gvkClientResourceCacheValue]
 	logger                 logger.Logger
 }
 
@@ -52,7 +57,7 @@ func NewKubeClient(logger logger.Logger, client kubernetes.Interface, config *re
 	return &Client{
 		Interface:              client,
 		Config:                 config,
-		gvkClientResourceCache: cache.NewCache[schema.GroupVersionResource]("gvk-cache", 24*time.Hour),
+		gvkClientResourceCache: cache.NewCache[gvkClientResourceCacheValue]("gvk-cache", 24*time.Hour),
 		logger:                 logger,
 	}
 }
@@ -116,7 +121,7 @@ func (c *Client) GetClientByGroupVersionKind(
 
 	cacheKey := group + version + kind
 	if res, err := c.gvkClientResourceCache.Get(ctx, cacheKey); err == nil {
-		return dynamicClient.Resource(res), nil
+		return dynamicClient.Resource(res.gvr), nil
 	}
 
 	rm, _ := c.GetRestMapper()
@@ -135,7 +140,7 @@ func (c *Client) GetClientByGroupVersionKind(
 		return nil, err
 	}
 
-	_ = c.gvkClientResourceCache.Set(ctx, cacheKey, mapping.Resource)
+	_ = c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping})
 	return dynamicClient.Resource(mapping.Resource), nil
 }
 
@@ -155,7 +160,7 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 	}
 
 	if res, err := c.gvkClientResourceCache.Get(context.Background(), kind); err == nil {
-		return dynamicClient.Resource(res), nil, nil
+		return dynamicClient.Resource(res.gvr), res.mapping, nil
 	}
 
 	rm, _ := c.GetRestMapper()
@@ -172,7 +177,7 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 		return nil, nil, fmt.Errorf("failed to get rest mapping for %s: %w", kind, err)
 	}
 
-	if err := c.gvkClientResourceCache.Set(context.Background(), kind, mapping.Resource); err != nil {
+	if err := c.gvkClientResourceCache.Set(context.Background(), kind, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping}); err != nil {
 		c.logger.Errorf("failed to set gvk cache for %s: %s", kind, err)
 	}
 
