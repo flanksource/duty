@@ -140,6 +140,12 @@ type NotificationSendHistory struct {
 	// ID of the resource this notification is for
 	ResourceID uuid.UUID `json:"resource_id"`
 
+	// Health of the resource at the time of event
+	ResourceHealth Health `json:"resource_health"`
+
+	// Status of the resource at the time of event
+	ResourceStatus string `json:"resource_status"`
+
 	// ID of the team this notification was dispatched to.
 	TeamID *uuid.UUID `json:"team_id,omitempty"`
 
