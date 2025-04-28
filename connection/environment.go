@@ -183,7 +183,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 				}
 			}
 
-			if !kubeconfigFound && connections.ServiceAccount {
+			// Use local kubernetes if no external kubeconfig is found
+			if !kubeconfigFound {
 				injectKubernetesServiceAccount(ctx, cmd)
 			}
 		}
