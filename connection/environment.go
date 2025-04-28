@@ -132,6 +132,23 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 	var output ConnectionSetupResult
 	var cleaners []func() error
 
+	defer func() {
+		output.Cleanup = func() error {
+			var errorList []error
+			for _, c := range cleaners {
+				if err := c(); err != nil {
+					errorList = append(errorList, err)
+				}
+			}
+
+			if len(errorList) > 0 {
+				return fmt.Errorf("failed to cleanup: %v", errorList)
+			}
+
+			return nil
+		}
+	}()
+
 	if lo.FromPtr(connections.FromConfigItem) != "" {
 		configId := lo.FromPtr(connections.FromConfigItem)
 		output.Sources = append(output.Sources, fmt.Sprintf("fromConfigItem: %s", configId))
@@ -183,7 +200,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 				}
 			}
 
-			if !kubeconfigFound && connections.ServiceAccount {
+			if !kubeconfigFound || connections.ServiceAccount {
 				injectKubernetesServiceAccount(ctx, cmd)
 			}
 		}
@@ -225,6 +242,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 			cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", configPath))
 		}
+		return &output, nil
 	}
 
 	if connections.ServiceAccount {
@@ -251,8 +269,10 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if connections.AWS.Region != "" {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", connections.AWS.Region))
 		}
+		return &output, nil
 	} else if connections.EKSPodIdentity {
 		injectEksPodIdentity(ctx, cmd)
+		return &output, nil
 	}
 
 	if connections.Azure != nil {
@@ -266,6 +286,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		if err := runCmd.Run(); err != nil {
 			return nil, fmt.Errorf("failed to login: %w", err)
 		}
+		return &output, nil
 	}
 
 	if connections.GCP != nil {
@@ -292,22 +313,11 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		}
 
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configPath))
+		return &output, nil
 	}
 
-	output.Cleanup = func() error {
-		var errorList []error
-		for _, c := range cleaners {
-			if err := c(); err != nil {
-				errorList = append(errorList, err)
-			}
-		}
-
-		if len(errorList) > 0 {
-			return fmt.Errorf("failed to cleanup: %v", errorList)
-		}
-
-		return nil
-	}
+	// Fallback when no connection is provided
+	injectKubernetesServiceAccount(ctx, cmd)
 
 	return &output, nil
 }
