@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -667,13 +668,28 @@ func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
 	}
 
 	if err != nil {
+		updates["error"] = err.Error()
+
 		if o, ok := oops.AsOops(err); ok {
-			updates["result"] = map[string]any{
-				"result": result,
-				"error":  o.ToMap(),
+			// Marshal to a map, if possible, because that's the natural layout of  the result when things go right.
+			//
+			// Example:
+			// Success: result = {stdout: "", stderr:""}
+			// On failure, we should append the error as a field like this:
+			// 	result = {stdout: "", stderr: "", error: {}}
+			// Instead of
+			// 	result = {"result": {"stdout": "", "stderr": ""}, "error": {}}
+			resultMap, err := collections.ToJSONMap(result)
+			if err == nil && resultMap != nil {
+				resultMap["error"] = o.ToMap()
+				updates["result"] = resultMap
+			} else {
+				updates["result"] = map[string]any{
+					"result": result,
+					"error":  o.ToMap(),
+				}
 			}
 		}
-		updates["error"] = err.Error()
 	}
 
 	if err := p.Update(db, updates); err != nil {
