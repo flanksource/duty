@@ -156,62 +156,57 @@ DROP VIEW IF EXISTS notification_send_history_with_resources;
 DROP VIEW IF EXISTS notification_send_history_resources;
 
 CREATE OR REPLACE VIEW notification_send_history_resources AS
-WITH resource_ids AS (
-	SELECT resource_id, source_event FROM notification_send_history
-), resources AS (
-	SELECT 
-    config_items.id,
-    jsonb_build_object(
-      'id', config_items.id,
-      'name', config_items.name,
-      'type', config_items.type,
-      'config_class', config_items.config_class,
-      'health', config_items.health,
-      'status', config_items.status
-    ) AS "resource",
-    'config' AS "resource_type"
-	FROM config_items JOIN resource_ids 
-  ON config_items.id = resource_ids.resource_id AND resource_ids.source_event LIKE 'config.%'
-	UNION
-	SELECT
-		components.id,
-		jsonb_build_object(
-      'id', components.id,
-      'name', components.name,
-      'type', components.type,
-      'icon', components.icon,
-      'health', components.health,
-      'status', components.status
-    ) AS "resource",
-    'component' AS "resource_type"
-	FROM components JOIN resource_ids 
-  ON components.id = resource_ids.resource_id AND resource_ids.source_event LIKE 'component.%'
-	UNION
-	SELECT
-    checks.id,
-    jsonb_build_object(
-      'id', checks.id,
-      'name', checks.name,
-      'type', checks.type,
-      'icon', checks.icon,
-      'health', checks.status,
-      'status', checks.status
-    ) AS "resource",
-    'check' AS "resource_type"
-	FROM checks JOIN resource_ids 
-  ON checks.id = resource_ids.resource_id AND resource_ids.source_event LIKE 'check.%'
-	UNION
-	SELECT
-    canaries.id,
-    jsonb_build_object(
-      'id', canaries.id,
-      'name', canaries.name
-    ) AS "resource",
-    'canary' AS "resource_type"
-	FROM canaries JOIN resource_ids 
-  ON canaries.id = resource_ids.resource_id AND resource_ids.source_event LIKE 'canary.%'
-)
-SELECT * FROM resources;
+SELECT 
+  config_items.id,
+  'config' AS "resource_type",
+  jsonb_build_object(
+    'id', config_items.id,
+    'name', config_items.name,
+    'type', config_items.type,
+    'config_class', config_items.config_class,
+    'health', config_items.health,
+    'status', config_items.status
+  ) AS "resource"
+FROM config_items JOIN notification_send_history 
+ON config_items.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'config.%'
+UNION
+SELECT
+  components.id,
+  'component' AS "resource_type",
+  jsonb_build_object(
+    'id', components.id,
+    'name', components.name,
+    'type', components.type,
+    'icon', components.icon,
+    'health', components.health,
+    'status', components.status
+  ) AS "resource"
+FROM components JOIN notification_send_history 
+ON components.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'component.%'
+UNION
+SELECT
+  checks.id,
+  'check' AS "resource_type",
+  jsonb_build_object(
+    'id', checks.id,
+    'name', checks.name,
+    'type', checks.type,
+    'icon', checks.icon,
+    'health', checks.status,
+    'status', checks.status
+  ) AS "resource"
+FROM checks JOIN notification_send_history 
+ON checks.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'check.%'
+UNION
+SELECT
+  canaries.id,
+  'canary' AS "resource_type",
+  jsonb_build_object(
+    'id', canaries.id,
+    'name', canaries.name
+  ) AS "resource"
+FROM canaries JOIN notification_send_history 
+ON canaries.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'canary.%';
 
 ---
 CREATE OR REPLACE VIEW notification_send_history_with_resources as
