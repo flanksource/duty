@@ -37,25 +37,25 @@ func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.
 
 	var clauses []clause.Expression
 	if len(in) > 0 {
-		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: in})
+		clauses = append(clauses, clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: in})
 	}
 
 	if len(notIN) > 0 {
 		clauses = append(clauses, clause.NotConditions{
-			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Name: field}, Values: notIN}},
+			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: notIN}},
 		})
 	}
 
 	for _, p := range prefixes {
 		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
+			Column: clause.Column{Raw: true, Name: field},
 			Value:  p + "%",
 		})
 	}
 
 	for _, s := range suffixes {
 		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
+			Column: clause.Column{Raw: true, Name: field},
 			Value:  "%" + s,
 		})
 	}

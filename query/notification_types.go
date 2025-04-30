@@ -101,7 +101,8 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 	}
 
 	if r.Search != "" {
-		clauses = append(clauses, clause.Like{Column: clause.Column{Name: "resource->>'name'", Raw: true}, Value: r.Search + "%"})
+		clause, _ := parseAndBuildFilteringQuery(r.Search, "resource->>'name'", true)
+		clauses = append(clauses, clause...)
 	}
 
 	return clauses
