@@ -38,46 +38,17 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 
 	_ = ctx.DB().Use(extraClausePlugin.New())
 
-	// TODO: Must be dynamic
-	selectColumns := []string{
-		"resource",
-		"resource_type",
-		"resource_health",
-		"resource_status",
-		"first_observed",
-		"created_at",
-		"body",
-		"status",
-		"ROW_NUMBER() OVER (PARTITION BY resource ORDER BY created_at DESC) AS rn",
-	}
-
 	ranked := exclause.NewWith(
 		"ranked",
 		ctx.DB().
-			Select(selectColumns).
-			// Where(req.resourceDeletedClause()).
+			Select(req.baseSelectColumns()).
 			Clauses(req.baseWhereClause()...).
 			Table("notification_send_history_with_resources"))
-
-	// TODO: Must be dynamic
-	summaryColumns := []string{
-		"resource",
-		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
-		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
-		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
-		"MIN(first_observed) AS first_observed",
-		"MAX(created_at) AS last_seen",
-		"COUNT(*) AS total",
-		"MAX(CASE WHEN rn = 1 THEN body END) AS last_message",
-		"COUNT(CASE WHEN status = 'sent' THEN 1 END) AS sent",
-		"COUNT(CASE WHEN status = 'error' THEN 1 END) AS error",
-		"COUNT(CASE WHEN status != 'error' AND status != 'sent' THEN 1 END) AS suppressed",
-	}
 
 	summaryCTE := exclause.NewWith(
 		"summary",
 		ctx.DB().
-			Select(summaryColumns).
+			Select(req.summarySelectColumns()).
 			Table("ranked").
 			Group(strings.Join(req.getGroupByColumns(), ",")).
 			Order("last_seen DESC"),

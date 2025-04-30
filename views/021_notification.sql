@@ -165,7 +165,8 @@ SELECT
     'type', config_items.type,
     'config_class', config_items.config_class,
     'health', config_items.health,
-    'status', config_items.status
+    'status', config_items.status,
+    'deleted_at', config_items.deleted_at
   ) AS "resource"
 FROM config_items JOIN notification_send_history 
 ON config_items.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'config.%'
@@ -179,7 +180,8 @@ SELECT
     'type', components.type,
     'icon', components.icon,
     'health', components.health,
-    'status', components.status
+    'status', components.status,
+    'deleted_at', components.deleted_at
   ) AS "resource"
 FROM components JOIN notification_send_history 
 ON components.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'component.%'
@@ -193,7 +195,8 @@ SELECT
     'type', checks.type,
     'icon', checks.icon,
     'health', checks.status,
-    'status', checks.status
+    'status', checks.status,
+    'deleted_at', checks.deleted_at
   ) AS "resource"
 FROM checks JOIN notification_send_history 
 ON checks.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'check.%'
@@ -203,7 +206,8 @@ SELECT
   'canary' AS "resource_type",
   jsonb_build_object(
     'id', canaries.id,
-    'name', canaries.name
+    'name', canaries.name,
+    'deleted_at', canaries.deleted_at
   ) AS "resource"
 FROM canaries JOIN notification_send_history 
 ON canaries.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'canary.%';
