@@ -150,145 +150,90 @@ END;
 $$
 LANGUAGE plpgsql;
 
+---
 DROP VIEW IF EXISTS notification_send_history_summary;
+DROP VIEW IF EXISTS notification_send_history_resources;
 
-CREATE OR REPLACE VIEW notification_send_history_summary AS
-WITH combined AS (
-  -- config
-  SELECT
-    nsh.*,
-    'config' AS "resource_type",
-    jsonb_build_object('id', config.id, 'name', config.name, 'type', config.type, 'config_class', config.config_class, 'health', config.health, 'status', config.status) AS resource,
-    CASE
-      WHEN nsh.playbook_run_id IS NOT NULL THEN (
-        SELECT jsonb_build_object(
-          'id', pr.id::text,
-          'playbook_id', pr.playbook_id::text,
-          'status', pr.status,
-          'playbook_name', COALESCE(p.title, p.name)
-        )
-        FROM playbook_runs pr
-        JOIN playbooks p ON p.id = pr.playbook_id
-        WHERE pr.id = nsh.playbook_run_id
-      )
-      ELSE NULL
-    END::jsonb AS playbook_run
-  FROM
-    notification_send_history nsh
-    LEFT JOIN (
-      SELECT
-        id,
-        name,
-        type,
-        config_class,
-        health,
-        status
-      FROM
-        configs AS configs) config ON config.id = nsh.resource_id
-    WHERE
-      nsh.source_event LIKE 'config.%'
-    UNION
-    -- component
-    SELECT
-      nsh.*,
-      'component' AS "resource_type",
-      jsonb_build_object('id', component.id, 'name', component.name, 'icon', component.icon, 'health', component.health, 'status', component.status) AS resource,
-      CASE
-        WHEN nsh.playbook_run_id IS NOT NULL THEN (
-          SELECT jsonb_build_object(
-            'id', pr.id::text,
-            'playbook_id', pr.playbook_id::text,
-            'status', pr.status,
-            'playbook_name', COALESCE(p.title, p.name)
-          )
-          FROM playbook_runs pr
-          JOIN playbooks p ON p.id = pr.playbook_id
-          WHERE pr.id = nsh.playbook_run_id
-        )
-        ELSE NULL
-      END::jsonb AS playbook_run
-    FROM
-      notification_send_history nsh
-    LEFT JOIN (
-      SELECT
-        id,
-        name,
-        icon,
-        health,
-        status
-      FROM
-        components) component ON component.id = nsh.resource_id
-    WHERE
-      nsh.source_event LIKE 'component.%'
-    UNION
-    -- check
-    SELECT
-      nsh.*,
-      'check' AS "resource_type",
-      jsonb_build_object('id', check_details.id, 'name', check_details.name, 'type', check_details.type, 'status', check_details.status, 'icon', check_details.icon, 'health', check_details.status) AS resource,
-      CASE
-        WHEN nsh.playbook_run_id IS NOT NULL THEN (
-          SELECT jsonb_build_object(
-            'id', pr.id::text,
-            'playbook_id', pr.playbook_id::text,
-            'status', pr.status,
-            'playbook_name', COALESCE(p.title, p.name)
-          )
-          FROM playbook_runs pr
-          JOIN playbooks p ON p.id = pr.playbook_id
-          WHERE pr.id = nsh.playbook_run_id
-        )
-        ELSE NULL
-      END::jsonb AS playbook_run
-    FROM
-      notification_send_history nsh
-    LEFT JOIN (
-      SELECT
-        id,
-        name,
-        type,
-        status,
-        icon
-      FROM
-        checks) check_details ON check_details.id = nsh.resource_id
-    WHERE
-      nsh.source_event LIKE 'check.%'
-    UNION
-    -- canary
-    SELECT
-      nsh.*,
-      'canary' AS "resource_type",
-      jsonb_build_object('id', canary.id, 'name', canary.name) AS resource,
-      CASE
-        WHEN nsh.playbook_run_id IS NOT NULL THEN (
-          SELECT jsonb_build_object(
-            'id', pr.id::text,
-            'playbook_id', pr.playbook_id::text,
-            'status', pr.status,
-            'playbook_name', COALESCE(p.title, p.name)
-          )
-          FROM playbook_runs pr
-          JOIN playbooks p ON p.id = pr.playbook_id
-          WHERE pr.id = nsh.playbook_run_id
-        )
-        ELSE NULL
-      END::jsonb AS playbook_run
-    FROM
-      notification_send_history nsh
-    LEFT JOIN (
-      SELECT
-        id,
-        name
-      FROM
-        canaries) canary ON canary.id = nsh.resource_id
-    WHERE
-      nsh.source_event LIKE 'canary.%'
-)
+CREATE OR REPLACE VIEW notification_send_history_resources AS
+SELECT 
+  config_items.id,
+  'config' AS "resource_type",
+  jsonb_build_object(
+    'id', config_items.id,
+    'name', config_items.name,
+    'type', config_items.type,
+    'config_class', config_items.config_class,
+    'health', config_items.health,
+    'status', config_items.status,
+    'deleted_at', config_items.deleted_at
+  ) AS "resource"
+FROM config_items JOIN notification_send_history 
+ON config_items.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'config.%'
+UNION
 SELECT
-  combined.*
-FROM
-  combined;
+  components.id,
+  'component' AS "resource_type",
+  jsonb_build_object(
+    'id', components.id,
+    'name', components.name,
+    'type', components.type,
+    'icon', components.icon,
+    'health', components.health,
+    'status', components.status,
+    'deleted_at', components.deleted_at
+  ) AS "resource"
+FROM components JOIN notification_send_history 
+ON components.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'component.%'
+UNION
+SELECT
+  checks.id,
+  'check' AS "resource_type",
+  jsonb_build_object(
+    'id', checks.id,
+    'name', checks.name,
+    'type', checks.type,
+    'icon', checks.icon,
+    'health', checks.status,
+    'status', checks.status,
+    'deleted_at', checks.deleted_at
+  ) AS "resource"
+FROM checks JOIN notification_send_history 
+ON checks.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'check.%'
+UNION
+SELECT
+  canaries.id,
+  'canary' AS "resource_type",
+  jsonb_build_object(
+    'id', canaries.id,
+    'name', canaries.name,
+    'deleted_at', canaries.deleted_at
+  ) AS "resource"
+FROM canaries JOIN notification_send_history 
+ON canaries.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'canary.%';
 
+--- notification_send_history_summary
+CREATE OR REPLACE VIEW notification_send_history_summary as
+SELECT 
+  notification_send_history.*, 
+  "nsh_resources"."resource",
+  "nsh_resources"."resource_type",
+  CASE
+    WHEN notification_send_history.playbook_run_id IS NOT NULL THEN (
+      SELECT jsonb_build_object(
+        'id', pr.id::text,
+        'playbook_id', pr.playbook_id::text,
+        'status', pr.status,
+        'playbook_name', COALESCE(p.title, p.name)
+      )
+      FROM playbook_runs pr
+      JOIN playbooks p ON p.id = pr.playbook_id
+      WHERE pr.id = notification_send_history.playbook_run_id
+    )
+    ELSE NULL
+  END::jsonb AS playbook_run
+FROM notification_send_history
+LEFT JOIN notification_send_history_resources AS "nsh_resources"
+ON notification_send_history.resource_id = nsh_resources.id;
 
 -- Insert notification_send_history updates as config_changes
 CREATE OR REPLACE FUNCTION insert_notification_history_config_change()

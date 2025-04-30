@@ -266,6 +266,10 @@ func (c ConfigItem) GetStatus() (string, error) {
 	return *c.Status, nil
 }
 
+func (c ConfigItem) GetHealthDescription() string {
+	return lo.FromPtr(c.Description)
+}
+
 func (c ConfigItem) GetTagsMatcher() labels.Labels {
 	return types.GenericLabelsMatcher{Map: c.Tags}
 }

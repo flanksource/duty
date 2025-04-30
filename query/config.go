@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/duty/api"
@@ -268,8 +267,6 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 	if err := req.Parse(); err != nil {
 		return nil, api.Errorf(api.EINVALID, "%s", err)
 	}
-
-	_ = ctx.DB().Use(extraClausePlugin.New())
 
 	groupBy := strings.Join(req.groupBy(), ",")
 	plainGroupBy := strings.Join(req.GroupBy, ",")
