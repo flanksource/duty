@@ -152,7 +152,6 @@ LANGUAGE plpgsql;
 
 ---
 DROP VIEW IF EXISTS notification_send_history_summary;
-DROP VIEW IF EXISTS notification_send_history_with_resources;
 DROP VIEW IF EXISTS notification_send_history_resources;
 
 CREATE OR REPLACE VIEW notification_send_history_resources AS
@@ -212,8 +211,8 @@ SELECT
 FROM canaries JOIN notification_send_history 
 ON canaries.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'canary.%';
 
----
-CREATE OR REPLACE VIEW notification_send_history_with_resources as
+--- notification_send_history_summary
+CREATE OR REPLACE VIEW notification_send_history_summary as
 SELECT 
   notification_send_history.*, 
   "nsh_resources"."resource",
@@ -235,11 +234,6 @@ SELECT
 FROM notification_send_history
 LEFT JOIN notification_send_history_resources AS "nsh_resources"
 ON notification_send_history.resource_id = nsh_resources.id;
-
--- 
--- Deprecated.
-CREATE OR REPLACE VIEW notification_send_history_summary AS
-SELECT * FROM notification_send_history_with_resources;
 
 -- Insert notification_send_history updates as config_changes
 CREATE OR REPLACE FUNCTION insert_notification_history_config_change()

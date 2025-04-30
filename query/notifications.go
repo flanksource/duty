@@ -40,7 +40,7 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 		ctx.DB().
 			Select(req.baseSelectColumns()).
 			Clauses(req.baseWhereClause()...).
-			Table("notification_send_history_with_resources"))
+			Table("notification_send_history_summary"))
 
 	summaryCTE := exclause.NewWith(
 		"summary",
