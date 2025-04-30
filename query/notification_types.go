@@ -71,7 +71,7 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 
 func (r *NotificationSendHistorySummaryRequest) SetDefaults() {
 	if len(r.GroupBy) == 0 {
-		r.GroupBy = []string{"resource", "resource_type"}
+		r.GroupBy = []string{"resource"}
 	}
 }
 

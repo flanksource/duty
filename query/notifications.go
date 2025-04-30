@@ -42,6 +42,8 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 	selectColumns := []string{
 		"resource",
 		"resource_type",
+		"resource_health",
+		"resource_status",
 		"first_observed",
 		"created_at",
 		"body",
@@ -60,13 +62,16 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 	// TODO: Must be dynamic
 	summaryColumns := []string{
 		"resource",
-		"resource_type",
+		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
+		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
+		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
 		"MIN(first_observed) AS first_observed",
 		"MAX(created_at) AS last_seen",
 		"COUNT(*) AS total",
 		"MAX(CASE WHEN rn = 1 THEN body END) AS last_message",
 		"COUNT(CASE WHEN status = 'sent' THEN 1 END) AS sent",
 		"COUNT(CASE WHEN status = 'error' THEN 1 END) AS error",
+		"COUNT(CASE WHEN status != 'error' AND status != 'sent' THEN 1 END) AS suppressed",
 	}
 
 	summaryCTE := exclause.NewWith(
