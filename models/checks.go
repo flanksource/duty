@@ -134,6 +134,10 @@ func (c Check) GetStatus() (string, error) {
 	return string(c.Status), nil
 }
 
+func (c Check) GetHealthDescription() string {
+	return c.Description
+}
+
 func (c Check) GetHealth() (string, error) {
 	if c.Status == CheckStatusHealthy {
 		return string(HealthHealthy), nil

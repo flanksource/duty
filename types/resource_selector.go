@@ -452,6 +452,10 @@ type TagsMatchable interface {
 	GetTagsMatcher() labels.Labels
 }
 
+type DescriptionProvider interface {
+	GetHealthDescription() string
+}
+
 type ResourceSelectable interface {
 	GetFieldsMatcher() fields.Fields
 	GetLabelsMatcher() labels.Labels
@@ -564,6 +568,15 @@ func (t ResourceSelectableMap) GetType() string {
 	}
 
 	return itemType
+}
+
+func (t ResourceSelectableMap) GetHealthDescription() string {
+	healthDescription, ok := t["description"].(string)
+	if !ok {
+		return ""
+	}
+
+	return healthDescription
 }
 
 func (t ResourceSelectableMap) GetStatus() (string, error) {

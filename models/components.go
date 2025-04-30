@@ -180,6 +180,10 @@ func (c Component) GetStatus() (string, error) {
 	return string(c.Status), nil
 }
 
+func (c Component) GetHealthDescription() string {
+	return c.Description
+}
+
 func (c Component) GetHealth() (string, error) {
 	if c.HealthExpr != "" {
 		env := map[string]any{

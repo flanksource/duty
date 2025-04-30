@@ -228,6 +228,11 @@ table "notification_send_history" {
     type    = text
     comment = "Status of the resource at the time of event"
   }
+  column "resource_health_description" {
+    null = true
+    type = text
+    comment = "Health description of the resource at the time of event"
+  }
   column "person_id" {
     null    = true
     type    = uuid
