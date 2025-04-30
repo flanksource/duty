@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/logger"
@@ -175,6 +176,8 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 			}
 		}
 	}
+
+	_ = ctx.DB().Use(extraClausePlugin.New())
 
 	if config.Metrics {
 		if err := ctx.DB().Use(prometheus.New(prometheus.Config{

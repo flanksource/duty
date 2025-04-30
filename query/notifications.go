@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
@@ -35,8 +34,6 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 	if err := req.Validate(); err != nil {
 		return nil, api.Errorf(api.EINVALID, "%s", err)
 	}
-
-	_ = ctx.DB().Use(extraClausePlugin.New())
 
 	ranked := exclause.NewWith(
 		"ranked",
