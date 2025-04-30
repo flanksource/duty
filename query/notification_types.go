@@ -86,7 +86,7 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 	}
 
 	if r.from != nil {
-		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "first_observed"}, Value: *r.from})
+		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: *r.from})
 	}
 
 	if r.to != nil {

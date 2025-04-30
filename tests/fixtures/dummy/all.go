@@ -32,6 +32,8 @@ type DummyData struct {
 	ConfigAnalyses               []models.ConfigAnalysis
 	ConfigComponentRelationships []models.ConfigComponentRelationship
 
+	Notifications []models.Notification
+
 	Teams      []models.Team
 	Incidents  []models.Incident
 	Hypotheses []models.Hypothesis
@@ -175,6 +177,10 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := gormDB.CreateInBatches(t.Notifications, 100).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -197,6 +203,10 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	}
 
 	if err := DeleteAll(gormDB, t.ConfigScrapers); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Notifications); err != nil {
 		return err
 	}
 
@@ -258,6 +268,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),
 		ConfigComponentRelationships: append([]models.ConfigComponentRelationship{}, AllDummyConfigComponentRelationships...),
 		Teams:                        append([]models.Team{}, AllDummyTeams...),
+		Notifications:                append([]models.Notification{}, AllDummyNotifications...),
 		Incidents:                    append([]models.Incident{}, AllDummyIncidents...),
 		Hypotheses:                   append([]models.Hypothesis{}, AllDummyHypotheses...),
 		Evidences:                    append([]models.Evidence{}, AllDummyEvidences...),
