@@ -269,3 +269,17 @@ CREATE OR REPLACE TRIGGER insert_notification_history_config_change_trigger
 AFTER INSERT OR UPDATE ON notification_send_history
 FOR EACH ROW
 EXECUTE FUNCTION insert_notification_history_config_change();
+
+---
+CREATE OR REPLACE FUNCTION notification_send_history_of_resource(p_resource_id uuid)
+RETURNS SETOF notification_send_history AS $$
+BEGIN
+  RETURN QUERY
+  SELECT * FROM notification_send_history
+  WHERE id IN (
+    SELECT id FROM notification_send_history WHERE resource_id = p_resource_id
+    UNION
+    SELECT parent_id FROM notification_send_history WHERE resource_id = p_resource_id
+  );
+END;
+$$ LANGUAGE plpgsql;
