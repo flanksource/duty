@@ -23,7 +23,7 @@ type NotificationSummaryGroupByResource struct {
 	ResourceHealthDescription string                   `json:"resource_health_description"`
 }
 
-var _ = ginkgo.Describe("Notification Summary", ginkgo.Ordered, func() {
+var _ = ginkgo.Describe("Notification Summary", ginkgo.Ordered, ginkgo.Serial, func() {
 	ginkgo.BeforeAll(func() {
 		referenceTime := time.Now()
 		sendHistories := []models.NotificationSendHistory{
@@ -73,6 +73,10 @@ var _ = ginkgo.Describe("Notification Summary", ginkgo.Ordered, func() {
 			},
 		}
 		Expect(DefaultContext.DB().Create(&sendHistories).Error).ToNot(HaveOccurred())
+	})
+
+	ginkgo.AfterAll(func() {
+		Expect(DefaultContext.DB().Where("notification_id = ?", dummy.NoMatchNotification.ID).Delete(&models.NotificationSendHistory{}).Error).ToNot(HaveOccurred())
 	})
 
 	ginkgo.It("should return the correct notification summary", func() {
