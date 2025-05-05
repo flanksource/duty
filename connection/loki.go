@@ -10,7 +10,7 @@ import (
 type Loki struct {
 	ConnectionName string `json:"connection,omitempty"`
 
-	URL      string        `json:"url"`
+	URL      string        `json:"url,omitempty"`
 	Username *types.EnvVar `json:"username,omitempty"`
 	Password *types.EnvVar `json:"password,omitempty"`
 }
