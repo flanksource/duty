@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const notificationSummaryPageSizeDefault = 50
+
 type NotificationSendHistorySummaryRequest struct {
 	GroupBy                 []string              `json:"groupBy"`
 	Status                  types.MatchExpression `json:"status"` // matchItem
@@ -19,6 +21,9 @@ type NotificationSendHistorySummaryRequest struct {
 	From                    string                `json:"from"`
 	To                      string                `json:"to"`
 	IncludeDeletedResources bool                  `json:"includeDeletedResources"`
+
+	PageIndex int `json:"pageIndex"`
+	PageSize  int `json:"pageSize"`
 
 	from *time.Time
 	to   *time.Time
@@ -114,6 +119,14 @@ func (r *NotificationSendHistorySummaryRequest) SetDefaults() {
 	if len(r.GroupBy) == 0 {
 		r.GroupBy = []string{"resource"}
 	}
+
+	if r.PageSize > notificationSummaryPageSizeDefault || r.PageSize < 1 {
+		r.PageSize = notificationSummaryPageSizeDefault
+	}
+
+	if r.PageIndex < 0 {
+		r.PageIndex = 0
+	}
 }
 
 func (r *NotificationSendHistorySummaryRequest) getGroupByColumns() []string {
@@ -128,4 +141,9 @@ func (r *NotificationSendHistorySummaryRequest) getGroupByColumns() []string {
 	}
 
 	return output
+}
+
+type NotificationSendHistorySummaryResponse struct {
+	Total   int64      `json:"total"`
+	Results types.JSON `json:"results"`
 }

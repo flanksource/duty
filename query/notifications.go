@@ -29,7 +29,7 @@ func GetNotificationStats(ctx context.Context, notificationIDs ...string) ([]mod
 	return summaries, nil
 }
 
-func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHistorySummaryRequest) (types.JSON, error) {
+func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHistorySummaryRequest) (*NotificationSendHistorySummaryResponse, error) {
 	req.SetDefaults()
 	if err := req.Validate(); err != nil {
 		return nil, api.Errorf(api.EINVALID, "%s", err)
@@ -42,13 +42,27 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 			Clauses(req.baseWhereClause()...).
 			Table("notification_send_history_summary"))
 
+	summaryQuery := ctx.DB().Table("ranked").Group(strings.Join(req.getGroupByColumns(), ","))
+
+	var count int64
+	if err := summaryQuery.Clauses(ranked).Count(&count).Error; err != nil {
+		return nil, err
+	}
+
+	if count == 0 {
+		return &NotificationSendHistorySummaryResponse{
+			Total:   count,
+			Results: nil,
+		}, nil
+	}
+
 	summaryCTE := exclause.NewWith(
 		"summary",
-		ctx.DB().
+		summaryQuery.
 			Select(req.summarySelectColumns()).
-			Table("ranked").
-			Group(strings.Join(req.getGroupByColumns(), ",")).
-			Order("last_seen DESC"),
+			Order("last_seen DESC").
+			Limit(req.PageSize).
+			Offset(req.PageIndex*req.PageSize),
 	)
 
 	sql := ctx.DB().Clauses(ranked, summaryCTE).Select("json_agg(row_to_json(summary))").Table("summary")
@@ -62,5 +76,8 @@ func NotificationSendHistorySummary(ctx context.Context, req NotificationSendHis
 		return nil, nil
 	}
 
-	return res[0], nil
+	return &NotificationSendHistorySummaryResponse{
+		Total:   count,
+		Results: res[0],
+	}, nil
 }

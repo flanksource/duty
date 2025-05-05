@@ -88,8 +88,10 @@ var _ = ginkgo.Describe("Notification Summary", ginkgo.Ordered, ginkgo.Serial, f
 		notificationSummary, err := query.NotificationSendHistorySummary(DefaultContext, request)
 		Expect(err).ToNot(HaveOccurred())
 
+		Expect(notificationSummary.Total).To(Equal(int64(1)), "record for only the given resource")
+
 		var result []NotificationSummaryGroupByResource
-		err = json.Unmarshal(notificationSummary, &result)
+		err = json.Unmarshal(notificationSummary.Results, &result)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).To(Equal(1))
 		Expect(result[0].Sent).To(Equal(3), "only need 3 sent as the first one falls out of range")
