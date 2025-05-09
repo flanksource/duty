@@ -3,8 +3,12 @@ table "external_users" {
   column "id" {
     type = uuid
   }
+  column "account_id" {
+    comment = "Azure tenant ID, AWS account ID, GCP project ID"
+    type    = text
+  }
   column "aliases" {
-    type = text
+    type = sql("text[]")
     null = true
   }
   column "name" {
@@ -41,8 +45,12 @@ table "external_groups" {
   column "id" {
     type = uuid
   }
+  column "account_id" {
+    comment = "Azure tenant ID, AWS account ID, GCP project ID"
+    type    = text
+  }
   column "aliases" {
-    type = text
+    type = sql("text[]")
     null = true
   }
   column "name" {
@@ -99,8 +107,12 @@ table "external_roles" {
   column "id" {
     type = uuid
   }
+  column "account_id" {
+    comment = "Azure tenant ID, AWS account ID, GCP project ID"
+    type    = text
+  }
   column "aliases" {
-    type = text
+    type = sql("text[]")
     null = true
   }
   column "role_type" {
