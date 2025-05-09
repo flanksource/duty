@@ -172,6 +172,9 @@ table "access_reviews" {
 
 table "config_access" {
   schema = schema.public
+  column "id" {
+    type = uuid
+  }
   column "config_id" {
     type = uuid
   }
@@ -211,7 +214,12 @@ table "config_access" {
     null = true
   }
   primary_key {
+    columns = [column.id]
+  }
+  index "config_access_config_id_external_user_id_external_group_id_external_role_id_key" {
+    unique  = true
     columns = [column.config_id, column.external_user_id, column.external_group_id, column.external_role_id]
+    where   = "deleted_at IS NULL"
   }
   foreign_key "config_fk" {
     columns     = [column.config_id]
