@@ -184,6 +184,13 @@ var dbResourceObjMap = map[string]string{
 	"topologies_with_status":                            policy.ObjectTopology,
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
+
+	"access_reviews":       policy.ObjectCatalog,
+	"config_access":        policy.ObjectCatalog,
+	"external_groups":      policy.ObjectCatalog,
+	"external_roles":       policy.ObjectCatalog,
+	"external_user_groups": policy.ObjectCatalog,
+	"external_users":       policy.ObjectCatalog,
 }
 
 func GetObjectByTable(resource string) string {
