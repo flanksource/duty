@@ -1,5 +1,4 @@
 table "external_users" {
-
   column "id" {
     type = uuid
   }
@@ -151,7 +150,7 @@ table "access_reviews" {
   }
   foreign_key "config_fk" {
     columns     = [column.config_id]
-    ref_columns = [table.configs.column.id]
+    ref_columns = [table.config_items.column.id]
     on_delete   = CASCADE
   }
   foreign_key "external_user_fk" {
@@ -210,7 +209,7 @@ table "config_access" {
   }
   foreign_key "config_fk" {
     columns     = [column.config_id]
-    ref_columns = [table.configs.column.id]
+    ref_columns = [table.config_items.column.id]
     on_delete   = CASCADE
   }
   foreign_key "external_user_fk" {
