@@ -1,4 +1,5 @@
 table "external_users" {
+  schema = schema.public
   column "id" {
     type = uuid
   }
@@ -36,6 +37,7 @@ table "external_users" {
 }
 
 table "external_groups" {
+  schema = schema.public
   column "id" {
     type = uuid
   }
@@ -55,6 +57,7 @@ table "external_groups" {
 }
 
 table "external_user_groups" {
+  schema = schema.public
   column "external_user_id" {
     type = uuid
   }
@@ -92,6 +95,7 @@ table "external_user_groups" {
 }
 
 table "external_roles" {
+  schema = schema.public
   column "id" {
     type = uuid
   }
@@ -119,6 +123,7 @@ table "external_roles" {
 }
 
 table "access_reviews" {
+  schema = schema.public
   column "id" {
     type = uuid
   }
@@ -166,6 +171,7 @@ table "access_reviews" {
 }
 
 table "config_access" {
+  schema = schema.public
   column "config_id" {
     type = uuid
   }
