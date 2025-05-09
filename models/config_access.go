@@ -11,6 +11,7 @@ type ExternalUser struct {
 	ID        uuid.UUID  `json:"id"`
 	Aliases   []string   `json:"aliases"`
 	Name      string     `json:"name"`
+	AccountID string     `json:"account_id"`
 	UserType  string     `json:"user_type"`
 	Email     string     `json:"email"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
@@ -29,6 +30,7 @@ func (e ExternalUser) TableName() string {
 
 type ExternalGroup struct {
 	ID        uuid.UUID `json:"id"`
+	AccountID string    `json:"account_id"`
 	Aliases   []string  `json:"aliases"`
 	Name      string    `json:"name"`
 	GroupType string    `json:"group_type"`
@@ -62,6 +64,7 @@ func (e ExternalUserGroup) TableName() string {
 
 type ExternalRole struct {
 	ID          uuid.UUID       `json:"id"`
+	AccountID   string          `json:"account_id"`
 	Aliases     []string        `json:"aliases"`
 	RoleType    string          `json:"role_type"`
 	Name        string          `json:"name"`
