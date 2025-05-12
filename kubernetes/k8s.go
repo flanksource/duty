@@ -117,7 +117,7 @@ func trace(clogger logger.Logger, config *rest.Config) *rest.Config {
 		logger.SetFilter(func(r *http.Request) (bool, error) {
 			for _, url := range sensitiveUrls {
 				if url.MatchString(r.URL.Path) {
-					clogger.Tracef("%s %s (Skipping sensitive URL)", console.Greenf(r.Method), r.URL.Path)
+					clogger.Tracef("%s %s (Skipping sensitive URL)", console.Greenf("%s", r.Method), r.URL.Path)
 					return true, nil
 				}
 			}
