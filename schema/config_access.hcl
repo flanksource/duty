@@ -197,7 +197,8 @@ table "access_reviews" {
 table "config_access" {
   schema = schema.public
   column "id" {
-    type = uuid
+    type    = text
+    comment = "not a uuid. depends on the source. example: Microsoft has 0Tr1liTQeU2nA2LDmGCS4qwxw-A6_GhNos_LscLVs6w"
   }
   column "config_id" {
     type = uuid
@@ -225,7 +226,7 @@ table "config_access" {
     type = uuid
     null = true
   }
-  column "last_signed_in" {
+  column "last_signed_in_at" {
     type = timestamptz
     null = true
   }
@@ -268,5 +269,8 @@ table "config_access" {
     columns     = [column.external_role_id]
     ref_columns = [table.external_roles.column.id]
     on_delete   = CASCADE
+  }
+  check "at_least_one_id" {
+    expr = "external_user_id IS NOT NULL OR external_group_id IS NOT NULL OR external_role_id IS NOT NULL"
   }
 }

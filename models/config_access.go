@@ -105,17 +105,21 @@ func (e AccessReview) TableName() string {
 }
 
 type ConfigAccess struct {
-	ConfigID       uuid.UUID  `json:"config_id"`
-	ExternalUser   *uuid.UUID `json:"external_user_id"`
-	ExternalGroup  *uuid.UUID `json:"external_group_id"`
-	ExternalRole   *uuid.UUID `json:"external_role_id"`
-	CreatedAt      time.Time  `json:"created_at" gorm:"<-:create"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
-	DeletedBy      *uuid.UUID `json:"deleted_by"`
+	ID string `json:"id" gorm:"not null"`
+
+	ConfigID        uuid.UUID  `json:"config_id"`
+	ExternalUserID  *uuid.UUID `json:"external_user_id,omitempty"`
+	ExternalGroupID *uuid.UUID `json:"external_group_id,omitempty"`
+	ExternalRoleID  *uuid.UUID `json:"external_role_id,omitempty"`
+
+	CreatedAt time.Time  `json:"created_at"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	DeletedBy *uuid.UUID `json:"deleted_by,omitempty"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
+
 	LastSignedInAt *time.Time `json:"last_signed_in_at,omitempty"`
 	LastReviewedAt *time.Time `json:"last_reviewed_at,omitempty"`
-	LastReviewedBy *uuid.UUID `json:"last_reviewed_by"`
-	CreatedBy      *uuid.UUID `json:"created_by"`
+	LastReviewedBy *uuid.UUID `json:"last_reviewed_by,omitempty"`
 }
 
 func (e ConfigAccess) TableName() string {
@@ -123,5 +127,5 @@ func (e ConfigAccess) TableName() string {
 }
 
 func (e ConfigAccess) PK() string {
-	return e.ConfigID.String()
+	return e.ID
 }
