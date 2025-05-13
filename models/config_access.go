@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,13 +66,12 @@ func (e ExternalUserGroup) TableName() string {
 }
 
 type ExternalRole struct {
-	ID          uuid.UUID       `json:"id"`
-	AccountID   string          `json:"account_id"`
-	Aliases     pq.StringArray  `json:"aliases" gorm:"type:[]text"`
-	RoleType    string          `json:"role_type"`
-	Name        string          `json:"name"`
-	Spec        json.RawMessage `json:"spec"`
-	Description string          `json:"description"`
+	ID          uuid.UUID      `json:"id"`
+	AccountID   string         `json:"account_id"`
+	Aliases     pq.StringArray `json:"aliases" gorm:"type:[]text"`
+	RoleType    string         `json:"role_type"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
 }
 
 func (e ExternalRole) PK() string {

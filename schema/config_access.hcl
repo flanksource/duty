@@ -133,10 +133,6 @@ table "external_roles" {
   column "name" {
     type = text
   }
-  column "spec" {
-    type = jsonb
-    null = true
-  }
   column "description" {
     type = text
     null = true
