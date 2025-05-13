@@ -5,19 +5,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type ExternalUser struct {
-	ID        uuid.UUID  `json:"id"`
-	Aliases   []string   `json:"aliases"`
-	Name      string     `json:"name"`
-	AccountID string     `json:"account_id"`
-	UserType  string     `json:"user_type"`
-	Email     string     `json:"email"`
-	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
-	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
-	CreatedBy *uuid.UUID `json:"created_by"`
+	ID        uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
+	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
+	Name      string         `json:"name"`
+	AccountID string         `json:"account_id"`
+	UserType  string         `json:"user_type"`
+	Email     *string        `json:"email" gorm:"default:null"`
+	CreatedAt time.Time      `json:"created_at" gorm:"not null"`
+	UpdatedAt *time.Time     `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt *time.Time     `json:"deleted_at,omitempty"`
+	CreatedBy *string        `json:"created_by,omitempty" gorm:"default:null"`
 }
 
 func (e ExternalUser) PK() string {
@@ -29,11 +30,14 @@ func (e ExternalUser) TableName() string {
 }
 
 type ExternalGroup struct {
-	ID        uuid.UUID `json:"id"`
-	AccountID string    `json:"account_id"`
-	Aliases   []string  `json:"aliases"`
-	Name      string    `json:"name"`
-	GroupType string    `json:"group_type"`
+	ID        uuid.UUID      `json:"id"`
+	AccountID string         `json:"account_id"`
+	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
+	Name      string         `json:"name"`
+	CreatedAt time.Time      `json:"created_at" gorm:"not null"`
+	UpdatedAt *time.Time     `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt *time.Time     `json:"deleted_at,omitempty"`
+	GroupType string         `json:"group_type"`
 }
 
 func (e ExternalGroup) PK() string {
@@ -65,7 +69,7 @@ func (e ExternalUserGroup) TableName() string {
 type ExternalRole struct {
 	ID          uuid.UUID       `json:"id"`
 	AccountID   string          `json:"account_id"`
-	Aliases     []string        `json:"aliases"`
+	Aliases     pq.StringArray  `json:"aliases" gorm:"type:[]text"`
 	RoleType    string          `json:"role_type"`
 	Name        string          `json:"name"`
 	Spec        json.RawMessage `json:"spec"`
@@ -81,15 +85,15 @@ func (e ExternalRole) TableName() string {
 }
 
 type AccessReview struct {
-	ID              uuid.UUID  `json:"id"`
-	Aliases         []string   `json:"aliases"`
-	ConfigID        uuid.UUID  `json:"config_id"`
-	ExternalGroupID *uuid.UUID `json:"external_group_id"`
-	ExternalUserID  *uuid.UUID `json:"external_user_id"`
-	ExternalRoleID  uuid.UUID  `json:"external_role_id"`
-	CreatedAt       time.Time  `json:"created_at" gorm:"<-:create"`
-	CreatedBy       *uuid.UUID `json:"created_by"`
-	Source          string     `json:"source"`
+	ID              uuid.UUID      `json:"id"`
+	Aliases         pq.StringArray `json:"aliases" gorm:"type:[]text"`
+	ConfigID        uuid.UUID      `json:"config_id"`
+	ExternalGroupID *uuid.UUID     `json:"external_group_id"`
+	ExternalUserID  *uuid.UUID     `json:"external_user_id"`
+	ExternalRoleID  uuid.UUID      `json:"external_role_id"`
+	CreatedAt       time.Time      `json:"created_at" gorm:"<-:create"`
+	CreatedBy       *uuid.UUID     `json:"created_by"`
+	Source          string         `json:"source"`
 }
 
 func (e AccessReview) PK() string {
@@ -108,6 +112,7 @@ type ConfigAccess struct {
 	CreatedAt      time.Time  `json:"created_at" gorm:"<-:create"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy      *uuid.UUID `json:"deleted_by"`
+	LastSignedInAt *time.Time `json:"last_signed_in_at,omitempty"`
 	LastReviewedAt *time.Time `json:"last_reviewed_at,omitempty"`
 	LastReviewedBy *uuid.UUID `json:"last_reviewed_by"`
 	CreatedBy      *uuid.UUID `json:"created_by"`

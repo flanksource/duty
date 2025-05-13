@@ -19,6 +19,7 @@ table "external_users" {
   }
   column "email" {
     type = text
+    null = true
   }
   column "created_at" {
     type = timestamptz
@@ -58,6 +59,17 @@ table "external_groups" {
   }
   column "group_type" {
     type = text
+  }
+  column "created_at" {
+    type = timestamptz
+  }
+  column "updated_at" {
+    type = timestamptz
+    null = true
+  }
+  column "deleted_at" {
+    type = timestamptz
+    null = true
   }
   primary_key {
     columns = [column.id]
@@ -211,6 +223,10 @@ table "config_access" {
   }
   column "deleted_by" {
     type = uuid
+    null = true
+  }
+  column "last_signed_in" {
+    type = timestamptz
     null = true
   }
   column "last_reviewed_at" {
