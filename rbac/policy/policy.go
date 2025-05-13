@@ -164,6 +164,7 @@ const (
 	ObjectAuth             = "auth"
 	ObjectCanary           = "canaries"
 	ObjectCatalog          = "catalog"
+	ObjectApplication      = "application"
 	ObjectConnection       = "connection"
 	ObjectConnectionDetail = "connection-detail"
 	ObjectDatabase         = "database"

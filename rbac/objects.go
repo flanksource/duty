@@ -11,6 +11,7 @@ var dbResourceObjMap = map[string]string{
 	"access_tokens":                             policy.ObjectAuthConfidential,
 	"agents_summary":                            policy.ObjectMonitor,
 	"agents":                                    policy.ObjectDatabasePublic,
+	"applications":                              policy.ObjectApplication,
 	"analysis_by_component":                     policy.ObjectCatalog,
 	"analysis_by_config":                        policy.ObjectCatalog,
 	"analysis_summary_by_component":             policy.ObjectCatalog,
