@@ -177,7 +177,9 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 		}
 	}
 
-	_ = ctx.DB().Use(extraClausePlugin.New())
+	if ctx.DB() != nil {
+		_ = ctx.DB().Use(extraClausePlugin.New())
+	}
 
 	if config.Metrics {
 		if err := ctx.DB().Use(prometheus.New(prometheus.Config{
