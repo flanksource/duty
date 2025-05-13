@@ -29,7 +29,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/flanksource/artifacts v1.0.14
 	github.com/flanksource/commons v1.37.0
-	github.com/flanksource/gomplate/v3 v3.24.55
+	github.com/flanksource/gomplate/v3 v3.24.57
 	github.com/flanksource/is-healthy v1.0.60
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
