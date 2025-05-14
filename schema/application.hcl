@@ -21,6 +21,10 @@ table "applications" {
     null = false
     type = jsonb
   }
+  column "labels" {
+    null = true
+    type = jsonb
+  }
   column "source" {
     null = false
     type = enum.source
