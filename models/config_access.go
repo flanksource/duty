@@ -132,3 +132,21 @@ func (e ConfigAccess) TableName() string {
 func (e ConfigAccess) PK() string {
 	return e.ID
 }
+
+type UserConfigAccessSummary struct {
+	ConfigID          uuid.UUID  `json:"config_id"`
+	ConfigName        string     `json:"config_name"`
+	ConfigType        string     `json:"config_type"`
+	ExternalUserName  string     `json:"external_user_name"`
+	ExternalUserEmail string     `json:"external_user_email"`
+	CreatedAt         time.Time  `json:"created_at"`
+	DeletedAt         *time.Time `json:"deleted_at,omitempty"`
+	CreatedBy         *uuid.UUID `json:"created_by,omitempty"`
+	LastSignedInAt    *time.Time `json:"last_signed_in_at,omitempty"`
+	LastReviewedAt    *time.Time `json:"last_reviewed_at,omitempty"`
+	LastReviewedBy    *uuid.UUID `json:"last_reviewed_by,omitempty"`
+}
+
+func (e UserConfigAccessSummary) TableName() string {
+	return "user_config_access_summary"
+}

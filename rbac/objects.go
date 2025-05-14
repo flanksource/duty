@@ -12,6 +12,7 @@ var dbResourceObjMap = map[string]string{
 	"agents_summary":                            policy.ObjectMonitor,
 	"agents":                                    policy.ObjectDatabasePublic,
 	"applications":                              policy.ObjectApplication,
+	"user_config_access_summary":                policy.ObjectApplication,
 	"analysis_by_component":                     policy.ObjectCatalog,
 	"analysis_by_config":                        policy.ObjectCatalog,
 	"analysis_summary_by_component":             policy.ObjectCatalog,
