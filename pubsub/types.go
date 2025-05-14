@@ -65,8 +65,9 @@ func (k KafkaConfig) String() string {
 
 // +kubebuilder:object:generate=true
 type PubSubConfig struct {
-	ProjectID    string `json:"project_id"`
-	Subscription string `json:"subscription"`
+	ProjectID                string `json:"project_id"`
+	Subscription             string `json:"subscription"`
+	connection.GCPConnection `json:",inline"`
 }
 
 func (p PubSubConfig) String() string {
