@@ -7,4 +7,6 @@ const (
 	SourceTopology   = "Topology"
 	SourcePush       = "Push"
 	SourceCRDSync    = "CRDSync"
+
+	SourceApplicationCRD = "ApplicationCRD"
 )
