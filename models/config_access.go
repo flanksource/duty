@@ -14,6 +14,7 @@ type ExternalUser struct {
 	AccountID string         `json:"account_id"`
 	UserType  string         `json:"user_type"`
 	Email     *string        `json:"email" gorm:"default:null"`
+	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
 	CreatedAt time.Time      `json:"created_at" gorm:"not null"`
 	UpdatedAt *time.Time     `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt *time.Time     `json:"deleted_at,omitempty"`
@@ -30,6 +31,7 @@ func (e ExternalUser) TableName() string {
 
 type ExternalGroup struct {
 	ID        uuid.UUID      `json:"id"`
+	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
 	AccountID string         `json:"account_id"`
 	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
 	Name      string         `json:"name"`
@@ -68,6 +70,7 @@ func (e ExternalUserGroup) TableName() string {
 type ExternalRole struct {
 	ID          uuid.UUID      `json:"id"`
 	AccountID   string         `json:"account_id"`
+	ScraperID   uuid.UUID      `json:"scraper_id" gorm:"not null"`
 	Aliases     pq.StringArray `json:"aliases" gorm:"type:[]text"`
 	RoleType    string         `json:"role_type"`
 	Name        string         `json:"name"`
@@ -84,6 +87,7 @@ func (e ExternalRole) TableName() string {
 
 type AccessReview struct {
 	ID              uuid.UUID      `json:"id"`
+	ScraperID       uuid.UUID      `json:"scraper_id" gorm:"not null"`
 	Aliases         pq.StringArray `json:"aliases" gorm:"type:[]text"`
 	ConfigID        uuid.UUID      `json:"config_id"`
 	ExternalGroupID *uuid.UUID     `json:"external_group_id"`
@@ -103,7 +107,8 @@ func (e AccessReview) TableName() string {
 }
 
 type ConfigAccess struct {
-	ID string `json:"id" gorm:"not null"`
+	ID        string    `json:"id" gorm:"not null"`
+	ScraperID uuid.UUID `json:"scraper_id" gorm:"not null"`
 
 	ConfigID        uuid.UUID  `json:"config_id"`
 	ExternalUserID  *uuid.UUID `json:"external_user_id,omitempty"`
