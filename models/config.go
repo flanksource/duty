@@ -305,17 +305,18 @@ func (c configLabels) Has(key string) bool {
 
 // ConfigScraper represents the config_scrapers database table
 type ConfigScraper struct {
-	ID          uuid.UUID  `json:"id"`
-	AgentID     uuid.UUID  `json:"agent_id,omitempty"`
-	Name        string     `json:"name"`
-	Namespace   string     `json:"namespace"`
-	Description string     `json:"description,omitempty"`
-	Spec        string     `json:"spec,omitempty"`
-	Source      string     `json:"source,omitempty"`
-	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`
-	CreatedAt   time.Time  `json:"created_at" gorm:"<-:create"`
-	UpdatedAt   *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt   *time.Time `json:"deleted_at,omitempty"`
+	ID            uuid.UUID  `json:"id"`
+	AgentID       uuid.UUID  `json:"agent_id,omitempty"`
+	Name          string     `json:"name"`
+	Namespace     string     `json:"namespace"`
+	Description   string     `json:"description,omitempty"`
+	Spec          string     `json:"spec,omitempty"`
+	Source        string     `json:"source,omitempty"`
+	ApplicationID *uuid.UUID `json:"application_id,omitempty" gorm:"default:null"`
+	CreatedBy     *uuid.UUID `json:"created_by,omitempty"`
+	CreatedAt     time.Time  `json:"created_at" gorm:"<-:create"`
+	UpdatedAt     *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
 }
 
 func FindScraperByConfigId(db *gorm.DB, configId string) (*ConfigScraper, error) {

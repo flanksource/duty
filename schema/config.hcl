@@ -585,6 +585,11 @@ table "config_scrapers" {
     null = false
     type = enum.source
   }
+  column "application_id" {
+    null    = true
+    type    = uuid
+    comment = "application that generated this scraper"
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -614,6 +619,12 @@ table "config_scrapers" {
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "config_scrapers_application_id_fkey" {
+    columns     = [column.application_id]
+    ref_columns = [table.applications.column.id]
+    on_update   = CASCADE  
+    on_delete   = CASCADE
   }
   foreign_key "config_scrapers_created_by_fkey" {
     columns     = [column.created_by]
