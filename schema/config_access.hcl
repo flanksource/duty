@@ -21,6 +21,10 @@ table "external_users" {
     type = text
     null = true
   }
+  column "scraper_id" {
+    null = false
+    type = uuid
+  }
   column "created_at" {
     type = timestamptz
   }
@@ -39,6 +43,12 @@ table "external_users" {
   primary_key {
     columns = [column.id]
   }
+  foreign_key "external_users_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
 
 table "external_groups" {
@@ -49,6 +59,10 @@ table "external_groups" {
   column "account_id" {
     comment = "Azure tenant ID, AWS account ID, GCP project ID"
     type    = text
+  }
+  column "scraper_id" {
+    null = false
+    type = uuid
   }
   column "aliases" {
     type = sql("text[]")
@@ -73,6 +87,12 @@ table "external_groups" {
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "external_groups_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
 
@@ -119,6 +139,10 @@ table "external_roles" {
   column "id" {
     type = uuid
   }
+  column "scraper_id" {
+    null = false
+    type = uuid
+  }
   column "account_id" {
     comment = "Azure tenant ID, AWS account ID, GCP project ID"
     type    = text
@@ -140,11 +164,21 @@ table "external_roles" {
   primary_key {
     columns = [column.id]
   }
+  foreign_key "external_roles_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
 
 table "access_reviews" {
   schema = schema.public
   column "id" {
+    type = uuid
+  }
+  column "scraper_id" {
+    null = false
     type = uuid
   }
   column "aliases" {
@@ -188,6 +222,12 @@ table "access_reviews" {
     ref_columns = [table.external_roles.column.id]
     on_delete   = CASCADE
   }
+  foreign_key "access_reviews_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
 }
 
 table "config_access" {
@@ -197,6 +237,10 @@ table "config_access" {
     comment = "not a uuid. depends on the source. example: Microsoft has 0Tr1liTQeU2nA2LDmGCS4qwxw-A6_GhNos_LscLVs6w"
   }
   column "config_id" {
+    type = uuid
+  }
+  column "scraper_id" {
+    null = false
     type = uuid
   }
   column "external_user_id" {
@@ -265,6 +309,12 @@ table "config_access" {
     columns     = [column.external_role_id]
     ref_columns = [table.external_roles.column.id]
     on_delete   = CASCADE
+  }
+  foreign_key "config_access_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   check "at_least_one_id" {
     expr = "external_user_id IS NOT NULL OR external_group_id IS NOT NULL OR external_role_id IS NOT NULL"
