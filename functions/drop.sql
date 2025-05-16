@@ -5,3 +5,5 @@ DROP VIEW IF EXISTS config_detail CASCADE;
 DROP VIEW IF EXISTS config_tags CASCADE;
 
 DROP VIEW IF EXISTS notification_send_history_summary;
+
+DROP VIEW IF EXISTS user_config_access_summary;
