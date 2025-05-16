@@ -50,17 +50,12 @@ func (e ExternalGroup) TableName() string {
 }
 
 type ExternalUserGroup struct {
-	ID              uuid.UUID  `json:"id"`
-	ExternalUserID  uuid.UUID  `json:"external_user_id"`
-	ExternalGroupID uuid.UUID  `json:"external_group_id"`
+	ExternalUserID  uuid.UUID  `json:"external_user_id" gorm:"primaryKey"`
+	ExternalGroupID uuid.UUID  `json:"external_group_id" gorm:"primaryKey"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy       *uuid.UUID `json:"deleted_by"`
 	CreatedAt       time.Time  `json:"created_at" gorm:"<-:create"`
 	CreatedBy       *uuid.UUID `json:"created_by"`
-}
-
-func (e ExternalUserGroup) PK() string {
-	return e.ID.String()
 }
 
 func (e ExternalUserGroup) TableName() string {
