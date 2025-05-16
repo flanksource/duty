@@ -75,10 +75,10 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"034_rls_enable.sql", "035_rls_disable.sql"})
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
-		Expect(len(views)).To(Equal(3), "RLS scripts & notification_group_resources index creation scripts are picked up here")
+		Expect(len(views)).To(Equal(4), "RLS scripts & notification_group_resources index creation scripts are picked up here")
 
 		Expect(collections.MapKeys(funcs)).To(Equal([]string{"drop.sql"}))
-		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "021_notification.sql", "037_notification_group_resources.sql"}))
+		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "021_notification.sql", "037_notification_group_resources.sql", "038_config_access.sql"}))
 
 		{
 			// run the migrations again to ensure that the hashes are repopulated
