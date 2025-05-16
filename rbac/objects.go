@@ -187,6 +187,7 @@ var dbResourceObjMap = map[string]string{
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
 
+	"config_access_logs":   policy.ObjectCatalog,
 	"access_reviews":       policy.ObjectCatalog,
 	"config_access":        policy.ObjectCatalog,
 	"external_groups":      policy.ObjectCatalog,

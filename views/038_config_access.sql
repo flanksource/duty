@@ -1,3 +1,5 @@
+-- dependsOn: functions/drop.sql
+
 CREATE OR REPLACE VIEW user_config_access_summary AS
 SELECT 
   config_items.id as config_id,
@@ -8,7 +10,6 @@ SELECT
   config_access.created_at as created_at,
   config_access.deleted_at as deleted_at,
   config_access.created_by as created_by,
-  config_access.last_signed_in_at as last_signed_in_at,
   config_access.last_reviewed_at as last_reviewed_at,
   config_access.last_reviewed_by as last_reviewed_by
  FROM config_access

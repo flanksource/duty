@@ -120,7 +120,6 @@ type ConfigAccess struct {
 	DeletedBy *uuid.UUID `json:"deleted_by,omitempty"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 
-	LastSignedInAt *time.Time `json:"last_signed_in_at,omitempty"`
 	LastReviewedAt *time.Time `json:"last_reviewed_at,omitempty"`
 	LastReviewedBy *uuid.UUID `json:"last_reviewed_by,omitempty"`
 }
@@ -149,4 +148,11 @@ type UserConfigAccessSummary struct {
 
 func (e UserConfigAccessSummary) TableName() string {
 	return "user_config_access_summary"
+}
+
+type ConfigAccessLog struct {
+	ConfigID       uuid.UUID `json:"config_id"`
+	ExternalUserID uuid.UUID `json:"external_user_id"`
+	ScraperID      uuid.UUID `json:"scraper_id"`
+	CreatedAt      time.Time `json:"created_at"`
 }
