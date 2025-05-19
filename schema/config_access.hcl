@@ -331,6 +331,14 @@ table "config_access_logs" {
     null = false
     type = uuid
   }
+  column "mfa" {
+    type = boolean
+    null = true
+  }
+  column "properties" {
+    type = jsonb
+    null = true
+  }
   column "created_at" {
     type = timestamptz
   }

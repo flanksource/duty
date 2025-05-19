@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
@@ -147,10 +148,12 @@ func (e UserConfigAccessSummary) TableName() string {
 }
 
 type ConfigAccessLog struct {
-	ConfigID       uuid.UUID `json:"config_id" gorm:"primaryKey"`
-	ExternalUserID uuid.UUID `json:"external_user_id" gorm:"primaryKey"`
-	ScraperID      uuid.UUID `json:"scraper_id" gorm:"primaryKey"`
-	CreatedAt      time.Time `json:"created_at"`
+	ConfigID       uuid.UUID     `json:"config_id" gorm:"primaryKey"`
+	ExternalUserID uuid.UUID     `json:"external_user_id" gorm:"primaryKey"`
+	ScraperID      uuid.UUID     `json:"scraper_id" gorm:"primaryKey"`
+	CreatedAt      time.Time     `json:"created_at"`
+	MFA            bool          `json:"mfa,omitempty" gorm:"default:null"`
+	Properties     types.JSONMap `json:"properties,omitempty" gorm:"default:null"`
 }
 
 func (e ConfigAccessLog) TableName() string {
