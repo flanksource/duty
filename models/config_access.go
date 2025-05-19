@@ -147,8 +147,12 @@ func (e UserConfigAccessSummary) TableName() string {
 }
 
 type ConfigAccessLog struct {
-	ConfigID       uuid.UUID `json:"config_id"`
-	ExternalUserID uuid.UUID `json:"external_user_id"`
-	ScraperID      uuid.UUID `json:"scraper_id"`
+	ConfigID       uuid.UUID `json:"config_id" gorm:"primaryKey"`
+	ExternalUserID uuid.UUID `json:"external_user_id" gorm:"primaryKey"`
+	ScraperID      uuid.UUID `json:"scraper_id" gorm:"primaryKey"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+func (e ConfigAccessLog) TableName() string {
+	return "config_access_logs"
 }

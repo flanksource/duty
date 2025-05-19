@@ -1,7 +1,9 @@
 -- dependsOn: functions/drop.sql
 
 -- TODO: This needs to unfold group access
-CREATE OR REPLACE VIEW user_config_access_summary AS
+DROP VIEW IF EXISTS user_config_access_summary;
+
+CREATE VIEW user_config_access_summary AS
 SELECT 
   config_items.id as config_id,
   config_items.name as config_name,

@@ -335,7 +335,7 @@ table "config_access_logs" {
     type = timestamptz
   }
   primary_key {
-    columns = [column.config_id, column.external_user_id]
+    columns = [column.config_id, column.external_user_id, column.scraper_id]
   }
   foreign_key "config_access_logs_config_id_fkey" {
     columns     = [column.config_id]
@@ -346,5 +346,11 @@ table "config_access_logs" {
     columns     = [column.external_user_id]
     ref_columns = [table.external_users.column.id]
     on_delete   = CASCADE
+  }
+  foreign_key "config_access_logs_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
