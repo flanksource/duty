@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func FindConfigAccessByConfigIDs(ctx context.Context, configIDs []uuid.UUID) ([]models.UserConfigAccessSummary, error) {
-	var configAccess []models.UserConfigAccessSummary
+func FindConfigAccessByConfigIDs(ctx context.Context, configIDs []uuid.UUID) ([]models.ConfigAccessSummary, error) {
+	var configAccess []models.ConfigAccessSummary
 	if err := ctx.DB().
 		Where("config_id IN (?)", configIDs).
 		Find(&configAccess).Error; err != nil {

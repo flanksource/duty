@@ -128,23 +128,25 @@ func (e ConfigAccess) PK() string {
 	return e.ID
 }
 
-type UserConfigAccessSummary struct {
-	ConfigID       uuid.UUID  `json:"config_id"`
-	ConfigName     string     `json:"config_name"`
-	ConfigType     string     `json:"config_type"`
-	Role           string     `json:"role"`
-	User           string     `json:"user"`
-	Email          string     `json:"email"`
-	CreatedAt      time.Time  `json:"created_at"`
-	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
-	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
-	LastSignedInAt *time.Time `json:"last_signed_in_at,omitempty"`
-	LastReviewedAt *time.Time `json:"last_reviewed_at,omitempty"`
-	LastReviewedBy *uuid.UUID `json:"last_reviewed_by,omitempty"`
+type ConfigAccessSummary struct {
+	ConfigID        uuid.UUID  `json:"config_id"`
+	ConfigName      string     `json:"config_name"`
+	ConfigType      string     `json:"config_type"`
+	ExternalGroupID *uuid.UUID `json:"external_group_id,omitempty"`
+	ExternalUserID  uuid.UUID  `json:"external_user_id,omitempty"`
+	Role            string     `json:"role"`
+	User            string     `json:"user"`
+	Email           string     `json:"email"`
+	CreatedAt       time.Time  `json:"created_at"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
+	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
+	LastSignedInAt  *time.Time `json:"last_signed_in_at,omitempty"`
+	LastReviewedAt  *time.Time `json:"last_reviewed_at,omitempty"`
+	LastReviewedBy  *uuid.UUID `json:"last_reviewed_by,omitempty"`
 }
 
-func (e UserConfigAccessSummary) TableName() string {
-	return "user_config_access_summary"
+func (e ConfigAccessSummary) TableName() string {
+	return "config_access_summary"
 }
 
 type ConfigAccessLog struct {
