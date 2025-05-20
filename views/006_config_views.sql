@@ -893,9 +893,13 @@ CREATE OR REPLACE VIEW config_detail AS
       'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0),
       'checks', COALESCE(config_checks.checks_count, 0)
     ) as summary,
-    components
+    CASE WHEN config_scrapers.id IS NOT NULL THEN json_build_object(
+      'id', config_scrapers.id,
+      'name', config_scrapers.name
+    ) ELSE NULL END as scraper
   FROM config_items as ci
     LEFT JOIN agents ON agents.id = ci.agent_id
+    LEFT JOIN config_scrapers ON config_scrapers.id = ci.scraper_id
     LEFT JOIN
       (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
       ON ci.id = related.config_id
