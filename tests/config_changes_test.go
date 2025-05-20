@@ -235,6 +235,7 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 		ginkgo.It("Without catalog id", func() {
 			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 				ConfigType: "Kubernetes::Pod,Kubernetes::ReplicaSet",
+				ChangeType: "!NotificationSent",
 			})
 			Expect(err).To(BeNil())
 
