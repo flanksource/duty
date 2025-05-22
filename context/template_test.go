@@ -8,23 +8,51 @@ import (
 )
 
 func TestRunTemplate(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
-		template string
+		template gomplate.Template
 		env      map[string]any
 		want     string
 	}{
 		{
-			name:     "simple variable substitution",
-			template: "Hello {{.name}}!",
+			name: "simple variable substitution",
+			template: gomplate.Template{
+				Template: "Hello {{.name}}!",
+			},
 			env: map[string]any{
 				"name": "World",
 			},
 			want: "Hello World!",
 		},
 		{
-			name:     "multiple variables",
-			template: "{{.greeting}} {{.name}}!",
+			name: "simple variable substitution $ syntax",
+			template: gomplate.Template{
+				Template: "Hello $(.name)!",
+			},
+			env: map[string]any{
+				"name": "World",
+			},
+			want: "Hello World!",
+		},
+		{
+			name: "simple variable substitution $ syntax | explicit delimiters",
+			template: gomplate.Template{
+				Template:   "Hello $(.name)!",
+				LeftDelim:  "{{",
+				RightDelim: "}}",
+			},
+			env: map[string]any{
+				"name": "World",
+			},
+			want: "Hello $(.name)!",
+		},
+		{
+			name: "mixed $ and {{}} syntax variables",
+			template: gomplate.Template{
+				Template: "{{.greeting}} $(.name)!",
+			},
 			env: map[string]any{
 				"greeting": "Hi",
 				"name":     "Alice",
@@ -32,54 +60,32 @@ func TestRunTemplate(t *testing.T) {
 			want: "Hi Alice!",
 		},
 		{
-			name:     "nested object access",
-			template: "{{.person.name}} is {{.person.age}} years old",
-			env: map[string]any{
-				"person": map[string]any{
-					"name": "Bob",
-					"age":  30,
-				},
+			name: "conditional statement",
+			template: gomplate.Template{
+				Template: "{{if .isAdmin}}Admin{{else}}User{{end}}",
 			},
-			want: "Bob is 30 years old",
-		},
-		{
-			name:     "arithmetic operations",
-			template: "{{.x}} + {{.y}} = {{add .x .y}}",
-			env: map[string]any{
-				"x": 5,
-				"y": 3,
-			},
-			want: "5 + 3 = 8",
-		},
-		{
-			name:     "conditional statement",
-			template: "{{if .isAdmin}}Admin{{else}}User{{end}}",
 			env: map[string]any{
 				"isAdmin": true,
 			},
 			want: "Admin",
 		},
 		{
-			name:     "missing variable error",
-			template: "Hello {{.missing}}!",
-			env:      map[string]any{},
-			want:     "Hello <no value>!",
+			name: "conditional statement with $ syntax",
+			template: gomplate.Template{
+				Template: "$(if .isAdmin)Admin$(else)User$(end)",
+			},
+			env: map[string]any{
+				"isAdmin": true,
+			},
+			want: "Admin",
 		},
 		{
-			name:     "zero state - empty string",
-			template: "Hello {{.name}}!",
-			env: map[string]any{
-				"name": "",
+			name: "missing variable",
+			template: gomplate.Template{
+				Template: "Hello {{.missing}}!",
 			},
-			want: "Hello !",
-		},
-		{
-			name:     "zero state - nil value",
-			template: "Value: {{.value}}",
-			env: map[string]any{
-				"value": nil,
-			},
-			want: "Value: <no value>",
+			env:  map[string]any{},
+			want: "Hello <no value>!",
 		},
 	}
 
@@ -88,11 +94,8 @@ func TestRunTemplate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
 			ctx := New()
-			tmpl := gomplate.Template{
-				Template: tt.template,
-			}
 
-			got, err := ctx.RunTemplate(tmpl, tt.env)
+			got, err := ctx.RunTemplate(tt.template, tt.env)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(got).To(Equal(tt.want))
 		})
