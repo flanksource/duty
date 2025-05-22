@@ -22,10 +22,39 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	for name, v := range TemplateFuncs {
 		t.Functions[name] = v(k)
 	}
+
+	if t.Template != "" {
+		// For go templates, we try both [{{}}, $()] delimiters by default if no explicit delimiters are provided
+		delimSets := []gomplate.Delims{
+			{Left: "{{", Right: "}}"},
+			{Left: "$(", Right: ")"},
+		}
+
+		if t.LeftDelim != "" || t.RightDelim != "" {
+			delimSets = []gomplate.Delims{
+				{Left: t.LeftDelim, Right: t.RightDelim},
+			}
+		}
+
+		for _, delimSet := range delimSets {
+			t.LeftDelim = delimSet.Left
+			t.RightDelim = delimSet.Right
+
+			val, err := gomplate.RunTemplateContext(k.Context, env, t)
+			if err != nil {
+				return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
+			}
+			t.Template = val
+		}
+
+		return t.Template, nil
+	}
+
 	val, err := gomplate.RunTemplateContext(k.Context, env, t)
 	if err != nil {
 		return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
 	}
+
 	return val, nil
 }
 
