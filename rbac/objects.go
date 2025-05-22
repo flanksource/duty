@@ -12,7 +12,8 @@ var dbResourceObjMap = map[string]string{
 	"agents_summary":                            policy.ObjectMonitor,
 	"agents":                                    policy.ObjectDatabasePublic,
 	"applications":                              policy.ObjectApplication,
-	"user_config_access_summary":                policy.ObjectApplication,
+	"config_access_unwrapped":                   policy.ObjectApplication,
+	"config_access_summary":                     policy.ObjectApplication,
 	"analysis_by_component":                     policy.ObjectCatalog,
 	"analysis_by_config":                        policy.ObjectCatalog,
 	"analysis_summary_by_component":             policy.ObjectCatalog,
@@ -187,6 +188,7 @@ var dbResourceObjMap = map[string]string{
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
 
+	"config_access_logs":   policy.ObjectCatalog,
 	"access_reviews":       policy.ObjectCatalog,
 	"config_access":        policy.ObjectCatalog,
 	"external_groups":      policy.ObjectCatalog,

@@ -266,10 +266,6 @@ table "config_access" {
     type = uuid
     null = true
   }
-  column "last_signed_in_at" {
-    type = timestamptz
-    null = true
-  }
   column "last_reviewed_at" {
     type = timestamptz
     null = true
@@ -318,5 +314,51 @@ table "config_access" {
   }
   check "at_least_one_id" {
     expr = "external_user_id IS NOT NULL OR external_group_id IS NOT NULL OR external_role_id IS NOT NULL"
+  }
+}
+
+table "config_access_logs" {
+  schema = schema.public
+  column "external_user_id" {
+    null = false
+    type = uuid
+  }
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "scraper_id" {
+    null = false
+    type = uuid
+  }
+  column "mfa" {
+    type = boolean
+    null = true
+  }
+  column "properties" {
+    type = jsonb
+    null = true
+  }
+  column "created_at" {
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.config_id, column.external_user_id, column.scraper_id]
+  }
+  foreign_key "config_access_logs_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_delete   = CASCADE
+  }
+  foreign_key "config_access_logs_external_user_id_fkey" {
+    columns     = [column.external_user_id]
+    ref_columns = [table.external_users.column.id]
+    on_delete   = CASCADE
+  }
+  foreign_key "config_access_logs_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
