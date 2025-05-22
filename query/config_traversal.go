@@ -11,11 +11,17 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
+func hasRelationToType(ctx context.Context, configID, relatedConfigType, direction string) bool {
+	ids := []string{configID}
+	output := getRelatedTypeConfigID(ctx, ids, relatedConfigType, direction, true)
+	return len(output) > 0
+}
+
 func TraverseConfig(ctx context.Context, configID, relationType, direction string) []models.ConfigItem {
 	var configItems []models.ConfigItem
 
 	ids := []string{configID}
-	for _, typ := range strings.Split(relationType, "/") {
+	for typ := range strings.SplitSeq(relationType, "/") {
 		ids = getRelatedTypeConfigID(ctx, ids, typ, direction, true)
 	}
 
@@ -52,6 +58,28 @@ func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, dire
 	}
 
 	return allIDs
+}
+
+func hasRelationToTypeCELFunction() func(ctx context.Context) cel.EnvOption {
+	return func(ctx context.Context) cel.EnvOption {
+		return cel.Function("catalog.hasRelationToType",
+			cel.Overload("catalog.hasRelationToType_string_string",
+				[]*cel.Type{cel.StringType, cel.StringType},
+				cel.BoolType,
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					configID := conv.ToString(args[0])
+					typ := conv.ToString(args[1])
+					direction := "incoming"
+					if len(args) == 3 {
+						direction = conv.ToString(args[2])
+					}
+
+					result := hasRelationToType(ctx, configID, typ, direction)
+					return types.Bool(result)
+				}),
+			),
+		)
+	}
 }
 
 func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
@@ -101,5 +129,6 @@ func traverseConfigTemplateFunction() func(ctx context.Context) any {
 
 func init() {
 	context.CelEnvFuncs["catalog.traverse"] = traverseConfigCELFunction()
+	context.CelEnvFuncs["catalog.hasRelationToType"] = hasRelationToTypeCELFunction()
 	context.TemplateFuncs["catalog_traverse"] = traverseConfigTemplateFunction()
 }
