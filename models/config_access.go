@@ -118,13 +118,14 @@ func (e ExternalUserGroup) TableName() string {
 }
 
 type ExternalRole struct {
-	ID          uuid.UUID      `json:"id"`
-	AccountID   string         `json:"account_id"`
-	ScraperID   uuid.UUID      `json:"scraper_id" gorm:"not null"`
-	Aliases     pq.StringArray `json:"aliases" gorm:"type:[]text"`
-	RoleType    string         `json:"role_type"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
+	ID            uuid.UUID      `json:"id"`
+	AccountID     string         `json:"account_id"`
+	ApplicationID *uuid.UUID     `json:"application_id" gorm:"default:null"`
+	ScraperID     *uuid.UUID     `json:"scraper_id" gorm:"default:null"`
+	Aliases       pq.StringArray `json:"aliases" gorm:"type:[]text"`
+	RoleType      string         `json:"role_type"`
+	Name          string         `json:"name"`
+	Description   string         `json:"description"`
 }
 
 func (e ExternalRole) PK() string {
@@ -157,8 +158,9 @@ func (e AccessReview) TableName() string {
 }
 
 type ConfigAccess struct {
-	ID        string    `json:"id" gorm:"not null"`
-	ScraperID uuid.UUID `json:"scraper_id" gorm:"not null"`
+	ID            string     `json:"id" gorm:"not null"`
+	ApplicationID *uuid.UUID `json:"application_id" gorm:"default:null"`
+	ScraperID     *uuid.UUID `json:"scraper_id" gorm:"default:null"`
 
 	ConfigID        uuid.UUID  `json:"config_id"`
 	ExternalUserID  *uuid.UUID `json:"external_user_id,omitempty"`
