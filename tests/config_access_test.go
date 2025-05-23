@@ -59,7 +59,7 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 			ID:             uuid.NewString(),
 			ConfigID:       configItem.ID,
 			ExternalUserID: &user1.ID,
-			ScraperID:      scraperID,
+			ScraperID:      &scraperID,
 		}
 		err = DefaultContext.DB().Create(&configAccessUser).Error
 		Expect(err).ToNot(HaveOccurred())
@@ -69,7 +69,7 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 			ID:              uuid.NewString(),
 			ConfigID:        configItem.ID,
 			ExternalGroupID: &group1.ID,
-			ScraperID:       scraperID,
+			ScraperID:       &scraperID,
 		}
 		err = DefaultContext.DB().Create(&configAccessGroup).Error
 		Expect(err).ToNot(HaveOccurred())
