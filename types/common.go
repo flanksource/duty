@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type CelExpression string
@@ -144,4 +145,24 @@ func (items Items) Where(query *gorm.DB, col string) *gorm.DB {
 	}
 
 	return query
+}
+
+// NoOpResourceSelectable provides default implementations for ResourceSelectable methods
+// that don't apply to access control entities
+type NoOpResourceSelectable struct{}
+
+func (NoOpResourceSelectable) GetLabelsMatcher() labels.Labels {
+	return nil
+}
+
+func (NoOpResourceSelectable) GetNamespace() string {
+	return ""
+}
+
+func (NoOpResourceSelectable) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (NoOpResourceSelectable) GetHealth() (string, error) {
+	return "", nil
 }

@@ -6,9 +6,12 @@ import (
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"k8s.io/apimachinery/pkg/fields"
 )
 
 type ExternalUser struct {
+	types.NoOpResourceSelectable
+
 	ID        uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
 	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
 	Name      string         `json:"name"`
@@ -30,7 +33,34 @@ func (e ExternalUser) TableName() string {
 	return "external_users"
 }
 
+var _ types.ResourceSelectable = (*ExternalUser)(nil)
+
+func (e ExternalUser) GetFieldsMatcher() fields.Fields {
+	return types.GenericFieldMatcher{Fields: map[string]any{
+		"id":         e.ID.String(),
+		"name":       e.Name,
+		"account_id": e.AccountID,
+		"user_type":  e.UserType,
+		"email":      e.Email,
+		"scraper_id": e.ScraperID.String(),
+	}}
+}
+
+func (e ExternalUser) GetID() string {
+	return e.ID.String()
+}
+
+func (e ExternalUser) GetName() string {
+	return e.Name
+}
+
+func (e ExternalUser) GetType() string {
+	return e.UserType
+}
+
 type ExternalGroup struct {
+	types.NoOpResourceSelectable
+
 	ID        uuid.UUID      `json:"id"`
 	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
 	AccountID string         `json:"account_id"`
@@ -48,6 +78,30 @@ func (e ExternalGroup) PK() string {
 
 func (e ExternalGroup) TableName() string {
 	return "external_groups"
+}
+
+var _ types.ResourceSelectable = (*ExternalGroup)(nil)
+
+func (e ExternalGroup) GetFieldsMatcher() fields.Fields {
+	return types.GenericFieldMatcher{Fields: map[string]any{
+		"id":         e.ID.String(),
+		"name":       e.Name,
+		"account_id": e.AccountID,
+		"group_type": e.GroupType,
+		"scraper_id": e.ScraperID.String(),
+	}}
+}
+
+func (e ExternalGroup) GetID() string {
+	return e.ID.String()
+}
+
+func (e ExternalGroup) GetName() string {
+	return e.Name
+}
+
+func (e ExternalGroup) GetType() string {
+	return e.GroupType
 }
 
 type ExternalUserGroup struct {
