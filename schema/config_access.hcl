@@ -140,7 +140,11 @@ table "external_roles" {
     type = uuid
   }
   column "scraper_id" {
-    null = false
+    type = uuid
+    null = true
+  }
+  column "application_id" {
+    null = true
     type = uuid
   }
   column "account_id" {
@@ -164,9 +168,13 @@ table "external_roles" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "external_roles_scraper_id_fkey" {
-    columns     = [column.scraper_id]
-    ref_columns = [table.config_scrapers.column.id]
+  check "external_roles_parent" {
+    comment = "external roles can be created from application mapping or from scraper"
+    expr    = "application_id IS NOT NULL OR scraper_id IS NOT NULL"
+  }
+  foreign_key "external_roles_application_id_fkey" {
+    columns     = [column.application_id]
+    ref_columns = [table.applications.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
@@ -240,7 +248,11 @@ table "config_access" {
     type = uuid
   }
   column "scraper_id" {
-    null = false
+    type = uuid
+    null = true
+  }
+  column "application_id" {
+    null = true
     type = uuid
   }
   column "external_user_id" {
@@ -306,11 +318,21 @@ table "config_access" {
     ref_columns = [table.external_roles.column.id]
     on_delete   = CASCADE
   }
+  foreign_key "config_access_application_id_fkey" {
+    columns     = [column.application_id]
+    ref_columns = [table.applications.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   foreign_key "config_access_scraper_id_fkey" {
     columns     = [column.scraper_id]
     ref_columns = [table.config_scrapers.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  check "config_access_parent" {
+    expr    = "scraper_id IS NOT NULL OR application_id IS NOT NULL"
+    comment = "config access can be created from role mapping in application or from scraper"
   }
   check "at_least_one_id" {
     expr = "external_user_id IS NOT NULL OR external_group_id IS NOT NULL OR external_role_id IS NOT NULL"
