@@ -429,6 +429,19 @@ func (rs ResourceSelectors) GormValue(ctx context.Context, db *gorm.DB) clause.E
 	return GormValue(rs)
 }
 
+func (rs ResourceSelectors) Matches(s ResourceSelectable) bool {
+	if len(rs) == 0 {
+		return true // an empty selector matches everything
+	}
+
+	for _, selector := range rs {
+		if selector.Matches(s) {
+			return true
+		}
+	}
+	return false
+}
+
 // MatchSelectables returns only those selectables that have at matches with at least one of the given selectors.
 func MatchSelectables[T ResourceSelectable](selectables []T, selectors ...ResourceSelector) []T {
 	if len(selectors) == 0 {
