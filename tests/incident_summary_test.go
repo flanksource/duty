@@ -3,6 +3,7 @@ package tests
 import (
 	"database/sql/driver"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/flanksource/duty/models"
@@ -70,6 +71,11 @@ var _ = ginkgo.Describe("Check incident_summary view", ginkgo.Ordered, func() {
 		var incidents []IncidentSummary
 		err := DefaultContext.DB().Raw("SELECT * FROM incident_summary").Scan(&incidents).Error
 		Expect(err).ToNot(HaveOccurred())
+
+		for _, incident := range incidents {
+			log.Printf("incident: id:%s title:%s severity:%s\n", incident.IncidentID, incident.Title, incident.Severity)
+		}
+		Expect(incidents).To(HaveLen(2))
 
 		Expect(len(incidents)).To(Equal(len(dummy.AllDummyIncidents)))
 
