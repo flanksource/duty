@@ -8,25 +8,6 @@ name: Test
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        postgres-version:
-          - { tag: "14", sha: "sha256:6fa2c95ae2da36b7ecdfbcf91e20039ea2c3d4312d38b2d96ff475c2cea15d06" }
-          - { tag: "15", sha: "sha256:ee2f170c46df225310c923010230434e269238a65307539f9aced9da6ca44fad" }
-          - { tag: "16", sha: "sha256:e63e99458dbfdc8e09e9e48dbe8898b59ffc44aebd76ec89f24aa393ecf7d800" }
-    services:
-      postgres:
-        image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: mission-control
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Install Go
         uses: buildjet/setup-go@v5
@@ -44,22 +25,16 @@ jobs:
           restore-keys: |
             cache-
       - name: Test
-        env:
-          # for your code to use correct DB, if relevant
-          PGHOST: localhost
-          PGPORT: 5432
-          PGUSER: postgres
-          PGPASSWORD: postgres
-          PGDATABASE: mission-control
         run: make test
+  
   migrate:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:6fa2c95ae2da36b7ecdfbcf91e20039ea2c3d4312d38b2d96ff475c2cea15d06" }
-          - { tag: "15", sha: "sha256:ee2f170c46df225310c923010230434e269238a65307539f9aced9da6ca44fad" }
-          - { tag: "16", sha: "sha256:e63e99458dbfdc8e09e9e48dbe8898b59ffc44aebd76ec89f24aa393ecf7d800" }
+          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
+          - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
+          - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     env:
       migrate_command: make -B tidy hack/migrate/go.mod && cd hack/migrate && go run main.go --db-url 'postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable'
     steps:
