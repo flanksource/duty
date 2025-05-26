@@ -49,6 +49,7 @@ jobs:
         env:
           DUTY_DB_URL: postgres://postgres:postgres@localhost:5432/mission-control?sslmode=disable
           DUTY_DB_CREATE: "false"
+          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
   
   migrate:
     runs-on: ubuntu-latest

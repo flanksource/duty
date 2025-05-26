@@ -36,9 +36,13 @@ import (
 	_ "github.com/spf13/cobra"
 )
 
+const (
+	DUTY_DB_CREATE      = "DUTY_DB_CREATE"
+	DUTY_DB_DISABLE_RLS = "DUTY_DB_DISABLE_RLS"
+)
+
 // Env vars for embedded db
 const (
-	DUTY_DB_CREATE   = "DUTY_DB_CREATE"
 	DUTY_DB_DATA_DIR = "DUTY_DB_DATA_DIR"
 	DUTY_DB_URL      = "DUTY_DB_URL"
 	TEST_DB_PORT     = "TEST_DB_PORT"
@@ -99,7 +103,11 @@ func MustDB() *sql.DB {
 var WithoutRLS = "rls_disabled"
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
-var recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
+
+var (
+	recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
+	disableRLS       = os.Getenv(DUTY_DB_DISABLE_RLS) == "true"
+)
 
 func findFileInPath(filename string, depth int) string {
 	if !path.IsAbs(filename) {
@@ -139,7 +147,6 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 	defer telemetry.InitTracer()
 
 	importDummyData := true
-	disableRLS := false
 	dbOptions := []duty.StartOption{duty.DisablePostgrest, duty.RunMigrations}
 	for _, arg := range args {
 		if arg == WithoutDummyData {
