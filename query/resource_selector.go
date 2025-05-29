@@ -262,11 +262,15 @@ func queryResourceSelector[T any](
 		return nil, nil
 	}
 
-	hash := fmt.Sprintf("%s-%s-%s-%d", strings.Join(selectColumns, ","), table, resourceSelector.Hash(), limit)
+	var selectColumnsCopy = slices.Clone(selectColumns)
+	slices.Sort(selectColumnsCopy)
+
+	var dummy T
+	cacheKey := fmt.Sprintf("%s-%s-%s-%d-%T", strings.Join(selectColumnsCopy, ","), table, resourceSelector.Hash(), limit, dummy)
 
 	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
 	if payload := ctx.RLSPayload(); payload != nil {
-		hash += fmt.Sprintf("-rls-%s", payload.Fingerprint())
+		cacheKey += fmt.Sprintf("-rls-%s", payload.Fingerprint())
 	}
 
 	cacheToUse := getterCache
@@ -275,7 +279,7 @@ func queryResourceSelector[T any](
 	}
 
 	if resourceSelector.Cache != "no-cache" {
-		if val, ok := cacheToUse.Get(hash); ok {
+		if val, ok := cacheToUse.Get(cacheKey); ok {
 			return val.([]T), nil
 		}
 	}
@@ -317,7 +321,7 @@ func queryResourceSelector[T any](
 			cacheDuration = time.Duration(d)
 		}
 
-		cacheToUse.Set(hash, output, cacheDuration)
+		cacheToUse.Set(cacheKey, output, cacheDuration)
 	}
 
 	return output, nil
