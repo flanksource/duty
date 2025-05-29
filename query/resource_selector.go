@@ -262,7 +262,7 @@ func queryResourceSelector[T any](
 		return nil, nil
 	}
 
-	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
+	hash := fmt.Sprintf("%s-%s-%s-%d", strings.Join(selectColumns, ","), table, resourceSelector.Hash(), limit)
 
 	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
 	if payload := ctx.RLSPayload(); payload != nil {
