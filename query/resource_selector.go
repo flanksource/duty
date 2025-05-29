@@ -250,21 +250,27 @@ func SetResourceSelectorClause(
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
-func queryResourceSelector(
+func queryResourceSelector[T any](
 	ctx context.Context,
 	limit int,
+	selectColumns []string,
 	resourceSelector types.ResourceSelector,
 	table string,
-) ([]uuid.UUID, error) {
+	clauses ...clause.Expression,
+) ([]T, error) {
 	if resourceSelector.IsEmpty() {
 		return nil, nil
 	}
 
-	hash := fmt.Sprintf("%s-%s-%d", table, resourceSelector.Hash(), limit)
+	var selectColumnsCopy = slices.Clone(selectColumns)
+	slices.Sort(selectColumnsCopy)
+
+	var dummy T
+	cacheKey := fmt.Sprintf("%s-%s-%s-%d-%T", strings.Join(selectColumnsCopy, ","), table, resourceSelector.Hash(), limit, dummy)
 
 	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
 	if payload := ctx.RLSPayload(); payload != nil {
-		hash += fmt.Sprintf("-rls-%s", payload.Fingerprint())
+		cacheKey += fmt.Sprintf("-rls-%s", payload.Fingerprint())
 	}
 
 	cacheToUse := getterCache
@@ -273,12 +279,15 @@ func queryResourceSelector(
 	}
 
 	if resourceSelector.Cache != "no-cache" {
-		if val, ok := cacheToUse.Get(hash); ok {
-			return val.([]uuid.UUID), nil
+		if val, ok := cacheToUse.Get(cacheKey); ok {
+			return val.([]T), nil
 		}
 	}
 
-	query := ctx.DB().Select("id").Table(table)
+	query := ctx.DB().Select(selectColumns).Table(table)
+	if len(clauses) > 0 {
+		query = query.Clauses(clauses...)
+	}
 
 	// Resource selector's limit gets higher priority
 	if resourceSelector.Limit > 0 {
@@ -292,7 +301,7 @@ func queryResourceSelector(
 		return nil, err
 	}
 
-	var output []uuid.UUID
+	var output []T
 	if err := query.Find(&output).Error; err != nil {
 		return nil, err
 	}
@@ -312,7 +321,7 @@ func queryResourceSelector(
 			cacheDuration = time.Duration(d)
 		}
 
-		cacheToUse.Set(hash, output, cacheDuration)
+		cacheToUse.Set(cacheKey, output, cacheDuration)
 	}
 
 	return output, nil
@@ -436,7 +445,32 @@ func queryTableWithResourceSelectors(
 	var output []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, limit, resourceSelector, table)
+		items, err := queryResourceSelector[uuid.UUID](ctx, limit, []string{"id"}, resourceSelector, table)
+		if err != nil {
+			return nil, err
+		}
+
+		output = append(output, items...)
+		if limit > 0 && len(output) >= limit {
+			return output[:limit], nil
+		}
+	}
+
+	return output, nil
+}
+
+func QueryTableColumnsWithResourceSelectors[T any](
+	ctx context.Context,
+	table string,
+	selectColumns []string,
+	limit int,
+	clauses []clause.Expression,
+	resourceSelectors ...types.ResourceSelector,
+) ([]T, error) {
+	var output []T
+
+	for _, resourceSelector := range resourceSelectors {
+		items, err := queryResourceSelector[T](ctx, limit, selectColumns, resourceSelector, table, clauses...)
 		if err != nil {
 			return nil, err
 		}
