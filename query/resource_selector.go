@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -262,8 +263,10 @@ func queryResourceSelector[T any](
 		return nil, nil
 	}
 
-	var selectColumnsCopy = slices.Clone(selectColumns)
-	slices.Sort(selectColumnsCopy)
+	// must create a deep copy to avoid mutating the original order of the select columns
+	var selectColumnsCopy = make([]string, len(selectColumns))
+	copy(selectColumnsCopy, selectColumns)
+	sort.Strings(selectColumnsCopy)
 
 	var dummy T
 	cacheKey := fmt.Sprintf("%s-%s-%s-%d-%T", strings.Join(selectColumnsCopy, ","), table, resourceSelector.Hash(), limit, dummy)
