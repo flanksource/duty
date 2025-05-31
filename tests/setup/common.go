@@ -278,7 +278,13 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 	}
 
 	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
-	newCtx, err := duty.InitDB(duty.EnableRLS(duty.RunMigrations(config)))
+
+	dbConfig := duty.RunMigrations(config)
+	if !disableRLS {
+		dbConfig = duty.EnableRLS(dbConfig)
+	}
+
+	newCtx, err := duty.InitDB(dbConfig)
 	if err != nil {
 		return nil, nil, err
 	}

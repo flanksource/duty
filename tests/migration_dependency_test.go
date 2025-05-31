@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -14,6 +16,10 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		connString = DefaultContext.Value("db_url").(string)
+
+		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
+			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
+		}
 	})
 
 	AfterAll(func() {

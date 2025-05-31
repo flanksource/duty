@@ -3,6 +3,7 @@ package tests
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/job"
@@ -28,6 +29,12 @@ func verifyConfigCount(tx *gorm.DB, jwtClaims string, expectedCount int64) {
 }
 
 var _ = Describe("RLS test", Ordered, func() {
+	BeforeAll(func() {
+		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
+			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
+		}
+	})
+
 	var _ = Describe("views query", func() {
 		var (
 			tx           *gorm.DB

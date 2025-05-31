@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"os"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
@@ -14,7 +16,14 @@ var _ = ginkgo.Describe("Schema", ginkgo.Label("slow"), func() {
 		logger.Infof("Running migrations against %s", setup.PgUrl)
 		// run migrations again to ensure idempotency
 		conf := api.NewConfig(setup.PgUrl)
-		conf.EnableRLS = true
+
+		// Respect the DUTY_DB_DISABLE_RLS environment variable
+		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
+			conf.DisableRLS = true
+		} else {
+			conf.EnableRLS = true
+		}
+
 		err := duty.Migrate(conf)
 		Expect(err).ToNot(HaveOccurred())
 	})
