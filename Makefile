@@ -30,6 +30,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object paths="./types/..."
+	$(CONTROLLER_GEN) object paths="./logs/..."
 	$(CONTROLLER_GEN) object paths="./connection/..."
 	$(CONTROLLER_GEN) object paths="./models/..."
 	$(CONTROLLER_GEN) object paths="./shell/..."
