@@ -101,22 +101,32 @@ func (t *Searcher) getQueryResults(ctx context.Context, queryID *string) (*cloud
 	for {
 		resp, err := t.client.GetQueryResults(ctx, input)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get query results for query %s: %w", lo.FromPtr(queryID), err)
 		}
 
 		switch resp.Status {
 		case types.QueryStatusComplete:
 			return resp, nil
 		case types.QueryStatusFailed:
-			return nil, fmt.Errorf("query failed")
+			return nil, fmt.Errorf("cloudwatch query %s failed", lo.FromPtr(queryID))
 		case types.QueryStatusTimeout:
-			return nil, fmt.Errorf("query timedout")
+			return nil, fmt.Errorf("cloudwatch query %s timed out", lo.FromPtr(queryID))
 		case types.QueryStatusCancelled:
-			return nil, fmt.Errorf("query cancelled")
+			return nil, fmt.Errorf("cloudwatch query %s was cancelled", lo.FromPtr(queryID))
+		case types.QueryStatusScheduled, types.QueryStatusRunning:
+			// Query is still processing, wait before retrying
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("query cancelled while waiting: %w", ctx.Err())
+			case <-time.After(time.Second):
+			}
 		default:
-			// Might be scheduling or running.
-			// Wait before retrying.
-			time.Sleep(time.Second)
+			// Unknown status, treat as still processing
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("query cancelled while waiting: %w", ctx.Err())
+			case <-time.After(time.Second):
+			}
 		}
 	}
 }

@@ -63,7 +63,7 @@ func (t *lokiSearcher) Fetch(ctx context.Context, request Request) (*logs.LogRes
 	}
 
 	if resp.StatusCode != netHTTP.StatusOK {
-		return nil, fmt.Errorf("loki request failed wth status %s: (error: %s, errorType: %s)", resp.Status, lokiResp.Error, lokiResp.ErrorType)
+		return nil, fmt.Errorf("loki request failed with status %s: (error: %s, errorType: %s)", resp.Status, lokiResp.Error, lokiResp.ErrorType)
 	}
 
 	mappingConfig := DefaultFieldMappingConfig

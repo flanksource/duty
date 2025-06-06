@@ -16,7 +16,7 @@ func MapFieldToLogLine(key string, value any, line *LogLine, config FieldMapping
 
 	if slices.Contains(config.ID, key) {
 		if id, ok := value.(string); ok {
-			line.ID, _ = utils.Stringify(id)
+			line.ID = id
 		}
 
 		return nil

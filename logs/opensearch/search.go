@@ -64,7 +64,8 @@ func (t *searcher) Search(ctx context.Context, q *Request) (*logs.LogResult, err
 		return nil, ctx.Oops().Errorf("index is empty")
 	}
 
-	var limit = 500
+	const defaultLimit = 500
+	var limit = defaultLimit
 	if q.Limit != "" {
 		var err error
 		limit, err = strconv.Atoi(q.Limit)
