@@ -7,6 +7,7 @@ toolchain go1.24.3
 require (
 	ariga.io/atlas v0.15.0
 	cloud.google.com/go/cloudsqlconn v1.5.1
+	cloud.google.com/go/logging v1.13.0
 	cloud.google.com/go/storage v1.51.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.2

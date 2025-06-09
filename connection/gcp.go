@@ -24,6 +24,8 @@ type GCPConnection struct {
 
 	// Skip TLS verify
 	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
+
+	Project string `yaml:"project" json:"project,omitempty"`
 }
 
 func (t *GCPConnection) ToModel() models.Connection {
