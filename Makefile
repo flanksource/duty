@@ -4,7 +4,19 @@ ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
 test: ginkgo
-	ginkgo -r  -v
+	ginkgo -r -v --skip-package=tests/e2e
+
+.PHONY: test-e2e
+test-e2e: ginkgo
+	cd tests/e2e && docker-compose up -d && \
+	timeout 60 bash -c 'until curl -s http://localhost:3100/ready >/dev/null 2>&1; do sleep 2; done' && \
+	(ginkgo -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
+
+.PHONY: e2e-services
+e2e-services: ## Run e2e test services in foreground with automatic cleanup on exit
+	cd tests/e2e && \
+	trap 'docker-compose down -v && docker-compose rm -f' EXIT INT TERM && \
+	docker-compose up --remove-orphans
 
 .PHONY: bench
 bench:

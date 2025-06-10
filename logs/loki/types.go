@@ -7,6 +7,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/timberio/go-datemath"
 
 	"github.com/flanksource/duty/logs"
 )
@@ -127,4 +128,71 @@ func (r *Request) Params() url.Values {
 	}
 
 	return params
+}
+
+// StreamRequest represents parameters for Loki streaming queries via tail endpoint.
+//
+// +kubebuilder:object:generate=true
+type StreamRequest struct {
+	// Query is the LogQL query to perform
+	Query string `json:"query,omitempty" template:"true"`
+
+	// DelayFor is the number of seconds to delay retrieving logs (default 0, max 5)
+	DelayFor int `json:"delayFor,omitempty"`
+
+	// Limit is the maximum number of entries to return per stream in the initial response when connecting (default 100).
+	// This only affects historical entries sent immediately upon connection, not the ongoing stream of new entries.
+	Limit int `json:"limit,omitempty"`
+
+	// Start is the start time for the query (default one hour ago)
+	// Supports Datemath
+	Start string `json:"start,omitempty"`
+}
+
+// Params returns the URL query parameters for the Loki streaming request
+func (r *StreamRequest) Params() url.Values {
+	// https://grafana.com/docs/loki/latest/reference/loki-http-api/#stream-logs
+	params := url.Values{}
+
+	if r.Query != "" {
+		params.Set("query", r.Query)
+	}
+	if r.DelayFor > 0 {
+		params.Set("delay_for", strconv.Itoa(r.DelayFor))
+	}
+	if r.Limit > 0 {
+		params.Set("limit", strconv.Itoa(r.Limit))
+	}
+	if r.Start != "" {
+		if s, err := r.GetStart(); err == nil {
+			params.Set("start", s.Format(time.RFC3339))
+		}
+	}
+
+	return params
+}
+
+// GetStart parses the start time using datemath
+func (r *StreamRequest) GetStart() (time.Time, error) {
+	if r.Start == "" {
+		return time.Now().Add(-1 * time.Hour), nil
+	}
+	return datemath.ParseAndEvaluate(r.Start, datemath.WithNow(time.Now()))
+}
+
+// StreamResponse represents the response from Loki's tail endpoint
+type StreamResponse struct {
+	Streams        []Result       `json:"streams"`
+	DroppedEntries []DroppedEntry `json:"dropped_entries,omitempty"`
+}
+
+// DroppedEntry represents entries that were not included in the stream
+type DroppedEntry struct {
+	Labels    map[string]string `json:"labels"`
+	Timestamp time.Time         `json:"timestamp"`
+}
+
+type StreamItem struct {
+	LogLine *logs.LogLine
+	Error   error
 }
