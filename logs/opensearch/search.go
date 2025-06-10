@@ -17,7 +17,7 @@ type searcher struct {
 	mappingConfig *logs.FieldMappingConfig
 }
 
-func NewSearcher(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingConfig) (*searcher, error) {
+func New(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingConfig) (*searcher, error) {
 	cfg := opensearch.Config{
 		Addresses: []string{backend.Address},
 	}
@@ -59,7 +59,7 @@ func NewSearcher(ctx context.Context, backend Backend, mappingConfig *logs.Field
 	}, nil
 }
 
-func (t *searcher) Search(ctx context.Context, q *Request) (*logs.LogResult, error) {
+func (t *searcher) Search(ctx context.Context, q Request) (*logs.LogResult, error) {
 	if q.Index == "" {
 		return nil, ctx.Oops().Errorf("index is empty")
 	}
@@ -86,7 +86,7 @@ func (t *searcher) Search(ctx context.Context, q *Request) (*logs.LogResult, err
 	}
 	defer res.Body.Close()
 
-	var r SearchResponse
+	var r Response
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
 		return nil, ctx.Oops().Wrapf(err, "error parsing the response body")
 	}

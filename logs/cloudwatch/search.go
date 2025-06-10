@@ -8,8 +8,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
-	"github.com/flanksource/duty/logs"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/logs"
 )
 
 type Searcher struct {
@@ -17,7 +18,7 @@ type Searcher struct {
 	mappingConfig *logs.FieldMappingConfig
 }
 
-func NewSearcher(client *cloudwatchlogs.Client, mappingConfig *logs.FieldMappingConfig) *Searcher {
+func New(client *cloudwatchlogs.Client, mappingConfig *logs.FieldMappingConfig) *Searcher {
 	return &Searcher{
 		client:        client,
 		mappingConfig: mappingConfig,

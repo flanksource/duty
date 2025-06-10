@@ -41,11 +41,13 @@ func New(ctx context.Context, conn connection.GCPConnection, mappingConfig *logs
 		return nil, fmt.Errorf("failed to hydrate connection: %w", err)
 	}
 
-	c, err := google.CredentialsFromJSON(ctx, []byte(conn.Credentials.ValueStatic))
-	if err != nil {
-		return nil, fmt.Errorf("%w", err)
+	if conn.Credentials != nil && !conn.Credentials.IsEmpty() {
+		c, err := google.CredentialsFromJSON(ctx, []byte(conn.Credentials.ValueStatic))
+		if err != nil {
+			return nil, fmt.Errorf("%w", err)
+		}
+		opts = append(opts, option.WithCredentials(c))
 	}
-	opts = append(opts, option.WithCredentials(c))
 
 	adminClient, err := logadmin.NewClient(ctx, conn.Project, opts...)
 	if err != nil {
@@ -58,11 +60,11 @@ func New(ctx context.Context, conn connection.GCPConnection, mappingConfig *logs
 	}, nil
 }
 
-func (gcp *cloudLogging) FetchLogs(ctx context.Context, request Request) (*logs.LogResult, error) {
-	var pageSize int32 = 1000
+func (gcp *cloudLogging) Search(ctx context.Context, request Request) (*logs.LogResult, error) {
+	var maxLogLines int = 1000
 	if request.Limit != "" {
-		if limit, err := strconv.ParseInt(request.Limit, 10, 32); err == nil && limit > 0 {
-			pageSize = int32(limit)
+		if l, err := strconv.ParseInt(request.Limit, 10, 32); err == nil && l > 0 {
+			maxLogLines = int(l)
 		}
 	}
 
@@ -105,8 +107,9 @@ func (gcp *cloudLogging) FetchLogs(ctx context.Context, request Request) (*logs.
 		combinedFilter = strings.Join(wrappedParts, " AND ")
 	}
 
+	pageSize := min(maxLogLines, 1000)
 	opts := []logadmin.EntriesOption{
-		logadmin.PageSize(pageSize),
+		logadmin.PageSize(int32(pageSize)),
 		logadmin.NewestFirst(),
 	}
 
@@ -180,6 +183,9 @@ func (gcp *cloudLogging) FetchLogs(ctx context.Context, request Request) (*logs.
 
 		line.SetHash()
 		result.Logs = append(result.Logs, line)
+		if len(result.Logs) >= maxLogLines {
+			break
+		}
 	}
 
 	return result, nil
