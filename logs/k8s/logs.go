@@ -7,16 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flanksource/duty/connection"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 // Request represents available parameters for Kubernetes log queries.
@@ -44,13 +44,13 @@ type K8sLogFetcher struct {
 	conn connection.KubernetesConnection
 }
 
-func NewK8sLogsFetcher(conn connection.KubernetesConnection) *K8sLogFetcher {
+func New(conn connection.KubernetesConnection) *K8sLogFetcher {
 	return &K8sLogFetcher{
 		conn: conn,
 	}
 }
 
-func (t *K8sLogFetcher) Fetch(ctx context.Context, request Request) ([]logs.LogResult, error) {
+func (t *K8sLogFetcher) Search(ctx context.Context, request Request) ([]logs.LogResult, error) {
 	client, _, err := t.conn.Populate(ctx, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to populate kubernetes connection: %w", err)

@@ -8,10 +8,10 @@ import (
 	"net/url"
 
 	"github.com/flanksource/commons/http"
-	"github.com/flanksource/duty/connection"
-	"github.com/flanksource/duty/context"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
 )
 
@@ -20,14 +20,14 @@ type lokiSearcher struct {
 	mappingConfig *logs.FieldMappingConfig
 }
 
-func NewSearcher(conn connection.Loki, mappingConfig *logs.FieldMappingConfig) *lokiSearcher {
+func New(conn connection.Loki, mappingConfig *logs.FieldMappingConfig) *lokiSearcher {
 	return &lokiSearcher{
 		conn:          conn,
 		mappingConfig: mappingConfig,
 	}
 }
 
-func (t *lokiSearcher) Fetch(ctx context.Context, request Request) (*logs.LogResult, error) {
+func (t *lokiSearcher) Search(ctx context.Context, request Request) (*logs.LogResult, error) {
 	if err := t.conn.Populate(ctx); err != nil {
 		return nil, fmt.Errorf("failed to populate connection: %w", err)
 	}
@@ -51,13 +51,12 @@ func (t *lokiSearcher) Fetch(ctx context.Context, request Request) (*logs.LogRes
 	}
 	defer resp.Body.Close()
 
-	// Read the response first cuz it may not always be JSON
 	response, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var lokiResp LokiResponse
+	var lokiResp Response
 	if err := json.Unmarshal(response, &lokiResp); err != nil {
 		return nil, fmt.Errorf("%s", lo.Ellipsis(string(response), 256))
 	}

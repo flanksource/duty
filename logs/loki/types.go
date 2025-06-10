@@ -5,21 +5,21 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/flanksource/commons/logger"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/logs"
 )
 
-// LokiResponse represents the top-level response from Loki's query_range API.
-type LokiResponse struct {
+// Response represents the top-level response from Loki's query_range API.
+type Response struct {
 	Status    string       `json:"status"`
 	Data      Data         `json:"data"`
 	ErrorType v1.ErrorType `json:"errorType,omitempty"`
 	Error     string       `json:"error,omitempty"`
 }
 
-func (t *LokiResponse) ToLogResult(mappingConfig logs.FieldMappingConfig) logs.LogResult {
+func (t *Response) ToLogResult(mappingConfig logs.FieldMappingConfig) logs.LogResult {
 	output := logs.LogResult{
 		Metadata: t.Data.Stats,
 	}

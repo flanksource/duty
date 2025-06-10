@@ -3,6 +3,7 @@ package opensearch
 import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
+
 	"github.com/flanksource/duty/types"
 )
 
@@ -54,7 +55,7 @@ func (t *HitsInfo) NextPage(requestedRowsCount int) string {
 	return val
 }
 
-type SearchResponse struct {
+type Response struct {
 	Took     float64  `json:"took"`
 	TimedOut bool     `json:"timed_out"`
 	Hits     HitsInfo `json:"hits"`
