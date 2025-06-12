@@ -11,12 +11,13 @@ import (
 	"github.com/eko/gocache/lib/v4/store"
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/models"
 )
 
 var (
@@ -109,7 +110,7 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 	if connection == nil {
 		// Setting a smaller cache for connection not found
 		_ = connectionCache.Set(ctx, cacheKey, connection, store.WithExpiration(5*time.Minute))
-		return nil, nil
+		return nil, fmt.Errorf("connection %q not found", connectionString)
 	}
 
 	hydratedConnection, err := HydrateConnection(ctx, connection)
