@@ -1,8 +1,10 @@
 ## Tool Binaries
 LOCALBIN ?= $(shell pwd)/.bin
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
 GOLANGCI_LINT_VERSION ?= v2.1.6
 
 .PHONY: ginkgo
@@ -35,10 +37,6 @@ fmt:
 lint: golangci-lint
 	$(GOLANGCI_LINT) run ./...
 	go vet ./...
-
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
-LOCALBIN ?= $(shell pwd)/.bin
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.

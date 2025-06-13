@@ -12,7 +12,6 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/is-healthy/pkg/health"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -22,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+
+	"github.com/flanksource/duty/query/grammar"
 )
 
 type ComponentConfigTraversalArgs struct {
@@ -510,7 +511,7 @@ func extractResourceFieldValue(rs ResourceSelectable, field string) (string, err
 		return rs.GetLabelsMatcher().Get(key), nil
 	} else if strings.HasPrefix(field, "tags.") {
 		key := strings.TrimSpace(strings.TrimPrefix(field, "tags."))
-		if tagsMatcher, ok := rs.(TagsMatchable); ok {
+		if tagsMatcher, ok := rs.(TagsMatchable); ok && tagsMatcher.GetTagsMatcher() != nil {
 			return tagsMatcher.GetTagsMatcher().Get(key), nil
 		}
 	} else if strings.HasPrefix(field, "properties.") {
@@ -547,8 +548,34 @@ func (t ResourceSelectableMap) GetFieldsMatcher() fields.Fields {
 }
 
 func (r ResourceSelectableMap) GetLabelsMatcher() labels.Labels {
-	if labelsRaw, ok := r["labels"].(map[string]string); ok {
-		return GenericLabelsMatcher{labelsRaw}
+	labelsRaw, ok := r["labels"]
+	if !ok {
+		return nil
+	}
+
+	if labels, ok := labelsRaw.(map[string]string); ok {
+		return GenericLabelsMatcher{labels}
+	}
+
+	if labels, ok := labelsRaw.(map[string]any); ok {
+		return GenericLabelsMatcherAny{labels}
+	}
+
+	return nil
+}
+
+func (r ResourceSelectableMap) GetTagsMatcher() labels.Labels {
+	tagsRaw, ok := r["tags"]
+	if !ok {
+		return nil
+	}
+
+	if labels, ok := tagsRaw.(map[string]string); ok {
+		return GenericLabelsMatcher{labels}
+	}
+
+	if labels, ok := r["tags"].(map[string]any); ok {
+		return GenericLabelsMatcherAny{labels}
 	}
 
 	return nil
@@ -639,6 +666,19 @@ func (c GenericLabelsMatcher) Get(key string) string {
 }
 
 func (c GenericLabelsMatcher) Has(key string) bool {
+	_, ok := c.Map[key]
+	return ok
+}
+
+type GenericLabelsMatcherAny struct {
+	Map map[string]any
+}
+
+func (c GenericLabelsMatcherAny) Get(key string) string {
+	return fmt.Sprintf("%v", c.Map[key])
+}
+
+func (c GenericLabelsMatcherAny) Has(key string) bool {
 	_, ok := c.Map[key]
 	return ok
 }

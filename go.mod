@@ -93,7 +93,6 @@ require (
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.12
 	gorm.io/plugin/prometheus v0.1.0
-	gotest.tools/v3 v3.5.1
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
 	k8s.io/client-go v0.31.1

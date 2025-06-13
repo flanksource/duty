@@ -1,7 +1,6 @@
 package query
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
 	dutyTypes "github.com/flanksource/duty/types"
 )
 
@@ -39,7 +37,7 @@ func MatchQueryCelFunc(ctx context.Context) cel.EnvOption {
 
 				match, err := matchQuery(resourceSelectableRaw, peg)
 				if err != nil {
-					return types.WrapErr(err)
+					return types.WrapErr(fmt.Errorf("matchQuery failed: %w", err))
 				}
 
 				return types.Bool(match)
@@ -49,48 +47,7 @@ func MatchQueryCelFunc(ctx context.Context) cel.EnvOption {
 }
 
 func matchQuery(resourceSelectableRaw map[string]any, peg string) (bool, error) {
-	var resourceSelectable dutyTypes.ResourceSelectable = dutyTypes.ResourceSelectableMap(resourceSelectableRaw)
-
-	// NOTE: We check for fields in the map to determine what resource to unmarshal to.
-
-	if _, ok := resourceSelectableRaw["config_class"]; ok {
-		var config models.ConfigItem
-		if b, err := json.Marshal(resourceSelectableRaw); err != nil {
-			return false, err
-		} else if err := json.Unmarshal(b, &config); err != nil {
-			return false, err
-		}
-
-		resourceSelectable = config
-	} else if _, ok := resourceSelectableRaw["category"]; ok {
-		var playbook models.Playbook
-		if b, err := json.Marshal(resourceSelectableRaw); err != nil {
-			return false, err
-		} else if err := json.Unmarshal(b, &playbook); err != nil {
-			return false, err
-		}
-
-		resourceSelectable = &playbook
-	} else if _, ok := resourceSelectableRaw["topology_id"]; ok {
-		var component models.Component
-		if b, err := json.Marshal(resourceSelectableRaw); err != nil {
-			return false, err
-		} else if err := json.Unmarshal(b, &component); err != nil {
-			return false, err
-		}
-
-		resourceSelectable = component
-	} else if _, ok := resourceSelectableRaw["canary_id"]; ok {
-		var check models.Check
-		if b, err := json.Marshal(resourceSelectableRaw); err != nil {
-			return false, err
-		} else if err := json.Unmarshal(b, &check); err != nil {
-			return false, err
-		}
-
-		resourceSelectable = check
-	}
-
+	resourceSelectable := dutyTypes.ResourceSelectableMap(resourceSelectableRaw)
 	rs := dutyTypes.ResourceSelector{Search: peg}
 	return rs.Matches(resourceSelectable), nil
 }
