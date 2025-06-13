@@ -18,7 +18,7 @@ func TestE2E(t *testing.T) {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
-	DefaultContext = setup.BeforeSuiteFn()
+	DefaultContext = setup.BeforeSuiteFn(setup.WithoutDummyData)
 })
 
 var _ = ginkgo.AfterSuite(setup.AfterSuiteFn)
