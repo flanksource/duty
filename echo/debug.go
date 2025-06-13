@@ -156,7 +156,7 @@ func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFun
 		timer := timer.NewMemoryTimer()
 		go func() {
 			for {
-				logger.GetLogger("memory").Infof(timer.End())
+				logger.GetLogger("memory").Infof("%s", timer.End())
 				time.Sleep(period)
 			}
 		}()

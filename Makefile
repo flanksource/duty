@@ -34,6 +34,7 @@ fmt:
 .PHONY: lint
 lint: golangci-lint
 	$(GOLANGCI_LINT) run ./...
+	go vet ./...
 
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
 LOCALBIN ?= $(shell pwd)/.bin
