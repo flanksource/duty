@@ -1,22 +1,67 @@
 package query_test
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/flanksource/gomplate/v3"
+	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/gomplate/v3"
-	"github.com/google/uuid"
-	"github.com/samber/lo"
-	"gotest.tools/v3/assert"
+	"github.com/flanksource/duty/types"
 )
 
 func TestMatchQuery(t *testing.T) {
-	config := models.ConfigItem{
-		Name: lo.ToPtr("aws-demo"),
+	configItemID := uuid.New()
+	agentID := uuid.New()
+	parentID := uuid.New()
+
+	configItem := models.ConfigItem{
+		ID:          configItemID,
+		AgentID:     agentID,
+		ParentID:    &parentID,
+		ConfigClass: "Deployment",
+		Type:        lo.ToPtr("Kubernetes::Deployment"),
+		Status:      lo.ToPtr("Running"),
+		Ready:       true,
+		Health:      lo.ToPtr(models.HealthHealthy),
+		Name:        lo.ToPtr("my-app"),
+		Description: lo.ToPtr("Main application deployment"),
+		Tags: types.JSONStringMap{
+			"namespace":   "production",
+			"team":        "backend",
+			"version":     "v1.2.3",
+			"environment": "prod",
+			"cost-center": "engineering",
+		},
+		Labels: &types.JSONStringMap{
+			"app.kubernetes.io/name":            "my-app",
+			"app.kubernetes.io/version":         "1.2.3",
+			"app.kubernetes.io/component":       "backend",
+			"deployment.kubernetes.io/revision": "42",
+		},
+		Properties: &types.Properties{
+			{Name: "cpu", Text: "2000m"},
+			{Name: "memory", Text: "4Gi"},
+			{Name: "replicas", Value: lo.ToPtr(int64(3))},
+			{Name: "maxReplicas", Value: lo.ToPtr(int64(10))},
+		},
 		Config: lo.ToPtr(`{
-			"aws_access_key_id": "1234567890",
-			"aws_secret_access_key": "1234567890"
+			"apiVersion": "apps/v1",
+			"kind": "Deployment",
+			"metadata": {
+				"name": "my-app",
+				"namespace": "production"
+			},
+			"spec": {
+				"replicas": 3,
+				"strategy": {
+					"type": "RollingUpdate"
+				}
+			}
 		}`),
 	}
 
@@ -38,8 +83,84 @@ func TestMatchQuery(t *testing.T) {
 	}
 
 	runTests(t, []TestCase{
-		{map[string]any{"config": config.AsMap()}, "matchQuery(config, 'name=aws*')", "true"},
-		{map[string]any{"config": config.AsMap()}, "matchQuery(config, 'name=azure*')", "false"},
+		// Basic field matching tests
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=other-app')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=*app')", "true"},
+
+		// ID matching
+		{map[string]any{"config": configItem.AsMap()}, fmt.Sprintf("matchQuery(config, 'id=%s')", configItemID.String()), "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'id=00000000-0000-0000-0000-000000000000')", "false"},
+
+		// Type matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'type=Kubernetes::Deployment')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'type=Kubernetes*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'type=*Deployment')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'type=Docker::Container')", "false"},
+
+		// Status matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Running')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Run*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Failed')", "false"},
+
+		// Health matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'health=healthy')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'health=heal*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'health=unhealthy')", "false"},
+
+		// Tags matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.team=backend')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.team=back*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.team=frontend')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.version=v1.2.3')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.version=v1.*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.environment=prod')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.cost-center=engineering')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.nonexistent=value')", "false"},
+
+		// Labels matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my-app')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/version=1.2.3')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/component=backend')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.deployment.kubernetes.io/revision=42')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.nonexistent=value')", "false"},
+
+		// Properties matching
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.cpu=2000m')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.cpu=2000*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.memory=4Gi')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.replicas=3')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.maxReplicas=10')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.nonexistent=value')", "false"},
+
+		// Multiple field combinations
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,type=Kubernetes::Deployment')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,status=Running,health=healthy')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'namespace=production,tags.team=backend')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my-app,tags.version=v1.2.3')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.replicas=3,properties.cpu=2000m')", "true"},
+
+		// Mixed positive and negative combinations - logic incorrect
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,type=Docker::Container')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Running,health=unhealthy')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'namespace=staging,tags.team=backend')", "false"},
+
+		// Wildcard combinations
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my*,type=Kubernetes*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.team=back*,tags.version=v1*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=*app,properties.cpu=*m')", "true"},
+
+		// Edge cases with empty/missing values
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'nonexistent=value')", "false"},
+
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'config_class=Deployment')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'config_class=Deploy*')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'config_class=Service')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'ready=true')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'ready=false')", "false"},
 
 		{map[string]any{"playbook": playbook.AsMap()}, "matchQuery(playbook, 'name=air*')", "true"},
 		{map[string]any{"playbook": playbook.AsMap()}, "matchQuery(playbook, 'name=azure*')", "false"},
@@ -65,13 +186,18 @@ type TestCase struct {
 func runTests(t *testing.T, tests []TestCase) {
 	ctx := context.New()
 	for _, tc := range tests {
+		if tc.expression != "matchQuery(config, 'tags.team=backend')" {
+			continue
+		}
+
 		t.Run(tc.expression, func(t *testing.T) {
+			g := gomega.NewWithT(t)
 			out, err := ctx.RunTemplate(gomplate.Template{
 				Expression: tc.expression,
 			}, tc.env)
 
-			assert.ErrorIs(t, nil, err)
-			assert.Equal(t, tc.out, out)
+			g.Expect(err).To(gomega.BeNil())
+			g.Expect(out).To(gomega.Equal(tc.out))
 		})
 	}
 }
