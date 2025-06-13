@@ -39,7 +39,7 @@ func MatchQueryCelFunc(ctx context.Context) cel.EnvOption {
 
 				match, err := matchQuery(resourceSelectableRaw, peg)
 				if err != nil {
-					return types.WrapErr(err)
+					return types.WrapErr(fmt.Errorf("matchQuery failed: %w", err))
 				}
 
 				return types.Bool(match)
@@ -52,13 +52,10 @@ func matchQuery(resourceSelectableRaw map[string]any, peg string) (bool, error) 
 	var resourceSelectable dutyTypes.ResourceSelectable = dutyTypes.ResourceSelectableMap(resourceSelectableRaw)
 
 	// NOTE: We check for fields in the map to determine what resource to unmarshal to.
-
 	if _, ok := resourceSelectableRaw["config_class"]; ok {
 		var config models.ConfigItem
-		if b, err := json.Marshal(resourceSelectableRaw); err != nil {
-			return false, err
-		} else if err := json.Unmarshal(b, &config); err != nil {
-			return false, err
+		if err := config.FromMap(resourceSelectableRaw); err != nil {
+			return false, fmt.Errorf("failed to unmarshal config item: %w", err)
 		}
 
 		resourceSelectable = config

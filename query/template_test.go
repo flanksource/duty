@@ -14,6 +14,10 @@ import (
 func TestMatchQuery(t *testing.T) {
 	config := models.ConfigItem{
 		Name: lo.ToPtr("aws-demo"),
+		Config: lo.ToPtr(`{
+			"aws_access_key_id": "1234567890",
+			"aws_secret_access_key": "1234567890"
+		}`),
 	}
 
 	playbook := models.Playbook{
