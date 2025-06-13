@@ -94,7 +94,7 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	for _, change := range plan.Changes {
-		log.Tracef(change.Cmd)
+		log.Tracef("%s", change.Cmd)
 	}
 
 	if err = client.ApplyChanges(ctx, changes); err != nil {
