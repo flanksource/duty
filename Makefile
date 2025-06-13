@@ -1,3 +1,9 @@
+## Tool Binaries
+LOCALBIN ?= $(shell pwd)/.bin
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+
+## Tool Versions
+GOLANGCI_LINT_VERSION ?= v2.1.6
 
 .PHONY: ginkgo
 ginkgo:
@@ -26,8 +32,8 @@ fmt:
 	go fmt ./...
 
 .PHONY: lint
-lint:
-	golangci-lint run
+lint: golangci-lint
+	$(GOLANGCI_LINT) run ./...
 
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
 LOCALBIN ?= $(shell pwd)/.bin
@@ -115,3 +121,8 @@ fmt_sql:
 
 tidy:
 	go mod tidy
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	test -s $(LOCALBIN)/golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
