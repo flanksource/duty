@@ -18,10 +18,9 @@ jobs:
         uses: buildjet/setup-go@v5
         with:
           go-version: 1.22.x
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@a4f60bb28d35aeee14e6880718e0c85ff1882e64 # v6.0.1
-        with:
-          args: --timeout 10m
+      - name: Lint
+        run: |
+          make lint
       - name: Check go.mod
         env:
           CI: false
