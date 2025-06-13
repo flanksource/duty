@@ -107,7 +107,7 @@ func ParseJQ(v []byte, expr string) ([]byte, error) {
 			break
 		}
 		if err, ok := val.(error); ok {
-			return nil, fmt.Errorf("Error parsing jq: %v", err)
+			return nil, fmt.Errorf("error parsing jq: %v", err)
 		}
 
 		jsonVal, err = json.Marshal(val)

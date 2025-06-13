@@ -9,17 +9,16 @@ import (
 	"strings"
 	"time"
 
-	nethttp "net/http"
-
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/timer"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/shutdown"
 	"github.com/google/gops/agent"
 	"github.com/labstack/echo/v4"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/robfig/cron/v3"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/shutdown"
 )
 
 var Crons = cmap.New[*cron.Cron]()
@@ -32,7 +31,7 @@ func RegisterCron(cron *cron.Cron) {
 
 func init() {
 	// disables default handlers registered by importing net/http/pprof.
-	nethttp.DefaultServeMux = nethttp.NewServeMux()
+	http.DefaultServeMux = http.NewServeMux()
 
 	if err := agent.Listen(agent.Options{}); err != nil {
 		logger.Errorf(err.Error())

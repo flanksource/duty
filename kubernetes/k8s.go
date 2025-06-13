@@ -180,12 +180,13 @@ func GetClusterName(config *rest.Config) string {
 
 	clusterName := ""
 	if config.ExecProvider != nil {
-		if config.ExecProvider.Command == "aws" {
+		switch config.ExecProvider.Command {
+		case "aws":
 			args := argsToMap(config.ExecProvider.Args)
 			if name, ok := args["cluster-name"]; ok {
 				clusterName = "eks:" + name
 			}
-		} else if config.ExecProvider.Command == "gke-gcloud-auth-plugin" {
+		case "gke-gcloud-auth-plugin":
 			args := argsToMap(config.ExecProvider.Args)
 			if name, ok := args["cluster"]; ok {
 				clusterName = "gke:" + name
