@@ -61,7 +61,7 @@ func New(ctx context.Context, conn connection.GCPConnection, mappingConfig *logs
 }
 
 func (gcp *cloudLogging) Search(ctx context.Context, request Request) (*logs.LogResult, error) {
-	var maxLogLines int = 1000
+	var maxLogLines = 1000
 	if request.Limit != "" {
 		if l, err := strconv.ParseInt(request.Limit, 10, 32); err == nil && l > 0 {
 			maxLogLines = int(l)

@@ -16,7 +16,6 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -24,7 +23,7 @@ type Tracer struct {
 	ServiceName  string
 	CollectorURL string
 	Insecure     bool
-	Samplers     map[string]trace.Sampler
+	Samplers     map[string]sdktrace.Sampler
 }
 
 func (tracer Tracer) Sample(name string, perc float64) Tracer {

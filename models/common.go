@@ -31,9 +31,10 @@ const (
 func WorseHealth(healths ...Health) Health {
 	worst := HealthHealthy
 	for _, h := range healths {
-		if h == HealthUnhealthy {
+		switch h {
+		case HealthUnhealthy:
 			return HealthUnhealthy
-		} else if h == HealthWarning {
+		case HealthWarning:
 			worst = HealthWarning
 		}
 	}
