@@ -2,12 +2,13 @@ package opensearch
 
 import (
 	"encoding/json"
+	"io"
 	"strconv"
 	"strings"
 
-	"github.com/flanksource/duty/context"
 	opensearch "github.com/opensearch-project/opensearch-go/v2"
 
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
 )
 
@@ -85,6 +86,15 @@ func (t *searcher) Search(ctx context.Context, q Request) (*logs.LogResult, erro
 		return nil, ctx.Oops().Wrapf(err, "error searching")
 	}
 	defer res.Body.Close()
+
+	if res.IsError() {
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, ctx.Oops().Wrapf(err, "failed to read error response body from opensearch")
+		}
+
+		return nil, ctx.Oops().Errorf("opensearch: search failed with status %s: %s", res.Status(), string(body))
+	}
 
 	var r Response
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
