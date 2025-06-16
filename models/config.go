@@ -202,6 +202,35 @@ func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
 	return env
 }
 
+func (ci *ConfigItem) FromMap(data map[string]any) error {
+	if configValue, exists := data["config"]; exists && configValue != nil {
+		switch v := configValue.(type) {
+		case string:
+			ci.Config = &v
+		default:
+			configBytes, err := json.Marshal(v)
+			if err != nil {
+				return fmt.Errorf("failed to marshal config map to JSON: %w", err)
+			}
+			ci.Config = lo.ToPtr(string(configBytes))
+		}
+
+		// Config is directly set to the model, so we don't need to unmarshal it again
+		delete(data, "config")
+	}
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal map data: %w", err)
+	}
+
+	if err := json.Unmarshal(dataBytes, ci); err != nil {
+		return fmt.Errorf("failed to unmarshal data into ConfigItem: %w", err)
+	}
+
+	return nil
+}
+
 func (ci *ConfigItem) ConfigJSONStringMap() (map[string]any, error) {
 	if ci.configJson != nil {
 		return ci.configJson, nil
