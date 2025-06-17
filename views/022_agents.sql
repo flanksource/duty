@@ -3,10 +3,20 @@ DROP VIEW IF EXISTS agents_summary;
 CREATE OR REPLACE VIEW agents_summary AS
 SELECT
     agents.*,
-    configs.count as config_count,
-    config_scrapper.count as config_scrapper_count,
-    checks.count as checks_count,
-    playbook_runs.count as playbook_runs_count
+    configs.count AS config_count,
+    config_scrapper.count AS config_scrapper_count,
+    checks.count AS checks_count,
+    playbook_runs.count AS playbook_runs_count,
+    CASE
+      WHEN last_seen IS NULL THEN 'unknown'
+      WHEN EXTRACT(EPOCH FROM (NOW() - last_seen)) < 61 THEN 'healthy'
+      ELSE 'unhealthy'
+    END AS health,
+    CASE
+      WHEN last_seen IS NULL THEN 'unknown'
+      WHEN EXTRACT(EPOCH FROM (NOW() - last_seen)) < 61 THEN 'online'
+      ELSE 'offline'
+    END AS status
 FROM
     agents
     LEFT JOIN (
@@ -70,7 +80,7 @@ FOR EACH ROW
 EXECUTE PROCEDURE delete_access_tokens();
 
 -- Mark agent resources as deleted
-CREATE OR REPLACE FUNCTION delete_agent_resources(agentid UUID, delete_time TIMESTAMPTZ) 
+CREATE OR REPLACE FUNCTION delete_agent_resources(agentid UUID, delete_time TIMESTAMPTZ)
 RETURNS VOID AS $$
 BEGIN
     IF agentid IS NULL OR agentid = '00000000-0000-0000-0000-000000000000' THEN
