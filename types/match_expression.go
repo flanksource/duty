@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Masterminds/squirrel"
 	"github.com/flanksource/commons/collections"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 // MatchExpression uses MatchItems
@@ -33,13 +33,12 @@ func (t MatchExpressions) Match(item string) bool {
 // SQLClause converts MatchExpressions to SQL WHERE conditions with (?) placeholders
 //
 // Example: expr="!Get*,!List*" -> "WHERE (column_name NOT LIKE ? AND column_name NOT LIKE ?)" (GET%, LIST%)
-func (t MatchExpressions) SQLClause(columnName string) (string, []any, error) {
+func (t MatchExpressions) SQLClause(db *gorm.DB, columnName string) (string, []any, error) {
 	if len(t) == 0 {
 		return "", nil, nil
 	}
 
-	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Question)
-	conditions := squirrel.And{}
+	query := db.Session(&gorm.Session{DryRun: true})
 
 	for _, expr := range t {
 		patterns := strings.SplitSeq(string(expr), ",")
@@ -52,37 +51,41 @@ func (t MatchExpressions) SQLClause(columnName string) (string, []any, error) {
 			if after, ok := strings.CutPrefix(pattern, "!"); ok {
 				if strings.HasSuffix(after, "*") {
 					likePattern := strings.TrimSuffix(after, "*") + "%"
-					conditions = append(conditions, squirrel.NotLike{columnName: likePattern})
+					query = query.Where(fmt.Sprintf("%s NOT LIKE ?", columnName), likePattern)
 				} else if after, ok := strings.CutPrefix(after, "*"); ok {
 					likePattern := "%" + after
-					conditions = append(conditions, squirrel.NotLike{columnName: likePattern})
+					query = query.Where(fmt.Sprintf("%s NOT LIKE ?", columnName), likePattern)
 				} else {
-					conditions = append(conditions, squirrel.NotEq{columnName: after})
+					query = query.Where(fmt.Sprintf("%s <> ?", columnName), after)
 				}
 			} else {
 				if strings.HasSuffix(pattern, "*") {
 					likePattern := strings.TrimSuffix(pattern, "*") + "%"
-					conditions = append(conditions, squirrel.Like{columnName: likePattern})
+					query = query.Where(fmt.Sprintf("%s LIKE ?", columnName), likePattern)
 				} else if after, ok := strings.CutPrefix(pattern, "*"); ok {
 					likePattern := "%" + after
-					conditions = append(conditions, squirrel.Like{columnName: likePattern})
+					query = query.Where(fmt.Sprintf("%s LIKE ?", columnName), likePattern)
 				} else {
-					conditions = append(conditions, squirrel.Eq{columnName: pattern})
+					query = query.Where(fmt.Sprintf("%s = ?", columnName), pattern)
 				}
 			}
 		}
 	}
 
-	if len(conditions) == 0 {
-		return "", nil, nil
+	// Build a dummy query to extract the WHERE clause
+	var output struct{}
+	stmt := query.Select("1").Table("dummy_model").Find(&output).Statement
+
+	whereClause := strings.TrimPrefix(stmt.SQL.String(), `SELECT 1 FROM "dummy_model"`)
+	whereClause = strings.TrimSpace(whereClause)
+	whereClause = strings.TrimPrefix(whereClause, "WHERE ")
+	whereClause = strings.TrimSpace(whereClause)
+
+	// Replace database-specific placeholders with generic ? placeholders
+	// Postgres driver uses $1, $2, etc. placeholders
+	for i := len(stmt.Vars); i > 0; i-- {
+		whereClause = strings.Replace(whereClause, fmt.Sprintf("$%d", i), "?", 1)
 	}
 
-	query := psql.Select("1").Where(conditions)
-	sql, args, err := query.ToSql()
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to build SQL conditions: %w", err)
-	}
-
-	whereClause := strings.TrimPrefix(sql, "SELECT 1 WHERE ")
-	return whereClause, args, nil
+	return whereClause, stmt.Vars, nil
 }

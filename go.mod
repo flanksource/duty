@@ -13,7 +13,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.2
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.10.0
-	github.com/Masterminds/squirrel v1.5.4
 	github.com/RaveNoX/go-jsonmerge v1.0.0
 	github.com/TomOnTime/utfutil v0.0.0-20230223141146-125e65197b36
 	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.0
@@ -252,8 +251,6 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
-	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/lmittmann/tint v1.0.5 // indirect
 	github.com/lrita/cmap v0.0.0-20231108122212-cb084a67f554 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
