@@ -2,14 +2,11 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/lib/pq"
-	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -24,27 +21,6 @@ type GoTemplate string
 
 func (t GoTemplate) Run(env map[string]any) (string, error) {
 	return gomplate.RunTemplate(env, gomplate.Template{Template: string(t)})
-}
-
-// MatchExpression uses MatchItems
-type MatchExpression string
-
-func (t MatchExpression) Match(item string) bool {
-	return collections.MatchItems(item, strings.Split(string(t), ",")...)
-}
-
-func (t *MatchExpression) Add(item string) {
-	if *t == "" {
-		*t = MatchExpression(item)
-	} else {
-		*t = MatchExpression(fmt.Sprintf("%s,%s", *t, item))
-	}
-}
-
-type MatchExpressions []MatchExpression
-
-func (t MatchExpressions) Match(item string) bool {
-	return collections.MatchItems(item, lo.Map(t, func(x MatchExpression, _ int) string { return string(x) })...)
 }
 
 // asMap marshals the given struct into a map.
