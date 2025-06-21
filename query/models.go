@@ -8,16 +8,16 @@ import (
 	"sync/atomic"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/query/grammar"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
-
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query/grammar"
 )
 
 // Maintained by a job
@@ -217,6 +217,28 @@ var PlaybookQueryModel = QueryModel{
 	},
 }
 
+var ConfigChangeQueryModel = QueryModel{
+	Table: "catalog_changes",
+	Columns: []string{
+		"id", "config_id", "name", "type",
+		"created_at", "severity", "change_type", "summary", "count", "first_observed", "agent_id",
+	},
+	JSONMapColumns: []string{"tags"},
+	HasAgents:      true,
+	HasTags:        true,
+	Aliases: map[string]string{
+		"created":        "created_at",
+		"first_observed": "first_observed",
+		"external_id":    "external_created_by",
+		"changeType":     "change_type",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"created_at":     DateMapper,
+		"first_observed": DateMapper,
+		"agent_id":       AgentMapper,
+	},
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
@@ -227,6 +249,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return CheckQueryModel, nil
 	case models.Playbook{}.TableName():
 		return PlaybookQueryModel, nil
+	case models.CatalogChange{}.TableName():
+		return ConfigChangeQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}

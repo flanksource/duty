@@ -399,3 +399,29 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	output.Summarize()
 	return &output, nil
 }
+
+func FindConfigChangesByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.CatalogChange, error) {
+	items, err := FindConfigChangeIDsByResourceSelector(ctx, limit, resourceSelectors...)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetCatalogChangesByIDs(ctx, items)
+}
+
+func FindConfigChangeIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, "catalog_changes", limit, resourceSelectors...)
+}
+
+func GetCatalogChangesByIDs(ctx context.Context, ids []uuid.UUID) ([]models.CatalogChange, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var catalogChanges []models.CatalogChange
+	if err := ctx.DB().Table("catalog_changes").Where("id IN ?", ids).Find(&catalogChanges).Error; err != nil {
+		return nil, err
+	}
+
+	return catalogChanges, nil
+}
