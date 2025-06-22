@@ -567,6 +567,7 @@ func (c ConfigChange) String() string {
 type CatalogChange struct {
 	ID                uuid.UUID           `gorm:"primaryKey;column:id" json:"id"`
 	ConfigID          uuid.UUID           `gorm:"column:config_id" json:"config_id"`
+	Config            types.JSON          `gorm:"column:config" json:"config"`
 	Name              *string             `gorm:"column:name" json:"name"`
 	DeletedAt         *time.Time          `gorm:"column:deleted_at" json:"deleted_at"`
 	Type              *string             `gorm:"column:type" json:"type"`
@@ -576,6 +577,7 @@ type CatalogChange struct {
 	Severity          *string             `gorm:"column:severity" json:"severity"`
 	ChangeType        string              `gorm:"column:change_type" json:"change_type"`
 	Source            *string             `gorm:"column:source" json:"source"`
+	Details           types.JSON          `json:"details,omitempty"`
 	Summary           *string             `gorm:"column:summary" json:"summary"`
 	CreatedBy         *uuid.UUID          `gorm:"column:created_by" json:"created_by"`
 	Count             int                 `gorm:"column:count" json:"count"`
@@ -619,7 +621,24 @@ func (c CatalogChange) PK() string {
 }
 
 func (c CatalogChange) AsMap(removeFields ...string) map[string]any {
-	return asMap(c, removeFields...)
+	env := asMap(c, removeFields...)
+	if c.Details != nil {
+		var m map[string]any
+		if err := json.Unmarshal(c.Details, &m); err != nil {
+			return env
+		}
+		env["details"] = m
+	}
+
+	if c.Config != nil {
+		var m map[string]any
+		if err := json.Unmarshal(c.Config, &m); err != nil {
+			return env
+		}
+		env["config"] = m
+	}
+
+	return env
 }
 
 // BeforeCreate is a user defined hook for Gorm.

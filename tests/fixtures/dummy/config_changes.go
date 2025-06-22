@@ -120,13 +120,17 @@ var RedisHelmReleaseUpgradeV2 = models.ConfigChange{
 }
 
 var RedisHelmReleaseUpgradeV3 = models.ConfigChange{
-	ID:            uuid.New().String(),
-	ConfigID:      RedisHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
-	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 36)), // 1.5 days ago
-	Severity:      models.SeverityInfo,
-	Source:        "Flux",
-	Summary:       "Helm chart upgraded from 18.1.3 to 18.1.5",
+	ID:         uuid.New().String(),
+	ConfigID:   RedisHelmRelease.ID.String(),
+	ChangeType: "UPDATE",
+	CreatedAt:  lo.ToPtr(DummyNow.Add(-time.Hour * 36)), // 1.5 days ago
+	Severity:   models.SeverityInfo,
+	Source:     "Flux",
+	Summary:    "Helm chart upgraded from 18.1.3 to 18.1.5",
+	Details: []byte(`{
+		"old_version": "18.1.3",
+		"new_version": "18.1.5"
+	}`),
 	Count:         1,
 	FirstObserved: lo.ToPtr(DummyNow.Add(-time.Hour * 36)),
 }
