@@ -406,6 +406,65 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 	})
 })
 
+var _ = ginkgo.Describe("ResoureSelectorPEG | Sort And Group By", ginkgo.Ordered, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	testData := []struct {
+		description string
+		query       string
+		expectedIDs []uuid.UUID
+		resource    string
+		err         bool
+		errMsg      string
+	}{
+		{
+			description: "helm release sort by name",
+			query:       `type=Helm::Release @order=-name`,
+			expectedIDs: []uuid.UUID{dummy.NginxHelmRelease.ID, dummy.RedisHelmRelease.ID},
+			resource:    "config",
+		},
+		{
+			description: "helm release sort by name descending",
+			query:       `type=Helm::Release @order=-name`,
+			expectedIDs: []uuid.UUID{dummy.RedisHelmRelease.ID, dummy.NginxHelmRelease.ID},
+			resource:    "config",
+		},
+	}
+
+	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
+		"config":         query.FindConfigIDsByResourceSelector,
+		"component":      query.FindComponentIDs,
+		"checks":         query.FindCheckIDs,
+		"config_changes": query.FindConfigChangeIDsByResourceSelector,
+	}
+
+	uuidSliceToString := func(uuids []uuid.UUID) []string {
+		return lo.Map(uuids, func(item uuid.UUID, _ int) string { return item.String() })
+	}
+
+	ginkgo.Describe("peg search", func() {
+		for _, tt := range testData {
+
+			ginkgo.It(tt.description, func() {
+				f, ok := fmap[tt.resource]
+				Expect(ok).To(BeTrue())
+				ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
+
+				if tt.err {
+					Expect(err).ToNot(BeNil())
+					Expect(err.Error()).To(ContainSubstring(tt.errMsg))
+				} else {
+					Expect(err).To(BeNil())
+					// We convert to strings slice for readable output
+					Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+				}
+			})
+		}
+	})
+})
+
 var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)

@@ -74,7 +74,10 @@ var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string)
 }
 
 type QueryModel struct {
-	Table  string
+	// Table name
+	Table string
+
+	// Custom functions to map fields to clauses
 	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
 
 	// List of jsonb columns that store a map.
@@ -272,6 +275,16 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		q.Field = strings.ToLower(q.Field)
 		if alias, ok := qm.Aliases[q.Field]; ok {
 			q.Field = alias
+		}
+
+		if q.Field == "@order" {
+			if strings.HasPrefix(q.Value.(string), "-") {
+				tx = tx.Order(clause.OrderByColumn{Column: clause.Column{Name: strings.TrimPrefix(q.Value.(string), "-")}, Desc: true})
+			} else {
+				tx = tx.Order(clause.OrderByColumn{Column: clause.Column{Name: q.Value.(string)}})
+			}
+
+			return tx, nil, nil
 		}
 
 		val := fmt.Sprint(q.Value)
