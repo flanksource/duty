@@ -315,7 +315,53 @@ var LogisticsUIDeployment = models.ConfigItem{
 	Name:        lo.ToPtr("logistics-ui"),
 	ConfigClass: models.ConfigClassDeployment,
 	Health:      lo.ToPtr(models.HealthHealthy),
-	Type:        lo.ToPtr("Logistics::UI::Deployment"),
+	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Config: lo.ToPtr(`{
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "logistics-ui",
+        "namespace": "missioncontrol",
+        "labels": {
+          "app": "logistics-ui",
+          "owner": "team-2"
+        }
+      },
+      "spec": {
+        "replicas": 2,
+        "selector": {
+          "matchLabels": {
+            "app": "logistics-ui"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "logistics-ui"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "logistics-ui",
+                "image": "logistics-ui:2.0.1",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "API_ENDPOINT",
+                    "value": "http://logistics-api"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }`),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",
@@ -329,9 +375,65 @@ var LogisticsUIDeployment = models.ConfigItem{
 
 var LogisticsWorkerDeployment = models.ConfigItem{
 	ID:          uuid.New(),
+	Name:        lo.ToPtr("logistics-worker"),
 	ConfigClass: models.ConfigClassDeployment,
 	Health:      lo.ToPtr(models.HealthHealthy),
-	Type:        lo.ToPtr("Logistics::Worker::Deployment"),
+	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Config: lo.ToPtr(`{
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "logistics-worker",
+        "namespace": "missioncontrol",
+        "labels": {
+          "app": "logistics-worker",
+          "owner": "team-3"
+        }
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "logistics-worker"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "logistics-worker"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "logistics-worker",
+                "image": "logistics-worker:1.5.0",
+                "env": [
+                  {
+                    "name": "QUEUE_URL",
+                    "value": "redis://redis:6379"
+                  },
+                  {
+                    "name": "DATABASE_URL",
+                    "value": "postgres://logistics-db:5432/logistics"
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "memory": "256Mi",
+                    "cpu": "100m"
+                  },
+                  "limits": {
+                    "memory": "512Mi",
+                    "cpu": "500m"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }`),
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"app":         "logistics",
 		"environment": "production",

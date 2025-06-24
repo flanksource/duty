@@ -38,7 +38,7 @@ var _ = Describe("Aggregation", func() {
 				},
 			},
 			expectedResult: []types.AggregateRow{
-				{"type": "Kubernetes::Deployment", "count": int64(1)},
+				{"type": "Kubernetes::Deployment", "count": int64(3)},
 				{"type": "Kubernetes::Node", "count": int64(3)},
 				{"type": "Kubernetes::Pod", "count": int64(1)},
 			},
@@ -128,6 +128,21 @@ var _ = Describe("Aggregation", func() {
 			expectedResult: []types.AggregateRow{
 				{"cluster": "aws", "total_count": int64(2), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeA.CostTotal30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeB.CostTotal30d)},
 				{"cluster": "demo", "total_count": int64(1), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d)},
+			},
+		}),
+		Entry("healthy deployments for piechart", testCase{
+			name: "combine multiple aggregation functions",
+			selector: types.AggregatedResourceSelector{
+				ResourceSelector: types.ResourceSelector{
+					Types: []string{"Kubernetes::Deployment"},
+				},
+				GroupBy: []string{"health"},
+				Aggregates: []types.AggregationField{
+					{Function: "COUNT", Field: "*", Alias: "total"},
+				},
+			},
+			expectedResult: []types.AggregateRow{
+				{"health": "healthy", "total": int64(3)},
 			},
 		}),
 	)
