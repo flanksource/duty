@@ -113,7 +113,7 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 
 	for _, field := range groupBy {
 		if strings.Contains(field, ".") {
-			parts = append(parts, buildJSONFieldSelector(field))
+			parts = append(parts, BuildJSONFieldSelector(field))
 		} else {
 			parts = append(parts, field)
 		}
@@ -124,7 +124,7 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 		if strings.ToUpper(agg.Function) == AggFunctionCount && agg.Field == "*" {
 			aggClause = fmt.Sprintf("COUNT(*) AS %s", agg.Alias)
 		} else if strings.Contains(agg.Field, ".") {
-			jsonField := buildJSONFieldSelector(agg.Field)
+			jsonField := BuildJSONFieldSelector(agg.Field)
 			if isNumericAggregation(agg.Function) {
 				aggClause = fmt.Sprintf("%s(CAST(%s AS NUMERIC)) AS %s", strings.ToUpper(agg.Function), jsonField, agg.Alias)
 			} else {
@@ -140,21 +140,40 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 	return strings.Join(parts, ", ")
 }
 
-// buildJSONFieldSelector creates SQL for accessing JSON fields
-func buildJSONFieldSelector(field string) string {
-	if after, found := strings.CutPrefix(field, "tags."); found {
-		return fmt.Sprintf(`tags->>'%s' as "%s"`, after, after)
+// BuildJSONFieldSelector creates SQL for accessing JSON fields
+// This assumes the field has already been validated by isValidFieldForQuery
+func BuildJSONFieldSelector(field string) string {
+	parts := strings.SplitN(field, ".", 2)
+	if len(parts) != 2 {
+		return field
 	}
-	if after, found := strings.CutPrefix(field, "labels."); found {
-		return fmt.Sprintf(`labels->>'%s' as "%s"`, after, after)
+
+	column := parts[0]
+	path := parts[1]
+
+	// Special case for properties which uses jsonb_path_query_first
+	if column == "properties" {
+		return fmt.Sprintf("jsonb_path_query_first(properties, '$.%s') as \"%s\"", path, strings.ReplaceAll(path, ".", "_"))
 	}
-	if after, found := strings.CutPrefix(field, "properties."); found {
-		return fmt.Sprintf("jsonb_path_query_first(properties, '$.%s') as \"%s\"", after, after)
+
+	// Generic handling for all JSON map columns
+	// Handle nested paths like config.author.name -> config->'author'->>'name'
+	pathParts := strings.Split(path, ".")
+	if len(pathParts) == 1 {
+		return fmt.Sprintf(`%s->>'%s' as "%s"`, column, path, path)
+	} else {
+		// Build nested JSON path
+		var jsonPath strings.Builder
+		jsonPath.WriteString(column)
+		for i, part := range pathParts {
+			if i == len(pathParts)-1 {
+				jsonPath.WriteString(fmt.Sprintf(`->>'%s'`, part))
+			} else {
+				jsonPath.WriteString(fmt.Sprintf(`->'%s'`, part))
+			}
+		}
+		return fmt.Sprintf(`%s as "%s"`, jsonPath.String(), strings.ReplaceAll(path, ".", "_"))
 	}
-	if after, found := strings.CutPrefix(field, "config."); found {
-		return fmt.Sprintf(`config->>'%s' as "%s"`, after, after)
-	}
-	return field
 }
 
 // buildGroupByClause constructs the GROUP BY clause
@@ -185,22 +204,26 @@ func isNumericAggregation(function string) bool {
 // isValidFieldForQuery checks if a field is in the query model's allowed columns or JSON fields
 func isValidFieldForQuery(qm QueryModel, field string) bool {
 	// Check regular columns
-	for _, col := range qm.Columns {
-		if field == col {
-			return true
-		}
-	}
-
-	// Check JSON map columns (tags, labels, config)
-	for _, jsonCol := range qm.JSONMapColumns {
-		if strings.HasPrefix(field, jsonCol+".") {
-			return true
-		}
-	}
-
-	// Check properties if supported
-	if qm.HasProperties && strings.HasPrefix(field, "properties.") {
+	if slices.Contains(qm.Columns, field) {
 		return true
+	}
+
+	// For fields with dots, check if they're valid JSON map column accesses
+	if strings.Contains(field, ".") {
+		parts := strings.SplitN(field, ".", 2)
+		if len(parts) == 2 {
+			column := parts[0]
+
+			// Check JSON map columns
+			if slices.Contains(qm.JSONMapColumns, column) {
+				return true
+			}
+
+			// Check properties if supported
+			if qm.HasProperties && column == "properties" {
+				return true
+			}
+		}
 	}
 
 	return false

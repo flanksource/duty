@@ -227,7 +227,7 @@ var ConfigChangeQueryModel = QueryModel{
 		"id", "config_id", "name", "type",
 		"created_at", "severity", "change_type", "summary", "count", "first_observed", "agent_id",
 	},
-	JSONMapColumns: []string{"tags"},
+	JSONMapColumns: []string{"tags", "details"},
 	HasAgents:      true,
 	HasTags:        true,
 	Aliases: map[string]string{
