@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/hash"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
@@ -16,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/flanksource/duty/types"
 )
 
 // Config classes

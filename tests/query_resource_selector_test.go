@@ -15,24 +15,61 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+var (
+	eksClusterCatalogChange = models.CatalogChange{
+		ID:            uuid.MustParse(dummy.EKSClusterCreateChange.ID),
+		ConfigID:      uuid.MustParse(dummy.EKSClusterCreateChange.ConfigID),
+		Name:          dummy.EKSCluster.Name,
+		Type:          dummy.EKSCluster.Type,
+		Tags:          dummy.EKSCluster.Tags,
+		CreatedAt:     dummy.EKSClusterCreateChange.CreatedAt,
+		Severity:      lo.ToPtr(string(dummy.EKSClusterCreateChange.Severity)),
+		ChangeType:    dummy.EKSClusterCreateChange.ChangeType,
+		Source:        &dummy.EKSClusterCreateChange.Source,
+		Summary:       &dummy.EKSClusterCreateChange.Summary,
+		Count:         dummy.EKSClusterCreateChange.Count,
+		FirstObserved: dummy.EKSClusterCreateChange.FirstObserved,
+		AgentID:       &dummy.EKSCluster.AgentID,
+	}
+
+	kubernetesNodeACatalogChange = models.CatalogChange{
+		ID:            uuid.MustParse(dummy.KubernetesNodeAChange.ID),
+		ConfigID:      uuid.MustParse(dummy.KubernetesNodeAChange.ConfigID),
+		Name:          dummy.KubernetesNodeA.Name,
+		Type:          dummy.KubernetesNodeA.Type,
+		Tags:          dummy.KubernetesNodeA.Tags,
+		CreatedAt:     dummy.KubernetesNodeAChange.CreatedAt,
+		Severity:      lo.ToPtr(string(dummy.KubernetesNodeAChange.Severity)),
+		ChangeType:    dummy.KubernetesNodeAChange.ChangeType,
+		Source:        &dummy.KubernetesNodeAChange.Source,
+		Summary:       &dummy.KubernetesNodeAChange.Summary,
+		Count:         dummy.KubernetesNodeAChange.Count,
+		FirstObserved: dummy.KubernetesNodeAChange.FirstObserved,
+		AgentID:       &dummy.KubernetesNodeA.AgentID,
+	}
+)
+
 var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	testData := []struct {
-		description string
-		query       query.SearchResourcesRequest
-		Configs     []models.ConfigItem
-		Components  []models.Component
-		Checks      []models.Check
+		description   string
+		query         query.SearchResourcesRequest
+		Configs       []models.ConfigItem
+		Components    []models.Component
+		Checks        []models.Check
+		ConfigChanges []models.CatalogChange
 	}{
 		{
 			description: "id",
 			query: query.SearchResourcesRequest{
-				Configs:    []types.ResourceSelector{{ID: dummy.EKSCluster.ID.String()}},
-				Components: []types.ResourceSelector{{ID: dummy.Logistics.ID.String()}},
-				Checks:     []types.ResourceSelector{{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
+				Configs:       []types.ResourceSelector{{ID: dummy.EKSCluster.ID.String()}},
+				Components:    []types.ResourceSelector{{ID: dummy.Logistics.ID.String()}},
+				Checks:        []types.ResourceSelector{{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
+				ConfigChanges: []types.ResourceSelector{{ID: dummy.EKSClusterCreateChange.ID}},
 			},
-			Components: []models.Component{dummy.Logistics},
-			Checks:     []models.Check{dummy.LogisticsAPIHealthHTTPCheck},
-			Configs:    []models.ConfigItem{dummy.EKSCluster},
+			Components:    []models.Component{dummy.Logistics},
+			Checks:        []models.Check{dummy.LogisticsAPIHealthHTTPCheck},
+			Configs:       []models.ConfigItem{dummy.EKSCluster},
+			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange},
 		},
 		{
 			description: "health",
@@ -107,6 +144,13 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Configs: []types.ResourceSelector{{Namespace: "missioncontrol", Types: []string{*dummy.LogisticsDBRDS.Type}}},
 			},
 			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
+			description: "config changes by multiple config types",
+			query: query.SearchResourcesRequest{
+				ConfigChanges: []types.ResourceSelector{{Types: []string{*dummy.EKSCluster.Type, *dummy.KubernetesNodeA.Type}}},
+			},
+			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange, kubernetesNodeACatalogChange},
 		},
 		// TODO: Currently search does not support labels/tags
 		// {
@@ -198,6 +242,21 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			},
 			Configs: []models.ConfigItem{dummy.KubernetesCluster},
 		},
+		{
+			description: "config changes by config type",
+			query: query.SearchResourcesRequest{
+				ConfigChanges: []types.ResourceSelector{{Types: []string{*dummy.EKSCluster.Type}}},
+			},
+			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange},
+		},
+		{
+			description: "config changes with limit",
+			query: query.SearchResourcesRequest{
+				Limit:         1,
+				ConfigChanges: []types.ResourceSelector{{Types: []string{*dummy.EKSCluster.Type}}},
+			},
+			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange},
+		},
 	}
 
 	ginkgo.Describe("search", ginkgo.Ordered, func() {
@@ -216,6 +275,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.ConfigChanges...)), "should contain config changes")
 			})
 		}
 	})
@@ -227,11 +287,12 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 	})
 
 	testData := []struct {
-		description string
-		query       query.SearchResourcesRequest
-		Configs     []models.ConfigItem
-		Components  []models.Component
-		Checks      []models.Check
+		description   string
+		query         query.SearchResourcesRequest
+		Configs       []models.ConfigItem
+		Components    []models.Component
+		Checks        []models.Check
+		ConfigChanges []models.CatalogChange
 	}{
 		{
 			description: "field selector | Property lookup | configs",
@@ -274,6 +335,7 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.ConfigChanges...)), "should contain config changes")
 		})
 	}
 })
@@ -339,6 +401,65 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 				Expect(pageSize).To(Equal(len(items.Configs)))
 				Expect(pageSize).To(Equal(len(items.Components)))
 				Expect(pageSize).To(Equal(len(items.Checks)))
+			})
+		}
+	})
+})
+
+var _ = ginkgo.Describe("ResoureSelectorPEG | Sort And Group By", ginkgo.Ordered, func() {
+	ginkgo.BeforeAll(func() {
+		_ = query.SyncConfigCache(DefaultContext)
+	})
+
+	testData := []struct {
+		description string
+		query       string
+		expectedIDs []uuid.UUID
+		resource    string
+		err         bool
+		errMsg      string
+	}{
+		{
+			description: "helm release sort by name",
+			query:       `type=Helm::Release @order=-name`,
+			expectedIDs: []uuid.UUID{dummy.NginxHelmRelease.ID, dummy.RedisHelmRelease.ID},
+			resource:    "config",
+		},
+		{
+			description: "helm release sort by name descending",
+			query:       `type=Helm::Release @order=-name`,
+			expectedIDs: []uuid.UUID{dummy.RedisHelmRelease.ID, dummy.NginxHelmRelease.ID},
+			resource:    "config",
+		},
+	}
+
+	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
+		"config":         query.FindConfigIDsByResourceSelector,
+		"component":      query.FindComponentIDs,
+		"checks":         query.FindCheckIDs,
+		"config_changes": query.FindConfigChangeIDsByResourceSelector,
+	}
+
+	uuidSliceToString := func(uuids []uuid.UUID) []string {
+		return lo.Map(uuids, func(item uuid.UUID, _ int) string { return item.String() })
+	}
+
+	ginkgo.Describe("peg search", func() {
+		for _, tt := range testData {
+
+			ginkgo.It(tt.description, func() {
+				f, ok := fmap[tt.resource]
+				Expect(ok).To(BeTrue())
+				ids, err := f(DefaultContext, -1, types.ResourceSelector{Search: tt.query})
+
+				if tt.err {
+					Expect(err).ToNot(BeNil())
+					Expect(err.Error()).To(ContainSubstring(tt.errMsg))
+				} else {
+					Expect(err).To(BeNil())
+					// We convert to strings slice for readable output
+					Expect(uuidSliceToString(ids)).To(ConsistOf(uuidSliceToString(tt.expectedIDs)))
+				}
 			})
 		}
 	})
@@ -619,12 +740,22 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			err:         true,
 			errMsg:      "not supported",
 		},
+		{
+			description: "config changes by type",
+			query:       "change_type=CREATE",
+			expectedIDs: []uuid.UUID{
+				uuid.MustParse(dummy.EKSClusterCreateChange.ID),
+				uuid.MustParse(dummy.KubernetesNodeAChange.ID),
+			},
+			resource: "config_changes",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
-		"config":    query.FindConfigIDsByResourceSelector,
-		"component": query.FindComponentIDs,
-		"checks":    query.FindCheckIDs,
+		"config":         query.FindConfigIDsByResourceSelector,
+		"component":      query.FindComponentIDs,
+		"checks":         query.FindCheckIDs,
+		"config_changes": query.FindConfigChangeIDsByResourceSelector,
 	}
 
 	uuidSliceToString := func(uuids []uuid.UUID) []string {

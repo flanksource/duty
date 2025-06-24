@@ -104,7 +104,7 @@ DateTime
   }
 
 Word
-  = String / [-]? [a-zA-Z0-9_*-]+ {
+  = String / [-]? [@a-zA-Z0-9_*-]+ {
       return string(c.text), nil
   }
 
@@ -125,7 +125,7 @@ Float
     }
 
 Identifier
-  = [a-zA-Z0-9_*\\,-:\\[\]]+ {
+  = [@a-zA-Z0-9_*\\,-:\\[\]]+ {
       return string(c.text), nil
   }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/duration"
-
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
@@ -29,15 +28,17 @@ type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
 
-	Checks     []types.ResourceSelector `json:"checks"`
-	Components []types.ResourceSelector `json:"components"`
-	Configs    []types.ResourceSelector `json:"configs"`
+	Checks        []types.ResourceSelector `json:"checks"`
+	Components    []types.ResourceSelector `json:"components"`
+	Configs       []types.ResourceSelector `json:"configs"`
+	ConfigChanges []types.ResourceSelector `json:"config_changes"`
 }
 
 type SearchResourcesResponse struct {
-	Checks     []SelectedResource `json:"checks,omitempty"`
-	Components []SelectedResource `json:"components,omitempty"`
-	Configs    []SelectedResource `json:"configs,omitempty"`
+	Checks        []SelectedResource `json:"checks,omitempty"`
+	Components    []SelectedResource `json:"components,omitempty"`
+	Configs       []SelectedResource `json:"configs,omitempty"`
+	ConfigChanges []SelectedResource `json:"config_changes,omitempty"`
 }
 
 func (r *SearchResourcesResponse) GetIDs() []string {
@@ -45,6 +46,7 @@ func (r *SearchResourcesResponse) GetIDs() []string {
 	ids = append(ids, lo.Map(r.Checks, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Configs, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Components, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.ConfigChanges, func(c SelectedResource, _ int) string { return c.ID })...)
 	return ids
 }
 
@@ -125,6 +127,28 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 		return nil
 	})
 
+	eg.Go(func() error {
+		if items, err := FindConfigChangesByResourceSelector(ctx, req.Limit, req.ConfigChanges...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				agentID := ""
+				if items[i].AgentID != nil {
+					agentID = items[i].AgentID.String()
+				}
+				output.ConfigChanges = append(output.ConfigChanges, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     agentID,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
+				})
+			}
+		}
+
+		return nil
+	})
+
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -193,6 +217,8 @@ func SetResourceSelectorClause(
 			query = query.Where("scraper_id = ?", scope)
 		case "components":
 			query = query.Where("topology_id = ?", scope)
+		case "config_changes", "catalog_changes":
+			query = query.Where("config_id = ?", scope)
 		default:
 			return nil, api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 		}
@@ -390,6 +416,8 @@ func getScopeID(ctx context.Context, scope string, table string, agentID *uuid.U
 		q = q.Table("config_scrapers").Select("id").Where("name = ?", namespace+"/"+name)
 	case "components":
 		q = q.Table("topologies").Select("id").Where("name = ? AND namespace = ?", name, namespace)
+	case "config_changes":
+		q = q.Table("config_items").Select("id").Where("name = ? AND namespace = ?", name, namespace)
 	default:
 		return "", api.Errorf(api.EINVALID, "scope is not supported for %s", table)
 	}

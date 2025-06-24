@@ -8,16 +8,16 @@ import (
 	"sync/atomic"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/query/grammar"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
-
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query/grammar"
 )
 
 // Maintained by a job
@@ -74,7 +74,10 @@ var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string)
 }
 
 type QueryModel struct {
-	Table  string
+	// Table name
+	Table string
+
+	// Custom functions to map fields to clauses
 	Custom map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error)
 
 	// List of jsonb columns that store a map.
@@ -217,6 +220,28 @@ var PlaybookQueryModel = QueryModel{
 	},
 }
 
+var ConfigChangeQueryModel = QueryModel{
+	Table: "catalog_changes",
+	Columns: []string{
+		"id", "config_id", "name", "type",
+		"created_at", "severity", "change_type", "summary", "count", "first_observed", "agent_id",
+	},
+	JSONMapColumns: []string{"tags"},
+	HasAgents:      true,
+	HasTags:        true,
+	Aliases: map[string]string{
+		"created":        "created_at",
+		"first_observed": "first_observed",
+		"external_id":    "external_created_by",
+		"changeType":     "change_type",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"created_at":     DateMapper,
+		"first_observed": DateMapper,
+		"agent_id":       AgentMapper,
+	},
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
@@ -227,6 +252,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return CheckQueryModel, nil
 	case models.Playbook{}.TableName():
 		return PlaybookQueryModel, nil
+	case models.CatalogChange{}.TableName():
+		return ConfigChangeQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}
@@ -248,6 +275,16 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		q.Field = strings.ToLower(q.Field)
 		if alias, ok := qm.Aliases[q.Field]; ok {
 			q.Field = alias
+		}
+
+		if q.Field == "@order" {
+			if strings.HasPrefix(q.Value.(string), "-") {
+				tx = tx.Order(clause.OrderByColumn{Column: clause.Column{Name: strings.TrimPrefix(q.Value.(string), "-")}, Desc: true})
+			} else {
+				tx = tx.Order(clause.OrderByColumn{Column: clause.Column{Name: q.Value.(string)}})
+			}
+
+			return tx, nil, nil
 		}
 
 		val := fmt.Sprint(q.Value)

@@ -351,6 +351,103 @@ var LogisticsDBRDS = models.ConfigItem{
 	},
 }
 
+var NginxHelmRelease = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("nginx-ingress"),
+	ConfigClass: "HelmRelease",
+	Health:      lo.ToPtr(models.HealthHealthy),
+	Type:        lo.ToPtr("Helm::Release"),
+	Status:      lo.ToPtr("deployed"),
+	Config: lo.ToPtr(`{
+      "apiVersion": "helm.toolkit.fluxcd.io/v2beta1",
+      "kind": "HelmRelease",
+      "metadata": {
+        "name": "nginx-ingress",
+        "namespace": "ingress-nginx"
+      },
+      "spec": {
+        "chart": {
+          "spec": {
+            "chart": "ingress-nginx",
+            "version": "4.8.0",
+            "sourceRef": {
+              "kind": "HelmRepository",
+              "name": "ingress-nginx"
+            }
+          }
+        },
+        "interval": "5m",
+        "values": {
+          "controller": {
+            "replicaCount": 2
+          }
+        }
+      }
+    }`),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"app":         "nginx-ingress",
+		"environment": "production",
+		"owner":       "platform-team",
+		"version":     "4.8.0",
+		"chart":       "ingress-nginx",
+	}),
+	Tags: map[string]string{
+		"namespace": "ingress-nginx",
+		"chart":     "ingress-nginx",
+		"release":   "nginx-ingress",
+	},
+}
+
+var RedisHelmRelease = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("redis"),
+	ConfigClass: "HelmRelease",
+	Health:      lo.ToPtr(models.HealthHealthy),
+	Type:        lo.ToPtr("Helm::Release"),
+	Status:      lo.ToPtr("deployed"),
+	Config: lo.ToPtr(`{
+      "apiVersion": "helm.toolkit.fluxcd.io/v2beta1",
+      "kind": "HelmRelease",
+      "metadata": {
+        "name": "redis",
+        "namespace": "database"
+      },
+      "spec": {
+        "chart": {
+          "spec": {
+            "chart": "redis",
+            "version": "18.1.5",
+            "sourceRef": {
+              "kind": "HelmRepository",
+              "name": "bitnami"
+            }
+          }
+        },
+        "interval": "10m",
+        "values": {
+          "replica": {
+            "replicaCount": 1
+          },
+          "auth": {
+            "enabled": true
+          }
+        }
+      }
+    }`),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"app":         "redis",
+		"environment": "production",
+		"owner":       "data-team",
+		"version":     "18.1.5",
+		"chart":       "redis",
+	}),
+	Tags: map[string]string{
+		"namespace": "database",
+		"chart":     "redis",
+		"release":   "redis",
+	},
+}
+
 var AllDummyConfigs = []models.ConfigItem{
 	EKSCluster,
 	KubernetesCluster,
@@ -365,6 +462,8 @@ var AllDummyConfigs = []models.ConfigItem{
 	LogisticsUIDeployment,
 	LogisticsWorkerDeployment,
 	LogisticsDBRDS,
+	NginxHelmRelease,
+	RedisHelmRelease,
 }
 
 var AzureConfigScraper = models.ConfigScraper{
