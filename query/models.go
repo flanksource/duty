@@ -112,6 +112,7 @@ var ConfigQueryModel = QueryModel{
 	Table: models.ConfigItem{}.TableName(),
 	Columns: []string{
 		"id", "name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
+		"cost_total_1d", "cost_total_7d", "cost_total_30d", "cost_per_minute",
 		"created_at", "updated_at", "deleted_at", "last_scraped_time",
 	},
 	JSONMapColumns: []string{"labels", "tags", "config"},

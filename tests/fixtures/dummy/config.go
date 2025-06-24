@@ -4,13 +4,15 @@ import (
 	"embed"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+
 	"github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
-	"github.com/samber/lo"
 )
 
 //go:embed config/*.yaml
@@ -111,6 +113,7 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 	Name:        lo.ToPtr("aks-pool-1"),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("healthy"),
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "aks-pool-1"}}`),
 	Tags: types.JSONStringMap{
@@ -125,6 +128,7 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 	Properties: &types.Properties{
 		{Name: "memory", Value: lo.ToPtr(int64(64))},
 	},
+	CostTotal30d: 100,
 }
 
 var KubernetesNodeA = models.ConfigItem{
@@ -133,6 +137,7 @@ var KubernetesNodeA = models.ConfigItem{
 	ConfigClass: models.ConfigClassNode,
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
@@ -150,7 +155,7 @@ var KubernetesNodeA = models.ConfigItem{
 		{Name: "memory", Value: lo.ToPtr(int64(64))},
 		{Name: "region", Text: "us-east-1"},
 	},
-	CostTotal30d: 1,
+	CostTotal30d: 50,
 }
 
 var KubernetesNodeB = models.ConfigItem{
@@ -159,6 +164,7 @@ var KubernetesNodeB = models.ConfigItem{
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-b"}}`),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24 * 2),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
@@ -177,7 +183,7 @@ var KubernetesNodeB = models.ConfigItem{
 		{Name: "region", Text: "us-west-2"},
 		{Name: "os", Text: "linux"},
 	},
-	CostTotal30d: 1.5,
+	CostTotal30d: 80,
 }
 
 var EC2InstanceA = models.ConfigItem{
@@ -289,6 +295,7 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	Name:        lo.ToPtr("logistics-api-pod-1"),
 	Type:        lo.ToPtr("Kubernetes::Pod"),
 	Health:      lo.ToPtr(models.HealthHealthy),
+	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("Running"),
 	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
 	Labels: lo.ToPtr(types.JSONStringMap{
@@ -300,6 +307,7 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
 	},
+	CostTotal30d: 5,
 }
 
 var LogisticsUIDeployment = models.ConfigItem{
