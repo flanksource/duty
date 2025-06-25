@@ -60,7 +60,7 @@ func Aggregate(ctx context.Context, table string, query types.AggregatedResource
 		}
 	}
 
-	selectClause := buildSelectClause(query.GroupBy, query.Aggregates)
+	selectClause := BuildSelectClause(query.GroupBy, query.Aggregates)
 	db = db.Select(selectClause)
 
 	if len(query.GroupBy) > 0 {
@@ -107,8 +107,8 @@ func Aggregate(ctx context.Context, table string, query types.AggregatedResource
 	return results, nil
 }
 
-// buildSelectClause constructs the SELECT clause with GROUP BY fields and aggregations
-func buildSelectClause(groupBy []string, aggregates []types.AggregationField) string {
+// BuildSelectClause constructs the SELECT clause with GROUP BY fields and aggregations
+func BuildSelectClause(groupBy []string, aggregates []types.AggregationField) string {
 	var parts []string
 
 	for _, field := range groupBy {
