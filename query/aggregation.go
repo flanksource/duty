@@ -113,7 +113,12 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 
 	for _, field := range groupBy {
 		if strings.Contains(field, ".") {
-			parts = append(parts, BuildJSONFieldSelector(field))
+			selector, alias := BuildJSONFieldSelector(field)
+			if alias != "" {
+				parts = append(parts, fmt.Sprintf(`%s as "%s"`, selector, alias))
+			} else {
+				parts = append(parts, selector)
+			}
 		} else {
 			parts = append(parts, field)
 		}
@@ -124,11 +129,11 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 		if strings.ToUpper(agg.Function) == AggFunctionCount && agg.Field == "*" {
 			aggClause = fmt.Sprintf("COUNT(*) AS %s", agg.Alias)
 		} else if strings.Contains(agg.Field, ".") {
-			jsonField := BuildJSONFieldSelector(agg.Field)
+			selector, _ := BuildJSONFieldSelector(agg.Field)
 			if isNumericAggregation(agg.Function) {
-				aggClause = fmt.Sprintf("%s(CAST(%s AS NUMERIC)) AS %s", strings.ToUpper(agg.Function), jsonField, agg.Alias)
+				aggClause = fmt.Sprintf("%s(CAST(%s AS NUMERIC)) AS %s", strings.ToUpper(agg.Function), selector, agg.Alias)
 			} else {
-				aggClause = fmt.Sprintf("%s(%s) AS %s", strings.ToUpper(agg.Function), jsonField, agg.Alias)
+				aggClause = fmt.Sprintf("%s(%s) AS %s", strings.ToUpper(agg.Function), selector, agg.Alias)
 			}
 		} else {
 			aggClause = fmt.Sprintf("%s(%s) AS %s", strings.ToUpper(agg.Function), agg.Field, agg.Alias)
@@ -140,27 +145,30 @@ func buildSelectClause(groupBy []string, aggregates []types.AggregationField) st
 	return strings.Join(parts, ", ")
 }
 
-// BuildJSONFieldSelector creates SQL for accessing JSON fields
+// BuildJSONFieldSelector creates SQL for accessing JSON fields and returns both the selector and alias
 // This assumes the field has already been validated by isValidFieldForQuery
-func BuildJSONFieldSelector(field string) string {
+func BuildJSONFieldSelector(field string) (selector, alias string) {
 	parts := strings.SplitN(field, ".", 2)
 	if len(parts) != 2 {
-		return field
+		return field, ""
 	}
 
 	column := parts[0]
 	path := parts[1]
+	alias = strings.ReplaceAll(path, ".", "_")
 
 	// Special case for properties which uses jsonb_path_query_first
 	if column == "properties" {
-		return fmt.Sprintf("jsonb_path_query_first(properties, '$.%s') as \"%s\"", path, strings.ReplaceAll(path, ".", "_"))
+		selector = fmt.Sprintf("jsonb_path_query_first(properties, '$.%s')", path)
+		return selector, alias
 	}
 
 	// Generic handling for all JSON map columns
 	// Handle nested paths like config.author.name -> config->'author'->>'name'
 	pathParts := strings.Split(path, ".")
 	if len(pathParts) == 1 {
-		return fmt.Sprintf(`%s->>'%s' as "%s"`, column, path, path)
+		selector = fmt.Sprintf(`%s->>'%s'`, column, path)
+		alias = path
 	} else {
 		// Build nested JSON path
 		var jsonPath strings.Builder
@@ -172,8 +180,10 @@ func BuildJSONFieldSelector(field string) string {
 				jsonPath.WriteString(fmt.Sprintf(`->'%s'`, part))
 			}
 		}
-		return fmt.Sprintf(`%s as "%s"`, jsonPath.String(), strings.ReplaceAll(path, ".", "_"))
+		selector = jsonPath.String()
 	}
+	
+	return selector, alias
 }
 
 // buildGroupByClause constructs the GROUP BY clause
