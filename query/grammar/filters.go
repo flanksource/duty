@@ -17,7 +17,7 @@ const (
 )
 
 type expressions struct {
-	In     []interface{}
+	In     []any
 	Prefix []string
 	Suffix []string
 	Glob   []string
@@ -40,6 +40,14 @@ func (e expressions) jsonbListFieldExpression(field string) []clause.Expression 
 		clauses = append(clauses, clause.Expr{
 			SQL:  fmt.Sprintf(`%s ? ?`, field),
 			Vars: []any{gorm.Expr("?"), e.In},
+		})
+	}
+
+	for _, g := range e.Glob {
+		regexp := fmt.Sprintf(".*%s.*", g)
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf(`jsonb_path_exists(?, '$[*] ? (@ like_regex "%s")')`, regexp),
+			Vars: []any{clause.Column{Name: field}, gorm.Expr("?")},
 		})
 	}
 
@@ -75,6 +83,13 @@ func (e expressions) textFieldExpression(field string) []clause.Expression {
 		clauses = append(clauses, clause.Like{
 			Column: clause.Column{Name: field},
 			Value:  p + "%",
+		})
+	}
+
+	for _, g := range e.Glob {
+		clauses = append(clauses, clause.Like{
+			Column: clause.Column{Raw: true, Name: field},
+			Value:  "%" + g + "%",
 		})
 	}
 
@@ -136,7 +151,6 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 		} else {
 			q.In = append(q.In, item)
 		}
-
 	}
 
 	return result, nil

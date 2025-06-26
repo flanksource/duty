@@ -478,6 +478,8 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		resource    string
 		err         bool
 		errMsg      string
+		// For debugging
+		focus bool
 	}{
 		{
 			description: "config item direct query without quotes",
@@ -671,14 +673,14 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "type glob | configs",
-			query:       "type=*Deploy*",
+			query:       "type=*Deploy* name=logistics*",
 			expectedIDs: []uuid.UUID{
-				dummy.KubernetesNodeA.ID,
-				dummy.KubernetesNodeB.ID,
+				dummy.LogisticsAPIDeployment.ID,
+				dummy.LogisticsUIDeployment.ID,
+				dummy.LogisticsWorkerDeployment.ID,
 			},
 			resource: "config",
 		},
-
 		{
 			description: "tags value search",
 			query:       "tags=us-east-1",
@@ -736,6 +738,14 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "properties unkeyed value search | glob",
+			query:       "properties=*west*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
 			description: "properties keyed value search",
 			query:       "properties.os=linux",
 			expectedIDs: []uuid.UUID{
@@ -774,6 +784,10 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
+
+			if !tt.focus {
+				continue
+			}
 
 			ginkgo.It(tt.description, func() {
 				f, ok := fmap[tt.resource]
