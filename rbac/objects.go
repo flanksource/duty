@@ -180,6 +180,7 @@ var dbResourceObjMap = map[string]string{
 	"session_devices":                                   policy.ObjectAuthConfidential,
 	"sessions":                                          policy.ObjectAuthConfidential,
 	"severities":                                        policy.ObjectDatabasePublic,
+	"short_urls":                                        policy.ObjectDatabasePublic,
 	"team_components":                                   policy.ObjectDatabasePublic,
 	"team_members":                                      policy.ObjectDatabasePublic,
 	"teams_with_status":                                 policy.ObjectDatabasePublic,
