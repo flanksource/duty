@@ -85,6 +85,7 @@ func TestMatchQuery(t *testing.T) {
 	runTests(t, []TestCase{
 		// Basic field matching tests
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=*y-app*')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=other-app')", "false"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my*')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=*app')", "true"},
@@ -136,16 +137,16 @@ func TestMatchQuery(t *testing.T) {
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.nonexistent=value')", "false"},
 
 		// Multiple field combinations
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,type=Kubernetes::Deployment')", "true"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,status=Running,health=healthy')", "true"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'namespace=production,tags.team=backend')", "true"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my-app,tags.version=v1.2.3')", "true"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.replicas=3,properties.cpu=2000m')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app type=Kubernetes::Deployment')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app status=Running,health=healthy')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.namespace=production tags.team=backend')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my-app tags.version=v1.2.3')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.replicas=3 properties.cpu=2000m')", "true"},
 
 		// Mixed positive and negative combinations - logic incorrect
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app,type=Docker::Container')", "false"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Running,health=unhealthy')", "false"},
-		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'namespace=staging,tags.team=backend')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app type=Docker::Container')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'status=Running health=unhealthy')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'namespace=staging tags.team=backend')", "false"},
 
 		// Wildcard combinations
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my*,type=Kubernetes*')", "true"},
@@ -178,7 +179,7 @@ func TestMatchQuery(t *testing.T) {
 }
 
 type TestCase struct {
-	env        map[string]interface{}
+	env        map[string]any
 	expression string
 	out        string
 }
@@ -186,10 +187,6 @@ type TestCase struct {
 func runTests(t *testing.T, tests []TestCase) {
 	ctx := context.New()
 	for _, tc := range tests {
-		if tc.expression != "matchQuery(config, 'tags.team=backend')" {
-			continue
-		}
-
 		t.Run(tc.expression, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			out, err := ctx.RunTemplate(gomplate.Template{

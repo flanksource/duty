@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/context"
@@ -16,44 +17,54 @@ var distinctTagsCache = cache.New(time.Minute*10, time.Hour)
 
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
-func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
+// func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
+func ParseFilteringQuery(query string, decodeURL bool) (grammar.FilteringQuery, error) {
 	if query == "" {
-		return
+		return grammar.FilteringQuery{}, nil
 	}
 
 	q, err := grammar.ParseFilteringQueryV2(query, decodeURL)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return grammar.FilteringQuery{}, err
 	}
 
-	return q.In, q.Not.In, q.Prefix, q.Suffix, nil
+	//return q.In, q.Not.In, q.Prefix, q.Suffix, nil
+	return q, nil
 }
 
 func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.Expression, error) {
-	in, notIN, prefixes, suffixes, err := ParseFilteringQuery(query, decodeURL)
+	fq, err := ParseFilteringQuery(query, decodeURL)
 	if err != nil {
 		return nil, err
 	}
-
+	//in, notIN, prefixes, suffixes
 	var clauses []clause.Expression
-	if len(in) > 0 {
-		clauses = append(clauses, clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: in})
+	if len(fq.In) > 0 {
+		clauses = append(clauses, clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: fq.In})
 	}
 
-	if len(notIN) > 0 {
+	if len(fq.Not.In) > 0 {
 		clauses = append(clauses, clause.NotConditions{
-			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: notIN}},
+			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: fq.Not.In}},
 		})
 	}
 
-	for _, p := range prefixes {
+	for _, g := range fq.Glob {
+		fmt.Println("Glob is ", g)
+		clauses = append(clauses, clause.Like{
+			Column: clause.Column{Raw: true, Name: field},
+			Value:  "%" + g + "%",
+		})
+	}
+
+	for _, p := range fq.Prefix {
 		clauses = append(clauses, clause.Like{
 			Column: clause.Column{Raw: true, Name: field},
 			Value:  p + "%",
 		})
 	}
 
-	for _, s := range suffixes {
+	for _, s := range fq.Suffix {
 		clauses = append(clauses, clause.Like{
 			Column: clause.Column{Raw: true, Name: field},
 			Value:  "%" + s,

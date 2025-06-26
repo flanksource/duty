@@ -20,6 +20,7 @@ type expressions struct {
 	In     []interface{}
 	Prefix []string
 	Suffix []string
+	Glob   []string
 }
 
 type Expressions []clause.Expression
@@ -111,8 +112,7 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 		return result, nil
 	}
 
-	items := strings.Split(query, ",")
-	for _, item := range items {
+	for item := range strings.SplitSeq(query, ",") {
 		if decodeURL {
 			var err error
 			item, err = url.QueryUnescape(item)
@@ -126,7 +126,10 @@ func ParseFilteringQueryV2(query string, decodeURL bool) (FilteringQuery, error)
 			q = &result.Not
 			item = strings.TrimPrefix(item, "!")
 		}
-		if strings.HasPrefix(item, "*") {
+
+		if strings.HasPrefix(item, "*") && strings.HasSuffix(item, "*") {
+			q.Glob = append(q.Glob, strings.Trim(item, "*"))
+		} else if strings.HasPrefix(item, "*") {
 			q.Suffix = append(q.Suffix, strings.TrimPrefix(item, "*"))
 		} else if strings.HasSuffix(item, "*") {
 			q.Prefix = append(q.Prefix, strings.TrimSuffix(item, "*"))

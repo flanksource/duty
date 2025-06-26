@@ -670,6 +670,16 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "type glob | configs",
+			query:       "type=*Deploy*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+
+		{
 			description: "tags value search",
 			query:       "tags=us-east-1",
 			expectedIDs: []uuid.UUID{
