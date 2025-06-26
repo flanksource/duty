@@ -1,7 +1,6 @@
 package query
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/flanksource/duty/context"
@@ -15,9 +14,7 @@ var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-00
 
 var distinctTagsCache = cache.New(time.Minute*10, time.Hour)
 
-// ParseFilteringQuery parses a filtering query string.
-// It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
-// func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
+// ParseFilteringQuery parses a filtering query string
 func ParseFilteringQuery(query string, decodeURL bool) (grammar.FilteringQuery, error) {
 	if query == "" {
 		return grammar.FilteringQuery{}, nil
@@ -28,7 +25,6 @@ func ParseFilteringQuery(query string, decodeURL bool) (grammar.FilteringQuery, 
 		return grammar.FilteringQuery{}, err
 	}
 
-	//return q.In, q.Not.In, q.Prefix, q.Suffix, nil
 	return q, nil
 }
 
@@ -37,7 +33,7 @@ func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.
 	if err != nil {
 		return nil, err
 	}
-	//in, notIN, prefixes, suffixes
+
 	var clauses []clause.Expression
 	if len(fq.In) > 0 {
 		clauses = append(clauses, clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: fq.In})
@@ -50,7 +46,6 @@ func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.
 	}
 
 	for _, g := range fq.Glob {
-		fmt.Println("Glob is ", g)
 		clauses = append(clauses, clause.Like{
 			Column: clause.Column{Raw: true, Name: field},
 			Value:  "%" + g + "%",
