@@ -478,8 +478,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		resource    string
 		err         bool
 		errMsg      string
-		// For debugging
-		focus bool
 	}{
 		{
 			description: "config item direct query without quotes",
@@ -784,11 +782,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-
-			if !tt.focus {
-				continue
-			}
-
 			ginkgo.It(tt.description, func() {
 				f, ok := fmap[tt.resource]
 				Expect(ok).To(BeTrue())
