@@ -670,6 +670,16 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "type glob | configs",
+			query:       "type=*Deploy* name=logistics*",
+			expectedIDs: []uuid.UUID{
+				dummy.LogisticsAPIDeployment.ID,
+				dummy.LogisticsUIDeployment.ID,
+				dummy.LogisticsWorkerDeployment.ID,
+			},
+			resource: "config",
+		},
+		{
 			description: "tags value search",
 			query:       "tags=us-east-1",
 			expectedIDs: []uuid.UUID{
@@ -726,6 +736,14 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource: "config",
 		},
 		{
+			description: "properties unkeyed value search | glob",
+			query:       "properties=*west*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config",
+		},
+		{
 			description: "properties keyed value search",
 			query:       "properties.os=linux",
 			expectedIDs: []uuid.UUID{
@@ -764,7 +782,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("peg search", func() {
 		for _, tt := range testData {
-
 			ginkgo.It(tt.description, func() {
 				f, ok := fmap[tt.resource]
 				Expect(ok).To(BeTrue())
