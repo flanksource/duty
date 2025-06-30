@@ -39,7 +39,7 @@ func (v View) GetNamespace() string {
 	return v.Namespace
 }
 
-type PanelResult struct {
+type ViewPanel struct {
 	ViewID   uuid.UUID `json:"view_id" gorm:"primaryKey"`
 	AgentID  uuid.UUID `json:"agent_id"`
 	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
@@ -48,10 +48,10 @@ type PanelResult struct {
 	Results types.JSON `json:"results"`
 }
 
-func (PanelResult) TableName() string {
-	return "panel_results"
+func (ViewPanel) TableName() string {
+	return "view_panels"
 }
 
-func (v PanelResult) PK() string {
+func (v ViewPanel) PK() string {
 	return v.ViewID.String()
 }

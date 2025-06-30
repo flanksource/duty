@@ -125,7 +125,7 @@ var dbResourceObjMap = map[string]string{
 	"notification_groups":                       policy.ObjectNotification,
 	"notification_group_resources":              policy.ObjectNotification,
 	"notification_silences":                     policy.ObjectNotification,
-	"panel_results":                             policy.ObjectCatalog,
+	"view_panels":                               policy.ObjectCatalog,
 	"people_roles":                              policy.ObjectDatabasePublic,
 	"people":                                    policy.ObjectPeople,
 	"permissions":                               policy.ObjectDatabaseSystem,

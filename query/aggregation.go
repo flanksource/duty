@@ -182,7 +182,7 @@ func BuildJSONFieldSelector(field string) (selector, alias string) {
 		}
 		selector = jsonPath.String()
 	}
-	
+
 	return selector, alias
 }
 

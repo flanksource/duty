@@ -59,7 +59,7 @@ table "views" {
   }
 }
 
-table "panel_results" {
+table "view_panels" {
   schema = schema.public
   column "view_id" {
     null = false
@@ -79,13 +79,13 @@ table "panel_results" {
     default = false
     type    = bool
   }
-  foreign_key "panel_results_view_id_fkey" {
+  foreign_key "view_panels_view_id_fkey" {
     columns     = [column.view_id]
     ref_columns = [table.views.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  foreign_key "panel_results_agent_id_fkey" {
+  foreign_key "view_panels_agent_id_fkey" {
     columns     = [column.agent_id]
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
