@@ -31,6 +31,15 @@ table "views" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "last_ran" {
+    null    = true
+    type    = timestamptz
+    comment = "The last time the view queries were run and persisted"
+  }
+  column "error" {
+    null    = true
+    type    = text
+  }
   column "updated_at" {
     null = true
     type = timestamptz
