@@ -18,6 +18,8 @@ type View struct {
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
+	LastRan   *time.Time `json:"last_ran,omitempty" gorm:"default:NULL"`
+	Error     *string    `json:"error,omitempty" gorm:"default:NULL"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
