@@ -174,6 +174,9 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 	} else {
 		ctx = ctx.WithLoggingValues("connection", setupResult)
 		defer func() {
+			if waitBeforeCleanup := ctx.Properties().Duration("shell.connection.wait_before_cleanup", 0); waitBeforeCleanup > 0 {
+				time.Sleep(waitBeforeCleanup)
+			}
 			if err := setupResult.Cleanup(); err != nil {
 				logger.Errorf("failed to cleanup connection artifacts: %v", err)
 			}
