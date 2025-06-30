@@ -53,7 +53,7 @@ type ExecConnections struct {
 }
 
 func saveConfig(configTemplate *textTemplate.Template, view any) (string, error) {
-	dirPath := filepath.Join(".creds", fmt.Sprintf("cred-%d", rand.Intn(10000000)))
+	dirPath := filepath.Join(os.TempDir(), ".creds", fmt.Sprintf("cred-%d", rand.Intn(10000000)))
 	if err := os.MkdirAll(dirPath, 0700); err != nil {
 		return "", err
 	}
