@@ -58,3 +58,41 @@ table "views" {
     on_delete   = NO_ACTION
   }
 }
+
+table "panel_results" {
+  schema = schema.public
+  column "view_id" {
+    null = false
+    type = uuid
+  }
+  column "results" {
+    null = false
+    type = jsonb
+  }
+  column "agent_id" {
+    null    = false
+    default = var.uuid_nil
+    type    = uuid
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
+  foreign_key "panel_results_view_id_fkey" {
+    columns     = [column.view_id]
+    ref_columns = [table.views.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "panel_results_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  primary_key {
+    columns = [column.view_id]
+    comment = "one record per view"
+  }
+}

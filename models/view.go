@@ -38,3 +38,20 @@ func (v View) AsMap(removeFields ...string) map[string]any {
 func (v View) GetNamespace() string {
 	return v.Namespace
 }
+
+type PanelResult struct {
+	ViewID   uuid.UUID `json:"view_id" gorm:"primaryKey"`
+	AgentID  uuid.UUID `json:"agent_id"`
+	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
+
+	// Results is a JSON array of panel results
+	Results types.JSON `json:"results"`
+}
+
+func (PanelResult) TableName() string {
+	return "panel_results"
+}
+
+func (v PanelResult) PK() string {
+	return v.ViewID.String()
+}
