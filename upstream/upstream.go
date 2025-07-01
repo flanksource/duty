@@ -93,6 +93,7 @@ type PushData struct {
 	PlaybookActions              []models.PlaybookRunAction           `json:"playbook_actions,omitempty"`
 	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
 	JobHistory                   []models.JobHistory                  `json:"job_history,omitempty"`
+	Views                        []models.View                        `json:"views,omitempty"`
 	ViewPanels                   []models.ViewPanel                   `json:"view_panels,omitempty"`
 	GeneratedViews               []models.GeneratedViewTable          `json:"generated_views,omitempty"`
 }
@@ -135,6 +136,8 @@ func NewPushData[T models.DBTable](records []T) *PushData {
 			p.Artifacts = append(p.Artifacts, t)
 		case models.JobHistory:
 			p.JobHistory = append(p.JobHistory, t)
+		case models.View:
+			p.Views = append(p.Views, t)
 		case models.ViewPanel:
 			p.ViewPanels = append(p.ViewPanels, t)
 		case models.GeneratedViewTable:
@@ -161,6 +164,7 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
 	counter.Label("table", "topologies").Add(len(p.Topologies))
 	counter.Label("table", "job_history").Add(len(p.JobHistory))
+	counter.Label("table", "views").Add(len(p.Views))
 	counter.Label("table", "view_panels").Add(len(p.ViewPanels))
 
 	for _, gb := range p.GeneratedViews {
@@ -221,6 +225,9 @@ func (p *PushData) Attributes() map[string]any {
 	if len(p.JobHistory) > 0 {
 		attrs["JobHistory"] = len(p.JobHistory)
 	}
+	if len(p.Views) > 0 {
+		attrs["Views"] = len(p.Views)
+	}
 	if len(p.ViewPanels) > 0 {
 		attrs["ViewPanels"] = len(p.ViewPanels)
 	}
@@ -245,7 +252,8 @@ func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
 		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) +
-		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory) + len(t.ViewPanels) + len(t.GeneratedViews)
+		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory) +
+		len(t.Views) + len(t.ViewPanels) + len(t.GeneratedViews)
 }
 
 // ReplaceTopologyID replaces the topology_id for all the components
@@ -278,6 +286,12 @@ func (t *PushData) PopulateAgentID(id uuid.UUID) {
 	}
 	for i := range t.JobHistory {
 		t.JobHistory[i].AgentID = id
+	}
+	for i := range t.Views {
+		t.Views[i].AgentID = id
+	}
+	for i := range t.ViewPanels {
+		t.ViewPanels[i].AgentID = id
 	}
 }
 

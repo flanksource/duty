@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/types"
@@ -22,6 +23,8 @@ type View struct {
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	LastRan   *time.Time `json:"last_ran,omitempty" gorm:"default:NULL"`
+	AgentID   uuid.UUID  `json:"agent_id"`
+	IsPushed  bool       `json:"is_pushed" gorm:"default:false"`
 	Error     *string    `json:"error,omitempty" gorm:"default:NULL"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
@@ -42,8 +45,21 @@ func (v View) GetNamespace() string {
 	return v.Namespace
 }
 
+func (v View) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var records []View
+	if err := db.Where("is_pushed = ?", false).Find(&records).Error; err != nil {
+		return nil, err
+	}
+
+	var result []DBTable
+	for _, record := range records {
+		result = append(result, record)
+	}
+	return result, nil
+}
+
 type ViewPanel struct {
-	ViewID   uuid.UUID `json:"view_id" gorm:"primaryKey"`
+	ID       uuid.UUID `json:"id" gorm:"primaryKey"`
 	AgentID  uuid.UUID `json:"agent_id"`
 	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
 
@@ -56,7 +72,7 @@ func (ViewPanel) TableName() string {
 }
 
 func (v ViewPanel) PK() string {
-	return v.ViewID.String()
+	return v.ID.String()
 }
 
 func (v ViewPanel) AsMap(removeFields ...string) map[string]any {
@@ -75,6 +91,14 @@ func (ViewPanel) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 		result = append(result, record)
 	}
 	return result, nil
+}
+
+func (v ViewPanel) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(View).ID.String()
+	})
+
+	return db.Model(&View{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
 }
 
 // GeneratedViewTable represents a record in a dynamically generated view_* table
