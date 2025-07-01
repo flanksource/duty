@@ -6,14 +6,15 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	dutil "github.com/flanksource/duty/db"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 )
 
 const (
@@ -150,6 +151,12 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.Views) > 0 {
+		if err := db.Delete(req.Views).Error; err != nil {
+			return fmt.Errorf("error deleting views: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -230,6 +237,12 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	if len(req.JobHistory) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.JobHistory, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting job_history: %w", err)
+		}
+	}
+
+	if len(req.Views) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.Views, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting views: %w", err)
 		}
 	}
 

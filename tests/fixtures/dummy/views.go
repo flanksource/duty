@@ -49,7 +49,7 @@ var View = models.View{
 }
 
 var PipelineView = models.ViewPanel{
-	ViewID:   View.ID,
+	ID:       View.ID,
 	AgentID:  uuid.Nil,
 	IsPushed: false,
 	Results: types.JSON([]byte(`[

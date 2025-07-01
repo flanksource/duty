@@ -37,8 +37,8 @@ table "views" {
     comment = "The last time the view queries were run and persisted"
   }
   column "error" {
-    null    = true
-    type    = text
+    null = true
+    type = text
   }
   column "updated_at" {
     null = true
@@ -48,8 +48,24 @@ table "views" {
     null = true
     type = timestamptz
   }
+  column "agent_id" {
+    null    = false
+    default = var.uuid_nil
+    type    = uuid
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "view_panels_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "views_created_by_fkey" {
     columns     = [column.created_by]
@@ -61,9 +77,10 @@ table "views" {
 
 table "view_panels" {
   schema = schema.public
-  column "view_id" {
-    null = false
-    type = uuid
+  column "id" {
+    null    = false
+    type    = uuid
+    comment = "maps one-to-one with views.id"
   }
   column "results" {
     null = false
@@ -80,7 +97,7 @@ table "view_panels" {
     type    = bool
   }
   foreign_key "view_panels_view_id_fkey" {
-    columns     = [column.view_id]
+    columns     = [column.id]
     ref_columns = [table.views.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
@@ -92,7 +109,7 @@ table "view_panels" {
     on_delete   = NO_ACTION
   }
   primary_key {
-    columns = [column.view_id]
+    columns = [column.id]
     comment = "one record per view"
   }
 }
