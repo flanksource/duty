@@ -314,30 +314,9 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(pending).To(BeZero())
 	})
 
-	ginkgo.It("should sync view panels to upstream", func() {
-		var pushed int
-		err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ViewPanel{}).Scan(&pushed).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pushed).To(BeZero())
-
-		var viewPanels int
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ViewPanel{}).Scan(&viewPanels).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(viewPanels).To(BeZero())
-
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "view_panels")
-		Expect(summary.Error()).ToNot(HaveOccurred())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(BeZero())
-
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ViewPanel{}).Scan(&viewPanels).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(viewPanels).To(Equal(count))
-
-		var pending int
-		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.ViewPanel{}).Scan(&pending).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pending).To(BeZero())
+	ginkgo.It("should sync views and panels to upstream", func() {
+		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "views")
+		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "view_panels")
 	})
 
 	ginkgo.Describe("should deal with fk constraint errors", func() {
@@ -588,3 +567,29 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		drop()
 	})
 })
+
+func testSingleTableReconcile(agentCtx context.Context, upstreamCtx *context.Context, upstreamConf upstream.UpstreamConfig, table string) {
+	var pushed int
+	err := agentCtx.DB().Select("COUNT(*)").Where("is_pushed = true").Table(table).Scan(&pushed).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pushed).To(BeZero())
+
+	var viewPanels int
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(viewPanels).To(BeZero())
+
+	summary := upstream.ReconcileSome(agentCtx, upstreamConf, 10, table)
+	Expect(summary.Error()).ToNot(HaveOccurred())
+	count, fkFailed := summary.GetSuccessFailure()
+	Expect(fkFailed).To(BeZero())
+
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(viewPanels).To(Equal(count))
+
+	var pending int
+	err = agentCtx.DB().Select("COUNT(*)").Where("is_pushed = false").Table(table).Scan(&pending).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pending).To(BeZero())
+}

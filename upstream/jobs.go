@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	dutil "github.com/flanksource/duty/db"
-	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"github.com/sethvargo/go-retry"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 )
 
 type pushableTable interface {
@@ -46,6 +47,17 @@ var (
 
 	_ parentIsPushedUpdater = (*models.Check)(nil)
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
+
+	_ parentIsPushedUpdater = (*models.ViewPanel)(nil)
+)
+
+// Tables whose primary key is not just the "id" column need to implement this interface.
+var (
+	_ customIsPushedUpdater = (*models.CheckStatus)(nil)
+	_ customIsPushedUpdater = (*models.ConfigRelationship)(nil)
+	_ customIsPushedUpdater = (*models.ConfigComponentRelationship)(nil)
+	_ customIsPushedUpdater = (*models.CheckComponentRelationship)(nil)
+	_ customIsPushedUpdater = (*models.CheckConfigRelationship)(nil)
 )
 
 type ForeignKeyErrorSummary struct {
@@ -215,7 +227,7 @@ var reconcileTableGroups = []PushGroup{
 	},
 	{
 		Name:   "Views",
-		Tables: []pushableTable{models.ViewPanel{}, models.GeneratedViewTable{}},
+		Tables: []pushableTable{models.View{}, models.ViewPanel{}, models.GeneratedViewTable{}},
 	},
 }
 
