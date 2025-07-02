@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/console"
+	"github.com/flanksource/commons/duration"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/models"
@@ -96,7 +97,7 @@ func (p Properties) Duration(key string, def time.Duration) time.Duration {
 			Default: def,
 		})
 		return def
-	} else if dur, err := time.ParseDuration(d); err != nil {
+	} else if dur, err := duration.ParseDuration(d); err != nil {
 		newProp(PropertyType{
 			Type:    "duration",
 			Key:     key,
@@ -110,9 +111,9 @@ func (p Properties) Duration(key string, def time.Duration) time.Duration {
 			Type:    "duration",
 			Key:     key,
 			Default: def,
-			Value:   dur,
+			Value:   time.Duration(dur),
 		})
-		return dur
+		return time.Duration(dur)
 	}
 }
 

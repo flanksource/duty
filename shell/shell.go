@@ -21,6 +21,7 @@ import (
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 )
@@ -148,7 +149,21 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
-		exec.Chroot = path.Join(cwd, ".shell-tmp")
+		cmdDir := path.Join(properties.String("shell.tmp.dir", cwd), "shell-tmp", uuid.New().String())
+		if err := os.MkdirAll(cmdDir, 0700); err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		cmd.Dir = cmdDir
+	} else {
+		if stat, err := os.Stat(exec.Chroot); err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		} else if stat.IsDir() {
+			envParams.mountPoint = stat.Name()
+			return nil, fmt.Errorf("%s is not a directory", exec.Chroot)
+		} else {
+			envParams.mountPoint = filepath.Dir(stat.Name())
+		}
+		cmd.Dir = exec.Chroot
 	}
 
 	// Set to a non-nil empty slice to prevent access to current environment variables
@@ -165,15 +180,14 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		cmd.Env = append(cmd.Env, envParams.envs...)
 	}
 
-	if envParams.mountPoint != "" {
-		cmd.Dir = envParams.mountPoint
-	}
-
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	} else {
 		ctx = ctx.WithLoggingValues("connection", setupResult)
 		defer func() {
+			if waitBeforeCleanup := ctx.Properties().Duration("shell.connection.wait_before_cleanup", 0); waitBeforeCleanup > 0 {
+				time.Sleep(waitBeforeCleanup)
+			}
 			if err := setupResult.Cleanup(); err != nil {
 				logger.Errorf("failed to cleanup connection artifacts: %v", err)
 			}
@@ -278,19 +292,6 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error) {
 	result := commandContext{
 		extra: make(map[string]any),
-	}
-
-	if exec.Chroot != "" {
-		if stat, err := os.Stat(exec.Chroot); err != nil {
-			return nil, fmt.Errorf("%s does not exist", exec.Chroot)
-		} else if stat.IsDir() {
-			result.mountPoint = stat.Name()
-			return nil, fmt.Errorf("%s is not a directory", exec.Chroot)
-		} else {
-			result.mountPoint = filepath.Dir(stat.Name())
-		}
-	} else {
-		result.mountPoint = os.TempDir()
 	}
 
 	for _, env := range exec.EnvVars {

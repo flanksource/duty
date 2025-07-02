@@ -52,8 +52,8 @@ type ExecConnections struct {
 	Azure      *AzureConnection      `yaml:"azure,omitempty" json:"azure,omitempty"`
 }
 
-func saveConfig(configTemplate *textTemplate.Template, view any) (string, error) {
-	dirPath := filepath.Join(".creds", fmt.Sprintf("cred-%d", rand.Intn(10000000)))
+func saveConfig(cwd string, configTemplate *textTemplate.Template, view any) (string, error) {
+	dirPath := filepath.Join(cwd, ".creds", fmt.Sprintf("cred-%d", rand.Intn(10000000)))
 	if err := os.MkdirAll(dirPath, 0700); err != nil {
 		return "", err
 	}
@@ -94,7 +94,8 @@ aws_secret_access_key = {{.SecretKey.ValueStatic}}
 
 type ConnectionSetupResult struct {
 	Sources   []string `json:"source,omitempty"`
-	ApiServer string   `json:"KubeApiServer,omitempty"`
+	EnvVars   []string `json:"envVars,omitempty"`
+	ApiServer string   `json:"kubeApiServer,omitempty"`
 
 	Cleanup func() error `json:"-"`
 }
@@ -210,7 +211,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 				output.ApiServer = apiServer
 			}
 		} else {
-			configPath, err := saveConfig(kubernetesConfigTemplate, connections.Kubernetes)
+			configPath, err := saveConfig(cmd.Dir, kubernetesConfigTemplate, connections.Kubernetes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to store kubernetes credentials: %w", err)
 			}
@@ -238,7 +239,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 		}
 
 		output.Sources = append(output.Sources, fmt.Sprintf("awsConnection: %s", connections.AWS.ConnectionName))
-		configPath, err := saveConfig(awsConfigTemplate, connections.AWS)
+		configPath, err := saveConfig(cmd.Dir, awsConfigTemplate, connections.AWS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to store AWS credentials: %w", err)
 		}
@@ -276,7 +277,7 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 		output.Sources = append(output.Sources, fmt.Sprintf("gcpConnection: %s", connections.GCP.ConnectionName))
 
-		configPath, err := saveConfig(gcloudConfigTemplate, connections.GCP)
+		configPath, err := saveConfig(cmd.Dir, gcloudConfigTemplate, connections.GCP)
 		if err != nil {
 			return nil, fmt.Errorf("failed to store gcloud credentials: %w", err)
 		}
@@ -294,6 +295,8 @@ func SetupConnection(ctx context.Context, connections ExecConnections, cmd *osEx
 
 		cmd.Env = append(cmd.Env, fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", configPath))
 	}
+
+	output.EnvVars = cmd.Env
 
 	output.Cleanup = func() error {
 		var errorList []error
