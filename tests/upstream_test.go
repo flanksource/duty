@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/commons/utils"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -12,8 +14,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 
-	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -314,6 +314,11 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(pending).To(BeZero())
 	})
 
+	ginkgo.It("should sync views and panels to upstream", func() {
+		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "views")
+		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "view_panels")
+	})
+
 	ginkgo.Describe("should deal with fk constraint errors", func() {
 		ginkgo.Context("full fk constraint error", func() {
 			deployment := models.ConfigItem{
@@ -562,3 +567,29 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		drop()
 	})
 })
+
+func testSingleTableReconcile(agentCtx context.Context, upstreamCtx *context.Context, upstreamConf upstream.UpstreamConfig, table string) {
+	var pushed int
+	err := agentCtx.DB().Select("COUNT(*)").Where("is_pushed = true").Table(table).Scan(&pushed).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pushed).To(BeZero())
+
+	var viewPanels int
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(viewPanels).To(BeZero())
+
+	summary := upstream.ReconcileSome(agentCtx, upstreamConf, 10, table)
+	Expect(summary.Error()).ToNot(HaveOccurred())
+	count, fkFailed := summary.GetSuccessFailure()
+	Expect(fkFailed).To(BeZero())
+
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(viewPanels).To(Equal(count))
+
+	var pending int
+	err = agentCtx.DB().Select("COUNT(*)").Where("is_pushed = false").Table(table).Scan(&pending).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pending).To(BeZero())
+}
