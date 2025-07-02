@@ -180,6 +180,7 @@ const (
 	ObjectTopology         = "topology"
 	ObjectPeople           = "people"
 	ObjectNotification     = "notification"
+	ObjectMCP              = "mcp"
 )
 
 // Actions
