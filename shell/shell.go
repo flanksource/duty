@@ -149,7 +149,7 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
-		cmdDir := path.Join(properties.String("shell.tmp.dir", cwd), "shell-tmp", uuid.New().String())
+		cmdDir := path.Join(properties.String(cwd, "shell.tmp.dir"), "shell-tmp", uuid.New().String())
 		if err := os.MkdirAll(cmdDir, 0700); err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
