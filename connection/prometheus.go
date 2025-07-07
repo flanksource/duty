@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
+// +kubebuilder:object:generate=true
 type PrometheusConnection struct {
 	HTTPConnection `json:",inline" yaml:",inline"`
 }

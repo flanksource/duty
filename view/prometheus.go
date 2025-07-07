@@ -11,10 +11,10 @@ import (
 	"github.com/flanksource/duty/context"
 )
 
+// +kubebuilder:object:generate=true
 // PrometheusQuery defines a Prometheus query configuration
 type PrometheusQuery struct {
-	// Connection name for Prometheus
-	Connection string `json:"connection" yaml:"connection"`
+	connection.PrometheusConnection `json:",inline" yaml:",inline"`
 
 	// Query is the PromQL query string
 	Query string `json:"query" yaml:"query"`
@@ -22,7 +22,7 @@ type PrometheusQuery struct {
 
 // executePrometheusQuery executes a Prometheus query and returns results
 func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryResultRow, error) {
-	conn, err := connection.Get(ctx, pq.Connection)
+	conn, err := connection.Get(ctx, pq.PrometheusConnection.ConnectionName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}

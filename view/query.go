@@ -56,7 +56,7 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 			results = append(results, change.AsMap())
 		}
 	} else if q.Prometheus != nil {
-		if q.Prometheus.Connection == "" {
+		if q.Prometheus.PrometheusConnection.ConnectionName == "" {
 			return nil, fmt.Errorf("prometheus connection name is required")
 		}
 		if q.Prometheus.Query == "" {
