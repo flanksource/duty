@@ -37,7 +37,7 @@ jobs:
       - name: Setup Go
         uses: buildjet/setup-go@v5
         with:
-          go-version: v1.22.x
+          go-version: v1.24.x
 
       - name: Create commits
         run: |

@@ -25,16 +25,36 @@ func (v *Query) IsEmpty() bool {
 	return v.Configs == nil && v.Changes == nil && v.Prometheus == nil
 }
 
-// QueryResult represents all results from a single query
-type QueryResult struct {
-	Name string
-	Rows []QueryResultRow
+func (v *Query) Valid() error {
+	queryTypeCount := 0
+	if v.Configs != nil && !v.Configs.IsEmpty() {
+		queryTypeCount++
+	}
+	if v.Changes != nil && !v.Changes.IsEmpty() {
+		queryTypeCount++
+	}
+	if v.Prometheus != nil && v.Prometheus.Query != "" {
+		queryTypeCount++
+	}
+
+	if queryTypeCount == 0 {
+		return fmt.Errorf("view query has no datasource specified")
+	}
+	if queryTypeCount > 1 {
+		return fmt.Errorf("view query has multiple datasources specified, exactly one is required")
+	}
+
+	return nil
 }
 
 type QueryResultRow map[string]any
 
 // ExecuteQuery executes a single query and returns results with query name
 func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
+	if err := q.Valid(); err != nil {
+		return nil, err
+	}
+
 	var results []QueryResultRow
 
 	if q.Configs != nil && !q.Configs.IsEmpty() {
