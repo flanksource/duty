@@ -602,7 +602,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		{
 			description: "config json integer query",
 			query:       `config.spec.replicas=3`,
-			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID},
 			resource:    "config",
 		},
 		{
@@ -614,7 +614,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		{
 			description: "config labels not equal query",
 			query:       `labels.account=flanksource labels.environment!=production`,
-			expectedIDs: []uuid.UUID{dummy.KubernetesCluster.ID, dummy.EC2InstanceA.ID},
+			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
 			resource:    "config",
 		},
 		{
@@ -626,13 +626,13 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		{
 			description: "config array query",
 			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
-			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID},
 			resource:    "config",
 		},
 		{
 			description: "config array query with integer matching",
 			query:       `config.spec.template.spec.containers[0].ports[0].containerPort=80`,
-			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID},
+			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID},
 			resource:    "config",
 		},
 		{

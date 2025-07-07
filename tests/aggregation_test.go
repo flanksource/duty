@@ -40,7 +40,7 @@ var _ = Describe("Aggregation", func() {
 			expectedResult: []types.AggregateRow{
 				{"type": "Kubernetes::Deployment", "count": int64(3)},
 				{"type": "Kubernetes::Node", "count": int64(3)},
-				{"type": "Kubernetes::Pod", "count": int64(1)},
+				{"type": "Kubernetes::Pod", "count": int64(2)},
 			},
 		}),
 		Entry("group by cluster", testCase{
