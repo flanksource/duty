@@ -43,17 +43,35 @@ type HTTPConnection struct {
 	TLS                 TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
 }
 
-func (t *HTTPConnection) FromModel(connection models.Connection) {
-	t.ConnectionName = connection.Name
+func (t *HTTPConnection) FromModel(connection models.Connection) error {
 	t.URL = connection.URL
 	t.TLS.InsecureSkipVerify = connection.InsecureTLS
-	t.HTTPBasicAuth.Username = types.EnvVar{ValueStatic: connection.Username}
-	t.HTTPBasicAuth.Password = types.EnvVar{ValueStatic: connection.Password}
-	t.Bearer = types.EnvVar{ValueStatic: connection.Properties["bearer"]}
-	t.OAuth = types.OAuth{
-		ClientID:     types.EnvVar{ValueStatic: connection.Properties["clientID"]},
-		ClientSecret: types.EnvVar{ValueStatic: connection.Properties["clientSecret"]},
+
+	if err := t.HTTPBasicAuth.Username.Scan(connection.Username); err != nil {
+		return fmt.Errorf("error scanning username: %w", err)
 	}
+	if err := t.HTTPBasicAuth.Password.Scan(connection.Password); err != nil {
+		return fmt.Errorf("error scanning password: %w", err)
+	}
+
+	if bearer := connection.Properties["bearer"]; bearer != "" {
+		if err := t.Bearer.Scan(bearer); err != nil {
+			return fmt.Errorf("error scanning bearer: %w", err)
+		}
+	}
+
+	if clientID := connection.Properties["clientID"]; clientID != "" {
+		if err := t.OAuth.ClientID.Scan(clientID); err != nil {
+			return fmt.Errorf("error scanning oauth client_id: %w", err)
+		}
+	}
+	if clientSecret := connection.Properties["clientSecret"]; clientSecret != "" {
+		if err := t.OAuth.ClientSecret.Scan(clientSecret); err != nil {
+			return fmt.Errorf("error scanning oauth client_secret: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (h HTTPConnection) GetEndpoint() string {

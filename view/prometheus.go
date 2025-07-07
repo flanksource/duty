@@ -32,6 +32,10 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 		return nil, fmt.Errorf("failed to create prometheus connection: %w", err)
 	}
 
+	if err := prometheusConnection.Populate(ctx); err != nil {
+		return nil, fmt.Errorf("failed to populate prometheus connection: %w", err)
+	}
+
 	client, err := prometheusConnection.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus client: %w", err)
@@ -66,6 +70,10 @@ func executePromQLQuery(ctx context.Context, client promV1.API, pq PrometheusQue
 
 // transformPrometheusResult transforms Prometheus model.Value to QueryResultRow format
 func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
+	if result == nil {
+		return []QueryResultRow{}, nil
+	}
+
 	var results []QueryResultRow
 
 	switch v := result.(type) {
@@ -113,7 +121,7 @@ func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
 		results = append(results, row)
 
 	default:
-		return nil, fmt.Errorf("unsupported result type: %T", result)
+		return nil, fmt.Errorf("unsupported prometheus result type: %T", result)
 	}
 
 	return results, nil

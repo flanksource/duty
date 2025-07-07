@@ -18,10 +18,12 @@ type PrometheusConnection struct {
 
 func (t *PrometheusConnection) FromModel(connection models.Connection) error {
 	if connection.Type != models.ConnectionTypePrometheus {
-		return fmt.Errorf("connection of type %s cannot be used with prometheus", connection.Type)
+		return fmt.Errorf("connection of type %s cannot be used with prometheus, expected %s", connection.Type, models.ConnectionTypePrometheus)
 	}
 
-	t.HTTPConnection.FromModel(connection)
+	if err := t.HTTPConnection.FromModel(connection); err != nil {
+		return fmt.Errorf("failed to initialize HTTP connection: %w", err)
+	}
 	return nil
 }
 

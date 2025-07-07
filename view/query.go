@@ -33,7 +33,7 @@ type QueryResult struct {
 
 type QueryResultRow map[string]any
 
-// executeQuery executes a single query and returns results with query name
+// ExecuteQuery executes a single query and returns results with query name
 func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 	var results []QueryResultRow
 
@@ -56,6 +56,13 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 			results = append(results, change.AsMap())
 		}
 	} else if q.Prometheus != nil {
+		if q.Prometheus.Connection == "" {
+			return nil, fmt.Errorf("prometheus connection name is required")
+		}
+		if q.Prometheus.Query == "" {
+			return nil, fmt.Errorf("prometheus query string is required")
+		}
+
 		prometheusResults, err := executePrometheusQuery(ctx, *q.Prometheus)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute prometheus query: %w", err)
