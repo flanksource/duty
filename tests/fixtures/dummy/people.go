@@ -1,8 +1,9 @@
 package dummy
 
 import (
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+
+	"github.com/flanksource/duty/models"
 )
 
 var JohnDoe = models.Person{
@@ -17,4 +18,10 @@ var JohnWick = models.Person{
 	Email: "john@wick.com",
 }
 
-var AllDummyPeople = []models.Person{JohnDoe, JohnWick}
+var AlanTuring = models.Person{
+	ID:    uuid.MustParse("1603957c-72e9-4747-a2e1-9e9087c31b4e"),
+	Name:  "Alan Turing",
+	Email: "alan@turing.com",
+}
+
+var AllDummyPeople = []models.Person{JohnDoe, JohnWick, AlanTuring}
