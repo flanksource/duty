@@ -8,9 +8,10 @@ import (
 
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/http/middlewares"
+	"github.com/labstack/echo/v4"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"github.com/labstack/echo/v4"
 )
 
 // +kubebuilder:object:generate=true
@@ -40,6 +41,19 @@ type HTTPConnection struct {
 	Bearer              types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
 	OAuth               types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
 	TLS                 TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
+}
+
+func (t *HTTPConnection) FromModel(connection models.Connection) {
+	t.ConnectionName = connection.Name
+	t.URL = connection.URL
+	t.TLS.InsecureSkipVerify = connection.InsecureTLS
+	t.HTTPBasicAuth.Username = types.EnvVar{ValueStatic: connection.Username}
+	t.HTTPBasicAuth.Password = types.EnvVar{ValueStatic: connection.Password}
+	t.Bearer = types.EnvVar{ValueStatic: connection.Properties["bearer"]}
+	t.OAuth = types.OAuth{
+		ClientID:     types.EnvVar{ValueStatic: connection.Properties["clientID"]},
+		ClientSecret: types.EnvVar{ValueStatic: connection.Properties["clientSecret"]},
+	}
 }
 
 func (h HTTPConnection) GetEndpoint() string {
