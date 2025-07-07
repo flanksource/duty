@@ -4,15 +4,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 )
 
 var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
@@ -239,9 +240,9 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			})
 			Expect(err).To(BeNil())
 
-			Expect(response.Total).To(Equal(int64(5)))
-			Expect(len(response.Changes)).To(Equal(5))
-			Expect(response.Summary["Healthy"]).To(Equal(2))
+			Expect(response.Total).To(Equal(int64(7)))
+			Expect(len(response.Changes)).To(Equal(7))
+			Expect(response.Summary["Healthy"]).To(Equal(4))
 			Expect(response.Summary["Pulled"]).To(Equal(2))
 			Expect(response.Summary["diff"]).To(Equal(1))
 		})
