@@ -18,6 +18,7 @@ import (
 	"github.com/flanksource/duty/context"
 	dutil "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
+	pkgView "github.com/flanksource/duty/view"
 )
 
 type pushableTable interface {
@@ -47,8 +48,6 @@ var (
 
 	_ parentIsPushedUpdater = (*models.Check)(nil)
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
-
-	_ parentIsPushedUpdater = (*models.ViewPanel)(nil)
 )
 
 // Tables whose primary key is not just the "id" column need to implement this interface.
@@ -58,6 +57,7 @@ var (
 	_ customIsPushedUpdater = (*models.ConfigComponentRelationship)(nil)
 	_ customIsPushedUpdater = (*models.CheckComponentRelationship)(nil)
 	_ customIsPushedUpdater = (*models.CheckConfigRelationship)(nil)
+	_ customIsPushedUpdater = (*models.GeneratedViewTable)(nil)
 )
 
 type ForeignKeyErrorSummary struct {
@@ -189,6 +189,8 @@ type PushGroup struct {
 	DependsOn []string
 }
 
+const generatedViewsGroup = "generated_views"
+
 var reconcileTableGroups = []PushGroup{
 	{
 		Name:   "configs",
@@ -226,8 +228,8 @@ var reconcileTableGroups = []PushGroup{
 		Tables: []pushableTable{models.Artifact{}},
 	},
 	{
-		Name:   "Views",
-		Tables: []pushableTable{models.View{}, models.ViewPanel{}, models.GeneratedViewTable{}},
+		Name:   "ViewPanels",
+		Tables: []pushableTable{models.ViewPanel{}},
 	},
 }
 
@@ -238,7 +240,51 @@ func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) Rec
 func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) ReconcileSummary {
 	var summary ReconcileSummary
 
-	for _, group := range reconcileTableGroups {
+	views, err := pkgView.GetAllViews(ctx)
+	if err != nil {
+		summary.AddStat("generated_view_tables", 0, ForeignKeyErrorSummary{}, err)
+		return summary
+	}
+
+	reconcileTableGroupsCopy := make([]PushGroup, len(reconcileTableGroups))
+	copy(reconcileTableGroupsCopy, reconcileTableGroups)
+
+	{
+		// In addition to the existing groups, we also need to reconcile dynamically generated tables for views.
+		// But only those views that are present in upstream must be reconciled.
+		// Here, we check if the view table schema is coherent with the one in upstream and if so, we add the view table to the group.
+		// If not, we skip the view.
+		if len(reconcileTableGroupsCopy) > 0 {
+			client := NewUpstreamClient(config)
+
+			pg := PushGroup{
+				Name: generatedViewsGroup,
+			}
+			for _, view := range views {
+				columnDef, err := pkgView.GetViewColumnDefs(ctx, view.GetNamespace(), view.Name)
+				if err != nil {
+					summary.AddStat(view.GeneratedTableName(), 0, ForeignKeyErrorSummary{}, err)
+					continue
+				}
+
+				success, err := client.CheckIfViewGeneratedTableExists(ctx, view.GetNamespace(), view.Name, columnDef)
+				if err != nil {
+					summary.AddStat(view.GeneratedTableName(), 0, ForeignKeyErrorSummary{}, err)
+					continue
+				}
+
+				if success {
+					pg.Tables = append(pg.Tables, models.GeneratedViewTable{ViewTableName: view.GeneratedTableName()})
+				}
+			}
+
+			if len(pg.Tables) > 0 {
+				reconcileTableGroupsCopy = append(reconcileTableGroupsCopy, pg)
+			}
+		}
+	}
+
+	for _, group := range reconcileTableGroupsCopy {
 		if !summary.DidReconcile(group.DependsOn) {
 			summary.AddSkipped(group.Tables...)
 			continue

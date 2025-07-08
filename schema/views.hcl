@@ -48,24 +48,8 @@ table "views" {
     null = true
     type = timestamptz
   }
-  column "agent_id" {
-    null    = false
-    default = var.uuid_nil
-    type    = uuid
-  }
-  column "is_pushed" {
-    null    = false
-    default = false
-    type    = bool
-  }
   primary_key {
     columns = [column.id]
-  }
-  foreign_key "view_panels_agent_id_fkey" {
-    columns     = [column.agent_id]
-    ref_columns = [table.agents.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
   }
   foreign_key "views_created_by_fkey" {
     columns     = [column.created_by]
@@ -95,12 +79,6 @@ table "view_panels" {
     null    = false
     default = false
     type    = bool
-  }
-  foreign_key "view_panels_view_id_fkey" {
-    columns     = [column.id]
-    ref_columns = [table.views.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
   }
   foreign_key "view_panels_agent_id_fkey" {
     columns     = [column.agent_id]
