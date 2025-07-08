@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -81,5 +82,7 @@ func TestEnv(t *testing.T) {
 				t.Errorf("expected %s, got %s", td.expectedVars, envVarKeys)
 			}
 		})
+
+		os.RemoveAll("./shell-tmp/")
 	}
 }
