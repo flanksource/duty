@@ -1,4 +1,4 @@
-package view
+package query
 
 import (
 	"fmt"

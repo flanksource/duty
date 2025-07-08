@@ -10,12 +10,13 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/query"
-	"github.com/flanksource/duty/rbac/policy"
+	"github.com/lib/pq"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac/policy"
 )
 
 var enforcer *casbin.SyncedCachedEnforcer
@@ -34,7 +35,7 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 		return fmt.Errorf("error creating rbac model: %v", err)
 	}
 
-	info := &query.Info{}
+	info := &info{}
 	if err := info.Get(ctx.DB()); err != nil {
 		ctx.Warnf("Cannot get DB info: %v", err)
 	}
@@ -240,4 +241,37 @@ func ReloadPolicy() error {
 
 func Enforcer() *casbin.SyncedCachedEnforcer {
 	return enforcer
+}
+
+type info struct {
+	Tables    pq.StringArray `gorm:"type:[]text"`
+	Views     pq.StringArray `gorm:"type:[]text"`
+	Functions pq.StringArray `gorm:"type:[]text"`
+}
+
+func (info *info) Get(db *gorm.DB) error {
+	sql := `
+	SELECT tables,
+				views,
+				functions
+	FROM   (SELECT array_agg(information_schema.views.table_name) AS views
+					FROM   information_schema.views
+					WHERE  information_schema.views.table_schema = any (current_schemas(false)) AND table_name not like 'pg_%'
+				)
+				t,
+				(SELECT array_agg(information_schema.tables.table_name) AS tables
+					FROM   information_schema."tables"
+					WHERE  information_schema.tables.table_schema = any (
+								current_schemas(false) )
+								AND information_schema.tables.table_type = 'BASE TABLE') v,
+				(SELECT array_agg(proname) AS functions
+					FROM   pg_proc p
+								INNER JOIN pg_namespace ns
+												ON ( p.pronamespace = ns.oid )
+					WHERE  ns.nspname = 'public'
+								AND probin IS NULL
+								AND probin IS NULL
+								AND proretset IS TRUE) f
+		`
+	return db.Raw(sql).Scan(info).Error
 }
