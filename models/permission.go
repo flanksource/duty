@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/types"
 )
 
 type PermissionGroup struct {
@@ -83,6 +84,14 @@ type Permission struct {
 
 	// List of config/component tags a person is allowed access to when RLS is enabled
 	Tags types.JSONStringMap `json:"tags,omitempty" gorm:"default:NULL"`
+}
+
+func (p Permission) PK() string {
+	return p.ID.String()
+}
+
+func (p Permission) TableName() string {
+	return "permissions"
 }
 
 func (p Permission) GetNamespace() string {

@@ -3,13 +3,14 @@ package tests
 import (
 	"encoding/json"
 
+	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 )
 
 var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
@@ -267,7 +268,7 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			return item["type"].(string)
 		}))
 
-		Expect(types).To(ConsistOf([]string{"EC2::Instance", "EKS::Cluster", "Kubernetes::Node", "Kubernetes::Cluster"}))
+		Expect(types).To(ConsistOf([]string{"EC2::Instance", "EKS::Cluster", "Kubernetes::Node"}))
 	})
 
 	ginkgo.It("should fetch health summary", func() {

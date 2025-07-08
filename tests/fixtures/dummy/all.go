@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 var CurrentTime = time.Now()
@@ -48,6 +49,8 @@ type DummyData struct {
 
 	Artifacts    []models.Artifact
 	JobHistories []models.JobHistory
+
+	Permissions []models.Permission
 }
 
 func (t *DummyData) Populate(gormDB *gorm.DB) error {
@@ -181,6 +184,10 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := gormDB.CreateInBatches(t.Permissions, 100).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -195,9 +202,14 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := DeleteAll(gormDB, t.Permissions); err != nil {
+		return err
+	}
+
 	if err := DeleteAll(gormDB, t.Artifacts); err != nil {
 		return err
 	}
+
 	if err := DeleteAll(gormDB, t.JobHistories); err != nil {
 		return err
 	}
@@ -213,6 +225,7 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	if err := models.DeleteAllComponents(gormDB, t.Components...); err != nil {
 		return err
 	}
+
 	if err := models.DeleteAllConfigs(gormDB, t.Configs...); err != nil {
 		return err
 	}
@@ -241,6 +254,7 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	if err := DeleteAll(gormDB, t.People); err != nil {
 		return err
 	}
+
 	if err := DeleteAll(gormDB, t.Agents); err != nil {
 		return err
 	}
@@ -280,6 +294,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
 		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
 		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
+		Permissions:                  append([]models.Permission{}, AllDummyPermissions...),
 	}
 
 	return d

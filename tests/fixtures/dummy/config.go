@@ -90,47 +90,6 @@ var EKSCluster = models.ConfigItem{
 	}),
 }
 
-var KubernetesCluster = models.ConfigItem{
-	ID:          uuid.New(),
-	ConfigClass: models.ConfigClassCluster,
-	Type:        lo.ToPtr("Kubernetes::Cluster"),
-	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
-	Health:      lo.ToPtr(models.HealthUnknown),
-	Tags: types.JSONStringMap{
-		"cluster": "demo",
-		"account": "flanksource",
-	},
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"account":     "flanksource",
-		"cluster":     "demo",
-		"environment": "development",
-		"telemetry":   "enabled",
-	}),
-}
-
-var KubernetesNodeAKSPool1 = models.ConfigItem{
-	ID:          uuid.New(),
-	Name:        lo.ToPtr("aks-pool-1"),
-	ConfigClass: models.ConfigClassNode,
-	Type:        lo.ToPtr("Kubernetes::Node"),
-	CreatedAt:   DummyCreatedAt,
-	Status:      lo.ToPtr("healthy"),
-	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "aks-pool-1"}}`),
-	Tags: types.JSONStringMap{
-		"cluster":      "demo",
-		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
-	},
-	Health: lo.ToPtr(models.HealthHealthy),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"cluster":      "demo",
-		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
-	}),
-	Properties: &types.Properties{
-		{Name: "memory", Value: lo.ToPtr(int64(64))},
-	},
-	CostTotal30d: 100,
-}
-
 var KubernetesNodeA = models.ConfigItem{
 	ID:          uuid.New(),
 	Name:        lo.ToPtr("node-a"),
@@ -214,235 +173,6 @@ var EC2InstanceB = models.ConfigItem{
 		"environment": "production",
 		"app":         "frontend",
 	}),
-}
-
-var LogisticsAPIDeployment = models.ConfigItem{
-	ID:          uuid.New(),
-	Name:        lo.ToPtr("logistics-api"),
-	Health:      lo.ToPtr(models.HealthHealthy),
-	ConfigClass: models.ConfigClassDeployment,
-	Tags: map[string]string{
-		"namespace": "missioncontrol",
-	},
-	Config: lo.ToPtr(`{
-      "apiVersion": "apps/v1",
-      "kind": "Deployment",
-      "metadata": {
-        "name": "logistics-api",
-        "labels": {
-          "app": "logistics-api"
-        }
-      },
-      "spec": {
-        "replicas": 3,
-        "selector": {
-          "matchLabels": {
-            "app": "logistics-api"
-          }
-        },
-        "template": {
-          "metadata": {
-            "labels": {
-              "app": "logistics-api"
-            }
-          },
-          "spec": {
-            "containers": [
-              {
-                "name": "logistics-api",
-                "image": "logistics-api:latest",
-                "ports": [
-                  {
-                    "containerPort": 80
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    }`),
-	Type: lo.ToPtr("Kubernetes::Deployment"),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":         "logistics",
-		"environment": "production",
-		"owner":       "team-1",
-		"version":     "1.2.0",
-	}),
-}
-
-var LogisticsAPIReplicaSet = models.ConfigItem{
-	ID:          uuid.New(),
-	ConfigClass: "ReplicaSet",
-	Name:        lo.ToPtr("logistics-api"),
-	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
-	Health:      lo.ToPtr(models.HealthHealthy),
-	Tags: map[string]string{
-		"namespace": "missioncontrol",
-	},
-	ParentID: lo.ToPtr(LogisticsAPIDeployment.ID),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":         "logistics",
-		"environment": "production",
-		"owner":       "team-1",
-		"version":     "1.2.0",
-	}),
-}
-
-var LogisticsAPIPodConfig = models.ConfigItem{
-	ID:          uuid.New(),
-	ConfigClass: models.ConfigClassPod,
-	Name:        lo.ToPtr("logistics-api-pod-1"),
-	Type:        lo.ToPtr("Kubernetes::Pod"),
-	Health:      lo.ToPtr(models.HealthHealthy),
-	CreatedAt:   DummyCreatedAt,
-	Status:      lo.ToPtr("Running"),
-	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":         "logistics",
-		"environment": "production",
-		"owner":       "team-1",
-		"version":     "1.2.0",
-	}),
-	Tags: map[string]string{
-		"namespace": "missioncontrol",
-	},
-	CostTotal30d: 5,
-}
-
-var LogisticsUIDeployment = models.ConfigItem{
-	ID:          uuid.New(),
-	Name:        lo.ToPtr("logistics-ui"),
-	ConfigClass: models.ConfigClassDeployment,
-	Health:      lo.ToPtr(models.HealthHealthy),
-	Type:        lo.ToPtr("Kubernetes::Deployment"),
-	Config: lo.ToPtr(`{
-      "apiVersion": "apps/v1",
-      "kind": "Deployment",
-      "metadata": {
-        "name": "logistics-ui",
-        "namespace": "missioncontrol",
-        "labels": {
-          "app": "logistics-ui",
-          "owner": "team-2"
-        }
-      },
-      "spec": {
-        "replicas": 2,
-        "selector": {
-          "matchLabels": {
-            "app": "logistics-ui"
-          }
-        },
-        "template": {
-          "metadata": {
-            "labels": {
-              "app": "logistics-ui"
-            }
-          },
-          "spec": {
-            "containers": [
-              {
-                "name": "logistics-ui",
-                "image": "logistics-ui:2.0.1",
-                "ports": [
-                  {
-                    "containerPort": 8080
-                  }
-                ],
-                "env": [
-                  {
-                    "name": "API_ENDPOINT",
-                    "value": "http://logistics-api"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    }`),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":         "logistics",
-		"environment": "production",
-		"owner":       "team-2",
-		"version":     "2.0.1",
-	}),
-	Tags: map[string]string{
-		"namespace": "missioncontrol",
-	},
-}
-
-var LogisticsWorkerDeployment = models.ConfigItem{
-	ID:          uuid.New(),
-	Name:        lo.ToPtr("logistics-worker"),
-	ConfigClass: models.ConfigClassDeployment,
-	Health:      lo.ToPtr(models.HealthHealthy),
-	Type:        lo.ToPtr("Kubernetes::Deployment"),
-	Config: lo.ToPtr(`{
-      "apiVersion": "apps/v1",
-      "kind": "Deployment",
-      "metadata": {
-        "name": "logistics-worker",
-        "namespace": "missioncontrol",
-        "labels": {
-          "app": "logistics-worker",
-          "owner": "team-3"
-        }
-      },
-      "spec": {
-        "replicas": 1,
-        "selector": {
-          "matchLabels": {
-            "app": "logistics-worker"
-          }
-        },
-        "template": {
-          "metadata": {
-            "labels": {
-              "app": "logistics-worker"
-            }
-          },
-          "spec": {
-            "containers": [
-              {
-                "name": "logistics-worker",
-                "image": "logistics-worker:1.5.0",
-                "env": [
-                  {
-                    "name": "QUEUE_URL",
-                    "value": "redis://redis:6379"
-                  },
-                  {
-                    "name": "DATABASE_URL",
-                    "value": "postgres://logistics-db:5432/logistics"
-                  }
-                ],
-                "resources": {
-                  "requests": {
-                    "memory": "256Mi",
-                    "cpu": "100m"
-                  },
-                  "limits": {
-                    "memory": "512Mi",
-                    "cpu": "500m"
-                  }
-                }
-              }
-            ]
-          }
-        }
-      }
-    }`),
-	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":         "logistics",
-		"environment": "production",
-		"owner":       "team-3",
-		"version":     "1.5.0",
-	}),
-	Tags: map[string]string{
-		"namespace": "missioncontrol",
-	},
 }
 
 var LogisticsDBRDS = models.ConfigItem{
@@ -570,6 +300,8 @@ var AllDummyConfigs = []models.ConfigItem{
 	LogisticsAPIReplicaSet,
 	LogisticsAPIPodConfig,
 	LogisticsUIDeployment,
+	LogisticsUIReplicaSet,
+	LogisticsUIPodConfig,
 	LogisticsWorkerDeployment,
 	LogisticsDBRDS,
 	NginxHelmRelease,
@@ -581,23 +313,6 @@ var AzureConfigScraper = models.ConfigScraper{
 	Name:   "Azure scraper",
 	Source: "ConfigFile",
 	Spec:   "{}",
-}
-
-var KubeScrapeConfig = models.ConfigScraper{
-	ID:        uuid.New(),
-	Name:      "kubernetes-scraper",
-	Namespace: "default",
-	Source:    models.SourceUI,
-	Spec: `{
-    "kubernetes": [
-      {
-        "clusterName": "kubernetes",
-        "kubeconfig": {
-          "value": "testdata/my-kube-config.yaml"
-        }
-      }
-    ]
-  }`,
 }
 
 var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper, KubeScrapeConfig}
@@ -614,7 +329,11 @@ var ClusterNodeBRelationship = models.ConfigRelationship{
 	Relation:  "ClusterNode",
 }
 
-var AllConfigRelationships = []models.ConfigRelationship{ClusterNodeARelationship, ClusterNodeBRelationship}
+var AllConfigRelationships = []models.ConfigRelationship{
+	ClusterAKSNodeRelationship,
+	ClusterNodeARelationship,
+	ClusterNodeBRelationship,
+}
 
 func GetConfig(configType, namespace, name string) models.ConfigItem {
 	for _, config := range AllDummyConfigs {
