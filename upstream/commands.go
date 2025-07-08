@@ -307,17 +307,6 @@ func UpdateAgentLastReceived(ctx context.Context, id uuid.UUID) error {
 	}).Error
 }
 
-// getUpdateClauses generates UPDATE clauses for UPSERT
-func getUpdateClauses(columns []string) []string {
-	var clauses []string
-	for _, col := range columns {
-		if col != "id" { // Don't update primary key
-			clauses = append(clauses, fmt.Sprintf("%s = EXCLUDED.%s", col, col))
-		}
-	}
-	return clauses
-}
-
 // saveIndividuallyWithRetries saves the given records one by one and retries only on foreign key violation error.
 func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []T, maxRetries int) error {
 	var retries int

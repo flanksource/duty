@@ -9,6 +9,7 @@ spec:
     - name: application
       type: string
       description: The application name.
+      primaryKey: true
     - name: namespace
       type: string
       description: The namespace name.

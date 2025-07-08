@@ -165,7 +165,7 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "job_history").Add(len(p.JobHistory))
 	counter.Label("table", "view_panels").Add(len(p.ViewPanels))
 
-	for tableName, _ := range p.GeneratedViews {
+	for tableName := range p.GeneratedViews {
 		counter.Label("table", tableName).Add(len(p.GeneratedViews[tableName]))
 	}
 }

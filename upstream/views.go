@@ -10,49 +10,37 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-// deleteViewData deletes records from dynamic view_* tables
-func deleteViewData(ctx context.Context, viewData []models.GeneratedViewTable) error {
-	if len(viewData) == 0 {
+func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) error {
+	if len(records) == 0 {
 		return nil
 	}
 
-	// Get agent ID for table name suffix
-	agent := ctx.Agent()
-	if agent == nil {
-		return fmt.Errorf("agent context not found")
+	table := records[0].ViewTableName
+	if !strings.HasPrefix(table, "view_") {
+		return fmt.Errorf("table %s is not a view generated table", table)
 	}
 
-	// Group by table name
-	tableGroups := make(map[string][]models.GeneratedViewTable)
-	for _, data := range viewData {
-		// Create agent-specific table name
-		agentTableName := fmt.Sprintf("%s_%s", data.ViewTableName, agent.ID.String())
-		tableGroups[agentTableName] = append(tableGroups[agentTableName], data)
+	deleteBuilder := squirrel.Delete(table).PlaceholderFormat(squirrel.Dollar)
+
+	for _, record := range records {
+		if len(record.PrimaryKey) == 0 {
+			return fmt.Errorf("primary key not found for table: %s", table)
+		} else if len(record.PrimaryKey) > 1 {
+			return fmt.Errorf("multiple primary keys found for table: %s", table)
+		}
+
+		deleteBuilder = deleteBuilder.Where(squirrel.Eq{
+			record.PrimaryKey[0]: record.Row[record.PrimaryKey[0]],
+		})
 	}
 
-	// Delete from each table
-	for agentTableName, records := range tableGroups {
-		if !ctx.DB().Migrator().HasTable(agentTableName) {
-			continue
-		}
+	query, args, err := deleteBuilder.ToSql()
+	if err != nil {
+		return fmt.Errorf("error building delete query: %w", err)
+	}
 
-		// Create a basic delete query
-		var conditions []string
-		var args []any
-		for _, record := range records {
-			// Use a simple condition based on available data
-			if id, ok := record.Row["id"]; ok {
-				conditions = append(conditions, "id = ?")
-				args = append(args, id)
-			}
-		}
-
-		if len(conditions) > 0 {
-			query := fmt.Sprintf("DELETE FROM %s WHERE %s", agentTableName, strings.Join(conditions, " OR "))
-			if err := ctx.DB().Exec(query, args...).Error; err != nil {
-				return fmt.Errorf("error deleting from %s: %w", agentTableName, err)
-			}
-		}
+	if err := ctx.DB().Exec(query, args...).Error; err != nil {
+		return fmt.Errorf("error deleting from %s: %w", table, err)
 	}
 
 	return nil

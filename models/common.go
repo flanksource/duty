@@ -2,6 +2,8 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
@@ -147,4 +149,82 @@ type TaggableModel interface {
 
 type LabelableModel interface {
 	GetLabels() map[string]string
+}
+
+type ColumnType string
+
+const (
+	ColumnTypeString   ColumnType = "string"
+	ColumnTypeNumber   ColumnType = "number"
+	ColumnTypeBoolean  ColumnType = "boolean"
+	ColumnTypeDateTime ColumnType = "datetime"
+	ColumnTypeDuration ColumnType = "duration"
+	ColumnTypeJSONB    ColumnType = "jsonb"
+)
+
+// convertViewRecordsToNativeTypes converts view cell to native go types
+func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]ColumnType) map[string]any {
+	for colName, value := range row {
+		colType, ok := columnDef[colName]
+		if !ok {
+			continue
+		}
+
+		switch colType {
+		case ColumnTypeJSONB:
+			if raw, ok := value.([]uint8); ok {
+				row[colName] = json.RawMessage(raw)
+			}
+
+		case ColumnTypeDuration:
+			switch v := value.(type) {
+			case int:
+				row[colName] = time.Duration(v)
+			case int32:
+				row[colName] = time.Duration(v)
+			case int64:
+				row[colName] = time.Duration(v)
+			case float64:
+				row[colName] = time.Duration(int64(v))
+			default:
+				logger.Warnf("postProcessViewRows: unknown duration type: %T", v)
+			}
+
+		case ColumnTypeDateTime:
+			switch v := value.(type) {
+			case time.Time:
+				row[colName] = v
+			case string:
+				parsed, err := time.Parse(time.RFC3339, v)
+				if err != nil {
+					logger.Warnf("postProcessViewRows: failed to parse datetime: %v", err)
+				}
+				row[colName] = parsed
+			default:
+				logger.Warnf("postProcessViewRows: unknown datetime type: %T", v)
+			}
+
+		case ColumnTypeString:
+			if value == nil {
+				row[colName] = ""
+			} else {
+				row[colName] = fmt.Sprintf("%v", value)
+			}
+
+		case ColumnTypeNumber:
+			if value == nil {
+				row[colName] = 0
+			}
+
+		case ColumnTypeBoolean:
+			if value == nil {
+				row[colName] = false
+			}
+
+		default:
+			// do nothing
+		}
+	}
+
+	return row
 }

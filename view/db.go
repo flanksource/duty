@@ -7,7 +7,7 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-func GetViewColumnDefs(ctx context.Context, namespace, name string) ([]ViewColumnDef, error) {
+func GetViewColumnDefs(ctx context.Context, namespace, name string) (ViewColumnDefList, error) {
 	var view models.View
 	err := ctx.DB().Where("namespace = ? AND name = ?", namespace, name).First(&view).Error
 	if err != nil {

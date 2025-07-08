@@ -1,11 +1,12 @@
 package tests
 
 import (
-	dutyRBAC "github.com/flanksource/duty/rbac"
 	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
+
+	dutyRBAC "github.com/flanksource/duty/rbac"
 )
 
 type Info struct {
@@ -26,7 +27,8 @@ func (info *Info) Get(db *gorm.DB) error {
 			FROM   information_schema."tables"
 			WHERE  information_schema.tables.table_schema = any (
 						current_schemas(false) )
-						AND information_schema.tables.table_type = 'BASE TABLE') v,
+						AND information_schema.tables.table_type = 'BASE TABLE'
+						AND table_name NOT LIKE 'view_%') v,
 		(SELECT array_agg(proname) AS functions
 			FROM   pg_proc p
 						INNER JOIN pg_namespace ns
