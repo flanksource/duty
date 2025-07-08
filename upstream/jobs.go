@@ -352,3 +352,31 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 		}
 	}
 }
+
+func ResetIsPushed(ctx context.Context) error {
+	overrides := map[string]string{
+		models.ConfigAnalysis{}.TableName(): `first_observed >= NOW() - INTERVAL '7 days' OR last_observed >= NOW() - INTERVAL '7 days'`,
+		models.ConfigChange{}.TableName():   `created_at >= NOW() - INTERVAL '7 days'`,
+		models.CheckStatus{}.TableName():    `created_at >= NOW() - INTERVAL '7 days'`,
+		models.JobHistory{}.TableName():     `time_start >= NOW() - INTERVAL '7 days'`,
+	}
+
+	defQuery := `created_at >= NOW() - INTERVAL '7 days' OR updated_at >= NOW() - INTERVAL '7 days'`
+	if !ctx.Properties().On(false, "job.ResetIsPushed.ignore_deleted_at") {
+		defQuery += " AND deleted_at IS NULL"
+	}
+
+	var errs []error
+	for _, pg := range reconcileTableGroups {
+		for _, table := range pg.Tables {
+			// None of the override tables have deleted_at field so it can be ignored
+			if err := ctx.DB().Table(table.TableName()).
+				Where(lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery)).
+				Update("is_pushed", false).Error; err != nil {
+				errs = append(errs, fmt.Errorf("error updating is_pushed for table[%s]: %w", table, err))
+			}
+		}
+	}
+
+	return oops.Join(errs...)
+}
