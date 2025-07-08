@@ -274,7 +274,11 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 				}
 
 				if success {
-					pg.Tables = append(pg.Tables, models.GeneratedViewTable{ViewTableName: view.GeneratedTableName()})
+					pg.Tables = append(pg.Tables, models.GeneratedViewTable{
+						ViewTableName: view.GeneratedTableName(),
+						PrimaryKey:    columnDef.PrimaryKey(),
+						ColumnDef:     columnDef.ToColumnTypeMap(),
+					})
 				}
 			}
 

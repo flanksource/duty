@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 )
 
 type ViewColumnType string
@@ -29,6 +32,9 @@ type ViewRow []any
 type ViewColumnDef struct {
 	// Name of the column
 	Name string `json:"name" yaml:"name"`
+
+	// PrimaryKey indicates if the column is a primary key
+	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
 	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge
 	Type ViewColumnType `json:"type" yaml:"type"`
@@ -64,6 +70,36 @@ func (c ViewColumnDefList) SelectColumns() []string {
 	}
 
 	return output
+}
+
+func (c ViewColumnDefList) PrimaryKey() []string {
+	return lo.Map(lo.Filter(c, func(col ViewColumnDef, _ int) bool {
+		return col.PrimaryKey
+	}), func(col ViewColumnDef, _ int) string {
+		return col.Name
+	})
+}
+
+func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
+	return lo.SliceToMap(c, func(col ViewColumnDef) (string, models.ColumnType) {
+		// The column name we receive from postgres is always in lowercase.
+		name := strings.ToLower(col.Name)
+
+		switch col.Type {
+		case ViewColumnTypeNumber:
+			return name, models.ColumnTypeNumber
+		case ViewColumnTypeBoolean:
+			return name, models.ColumnTypeBoolean
+		case ViewColumnTypeDateTime:
+			return name, models.ColumnTypeDateTime
+		case ViewColumnTypeDuration:
+			return name, models.ColumnTypeDuration
+		case ViewColumnTypeGauge:
+			return name, models.ColumnTypeJSONB
+		default:
+			return name, models.ColumnTypeString
+		}
+	})
 }
 
 func CreateViewTable(ctx context.Context, tableName string, columns []ViewColumnDef) error {

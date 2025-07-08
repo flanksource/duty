@@ -236,66 +236,17 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync generated view tables to upstream", func() {
-		var err error
-
 		pipeline := createViewTable(DefaultContext, "pipelines")
 		deployment := createViewTable(DefaultContext, "deployments")
 		populateViewTable(DefaultContext, pipeline.GeneratedTableName(), "pipelines.csv")
 		populateViewTable(DefaultContext, deployment.GeneratedTableName(), "deployments.csv")
 
-		// We need to ensure that these table exist on upstream, or else the agent won't push it.
+		// We need to ensure that these tables exist on upstream, or else the agent won't push it.
 		_ = createViewTable(*upstreamCtx, "pipelines")
 		_ = createViewTable(*upstreamCtx, "deployments")
 
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 500, "views", pipeline.GeneratedTableName(), deployment.GeneratedTableName())
-		Expect(summary.Error()).ToNot(HaveOccurred())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(BeZero())
-		Expect(count).To(Equal(10))
-
-		var agent models.Agent
-		err = upstreamCtx.DB().Where("name = ?", agentName).First(&agent).Error
-		Expect(err).ToNot(HaveOccurred())
-
-		agentSuffix := agent.ID.String()
-		upstreamTable1Name := fmt.Sprintf("%s_%s", pipeline.GeneratedTableName(), agentSuffix)
-		upstreamTable2Name := fmt.Sprintf("%s_%s", deployment.GeneratedTableName(), agentSuffix)
-
-		var upstreamCount1, upstreamCount2 int
-
-		var table1Exists int
-		err = upstreamCtx.DB().Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND table_type = 'BASE TABLE'", upstreamTable1Name).Scan(&table1Exists).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(table1Exists).To(Equal(1), "Expected upstream table %s to be created", upstreamTable1Name)
-
-		err = upstreamCtx.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", upstreamTable1Name)).Scan(&upstreamCount1).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(upstreamCount1).To(Equal(5))
-
-		var table2Exists int
-		err = upstreamCtx.DB().Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND table_type = 'BASE TABLE'", upstreamTable2Name).Scan(&table2Exists).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(table2Exists).To(Equal(1), "Expected upstream table %s to be created", upstreamTable2Name)
-
-		err = upstreamCtx.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", upstreamTable2Name)).Scan(&upstreamCount2).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(upstreamCount2).To(Equal(5))
-
-		err = DefaultContext.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", pipeline.GeneratedTableName())).Error
-		Expect(err).ToNot(HaveOccurred())
-		err = DefaultContext.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", deployment.GeneratedTableName())).Error
-		Expect(err).ToNot(HaveOccurred())
-
-		err = upstreamCtx.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", upstreamTable1Name)).Error
-		Expect(err).ToNot(HaveOccurred())
-		err = upstreamCtx.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", upstreamTable2Name)).Error
-		Expect(err).ToNot(HaveOccurred())
-
-		// Clean up the test views
-		err = DefaultContext.DB().Delete(&pipeline).Error
-		Expect(err).ToNot(HaveOccurred())
-		err = DefaultContext.DB().Delete(&deployment).Error
-		Expect(err).ToNot(HaveOccurred())
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, pipeline.GeneratedTableName())
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, deployment.GeneratedTableName())
 	})
 
 	ginkgo.Describe("should deal with fk constraint errors", func() {
