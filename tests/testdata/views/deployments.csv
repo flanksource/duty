@@ -1,0 +1,11 @@
+application,namespace,chart,version,status,health,lastupdated,agent_id,is_pushed
+alertmanager,monitoring,app-template,4.1.2,UpgradeSucceeded,healthy,2025-06-23 23:18:16.103734+05:45,00000000-0000-0000-0000-000000000000,False
+alloy,monitoring,alloy,1.0.2,UpgradeSucceeded,healthy,2025-06-20 11:37:50.248793+05:45,00000000-0000-0000-0000-000000000000,False
+bazarr,media,app-template,4.1.2,InstallSucceeded,healthy,2025-06-23 23:30:25.024669+05:45,00000000-0000-0000-0000-000000000000,False
+grafana,monitoring,grafana,9.0.0,UpgradeSucceeded,healthy,2025-06-20 11:37:50.248793+05:45,00000000-0000-0000-0000-000000000000,False
+jellyfin,media,app-template,4.1.2,InstallSucceeded,healthy,2025-06-23 23:30:13.053931+05:45,00000000-0000-0000-0000-000000000000,False
+jellyseerr,media,app-template,4.1.2,InstallSucceeded,healthy,2025-06-23 23:29:49.081375+05:45,00000000-0000-0000-0000-000000000000,False
+kube-prometheus-stack,monitoring,kube-prometheus-stack,72.1.0,UpgradeSucceeded,healthy,2025-06-20 11:37:50.248793+05:45,00000000-0000-0000-0000-000000000000,False
+movary,media,app-template,4.1.2,InstallSucceeded,healthy,2025-06-23 23:29:31.079345+05:45,00000000-0000-0000-0000-000000000000,False
+qbittorrent,media,app-template,4.1.2,InstallSucceeded,healthy,2025-06-23 23:30:04.041549+05:45,00000000-0000-0000-0000-000000000000,False
+speedtest-tracker,monitoring,app-template,4.1.2,UpgradeSucceeded,healthy,2025-06-23 23:18:16.129627+05:45,00000000-0000-0000-0000-000000000000,False

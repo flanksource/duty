@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"gorm.io/gorm"
 
+	pkgDB "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/types"
 )
 
@@ -23,10 +23,14 @@ type View struct {
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	LastRan   *time.Time `json:"last_ran,omitempty" gorm:"default:NULL"`
-	AgentID   uuid.UUID  `json:"agent_id"`
-	IsPushed  bool       `json:"is_pushed" gorm:"default:false"`
 	Error     *string    `json:"error,omitempty" gorm:"default:NULL"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+}
+
+func (v View) GeneratedTableName() string {
+	cleanNamespace := strings.ReplaceAll(v.Namespace, "-", "_")
+	cleanName := strings.ReplaceAll(v.Name, "-", "_")
+	return fmt.Sprintf("view_%s_%s", cleanNamespace, cleanName)
 }
 
 func (v View) PK() string {
@@ -45,25 +49,12 @@ func (v View) GetNamespace() string {
 	return v.Namespace
 }
 
-func (v View) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
-	var records []View
-	if err := db.Where("is_pushed = ?", false).Find(&records).Error; err != nil {
-		return nil, err
-	}
-
-	var result []DBTable
-	for _, record := range records {
-		result = append(result, record)
-	}
-	return result, nil
-}
-
+// ViewPanel represents view panel data with push tracking
 type ViewPanel struct {
 	ID       uuid.UUID `json:"id" gorm:"primaryKey"`
 	AgentID  uuid.UUID `json:"agent_id"`
 	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
 
-	// Results is a JSON array of panel results
 	Results types.JSON `json:"results"`
 }
 
@@ -93,35 +84,33 @@ func (ViewPanel) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	return result, nil
 }
 
-func (v ViewPanel) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
-	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
-		return item.(View).ID.String()
-	})
-
-	return db.Model(&View{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
-}
-
 // GeneratedViewTable represents a record in a dynamically generated view_* table
 type GeneratedViewTable struct {
-	ViewTableName string         `json:"table_name"`
-	Data          map[string]any `json:"data"`
+	ViewTableName string         `json:"view_table_name"`
+	Row           map[string]any `json:"data"`
 }
 
 func (v GeneratedViewTable) PK() string {
-	return fmt.Sprintf("%s", v.Data["id"])
+	return fmt.Sprintf("%s", v.Row["id"]) // TODO: Must be fetched from a proper primary key column.
 }
 
 func (v GeneratedViewTable) AsMap(removeFields ...string) map[string]any {
-	return v.Data
+	return v.Row
 }
 
 func (v GeneratedViewTable) TableName() string {
-	return v.ViewTableName
+	if v.ViewTableName != "" {
+		return v.ViewTableName
+	}
+
+	return "generated_view_tables"
 }
 
 // UpdateIsPushed implements custom logic for updating is_pushed on dynamic view tables
 func (GeneratedViewTable) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	tableGroups := make(map[string][]DBTable)
+	viewIDsToUpdate := make(map[uuid.UUID]uuid.UUID) // map of view_id to agent_id
+
 	for _, item := range items {
 		if generatedViewTable, ok := item.(GeneratedViewTable); ok {
 			tableGroups[generatedViewTable.TableName()] = append(tableGroups[generatedViewTable.TableName()], item)
@@ -138,7 +127,7 @@ func (GeneratedViewTable) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 		var ids []any
 		for _, record := range records {
 			if viewData, ok := record.(GeneratedViewTable); ok {
-				if id, exists := viewData.Data["id"]; exists {
+				if id, exists := viewData.Row["id"]; exists {
 					ids = append(ids, id)
 				}
 			}
@@ -152,66 +141,30 @@ func (GeneratedViewTable) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 		}
 	}
 
+	// Update the parent view's agent_id after successful reconciliation
+	for viewID, agentID := range viewIDsToUpdate {
+		if err := db.Model(&View{}).Where("id = ?", viewID).Update("agent_id", agentID).Error; err != nil {
+			return fmt.Errorf("failed to update view agent_id for view %s: %w", viewID, err)
+		}
+	}
+
 	return nil
 }
 
 // GetUnpushed returns all unpushed records from all view_* tables
-func (GeneratedViewTable) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
-	// First, get all views to determine which tables to check
-	var views []View
-	if err := db.Find(&views).Error; err != nil {
-		return nil, fmt.Errorf("failed to get views: %w", err)
+func (t GeneratedViewTable) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	records, err := pkgDB.ReadTable(db, t.ViewTableName)
+	if err != nil {
+		return nil, err
 	}
 
 	var result []DBTable
-	for _, view := range views {
-		tableName := view.GeneratedTableName()
-		if !db.Migrator().HasTable(tableName) {
-			continue
-		}
-
-		// Query unpushed records from this view table
-		rows, err := db.Raw(fmt.Sprintf("SELECT * FROM %s WHERE is_pushed = false", tableName)).Rows()
-		if err != nil {
-			continue // Skip if table doesn't have is_pushed column or other issues
-		}
-		defer rows.Close()
-
-		columns, err := rows.Columns()
-		if err != nil {
-			continue
-		}
-
-		for rows.Next() {
-			// Create a slice of any to hold the values
-			values := make([]any, len(columns))
-			valuePtrs := make([]any, len(columns))
-			for i := range columns {
-				valuePtrs[i] = &values[i]
-			}
-
-			if err := rows.Scan(valuePtrs...); err != nil {
-				continue
-			}
-
-			// Convert to map
-			data := make(map[string]any)
-			for i, col := range columns {
-				data[col] = values[i]
-			}
-
-			result = append(result, GeneratedViewTable{
-				ViewTableName: tableName,
-				Data:          data,
-			})
-		}
+	for _, record := range records {
+		result = append(result, GeneratedViewTable{
+			ViewTableName: t.ViewTableName,
+			Row:           record,
+		})
 	}
 
 	return result, nil
-}
-
-func (v View) GeneratedTableName() string {
-	cleanNamespace := strings.ReplaceAll(v.Namespace, "-", "_")
-	cleanName := strings.ReplaceAll(v.Name, "-", "_")
-	return fmt.Sprintf("view_%s_%s", cleanNamespace, cleanName)
 }

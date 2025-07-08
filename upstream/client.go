@@ -9,9 +9,11 @@ import (
 
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	"github.com/google/uuid"
+	"github.com/flanksource/duty/view"
 )
 
 // AgentNameQueryParam is the name of the query param that's used to authenticate an
@@ -118,6 +120,37 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 	}
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
+}
+
+// CheckIfViewGeneratedTableExists checks if a view with the same namespace, name and column definition exists on upstream
+func (t *UpstreamClient) CheckIfViewGeneratedTableExists(ctx context.Context, namespace, name string, columnDef []view.ViewColumnDef) (bool, error) {
+	viewData := map[string]any{
+		"namespace": namespace,
+		"name":      name,
+		"columns":   columnDef,
+	}
+
+	req := t.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName)
+	if err := req.Body(viewData); err != nil {
+		return false, fmt.Errorf("error setting request body: %w", err)
+	}
+
+	resp, err := req.Do(netHTTP.MethodPost, "check-view")
+	if err != nil {
+		return false, fmt.Errorf("error checking view on upstream: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == netHTTP.StatusNotFound {
+		return false, nil
+	}
+
+	if !resp.IsOK() {
+		respBody, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
+	}
+
+	return true, nil
 }
 
 func parseResponse(body string) string {

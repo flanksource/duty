@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
-	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
-	"go.opentelemetry.io/otel/attribute"
+	"github.com/flanksource/duty/view"
 )
 
 const (
@@ -167,4 +170,48 @@ func PingHandler(c echo.Context) error {
 
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
+}
+
+// CheckViewHandler checks if a view with the same namespace, name and column definition exists
+func CheckViewHandler(c echo.Context) error {
+	ctx := c.Request().Context().(context.Context)
+
+	var req struct {
+		Namespace string               `json:"namespace"`
+		Name      string               `json:"name"`
+		Columns   []view.ViewColumnDef `json:"columns"`
+	}
+
+	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
+	}
+
+	var viewModel models.View
+	if err := ctx.DB().Where("namespace = ? AND name = ?", req.Namespace, req.Name).Find(&viewModel).Error; err != nil {
+		return c.JSON(http.StatusNotFound, api.HTTPError{Err: err.Error(), Message: "view not found"})
+	} else if viewModel.ID == uuid.Nil {
+		return c.JSON(http.StatusNotFound, api.HTTPError{Err: "view not found", Message: "view not found"})
+	}
+
+	if !ctx.DB().Migrator().HasTable(viewModel.GeneratedTableName()) {
+		return c.JSON(http.StatusOK, map[string]string{"status": "found"})
+	}
+
+	colDefs, err := view.GetViewColumnDefs(ctx, req.Namespace, req.Name)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to get view column defs"})
+	}
+
+	// Check if column definitions match
+	if len(colDefs) != len(req.Columns) {
+		return c.JSON(http.StatusConflict, api.HTTPError{Message: "column count mismatch"})
+	}
+
+	for i, reqCol := range req.Columns {
+		if reqCol.Name != colDefs[i].Name || reqCol.Type != colDefs[i].Type {
+			return c.JSON(http.StatusConflict, api.HTTPError{Message: "column definition mismatch"})
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "found"})
 }

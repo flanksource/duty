@@ -3,7 +3,6 @@ package upstream
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
@@ -146,14 +145,10 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.GeneratedViews) > 0 {
-		if err := deleteViewData(ctx, req.GeneratedViews); err != nil {
-			return fmt.Errorf("error deleting view_data: %w", err)
-		}
-	}
-
-	if len(req.Views) > 0 {
-		if err := db.Delete(req.Views).Error; err != nil {
-			return fmt.Errorf("error deleting views: %w", err)
+		for _, viewData := range req.GeneratedViews {
+			if err := deleteViewData(ctx, viewData); err != nil {
+				return fmt.Errorf("error deleting view_data: %w", err)
+			}
 		}
 	}
 
@@ -240,20 +235,14 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	if len(req.Views) > 0 {
-		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").CreateInBatches(req.Views, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting views: %w", err)
-		}
-	}
-
 	if len(req.ViewPanels) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ViewPanels, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting view_panels: %w", err)
 		}
 	}
 
-	if len(req.GeneratedViews) > 0 {
-		if err := upsertViewData(ctx, req.GeneratedViews); err != nil {
+	for _, viewData := range req.GeneratedViews {
+		if err := upsertViewData(ctx, viewData); err != nil {
 			return fmt.Errorf("error upserting view_data: %w", err)
 		}
 	}
@@ -316,86 +305,6 @@ func UpdateAgentLastReceived(ctx context.Context, id uuid.UUID) error {
 		"last_received": gorm.Expr("NOW()"),
 		"last_seen":     gorm.Expr("NOW()"),
 	}).Error
-}
-
-// deleteViewData deletes records from dynamic view_* tables
-func deleteViewData(ctx context.Context, viewData []models.GeneratedViewTable) error {
-	// Group by table name
-	tableGroups := make(map[string][]models.GeneratedViewTable)
-	for _, data := range viewData {
-		tableGroups[data.ViewTableName] = append(tableGroups[data.ViewTableName], data)
-	}
-
-	// Delete from each table
-	for tableName, records := range tableGroups {
-		if !ctx.DB().Migrator().HasTable(tableName) {
-			continue
-		}
-
-		// Create a basic delete query
-		var conditions []string
-		var args []interface{}
-		for _, record := range records {
-			// Use a simple condition based on available data
-			if id, ok := record.Data["id"]; ok {
-				conditions = append(conditions, "id = ?")
-				args = append(args, id)
-			}
-		}
-
-		if len(conditions) > 0 {
-			query := fmt.Sprintf("DELETE FROM %s WHERE %s", tableName, strings.Join(conditions, " OR "))
-			if err := ctx.DB().Exec(query, args...).Error; err != nil {
-				return fmt.Errorf("error deleting from %s: %w", tableName, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// upsertViewData handles upserting records to dynamic view_* tables
-func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) error {
-	// Group by table name
-	tableGroups := make(map[string][]models.GeneratedViewTable)
-	for _, data := range viewData {
-		tableGroups[data.ViewTableName] = append(tableGroups[data.ViewTableName], data)
-	}
-
-	// Insert into each table
-	for tableName, records := range tableGroups {
-		if !ctx.DB().Migrator().HasTable(tableName) {
-			continue
-		}
-
-		for _, record := range records {
-			// Build dynamic insert/update query
-			columns := make([]string, 0, len(record.Data))
-			placeholders := make([]string, 0, len(record.Data))
-			values := make([]interface{}, 0, len(record.Data))
-
-			for key, value := range record.Data {
-				columns = append(columns, key)
-				placeholders = append(placeholders, "?")
-				values = append(values, value)
-			}
-
-			// Use INSERT ON CONFLICT (PostgreSQL) or INSERT ... ON DUPLICATE KEY UPDATE (MySQL)
-			query := fmt.Sprintf(
-				"INSERT INTO %s (%s) VALUES (%s) ON CONFLICT (id) DO UPDATE SET %s",
-				tableName,
-				strings.Join(columns, ", "),
-				strings.Join(placeholders, ", "),
-				strings.Join(getUpdateClauses(columns), ", "),
-			)
-
-			if err := ctx.DB().Exec(query, values...).Error; err != nil {
-				return fmt.Errorf("error upserting to %s: %w", tableName, err)
-			}
-		}
-	}
-
-	return nil
 }
 
 // getUpdateClauses generates UPDATE clauses for UPSERT

@@ -1,10 +1,14 @@
 package tests
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -13,12 +17,15 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/tests/setup"
 	"github.com/flanksource/duty/upstream"
+	"github.com/flanksource/duty/view"
 )
 
 var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), func() {
@@ -29,7 +36,6 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 	ginkgo.BeforeAll(func() {
 		DefaultContext.ClearCache()
-		properties.Set("upstream.reconcile.pre-check", "false")
 
 		var err error
 		upstreamCtx, drop, err = setup.NewDB(DefaultContext, "upstream")
@@ -59,6 +65,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
 		e.POST("/upstream/push", upstream.NewPushHandler(nil))
+		e.POST("/upstream/check-view", upstream.CheckViewHandler)
 
 		port, echoCloser = setup.RunEcho(e)
 
@@ -69,23 +76,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config scrapers", func() {
-		{
-			var pushed int
-			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ConfigScraper{}).Scan(&pushed).Error
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pushed).To(BeZero())
-		}
-
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "config_scrapers")
-		Expect(summary.Error()).To(BeNil())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(Equal(0))
-		Expect(count).To(Equal(2))
-
-		var totalConfigScrapersPushed int
-		err := upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigScraper{}).Scan(&totalConfigScrapersPushed).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(totalConfigScrapersPushed).To(Equal(count))
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_scrapers")
 	})
 
 	ginkgo.It("should sync config items to upstream & deal with fk issue", func() {
@@ -146,33 +137,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config_changes to upstream", func() {
-		{
-			var pushed int
-			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ConfigChange{}).Scan(&pushed).Error
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pushed).To(BeZero())
-		}
-
-		var changes int
-		err := upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigChange{}).Scan(&changes).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(changes).To(BeZero())
-
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_changes")
-		Expect(summary.Error()).ToNot(HaveOccurred())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(BeZero())
-
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigChange{}).Scan(&changes).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(changes).To(Equal(count))
-
-		{
-			var pending int
-			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.ConfigChange{}).Scan(&pending).Error
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pending).To(BeZero())
-		}
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_changes")
 	})
 
 	ginkgo.It("should sync components to upstream & deal with fk issue", func() {
@@ -233,59 +198,11 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config_analyses to upstream", func() {
-		{
-			var pushed int
-			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ConfigAnalysis{}).Scan(&pushed).Error
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pushed).To(BeZero())
-		}
-
-		var analyses int
-		err := upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(analyses).To(BeZero())
-
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "config_analysis")
-		Expect(summary.Error()).ToNot(HaveOccurred())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(BeZero())
-
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ConfigAnalysis{}).Scan(&analyses).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(analyses).To(Equal(count))
-
-		{
-			var pending int
-			err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.ConfigAnalysis{}).Scan(&pending).Error
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pending).To(BeZero())
-		}
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_analysis")
 	})
 
 	ginkgo.It("should sync artifacts to upstream", func() {
-		var pushed int
-		err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.Artifact{}).Scan(&pushed).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pushed).To(BeZero())
-
-		var artifacts int
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(artifacts).To(BeZero())
-
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "artifacts")
-		Expect(summary.Error()).ToNot(HaveOccurred())
-		count, fkFailed := summary.GetSuccessFailure()
-		Expect(fkFailed).To(BeZero())
-
-		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.Artifact{}).Scan(&artifacts).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(artifacts).To(Equal(count))
-
-		var pending int
-		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.Artifact{}).Scan(&pending).Error
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pending).To(BeZero())
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "artifacts")
 	})
 
 	ginkgo.It("should sync job history with failed and warning to upstream", func() {
@@ -314,9 +231,71 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(pending).To(BeZero())
 	})
 
-	ginkgo.It("should sync views and panels to upstream", func() {
-		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "views")
-		testSingleTableReconcile(DefaultContext, upstreamCtx, upstreamConf, "view_panels")
+	ginkgo.It("should sync panels to upstream", func() {
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "view_panels")
+	})
+
+	ginkgo.It("should sync generated view tables to upstream", func() {
+		var err error
+
+		pipeline := createViewTable(DefaultContext, "pipelines")
+		deployment := createViewTable(DefaultContext, "deployments")
+		populateViewTable(DefaultContext, pipeline.GeneratedTableName(), "pipelines.csv")
+		populateViewTable(DefaultContext, deployment.GeneratedTableName(), "deployments.csv")
+
+		// We need to ensure that these table exist on upstream, or else the agent won't push it.
+		_ = createViewTable(*upstreamCtx, "pipelines")
+		_ = createViewTable(*upstreamCtx, "deployments")
+
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 500, "views", pipeline.GeneratedTableName(), deployment.GeneratedTableName())
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
+		Expect(fkFailed).To(BeZero())
+		Expect(count).To(Equal(10))
+
+		var agent models.Agent
+		err = upstreamCtx.DB().Where("name = ?", agentName).First(&agent).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		agentSuffix := agent.ID.String()
+		upstreamTable1Name := fmt.Sprintf("%s_%s", pipeline.GeneratedTableName(), agentSuffix)
+		upstreamTable2Name := fmt.Sprintf("%s_%s", deployment.GeneratedTableName(), agentSuffix)
+
+		var upstreamCount1, upstreamCount2 int
+
+		var table1Exists int
+		err = upstreamCtx.DB().Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND table_type = 'BASE TABLE'", upstreamTable1Name).Scan(&table1Exists).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(table1Exists).To(Equal(1), "Expected upstream table %s to be created", upstreamTable1Name)
+
+		err = upstreamCtx.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", upstreamTable1Name)).Scan(&upstreamCount1).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(upstreamCount1).To(Equal(5))
+
+		var table2Exists int
+		err = upstreamCtx.DB().Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA() AND table_name = ? AND table_type = 'BASE TABLE'", upstreamTable2Name).Scan(&table2Exists).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(table2Exists).To(Equal(1), "Expected upstream table %s to be created", upstreamTable2Name)
+
+		err = upstreamCtx.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", upstreamTable2Name)).Scan(&upstreamCount2).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(upstreamCount2).To(Equal(5))
+
+		err = DefaultContext.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", pipeline.GeneratedTableName())).Error
+		Expect(err).ToNot(HaveOccurred())
+		err = DefaultContext.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", deployment.GeneratedTableName())).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = upstreamCtx.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", upstreamTable1Name)).Error
+		Expect(err).ToNot(HaveOccurred())
+		err = upstreamCtx.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", upstreamTable2Name)).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// Clean up the test views
+		err = DefaultContext.DB().Delete(&pipeline).Error
+		Expect(err).ToNot(HaveOccurred())
+		err = DefaultContext.DB().Delete(&deployment).Error
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	ginkgo.Describe("should deal with fk constraint errors", func() {
@@ -568,28 +547,147 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 })
 
-func testSingleTableReconcile(agentCtx context.Context, upstreamCtx *context.Context, upstreamConf upstream.UpstreamConfig, table string) {
+func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *context.Context, upstreamConf upstream.UpstreamConfig, table string) {
 	var pushed int
 	err := agentCtx.DB().Select("COUNT(*)").Where("is_pushed = true").Table(table).Scan(&pushed).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pushed).To(BeZero())
 
-	var viewPanels int
-	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	var countInAgent int
+	err = agentCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInAgent).Error
 	Expect(err).ToNot(HaveOccurred())
-	Expect(viewPanels).To(BeZero())
 
-	summary := upstream.ReconcileSome(agentCtx, upstreamConf, 10, table)
+	var countInUpstream int
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInUpstream).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(countInUpstream).To(BeZero())
+
+	summary := upstream.ReconcileSome(agentCtx, upstreamConf, 500, table)
 	Expect(summary.Error()).ToNot(HaveOccurred())
+
 	count, fkFailed := summary.GetSuccessFailure()
 	Expect(fkFailed).To(BeZero())
+	Expect(count).To(Equal(countInAgent))
 
-	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&viewPanels).Error
+	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInUpstream).Error
 	Expect(err).ToNot(HaveOccurred())
-	Expect(viewPanels).To(Equal(count))
+	Expect(countInUpstream).To(Equal(countInAgent))
 
 	var pending int
 	err = agentCtx.DB().Select("COUNT(*)").Where("is_pushed = false").Table(table).Scan(&pending).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pending).To(BeZero())
+}
+
+func readTestData(path ...string) (*unstructured.Unstructured, error) {
+	fullPath := filepath.Join("testdata", filepath.Join(path...))
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var object map[string]any
+	err = yaml.Unmarshal(content, &object)
+	if err != nil {
+		return nil, err
+	}
+
+	return &unstructured.Unstructured{Object: object}, nil
+}
+
+func readCSVData(fileName string) ([][]string, error) {
+	fullPath := filepath.Join("testdata", "views", fileName)
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open CSV file %s: %w", fullPath, err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV file %s: %w", fullPath, err)
+	}
+
+	return records, nil
+}
+
+func insertCSVDataIntoTable(ctx context.Context, tableName string, csvData [][]string) error {
+	if len(csvData) == 0 {
+		return fmt.Errorf("no data to insert")
+	}
+
+	headers := csvData[0]
+	rows := csvData[1:]
+
+	for _, row := range rows {
+		if len(row) != len(headers) {
+			return fmt.Errorf("row length mismatch: expected %d, got %d", len(headers), len(row))
+		}
+
+		columns := make([]string, len(headers))
+		placeholders := make([]string, len(headers))
+		values := make([]any, len(headers))
+
+		for i, header := range headers {
+			columns[i] = header
+			placeholders[i] = "?"
+			values[i] = row[i]
+		}
+
+		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			tableName,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "))
+
+		err := ctx.DB().Exec(query, values...).Error
+		if err != nil {
+			return fmt.Errorf("failed to insert row into %s: %w", tableName, err)
+		}
+	}
+
+	return nil
+}
+
+func createViewTable(ctx context.Context, testdata string) models.View {
+	obj, err := readTestData("views", fmt.Sprintf("%s.yaml", testdata))
+	Expect(err).ToNot(HaveOccurred())
+
+	specMap, ok, err := unstructured.NestedMap(obj.Object, "spec")
+	Expect(ok).To(BeTrue())
+	Expect(err).ToNot(HaveOccurred())
+
+	spec, err := json.Marshal(specMap)
+	Expect(err).ToNot(HaveOccurred())
+
+	model := models.View{
+		ID:        uuid.MustParse(string(obj.GetUID())),
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+		Spec:      spec,
+	}
+
+	err = ctx.DB().Create(&model).Error
+	Expect(err).ToNot(HaveOccurred())
+
+	pipelineColumnDefs, err := view.GetViewColumnDefs(ctx, model.Namespace, model.Name)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = view.CreateViewTable(ctx, model.GeneratedTableName(), pipelineColumnDefs)
+	Expect(err).ToNot(HaveOccurred())
+
+	return model
+}
+
+func populateViewTable(ctx context.Context, table string, testdataPath string) {
+	records, err := readCSVData(testdataPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = insertCSVDataIntoTable(ctx, table, records)
+	Expect(err).ToNot(HaveOccurred())
+
+	var pushedCount int
+	err = DefaultContext.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE is_pushed = true", table)).Scan(&pushedCount).Error
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pushedCount).To(BeZero())
 }
