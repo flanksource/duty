@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/commons/utils"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -12,8 +14,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 
-	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/commons/utils"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -310,6 +310,32 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 		var pending int
 		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Where("status IN (?,?)", models.StatusFailed, models.StatusWarning).Model(&models.JobHistory{}).Scan(&pending).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pending).To(BeZero())
+	})
+
+	ginkgo.It("should sync view panels to upstream", func() {
+		var pushed int
+		err := DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = true").Model(&models.ViewPanel{}).Scan(&pushed).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pushed).To(BeZero())
+
+		var viewPanels int
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ViewPanel{}).Scan(&viewPanels).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(viewPanels).To(BeZero())
+
+		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "view_panels")
+		Expect(summary.Error()).ToNot(HaveOccurred())
+		count, fkFailed := summary.GetSuccessFailure()
+		Expect(fkFailed).To(BeZero())
+
+		err = upstreamCtx.DB().Select("COUNT(*)").Model(&models.ViewPanel{}).Scan(&viewPanels).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(viewPanels).To(Equal(count))
+
+		var pending int
+		err = DefaultContext.DB().Select("COUNT(*)").Where("is_pushed = false").Model(&models.ViewPanel{}).Scan(&pending).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pending).To(BeZero())
 	})

@@ -42,6 +42,9 @@ type DummyData struct {
 	Evidences  []models.Evidence
 	Comments   []models.Comment
 
+	Views      []models.View
+	ViewPanels []models.ViewPanel
+
 	Canaries                    []models.Canary
 	Checks                      []models.Check
 	CheckStatuses               []models.CheckStatus
@@ -188,6 +191,14 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := gormDB.CreateInBatches(t.Views, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.ViewPanels, 100).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -259,6 +270,14 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := DeleteAll(gormDB, t.ViewPanels); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Views); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -293,6 +312,8 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Comments:                     append([]models.Comment{}, AllDummyComments...),
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
 		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
+		Views:                        append([]models.View{}, AllDummyViews...),
+		ViewPanels:                   append([]models.ViewPanel{}, AllDummyViewPanels...),
 		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
 		Permissions:                  append([]models.Permission{}, AllDummyPermissions...),
 	}

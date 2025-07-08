@@ -213,6 +213,10 @@ var reconcileTableGroups = []PushGroup{
 		Name:   "Artifact",
 		Tables: []pushableTable{models.Artifact{}},
 	},
+	{
+		Name:   "Views",
+		Tables: []pushableTable{models.ViewPanel{}, models.GeneratedViewTable{}},
+	},
 }
 
 func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) ReconcileSummary {
