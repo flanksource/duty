@@ -354,26 +354,27 @@ func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTa
 }
 
 func ResetIsPushed(ctx context.Context) error {
+	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 7)
+
 	overrides := map[string]string{
-		models.ConfigAnalysis{}.TableName(): `first_observed >= NOW() - INTERVAL '%d days' OR last_observed >= NOW() - INTERVAL '%d days'`,
-		models.ConfigChange{}.TableName():   `created_at >= NOW() - INTERVAL '%d days'`,
-		models.CheckStatus{}.TableName():    `created_at >= NOW() - INTERVAL '%d days'`,
-		models.JobHistory{}.TableName():     `time_start >= NOW() - INTERVAL '%d days'`,
+		models.ConfigAnalysis{}.TableName(): fmt.Sprintf(`first_observed >= NOW() - INTERVAL '%d days' OR last_observed >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays),
+		models.ConfigChange{}.TableName():   fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.CheckStatus{}.TableName():    fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.JobHistory{}.TableName():     fmt.Sprintf(`time_start >= NOW() - INTERVAL '%d days'`, intervalDays),
 	}
 
-	defQuery := `created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`
+	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
+
 	if !ctx.Properties().On(false, "job.ResetIsPushed.ignore_deleted_at") {
 		defQuery += " AND deleted_at IS NULL"
 	}
-
-	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 7)
 
 	var errs []error
 	for _, pg := range reconcileTableGroups {
 		for _, table := range pg.Tables {
 			// None of the override tables have deleted_at field so it can be ignored
 			if err := ctx.DB().Table(table.TableName()).
-				Where(fmt.Sprintf(lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery), intervalDays)).
+				Where(lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery)).
 				Update("is_pushed", false).Error; err != nil {
 				errs = append(errs, fmt.Errorf("error updating is_pushed for table[%s]: %w", table, err))
 			}
