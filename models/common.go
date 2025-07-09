@@ -164,6 +164,7 @@ const (
 
 // convertViewRecordsToNativeTypes converts view cell to native go types
 func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]ColumnType) map[string]any {
+	warnings := make(map[string]struct{})
 	for colName, value := range row {
 		colType, ok := columnDef[colName]
 		if !ok {
@@ -187,7 +188,7 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case float64:
 				row[colName] = time.Duration(int64(v))
 			default:
-				logger.Warnf("postProcessViewRows: unknown duration type: %T", v)
+				warnings[fmt.Sprintf("unknown duration type: %T", v)] = struct{}{}
 			}
 
 		case ColumnTypeDateTime:
@@ -197,11 +198,11 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case string:
 				parsed, err := time.Parse(time.RFC3339, v)
 				if err != nil {
-					logger.Warnf("postProcessViewRows: failed to parse datetime: %v", err)
+					warnings["failed to parse datetime"] = struct{}{}
 				}
 				row[colName] = parsed
 			default:
-				logger.Warnf("postProcessViewRows: unknown datetime type: %T", v)
+				warnings[fmt.Sprintf("unknown datetime type: %T", v)] = struct{}{}
 			}
 
 		case ColumnTypeString:
@@ -224,6 +225,11 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 		default:
 			// do nothing
 		}
+	}
+
+	// Log collected warnings
+	for warning := range warnings {
+		logger.Warnf("postProcessViewRows: %s", warning)
 	}
 
 	return row

@@ -52,7 +52,7 @@ func (v View) GetNamespace() string {
 
 // ViewPanel represents view panel data with push tracking
 type ViewPanel struct {
-	ID       uuid.UUID `json:"id" gorm:"primaryKey"`
+	ViewID   uuid.UUID `json:"view_id" gorm:"primaryKey"`
 	AgentID  uuid.UUID `json:"agent_id"`
 	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
 
@@ -64,7 +64,7 @@ func (ViewPanel) TableName() string {
 }
 
 func (v ViewPanel) PK() string {
-	return v.ID.String()
+	return v.ViewID.String()
 }
 
 func (v ViewPanel) AsMap(removeFields ...string) map[string]any {

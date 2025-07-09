@@ -61,7 +61,7 @@ table "views" {
 
 table "view_panels" {
   schema = schema.public
-  column "id" {
+  column "view_id" {
     null    = false
     type    = uuid
     comment = "maps one-to-one with views.id"
@@ -87,7 +87,7 @@ table "view_panels" {
     on_delete   = NO_ACTION
   }
   primary_key {
-    columns = [column.id]
+    columns = [column.view_id]
     comment = "one record per view"
   }
 }
