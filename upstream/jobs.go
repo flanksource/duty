@@ -364,6 +364,7 @@ func ResetIsPushed(ctx context.Context) error {
 	}
 
 	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
+
 	if !ctx.Properties().On(false, "job.ResetIsPushed.ignore_deleted_at") {
 		defQuery += " AND deleted_at IS NULL"
 	}
