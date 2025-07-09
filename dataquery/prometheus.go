@@ -22,21 +22,15 @@ type PrometheusQuery struct {
 
 // executePrometheusQuery executes a Prometheus query and returns results
 func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryResultRow, error) {
-	conn, err := connection.Get(ctx, pq.PrometheusConnection.ConnectionName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection: %w", err)
+	if pq.Query == "" {
+		return nil, fmt.Errorf("prometheus query is required")
 	}
 
-	var prometheusConnection connection.PrometheusConnection
-	if err := prometheusConnection.FromModel(*conn); err != nil {
-		return nil, fmt.Errorf("failed to create prometheus connection: %w", err)
-	}
-
-	if err := prometheusConnection.Populate(ctx); err != nil {
+	if err := pq.PrometheusConnection.Populate(ctx); err != nil {
 		return nil, fmt.Errorf("failed to populate prometheus connection: %w", err)
 	}
 
-	client, err := prometheusConnection.NewClient(ctx)
+	client, err := pq.PrometheusConnection.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create prometheus client: %w", err)
 	}
@@ -102,7 +96,7 @@ func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
 				}
 
 				// Add timestamp and value
-				row["timestamp"] = samplePair.Timestamp.Time().Unix()
+				row["timestamp"] = samplePair.Timestamp.Time()
 				row["value"] = float64(samplePair.Value)
 				results = append(results, row)
 			}
@@ -110,7 +104,8 @@ func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
 
 	case *model.Scalar:
 		row := QueryResultRow{
-			"value": float64(v.Value),
+			"value":     float64(v.Value),
+			"timestamp": v.Timestamp.Time(),
 		}
 		results = append(results, row)
 

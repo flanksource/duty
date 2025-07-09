@@ -22,13 +22,6 @@ type QueryResultRow map[string]any
 func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 	var results []QueryResultRow
 	if q.Prometheus != nil {
-		if q.Prometheus.PrometheusConnection.ConnectionName == "" {
-			return nil, fmt.Errorf("prometheus connection name is required")
-		}
-		if q.Prometheus.Query == "" {
-			return nil, fmt.Errorf("prometheus query string is required")
-		}
-
 		prometheusResults, err := executePrometheusQuery(ctx, *q.Prometheus)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute prometheus query: %w", err)
