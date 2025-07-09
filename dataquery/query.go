@@ -29,7 +29,7 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 
 		results = prometheusResults
 	} else {
-		return nil, fmt.Errorf("query has not datasource specified")
+		return nil, fmt.Errorf("query has no data source specified")
 	}
 
 	return results, nil
