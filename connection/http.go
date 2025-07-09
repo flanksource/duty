@@ -3,14 +3,16 @@ package connection
 import (
 	"encoding/json"
 	"fmt"
+	netHTTP "net/http"
 	"strings"
 	"time"
 
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/http/middlewares"
+	"github.com/labstack/echo/v4"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"github.com/labstack/echo/v4"
 )
 
 // +kubebuilder:object:generate=true
@@ -40,6 +42,37 @@ type HTTPConnection struct {
 	Bearer              types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
 	OAuth               types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
 	TLS                 TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
+}
+
+func (t *HTTPConnection) FromModel(connection models.Connection) error {
+	t.URL = connection.URL
+	t.TLS.InsecureSkipVerify = connection.InsecureTLS
+
+	if err := t.HTTPBasicAuth.Username.Scan(connection.Username); err != nil {
+		return fmt.Errorf("error scanning username: %w", err)
+	}
+	if err := t.HTTPBasicAuth.Password.Scan(connection.Password); err != nil {
+		return fmt.Errorf("error scanning password: %w", err)
+	}
+
+	if bearer := connection.Properties["bearer"]; bearer != "" {
+		if err := t.Bearer.Scan(bearer); err != nil {
+			return fmt.Errorf("error scanning bearer: %w", err)
+		}
+	}
+
+	if clientID := connection.Properties["clientID"]; clientID != "" {
+		if err := t.OAuth.ClientID.Scan(clientID); err != nil {
+			return fmt.Errorf("error scanning oauth client_id: %w", err)
+		}
+	}
+	if clientSecret := connection.Properties["clientSecret"]; clientSecret != "" {
+		if err := t.OAuth.ClientSecret.Scan(clientSecret); err != nil {
+			return fmt.Errorf("error scanning oauth client_secret: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (h HTTPConnection) GetEndpoint() string {
@@ -109,6 +142,43 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		return h, err
 	}
 	return h, nil
+}
+
+func (h HTTPConnection) Transport() netHTTP.RoundTripper {
+	rt := &httpConnectionRoundTripper{
+		HTTPConnection: h,
+		Base:           &netHTTP.Transport{},
+	}
+	return rt
+}
+
+type httpConnectionRoundTripper struct {
+	HTTPConnection
+	Base netHTTP.RoundTripper
+}
+
+func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.Response, error) {
+	conn := rt.HTTPConnection
+	if !conn.HTTPBasicAuth.IsEmpty() {
+		req.SetBasicAuth(conn.HTTPBasicAuth.GetUsername(), conn.HTTPBasicAuth.GetPassword())
+	} else if !conn.Bearer.IsEmpty() {
+		req.Header.Set(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
+	} else if !conn.OAuth.IsEmpty() {
+		oauthTransport := middlewares.NewOauthTransport(middlewares.OauthConfig{
+			ClientID:     conn.OAuth.ClientID.String(),
+			ClientSecret: conn.OAuth.ClientSecret.String(),
+			TokenURL:     conn.OAuth.TokenURL,
+			Params:       conn.OAuth.Params,
+			Scopes:       conn.OAuth.Scopes,
+		})
+		rt.Base = oauthTransport.RoundTripper(rt.Base)
+	}
+
+	if !conn.TLS.IsEmpty() {
+		rt.TLS = conn.TLS
+	}
+
+	return rt.Base.RoundTrip(req)
 }
 
 // CreateHTTPClient requires a hydrated connection

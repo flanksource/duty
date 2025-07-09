@@ -52,6 +52,8 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object paths="./models/..."
 	$(CONTROLLER_GEN) object paths="./shell/..."
 	$(CONTROLLER_GEN) object paths="./pubsub/..."
+	$(CONTROLLER_GEN) object paths="./dataquery/..."
+	$(CONTROLLER_GEN) object paths="./view/..."
 	$(CONTROLLER_GEN) object paths="./"
 	PATH=$(LOCALBIN):${PATH} go generate ./...
 
