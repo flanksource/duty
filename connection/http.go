@@ -3,6 +3,7 @@ package connection
 import (
 	"encoding/json"
 	"fmt"
+	netHTTP "net/http"
 	"strings"
 	"time"
 
@@ -141,6 +142,43 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		return h, err
 	}
 	return h, nil
+}
+
+func (h HTTPConnection) Transport() netHTTP.RoundTripper {
+	rt := &httpConnectionRoundTripper{
+		HTTPConnection: h,
+		Base:           &netHTTP.Transport{},
+	}
+	return rt
+}
+
+type httpConnectionRoundTripper struct {
+	HTTPConnection
+	Base netHTTP.RoundTripper
+}
+
+func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.Response, error) {
+	conn := rt.HTTPConnection
+	if !conn.HTTPBasicAuth.IsEmpty() {
+		req.SetBasicAuth(conn.HTTPBasicAuth.GetUsername(), conn.HTTPBasicAuth.GetPassword())
+	} else if !conn.Bearer.IsEmpty() {
+		req.Header.Set(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
+	} else if !conn.OAuth.IsEmpty() {
+		oauthTransport := middlewares.NewOauthTransport(middlewares.OauthConfig{
+			ClientID:     conn.OAuth.ClientID.String(),
+			ClientSecret: conn.OAuth.ClientSecret.String(),
+			TokenURL:     conn.OAuth.TokenURL,
+			Params:       conn.OAuth.Params,
+			Scopes:       conn.OAuth.Scopes,
+		})
+		rt.Base = oauthTransport.RoundTripper(rt.Base)
+	}
+
+	if !conn.TLS.IsEmpty() {
+		rt.TLS = conn.TLS
+	}
+
+	return rt.Base.RoundTrip(req)
 }
 
 // CreateHTTPClient requires a hydrated connection
