@@ -232,14 +232,14 @@ var reconcileTableGroups = []PushGroup{
 	},
 }
 
-func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) ReconcileSummary {
-	return ReconcileSome(ctx, config, batchSize)
+func ReconcileAll(ctx context.Context, client *UpstreamClient, batchSize int) ReconcileSummary {
+	return ReconcileSome(ctx, client, batchSize)
 }
 
-func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) ReconcileSummary {
+func ReconcileSome(ctx context.Context, client *UpstreamClient, batchSize int, runOnly ...string) ReconcileSummary {
 	var summary ReconcileSummary
 
-	reconcileTableGroupsCopy, err := reconcileTableGroupsWithGeneratedViews(ctx, config)
+	reconcileTableGroupsCopy, err := reconcileTableGroupsWithGeneratedViews(ctx, client)
 	if err != nil {
 		summary.AddStat("generated_view_tables", 0, ForeignKeyErrorSummary{}, err)
 		return summary
@@ -257,7 +257,7 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 				continue
 			}
 
-			success, failed, err := reconcileTable(ctx, config, table, batchSize)
+			success, failed, err := reconcileTable(ctx, client, table, batchSize)
 			summary.AddStat(table.TableName(), success, failed, err)
 			if err != nil {
 				if i != len(group.Tables)-1 {
@@ -274,9 +274,7 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
-func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, ForeignKeyErrorSummary, error) {
-	client := NewUpstreamClient(config)
-
+func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableTable, batchSize int) (int, ForeignKeyErrorSummary, error) {
 	var count int
 	var fkFailed ForeignKeyErrorSummary
 	for {
