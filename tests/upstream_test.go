@@ -32,6 +32,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	var upstreamCtx *context.Context
 	var echoCloser, drop func()
 	var upstreamConf upstream.UpstreamConfig
+	var upstreamClient *upstream.UpstreamClient
 	const agentName = "my-agent"
 
 	ginkgo.BeforeAll(func() {
@@ -73,10 +74,11 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 			Host:      fmt.Sprintf("http://localhost:%d", port),
 			AgentName: agentName,
 		}
+		upstreamClient = upstream.NewUpstreamClient(upstreamConf)
 	})
 
 	ginkgo.It("should sync config scrapers", func() {
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_scrapers")
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "config_scrapers")
 	})
 
 	ginkgo.It("should sync config items to upstream & deal with fk issue", func() {
@@ -100,7 +102,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(totalConfigsPushed).To(BeZero(), "upstream should have 0 config items as we haven't reconciled yet")
 
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
+		summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 1000, "config_items")
 		Expect(summary.Error()).To(HaveOccurred())
 		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(Equal(2), "logistics replicaset & pod should fail to be synced")
@@ -123,7 +125,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		}
 
 		{
-			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "config_items")
+			summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 1000, "config_items")
 			Expect(summary.Error()).To(BeNil())
 			count, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
@@ -137,7 +139,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config_changes to upstream", func() {
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_changes")
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "config_changes")
 	})
 
 	ginkgo.It("should sync components to upstream & deal with fk issue", func() {
@@ -161,7 +163,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(totalComponents).To(BeZero(), "upstream should have 0 components as we haven't reconciled yet")
 
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+		summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 1000, "components")
 		Expect(summary.Error()).To(HaveOccurred())
 		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(Equal(4), "logistics api, ui, database & worker should fail to be synced")
@@ -184,7 +186,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		}
 
 		{
-			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 1000, "components")
+			summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 1000, "components")
 			Expect(summary.Error()).ToNot(HaveOccurred())
 			count, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
@@ -198,11 +200,11 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config_analyses to upstream", func() {
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "config_analysis")
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "config_analysis")
 	})
 
 	ginkgo.It("should sync artifacts to upstream", func() {
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "artifacts")
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "artifacts")
 	})
 
 	ginkgo.It("should sync job history with failed and warning to upstream", func() {
@@ -216,7 +218,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(upstreamCount).To(BeZero())
 
-		summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "job_history")
+		summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 10, "job_history")
 		Expect(summary.Error()).ToNot(HaveOccurred())
 		count, fkFailed := summary.GetSuccessFailure()
 		Expect(fkFailed).To(BeZero())
@@ -232,10 +234,12 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync panels to upstream", func() {
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, "view_panels")
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "view_panels")
 	})
 
 	ginkgo.It("should sync generated view tables to upstream", func() {
+		client := upstream.NewUpstreamClient(upstreamConf) // New client cuz we want a fresh cache
+
 		pipeline := createViewTable(DefaultContext, "pipelines")
 		deployment := createViewTable(DefaultContext, "deployments")
 		populateViewTable(DefaultContext, pipeline.GeneratedTableName(), "pipelines.csv")
@@ -245,8 +249,8 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		_ = createViewTable(*upstreamCtx, "pipelines")
 		_ = createViewTable(*upstreamCtx, "deployments")
 
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, pipeline.GeneratedTableName())
-		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamConf, deployment.GeneratedTableName())
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, client, pipeline.GeneratedTableName())
+		testSingleTableReconciliation(DefaultContext, upstreamCtx, client, deployment.GeneratedTableName())
 	})
 
 	ginkgo.Describe("should deal with fk constraint errors", func() {
@@ -330,7 +334,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 						Where("id IN ?", []uuid.UUID{deployment.ID, pod.ID}).UpdateColumn("is_pushed", true).Error
 					Expect(err).To(BeNil())
 
-					summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, t)
+					summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 10, t)
 					Expect(summary.Error()).To(HaveOccurred())
 					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeNumerically(">", 0))
@@ -391,7 +395,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 			})
 
 			ginkgo.It("should reconcile the above canary & checks", func() {
-				summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 10, "canaries", "checks")
+				summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 10, "canaries", "checks")
 				Expect(summary.Error()).ToNot(HaveOccurred())
 				_, fkFailed := summary.GetSuccessFailure()
 				Expect(fkFailed).To(BeZero())
@@ -415,7 +419,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 					err = DefaultContext.DB().Model(&models.Check{}).Where("id IN ?", []uuid.UUID{httpChecks.ID, tcpCheck.ID}).Update("is_pushed", false).Error
 					Expect(err).To(BeNil())
 
-					summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "checks")
+					summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 100, "checks")
 					Expect(summary.Error()).To(HaveOccurred())
 					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeNumerically(">", 0))
@@ -439,7 +443,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 				})
 
 				ginkgo.It("The next round of reconciliation should have no error", func() {
-					summary := upstream.ReconcileAll(DefaultContext, upstreamConf, 100)
+					summary := upstream.ReconcileAll(DefaultContext, upstreamClient, 100)
 					Expect(summary.Error()).ToNot(HaveOccurred())
 					_, fkFailed := summary.GetSuccessFailure()
 					Expect(fkFailed).To(BeZero())
@@ -450,7 +454,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 	ginkgo.Context("should handle updates", func() {
 		ginkgo.It("ensure all the topologies & canaries have been pushed", func() {
-			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 100, "topologies", "canaries")
 			Expect(summary.Error()).To(BeNil())
 			_, fkFailed := summary.GetSuccessFailure()
 			Expect(fkFailed).To(BeZero())
@@ -474,7 +478,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 			err = DefaultContext.DB().Model(&models.Canary{}).Where("is_pushed = ?", true).Update("is_pushed", false).Error
 			Expect(err).To(BeNil())
 
-			summary := upstream.ReconcileSome(DefaultContext, upstreamConf, 100, "topologies", "canaries")
+			summary := upstream.ReconcileSome(DefaultContext, upstreamClient, 100, "topologies", "canaries")
 			Expect(summary.Error()).To(BeNil())
 			count, fkFailed := summary.GetSuccessFailure()
 			Expect(count).To(Not(BeZero()))
@@ -498,7 +502,7 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 })
 
-func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *context.Context, upstreamConf upstream.UpstreamConfig, table string) {
+func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *context.Context, upstreamClient *upstream.UpstreamClient, table string) {
 	var pushed int
 	err := agentCtx.DB().Select("COUNT(*)").Where("is_pushed = true").Table(table).Scan(&pushed).Error
 	Expect(err).ToNot(HaveOccurred())
@@ -513,7 +517,7 @@ func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *contex
 	Expect(err).ToNot(HaveOccurred())
 	Expect(countInUpstream).To(BeZero())
 
-	summary := upstream.ReconcileSome(agentCtx, upstreamConf, 500, table)
+	summary := upstream.ReconcileSome(agentCtx, upstreamClient, 500, table)
 	Expect(summary.Error()).ToNot(HaveOccurred())
 
 	count, fkFailed := summary.GetSuccessFailure()

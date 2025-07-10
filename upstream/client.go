@@ -10,6 +10,7 @@ import (
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
+	gocache "github.com/patrickmn/go-cache"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
@@ -20,12 +21,16 @@ import (
 const AgentNameQueryParam = "agent_name"
 
 type UpstreamClient struct {
-	AgentName string
 	*http.Client
+	AgentName string
+
+	// cache upstream records
+	cache *gocache.Cache
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 	client := UpstreamClient{
+		cache:     gocache.New(5*time.Minute, 10*time.Minute),
 		AgentName: config.AgentName,
 		Client: http.NewClient().
 			Auth(config.Username, config.Password).
@@ -123,6 +128,12 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 
 // ListViews returns all views from upstream with namespace,name pairs
 func (t *UpstreamClient) ListViews(ctx context.Context, views []ViewIdentifier) ([]ViewWithColumns, error) {
+	cacheKey := "columns-list"
+
+	if cached, found := t.cache.Get(cacheKey); found {
+		return cached.([]ViewWithColumns), nil
+	}
+
 	req := t.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName)
 	if err := req.Body(views); err != nil {
 		return nil, fmt.Errorf("error setting request body: %w", err)
@@ -144,6 +155,7 @@ func (t *UpstreamClient) ListViews(ctx context.Context, views []ViewIdentifier) 
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
+	t.cache.Set(cacheKey, result, ctx.Properties().Duration("upstream.client.cache.view-columns.duration", gocache.DefaultExpiration))
 	return result, nil
 }
 

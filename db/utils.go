@@ -108,7 +108,7 @@ func ReadTable(db *gorm.DB, tableName string, clauses ...clause.Expression) ([]m
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
-			continue
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		row := make(map[string]any)

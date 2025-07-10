@@ -84,15 +84,15 @@ func getPostgresType(colType ColumnType) string {
 }
 
 func ReadViewTable(ctx context.Context, table string) ([]Row, error) {
-	rows, err := ctx.DB().Raw(fmt.Sprintf("SELECT * FROM %s", table)).Rows()
+	rows, err := ctx.DB().Select("*").Table(table).Rows()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read view table (%s): %w", table, err)
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %w", err)
+		return nil, fmt.Errorf("failed to get columns for view table (%s): %w", table, err)
 	}
 
 	var viewRows []Row

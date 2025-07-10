@@ -110,7 +110,7 @@ func columnsMatch(local []pkgView.ViewColumnDef, upstream []pkgView.ViewColumnDe
 	return true
 }
 
-func reconcileTableGroupsWithGeneratedViews(ctx context.Context, config UpstreamConfig) ([]PushGroup, error) {
+func reconcileTableGroupsWithGeneratedViews(ctx context.Context, client *UpstreamClient) ([]PushGroup, error) {
 	// In addition to the existing groups, we also need to reconcile dynamically generated tables for views.
 	// But only those views that are present in upstream must be reconciled.
 	//
@@ -132,7 +132,6 @@ func reconcileTableGroupsWithGeneratedViews(ctx context.Context, config Upstream
 		})
 	}
 
-	client := NewUpstreamClient(config)
 	upstreamViews, err := client.ListViews(ctx, viewIdentifiers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list views from upstream: %w", err)

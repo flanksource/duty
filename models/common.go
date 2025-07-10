@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -190,8 +191,18 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 				row[colName] = time.Duration(v)
 			case float64:
 				row[colName] = time.Duration(int64(v))
+			case string:
+				if parsed, err := time.ParseDuration(v); err != nil {
+					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse duration (value: %v): %v", v, err))
+					row[colName] = nil
+				} else {
+					row[colName] = parsed
+				}
+			case nil:
+				row[colName] = nil
 			default:
 				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
+				row[colName] = nil
 			}
 
 		case ColumnTypeDateTime:
@@ -199,13 +210,17 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case time.Time:
 				row[colName] = v
 			case string:
-				parsed, err := time.Parse(time.RFC3339, v)
-				if err != nil {
-					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse datetime: %v", err))
+				if parsed, err := time.Parse(time.RFC3339, v); err != nil {
+					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse datetime (value: %v): %v", v, err))
+					row[colName] = nil
+				} else {
+					row[colName] = parsed
 				}
-				row[colName] = parsed
+			case nil:
+				row[colName] = nil
 			default:
 				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
+				row[colName] = nil
 			}
 
 		case ColumnTypeString:
@@ -226,7 +241,22 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			}
 
 		case ColumnTypeBoolean:
-			if value == nil {
+			switch v := value.(type) {
+			case bool:
+				row[colName] = v
+			case string:
+				if parsed, err := strconv.ParseBool(v); err != nil {
+					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse boolean (value: %v): %v", v, err))
+					row[colName] = false
+				} else {
+					row[colName] = parsed
+				}
+			case int, int32, int64:
+				row[colName] = v != 0
+			case nil:
+				row[colName] = false
+			default:
+				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
 				row[colName] = false
 			}
 
