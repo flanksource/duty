@@ -3,7 +3,6 @@ kind: View
 metadata:
   name: pipelines
   namespace: mc
-  uid: db1d9560-9344-4a0f-b888-04a1d2e755f6 
 spec:
   columns:
     - name: name
