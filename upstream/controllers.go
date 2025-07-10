@@ -172,46 +172,46 @@ func PingHandler(c echo.Context) error {
 	return nil
 }
 
-// CheckViewHandler checks if a view with the same namespace, name and column definition exists
-func CheckViewHandler(c echo.Context) error {
+// listViews retrieves view column definitions for the given view identifiers
+func listViews(ctx context.Context, viewIdentifiers []ViewIdentifier) ([]ViewWithColumns, error) {
+	var result []ViewWithColumns
+	for _, viewId := range viewIdentifiers {
+		var viewModel models.View
+		if err := ctx.DB().Where("namespace = ? AND name = ?", viewId.Namespace, viewId.Name).Find(&viewModel).Error; err != nil {
+			return nil, fmt.Errorf("database error: %w", err)
+		}
+		if viewModel.ID == uuid.Nil {
+			continue // Skip views that don't exist
+		}
+
+		colDefs, err := view.GetViewColumnDefs(ctx, viewId.Namespace, viewId.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get view column definitions for %s/%s: %w", viewId.Namespace, viewId.Name, err)
+		}
+
+		result = append(result, ViewWithColumns{
+			Namespace: viewId.Namespace,
+			Name:      viewId.Name,
+			Columns:   colDefs,
+		})
+	}
+
+	return result, nil
+}
+
+// ListViewsHandler receives a list of namespace,name pairs and returns the view column definitions
+func ListViewsHandler(c echo.Context) error {
 	ctx := c.Request().Context().(context.Context)
 
-	var req struct {
-		Namespace string               `json:"namespace"`
-		Name      string               `json:"name"`
-		Columns   []view.ViewColumnDef `json:"columns"`
+	var viewIdentifiers []ViewIdentifier
+	if err := json.NewDecoder(c.Request().Body).Decode(&viewIdentifiers); err != nil {
+		return api.WriteError(c, api.Errorf(api.EINVALID, "invalid json request: %v", err))
 	}
 
-	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, api.HTTPError{Err: err.Error(), Message: "invalid json request"})
-	}
-
-	var viewModel models.View
-	if err := ctx.DB().Where("namespace = ? AND name = ?", req.Namespace, req.Name).Find(&viewModel).Error; err != nil {
-		return c.JSON(http.StatusNotFound, api.HTTPError{Err: err.Error(), Message: "view not found"})
-	} else if viewModel.ID == uuid.Nil {
-		return c.JSON(http.StatusNotFound, api.HTTPError{Err: "view not found", Message: "view not found"})
-	}
-
-	if !ctx.DB().Migrator().HasTable(viewModel.GeneratedTableName()) {
-		return c.JSON(http.StatusOK, map[string]string{"status": "found"})
-	}
-
-	colDefs, err := view.GetViewColumnDefs(ctx, req.Namespace, req.Name)
+	result, err := listViews(ctx, viewIdentifiers)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to get view column defs"})
+		return api.WriteError(c, err)
 	}
 
-	// Check if column definitions match
-	if len(colDefs) != len(req.Columns) {
-		return c.JSON(http.StatusConflict, api.HTTPError{Message: "column count mismatch"})
-	}
-
-	for i, reqCol := range req.Columns {
-		if reqCol.Name != colDefs[i].Name || reqCol.Type != colDefs[i].Type {
-			return c.JSON(http.StatusConflict, api.HTTPError{Message: "column definition mismatch"})
-		}
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"status": "found"})
+	return c.JSON(http.StatusOK, result)
 }
