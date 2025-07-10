@@ -8,7 +8,21 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	pkgView "github.com/flanksource/duty/view"
 )
+
+// ViewIdentifier represents a view namespace and name pair
+type ViewIdentifier struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+}
+
+// ViewWithColumns represents a view with its column definitions
+type ViewWithColumns struct {
+	Namespace string                  `json:"namespace"`
+	Name      string                  `json:"name"`
+	Columns   []pkgView.ViewColumnDef `json:"columns"`
+}
 
 func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) error {
 	if len(records) == 0 {
@@ -79,4 +93,85 @@ func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) e
 	}
 
 	return nil
+}
+
+// columnsMatch checks if two sets of column definitions match
+func columnsMatch(local []pkgView.ViewColumnDef, upstream []pkgView.ViewColumnDef) bool {
+	if len(local) != len(upstream) {
+		return false
+	}
+
+	for i, localCol := range local {
+		if localCol.Name != upstream[i].Name || localCol.Type != upstream[i].Type {
+			return false
+		}
+	}
+
+	return true
+}
+
+func reconcileTableGroupsWithGeneratedViews(ctx context.Context, config UpstreamConfig) ([]PushGroup, error) {
+	// In addition to the existing groups, we also need to reconcile dynamically generated tables for views.
+	// But only those views that are present in upstream must be reconciled.
+	//
+
+	localViews, err := pkgView.GetAllViews(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(localViews) == 0 {
+		return reconcileTableGroups, nil
+	}
+
+	var viewIdentifiers []ViewIdentifier
+	for _, view := range localViews {
+		viewIdentifiers = append(viewIdentifiers, ViewIdentifier{
+			Namespace: view.GetNamespace(),
+			Name:      view.Name,
+		})
+	}
+
+	client := NewUpstreamClient(config)
+	upstreamViews, err := client.ListViews(ctx, viewIdentifiers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list views from upstream: %w", err)
+	}
+
+	pg := PushGroup{
+		Name: generatedViewsGroup,
+	}
+
+	upstreamViewMap := make(map[string][]pkgView.ViewColumnDef)
+	for _, upstreamView := range upstreamViews {
+		key := upstreamView.Namespace + "/" + upstreamView.Name
+		upstreamViewMap[key] = upstreamView.Columns
+	}
+
+	for _, view := range localViews {
+		columnDef, err := pkgView.GetViewColumnDefs(ctx, view.GetNamespace(), view.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get view column definitions for %s/%s: %w", view.GetNamespace(), view.Name, err)
+		}
+
+		key := view.GetNamespace() + "/" + view.Name
+		if upstreamColumns, exists := upstreamViewMap[key]; exists {
+			if columnsMatch(columnDef, upstreamColumns) {
+				pg.Tables = append(pg.Tables, models.GeneratedViewTable{
+					ViewTableName: view.GeneratedTableName(),
+					PrimaryKey:    columnDef.PrimaryKey(),
+					ColumnDef:     columnDef.ToColumnTypeMap(),
+				})
+			}
+		}
+	}
+
+	if len(pg.Tables) == 0 {
+		return reconcileTableGroups, nil
+	}
+
+	reconcileTableGroupsCopy := make([]PushGroup, len(reconcileTableGroups))
+	copy(reconcileTableGroupsCopy, reconcileTableGroups)
+	reconcileTableGroupsCopy = append(reconcileTableGroupsCopy, pg)
+	return reconcileTableGroupsCopy, nil
 }
