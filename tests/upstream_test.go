@@ -612,10 +612,15 @@ func createViewTable(ctx context.Context, testdata string) models.View {
 	Expect(err).ToNot(HaveOccurred())
 
 	model := models.View{
-		ID:        uuid.MustParse(string(obj.GetUID())),
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
 		Spec:      spec,
+	}
+
+	if obj.GetUID() == "" {
+		model.ID = uuid.New()
+	} else {
+		model.ID = uuid.MustParse(string(obj.GetUID()))
 	}
 
 	err = ctx.DB().Create(&model).Error

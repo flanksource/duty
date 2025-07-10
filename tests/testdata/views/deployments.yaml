@@ -3,7 +3,6 @@ kind: View
 metadata:
   name: deployments
   namespace: mc
-  uid: 6d53ff5a-13ec-4049-8a97-adad0fcd97ca
 spec:
   columns:
     - name: application
