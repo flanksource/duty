@@ -11,14 +11,17 @@ import (
 type ColumnType string
 
 const (
-	ColumnTypeString   ColumnType = "string"
-	ColumnTypeNumber   ColumnType = "number"
-	ColumnTypeBoolean  ColumnType = "boolean"
-	ColumnTypeDateTime ColumnType = "datetime"
-	ColumnTypeDuration ColumnType = "duration"
-	ColumnTypeHealth   ColumnType = "health"
-	ColumnTypeStatus   ColumnType = "status"
-	ColumnTypeGauge    ColumnType = "gauge"
+	ColumnTypeBoolean   ColumnType = "boolean"
+	ColumnTypeBytes     ColumnType = "bytes"
+	ColumnTypeDateTime  ColumnType = "datetime"
+	ColumnTypeDecimal   ColumnType = "decimal"
+	ColumnTypeDuration  ColumnType = "duration"
+	ColumnTypeGauge     ColumnType = "gauge"
+	ColumnTypeHealth    ColumnType = "health"
+	ColumnTypeMillicore ColumnType = "millicore"
+	ColumnTypeNumber    ColumnType = "number"
+	ColumnTypeStatus    ColumnType = "status"
+	ColumnTypeString    ColumnType = "string"
 )
 
 // ViewColumnDef defines a column in the view
@@ -82,7 +85,13 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 
 		switch col.Type {
 		case ColumnTypeNumber:
-			return name, models.ColumnTypeNumber
+			return name, models.ColumnTypeInteger
+		case ColumnTypeDecimal:
+			return name, models.ColumnTypeDecimal
+		case ColumnTypeBytes:
+			return name, models.ColumnTypeString
+		case ColumnTypeMillicore:
+			return name, models.ColumnTypeInteger
 		case ColumnTypeBoolean:
 			return name, models.ColumnTypeBoolean
 		case ColumnTypeDateTime:
