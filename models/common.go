@@ -162,9 +162,11 @@ const (
 	ColumnTypeJSONB    ColumnType = "jsonb"
 )
 
-// convertViewRecordsToNativeTypes converts view cell to native go types
-func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]ColumnType) map[string]any {
-	warnings := make(map[string]struct{})
+// ConvertViewRecordsToNativeTypes converts view cell to native go types
+func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]ColumnType) (map[string]any, map[string][]string) {
+	// keep track of all the invalid types encountered per column
+	invalidTypesPerColumn := make(map[string][]string)
+
 	for colName, value := range row {
 		colType, ok := columnDef[colName]
 		if !ok {
@@ -188,7 +190,7 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case float64:
 				row[colName] = time.Duration(int64(v))
 			default:
-				warnings[fmt.Sprintf("unknown duration type: %T", v)] = struct{}{}
+				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
 			}
 
 		case ColumnTypeDateTime:
@@ -198,11 +200,11 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case string:
 				parsed, err := time.Parse(time.RFC3339, v)
 				if err != nil {
-					warnings["failed to parse datetime"] = struct{}{}
+					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse datetime: %v", err))
 				}
 				row[colName] = parsed
 			default:
-				warnings[fmt.Sprintf("unknown datetime type: %T", v)] = struct{}{}
+				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
 			}
 
 		case ColumnTypeString:
@@ -227,10 +229,5 @@ func convertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 		}
 	}
 
-	// Log collected warnings
-	for warning := range warnings {
-		logger.Warnf("postProcessViewRows: %s", warning)
-	}
-
-	return row
+	return row, invalidTypesPerColumn
 }
