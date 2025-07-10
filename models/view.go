@@ -130,7 +130,7 @@ func (t GeneratedViewTable) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	if len(t.ColumnDef) > 0 {
 		// Convert the values to native go types based on the column definition
 		records = lo.Map(records, func(record map[string]any, _ int) map[string]any {
-			record, _ = ConvertViewRecordsToNativeTypes(record, t.ColumnDef)
+			record, _ = ConvertRowToNativeTypes(record, t.ColumnDef)
 			return record
 		})
 	}

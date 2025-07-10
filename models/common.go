@@ -164,10 +164,10 @@ const (
 	ColumnTypeString   ColumnType = "string"
 )
 
-// ConvertViewRecordsToNativeTypes converts view cell to native go types
-func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]ColumnType) (map[string]any, map[string][]string) {
-	// keep track of all the invalid types encountered per column
-	invalidTypesPerColumn := make(map[string][]string)
+// ConvertRowToNativeTypes converts a database row to native go types
+func ConvertRowToNativeTypes(row map[string]any, columnDef map[string]ColumnType) (map[string]any, map[string]string) {
+	// keep track of conversion error per column
+	invalidTypesPerColumn := make(map[string]string)
 
 	for colName, value := range row {
 		colType, ok := columnDef[colName]
@@ -193,7 +193,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 				row[colName] = time.Duration(int64(v))
 			case string:
 				if parsed, err := time.ParseDuration(v); err != nil {
-					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse duration (value: %v): %v", v, err))
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse duration (value: %v)", v)
+					}
 					row[colName] = nil
 				} else {
 					row[colName] = parsed
@@ -201,7 +203,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case nil:
 				row[colName] = nil
 			default:
-				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid type %T", v)
+				}
 				row[colName] = nil
 			}
 
@@ -211,7 +215,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 				row[colName] = v
 			case string:
 				if parsed, err := time.Parse(time.RFC3339, v); err != nil {
-					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse datetime (value: %v): %v", v, err))
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse datetime (value: %v)", v)
+					}
 					row[colName] = nil
 				} else {
 					row[colName] = parsed
@@ -219,7 +225,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case nil:
 				row[colName] = nil
 			default:
-				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid type %T", v)
+				}
 				row[colName] = nil
 			}
 
@@ -246,7 +254,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 				row[colName] = v
 			case string:
 				if parsed, err := strconv.ParseBool(v); err != nil {
-					invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("failed to parse boolean (value: %v): %v", v, err))
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse boolean (value: %v)", v)
+					}
 					row[colName] = false
 				} else {
 					row[colName] = parsed
@@ -256,7 +266,9 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 			case nil:
 				row[colName] = false
 			default:
-				invalidTypesPerColumn[colName] = append(invalidTypesPerColumn[colName], fmt.Sprintf("%T", v))
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid boolean type %T", v)
+				}
 				row[colName] = false
 			}
 
