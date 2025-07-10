@@ -56,6 +56,7 @@ type ViewPanel struct {
 	AgentID  uuid.UUID `json:"agent_id"`
 	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
 
+	// Results is a JSON array of panel results
 	Results types.JSON `json:"results"`
 }
 
@@ -85,23 +86,30 @@ func (ViewPanel) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	return result, nil
 }
 
+func (t ViewPanel) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	pks := lo.Map(items, func(item DBTable, _ int) []any {
+		c := any(item).(ViewPanel)
+		return []any{c.ViewID}
+	})
+
+	return db.Table(t.TableName()).
+		Where("view_id IN ?", pks).
+		Update("is_pushed", true).Error
+}
+
 // GeneratedViewTable represents a record in a dynamically generated view_* table
 type GeneratedViewTable struct {
 	ViewTableName string                `json:"viewTableName"`
-	PrimaryKey    []string              `json:"primaryKey"` // Column to use as the primary key
+	PrimaryKey    []string              `json:"primaryKey"` // Columns to use as the primary key
 	Row           map[string]any        `json:"data"`
 	ColumnDef     map[string]ColumnType `json:"columnDef"`
 }
 
 func (v GeneratedViewTable) PK() string {
-	var keys []string
-	for _, key := range v.PrimaryKey {
-		if value, ok := v.Row[key]; ok {
-			keys = append(keys, fmt.Sprintf("%s", value))
-		}
-	}
-
-	return strings.Join(keys, "--")
+	// PK() is used to update is_pushed for the table.
+	// This interface isn't suitable for composite primary keys.
+	// GeneratedViewTable defines its own custom UpdateIsPushed method.
+	return "not-implemented"
 }
 
 func (v GeneratedViewTable) AsMap(removeFields ...string) map[string]any {
@@ -109,11 +117,7 @@ func (v GeneratedViewTable) AsMap(removeFields ...string) map[string]any {
 }
 
 func (v GeneratedViewTable) TableName() string {
-	if v.ViewTableName != "" {
-		return v.ViewTableName
-	}
-
-	return "generated_view_tables"
+	return v.ViewTableName
 }
 
 // GetUnpushed returns all unpushed records from all view_* tables
@@ -143,12 +147,25 @@ func (t GeneratedViewTable) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 }
 
 func (t GeneratedViewTable) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
-	pks := lo.Map(items, func(item DBTable, _ int) string {
-		return item.PK()
+	if len(t.PrimaryKey) == 0 {
+		return fmt.Errorf("cannot update is_pushed for table: %s, primary key is empty", t.TableName())
+	}
+
+	pks := lo.Map(items, func(item DBTable, _ int) []any {
+		c := any(item).(GeneratedViewTable)
+		var pk []any
+		for _, key := range t.PrimaryKey {
+			if value, ok := c.Row[key]; ok {
+				pk = append(pk, value)
+			} else {
+				pk = append(pk, nil)
+			}
+		}
+
+		return pk
 	})
 
-	// FIXME: This doesn't work for composite primary keys.
 	return db.Table(t.TableName()).
-		Where(fmt.Sprintf("%s IN ?", strings.Join(t.PrimaryKey, ",")), pks).
+		Where(fmt.Sprintf("(%s) IN ?", strings.Join(t.PrimaryKey, ",")), pks).
 		Update("is_pushed", true).Error
 }
