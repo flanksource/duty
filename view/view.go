@@ -1,30 +1,25 @@
 package view
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
 
-	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 )
 
-type ViewColumnType string
+type ColumnType string
 
 const (
-	ViewColumnTypeString   ViewColumnType = "string"
-	ViewColumnTypeNumber   ViewColumnType = "number"
-	ViewColumnTypeBoolean  ViewColumnType = "boolean"
-	ViewColumnTypeDateTime ViewColumnType = "datetime"
-	ViewColumnTypeDuration ViewColumnType = "duration"
-	ViewColumnTypeHealth   ViewColumnType = "health"
-	ViewColumnTypeStatus   ViewColumnType = "status"
-	ViewColumnTypeGauge    ViewColumnType = "gauge"
+	ColumnTypeString   ColumnType = "string"
+	ColumnTypeNumber   ColumnType = "number"
+	ColumnTypeBoolean  ColumnType = "boolean"
+	ColumnTypeDateTime ColumnType = "datetime"
+	ColumnTypeDuration ColumnType = "duration"
+	ColumnTypeHealth   ColumnType = "health"
+	ColumnTypeStatus   ColumnType = "status"
+	ColumnTypeGauge    ColumnType = "gauge"
 )
-
-// ViewRow represents a single row of data mapped to view columns
-type ViewRow []any
 
 // ViewColumnDef defines a column in the view
 // +kubebuilder:object:generate=true
@@ -37,7 +32,7 @@ type ViewColumnDef struct {
 	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
 	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge
-	Type ViewColumnType `json:"type" yaml:"type"`
+	Type ColumnType `json:"type" yaml:"type"`
 
 	// Description of the column
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
@@ -86,59 +81,18 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 		name := strings.ToLower(col.Name)
 
 		switch col.Type {
-		case ViewColumnTypeNumber:
+		case ColumnTypeNumber:
 			return name, models.ColumnTypeNumber
-		case ViewColumnTypeBoolean:
+		case ColumnTypeBoolean:
 			return name, models.ColumnTypeBoolean
-		case ViewColumnTypeDateTime:
+		case ColumnTypeDateTime:
 			return name, models.ColumnTypeDateTime
-		case ViewColumnTypeDuration:
+		case ColumnTypeDuration:
 			return name, models.ColumnTypeDuration
-		case ViewColumnTypeGauge:
+		case ColumnTypeGauge:
 			return name, models.ColumnTypeJSONB
 		default:
 			return name, models.ColumnTypeString
 		}
 	})
-}
-
-func CreateViewTable(ctx context.Context, tableName string, columns []ViewColumnDef) error {
-	if ctx.DB().Migrator().HasTable(tableName) {
-		return nil
-	}
-
-	var columnDefs []string
-	for _, col := range columns {
-		colDef := fmt.Sprintf("%s %s", col.Name, getPostgresType(col.Type))
-		columnDefs = append(columnDefs, colDef)
-	}
-
-	columnDefs = append(columnDefs, "agent_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid")
-	columnDefs = append(columnDefs, "is_pushed BOOLEAN DEFAULT FALSE")
-
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", tableName, strings.Join(columnDefs, ", "))
-	return ctx.DB().Exec(sql).Error
-}
-
-func getPostgresType(colType ViewColumnType) string {
-	switch colType {
-	case ViewColumnTypeString:
-		return "TEXT"
-	case ViewColumnTypeNumber:
-		return "NUMERIC"
-	case ViewColumnTypeBoolean:
-		return "BOOLEAN"
-	case ViewColumnTypeDateTime:
-		return "TIMESTAMP WITH TIME ZONE"
-	case ViewColumnTypeDuration:
-		return "BIGINT"
-	case ViewColumnTypeHealth:
-		return "TEXT"
-	case ViewColumnTypeStatus:
-		return "TEXT"
-	case ViewColumnTypeGauge:
-		return "JSONB"
-	default:
-		return "TEXT"
-	}
 }
