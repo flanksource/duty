@@ -154,12 +154,13 @@ type LabelableModel interface {
 type ColumnType string
 
 const (
-	ColumnTypeString   ColumnType = "string"
-	ColumnTypeNumber   ColumnType = "number"
 	ColumnTypeBoolean  ColumnType = "boolean"
 	ColumnTypeDateTime ColumnType = "datetime"
+	ColumnTypeDecimal  ColumnType = "decimal"
 	ColumnTypeDuration ColumnType = "duration"
+	ColumnTypeInteger  ColumnType = "integer"
 	ColumnTypeJSONB    ColumnType = "jsonb"
+	ColumnTypeString   ColumnType = "string"
 )
 
 // ConvertViewRecordsToNativeTypes converts view cell to native go types
@@ -214,9 +215,14 @@ func ConvertViewRecordsToNativeTypes(row map[string]any, columnDef map[string]Co
 				row[colName] = fmt.Sprintf("%v", value)
 			}
 
-		case ColumnTypeNumber:
+		case ColumnTypeInteger:
 			if value == nil {
 				row[colName] = 0
+			}
+
+		case ColumnTypeDecimal:
+			if value == nil {
+				row[colName] = float64(0)
 			}
 
 		case ColumnTypeBoolean:
