@@ -114,7 +114,7 @@ func ReadViewTable(ctx context.Context, table string) ([]Row, error) {
 }
 
 func InsertViewRows(ctx context.Context, table string, columns []ViewColumnDef, rows []Row) error {
-	if err := ctx.DB().Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error; err != nil {
+	if err := ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s", table)).Error; err != nil {
 		return fmt.Errorf("failed to clear existing data: %w", err)
 	}
 
