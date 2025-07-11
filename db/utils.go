@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var pgMajorVersion atomic.Int32
@@ -83,4 +84,40 @@ func PGMajorVersion(db *gorm.DB) (int, error) {
 	newVersion := int32(versionNum / 10_000)
 	pgMajorVersion.Store(newVersion)
 	return int(newVersion), nil
+}
+
+// ReadTable reads a postgres table when the table model isn't known.
+func ReadTable(db *gorm.DB, tableName string, clauses ...clause.Expression) ([]map[string]any, error) {
+	rows, err := db.Table(tableName).Clauses(clauses...).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read table %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	var result []map[string]any
+	for rows.Next() {
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		row := make(map[string]any)
+		for i, column := range columns {
+			row[column] = values[i]
+		}
+
+		result = append(result, row)
+	}
+
+	return result, nil
 }

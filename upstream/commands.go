@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	dutil "github.com/flanksource/duty/db"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 )
 
 const (
@@ -137,6 +138,20 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.ViewPanels) > 0 {
+		if err := db.Delete(req.ViewPanels).Error; err != nil {
+			return fmt.Errorf("error deleting view_panels: %w", err)
+		}
+	}
+
+	if len(req.GeneratedViews) > 0 {
+		for _, viewData := range req.GeneratedViews {
+			if err := deleteViewData(ctx, viewData); err != nil {
+				return fmt.Errorf("error deleting view_data: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -217,6 +232,18 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	if len(req.JobHistory) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.JobHistory, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting job_history: %w", err)
+		}
+	}
+
+	if len(req.ViewPanels) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ViewPanels, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting view_panels: %w", err)
+		}
+	}
+
+	for _, viewData := range req.GeneratedViews {
+		if err := upsertViewData(ctx, viewData); err != nil {
+			return fmt.Errorf("error upserting view_data: %w", err)
 		}
 	}
 

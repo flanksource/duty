@@ -1,0 +1,11 @@
+name,repository,lastrun,lastrunby,duration,status,runnumber,agent_id,is_pushed
+duty/Create Release,flanksource/duty,2025-07-02 17:27:52+05:45,moshloop,187000000000,success,"{""max"": 5000, ""min"": 0, ""value"": 1013}",00000000-0000-0000-0000-000000000000,False
+duty/Test,flanksource/duty,2025-07-02 17:27:52+05:45,moshloop,193000000000,success,"{""max"": 5000, ""min"": 0, ""value"": 3596}",00000000-0000-0000-0000-000000000000,False
+mission-control/Create Release,flanksource/mission-control,2025-07-02 18:29:40+05:45,moshloop,594000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 1309}",00000000-0000-0000-0000-000000000000,False
+config-db/Create Release,flanksource/config-db,2025-07-02 17:53:18+05:45,moshloop,1702000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 998}",00000000-0000-0000-0000-000000000000,False
+config-db/Create Release,flanksource/config-db,2025-07-02 17:47:04+05:45,flankbot,1702000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 997}",00000000-0000-0000-0000-000000000000,False
+mission-control-chart/Create Release,flanksource/mission-control-chart,2025-07-02 22:47:29+05:45,yashmehrotra,185000000000,success,"{""max"": 5000, ""min"": 0, ""value"": 3837}",00000000-0000-0000-0000-000000000000,False
+mission-control-chart/Create Release,flanksource/mission-control-chart,2025-07-02 18:36:52+05:45,flankbot,177000000000,success,"{""max"": 5000, ""min"": 0, ""value"": 3836}",00000000-0000-0000-0000-000000000000,False
+mission-control-chart/Create Release,flanksource/mission-control-chart,2025-07-02 18:08:42+05:45,flankbot,92000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 3835}",00000000-0000-0000-0000-000000000000,False
+mission-control-chart/Create Release,flanksource/mission-control-chart,2025-07-02 18:01:59+05:45,flankbot,92000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 3834}",00000000-0000-0000-0000-000000000000,False
+mission-control-chart/Create Release,flanksource/mission-control-chart,2025-07-02 13:54:45+05:45,flankbot,103000000000,failure,"{""max"": 5000, ""min"": 0, ""value"": 3833}",00000000-0000-0000-0000-000000000000,False

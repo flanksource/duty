@@ -2,6 +2,9 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
@@ -147,4 +150,132 @@ type TaggableModel interface {
 
 type LabelableModel interface {
 	GetLabels() map[string]string
+}
+
+type ColumnType string
+
+const (
+	ColumnTypeBoolean  ColumnType = "boolean"
+	ColumnTypeDateTime ColumnType = "datetime"
+	ColumnTypeDecimal  ColumnType = "decimal"
+	ColumnTypeDuration ColumnType = "duration"
+	ColumnTypeInteger  ColumnType = "integer"
+	ColumnTypeJSONB    ColumnType = "jsonb"
+	ColumnTypeString   ColumnType = "string"
+)
+
+// ConvertRowToNativeTypes converts a database row to native go types
+func ConvertRowToNativeTypes(row map[string]any, columnDef map[string]ColumnType) (map[string]any, map[string]string) {
+	// keep track of conversion error per column
+	invalidTypesPerColumn := make(map[string]string)
+
+	for colName, value := range row {
+		colType, ok := columnDef[colName]
+		if !ok {
+			continue
+		}
+
+		switch colType {
+		case ColumnTypeJSONB:
+			if raw, ok := value.([]uint8); ok {
+				row[colName] = json.RawMessage(raw)
+			}
+
+		case ColumnTypeDuration:
+			switch v := value.(type) {
+			case int:
+				row[colName] = time.Duration(v)
+			case int32:
+				row[colName] = time.Duration(v)
+			case int64:
+				row[colName] = time.Duration(v)
+			case float64:
+				row[colName] = time.Duration(int64(v))
+			case string:
+				if parsed, err := time.ParseDuration(v); err != nil {
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse duration (value: %v)", v)
+					}
+					row[colName] = nil
+				} else {
+					row[colName] = parsed
+				}
+			case nil:
+				row[colName] = nil
+			default:
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid type %T", v)
+				}
+				row[colName] = nil
+			}
+
+		case ColumnTypeDateTime:
+			switch v := value.(type) {
+			case time.Time:
+				row[colName] = v
+			case string:
+				if parsed, err := time.Parse(time.RFC3339, v); err != nil {
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse datetime (value: %v)", v)
+					}
+					row[colName] = nil
+				} else {
+					row[colName] = parsed
+				}
+			case nil:
+				row[colName] = nil
+			default:
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid type %T", v)
+				}
+				row[colName] = nil
+			}
+
+		case ColumnTypeString:
+			if value == nil {
+				row[colName] = ""
+			} else {
+				row[colName] = fmt.Sprintf("%v", value)
+			}
+
+		case ColumnTypeInteger:
+			if value == nil {
+				row[colName] = 0
+			}
+
+		case ColumnTypeDecimal:
+			if value == nil {
+				row[colName] = float64(0)
+			}
+
+		case ColumnTypeBoolean:
+			switch v := value.(type) {
+			case bool:
+				row[colName] = v
+			case string:
+				if parsed, err := strconv.ParseBool(v); err != nil {
+					if _, exists := invalidTypesPerColumn[colName]; !exists {
+						invalidTypesPerColumn[colName] = fmt.Sprintf("failed to parse boolean (value: %v)", v)
+					}
+					row[colName] = false
+				} else {
+					row[colName] = parsed
+				}
+			case int, int32, int64:
+				row[colName] = v != 0
+			case nil:
+				row[colName] = false
+			default:
+				if _, exists := invalidTypesPerColumn[colName]; !exists {
+					invalidTypesPerColumn[colName] = fmt.Sprintf("invalid boolean type %T", v)
+				}
+				row[colName] = false
+			}
+
+		default:
+			// do nothing
+		}
+	}
+
+	return row, invalidTypesPerColumn
 }

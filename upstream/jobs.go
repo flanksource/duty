@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	dutil "github.com/flanksource/duty/db"
-	"github.com/flanksource/duty/models"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 	"github.com/sethvargo/go-retry"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 )
 
 type pushableTable interface {
@@ -46,6 +47,16 @@ var (
 
 	_ parentIsPushedUpdater = (*models.Check)(nil)
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
+)
+
+// Tables whose primary key is not just the "id" column need to implement this interface.
+var (
+	_ customIsPushedUpdater = (*models.CheckStatus)(nil)
+	_ customIsPushedUpdater = (*models.ConfigRelationship)(nil)
+	_ customIsPushedUpdater = (*models.ConfigComponentRelationship)(nil)
+	_ customIsPushedUpdater = (*models.CheckComponentRelationship)(nil)
+	_ customIsPushedUpdater = (*models.CheckConfigRelationship)(nil)
+	_ customIsPushedUpdater = (*models.GeneratedViewTable)(nil)
 )
 
 type ForeignKeyErrorSummary struct {
@@ -177,6 +188,8 @@ type PushGroup struct {
 	DependsOn []string
 }
 
+const generatedViewsGroup = "generated_views"
+
 var reconcileTableGroups = []PushGroup{
 	{
 		Name:   "configs",
@@ -213,16 +226,26 @@ var reconcileTableGroups = []PushGroup{
 		Name:   "Artifact",
 		Tables: []pushableTable{models.Artifact{}},
 	},
+	{
+		Name:   "ViewPanels",
+		Tables: []pushableTable{models.ViewPanel{}},
+	},
 }
 
-func ReconcileAll(ctx context.Context, config UpstreamConfig, batchSize int) ReconcileSummary {
-	return ReconcileSome(ctx, config, batchSize)
+func ReconcileAll(ctx context.Context, client *UpstreamClient, batchSize int) ReconcileSummary {
+	return ReconcileSome(ctx, client, batchSize)
 }
 
-func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, runOnly ...string) ReconcileSummary {
+func ReconcileSome(ctx context.Context, client *UpstreamClient, batchSize int, runOnly ...string) ReconcileSummary {
 	var summary ReconcileSummary
 
-	for _, group := range reconcileTableGroups {
+	reconcileTableGroupsCopy, err := reconcileTableGroupsWithGeneratedViews(ctx, client)
+	if err != nil {
+		summary.AddStat("generated_view_tables", 0, ForeignKeyErrorSummary{}, err)
+		return summary
+	}
+
+	for _, group := range reconcileTableGroupsCopy {
 		if !summary.DidReconcile(group.DependsOn) {
 			summary.AddSkipped(group.Tables...)
 			continue
@@ -234,7 +257,7 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 				continue
 			}
 
-			success, failed, err := reconcileTable(ctx, config, table, batchSize)
+			success, failed, err := reconcileTable(ctx, client, table, batchSize)
 			summary.AddStat(table.TableName(), success, failed, err)
 			if err != nil {
 				if i != len(group.Tables)-1 {
@@ -251,9 +274,7 @@ func ReconcileSome(ctx context.Context, config UpstreamConfig, batchSize int, ru
 }
 
 // ReconcileTable pushes all unpushed items in a table to upstream.
-func reconcileTable(ctx context.Context, config UpstreamConfig, table pushableTable, batchSize int) (int, ForeignKeyErrorSummary, error) {
-	client := NewUpstreamClient(config)
-
+func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableTable, batchSize int) (int, ForeignKeyErrorSummary, error) {
 	var count int
 	var fkFailed ForeignKeyErrorSummary
 	for {
