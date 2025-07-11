@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/flanksource/duty/types"
 )
 
 type CheckHealthStatus string
@@ -100,6 +101,10 @@ func (c Check) TableName() string {
 
 func (t Check) GetLabels() map[string]string {
 	return t.Labels
+}
+
+func (t Check) GetTrimmedLabels() []Label {
+	return sortedTrimmedLabels(defaultLabelsWhitelist, defaultLabelsOrder, nil, t.Labels)
 }
 
 func (c Check) ToString() string {
