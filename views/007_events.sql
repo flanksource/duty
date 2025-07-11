@@ -177,7 +177,12 @@ BEGIN
       RETURN NULL;
     END IF;
 
-    event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
+    -- Special case: unhealthy to warning should emit degraded event
+    IF OLD.health = 'unhealthy' AND NEW.health = 'warning' THEN
+        event_name := 'config.degraded';
+    ELSE
+        event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
+    END IF;
 
     INSERT INTO event_queue(name, properties)
     VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
