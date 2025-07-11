@@ -2,13 +2,15 @@ package query
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/types"
 )
 
 const notificationSummaryPageSizeDefault = 50
@@ -108,6 +110,10 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 	}
 
 	if r.Search != "" {
+		if !strings.Contains(r.Search, "*") {
+			r.Search += "*" // prefix search by default
+		}
+
 		clause, _ := parseAndBuildFilteringQuery(r.Search, "resource->>'name'", true)
 		clauses = append(clauses, clause...)
 	}
