@@ -10,7 +10,6 @@ import (
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/types"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -20,6 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/flanksource/duty/types"
 )
 
 // Ensure interface compliance
@@ -137,6 +138,10 @@ func (c Component) TableName() string {
 
 func (t Component) GetLabels() map[string]string {
 	return t.Labels
+}
+
+func (t Component) GetTrimmedLabels() []Label {
+	return sortedTrimmedLabels(defaultLabelsWhitelist, defaultLabelsOrder, nil, t.Labels)
 }
 
 func DeleteAllComponents(db *gorm.DB, components ...Component) error {

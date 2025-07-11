@@ -179,6 +179,10 @@ func (t ConfigItem) GetLabels() map[string]string {
 	return lo.FromPtr(t.Labels)
 }
 
+func (t ConfigItem) GetTrimmedLabels() []Label {
+	return sortedTrimmedLabels(defaultLabelsWhitelist, defaultLabelsOrder, t.Tags, lo.FromPtr(t.Labels))
+}
+
 func (ci *ConfigItem) SetParent(parent *ConfigItem) {
 	ci.ParentID = &parent.ID
 	ci.Path = parent.Path + "." + ci.ID.String()
