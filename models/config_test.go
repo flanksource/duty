@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -10,9 +10,9 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-var _ = Describe("AsMap", func() {
-	Context("ConfigItem", func() {
-		It("should remove specified fields", func() {
+var _ = ginkgo.Describe("AsMap", func() {
+	ginkgo.Context("ConfigItem", func() {
+		ginkgo.It("should remove specified fields", func() {
 			id := uuid.New()
 			config := ConfigItem{
 				ID:   id,
@@ -48,8 +48,8 @@ var _ = Describe("AsMap", func() {
 		})
 	})
 
-	Context("CatalogChange", func() {
-		It("should return details as a map", func() {
+	ginkgo.Context("CatalogChange", func() {
+		ginkgo.It("should return details as a map", func() {
 			change := CatalogChange{
 				ID:         uuid.New(),
 				ConfigID:   uuid.New(),

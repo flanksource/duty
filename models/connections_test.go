@@ -3,12 +3,12 @@ package models
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Connection", func() {
-	Describe("AsGoGetterURL", func() {
+var _ = ginkgo.Describe("Connection", func() {
+	ginkgo.Describe("AsGoGetterURL", func() {
 		testCases := []struct {
 			name          string
 			connection    Connection
@@ -41,8 +41,8 @@ var _ = Describe("Connection", func() {
 
 		for _, tc := range testCases {
 			tc := tc // capture range variable
-			Context(tc.name, func() {
-				It("should return the correct URL and error", func() {
+			ginkgo.Context(tc.name, func() {
+				ginkgo.It("should return the correct URL and error", func() {
 					resultURL, err := tc.connection.AsGoGetterURL()
 					Expect(resultURL).To(Equal(tc.expectedURL))
 					if tc.expectedError == nil {
@@ -53,7 +53,7 @@ var _ = Describe("Connection", func() {
 		}
 	})
 
-	Describe("AsEnv", func() {
+	ginkgo.Describe("AsEnv", func() {
 		testCases := []struct {
 			name                string
 			connection          Connection
@@ -90,8 +90,8 @@ var _ = Describe("Connection", func() {
 
 		for _, tc := range testCases {
 			tc := tc // capture range variable
-			Context(tc.name, func() {
-				It("should return the correct environment variables and file content", func() {
+			ginkgo.Context(tc.name, func() {
+				ginkgo.It("should return the correct environment variables and file content", func() {
 					envPrep := tc.connection.AsEnv(context.Background())
 
 					for i, expected := range tc.expectedEnv {
