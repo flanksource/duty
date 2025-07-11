@@ -2,21 +2,21 @@ package models
 
 import (
 	"github.com/google/uuid"
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Canary", func() {
+var _ = ginkgo.Describe("Canary", func() {
 	var (
 		id uuid.UUID
 	)
 
-	BeforeEach(func() {
+	ginkgo.BeforeEach(func() {
 		id = uuid.New()
 	})
 
-	Describe("AsMap", func() {
-		It("should remove single field", func() {
+	ginkgo.Describe("AsMap", func() {
+		ginkgo.It("should remove single field", func() {
 			canary := Canary{
 				ID:        id,
 				Namespace: "canary",
@@ -34,7 +34,7 @@ var _ = Describe("Canary", func() {
 			Expect(canary.AsMap()).To(Equal(expected))
 		})
 
-		It("should remove multiple fields", func() {
+		ginkgo.It("should remove multiple fields", func() {
 			canary := Canary{
 				ID:        uuid.New(),
 				Namespace: "canary",
@@ -49,7 +49,7 @@ var _ = Describe("Canary", func() {
 			Expect(canary.AsMap(removeFields...)).To(Equal(expected))
 		})
 
-		It("should remove no fields", func() {
+		ginkgo.It("should remove no fields", func() {
 			canary := Canary{
 				Namespace: "canary",
 				Name:      "dummy-canary",
