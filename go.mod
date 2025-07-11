@@ -35,6 +35,7 @@ require (
 	github.com/flanksource/commons v1.40.0
 	github.com/flanksource/gomplate/v3 v3.24.58
 	github.com/flanksource/is-healthy v1.0.60
+	github.com/glebarez/sqlite v1.7.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/cel-go v0.22.1
@@ -180,7 +181,6 @@ require (
 	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/glebarez/go-sqlite v1.20.3 // indirect
-	github.com/glebarez/sqlite v1.7.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
