@@ -240,8 +240,8 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 		pipeline := createViewTable(DefaultContext, "pipelines")
 		deployment := createViewTable(DefaultContext, "deployments")
-		populateViewTable(DefaultContext, pipeline, "pipelines.json")
-		populateViewTable(DefaultContext, deployment, "deployments.json")
+		populateViewTableAndVerifyIsPushed(DefaultContext, pipeline, "pipelines.json")
+		populateViewTableAndVerifyIsPushed(DefaultContext, deployment, "deployments.json")
 
 		// We need to ensure that these tables exist on upstream, or else the agent won't push it.
 		_ = createViewTable(*upstreamCtx, "pipelines")
@@ -623,9 +623,13 @@ func createViewTable(ctx context.Context, testdata string) models.View {
 func populateViewTable(ctx context.Context, view models.View, testdataPath string) {
 	err := insertJSONDataIntoViewTable(ctx, view, testdataPath)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func populateViewTableAndVerifyIsPushed(ctx context.Context, view models.View, testdataPath string) {
+	populateViewTable(ctx, view, testdataPath)
 
 	var pushedCount int
-	err = DefaultContext.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE is_pushed = true", view.GeneratedTableName())).Scan(&pushedCount).Error
+	err := ctx.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE is_pushed = true", view.GeneratedTableName())).Scan(&pushedCount).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pushedCount).To(BeZero())
 }
