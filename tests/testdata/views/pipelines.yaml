@@ -12,6 +12,7 @@ spec:
     - name: repository
       type: string
       description: The repository of the pipeline.
+      primaryKey: true
     - name: lastRun
       type: datetime
       description: The namespace name.

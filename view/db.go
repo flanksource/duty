@@ -42,9 +42,14 @@ func GetAllViews(ctx context.Context) ([]models.View, error) {
 	return views, nil
 }
 
-func CreateViewTable(ctx context.Context, table string, columns []ViewColumnDef) error {
+func CreateViewTable(ctx context.Context, table string, columns ViewColumnDefList) error {
 	if ctx.DB().Migrator().HasTable(table) {
 		return nil
+	}
+
+	primaryKeys := columns.PrimaryKey()
+	if len(primaryKeys) == 0 {
+		return fmt.Errorf("no primary key columns found in view table definition")
 	}
 
 	var columnDefs []string
@@ -55,6 +60,9 @@ func CreateViewTable(ctx context.Context, table string, columns []ViewColumnDef)
 
 	columnDefs = append(columnDefs, "agent_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid")
 	columnDefs = append(columnDefs, "is_pushed BOOLEAN DEFAULT FALSE")
+
+	primaryKeyConstraint := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaryKeys, ", "))
+	columnDefs = append(columnDefs, primaryKeyConstraint)
 
 	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", table, strings.Join(columnDefs, ", "))
 	return ctx.DB().Exec(sql).Error
