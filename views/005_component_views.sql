@@ -157,10 +157,13 @@ CREATE OR REPLACE FUNCTION lookup_component_config_id_related_components (
 RETURNS TABLE (id UUID) AS $$
 BEGIN
     RETURN QUERY
-        WITH config_id_paths AS (
+        WITH root AS (
+            SELECT config_items.path, config_items.id FROM config_items WHERE config_items.id IN (SELECT config_id FROM components WHERE components.id = $1::UUID)
+        ),
+        config_id_paths AS (
             SELECT config_items.id
             FROM config_items
-            WHERE starts_with(path, (SELECT CONCAT(config_items.path, '.', config_items.id) FROM config_items WHERE config_items.id IN (SELECT config_id FROM components WHERE components.id = $1::UUID)))
+            WHERE starts_with(path, config_item_full_path(root.path, root.id))
         )
         SELECT components.id 
         FROM components 
