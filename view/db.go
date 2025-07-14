@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/lib/pq"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -54,7 +56,7 @@ func CreateViewTable(ctx context.Context, table string, columns ViewColumnDefLis
 
 	var columnDefs []string
 	for _, col := range columns {
-		colDef := fmt.Sprintf("%s %s", col.Name, getPostgresType(col.Type))
+		colDef := fmt.Sprintf("%s %s", pq.QuoteIdentifier(col.Name), getPostgresType(col.Type))
 		columnDefs = append(columnDefs, colDef)
 	}
 
@@ -121,30 +123,67 @@ func ReadViewTable(ctx context.Context, table string) ([]Row, error) {
 	return viewRows, nil
 }
 
-func InsertViewRows(ctx context.Context, table string, columns []ViewColumnDef, rows []Row) error {
-	if err := ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s", table)).Error; err != nil {
-		return fmt.Errorf("failed to clear existing data: %w", err)
-	}
-
+func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList, rows []Row) error {
 	if len(rows) == 0 {
-		return nil
+		return ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s", pq.QuoteIdentifier(table))).Error
 	}
 
-	var colNames []string
-	for _, col := range columns {
-		colNames = append(colNames, col.Name)
-	}
+	quotedColumns := lo.Map(columns.SelectColumns(), func(col string, _ int) string {
+		return pq.QuoteIdentifier(col)
+	})
 
 	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-	insertBuilder := psql.Insert(table).Columns(colNames...)
+	insertBuilder := psql.Insert(table).Columns(quotedColumns...)
 	for _, row := range rows {
 		insertBuilder = insertBuilder.Values(row...)
 	}
 
-	sql, args, err := insertBuilder.ToSql()
-	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
+	pkColumns := columns.PrimaryKey()
+	quotedPrimaryKeys := lo.Map(pkColumns, func(col string, _ int) string {
+		return pq.QuoteIdentifier(col)
+	})
+
+	conflictCols := strings.Join(quotedPrimaryKeys, ", ")
+	var updateClauses []string
+	for _, col := range columns {
+		if !col.PrimaryKey {
+			quotedCol := pq.QuoteIdentifier(col.Name)
+			updateClauses = append(updateClauses, fmt.Sprintf("%s = EXCLUDED.%s", quotedCol, quotedCol))
+		}
 	}
 
-	return ctx.DB().Exec(sql, args...).Error
+	upsertBuilder := insertBuilder.Suffix(
+		fmt.Sprintf("ON CONFLICT (%s) DO UPDATE SET %s RETURNING %s",
+			conflictCols,
+			strings.Join(updateClauses, ", "),
+			strings.Join(pkColumns, ", "),
+		),
+	)
+
+	upsertSQL, args, err := upsertBuilder.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build upsert query: %w", err)
+	}
+
+	var pkEq []string
+	for _, pk := range pkColumns {
+		q := pq.QuoteIdentifier(pk)
+		pkEq = append(pkEq, fmt.Sprintf("t.%s = upsert.%s", q, q))
+	}
+
+	finalSQL := fmt.Sprintf(`
+		WITH upsert AS (
+			%s
+		)
+		DELETE FROM %s AS t
+		WHERE NOT EXISTS (
+			SELECT 1 FROM upsert
+			WHERE %s
+		)`,
+		upsertSQL,
+		pq.QuoteIdentifier(table),
+		strings.Join(pkEq, " AND "),
+	)
+
+	return ctx.DB().Exec(finalSQL, args...).Error
 }

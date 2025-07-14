@@ -12,7 +12,6 @@ spec:
     - name: namespace
       type: string
       description: The namespace name.
-      primaryKey: true
     - name: chart
       type: string
       description: The chart name.

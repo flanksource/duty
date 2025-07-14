@@ -1,8 +1,6 @@
 package view
 
 import (
-	"strings"
-
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
@@ -80,28 +78,25 @@ func (c ViewColumnDefList) PrimaryKey() []string {
 
 func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 	return lo.SliceToMap(c, func(col ViewColumnDef) (string, models.ColumnType) {
-		// The column name we receive from postgres is always in lowercase.
-		name := strings.ToLower(col.Name)
-
 		switch col.Type {
 		case ColumnTypeNumber:
-			return name, models.ColumnTypeInteger
+			return col.Name, models.ColumnTypeInteger
 		case ColumnTypeDecimal:
-			return name, models.ColumnTypeDecimal
+			return col.Name, models.ColumnTypeDecimal
 		case ColumnTypeBytes:
-			return name, models.ColumnTypeString
+			return col.Name, models.ColumnTypeString
 		case ColumnTypeMillicore:
-			return name, models.ColumnTypeInteger
+			return col.Name, models.ColumnTypeInteger
 		case ColumnTypeBoolean:
-			return name, models.ColumnTypeBoolean
+			return col.Name, models.ColumnTypeBoolean
 		case ColumnTypeDateTime:
-			return name, models.ColumnTypeDateTime
+			return col.Name, models.ColumnTypeDateTime
 		case ColumnTypeDuration:
-			return name, models.ColumnTypeDuration
+			return col.Name, models.ColumnTypeDuration
 		case ColumnTypeGauge:
-			return name, models.ColumnTypeJSONB
+			return col.Name, models.ColumnTypeJSONB
 		default:
-			return name, models.ColumnTypeString
+			return col.Name, models.ColumnTypeString
 		}
 	})
 }

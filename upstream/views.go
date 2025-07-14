@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/lib/pq"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -66,15 +68,18 @@ func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) e
 		return nil
 	}
 
-	table := viewData[0].ViewTableName
+	table := pq.QuoteIdentifier(viewData[0].ViewTableName)
 
 	columns := make([]string, 0, len(viewData[0].Row))
 	for key := range viewData[0].Row {
 		columns = append(columns, key)
 	}
 
-	insertBuilder := squirrel.Insert(table).PlaceholderFormat(squirrel.Dollar).Columns(columns...)
+	quotedColumns := lo.Map(columns, func(col string, _ int) string {
+		return pq.QuoteIdentifier(col)
+	})
 
+	insertBuilder := squirrel.Insert(table).PlaceholderFormat(squirrel.Dollar).Columns(quotedColumns...)
 	for _, record := range viewData {
 		values := make([]any, 0, len(columns))
 		for _, col := range columns {

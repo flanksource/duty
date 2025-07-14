@@ -1,12 +1,10 @@
 package tests
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/flanksource/commons/utils"
@@ -242,8 +240,8 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 
 		pipeline := createViewTable(DefaultContext, "pipelines")
 		deployment := createViewTable(DefaultContext, "deployments")
-		populateViewTable(DefaultContext, pipeline.GeneratedTableName(), "pipelines.csv")
-		populateViewTable(DefaultContext, deployment.GeneratedTableName(), "deployments.csv")
+		populateViewTable(DefaultContext, pipeline, "pipelines.json")
+		populateViewTable(DefaultContext, deployment, "deployments.json")
 
 		// We need to ensure that these tables exist on upstream, or else the agent won't push it.
 		_ = createViewTable(*upstreamCtx, "pipelines")
@@ -550,58 +548,41 @@ func readTestData(path ...string) (*unstructured.Unstructured, error) {
 	return &unstructured.Unstructured{Object: object}, nil
 }
 
-func readCSVData(fileName string) ([][]string, error) {
-	fullPath := filepath.Join("testdata", "views", fileName)
-	file, err := os.Open(fullPath)
+func insertJSONDataIntoViewTable(ctx context.Context, v models.View, jsonFileName string) error {
+	fullPath := filepath.Join("testdata", "views", jsonFileName)
+	content, err := os.ReadFile(fullPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open CSV file %s: %w", fullPath, err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV file %s: %w", fullPath, err)
+		return fmt.Errorf("failed to read JSON file %s: %w", fullPath, err)
 	}
 
-	return records, nil
-}
+	var jsonData []map[string]any
+	if err := json.Unmarshal(content, &jsonData); err != nil {
+		return fmt.Errorf("failed to unmarshal JSON from %s: %w", fullPath, err)
+	}
 
-func insertCSVDataIntoTable(ctx context.Context, tableName string, csvData [][]string) error {
-	if len(csvData) == 0 {
+	if len(jsonData) == 0 {
 		return fmt.Errorf("no data to insert")
 	}
 
-	headers := csvData[0]
-	rows := csvData[1:]
-
-	for _, row := range rows {
-		if len(row) != len(headers) {
-			return fmt.Errorf("row length mismatch: expected %d, got %d", len(headers), len(row))
-		}
-
-		columns := make([]string, len(headers))
-		placeholders := make([]string, len(headers))
-		values := make([]any, len(headers))
-
-		for i, header := range headers {
-			columns[i] = header
-			placeholders[i] = "?"
-			values[i] = row[i]
-		}
-
-		query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-			tableName,
-			strings.Join(columns, ", "),
-			strings.Join(placeholders, ", "))
-
-		err := ctx.DB().Exec(query, values...).Error
-		if err != nil {
-			return fmt.Errorf("failed to insert row into %s: %w", tableName, err)
-		}
+	columns, err := view.GetViewColumnDefs(ctx, v.GetNamespace(), v.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get view column definitions: %w", err)
 	}
 
-	return nil
+	var rows []view.Row
+	for _, record := range jsonData {
+		row := make(view.Row, len(columns))
+		for i, col := range columns {
+			if val, exists := record[col.Name]; exists {
+				row[i] = val
+			} else {
+				row[i] = nil
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	return view.InsertViewRows(ctx, v.GeneratedTableName(), columns, rows)
 }
 
 func createViewTable(ctx context.Context, testdata string) models.View {
@@ -639,15 +620,12 @@ func createViewTable(ctx context.Context, testdata string) models.View {
 	return model
 }
 
-func populateViewTable(ctx context.Context, table string, testdataPath string) {
-	records, err := readCSVData(testdataPath)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = insertCSVDataIntoTable(ctx, table, records)
+func populateViewTable(ctx context.Context, view models.View, testdataPath string) {
+	err := insertJSONDataIntoViewTable(ctx, view, testdataPath)
 	Expect(err).ToNot(HaveOccurred())
 
 	var pushedCount int
-	err = DefaultContext.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE is_pushed = true", table)).Scan(&pushedCount).Error
+	err = DefaultContext.DB().Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE is_pushed = true", view.GeneratedTableName())).Scan(&pushedCount).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pushedCount).To(BeZero())
 }
