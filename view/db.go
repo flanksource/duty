@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"ariga.io/atlas/sql/schema"
+	"ariga.io/atlas/sql/sqlclient"
 	"github.com/Masterminds/squirrel"
+	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 )
@@ -45,51 +49,141 @@ func GetAllViews(ctx context.Context) ([]models.View, error) {
 }
 
 func CreateViewTable(ctx context.Context, table string, columns ViewColumnDefList) error {
-	if ctx.DB().Migrator().HasTable(table) {
-		return nil
-	}
+	return applyViewTableSchema(ctx, table, columns)
+}
 
+func applyViewTableSchema(ctx context.Context, tableName string, columns ViewColumnDefList) error {
 	primaryKeys := columns.PrimaryKey()
 	if len(primaryKeys) == 0 {
 		return fmt.Errorf("no primary key columns found in view table definition")
 	}
 
-	var columnDefs []string
-	for _, col := range columns {
-		colDef := fmt.Sprintf("%s %s", pq.QuoteIdentifier(col.Name), getPostgresType(col.Type))
-		columnDefs = append(columnDefs, colDef)
+	client, err := sqlclient.Open(ctx, ctx.ConnectionString())
+	if err != nil {
+		return fmt.Errorf("failed to open SQL client: %w", err)
+	}
+	defer client.Close()
+
+	currentState, err := client.InspectSchema(ctx, api.DefaultConfig.Schema, &schema.InspectOptions{Tables: []string{tableName}})
+	if err != nil {
+		return fmt.Errorf("failed to inspect schema for table %s: %w", tableName, err)
 	}
 
-	columnDefs = append(columnDefs, "agent_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000'::uuid")
-	columnDefs = append(columnDefs, "is_pushed BOOLEAN DEFAULT FALSE")
+	desiredState := createTableSchema(tableName, columns, currentState)
 
-	primaryKeyConstraint := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaryKeys, ", "))
-	columnDefs = append(columnDefs, primaryKeyConstraint)
+	var changes []schema.Change
+	if len(currentState.Tables) == 0 {
+		changes = []schema.Change{&schema.AddTable{T: desiredState}}
+	} else {
+		tableDiff, err := client.SchemaDiff(currentState, &schema.Schema{
+			Name:   api.DefaultConfig.Schema,
+			Tables: []*schema.Table{desiredState},
+		},
+			schema.DiffSkipChanges(
+				&schema.DropTable{}, &schema.DropSchema{}, &schema.DropObject{},
+			),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to compute table diff: %w", err)
+		}
+		changes = tableDiff
+	}
 
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", table, strings.Join(columnDefs, ", "))
-	return ctx.DB().Exec(sql).Error
+	if len(changes) > 0 {
+		if err := client.ApplyChanges(ctx, changes); err != nil {
+			return fmt.Errorf("failed to apply changes: %w", err)
+		}
+	}
+
+	return nil
 }
 
-func getPostgresType(colType ColumnType) string {
+func createTableSchema(tableName string, columns ViewColumnDefList, currentSchema *schema.Schema) *schema.Table {
+	table := &schema.Table{
+		Name:   tableName,
+		Schema: currentSchema,
+	}
+
+	for _, col := range columns {
+		column := &schema.Column{
+			Name: col.Name,
+			Type: &schema.ColumnType{
+				Type: getAtlasType(col.Type),
+				Null: true, // Assume all columns are nullable (except primary key)
+			},
+		}
+
+		if col.PrimaryKey {
+			column.Type.Null = false
+		}
+
+		table.Columns = append(table.Columns, column)
+	}
+
+	// Add columns used for upstream reconciliation
+	table.Columns = append(table.Columns, &schema.Column{
+		Name: "agent_id",
+		Type: &schema.ColumnType{
+			Type: &schema.UUIDType{T: "uuid"},
+		},
+		Default: &schema.RawExpr{
+			X: fmt.Sprintf("'%s'::uuid", uuid.Nil),
+		},
+	}, &schema.Column{
+		Name: "is_pushed",
+		Type: &schema.ColumnType{
+			Type: &schema.BoolType{T: "boolean"},
+		},
+		Default: &schema.RawExpr{
+			X: "false",
+		},
+	})
+
+	primaryKeys := columns.PrimaryKey()
+	var pkColumns []*schema.Column
+	for _, col := range table.Columns {
+		if lo.Contains(primaryKeys, col.Name) {
+			pkColumns = append(pkColumns, col)
+		}
+	}
+
+	if len(pkColumns) > 0 {
+		table.PrimaryKey = &schema.Index{
+			Name:   fmt.Sprintf("%s_pkey", tableName),
+			Unique: true,
+			Table:  table,
+		}
+
+		for _, col := range pkColumns {
+			table.PrimaryKey.Parts = append(table.PrimaryKey.Parts, &schema.IndexPart{
+				C: col,
+			})
+		}
+	}
+
+	return table
+}
+
+func getAtlasType(colType ColumnType) schema.Type {
 	switch colType {
 	case ColumnTypeString:
-		return "TEXT"
+		return &schema.StringType{T: "text"}
 	case ColumnTypeNumber:
-		return "NUMERIC"
+		return &schema.DecimalType{T: "numeric"}
 	case ColumnTypeBoolean:
-		return "BOOLEAN"
+		return &schema.BoolType{T: "boolean"}
 	case ColumnTypeDateTime:
-		return "TIMESTAMP WITH TIME ZONE"
+		return &schema.TimeType{T: "timestamptz"}
 	case ColumnTypeDuration:
-		return "BIGINT"
+		return &schema.IntegerType{T: "bigint"}
 	case ColumnTypeHealth:
-		return "TEXT"
+		return &schema.StringType{T: "text"}
 	case ColumnTypeStatus:
-		return "TEXT"
+		return &schema.StringType{T: "text"}
 	case ColumnTypeGauge:
-		return "JSONB"
+		return &schema.JSONType{T: "jsonb"}
 	default:
-		return "TEXT"
+		return &schema.StringType{T: "text"}
 	}
 }
 

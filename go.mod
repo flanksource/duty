@@ -37,6 +37,7 @@ require (
 	github.com/flanksource/is-healthy v1.0.60
 	github.com/glebarez/sqlite v1.7.0
 	github.com/go-git/go-git/v5 v5.12.0
+	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.7.0
@@ -195,7 +196,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/goccy/go-yaml v1.16.0 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
