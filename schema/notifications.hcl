@@ -23,6 +23,14 @@ table "notifications" {
     null = true
     type = text
   }
+  column "error_at" {
+    null = true
+    type = timestamptz
+  }
+  column "reset_error_at" {
+    null = true
+    type = timestamptz
+  }
   column "title" {
     null = true
     type = text
