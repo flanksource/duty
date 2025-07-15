@@ -7,9 +7,10 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/http"
+	"github.com/google/uuid"
+
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/google/uuid"
 )
 
 type UpstreamConfig struct {
@@ -77,21 +78,23 @@ func (t *UpstreamConfig) LabelsMap() map[string]string {
 // PushData consists of data about changes to
 // components, configs, analysis.
 type PushData struct {
-	Canaries                     []models.Canary                      `json:"canaries,omitempty"`
-	Checks                       []models.Check                       `json:"checks,omitempty"`
-	Components                   []models.Component                   `json:"components,omitempty"`
-	ConfigScrapers               []models.ConfigScraper               `json:"config_scrapers,omitempty"`
-	ConfigAnalysis               []models.ConfigAnalysis              `json:"config_analysis,omitempty"`
-	ConfigChanges                []models.ConfigChange                `json:"config_changes,omitempty"`
-	ConfigItems                  []models.ConfigItem                  `json:"config_items,omitempty"`
-	CheckStatuses                []models.CheckStatus                 `json:"check_statuses,omitempty"`
-	ConfigRelationships          []models.ConfigRelationship          `json:"config_relationships,omitempty"`
-	ComponentRelationships       []models.ComponentRelationship       `json:"component_relationships,omitempty"`
-	ConfigComponentRelationships []models.ConfigComponentRelationship `json:"config_component_relationships,omitempty"`
-	Topologies                   []models.Topology                    `json:"topologies,omitempty"`
-	PlaybookActions              []models.PlaybookRunAction           `json:"playbook_actions,omitempty"`
-	Artifacts                    []models.Artifact                    `json:"artifacts,omitempty"`
-	JobHistory                   []models.JobHistory                  `json:"job_history,omitempty"`
+	Canaries                     []models.Canary                        `json:"canaries,omitempty"`
+	Checks                       []models.Check                         `json:"checks,omitempty"`
+	Components                   []models.Component                     `json:"components,omitempty"`
+	ConfigScrapers               []models.ConfigScraper                 `json:"config_scrapers,omitempty"`
+	ConfigAnalysis               []models.ConfigAnalysis                `json:"config_analysis,omitempty"`
+	ConfigChanges                []models.ConfigChange                  `json:"config_changes,omitempty"`
+	ConfigItems                  []models.ConfigItem                    `json:"config_items,omitempty"`
+	CheckStatuses                []models.CheckStatus                   `json:"check_statuses,omitempty"`
+	ConfigRelationships          []models.ConfigRelationship            `json:"config_relationships,omitempty"`
+	ComponentRelationships       []models.ComponentRelationship         `json:"component_relationships,omitempty"`
+	ConfigComponentRelationships []models.ConfigComponentRelationship   `json:"config_component_relationships,omitempty"`
+	Topologies                   []models.Topology                      `json:"topologies,omitempty"`
+	PlaybookActions              []models.PlaybookRunAction             `json:"playbook_actions,omitempty"`
+	Artifacts                    []models.Artifact                      `json:"artifacts,omitempty"`
+	JobHistory                   []models.JobHistory                    `json:"job_history,omitempty"`
+	ViewPanels                   []models.ViewPanel                     `json:"view_panels,omitempty"`
+	GeneratedViews               map[string][]models.GeneratedViewTable `json:"generated_views,omitempty"`
 }
 
 func NewPushData[T models.DBTable](records []T) *PushData {
@@ -99,6 +102,8 @@ func NewPushData[T models.DBTable](records []T) *PushData {
 	if len(records) == 0 {
 		return &p
 	}
+
+	p.GeneratedViews = make(map[string][]models.GeneratedViewTable)
 
 	for i := range records {
 		switch t := any(records[i]).(type) {
@@ -132,6 +137,10 @@ func NewPushData[T models.DBTable](records []T) *PushData {
 			p.Artifacts = append(p.Artifacts, t)
 		case models.JobHistory:
 			p.JobHistory = append(p.JobHistory, t)
+		case models.ViewPanel:
+			p.ViewPanels = append(p.ViewPanels, t)
+		case models.GeneratedViewTable:
+			p.GeneratedViews[t.ViewTableName] = append(p.GeneratedViews[t.ViewTableName], t)
 		}
 	}
 
@@ -154,6 +163,11 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
 	counter.Label("table", "topologies").Add(len(p.Topologies))
 	counter.Label("table", "job_history").Add(len(p.JobHistory))
+	counter.Label("table", "view_panels").Add(len(p.ViewPanels))
+
+	for tableName := range p.GeneratedViews {
+		counter.Label("table", tableName).Add(len(p.GeneratedViews[tableName]))
+	}
 }
 
 func (p *PushData) String() string {
@@ -209,6 +223,12 @@ func (p *PushData) Attributes() map[string]any {
 	if len(p.JobHistory) > 0 {
 		attrs["JobHistory"] = len(p.JobHistory)
 	}
+	if len(p.ViewPanels) > 0 {
+		attrs["ViewPanels"] = len(p.ViewPanels)
+	}
+	if len(p.GeneratedViews) > 0 {
+		attrs["ViewData"] = len(p.GeneratedViews)
+	}
 
 	return attrs
 }
@@ -227,7 +247,8 @@ func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
 		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) +
-		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory)
+		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory) +
+		len(t.ViewPanels) + len(t.GeneratedViews)
 }
 
 // ReplaceTopologyID replaces the topology_id for all the components
@@ -260,6 +281,9 @@ func (t *PushData) PopulateAgentID(id uuid.UUID) {
 	}
 	for i := range t.JobHistory {
 		t.JobHistory[i].AgentID = id
+	}
+	for i := range t.ViewPanels {
+		t.ViewPanels[i].AgentID = id
 	}
 }
 

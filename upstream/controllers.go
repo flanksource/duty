@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
-	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
-	"go.opentelemetry.io/otel/attribute"
+	"github.com/flanksource/duty/view"
 )
 
 const (
@@ -167,4 +170,48 @@ func PingHandler(c echo.Context) error {
 
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
+}
+
+// listViews retrieves view column definitions for the given view identifiers
+func listViews(ctx context.Context, viewIdentifiers []ViewIdentifier) ([]ViewWithColumns, error) {
+	var result []ViewWithColumns
+	for _, viewId := range viewIdentifiers {
+		var viewModel models.View
+		if err := ctx.DB().Where("namespace = ? AND name = ?", viewId.Namespace, viewId.Name).Find(&viewModel).Error; err != nil {
+			return nil, fmt.Errorf("database error: %w", err)
+		}
+		if viewModel.ID == uuid.Nil {
+			continue // Skip views that don't exist
+		}
+
+		colDefs, err := view.GetViewColumnDefs(ctx, viewId.Namespace, viewId.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get view column definitions for %s/%s: %w", viewId.Namespace, viewId.Name, err)
+		}
+
+		result = append(result, ViewWithColumns{
+			Namespace: viewId.Namespace,
+			Name:      viewId.Name,
+			Columns:   colDefs,
+		})
+	}
+
+	return result, nil
+}
+
+// ListViewsHandler receives a list of namespace,name pairs and returns the view column definitions
+func ListViewsHandler(c echo.Context) error {
+	ctx := c.Request().Context().(context.Context)
+
+	var viewIdentifiers []ViewIdentifier
+	if err := json.NewDecoder(c.Request().Body).Decode(&viewIdentifiers); err != nil {
+		return api.WriteError(c, api.Errorf(api.EINVALID, "invalid json request: %v", err))
+	}
+
+	result, err := listViews(ctx, viewIdentifiers)
+	if err != nil {
+		return api.WriteError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, result)
 }

@@ -9,3 +9,4 @@ nohup.out
 .cursor/
 .db/
 Claude.md
+__debug_bin*

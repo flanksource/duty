@@ -1,0 +1,92 @@
+[
+  {
+    "application": "alertmanager",
+    "namespace": "monitoring",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "UpgradeSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:18:16.103734+05:45"
+  },
+  {
+    "application": "alloy",
+    "namespace": "monitoring",
+    "chart": "alloy",
+    "version": "1.0.2",
+    "status": "UpgradeSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-20T11:37:50.248793+05:45"
+  },
+  {
+    "application": "bazarr",
+    "namespace": "media",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "InstallSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:30:25.024669+05:45"
+  },
+  {
+    "application": "grafana",
+    "namespace": "monitoring",
+    "chart": "grafana",
+    "version": "9.0.0",
+    "status": "UpgradeSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-20T11:37:50.248793+05:45"
+  },
+  {
+    "application": "jellyfin",
+    "namespace": "media",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "InstallSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:30:13.053931+05:45"
+  },
+  {
+    "application": "jellyseerr",
+    "namespace": "media",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "InstallSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:29:49.081375+05:45"
+  },
+  {
+    "application": "kube-prometheus-stack",
+    "namespace": "monitoring",
+    "chart": "kube-prometheus-stack",
+    "version": "72.1.0",
+    "status": "UpgradeSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-20T11:37:50.248793+05:45"
+  },
+  {
+    "application": "movary",
+    "namespace": "media",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "InstallSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:29:31.079345+05:45"
+  },
+  {
+    "application": "qbittorrent",
+    "namespace": "media",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "InstallSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:30:04.041549+05:45"
+  },
+  {
+    "application": "speedtest-tracker",
+    "namespace": "monitoring",
+    "chart": "app-template",
+    "version": "4.1.2",
+    "status": "UpgradeSucceeded",
+    "health": "healthy",
+    "lastupdated": "2025-06-23T23:18:16.129627+05:45"
+  }
+]
