@@ -57,11 +57,8 @@ var _ = Describe("MergeQueryResults", func() {
 				},
 			}
 
-			mergeSpec := MergeSpec{
-				Operation: MergeUnion,
-			}
-
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeSpec)
+			mergeQuery := "SELECT id, name FROM table1 UNION SELECT id, name FROM table2"
+			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(4))
 			Expect(results).To(ConsistOf([]QueryResultRow{
@@ -92,19 +89,14 @@ var _ = Describe("MergeQueryResults", func() {
 				},
 			}
 
-			mergeSpec := MergeSpec{
-				Operation: MergeLeftJoin,
-				JoinConditions: []JoinCondition{
-					{
-						LeftTable:   "users",
-						LeftColumn:  "id",
-						RightTable:  "orders",
-						RightColumn: "user_id",
-					},
-				},
-			}
+			mergeQuery := `SELECT 
+				users.id AS "users.id",
+				users.name AS "users.name",
+				orders.user_id AS "orders.user_id",
+				orders.product AS "orders.product"
+			FROM users LEFT JOIN orders ON users.id = orders.user_id`
 
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeSpec)
+			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(3))
 			Expect(results).To(ConsistOf([]QueryResultRow{
@@ -141,39 +133,20 @@ var _ = Describe("MergeQueryResults", func() {
 				},
 			}
 
-			mergeSpec := MergeSpec{
-				Operation: MergeLeftJoin,
-				JoinConditions: []JoinCondition{
-					{
-						LeftTable:   "users",
-						LeftColumn:  "id",
-						RightTable:  "orders",
-						RightColumn: "user_id",
-					},
-					{
-						LeftTable:   "users",
-						LeftColumn:  "department_id",
-						RightTable:  "departments",
-						RightColumn: "id",
-					},
-				},
-			}
+			mergeQuery := `SELECT 
+				users.id AS "users.id",
+				users.name AS "users.name",
+				users.department_id AS "users.department_id",
+				orders.user_id AS "orders.user_id",
+				orders.product AS "orders.product",
+				orders.order_id AS "orders.order_id",
+				departments.id AS "departments.id",
+				departments.name AS "departments.name"
+			FROM users 
+			LEFT JOIN orders ON users.id = orders.user_id
+			LEFT JOIN departments ON users.department_id = departments.id`
 
-			// SELECT
-			//   users.id AS "users.id",
-			//   users.name AS "users.name",
-			//   users.department_id AS "users.department_id",
-			//   orders.user_id AS "orders.user_id",
-			//   orders.product AS "orders.product",
-			//   orders.order_id AS "orders.order_id",
-			//   departments.id AS "departments.id",
-			//   departments.name AS "departments.name"
-			// FROM
-			//   users
-			//   LEFT JOIN orders ON users.id = orders.user_id
-			//   LEFT JOIN departments ON users.department_id = departments.id
-
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2, resultSet3}, mergeSpec)
+			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2, resultSet3}, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(3))
 			Expect(results).To(ConsistOf([]QueryResultRow{
