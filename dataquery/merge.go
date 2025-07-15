@@ -79,9 +79,7 @@ func mergeResultsets(ctx context.Context, mergeQuery string) ([]QueryResultRow, 
 
 		row := make(QueryResultRow)
 		for i, col := range columns {
-			if values[i] != nil {
-				row[col] = values[i]
-			}
+			row[col] = values[i]
 		}
 		results = append(results, row)
 	}

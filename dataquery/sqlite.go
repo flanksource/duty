@@ -1,13 +1,17 @@
 package dataquery
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
+
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 )
 
 // QueryResultSet contains the query name and the results
@@ -112,19 +116,59 @@ func (rs QueryResultSet) InsertToDB(ctx context.Context) error {
 		return nil
 	}
 
+	toInsert := make([]map[string]any, 0, len(rs.Results))
+
 	for _, row := range rs.Results {
 		// .Create inserts additional fields to the row (example: a new @id field)
 		// So we need to clone the row to avoid modifying the original row
 		clone := maps.Clone(row)
 
-		// NOTE: Must typecast to map[string]any else gorm panics
+		// NOTE: Must typecast QueryResultRow to map[string]any else gorm panics
 		clonedMap := map[string]any(clone)
 
-		result := ctx.DB().Table(rs.Name).Create(&clonedMap)
-		if result.Error != nil {
-			return fmt.Errorf("failed to insert row into table '%s': %w", rs.Name, result.Error)
+		// Convert complex types to appropriate types.* equivalents
+		if err := normalizeRow(clonedMap); err != nil {
+			return fmt.Errorf("failed to convert complex types for table '%s': %w", rs.Name, err)
 		}
+
+		toInsert = append(toInsert, clonedMap)
+	}
+
+	result := ctx.DB().Table(rs.Name).CreateInBatches(toInsert, 100)
+	if result.Error != nil {
+		return fmt.Errorf("failed to insert row into table '%s': %w", rs.Name, result.Error)
 	}
 
 	return nil
+}
+
+func normalizeRow(row map[string]any) error {
+	for k, v := range row {
+		nv, err := normalizeValue(v)
+		if err != nil {
+			return fmt.Errorf("column %q: %w", k, err)
+		}
+
+		row[k] = nv
+	}
+
+	return nil
+}
+
+func normalizeValue(v any) (any, error) {
+	switch x := v.(type) {
+	case nil, bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64,
+		float32, float64, string, []byte, time.Time, *time.Time, uuid.UUID, *uuid.UUID, types.JSON, types.JSONMap, types.JSONStringMap:
+		return x, nil // already good
+
+	case json.RawMessage:
+		return types.JSON(x), nil
+
+	default: // fallback: encode as JSONB
+		b, err := json.Marshal(x)
+		if err != nil {
+			return nil, err
+		}
+		return types.JSON(b), nil
+	}
 }

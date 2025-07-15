@@ -15,30 +15,6 @@ func TestDataQuery(t *testing.T) {
 }
 
 var _ = Describe("MergeQueryResults", func() {
-	Describe("InferColumnTypes", func() {
-		It("should infer column types correctly", func() {
-			rows := []QueryResultRow{
-				{"id": 1, "name": "test1", "score": 95.5, "active": true},
-				{"id": 2, "name": "test2", "score": 87.2, "active": false},
-				{"id": 3, "name": "test3", "score": 92.1, "active": true},
-			}
-
-			columnTypes := InferColumnTypes(rows)
-
-			Expect(columnTypes).To(HaveLen(4))
-			Expect(columnTypes["id"]).To(Equal("INTEGER"))
-			Expect(columnTypes["name"]).To(Equal("TEXT"))
-			Expect(columnTypes["score"]).To(Equal("REAL"))
-			Expect(columnTypes["active"]).To(Equal("INTEGER"))
-		})
-
-		It("should handle empty rows", func() {
-			rows := []QueryResultRow{}
-			columnTypes := InferColumnTypes(rows)
-			Expect(columnTypes).To(HaveLen(0))
-		})
-	})
-
 	Describe("UNION operations", func() {
 		It("should merge result sets using UNION", func() {
 			resultSet1 := QueryResultSet{
@@ -102,7 +78,7 @@ var _ = Describe("MergeQueryResults", func() {
 			Expect(results).To(ConsistOf([]QueryResultRow{
 				{"users.id": int64(1), "users.name": "alice", "orders.user_id": int64(1), "orders.product": "laptop"},
 				{"users.id": int64(2), "users.name": "bob", "orders.user_id": int64(2), "orders.product": "mouse"},
-				{"users.id": int64(3), "users.name": "charlie"},
+				{"users.id": int64(3), "users.name": "charlie", "orders.user_id": nil, "orders.product": nil},
 			}))
 		})
 

@@ -280,7 +280,11 @@ func (k Context) WithConnectionString(connectionString string) Context {
 
 // ConnectionString returns the connection string for the database
 func (k Context) ConnectionString() string {
-	return k.Value("dbConnectionString").(string)
+	cn := k.Value("dbConnectionString")
+	if cn == nil {
+		return ""
+	}
+	return cn.(string)
 }
 
 // Returns a new named logger, the default db log level starts at INFO for DDL
@@ -591,6 +595,7 @@ func (k Context) HydrateConnection(connection *models.Connection) (*models.Conne
 func (k Context) Wrap(ctx gocontext.Context) Context {
 	return NewContext(ctx, commons.WithTracer(k.GetTracer()), commons.WithLogger(k.Logger)).
 		WithDB(k.DB(), k.Pool()).
+		WithConnectionString(k.ConnectionString()).
 		WithKubernetes(k.KubernetesConnection()).
 		WithNamespace(k.GetNamespace())
 }
