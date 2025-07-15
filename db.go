@@ -9,17 +9,18 @@ import (
 
 	"github.com/exaring/otelpgx"
 	"github.com/flanksource/commons/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
 	"github.com/flanksource/duty/api"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/drivers"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/tracing"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var pool *pgxpool.Pool
@@ -176,7 +177,7 @@ func InitDB(config api.Config) (*dutyContext.Context, error) {
 		return nil, err
 	}
 
-	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
+	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool).WithConnectionString(config.ConnectionString)
 
 	setStatementTimeouts(dutyctx, config)
 

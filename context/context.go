@@ -9,13 +9,6 @@ import (
 
 	commons "github.com/flanksource/commons/context"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/cache"
-	dutyGorm "github.com/flanksource/duty/gorm"
-	dutyKubernetes "github.com/flanksource/duty/kubernetes"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/rls"
-	"github.com/flanksource/duty/tracing"
-	"github.com/flanksource/duty/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
@@ -27,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/flanksource/duty/cache"
+	dutyGorm "github.com/flanksource/duty/gorm"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rls"
+	"github.com/flanksource/duty/tracing"
+	"github.com/flanksource/duty/types"
 )
 
 type ContextKey string
@@ -270,6 +271,16 @@ func (k Context) WithNamespace(namespace string) Context {
 
 func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {
 	return k.WithValue("db", db).WithValue("pgxpool", pool)
+}
+
+// WithConnectionString sets the connection string for the database
+func (k Context) WithConnectionString(connectionString string) Context {
+	return k.WithValue("dbConnectionString", connectionString)
+}
+
+// ConnectionString returns the connection string for the database
+func (k Context) ConnectionString() string {
+	return k.Value("dbConnectionString").(string)
 }
 
 // Returns a new named logger, the default db log level starts at INFO for DDL
