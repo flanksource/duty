@@ -57,9 +57,8 @@ type Notification struct {
 	WaitForEvalPeriod *time.Duration `json:"wait_for_eval_period,omitempty"`
 
 	// Error stores errors in notification filters (if any).
-	Error        *string    `json:"error,omitempty"`
-	ErrorAt      *time.Time `json:"error_at,omitempty"`
-	ResetErrorAt *time.Time `json:"reset_error_at,omitempty"`
+	Error   *string    `json:"error,omitempty"`
+	ErrorAt *time.Time `json:"error_at,omitempty"`
 }
 
 func (n Notification) HasFallbackSet() bool {
