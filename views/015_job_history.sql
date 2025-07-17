@@ -58,7 +58,7 @@ FROM
   AND job_history_latest_status.resource_type = 'topology'
   LEFT JOIN agents ON agents.id = topologies.agent_id
   LEFT JOIN (
-    SELECT 
+    SELECT
       resource_id,
       MAX(time_start) as time_start
     FROM job_history as js_last_failed
@@ -110,7 +110,7 @@ FROM
   LEFT JOIN canaries_last_runtime ON canaries_last_runtime.canary_id = canaries.id
   LEFT JOIN agents ON agents.id = canaries.agent_id
   LEFT JOIN (
-    SELECT 
+    SELECT
       resource_id,
       MAX(time_start) as time_start
     FROM job_history as js_last_failed
@@ -144,12 +144,12 @@ FROM
   LEFT JOIN job_history_latest_status ON teams.id::TEXT = job_history_latest_status.resource_id
   AND job_history_latest_status.resource_type = 'team'
   LEFT JOIN (
-    SELECT 
+    SELECT
       resource_id,
       MAX(time_start) as time_start
     FROM job_history as js_last_failed
     WHERE js_last_failed.status = 'FAILED' AND js_last_failed.resource_type = 'team'
-    GROUP BY js_last_failed.resource_id 
+    GROUP BY js_last_failed.resource_id
   ) lr ON lr.resource_id = teams.id::TEXT
 WHERE
   teams.deleted_at IS NULL;
@@ -182,7 +182,7 @@ FROM
   LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
   LEFT JOIN agents ON agents.id = config_scrapers.agent_id
   LEFT JOIN (
-    SELECT 
+    SELECT
       resource_id,
       MAX(time_start) as time_start
     FROM job_history as js_last_failed
@@ -220,6 +220,7 @@ SELECT
   notifications.name,
   COALESCE(notifications.namespace, '') AS namespace,
   notifications.error,
+  notifications.error_at,
   notifications.title,
   notifications.events,
   notifications.filter,
@@ -241,7 +242,7 @@ SELECT
 FROM
   notifications
   LEFT JOIN notification_send_summary ON notifications.id = notification_send_summary.notification_id
-  LEFT JOIN event_queue ON 
+  LEFT JOIN event_queue ON
     notifications.id::TEXT = event_queue.properties->>'notification_id' AND
     event_queue.name = 'notification.send' AND
     event_queue.attempts < 4
@@ -341,8 +342,8 @@ SELECT combined.*, people.name AS creator_name, people.avatar AS creator_avatar,
 
 DROP VIEW IF EXISTS job_histories;
 
-CREATE OR REPLACE VIEW job_histories 
-AS SELECT 
+CREATE OR REPLACE VIEW job_histories
+AS SELECT
   job_history.*,
   COALESCE(
     components.name,
@@ -354,7 +355,7 @@ AS SELECT
   json_build_object(
     'id', agents.id,
     'name', agents.name
-  ) as agent 
+  ) as agent
 FROM job_history
 LEFT JOIN components ON job_history.resource_id = components.id::TEXT AND job_history.resource_type = 'components'
 LEFT JOIN config_scrapers ON job_history.resource_id = config_scrapers.id::TEXT AND job_history.resource_type = 'config_scraper'
