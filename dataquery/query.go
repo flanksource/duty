@@ -34,3 +34,46 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 
 	return results, nil
 }
+
+// RunSQL runs a query and returns the results
+func RunSQL(ctx context.Context, query string) ([]QueryResultRow, error) {
+	if query == "" {
+		return nil, fmt.Errorf("query is required")
+	}
+
+	rows, err := ctx.DB().Raw(query).Rows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get column information: %w", err)
+	}
+
+	var results []QueryResultRow
+	for rows.Next() {
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		row := make(QueryResultRow)
+		for i, col := range columns {
+			row[col] = values[i]
+		}
+		results = append(results, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during row iteration: %w", err)
+	}
+
+	return results, nil
+}
