@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/glebarez/sqlite"
 	"github.com/gofrs/uuid"
+	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
@@ -19,6 +21,37 @@ type QueryResultSet struct {
 	Name       string
 	PrimaryKey []string
 	Results    []QueryResultRow
+}
+
+func DBFromResultsets(ctx context.Context, resultsets []QueryResultSet) (context.Context, func() error, error) {
+	if len(resultsets) == 0 {
+		return ctx, nil, fmt.Errorf("resultsets cannot be empty")
+	}
+
+	sqliteDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		return ctx, nil, fmt.Errorf("failed to create in-memory SQLite database: %w", err)
+	}
+
+	sqlDB, err := sqliteDB.DB()
+	if err != nil {
+		return ctx, nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+
+	sqliteCtx := ctx.WithDB(sqliteDB, nil)
+
+	// Create tables for each result set and insert the rows
+	for _, resultSet := range resultsets {
+		if err := resultSet.CreateDBTable(sqliteCtx); err != nil {
+			return ctx, sqlDB.Close, fmt.Errorf("failed to create table for result set '%s': %w", resultSet.Name, err)
+		}
+
+		if err := resultSet.InsertToDB(sqliteCtx); err != nil {
+			return ctx, sqlDB.Close, fmt.Errorf("failed to insert data into table '%s': %w", resultSet.Name, err)
+		}
+	}
+
+	return sqliteCtx, sqlDB.Close, nil
 }
 
 // InferColumnTypes analyzes the first row to determine column types

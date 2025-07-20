@@ -33,8 +33,12 @@ var _ = Describe("MergeQueryResults", func() {
 				},
 			}
 
+			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2})
+			Expect(err).ToNot(HaveOccurred())
+			defer closer()
+
 			mergeQuery := "SELECT id, name FROM table1 UNION SELECT id, name FROM table2"
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeQuery)
+			results, err := RunSQL(ctx, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(4))
 			Expect(results).To(ConsistOf([]QueryResultRow{
@@ -72,7 +76,11 @@ var _ = Describe("MergeQueryResults", func() {
 				orders.product AS "orders.product"
 			FROM users LEFT JOIN orders ON users.id = orders.user_id`
 
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2}, mergeQuery)
+			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2})
+			Expect(err).ToNot(HaveOccurred())
+			defer closer()
+
+			results, err := RunSQL(ctx, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(3))
 			Expect(results).To(ConsistOf([]QueryResultRow{
@@ -122,7 +130,11 @@ var _ = Describe("MergeQueryResults", func() {
 			LEFT JOIN orders ON users.id = orders.user_id
 			LEFT JOIN departments ON users.department_id = departments.id`
 
-			results, err := MergeQueryResults(context.New(), []QueryResultSet{resultSet1, resultSet2, resultSet3}, mergeQuery)
+			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2, resultSet3})
+			Expect(err).ToNot(HaveOccurred())
+			defer closer()
+
+			results, err := RunSQL(ctx, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(3))
 			Expect(results).To(ConsistOf([]QueryResultRow{
