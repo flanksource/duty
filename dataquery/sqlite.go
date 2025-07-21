@@ -61,9 +61,14 @@ func InferColumnTypes(rows []QueryResultRow) map[string]string {
 	}
 
 	columnTypes := make(map[string]string)
-	firstRow := rows[0]
-	for col := range firstRow {
-		columnTypes[col] = inferColumnType(firstRow, col)
+
+	// Must iterate over all rows because some rows may not have all the columns.
+	for _, row := range rows {
+		for col := range row {
+			if _, exists := columnTypes[col]; !exists {
+				columnTypes[col] = inferColumnType(row, col)
+			}
+		}
 	}
 
 	return columnTypes
