@@ -89,15 +89,30 @@ var _ = Describe("InferColumnTypes", func() {
 			{"id": 1, "name": "test1", "score": 95.5, "active": true},
 			{"id": 2, "name": "test2", "score": 87.2, "active": false},
 			{"id": 3, "name": "test3", "score": 92.1, "active": true},
+			{"id": 4, "name": "test4", "score": 90.1, "active": true, "tags": []string{"tag1", "tag2"}},
 		}
 
 		columnTypes := InferColumnTypes(rows)
 
-		Expect(columnTypes).To(HaveLen(4))
+		Expect(columnTypes).To(HaveLen(5))
 		Expect(columnTypes["id"]).To(Equal("INTEGER"))
 		Expect(columnTypes["name"]).To(Equal("TEXT"))
 		Expect(columnTypes["score"]).To(Equal("REAL"))
 		Expect(columnTypes["active"]).To(Equal("INTEGER"))
+		Expect(columnTypes["tags"]).To(Equal("TEXT"))
+	})
+
+	It("should handle mixed types", func() {
+		rows := []QueryResultRow{
+			{"id": 1, "score": 95.5},
+			{"id": 2, "score": "90.1"},
+		}
+
+		columnTypes := InferColumnTypes(rows)
+
+		Expect(columnTypes).To(HaveLen(2))
+		Expect(columnTypes["id"]).To(Equal("INTEGER"))
+		Expect(columnTypes["score"]).To(Equal("TEXT"))
 	})
 
 	It("should handle empty rows", func() {

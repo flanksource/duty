@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/commons/collections/set"
 	"github.com/glebarez/sqlite"
 	"github.com/gofrs/uuid"
 	"gorm.io/gorm"
@@ -15,6 +16,9 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
 )
+
+// The number of rows to sample to infer column types
+const defaultSampleSize = 150
 
 // QueryResultSet contains the query name and the results
 type QueryResultSet struct {
@@ -54,33 +58,51 @@ func DBFromResultsets(ctx context.Context, resultsets []QueryResultSet) (context
 	return sqliteCtx, sqlDB.Close, nil
 }
 
-// InferColumnTypes analyzes the first row to determine column types
+// InferColumnTypes analyzes the first few rows to determine the most appropriate column types
 func InferColumnTypes(rows []QueryResultRow) map[string]string {
 	if len(rows) == 0 {
 		return map[string]string{}
 	}
 
-	columnTypes := make(map[string]string)
+	// Track types seen for each column from the first N rows
+	columnTypeSets := make(map[string]set.Set[string])
+	for i, row := range rows {
+		if i >= defaultSampleSize {
+			break
+		}
 
-	// Must iterate over all rows because some rows may not have all the columns.
-	for _, row := range rows {
-		for col := range row {
-			if _, exists := columnTypes[col]; !exists {
-				columnTypes[col] = inferColumnType(row, col)
+		for col, val := range row {
+			if columnTypeSets[col] == nil {
+				columnTypeSets[col] = set.New[string]()
+			}
+
+			if val != nil {
+				sqliteType := goTypeToSQLiteType(val)
+				columnTypeSets[col].Add(sqliteType)
 			}
 		}
+	}
+
+	// Determine the most appropriate type for each column
+	columnTypes := make(map[string]string)
+	for col, typeSet := range columnTypeSets {
+		columnTypes[col] = inferBestColumnTypeFromSet(typeSet)
 	}
 
 	return columnTypes
 }
 
-// inferColumnType determines the SQLite type for a specific column
-func inferColumnType(row QueryResultRow, columnName string) string {
-	if val, exists := row[columnName]; exists {
-		return goTypeToSQLiteType(val)
+// inferBestColumnTypeFromSet determines the most appropriate SQLite type from a set of observed types
+func inferBestColumnTypeFromSet(typeSet set.Set[string]) string {
+	if len(typeSet) == 0 || typeSet.Contains("TEXT") {
+		return "TEXT"
 	}
 
-	return "TEXT"
+	if typeSet.Contains("REAL") {
+		return "REAL"
+	}
+
+	return "INTEGER"
 }
 
 // goTypeToSQLiteType converts a Go value to SQLite column type
