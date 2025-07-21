@@ -35,7 +35,10 @@ var _ = Describe("MergeQueryResults", func() {
 
 			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2})
 			Expect(err).ToNot(HaveOccurred())
-			defer closer()
+			defer func() {
+				err := closer()
+				Expect(err).ToNot(HaveOccurred())
+			}()
 
 			mergeQuery := "SELECT id, name FROM table1 UNION SELECT id, name FROM table2"
 			results, err := RunSQL(ctx, mergeQuery)
@@ -78,7 +81,10 @@ var _ = Describe("MergeQueryResults", func() {
 
 			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2})
 			Expect(err).ToNot(HaveOccurred())
-			defer closer()
+			defer func() {
+				err := closer()
+				Expect(err).ToNot(HaveOccurred())
+			}()
 
 			results, err := RunSQL(ctx, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
@@ -132,7 +138,10 @@ var _ = Describe("MergeQueryResults", func() {
 
 			ctx, closer, err := DBFromResultsets(context.New(), []QueryResultSet{resultSet1, resultSet2, resultSet3})
 			Expect(err).ToNot(HaveOccurred())
-			defer closer()
+			defer func() {
+				err := closer()
+				Expect(err).ToNot(HaveOccurred())
+			}()
 
 			results, err := RunSQL(ctx, mergeQuery)
 			Expect(err).ToNot(HaveOccurred())
