@@ -94,7 +94,15 @@ func InferColumnTypes(rows []QueryResultRow) map[string]string {
 
 // inferBestColumnTypeFromSet determines the most appropriate SQLite type from a set of observed types
 func inferBestColumnTypeFromSet(typeSet set.Set[string]) string {
-	if len(typeSet) == 0 || typeSet.Contains("TEXT") {
+	if len(typeSet) == 0 {
+		return "TEXT"
+	}
+
+	if typeSet.Contains("BLOB") {
+		return "BLOB"
+	}
+
+	if typeSet.Contains("TEXT") {
 		return "TEXT"
 	}
 
@@ -122,6 +130,10 @@ func goTypeToSQLiteType(value any) string {
 		return "TEXT" // Store as ISO string
 	case string:
 		return "TEXT"
+	case []byte, json.RawMessage, types.JSON:
+		return "BLOB"
+	case types.JSONMap, types.JSONStringMap, map[string]any, map[string]string:
+		return "BLOB"
 	default:
 		rv := reflect.ValueOf(v)
 		switch rv.Kind() {
@@ -132,6 +144,8 @@ func goTypeToSQLiteType(value any) string {
 			return "REAL"
 		case reflect.Bool:
 			return "INTEGER"
+		case reflect.Map, reflect.Slice:
+			return "BLOB"
 		default:
 			return "TEXT"
 		}
