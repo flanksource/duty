@@ -38,6 +38,9 @@ type ViewColumnDef struct {
 	// Description of the column
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 
+	// Hidden indicates if the column should be hidden from view
+	Hidden bool `json:"hidden,omitempty" yaml:"hidden,omitempty"`
+
 	// Configuration for gauge visualization
 	Gauge *GaugeConfig `json:"gauge,omitempty" yaml:"gauge,omitempty"`
 }
