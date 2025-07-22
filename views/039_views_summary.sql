@@ -1,10 +1,14 @@
+DROP VIEW IF EXISTS views_summary;
+
 CREATE OR REPLACE VIEW views_summary AS
 SELECT 
     id,
     namespace,
     name,
-    spec->>'title' AS title,
-    spec->>'icon' AS icon,
+    spec->'display'->>'title' AS title,
+    spec->'display'->>'icon' AS icon,
+    (spec->'display'->>'ordinal')::int AS ordinal,
+    (spec->'display'->>'sidebar')::boolean AS sidebar,
     last_ran
 FROM views
 WHERE deleted_at IS NULL;
