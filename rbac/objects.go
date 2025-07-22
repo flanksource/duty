@@ -190,6 +190,7 @@ var dbResourceObjMap = map[string]string{
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
 	"views":                                             policy.ObjectCatalog,
+	"views_summary":                                     policy.ObjectCatalog,
 
 	"config_access_logs":   policy.ObjectCatalog,
 	"access_reviews":       policy.ObjectCatalog,
