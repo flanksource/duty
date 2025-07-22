@@ -33,7 +33,7 @@ type ViewColumnDef struct {
 	// PrimaryKey indicates if the column is a primary key
 	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
-	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge
+	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url
 	Type ColumnType `json:"type" yaml:"type"`
 
 	// Description of the column
