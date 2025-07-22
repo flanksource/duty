@@ -20,6 +20,7 @@ const (
 	ColumnTypeNumber    ColumnType = "number"
 	ColumnTypeStatus    ColumnType = "status"
 	ColumnTypeString    ColumnType = "string"
+	ColumnTypeURL       ColumnType = "url"
 )
 
 // ViewColumnDef defines a column in the view
@@ -43,6 +44,13 @@ type ViewColumnDef struct {
 
 	// Configuration for gauge visualization
 	Gauge *GaugeConfig `json:"gauge,omitempty" yaml:"gauge,omitempty"`
+
+	// For references the column this column is for.
+	// Applicable only for type=url.
+	//
+	// When a column is designated for a different column,
+	// it's not rendered on the UI but the designated column uses it to render itself.
+	For *string `json:"for,omitempty" yaml:"for,omitempty"`
 }
 
 // GaugeThreshold defines a threshold configuration for gauge charts
@@ -98,6 +106,8 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 			return col.Name, models.ColumnTypeDuration
 		case ColumnTypeGauge:
 			return col.Name, models.ColumnTypeJSONB
+		case ColumnTypeURL:
+			return col.Name, models.ColumnTypeString
 		default:
 			return col.Name, models.ColumnTypeString
 		}
