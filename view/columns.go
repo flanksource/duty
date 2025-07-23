@@ -97,7 +97,7 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 		case ColumnTypeBytes:
 			return col.Name, models.ColumnTypeString
 		case ColumnTypeMillicore:
-			return col.Name, models.ColumnTypeInteger
+			return col.Name, models.ColumnTypeString
 		case ColumnTypeBoolean:
 			return col.Name, models.ColumnTypeBoolean
 		case ColumnTypeDateTime:
