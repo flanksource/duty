@@ -182,6 +182,10 @@ func getAtlasType(colType ColumnType) schema.Type {
 		return &schema.StringType{T: "text"}
 	case ColumnTypeGauge:
 		return &schema.JSONType{T: "jsonb"}
+	case ColumnTypeBytes:
+		return &schema.StringType{T: "text"} // stored as text due to values like "250Mi"
+	case ColumnTypeMillicore:
+		return &schema.StringType{T: "text"}
 	default:
 		return &schema.StringType{T: "text"}
 	}
