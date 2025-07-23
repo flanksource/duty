@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlclient"
 	"github.com/Masterminds/squirrel"
+	"github.com/flanksource/commons/logger"
 	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
@@ -191,7 +193,7 @@ func getAtlasType(colType ColumnType) schema.Type {
 	}
 }
 
-func ReadViewTable(ctx context.Context, table string) ([]Row, error) {
+func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string) ([]Row, error) {
 	rows, err := ctx.DB().Select("*").Table(table).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read view table (%s): %w", table, err)
@@ -218,7 +220,59 @@ func ReadViewTable(ctx context.Context, table string) ([]Row, error) {
 		viewRows = append(viewRows, viewRow)
 	}
 
-	return viewRows, nil
+	return convertViewRecordsToNativeTypes(viewRows, columnDef), nil
+}
+
+// convertViewRecordsToNativeTypes converts view cell to native go types
+func convertViewRecordsToNativeTypes(viewRows []Row, columnDef ViewColumnDefList) []Row {
+	for _, viewRow := range viewRows {
+		for i, colDef := range columnDef {
+			if i >= len(viewRow) {
+				continue
+			}
+
+			if viewRow[i] == nil {
+				continue
+			}
+
+			switch colDef.Type {
+			case ColumnTypeGauge:
+				if raw, ok := viewRow[i].([]uint8); ok {
+					viewRow[i] = json.RawMessage(raw)
+				}
+
+			case ColumnTypeDuration:
+				switch v := viewRow[i].(type) {
+				case int:
+					viewRow[i] = time.Duration(v)
+				case int32:
+					viewRow[i] = time.Duration(v)
+				case int64:
+					viewRow[i] = time.Duration(v)
+				case float64:
+					viewRow[i] = time.Duration(int64(v))
+				default:
+					logger.Warnf("convertViewRecordsToNativeTypes: unknown duration type: %T", v)
+				}
+
+			case ColumnTypeDateTime:
+				switch v := viewRow[i].(type) {
+				case time.Time:
+					viewRow[i] = v
+				case string:
+					parsed, err := time.Parse(time.RFC3339, v)
+					if err != nil {
+						logger.Warnf("convertViewRecordsToNativeTypes: failed to parse datetime: %v", err)
+					}
+					viewRow[i] = parsed
+				default:
+					logger.Warnf("convertViewRecordsToNativeTypes: unknown datetime type: %T", v)
+				}
+			}
+		}
+	}
+
+	return viewRows
 }
 
 func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList, rows []Row) error {
