@@ -78,7 +78,6 @@ func ErrorCode(err error) string {
 }
 
 // ErrorMessage unwraps an application error and returns its message.
-// Non-application errors always return "Internal error".
 func ErrorMessage(err error) string {
 	var e *Error
 	if err == nil {
@@ -86,7 +85,8 @@ func ErrorMessage(err error) string {
 	} else if errors.As(err, &e) {
 		return e.Message
 	}
-	return "Internal error."
+
+	return err.Error()
 }
 
 // ErrorMessage unwraps an application error and returns its message.
