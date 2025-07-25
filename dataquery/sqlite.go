@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 )
 
@@ -22,9 +23,11 @@ const defaultSampleSize = 150
 
 // QueryResultSet contains the query name and the results
 type QueryResultSet struct {
-	Name       string
-	PrimaryKey []string
-	Results    []QueryResultRow
+	Name    string
+	Results []QueryResultRow
+
+	// Map column name to column type
+	ColumnDefs map[string]models.ColumnType
 }
 
 func DBFromResultsets(ctx context.Context, resultsets []QueryResultSet) (context.Context, func() error, error) {
@@ -154,23 +157,24 @@ func goTypeToSQLiteType(value any) string {
 
 // CreateDBTable creates a SQLite table based on the result set schema
 func (resultSet QueryResultSet) CreateDBTable(ctx context.Context) error {
-	if len(resultSet.Results) == 0 {
-		return fmt.Errorf("cannot create table from empty result set")
+	if len(resultSet.ColumnDefs) == 0 && len(resultSet.Results) == 0 {
+		return fmt.Errorf("cannot create SQLite table from empty result set without column definitions")
 	}
 
-	columnTypes := InferColumnTypes(resultSet.Results)
+	var columnTypes map[string]string
+	if len(resultSet.ColumnDefs) != 0 {
+		columnTypes = make(map[string]string)
+		for columnName, columnType := range resultSet.ColumnDefs {
+			columnTypes[columnName] = columnType.SQLiteType()
+		}
+	} else {
+		// Infer column types from data when results are available
+		columnTypes = InferColumnTypes(resultSet.Results)
+	}
 
 	var columnDefs []string
 	for columnName, columnType := range columnTypes {
 		columnDefs = append(columnDefs, fmt.Sprintf(`"%s" %s`, columnName, columnType))
-	}
-
-	if len(resultSet.PrimaryKey) > 0 {
-		var primaryKeys []string
-		for _, pk := range resultSet.PrimaryKey {
-			primaryKeys = append(primaryKeys, fmt.Sprintf(`"%s"`, pk))
-		}
-		columnDefs = append(columnDefs, fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaryKeys, ", ")))
 	}
 
 	createTableSQL := fmt.Sprintf(`CREATE TABLE "%s" (%s)`,
