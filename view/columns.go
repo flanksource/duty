@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
@@ -76,6 +77,14 @@ func (c ViewColumnDefList) SelectColumns() []string {
 		output[i] = col.Name
 	}
 
+	return output
+}
+
+func (c ViewColumnDefList) QuotedColumns() []string {
+	output := make([]string, len(c))
+	for i, col := range c {
+		output[i] = pq.QuoteIdentifier(col.Name)
+	}
 	return output
 }
 

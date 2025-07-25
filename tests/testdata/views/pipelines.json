@@ -2,8 +2,8 @@
   {
     "name": "Create Release",
     "repository": "flanksource/config-db",
-    "lastrun": "2025-07-02T17:47:04+05:45",
-    "lastrunby": "flankbot",
+    "lastRun": "2025-07-02T17:47:04+05:45",
+    "lastRunBy": "flankbot",
     "duration": 1702000000000,
     "status": "failure",
     "runnumber": {
@@ -15,8 +15,8 @@
   {
     "name": "Test",
     "repository": "flanksource/config-db",
-    "lastrun": "2025-07-02T17:53:18+05:45",
-    "lastrunby": "moshloop",
+    "lastRun": "2025-07-02T17:53:18+05:45",
+    "lastRunBy": "moshloop",
     "duration": 1702000000000,
     "status": "failure",
     "runnumber": {
@@ -28,8 +28,8 @@
   {
     "name": "Create Release",
     "repository": "flanksource/duty",
-    "lastrun": "2025-07-02T17:27:52+05:45",
-    "lastrunby": "moshloop",
+    "lastRun": "2025-07-02T17:27:52+05:45",
+    "lastRunBy": "moshloop",
     "duration": 187000000000,
     "status": "success",
     "runnumber": {
@@ -41,8 +41,8 @@
   {
     "name": "Test",
     "repository": "flanksource/duty",
-    "lastrun": "2025-07-02T17:27:52+05:45",
-    "lastrunby": "moshloop",
+    "lastRun": "2025-07-02T17:27:52+05:45",
+    "lastRunBy": "moshloop",
     "duration": 193000000000,
     "status": "success",
     "runnumber": {
@@ -54,8 +54,8 @@
   {
     "name": "Create Release",
     "repository": "flanksource/mission-control-chart",
-    "lastrun": "2025-07-02T13:54:45+05:45",
-    "lastrunby": "flankbot",
+    "lastRun": "2025-07-02T13:54:45+05:45",
+    "lastRunBy": "flankbot",
     "duration": 103000000000,
     "status": "failure",
     "runnumber": {
@@ -67,8 +67,8 @@
   {
     "name": "Test",
     "repository": "flanksource/mission-control-chart",
-    "lastrun": "2025-07-02T18:01:59+05:45",
-    "lastrunby": "flankbot",
+    "lastRun": "2025-07-02T18:01:59+05:45",
+    "lastRunBy": "flankbot",
     "duration": 92000000000,
     "status": "failure",
     "runnumber": {
@@ -80,8 +80,8 @@
   {
     "name": "Build",
     "repository": "flanksource/mission-control",
-    "lastrun": "2025-07-02T22:47:29+05:45",
-    "lastrunby": "yashmehrotra",
+    "lastRun": "2025-07-02T22:47:29+05:45",
+    "lastRunBy": "yashmehrotra",
     "duration": 185000000000,
     "status": "success",
     "runnumber": {
@@ -93,8 +93,8 @@
   {
     "name": "Create Release",
     "repository": "flanksource/mission-control",
-    "lastrun": "2025-07-02T18:29:40+05:45",
-    "lastrunby": "moshloop",
+    "lastRun": "2025-07-02T18:29:40+05:45",
+    "lastRunBy": "moshloop",
     "duration": 594000000000,
     "status": "failure",
     "runnumber": {
@@ -106,8 +106,8 @@
   {
     "name": "Docker",
     "repository": "flanksource/mission-control",
-    "lastrun": "2025-07-02T18:36:52+05:45",
-    "lastrunby": "flankbot",
+    "lastRun": "2025-07-02T18:36:52+05:45",
+    "lastRunBy": "flankbot",
     "duration": 177000000000,
     "status": "success",
     "runnumber": {
@@ -119,8 +119,8 @@
   {
     "name": "Test",
     "repository": "flanksource/mission-control",
-    "lastrun": "2025-07-02T18:08:42+05:45",
-    "lastrunby": "flankbot",
+    "lastRun": "2025-07-02T18:08:42+05:45",
+    "lastRunBy": "flankbot",
     "duration": 92000000000,
     "status": "failure",
     "runnumber": {

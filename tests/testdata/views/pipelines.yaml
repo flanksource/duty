@@ -39,18 +39,17 @@ spec:
           - value: 3000
             color: '#E8589C'
   queries:
-    changes:
-      - selector:
-          search: change_type=GitHubActionRun* @order=-created_at
-          types:
-            - GitHubAction::Workflow
-        max: 10
-        mapping:
-          name: row.name
-          lastRun: row.details.created_at
-          lastRunBy: row.details.triggering_actor.login
-          repository: row.details.repository.full_name
-          status: row.details.conclusion
-          duration: timestamp(row.details.updated_at) - timestamp(row.details.run_started_at)
-          runNumber: |
-            { 'min': 0, 'max': 5000, 'value': row.details.run_number }.toJSON()
+    workflow_runs:
+      changes:
+        search: change_type=GitHubActionRun* @order=-created_at
+        types:
+          - GitHubAction::Workflow
+  mapping:
+    name: row.name
+    lastRun: row.details.created_at
+    lastRunBy: row.details.triggering_actor.login
+    repository: row.details.repository.full_name
+    status: row.details.conclusion
+    duration: timestamp(row.details.updated_at) - timestamp(row.details.run_started_at)
+    runNumber: |
+      { 'min': 0, 'max': 5000, 'value': row.details.run_number }.toJSON()
