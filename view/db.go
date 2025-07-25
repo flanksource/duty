@@ -194,16 +194,13 @@ func getAtlasType(colType ColumnType) schema.Type {
 }
 
 func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string) ([]Row, error) {
-	rows, err := ctx.DB().Select("*").Table(table).Rows()
+	columns := columnDef.QuotedColumns()
+
+	rows, err := ctx.DB().Select(strings.Join(columns, ", ")).Table(table).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read view table (%s): %w", table, err)
 	}
 	defer rows.Close()
-
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get columns for view table (%s): %w", table, err)
-	}
 
 	var viewRows []Row
 	for rows.Next() {

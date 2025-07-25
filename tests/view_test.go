@@ -11,13 +11,14 @@ import (
 var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 	ginkgo.Describe("InsertViewRows", func() {
 		var pipelineView models.View
-		var columns view.ViewColumnDefList
+		var columnDef view.ViewColumnDefList
 		var err error
+		var newRows []view.Row
 
 		ginkgo.BeforeAll(func() {
 			pipelineView = createViewTable(DefaultContext, "pipelines")
 			populateViewTable(DefaultContext, pipelineView, "pipelines.json")
-			columns, err = view.GetViewColumnDefs(DefaultContext, pipelineView.Namespace, pipelineView.Name)
+			columnDef, err = view.GetViewColumnDefs(DefaultContext, pipelineView.Namespace, pipelineView.Name)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -40,8 +41,8 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			}
 		})
 
-		ginkgo.It("should handle updates", func() {
-			newRows := []view.Row{
+		ginkgo.It("should handle updates to existing records", func() {
+			newRows = []view.Row{
 				{
 					"Create Release",
 					"flanksource/config-db",
@@ -62,37 +63,42 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				},
 			}
 
-			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columns, newRows)
+			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, newRows)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Verify table is now empty
 			var newRowCount int
 			err = DefaultContext.DB().Raw(`SELECT COUNT(*) FROM ` + pipelineView.GeneratedTableName()).Scan(&newRowCount).Error
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRowCount).To(Equal(len(newRows)))
 
-			type Row struct {
-				Repository string `gorm:"column:repository"`
-				Lastrunby  string `gorm:"column:lastRunBy"`
-			}
-
-			var repo []Row
-			err = DefaultContext.DB().Table(pipelineView.GeneratedTableName()).Select(`"repository", "lastRunBy"`).Scan(&repo).Error
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(repo).To(ConsistOf(
-				Row{
-					Repository: "flanksource/config-db",
-					Lastrunby:  "flankbot-updated",
-				},
-				Row{
-					Repository: "flanksource/config-db",
-					Lastrunby:  "flankbot",
-				},
-			))
+			Expect(rows).To(HaveLen(len(newRows)))
+			Expect(rows[0][1]).To(Equal(newRows[0][1]), "repository")
+			Expect(rows[0][3]).To(Equal(newRows[0][3]), "lastRunBy")
+			Expect(rows[1][1]).To(Equal(newRows[1][1]), "repository")
+			Expect(rows[1][3]).To(Equal(newRows[1][3]), "lastRunBy")
+		})
+
+		ginkgo.It("should handle updates to the column order in view definition", func() {
+			// When the column order changes or a new column is added, this test ensures that the records
+			// are read in the order the columns are defined in the view spec and not in the order they are
+			// stored in the database.
+
+			// Switch the order of `repository` and `lastRunBy` columns
+			columnDef[1], columnDef[3] = columnDef[3], columnDef[1]
+
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rows).To(HaveLen(2))
+			Expect(rows[0][3]).To(Equal(newRows[0][1]), "repository is the 4th column")
+			Expect(rows[0][1]).To(Equal(newRows[0][3]), "lastRunBy is the 2nd column")
+			Expect(rows[1][3]).To(Equal(newRows[1][1]), "repository is the 4th column")
+			Expect(rows[1][1]).To(Equal(newRows[1][3]), "lastRunBy is the 2nd column")
 		})
 
 		ginkgo.It("should handle empty rows by clearing the table", func() {
-			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columns, []view.Row{})
+			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, []view.Row{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify table is now empty
