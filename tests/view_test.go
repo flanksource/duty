@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"time"
+
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -18,7 +20,9 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		// Column indices for semantic reference
 		const (
 			REPOSITORY_COLUMN  = 1
+			LAST_RUN_COLUMN    = 2
 			LAST_RUN_BY_COLUMN = 3
+			DURATION_COLUMN    = 4
 		)
 
 		ginkgo.BeforeAll(func() {
@@ -45,6 +49,14 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newRowCount).To(Equal(10))
 			}
+		})
+
+		ginkgo.It("should convert into native go types", func() {
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rows).To(HaveLen(10))
+			Expect(rows[0][DURATION_COLUMN]).To(BeAssignableToTypeOf(time.Duration(0)))
+			Expect(rows[0][LAST_RUN_COLUMN]).To(BeAssignableToTypeOf(time.Time{}))
 		})
 
 		ginkgo.It("should handle updates to existing records", func() {
