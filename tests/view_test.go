@@ -15,6 +15,12 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		var err error
 		var newRows []view.Row
 
+		// Column indices for semantic reference
+		const (
+			REPOSITORY_COLUMN  = 1
+			LAST_RUN_BY_COLUMN = 3
+		)
+
 		ginkgo.BeforeAll(func() {
 			pipelineView = createViewTable(DefaultContext, "pipelines")
 			populateViewTable(DefaultContext, pipelineView, "pipelines.json")
@@ -74,10 +80,10 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(len(newRows)))
-			Expect(rows[0][1]).To(Equal(newRows[0][1]), "repository")
-			Expect(rows[0][3]).To(Equal(newRows[0][3]), "lastRunBy")
-			Expect(rows[1][1]).To(Equal(newRows[1][1]), "repository")
-			Expect(rows[1][3]).To(Equal(newRows[1][3]), "lastRunBy")
+			Expect(rows[0][REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository")
+			Expect(rows[0][LAST_RUN_BY_COLUMN]).To(Equal(newRows[0][LAST_RUN_BY_COLUMN]), "lastRunBy")
+			Expect(rows[1][REPOSITORY_COLUMN]).To(Equal(newRows[1][REPOSITORY_COLUMN]), "repository")
+			Expect(rows[1][LAST_RUN_BY_COLUMN]).To(Equal(newRows[1][LAST_RUN_BY_COLUMN]), "lastRunBy")
 		})
 
 		ginkgo.It("should handle updates to the column order in view definition", func() {
@@ -88,13 +94,19 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			// Switch the order of `repository` and `lastRunBy` columns
 			columnDef[1], columnDef[3] = columnDef[3], columnDef[1]
 
+			// After swapping, the column indices are now reversed
+			const (
+				SWAPPED_REPOSITORY_COLUMN  = 3 // repository is now at 4th column
+				SWAPPED_LAST_RUN_BY_COLUMN = 1 // lastRunBy is now at 2nd column
+			)
+
 			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(2))
-			Expect(rows[0][3]).To(Equal(newRows[0][1]), "repository is the 4th column")
-			Expect(rows[0][1]).To(Equal(newRows[0][3]), "lastRunBy is the 2nd column")
-			Expect(rows[1][3]).To(Equal(newRows[1][1]), "repository is the 4th column")
-			Expect(rows[1][1]).To(Equal(newRows[1][3]), "lastRunBy is the 2nd column")
+			Expect(rows[0][SWAPPED_REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository is the 4th column")
+			Expect(rows[0][SWAPPED_LAST_RUN_BY_COLUMN]).To(Equal(newRows[0][LAST_RUN_BY_COLUMN]), "lastRunBy is the 2nd column")
+			Expect(rows[1][SWAPPED_REPOSITORY_COLUMN]).To(Equal(newRows[1][REPOSITORY_COLUMN]), "repository is the 4th column")
+			Expect(rows[1][SWAPPED_LAST_RUN_BY_COLUMN]).To(Equal(newRows[1][LAST_RUN_BY_COLUMN]), "lastRunBy is the 2nd column")
 		})
 
 		ginkgo.It("should handle empty rows by clearing the table", func() {

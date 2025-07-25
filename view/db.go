@@ -277,10 +277,7 @@ func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList
 		return ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s", pq.QuoteIdentifier(table))).Error
 	}
 
-	quotedColumns := lo.Map(columns.SelectColumns(), func(col string, _ int) string {
-		return pq.QuoteIdentifier(col)
-	})
-
+	quotedColumns := columns.QuotedColumns()
 	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 	insertBuilder := psql.Insert(table).Columns(quotedColumns...)
 	for _, row := range rows {
