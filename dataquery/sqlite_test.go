@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 )
 
 func testResultset(ctx context.Context, resultset QueryResultSet) {
@@ -120,5 +121,56 @@ var _ = Describe("InferColumnTypes", func() {
 		rows := []QueryResultRow{}
 		columnTypes := InferColumnTypes(rows)
 		Expect(columnTypes).To(HaveLen(0))
+	})
+})
+
+var _ = Describe("Empty results with ColumnDefs", func() {
+	var sqliteCtx = context.New()
+
+	BeforeEach(func() {
+		sqliteDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		Expect(err).ToNot(HaveOccurred())
+
+		sqliteCtx = sqliteCtx.WithDB(sqliteDB, nil)
+	})
+
+	It("should create table from empty results using ColumnDefs", func() {
+		resultSet := QueryResultSet{
+			Name:    "prometheus_metrics",
+			Results: []QueryResultRow{}, // Empty results
+			ColumnDefs: map[string]models.ColumnType{
+				"value":     models.ColumnTypeDecimal,
+				"timestamp": models.ColumnTypeDateTime,
+				"pod":       models.ColumnTypeString,
+				"namespace": models.ColumnTypeString,
+			},
+		}
+
+		// Should succeed in creating table despite empty results
+		Expect(resultSet.CreateDBTable(sqliteCtx)).To(Succeed())
+		Expect(resultSet.InsertToDB(sqliteCtx)).To(Succeed())
+
+		// Verify table was created with correct schema
+		var tableCount int64
+		err := sqliteCtx.DB().Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", resultSet.Name).Scan(&tableCount).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tableCount).To(Equal(int64(1)))
+
+		// Verify table is empty but queryable
+		var results []map[string]any
+		Expect(sqliteCtx.DB().Table(resultSet.Name).Find(&results).Error).To(Succeed())
+		Expect(results).To(HaveLen(0))
+	})
+
+	It("should fail when empty results have no ColumnDefs", func() {
+		resultSet := QueryResultSet{
+			Name:       "empty_table",
+			Results:    []QueryResultRow{}, // Empty results
+			ColumnDefs: nil,                // No column definitions
+		}
+
+		// Should fail to create table
+		err := resultSet.CreateDBTable(sqliteCtx)
+		Expect(err).To(HaveOccurred())
 	})
 })

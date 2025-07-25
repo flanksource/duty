@@ -164,6 +164,27 @@ const (
 	ColumnTypeString   ColumnType = "string"
 )
 
+func (t ColumnType) SQLiteType() string {
+	switch t {
+	case ColumnTypeBoolean:
+		return "BOOLEAN"
+	case ColumnTypeDateTime:
+		return "DATETIME"
+	case ColumnTypeDecimal:
+		return "DECIMAL"
+	case ColumnTypeDuration:
+		return "INTEGER"
+	case ColumnTypeInteger:
+		return "INTEGER"
+	case ColumnTypeJSONB:
+		return "BLOB"
+	case ColumnTypeString:
+		return "TEXT"
+	default:
+		return "TEXT"
+	}
+}
+
 // ConvertRowToNativeTypes converts a database row to native go types
 func ConvertRowToNativeTypes(row map[string]any, columnDef map[string]ColumnType) (map[string]any, map[string]string) {
 	// keep track of conversion error per column
