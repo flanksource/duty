@@ -24,14 +24,14 @@ SELECT
     COUNT(cc.config_id) AS config_changes_count,
     COALESCE(
         (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
-         FROM type_counts tc 
+         FROM type_counts tc
          WHERE tc.config_id = ci.id), '{}'::jsonb
     ) AS config_analysis_type_counts
-FROM 
+FROM
     config_items ci
-LEFT JOIN 
+LEFT JOIN
     config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '3 days'
-GROUP BY 
+GROUP BY
     ci.id, ci.name;
 
 
@@ -39,8 +39,8 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
   config_item_summary_7d AS
 WITH type_counts AS (
     SELECT
-        ca.config_id, 
-        ca.analysis_type, 
+        ca.config_id,
+        ca.analysis_type,
         COUNT(*) AS type_count
     FROM
         config_analysis ca
@@ -49,48 +49,48 @@ WITH type_counts AS (
     GROUP BY
         ca.config_id, ca.analysis_type
 )
-SELECT 
-    ci.id AS config_id, 
-    COUNT(cc.config_id) AS config_changes_count, 
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
     COALESCE(
         (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
-         FROM type_counts tc 
+         FROM type_counts tc
          WHERE tc.config_id = ci.id), '{}'::jsonb
     ) AS config_analysis_type_counts
-FROM 
+FROM
     config_items ci
-LEFT JOIN 
+LEFT JOIN
     config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '7 days'
-GROUP BY 
+GROUP BY
     ci.id, ci.name;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
   config_item_summary_30d AS
 WITH type_counts AS (
-    SELECT 
-        ca.config_id, 
-        ca.analysis_type, 
+    SELECT
+        ca.config_id,
+        ca.analysis_type,
         COUNT(*) AS type_count
-    FROM 
+    FROM
         config_analysis ca
-    WHERE 
+    WHERE
         ca.status = 'open'
-    GROUP BY 
+    GROUP BY
         ca.config_id, ca.analysis_type
 )
-SELECT 
-    ci.id AS config_id, 
-    COUNT(cc.config_id) AS config_changes_count, 
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
     COALESCE(
         (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
-         FROM type_counts tc 
+         FROM type_counts tc
          WHERE tc.config_id = ci.id), '{}'::jsonb
     ) AS config_analysis_type_counts
-FROM 
+FROM
     config_items ci
-LEFT JOIN 
+LEFT JOIN
     config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '30 days'
-GROUP BY 
+GROUP BY
     ci.id, ci.name;
 
 CREATE or REPLACE VIEW configs AS
@@ -798,37 +798,37 @@ BEGIN
 
   ELSIF type_filter IN ('downstream') THEN
     RETURN query
-      SELECT DISTINCT ON (cc.id) 
+      SELECT DISTINCT ON (cc.id)
           cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
-      LEFT JOIN 
-          (SELECT config_relationships.config_id, config_relationships.related_id 
-           FROM config_relationships 
-           WHERE relation != 'hard') AS cr 
+      LEFT JOIN
+          (SELECT config_relationships.config_id, config_relationships.related_id
+           FROM config_relationships
+           WHERE relation != 'hard') AS cr
            ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE config_items.path LIKE (
-        SELECT CASE 
-            WHEN config_items.path = '' THEN config_items.id::text 
-            ELSE CONCAT(config_items.path, '.', config_items.id) 
+        SELECT CASE
+            WHEN config_items.path = '' THEN config_items.id::text
+            ELSE CONCAT(config_items.path, '.', config_items.id)
           END
-        FROM config_items WHERE config_items.id = lookup_id 
+        FROM config_items WHERE config_items.id = lookup_id
         ) || '%' OR
         (cc.config_id = lookup_id) OR
         (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
 
   ELSIF type_filter IN ('upstream') THEN
     RETURN query
-      SELECT DISTINCT ON (cc.id) 
+      SELECT DISTINCT ON (cc.id)
           cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
           cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
-      LEFT JOIN 
-          (SELECT config_relationships.config_id, config_relationships.related_id 
-           FROM config_relationships 
-           WHERE relation != 'hard') AS cr 
+      LEFT JOIN
+          (SELECT config_relationships.config_id, config_relationships.related_id
+           FROM config_relationships
+           WHERE relation != 'hard') AS cr
            ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE cc.config_id IN (SELECT get_recursive_path.id FROM get_recursive_path(lookup_id)) OR
         (cc.config_id = lookup_id) OR
@@ -909,7 +909,7 @@ CREATE OR REPLACE VIEW config_detail AS
       (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
       ON ci.id = reverse_related.related_id
     LEFT JOIN
-      (SELECT config_id, SUM(value::INT) as analysis_count FROM config_item_summary_7d 
+      (SELECT config_id, SUM(value::INT) as analysis_count FROM config_item_summary_7d
        CROSS JOIN LATERAL jsonb_each_text(config_analysis_type_counts)
         GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
@@ -930,11 +930,11 @@ CREATE OR REPLACE VIEW config_detail AS
         GROUP BY config_id) as config_checks
       ON ci.id = config_checks.config_id
     LEFT JOIN
-      (SELECT 
+      (SELECT
           config_id, json_agg(components) as components
-        FROM 
-          (SELECT 
-              ccr.config_id as config_id, components 
+        FROM
+          (SELECT
+              ccr.config_id as config_id, components
             FROM config_component_relationships as ccr
             LEFT JOIN components ON components.id = ccr.component_id
           ) as config_components
@@ -1032,3 +1032,42 @@ WITH cte as (
 )
 SELECT config_id, json_object_agg(status, count) AS checks
 FROM cte GROUP BY config_id;
+
+-- When a new item is inserted, or aliases are updated,
+-- we find the same alias for a different type and link them
+-- Assumes (type, external_id) tuples are unique across the table
+CREATE OR REPLACE FUNCTION create_alias_config_relationships()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only proceed if external_id array is not null and not empty
+    IF NEW.external_id IS NOT NULL AND array_length(NEW.external_id, 1) > 0 THEN
+        INSERT INTO config_relationships (config_id, related_id, relation)
+        SELECT
+            NEW.id as config_id,
+            ci.id as related_id,
+            'Alias' as relation
+        FROM config_items ci,
+             unnest(NEW.external_id) as new_ext_id
+        WHERE
+            -- Find config_items that contain the same external_id and different type
+            ci.external_id @> ARRAY[new_ext_id]
+            AND ci.type != NEW.type
+            AND ci.deleted_at IS NULL
+        ON CONFLICT (related_id, config_id, relation)
+        DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_items_create_alias_relationships_insert
+    AFTER INSERT ON config_items
+    FOR EACH ROW
+    EXECUTE FUNCTION create_alias_config_relationships();
+
+-- Only fire when external_id or type changes to avoid unnecessary executions
+CREATE OR REPLACE TRIGGER config_items_create_alias_relationships_update
+    AFTER UPDATE OF external_id, type ON config_items
+    FOR EACH ROW
+    WHEN (OLD.external_id IS DISTINCT FROM NEW.external_id OR OLD.type IS DISTINCT FROM NEW.type)
+    EXECUTE FUNCTION create_alias_config_relationships();
