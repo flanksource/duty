@@ -307,10 +307,11 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	}
 }
 
-func (t *PushData) AddAgentConfig(agentID uuid.UUID) {
+func (t *PushData) AddAgentConfig(agent models.Agent) {
 	for i, ci := range t.ConfigItems {
 		if lo.FromPtr(ci.Type) == "MissionControl::Agent" {
-			t.ConfigItems[i].ID = agentID
+			t.ConfigItems[i].ID = agent.ID
+			t.ConfigItems[i].Name = lo.ToPtr(agent.Name)
 			t.ConfigItems[i].ScraperID = lo.ToPtr(uuid.Nil.String())
 		}
 	}
