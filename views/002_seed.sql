@@ -16,7 +16,7 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM config_scrapers WHERE name = 'System') THEN
         INSERT INTO config_scrapers (id, name, source, spec)
-        VALUES ('00000000-0000-0000-0000-000000000000', 'System', 'System', '{"schedule": "@every 30s", "system": true}');
+        VALUES ('00000000-0000-0000-0000-000000000000', 'System', 'System', '{"schedule": "@every 5m", "system": true}');
     END IF;
 END $$;
 
