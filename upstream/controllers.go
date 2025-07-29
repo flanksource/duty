@@ -91,6 +91,7 @@ func NewPushHandler(ringManager StatusRingManager) echo.HandlerFunc {
 		agentID := ctx.Agent().ID
 		histogram = histogram.Label(AgentLabel, agentID.String())
 		req.PopulateAgentID(agentID)
+		req.AddAgentConfig(agentID)
 
 		ctx.Logger.V(6).Infof("inserting push data %s", req.String())
 

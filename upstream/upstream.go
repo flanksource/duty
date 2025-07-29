@@ -8,6 +8,7 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/http"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -304,4 +305,16 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 	for i := range t.Topologies {
 		t.Topologies[i].Labels = collections.MergeMap(t.Topologies[i].Labels, labels)
 	}
+}
+
+func (t *PushData) AddAgentConfig(agentID uuid.UUID) {
+	for i, ci := range t.ConfigItems {
+		if lo.FromPtr(ci.Type) == "MissionControl::Agent" {
+			t.ConfigItems[i].ID = agentID
+			t.ConfigItems[i].ScraperID = lo.ToPtr(uuid.Nil.String())
+		}
+	}
+
+	// Filter out system scraper if present
+	t.ConfigScrapers = lo.Filter(t.ConfigScrapers, func(cs models.ConfigScraper, _ int) bool { return cs.ID != uuid.Nil })
 }
