@@ -76,7 +76,6 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 
 	ginkgo.It("should sync config scrapers", func() {
-		ginkgo.Skip("System scraper messes with testSingleTableReconciliation logic, function needs to be updated")
 		testSingleTableReconciliation(DefaultContext, upstreamCtx, upstreamClient, "config_scrapers")
 	})
 
@@ -501,18 +500,23 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 	})
 })
 
+// We ignore uuid.Nil for system scraper
 func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *context.Context, upstreamClient *upstream.UpstreamClient, table string) {
+	extraWhereClause := ""
+	if table == "config_scrapers" {
+		extraWhereClause = fmt.Sprintf("id != '%s'", uuid.Nil)
+	}
 	var pushed int
 	err := agentCtx.DB().Select("COUNT(*)").Where("is_pushed = true").Table(table).Scan(&pushed).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pushed).To(BeZero())
 
 	var countInAgent int
-	err = agentCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInAgent).Error
+	err = agentCtx.DB().Select("COUNT(*)").Where(extraWhereClause).Table(table).Scan(&countInAgent).Error
 	Expect(err).ToNot(HaveOccurred())
 
 	var countInUpstream int
-	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInUpstream).Error
+	err = upstreamCtx.DB().Select("COUNT(*)").Where(extraWhereClause).Table(table).Scan(&countInUpstream).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(countInUpstream).To(BeZero())
 
@@ -523,12 +527,12 @@ func testSingleTableReconciliation(agentCtx context.Context, upstreamCtx *contex
 	Expect(fkFailed).To(BeZero())
 	Expect(count).To(Equal(countInAgent))
 
-	err = upstreamCtx.DB().Select("COUNT(*)").Table(table).Scan(&countInUpstream).Error
+	err = upstreamCtx.DB().Select("COUNT(*)").Where(extraWhereClause).Table(table).Scan(&countInUpstream).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(countInUpstream).To(Equal(countInAgent))
 
 	var pending int
-	err = agentCtx.DB().Select("COUNT(*)").Where("is_pushed = false").Table(table).Scan(&pending).Error
+	err = agentCtx.DB().Select("COUNT(*)").Where("is_pushed = false").Where(extraWhereClause).Table(table).Scan(&pending).Error
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pending).To(BeZero())
 }
