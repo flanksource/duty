@@ -1036,26 +1036,48 @@ FROM cte GROUP BY config_id;
 -- When a new item is inserted, or aliases are updated,
 -- we find the same alias for a different type and link them
 -- Assumes (type, external_id) tuples are unique across the table
-CREATE OR REPLACE FUNCTION create_alias_config_relationships()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION create_alias_config_relationships_for_config_item(config_item_id UUID)
+RETURNS VOID AS $$
+DECLARE
+    v_config_item RECORD;
 BEGIN
+    -- Get the config_item record
+    SELECT id, type, external_id
+    INTO v_config_item
+    FROM config_items
+    WHERE id = config_item_id
+    AND deleted_at IS NULL;
+
+    -- Check if record exists
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
     -- Only proceed if external_id array is not null and not empty
-    IF NEW.external_id IS NOT NULL AND array_length(NEW.external_id, 1) > 0 THEN
+    IF v_config_item.external_id IS NOT NULL AND array_length(v_config_item.external_id, 1) > 0 THEN
         INSERT INTO config_relationships (config_id, related_id, relation)
         SELECT
-            NEW.id as config_id,
+            v_config_item.id as config_id,
             ci.id as related_id,
             'Alias' as relation
         FROM config_items ci,
-             unnest(NEW.external_id) as new_ext_id
+             unnest(v_config_item.external_id) as ext_id
         WHERE
             -- Find config_items that contain the same external_id and different type
-            ci.external_id @> ARRAY[new_ext_id]
-            AND ci.type != NEW.type
+            ci.external_id @> ARRAY[ext_id]
+            AND ci.type != v_config_item.type
             AND ci.deleted_at IS NULL
+            AND ci.id != v_config_item.id  -- Don't create relationship with itself
         ON CONFLICT (related_id, config_id, relation)
         DO NOTHING;
     END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION create_alias_config_relationships()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM create_alias_config_relationships_for_config_item(NEW.id);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
