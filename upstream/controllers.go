@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/flanksource/duty/api"
@@ -91,6 +92,7 @@ func NewPushHandler(ringManager StatusRingManager) echo.HandlerFunc {
 		agentID := ctx.Agent().ID
 		histogram = histogram.Label(AgentLabel, agentID.String())
 		req.PopulateAgentID(agentID)
+		req.AddAgentConfig(lo.FromPtr(ctx.Agent()))
 
 		ctx.Logger.V(6).Infof("inserting push data %s", req.String())
 

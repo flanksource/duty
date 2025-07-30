@@ -381,7 +381,7 @@ func (c ConfigScraper) GetNamespace() string {
 
 func (c ConfigScraper) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigScraper
-	err := db.Where("is_pushed IS FALSE").Find(&items).Error
+	err := db.Where("is_pushed IS FALSE AND id != ?", uuid.Nil).Find(&items).Error
 	return lo.Map(items, func(i ConfigScraper, _ int) DBTable { return i }), err
 }
 
