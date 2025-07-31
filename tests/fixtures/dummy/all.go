@@ -204,7 +204,13 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 
 func DeleteAll[T models.DBTable](gormDB *gorm.DB, items []T) error {
 	ids := lo.Map(items, func(i T, _ int) string { return i.PK() })
-	return gormDB.Where("id IN (?)", ids).Delete(new(T)).Error
+	pk := "id"
+	var zero T
+	switch any(zero).(type) {
+	case models.ViewPanel:
+		pk = "view_id"
+	}
+	return gormDB.Where(pk+" IN (?)", ids).Delete(new(T)).Error
 }
 
 func (t *DummyData) Delete(gormDB *gorm.DB) error {
