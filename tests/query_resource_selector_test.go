@@ -796,9 +796,18 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config_summary",
 		},
 		{
-			description: "config array query",
-			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
-			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID},
+			description: "configs with changes",
+			query:       `changes>0 type=Helm::Release`,
+			expectedIDs: []uuid.UUID{
+				dummy.NginxHelmRelease.ID,
+				dummy.RedisHelmRelease.ID,
+			},
+			resource: "config_summary",
+		},
+		{
+			description: "configs with analysis",
+			query:       `analysis>0 type=Logistics::DB::RDS`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
 			resource:    "config_summary",
 		},
 	}

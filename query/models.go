@@ -139,7 +139,7 @@ var ConfigItemQueryModel = QueryModel{
 }
 
 var ConfigItemSummaryQueryModel = QueryModel{
-	Table: "configs",
+	Table: models.ConfigItemSummary{}.TableName(),
 	Columns: []string{
 		"id", "scraper_id", "config_class", "external_id", "type", "name", "namespace",
 		"source", "created_by", "created_at", "updated_at", "deleted_at", "cost_per_minute",
@@ -150,6 +150,7 @@ var ConfigItemSummaryQueryModel = QueryModel{
 	HasTags:        true,
 	HasAgents:      true,
 	HasLabels:      true,
+	HasProperties:  true,
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
