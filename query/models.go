@@ -108,7 +108,7 @@ type QueryModel struct {
 	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
 }
 
-var ConfigQueryModel = QueryModel{
+var ConfigItemQueryModel = QueryModel{
 	Table: models.ConfigItem{}.TableName(),
 	Columns: []string{
 		"id", "name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
@@ -135,6 +135,35 @@ var ConfigQueryModel = QueryModel{
 		"updated_at":        DateMapper,
 		"deleted_at":        DateMapper,
 		"last_scraped_time": DateMapper,
+	},
+}
+
+var ConfigItemSummaryQueryModel = QueryModel{
+	Table: "configs",
+	Columns: []string{
+		"id", "scraper_id", "config_class", "external_id", "type", "name", "namespace",
+		"source", "created_by", "created_at", "updated_at", "deleted_at", "cost_per_minute",
+		"cost_total_1d", "cost_total_7d", "cost_total_30d", "agent_id", "status", "health",
+		"ready", "path", "changes", "analysis",
+	},
+	JSONMapColumns: []string{"labels", "tags"},
+	HasTags:        true,
+	HasAgents:      true,
+	HasLabels:      true,
+	Aliases: map[string]string{
+		"created":        "created_at",
+		"updated":        "updated_at",
+		"deleted":        "deleted_at",
+		"agent":          "agent_id",
+		"config_type":    "type",
+		"changes_count":  "changes",
+		"analysis_count": "analysis",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"agent_id":   AgentMapper,
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
 	},
 }
 
@@ -246,7 +275,7 @@ var ConfigChangeQueryModel = QueryModel{
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
-		return ConfigQueryModel, nil
+		return ConfigItemQueryModel, nil
 	case models.Component{}.TableName():
 		return ComponentQueryModel, nil
 	case models.Check{}.TableName():
@@ -255,6 +284,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return PlaybookQueryModel, nil
 	case models.CatalogChange{}.TableName():
 		return ConfigChangeQueryModel, nil
+	case models.ConfigItemSummary{}.TableName():
+		return ConfigItemSummaryQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}
@@ -409,8 +440,8 @@ func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator
 	default:
 		subQueryCondition := lo.Ternary(op == grammar.Neq, "NOT EXISTS", "EXISTS")
 		tx = tx.Where(fmt.Sprintf(`%s (
-			SELECT 1 
-			FROM jsonb_each_text(%s) 
+			SELECT 1
+			FROM jsonb_each_text(%s)
 			WHERE value IN ?
 		)`, subQueryCondition, column), values)
 	}
