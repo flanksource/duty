@@ -398,6 +398,20 @@ func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem,
 	return configs, nil
 }
 
+func GetConfigItemSummaryByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItemSummary, error) {
+	var configs []models.ConfigItemSummary
+	for i := range ids {
+		config, err := ConfigItemSummaryFromCache(ctx, ids[i].String())
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, config)
+	}
+
+	return configs, nil
+}
+
 func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigItem, error) {
 	res, err := FindConfigsByResourceSelector(ctx, -1, query.ToResourceSelector())
 	if err != nil {
@@ -426,6 +440,19 @@ func FindConfigsByResourceSelector(ctx context.Context, limit int, resourceSelec
 	}
 
 	return GetConfigsByIDs(ctx, items)
+}
+
+func FindConfigItemSummaryByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItemSummary, error) {
+	items, err := FindConfigIDsByResourceSelector(ctx, limit, resourceSelectors...)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetConfigItemSummaryByIDs(ctx, items)
+}
+
+func FindConfigItemSummaryIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, models.ConfigItemSummary{}.TableName(), limit, resourceSelectors...)
 }
 
 func FindConfigIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {

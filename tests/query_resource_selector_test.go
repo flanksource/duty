@@ -767,6 +767,49 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			},
 			resource: "config_changes",
 		},
+		{
+			description: "properties unkeyed value search | glob",
+			query:       "properties=*west*",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config_summary",
+		},
+		{
+			description: "properties keyed value search",
+			query:       "properties.os=linux",
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeB.ID,
+			},
+			resource: "config_summary",
+		},
+		{
+			description: "config labels not equal query",
+			query:       `labels.account=flanksource labels.environment!=production`,
+			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
+			resource:    "config_summary",
+		},
+		{
+			description: "config labels multiple with ,",
+			query:       `labels.account=flanksource labels.environment!=production,development`,
+			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
+			resource:    "config_summary",
+		},
+		{
+			description: "configs with changes",
+			query:       `changes>0 type=Helm::Release`,
+			expectedIDs: []uuid.UUID{
+				dummy.NginxHelmRelease.ID,
+				dummy.RedisHelmRelease.ID,
+			},
+			resource: "config_summary",
+		},
+		{
+			description: "configs with analysis",
+			query:       `analysis>0 type=Logistics::DB::RDS`,
+			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
+			resource:    "config_summary",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
@@ -774,6 +817,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		"component":      query.FindComponentIDs,
 		"checks":         query.FindCheckIDs,
 		"config_changes": query.FindConfigChangeIDsByResourceSelector,
+		"config_summary": query.FindConfigItemSummaryIDsByResourceSelector,
 	}
 
 	uuidSliceToString := func(uuids []uuid.UUID) []string {
