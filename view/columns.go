@@ -52,6 +52,18 @@ type ViewColumnDef struct {
 	// When a column is designated for a different column,
 	// it's not rendered on the UI but the designated column uses it to render itself.
 	For *string `json:"for,omitempty" yaml:"for,omitempty"`
+
+	Filter *ColumnFilter `json:"filter,omitempty" yaml:"filter,omitempty"`
+}
+
+type ColumnFilterType string
+
+const (
+	ColumnFilterTypeMultiSelect ColumnFilterType = "multiselect"
+)
+
+type ColumnFilter struct {
+	Type ColumnFilterType `json:"type" yaml:"type"`
 }
 
 // GaugeThreshold defines a threshold configuration for gauge charts
