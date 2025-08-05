@@ -77,12 +77,12 @@ func (p *PersonProperties) Scan(val any) error {
 }
 
 type AccessToken struct {
-	ID        uuid.UUID `gorm:"default:generate_ulid()"`
-	Name      string    `gorm:"not null"`
-	Value     string    `gorm:"not null"`
-	PersonID  uuid.UUID `gorm:"not null"`
-	CreatedAt time.Time `json:"created_at" gorm:"<-:create"`
-	ExpiresAt *time.Time
+	ID        uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	Name      string     `json:"name" gorm:"not null"`
+	Value     string     `json:"-" gorm:"not null"`
+	PersonID  uuid.UUID  `json:"person_id" gorm:"not null"`
+	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
 func (AccessToken) TableName() string {
