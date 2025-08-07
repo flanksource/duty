@@ -19,10 +19,13 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 
 		// Column indices for semantic reference
 		const (
+			NAME_COLUMN        = 0
 			REPOSITORY_COLUMN  = 1
 			LAST_RUN_COLUMN    = 2
 			LAST_RUN_BY_COLUMN = 3
 			DURATION_COLUMN    = 4
+			STATUS_COLUMN      = 5
+			RUN_NUMBER_COLUMN  = 6
 		)
 
 		ginkgo.BeforeAll(func() {
@@ -52,7 +55,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should convert into native go types", func() {
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(10))
 			Expect(rows[0][DURATION_COLUMN]).To(BeAssignableToTypeOf(time.Duration(0)))
@@ -89,7 +92,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRowCount).To(Equal(len(newRows)))
 
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(len(newRows)))
 			Expect(rows[0][REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository")
@@ -112,7 +115,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				SWAPPED_LAST_RUN_BY_COLUMN = 1 // lastRunBy is now at 2nd column
 			)
 
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(2))
 			Expect(rows[0][SWAPPED_REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository is the 4th column")
@@ -130,6 +133,37 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			err = DefaultContext.DB().Raw(`SELECT COUNT(*) FROM ` + pipelineView.GeneratedTableName()).Scan(&newRowCount).Error
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRowCount).To(BeZero())
+		})
+
+		ginkgo.Context("should filter rows using PEG query", func() {
+			ginkgo.BeforeAll(func() {
+				// Re-populate with initial data
+				populateViewTable(DefaultContext, pipelineView, "pipelines.json")
+			})
+
+			ginkgo.It("should filter by repository", func() {
+				rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), `repository="flanksource/config-db"`)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(rows)).To(Equal(2))
+			})
+
+			ginkgo.It("should filter with no matches", func() {
+				rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), `repository="nonexistent-repo"`)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(0))
+			})
+
+			ginkgo.It("should filter by lastRunBy", func() {
+				rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), `lastRunBy="flankbot"`)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(rows)).To(Equal(5))
+			})
+
+			ginkgo.It("should filter by multiple names", func() {
+				rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), `name="Test,Build"`)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(rows)).To(Equal(4 + 1)) // 4 Test and 1 Build
+			})
 		})
 	})
 })

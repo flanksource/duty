@@ -13,10 +13,13 @@ import (
 	"github.com/gofrs/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
+	"gorm.io/gorm/clause"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/query/grammar"
 )
 
 const ReservedColumnAttributes = "__row__attributes"
@@ -178,6 +181,35 @@ func createTableSchema(tableName string, columns ViewColumnDefList, currentSchem
 	return table
 }
 
+// createViewQueryModel creates a dynamic QueryModel for view tables based on column definitions
+func createViewQueryModel(table string, columnDef ViewColumnDefList) query.QueryModel {
+	columns := make([]string, len(columnDef))
+	var jsonMapColumns []string
+
+	// Support case-insensitive search queries with aliases
+	aliases := make(map[string]string)
+
+	for i, col := range columnDef {
+		columns[i] = col.Name
+		if lowercaseName := strings.ToLower(col.Name); lowercaseName != col.Name {
+			aliases[lowercaseName] = col.Name
+		}
+
+		switch col.Type {
+		case ColumnTypeGauge:
+			jsonMapColumns = append(jsonMapColumns, col.Name)
+		}
+	}
+
+	return query.QueryModel{
+		Table:          table,
+		Columns:        columns,
+		Aliases:        aliases,
+		HasAgents:      true,
+		JSONMapColumns: jsonMapColumns,
+	}
+}
+
 func getAtlasType(colType ColumnType) schema.Type {
 	switch colType {
 	case ColumnTypeString:
@@ -207,10 +239,31 @@ func getAtlasType(colType ColumnType) schema.Type {
 	}
 }
 
-func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string) ([]Row, error) {
+func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string, filter string) ([]Row, error) {
 	columns := columnDef.QuotedColumns()
 
-	rows, err := ctx.DB().Select(strings.Join(columns, ", ")).Table(table).Rows()
+	query := ctx.DB().Select(strings.Join(columns, ", ")).Table(table)
+
+	if filter != "" {
+		qf, err := grammar.ParsePEG(filter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse filter query (%s): %w", filter, err)
+		}
+
+		qm := createViewQueryModel(table, columnDef)
+
+		var clauses []clause.Expression
+		query, clauses, err = qm.Apply(ctx, *qf, query)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply filter query: %w", err)
+		}
+
+		if len(clauses) > 0 {
+			query = query.Clauses(clauses...)
+		}
+	}
+
+	rows, err := query.Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read view table (%s): %w", table, err)
 	}
