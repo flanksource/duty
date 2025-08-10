@@ -19,6 +19,8 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
+const ReservedColumnAttributes = "__row__attributes"
+
 // Row represents a single row of data mapped to view columns
 type Row []any
 
@@ -122,6 +124,16 @@ func createTableSchema(tableName string, columns ViewColumnDefList, currentSchem
 		table.Columns = append(table.Columns, column)
 	}
 
+	// Always add this column to keep track of the attributes of the columns in a row.
+	// Example: column.url = "https://flanksource.com"
+	table.Columns = append(table.Columns, &schema.Column{
+		Name: ReservedColumnAttributes,
+		Type: &schema.ColumnType{
+			Type: &schema.JSONType{T: "jsonb"},
+			Null: true,
+		},
+	})
+
 	// Add columns used for upstream reconciliation
 	table.Columns = append(table.Columns, &schema.Column{
 		Name: "agent_id",
@@ -188,6 +200,8 @@ func getAtlasType(colType ColumnType) schema.Type {
 		return &schema.StringType{T: "text"} // stored as text due to values like "250Mi"
 	case ColumnTypeMillicore:
 		return &schema.StringType{T: "text"}
+	case ColumnTypeAttributes:
+		return &schema.JSONType{T: "jsonb"}
 	default:
 		return &schema.StringType{T: "text"}
 	}
@@ -234,6 +248,11 @@ func convertViewRecordsToNativeTypes(viewRows []Row, columnDef ViewColumnDefList
 
 			switch colDef.Type {
 			case ColumnTypeGauge:
+				if raw, ok := viewRow[i].([]uint8); ok {
+					viewRow[i] = json.RawMessage(raw)
+				}
+
+			case ColumnTypeAttributes:
 				if raw, ok := viewRow[i].([]uint8); ok {
 					viewRow[i] = json.RawMessage(raw)
 				}
