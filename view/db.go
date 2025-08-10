@@ -30,7 +30,7 @@ func GetViewColumnDefs(ctx context.Context, namespace, name string) (ViewColumnD
 	}
 
 	var spec struct {
-		Columns []ViewColumnDef `json:"columns"`
+		Columns []ColumnDef `json:"columns"`
 	}
 
 	err = json.Unmarshal(view.Spec, &spec)

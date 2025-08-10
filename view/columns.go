@@ -24,10 +24,10 @@ const (
 	ColumnTypeURL       ColumnType = "url"
 )
 
-// ViewColumnDef defines a column in the view
+// ColumnDef defines a column in the view
 // +kubebuilder:object:generate=true
 // +kubebuilder:validation:XValidation:rule="self.type=='gauge' ? has(self.gauge) : !has(self.gauge)",message="gauge config required when type is gauge, not allowed for other types"
-type ViewColumnDef struct {
+type ColumnDef struct {
 	// Name of the column
 	Name string `json:"name" yaml:"name"`
 
@@ -46,6 +46,8 @@ type ViewColumnDef struct {
 	// Configuration for gauge visualization
 	Gauge *GaugeConfig `json:"gauge,omitempty" yaml:"gauge,omitempty"`
 
+	// Deprecated: Use properties instead. Example: URL
+	//
 	// For references the column this column is for.
 	// Applicable only for type=url.
 	//
@@ -81,7 +83,7 @@ type GaugeConfig struct {
 	Thresholds []GaugeThreshold `json:"thresholds,omitempty" yaml:"thresholds,omitempty"`
 }
 
-type ViewColumnDefList []ViewColumnDef
+type ViewColumnDefList []ColumnDef
 
 func (c ViewColumnDefList) SelectColumns() []string {
 	output := make([]string, len(c))
@@ -101,15 +103,15 @@ func (c ViewColumnDefList) QuotedColumns() []string {
 }
 
 func (c ViewColumnDefList) PrimaryKey() []string {
-	return lo.Map(lo.Filter(c, func(col ViewColumnDef, _ int) bool {
+	return lo.Map(lo.Filter(c, func(col ColumnDef, _ int) bool {
 		return col.PrimaryKey
-	}), func(col ViewColumnDef, _ int) string {
+	}), func(col ColumnDef, _ int) string {
 		return col.Name
 	})
 }
 
 func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
-	return lo.SliceToMap(c, func(col ViewColumnDef) (string, models.ColumnType) {
+	return lo.SliceToMap(c, func(col ColumnDef) (string, models.ColumnType) {
 		switch col.Type {
 		case ColumnTypeNumber:
 			return col.Name, models.ColumnTypeInteger
