@@ -1,10 +1,13 @@
 package view
 
 import (
+	"fmt"
+
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 type ColumnType string
@@ -22,6 +25,10 @@ const (
 	ColumnTypeStatus    ColumnType = "status"
 	ColumnTypeString    ColumnType = "string"
 	ColumnTypeURL       ColumnType = "url"
+
+	// reserved type for internal use.
+	// Stores properties for all the columns in a row.
+	ColumnTypeAttributes ColumnType = "row_attributes"
 )
 
 // ColumnDef defines a column in the view
@@ -55,7 +62,74 @@ type ColumnDef struct {
 	// it's not rendered on the UI but the designated column uses it to render itself.
 	For *string `json:"for,omitempty" yaml:"for,omitempty"`
 
+	// Enable filters in the UI
 	Filter *ColumnFilter `json:"filter,omitempty" yaml:"filter,omitempty"`
+
+	// Link to various mission control components.
+	URL *ColumnURL `json:"url,omitempty" yaml:"url,omitempty"`
+}
+
+func (c *ColumnDef) HasProperties() bool {
+	return c.URL != nil
+}
+
+// +kubebuilder:object:generate=true
+type ColumnURL struct {
+	// ID of the config to link to.
+	Config string `json:"config,omitempty" template:"true"`
+
+	// Link to a view.
+	View *ViewURLRef `json:"view,omitempty" template:"true"`
+}
+
+func (colURL ColumnURL) Eval(env map[string]any) (any, error) {
+	c := colURL.DeepCopy()
+
+	if c.Config != "" {
+		configID, err := types.CelExpression(c.Config).Eval(env)
+		if err != nil {
+			return nil, err
+		}
+
+		return fmt.Sprintf("/catalog/%s", configID), nil
+	}
+
+	if c.View != nil {
+		if c.View.Namespace != "" {
+			n, err := types.CelExpression(c.View.Namespace).Eval(env)
+			if err != nil {
+				return nil, err
+			}
+			c.View.Namespace = n
+		}
+
+		if c.View.Name != "" {
+			n, err := types.CelExpression(c.View.Name).Eval(env)
+			if err != nil {
+				return nil, err
+			}
+			c.View.Name = n
+		}
+
+		for k, v := range c.View.Filter {
+			vv, err := types.CelExpression(v).Eval(env)
+			if err != nil {
+				return nil, err
+			}
+			c.View.Filter[k] = vv
+		}
+
+		return fmt.Sprintf("/views/%s/%s", c.View.Namespace, c.View.Name), nil
+	}
+
+	return nil, nil
+}
+
+// +kubebuilder:object:generate=true
+type ViewURLRef struct {
+	Namespace string            `json:"namespace,omitempty" template:"true"`
+	Name      string            `json:"name,omitempty" template:"true"`
+	Filter    map[string]string `json:"filter,omitempty" template:"true"`
 }
 
 type ColumnFilterType string

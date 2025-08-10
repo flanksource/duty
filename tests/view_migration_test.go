@@ -110,5 +110,5 @@ func migrateToNewColumns(ctx context.Context, view models.View, columns pkgView.
 	var columnNames []string
 	err = ctx.DB().Raw("SELECT column_name FROM information_schema.columns WHERE table_name = ?", view.GeneratedTableName()).Scan(&columnNames).Error
 	Expect(err).ToNot(HaveOccurred())
-	Expect(columnNames).To(HaveLen(len(columns) + 2)) // +2 for agent_id and is_pushed
+	Expect(columnNames).To(HaveLen(len(columns) + 3)) // +2 for agent_id and is_pushed + 1 for __row__attributes
 }
