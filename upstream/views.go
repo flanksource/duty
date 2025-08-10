@@ -21,9 +21,9 @@ type ViewIdentifier struct {
 
 // ViewWithColumns represents a view with its column definitions
 type ViewWithColumns struct {
-	Namespace string                  `json:"namespace"`
-	Name      string                  `json:"name"`
-	Columns   []pkgView.ViewColumnDef `json:"columns"`
+	Namespace string              `json:"namespace"`
+	Name      string              `json:"name"`
+	Columns   []pkgView.ColumnDef `json:"columns"`
 }
 
 func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) error {
@@ -101,7 +101,7 @@ func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) e
 }
 
 // columnsMatch checks if two sets of column definitions match
-func columnsMatch(local []pkgView.ViewColumnDef, upstream []pkgView.ViewColumnDef) bool {
+func columnsMatch(local []pkgView.ColumnDef, upstream []pkgView.ColumnDef) bool {
 	if len(local) != len(upstream) {
 		return false
 	}
@@ -146,7 +146,7 @@ func reconcileTableGroupsWithGeneratedViews(ctx context.Context, client *Upstrea
 		Name: generatedViewsGroup,
 	}
 
-	upstreamViewMap := make(map[string][]pkgView.ViewColumnDef)
+	upstreamViewMap := make(map[string][]pkgView.ColumnDef)
 	for _, upstreamView := range upstreamViews {
 		key := upstreamView.Namespace + "/" + upstreamView.Name
 		upstreamViewMap[key] = upstreamView.Columns
