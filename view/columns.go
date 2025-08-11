@@ -67,10 +67,14 @@ type ColumnDef struct {
 
 	// Link to various mission control components.
 	URL *ColumnURL `json:"url,omitempty" yaml:"url,omitempty"`
+
+	// Unit of the column
+	Unit string `json:"unit,omitempty" yaml:"unit,omitempty"`
 }
 
-func (c *ColumnDef) HasProperties() bool {
-	return c.URL != nil
+func (c *ColumnDef) HasAttributes() bool {
+	return c.URL != nil ||
+		(c.Gauge != nil && (c.Gauge.Max != "" || c.Gauge.Min != ""))
 }
 
 // +kubebuilder:object:generate=true
@@ -145,15 +149,23 @@ type ColumnFilter struct {
 // GaugeThreshold defines a threshold configuration for gauge charts
 // +kubebuilder:object:generate=true
 type GaugeThreshold struct {
-	Value int    `json:"value" yaml:"value"`
+	// Deprecated: Use Percent instead
+	// +kubebuilder:validation:Optional
+	Value int `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// Percent is the percentage value of the threshold
+	Percent int `json:"percent" yaml:"percent"`
+
+	// Color is the color of the threshold
 	Color string `json:"color" yaml:"color"`
 }
 
 // GaugeConfig defines configuration for gauge visualization
 // +kubebuilder:object:generate=true
 type GaugeConfig struct {
-	Min        int              `json:"min,omitempty" yaml:"min,omitempty"`
-	Max        int              `json:"max,omitempty" yaml:"max,omitempty"`
+	Max        string           `json:"max,omitempty" yaml:"max,omitempty"`
+	Min        string           `json:"min,omitempty" yaml:"min,omitempty"`
+	Precision  int              `json:"precision,omitempty" yaml:"precision,omitempty"`
 	Thresholds []GaugeThreshold `json:"thresholds,omitempty" yaml:"thresholds,omitempty"`
 }
 

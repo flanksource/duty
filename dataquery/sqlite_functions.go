@@ -71,6 +71,9 @@ func memoryToBytes(memoryStr string) int64 {
 	case strings.HasSuffix(memoryStr, "MIB"):
 		multiplier = 1024 * 1024
 		numStr = strings.TrimSuffix(memoryStr, "MIB")
+	case strings.HasSuffix(memoryStr, "MI"):
+		multiplier = 1024 * 1024
+		numStr = strings.TrimSuffix(memoryStr, "MI")
 	case strings.HasSuffix(memoryStr, "GIB"):
 		multiplier = 1024 * 1024 * 1024
 		numStr = strings.TrimSuffix(memoryStr, "GIB")
