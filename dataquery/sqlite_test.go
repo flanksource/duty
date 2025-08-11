@@ -174,3 +174,53 @@ var _ = Describe("Empty results with ColumnDefs", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("k8sCPUToNumber function", func() {
+	It("should convert Kubernetes CPU units correctly", func() {
+		Expect(k8sCPUToNumber("500m")).To(Equal(0.5))
+		Expect(k8sCPUToNumber("1")).To(Equal(1.0))
+		Expect(k8sCPUToNumber("2000m")).To(Equal(2.0))
+		Expect(k8sCPUToNumber("1.5")).To(Equal(1.5))
+		Expect(k8sCPUToNumber("")).To(Equal(0.0))
+		Expect(k8sCPUToNumber("invalid")).To(Equal(0.0))
+	})
+})
+
+var _ = Describe("k8s_cpu_to_number SQLite function", func() {
+	It("should convert Kubernetes CPU units correctly", func() {
+		resultset := QueryResultSet{
+			Name: "cpu_test",
+			Results: []QueryResultRow{
+				{"id": 1, "cpu": "500m"},
+				{"id": 2, "cpu": "1"},
+				{"id": 3, "cpu": "2000m"},
+				{"id": 4, "cpu": "1.5"},
+				{"id": 5, "cpu": ""},
+				{"id": 6, "cpu": "invalid"},
+			},
+		}
+
+		ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+		Expect(err).ToNot(HaveOccurred())
+		defer cleanup()
+
+		var results []struct {
+			ID      int     `gorm:"column:id"`
+			CPUText string  `gorm:"column:cpu"`
+			CPUNum  float64 `gorm:"column:cpu_num"`
+		}
+
+		err = ctx.DB().Table("cpu_test").
+			Select("id, cpu, k8s_cpu_to_number(cpu) as cpu_num").
+			Find(&results).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(results).To(HaveLen(6))
+		Expect(results[0].CPUNum).To(Equal(0.5)) // 500m -> 0.5
+		Expect(results[1].CPUNum).To(Equal(1.0)) // 1 -> 1.0
+		Expect(results[2].CPUNum).To(Equal(2.0)) // 2000m -> 2.0
+		Expect(results[3].CPUNum).To(Equal(1.5)) // 1.5 -> 1.5
+		Expect(results[4].CPUNum).To(Equal(0.0)) // empty -> 0.0
+		Expect(results[5].CPUNum).To(Equal(0.0)) // invalid -> 0.0
+	})
+})
