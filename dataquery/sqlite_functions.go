@@ -46,7 +46,7 @@ func memoryToBytes(memoryStr string) int64 {
 	memoryStr = strings.ToUpper(memoryStr)
 
 	// Handle various unit suffixes
-	var multiplier int64 = 1
+	var multiplier int64
 	var numStr string
 
 	switch {
@@ -98,7 +98,7 @@ func memoryToBytes(memoryStr string) int64 {
 }
 
 func init() {
-	sqlitecore.RegisterScalarFunction("k8s_cpu_to_number", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
+	_ = sqlitecore.RegisterScalarFunction("k8s_cpu_to_number", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
 		if args[0] == nil {
 			return 0.0, nil
 		}
@@ -108,7 +108,7 @@ func init() {
 		case string:
 			str = v
 		case int64:
-			str = fmt.Sprintf("%d", v)
+			str = strconv.FormatInt(v, 10)
 		case float64:
 			str = fmt.Sprintf("%g", v)
 		default:
@@ -118,7 +118,7 @@ func init() {
 		return k8sCPUToNumber(str), nil
 	})
 
-	sqlitecore.RegisterScalarFunction("memory_to_bytes", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
+	_ = sqlitecore.RegisterScalarFunction("memory_to_bytes", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
 		if args[0] == nil {
 			return int64(0), nil
 		}
@@ -128,7 +128,7 @@ func init() {
 		case string:
 			str = v
 		case int64:
-			str = fmt.Sprintf("%d", v)
+			str = strconv.FormatInt(v, 10)
 		case float64:
 			str = fmt.Sprintf("%g", v)
 		default:
