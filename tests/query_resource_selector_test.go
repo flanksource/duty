@@ -9,6 +9,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -468,6 +469,9 @@ var _ = ginkgo.Describe("ResoureSelectorPEG | Sort And Group By", ginkgo.Ordered
 var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
+
+		// Refresh materialized view for config_summary
+		_ = job.RefreshConfigItemSummary7d(DefaultContext)
 	})
 
 	// = , != , item in list, item not in list, prefix, suffix, date operations (created_at, updated_at), agent query
