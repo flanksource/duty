@@ -38,6 +38,9 @@ func memoryToBytes(memoryStr string) int64 {
 		return 0
 	}
 
+	// Remove all spaces for flexible parsing
+	memoryStr = strings.ReplaceAll(memoryStr, " ", "")
+
 	// Handle plain numbers (already in bytes)
 	if val, err := strconv.ParseInt(memoryStr, 10, 64); err == nil {
 		return val
@@ -90,6 +93,7 @@ func memoryToBytes(memoryStr string) int64 {
 		return 0
 	}
 
+	numStr = strings.TrimSpace(numStr)
 	if val, err := strconv.ParseInt(numStr, 10, 64); err == nil {
 		return val * multiplier
 	}

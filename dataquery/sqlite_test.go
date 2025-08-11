@@ -251,6 +251,7 @@ func TestMemoryToBytes(t *testing.T) {
 	// Case insensitive
 	g.Expect(memoryToBytes("500kb")).To(Equal(int64(500000)))
 	g.Expect(memoryToBytes("500mB")).To(Equal(int64(500000000)))
+	g.Expect(memoryToBytes("500 MB")).To(Equal(int64(500000000)))
 
 	// Edge cases
 	g.Expect(memoryToBytes("")).To(Equal(int64(0)))
