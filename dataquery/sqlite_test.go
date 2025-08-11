@@ -1,6 +1,8 @@
 package dataquery
 
 import (
+	"testing"
+
 	"github.com/glebarez/sqlite"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -174,3 +176,213 @@ var _ = Describe("Empty results with ColumnDefs", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+func TestK8sCPUToNumber(t *testing.T) {
+	g := NewWithT(t)
+
+	g.Expect(k8sCPUToNumber("500m")).To(Equal(0.5))
+	g.Expect(k8sCPUToNumber("1")).To(Equal(1.0))
+	g.Expect(k8sCPUToNumber("2000m")).To(Equal(2.0))
+	g.Expect(k8sCPUToNumber("1.5")).To(Equal(1.5))
+	g.Expect(k8sCPUToNumber("")).To(Equal(0.0))
+	g.Expect(k8sCPUToNumber("invalid")).To(Equal(0.0))
+}
+
+func TestK8sCPUToNumberSQL(t *testing.T) {
+	g := NewWithT(t)
+
+	resultset := QueryResultSet{
+		Name: "cpu_test",
+		Results: []QueryResultRow{
+			{"id": 1, "cpu": "500m"},
+			{"id": 2, "cpu": "1"},
+			{"id": 3, "cpu": "2000m"},
+			{"id": 4, "cpu": "1.5"},
+			{"id": 5, "cpu": ""},
+			{"id": 6, "cpu": "invalid"},
+		},
+	}
+
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(HaveOccurred())
+	defer func() { _ = cleanup() }()
+
+	var results []struct {
+		ID      int     `gorm:"column:id"`
+		CPUText string  `gorm:"column:cpu"`
+		CPUNum  float64 `gorm:"column:cpu_num"`
+	}
+
+	err = ctx.DB().Table("cpu_test").
+		Select("id, cpu, k8s_cpu_to_number(cpu) as cpu_num").
+		Find(&results).Error
+	g.Expect(err).ToNot(HaveOccurred())
+
+	g.Expect(results).To(HaveLen(6))
+	g.Expect(results[0].CPUNum).To(Equal(0.5)) // 500m -> 0.5
+	g.Expect(results[1].CPUNum).To(Equal(1.0)) // 1 -> 1.0
+	g.Expect(results[2].CPUNum).To(Equal(2.0)) // 2000m -> 2.0
+	g.Expect(results[3].CPUNum).To(Equal(1.5)) // 1.5 -> 1.5
+	g.Expect(results[4].CPUNum).To(Equal(0.0)) // empty -> 0.0
+	g.Expect(results[5].CPUNum).To(Equal(0.0)) // invalid -> 0.0
+}
+
+func TestMemoryToBytes(t *testing.T) {
+	g := NewWithT(t)
+
+	g.Expect(memoryToBytes("500")).To(Equal(int64(500)))
+	g.Expect(memoryToBytes("500KB")).To(Equal(int64(500000)))
+	g.Expect(memoryToBytes("500MB")).To(Equal(int64(500000000)))
+	g.Expect(memoryToBytes("1GB")).To(Equal(int64(1000000000)))
+	g.Expect(memoryToBytes("2TB")).To(Equal(int64(2000000000000)))
+
+	// Binary units
+	g.Expect(memoryToBytes("1KiB")).To(Equal(int64(1024)))
+	g.Expect(memoryToBytes("1MiB")).To(Equal(int64(1048576)))
+	g.Expect(memoryToBytes("1GiB")).To(Equal(int64(1073741824)))
+	g.Expect(memoryToBytes("1TiB")).To(Equal(int64(1099511627776)))
+
+	// Short units
+	g.Expect(memoryToBytes("500K")).To(Equal(int64(500000)))
+	g.Expect(memoryToBytes("500M")).To(Equal(int64(500000000)))
+	g.Expect(memoryToBytes("1G")).To(Equal(int64(1000000000)))
+	g.Expect(memoryToBytes("2T")).To(Equal(int64(2000000000000)))
+
+	// Case insensitive
+	g.Expect(memoryToBytes("500kb")).To(Equal(int64(500000)))
+	g.Expect(memoryToBytes("500mB")).To(Equal(int64(500000000)))
+	g.Expect(memoryToBytes("500 MB")).To(Equal(int64(500000000)))
+
+	// Edge cases
+	g.Expect(memoryToBytes("")).To(Equal(int64(0)))
+	g.Expect(memoryToBytes("invalid")).To(Equal(int64(0)))
+	g.Expect(memoryToBytes("500XB")).To(Equal(int64(0)))
+}
+
+func TestMemoryToBytesSQL(t *testing.T) {
+	g := NewWithT(t)
+
+	resultset := QueryResultSet{
+		Name: "memory_test",
+		Results: []QueryResultRow{
+			{"id": 1, "memory": "500"},
+			{"id": 2, "memory": "500KB"},
+			{"id": 3, "memory": "500MB"},
+			{"id": 4, "memory": "1GB"},
+			{"id": 5, "memory": "1KiB"},
+			{"id": 6, "memory": "1MiB"},
+			{"id": 7, "memory": "500K"},
+			{"id": 8, "memory": "500M"},
+			{"id": 9, "memory": "500kb"},
+			{"id": 10, "memory": ""},
+			{"id": 11, "memory": "invalid"},
+		},
+	}
+
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(HaveOccurred())
+	defer func() { _ = cleanup() }()
+
+	var results []struct {
+		ID         int    `gorm:"column:id"`
+		MemoryText string `gorm:"column:memory"`
+		MemoryNum  int64  `gorm:"column:memory_num"`
+	}
+
+	err = ctx.DB().Table("memory_test").
+		Select("id, memory, memory_to_bytes(memory) as memory_num").
+		Find(&results).Error
+	g.Expect(err).ToNot(HaveOccurred())
+
+	g.Expect(results).To(HaveLen(11))
+	g.Expect(results[0].MemoryNum).To(Equal(int64(500)))        // 500 -> 500
+	g.Expect(results[1].MemoryNum).To(Equal(int64(500000)))     // 500KB -> 500000
+	g.Expect(results[2].MemoryNum).To(Equal(int64(500000000)))  // 500MB -> 500000000
+	g.Expect(results[3].MemoryNum).To(Equal(int64(1000000000))) // 1GB -> 1000000000
+	g.Expect(results[4].MemoryNum).To(Equal(int64(1024)))       // 1KiB -> 1024
+	g.Expect(results[5].MemoryNum).To(Equal(int64(1048576)))    // 1MiB -> 1048576
+	g.Expect(results[6].MemoryNum).To(Equal(int64(500000)))     // 500K -> 500000
+	g.Expect(results[7].MemoryNum).To(Equal(int64(500000000)))  // 500M -> 500000000
+	g.Expect(results[8].MemoryNum).To(Equal(int64(500000)))     // 500kb -> 500000 (case insensitive)
+	g.Expect(results[9].MemoryNum).To(Equal(int64(0)))          // empty -> 0
+	g.Expect(results[10].MemoryNum).To(Equal(int64(0)))         // invalid -> 0
+}
+
+func TestSQLiteFunctionsWithIncorrectTypes(t *testing.T) {
+	g := NewWithT(t)
+
+	// Test data with mixed types
+	resultset := QueryResultSet{
+		Name: "mixed_types_test",
+		Results: []QueryResultRow{
+			{"id": 1, "memory_str": "500MB", "memory_num": 1024, "cpu_str": "500m", "cpu_num": 2.5},
+			{"id": 2, "memory_str": "1GB", "memory_num": 2048, "cpu_str": "1", "cpu_num": 3.0},
+		},
+	}
+
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(HaveOccurred())
+	defer func() { _ = cleanup() }()
+
+	t.Run("memory_to_bytes with numeric input", func(t *testing.T) {
+		g := NewWithT(t)
+
+		var results []struct {
+			ID        int   `gorm:"column:id"`
+			MemoryNum int64 `gorm:"column:memory_result"`
+		}
+
+		// This should handle numeric input - SQLite will convert number to string
+		err = ctx.DB().Table("mixed_types_test").
+			Select("id, memory_to_bytes(memory_num) as memory_result").
+			Find(&results).Error
+
+		// The function expects a string but gets a number - SQLite converts to string
+		// 1024 becomes "1024" -> 1024 bytes, 2048 becomes "2048" -> 2048 bytes
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(results).To(HaveLen(2))
+		g.Expect(results[0].MemoryNum).To(Equal(int64(1024))) // 1024 -> "1024" -> 1024 bytes
+		g.Expect(results[1].MemoryNum).To(Equal(int64(2048))) // 2048 -> "2048" -> 2048 bytes
+	})
+
+	t.Run("k8s_cpu_to_number with numeric input", func(t *testing.T) {
+		g := NewWithT(t)
+
+		var results []struct {
+			ID     int     `gorm:"column:id"`
+			CPUNum float64 `gorm:"column:cpu_result"`
+		}
+
+		// This should handle numeric input - SQLite will convert number to string
+		err = ctx.DB().Table("mixed_types_test").
+			Select("id, k8s_cpu_to_number(cpu_num) as cpu_result").
+			Find(&results).Error
+
+		// The function expects a string but gets a number
+		// SQLite converts 2.5 -> "2.5", 3.0 -> "3.0"
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(results).To(HaveLen(2))
+		g.Expect(results[0].CPUNum).To(Equal(2.5)) // 2.5 -> "2.5" -> 2.5
+		g.Expect(results[1].CPUNum).To(Equal(3.0)) // 3.0 -> "3.0" -> 3.0
+	})
+
+	t.Run("functions with literal numeric values", func(t *testing.T) {
+		g := NewWithT(t)
+
+		var results []struct {
+			MemoryNum int64   `gorm:"column:memory_result"`
+			CPUNum    float64 `gorm:"column:cpu_result"`
+		}
+
+		// Test with literal numeric values passed to functions
+		err = ctx.DB().Table("mixed_types_test").
+			Select("memory_to_bytes(1024) as memory_result, k8s_cpu_to_number(2.5) as cpu_result").
+			Limit(1).
+			Find(&results).Error
+
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(results).To(HaveLen(1))
+		g.Expect(results[0].MemoryNum).To(Equal(int64(1024))) // 1024 -> "1024" -> 1024 bytes
+		g.Expect(results[0].CPUNum).To(Equal(2.5))            // 2.5 -> "2.5" -> 2.5
+	})
+}
