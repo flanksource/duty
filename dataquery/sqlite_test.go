@@ -1,8 +1,11 @@
 package dataquery
 
 import (
+	"testing"
+
 	"github.com/glebarez/sqlite"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
@@ -175,52 +178,132 @@ var _ = Describe("Empty results with ColumnDefs", func() {
 	})
 })
 
-var _ = Describe("k8sCPUToNumber function", func() {
-	It("should convert Kubernetes CPU units correctly", func() {
-		Expect(k8sCPUToNumber("500m")).To(Equal(0.5))
-		Expect(k8sCPUToNumber("1")).To(Equal(1.0))
-		Expect(k8sCPUToNumber("2000m")).To(Equal(2.0))
-		Expect(k8sCPUToNumber("1.5")).To(Equal(1.5))
-		Expect(k8sCPUToNumber("")).To(Equal(0.0))
-		Expect(k8sCPUToNumber("invalid")).To(Equal(0.0))
-	})
-})
+func TestK8sCPUToNumber(t *testing.T) {
+	g := gomega.NewWithT(t)
 
-var _ = Describe("k8s_cpu_to_number SQLite function", func() {
-	It("should convert Kubernetes CPU units correctly", func() {
-		resultset := QueryResultSet{
-			Name: "cpu_test",
-			Results: []QueryResultRow{
-				{"id": 1, "cpu": "500m"},
-				{"id": 2, "cpu": "1"},
-				{"id": 3, "cpu": "2000m"},
-				{"id": 4, "cpu": "1.5"},
-				{"id": 5, "cpu": ""},
-				{"id": 6, "cpu": "invalid"},
-			},
-		}
+	g.Expect(k8sCPUToNumber("500m")).To(gomega.Equal(0.5))
+	g.Expect(k8sCPUToNumber("1")).To(gomega.Equal(1.0))
+	g.Expect(k8sCPUToNumber("2000m")).To(gomega.Equal(2.0))
+	g.Expect(k8sCPUToNumber("1.5")).To(gomega.Equal(1.5))
+	g.Expect(k8sCPUToNumber("")).To(gomega.Equal(0.0))
+	g.Expect(k8sCPUToNumber("invalid")).To(gomega.Equal(0.0))
+}
 
-		ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
-		Expect(err).ToNot(HaveOccurred())
-		defer cleanup()
+func TestK8sCPUToNumberSQL(t *testing.T) {
+	g := gomega.NewWithT(t)
 
-		var results []struct {
-			ID      int     `gorm:"column:id"`
-			CPUText string  `gorm:"column:cpu"`
-			CPUNum  float64 `gorm:"column:cpu_num"`
-		}
+	resultset := QueryResultSet{
+		Name: "cpu_test",
+		Results: []QueryResultRow{
+			{"id": 1, "cpu": "500m"},
+			{"id": 2, "cpu": "1"},
+			{"id": 3, "cpu": "2000m"},
+			{"id": 4, "cpu": "1.5"},
+			{"id": 5, "cpu": ""},
+			{"id": 6, "cpu": "invalid"},
+		},
+	}
 
-		err = ctx.DB().Table("cpu_test").
-			Select("id, cpu, k8s_cpu_to_number(cpu) as cpu_num").
-			Find(&results).Error
-		Expect(err).ToNot(HaveOccurred())
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	defer cleanup()
 
-		Expect(results).To(HaveLen(6))
-		Expect(results[0].CPUNum).To(Equal(0.5)) // 500m -> 0.5
-		Expect(results[1].CPUNum).To(Equal(1.0)) // 1 -> 1.0
-		Expect(results[2].CPUNum).To(Equal(2.0)) // 2000m -> 2.0
-		Expect(results[3].CPUNum).To(Equal(1.5)) // 1.5 -> 1.5
-		Expect(results[4].CPUNum).To(Equal(0.0)) // empty -> 0.0
-		Expect(results[5].CPUNum).To(Equal(0.0)) // invalid -> 0.0
-	})
-})
+	var results []struct {
+		ID      int     `gorm:"column:id"`
+		CPUText string  `gorm:"column:cpu"`
+		CPUNum  float64 `gorm:"column:cpu_num"`
+	}
+
+	err = ctx.DB().Table("cpu_test").
+		Select("id, cpu, k8s_cpu_to_number(cpu) as cpu_num").
+		Find(&results).Error
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	g.Expect(results).To(gomega.HaveLen(6))
+	g.Expect(results[0].CPUNum).To(gomega.Equal(0.5)) // 500m -> 0.5
+	g.Expect(results[1].CPUNum).To(gomega.Equal(1.0)) // 1 -> 1.0
+	g.Expect(results[2].CPUNum).To(gomega.Equal(2.0)) // 2000m -> 2.0
+	g.Expect(results[3].CPUNum).To(gomega.Equal(1.5)) // 1.5 -> 1.5
+	g.Expect(results[4].CPUNum).To(gomega.Equal(0.0)) // empty -> 0.0
+	g.Expect(results[5].CPUNum).To(gomega.Equal(0.0)) // invalid -> 0.0
+}
+
+func TestMemoryToBytes(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	g.Expect(memoryToBytes("500")).To(gomega.Equal(int64(500)))
+	g.Expect(memoryToBytes("500KB")).To(gomega.Equal(int64(500000)))
+	g.Expect(memoryToBytes("500MB")).To(gomega.Equal(int64(500000000)))
+	g.Expect(memoryToBytes("1GB")).To(gomega.Equal(int64(1000000000)))
+	g.Expect(memoryToBytes("2TB")).To(gomega.Equal(int64(2000000000000)))
+
+	// Binary units
+	g.Expect(memoryToBytes("1KiB")).To(gomega.Equal(int64(1024)))
+	g.Expect(memoryToBytes("1MiB")).To(gomega.Equal(int64(1048576)))
+	g.Expect(memoryToBytes("1GiB")).To(gomega.Equal(int64(1073741824)))
+	g.Expect(memoryToBytes("1TiB")).To(gomega.Equal(int64(1099511627776)))
+
+	// Short units
+	g.Expect(memoryToBytes("500K")).To(gomega.Equal(int64(500000)))
+	g.Expect(memoryToBytes("500M")).To(gomega.Equal(int64(500000000)))
+	g.Expect(memoryToBytes("1G")).To(gomega.Equal(int64(1000000000)))
+	g.Expect(memoryToBytes("2T")).To(gomega.Equal(int64(2000000000000)))
+
+	// Case insensitive
+	g.Expect(memoryToBytes("500kb")).To(gomega.Equal(int64(500000)))
+	g.Expect(memoryToBytes("500mB")).To(gomega.Equal(int64(500000000)))
+
+	// Edge cases
+	g.Expect(memoryToBytes("")).To(gomega.Equal(int64(0)))
+	g.Expect(memoryToBytes("invalid")).To(gomega.Equal(int64(0)))
+	g.Expect(memoryToBytes("500XB")).To(gomega.Equal(int64(0)))
+}
+
+func TestMemoryToBytesSQL(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	resultset := QueryResultSet{
+		Name: "memory_test",
+		Results: []QueryResultRow{
+			{"id": 1, "memory": "500"},
+			{"id": 2, "memory": "500KB"},
+			{"id": 3, "memory": "500MB"},
+			{"id": 4, "memory": "1GB"},
+			{"id": 5, "memory": "1KiB"},
+			{"id": 6, "memory": "1MiB"},
+			{"id": 7, "memory": "500K"},
+			{"id": 8, "memory": "500M"},
+			{"id": 9, "memory": "500kb"},
+			{"id": 10, "memory": ""},
+			{"id": 11, "memory": "invalid"},
+		},
+	}
+
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	defer cleanup()
+
+	var results []struct {
+		ID         int    `gorm:"column:id"`
+		MemoryText string `gorm:"column:memory"`
+		MemoryNum  int64  `gorm:"column:memory_num"`
+	}
+
+	err = ctx.DB().Table("memory_test").
+		Select("id, memory, memory_to_bytes(memory) as memory_num").
+		Find(&results).Error
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	g.Expect(results).To(gomega.HaveLen(11))
+	g.Expect(results[0].MemoryNum).To(gomega.Equal(int64(500)))        // 500 -> 500
+	g.Expect(results[1].MemoryNum).To(gomega.Equal(int64(500000)))     // 500KB -> 500000
+	g.Expect(results[2].MemoryNum).To(gomega.Equal(int64(500000000)))  // 500MB -> 500000000
+	g.Expect(results[3].MemoryNum).To(gomega.Equal(int64(1000000000))) // 1GB -> 1000000000
+	g.Expect(results[4].MemoryNum).To(gomega.Equal(int64(1024)))       // 1KiB -> 1024
+	g.Expect(results[5].MemoryNum).To(gomega.Equal(int64(1048576)))    // 1MiB -> 1048576
+	g.Expect(results[6].MemoryNum).To(gomega.Equal(int64(500000)))     // 500K -> 500000
+	g.Expect(results[7].MemoryNum).To(gomega.Equal(int64(500000000)))  // 500M -> 500000000
+	g.Expect(results[8].MemoryNum).To(gomega.Equal(int64(500000)))     // 500kb -> 500000 (case insensitive)
+	g.Expect(results[9].MemoryNum).To(gomega.Equal(int64(0)))          // empty -> 0
+	g.Expect(results[10].MemoryNum).To(gomega.Equal(int64(0)))         // invalid -> 0
+}
