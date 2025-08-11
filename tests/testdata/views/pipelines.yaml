@@ -29,14 +29,12 @@ spec:
       type: gauge
       description: The run number of the pipeline.
       gauge:
-        min: 0
-        max: 4000
         thresholds:
-          - value: 0
+          - percent: 0
             color: '#8BC34A'
-          - value: 1300
+          - percent: 1300
             color: '#FF8C42'
-          - value: 3000
+          - percent: 3000
             color: '#E8589C'
   queries:
     workflow_runs:
