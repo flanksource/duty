@@ -6,33 +6,32 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	sqlitecore "modernc.org/sqlite"
 )
 
-// k8sCPUToNumber converts Kubernetes CPU units to decimal numbers
-// Examples: "500m" -> 0.5, "1" -> 1.0, "2000m" -> 2.0
-func k8sCPUToNumber(cpuStr string) float64 {
+// k8sMillicores converts Kubernetes CPU units to decimal numbers using resource.Quantity
+// Examples: "500m" -> 500, "1" -> 1000, "2000m" -> 2000
+func k8sMillicores(cpuStr string) float64 {
 	if cpuStr == "" {
 		return 0
 	}
 
-	if strings.HasSuffix(cpuStr, "m") {
-		milliStr := strings.TrimSuffix(cpuStr, "m")
-		if milli, err := strconv.ParseFloat(milliStr, 64); err == nil {
-			return milli / 1000.0
+	// Try to parse as a Kubernetes resource quantity
+	quantity, err := resource.ParseQuantity(cpuStr)
+	if err != nil {
+		// Fallback: try parsing as plain number for backwards compatibility
+		if cpu, parseErr := strconv.ParseFloat(cpuStr, 64); parseErr == nil {
+			return cpu
 		}
 		return 0
 	}
 
-	if cpu, err := strconv.ParseFloat(cpuStr, 64); err == nil {
-		return cpu
-	}
-
-	return 0
+	return float64(quantity.MilliValue())
 }
 
-// memoryToBytes converts memory strings with units to bytes
-// Examples: "500" -> 500, "500KB" -> 500000, "500MB" -> 500000000
+// memoryToBytes converts memory strings with units to bytes using resource.Quantity
+// Examples: "500" -> 500, "500KB" -> 500000, "500MB" -> 500000000, "5Gi" -> 5368709120
 func memoryToBytes(memoryStr string) int64 {
 	if memoryStr == "" {
 		return 0
@@ -41,11 +40,19 @@ func memoryToBytes(memoryStr string) int64 {
 	// Remove all spaces for flexible parsing
 	memoryStr = strings.ReplaceAll(memoryStr, " ", "")
 
-	// Handle plain numbers (already in bytes)
+	// Handle plain numbers (already in bytes) - try this first for backwards compatibility
 	if val, err := strconv.ParseInt(memoryStr, 10, 64); err == nil {
 		return val
 	}
 
+	// Try to parse as a Kubernetes resource quantity first (supports K, M, G, T, Ki, Mi, Gi, Ti)
+	quantity, err := resource.ParseQuantity(memoryStr)
+	if err == nil {
+		value := quantity.Value()
+		return value
+	}
+
+	// Fallback: handle other units that Kubernetes doesn't support (KB, MB, GB, TB, etc.)
 	memoryStr = strings.ToUpper(memoryStr)
 
 	// Handle various unit suffixes
@@ -71,9 +78,6 @@ func memoryToBytes(memoryStr string) int64 {
 	case strings.HasSuffix(memoryStr, "MIB"):
 		multiplier = 1024 * 1024
 		numStr = strings.TrimSuffix(memoryStr, "MIB")
-	case strings.HasSuffix(memoryStr, "MI"):
-		multiplier = 1024 * 1024
-		numStr = strings.TrimSuffix(memoryStr, "MI")
 	case strings.HasSuffix(memoryStr, "GIB"):
 		multiplier = 1024 * 1024 * 1024
 		numStr = strings.TrimSuffix(memoryStr, "GIB")
@@ -105,7 +109,7 @@ func memoryToBytes(memoryStr string) int64 {
 }
 
 func init() {
-	_ = sqlitecore.RegisterScalarFunction("k8s_cpu_to_number", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
+	_ = sqlitecore.RegisterScalarFunction("to_millicores", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
 		if args[0] == nil {
 			return 0.0, nil
 		}
@@ -122,10 +126,10 @@ func init() {
 			str = fmt.Sprintf("%v", v)
 		}
 
-		return k8sCPUToNumber(str), nil
+		return k8sMillicores(str), nil
 	})
 
-	_ = sqlitecore.RegisterScalarFunction("memory_to_bytes", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
+	_ = sqlitecore.RegisterScalarFunction("to_bytes", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
 		if args[0] == nil {
 			return int64(0), nil
 		}
