@@ -307,3 +307,82 @@ func TestMemoryToBytesSQL(t *testing.T) {
 	g.Expect(results[9].MemoryNum).To(gomega.Equal(int64(0)))          // empty -> 0
 	g.Expect(results[10].MemoryNum).To(gomega.Equal(int64(0)))         // invalid -> 0
 }
+
+func TestSQLiteFunctionsWithIncorrectTypes(t *testing.T) {
+	g := gomega.NewWithT(t)
+	
+	// Test data with mixed types
+	resultset := QueryResultSet{
+		Name: "mixed_types_test",
+		Results: []QueryResultRow{
+			{"id": 1, "memory_str": "500MB", "memory_num": 1024, "cpu_str": "500m", "cpu_num": 2.5},
+			{"id": 2, "memory_str": "1GB", "memory_num": 2048, "cpu_str": "1", "cpu_num": 3.0},
+		},
+	}
+
+	ctx, cleanup, err := DBFromResultsets(context.New(), []QueryResultSet{resultset})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	defer cleanup()
+
+	t.Run("memory_to_bytes with numeric input", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		
+		var results []struct {
+			ID        int   `gorm:"column:id"`
+			MemoryNum int64 `gorm:"column:memory_result"`
+		}
+
+		// This should handle numeric input - SQLite will convert number to string
+		err = ctx.DB().Table("mixed_types_test").
+			Select("id, memory_to_bytes(memory_num) as memory_result").
+			Find(&results).Error
+		
+		// The function expects a string but gets a number - SQLite converts to string
+		// 1024 becomes "1024" -> 1024 bytes, 2048 becomes "2048" -> 2048 bytes
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(results).To(gomega.HaveLen(2))
+		g.Expect(results[0].MemoryNum).To(gomega.Equal(int64(1024))) // 1024 -> "1024" -> 1024 bytes
+		g.Expect(results[1].MemoryNum).To(gomega.Equal(int64(2048))) // 2048 -> "2048" -> 2048 bytes
+	})
+
+	t.Run("k8s_cpu_to_number with numeric input", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		
+		var results []struct {
+			ID     int     `gorm:"column:id"`
+			CPUNum float64 `gorm:"column:cpu_result"`
+		}
+
+		// This should handle numeric input - SQLite will convert number to string
+		err = ctx.DB().Table("mixed_types_test").
+			Select("id, k8s_cpu_to_number(cpu_num) as cpu_result").
+			Find(&results).Error
+		
+		// The function expects a string but gets a number
+		// SQLite converts 2.5 -> "2.5", 3.0 -> "3.0"
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(results).To(gomega.HaveLen(2))
+		g.Expect(results[0].CPUNum).To(gomega.Equal(2.5)) // 2.5 -> "2.5" -> 2.5
+		g.Expect(results[1].CPUNum).To(gomega.Equal(3.0)) // 3.0 -> "3.0" -> 3.0
+	})
+
+	t.Run("functions with literal numeric values", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		
+		var results []struct {
+			MemoryNum int64   `gorm:"column:memory_result"`
+			CPUNum    float64 `gorm:"column:cpu_result"`
+		}
+
+		// Test with literal numeric values passed to functions
+		err = ctx.DB().Table("mixed_types_test").
+			Select("memory_to_bytes(1024) as memory_result, k8s_cpu_to_number(2.5) as cpu_result").
+			Limit(1).
+			Find(&results).Error
+		
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(results).To(gomega.HaveLen(1))
+		g.Expect(results[0].MemoryNum).To(gomega.Equal(int64(1024))) // 1024 -> "1024" -> 1024 bytes
+		g.Expect(results[0].CPUNum).To(gomega.Equal(2.5))           // 2.5 -> "2.5" -> 2.5
+	})
+}

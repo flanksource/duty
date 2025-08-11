@@ -2,6 +2,7 @@ package dataquery
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -98,10 +99,42 @@ func memoryToBytes(memoryStr string) int64 {
 
 func init() {
 	sqlitecore.RegisterScalarFunction("k8s_cpu_to_number", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
-		return k8sCPUToNumber(args[0].(string)), nil
+		if args[0] == nil {
+			return 0.0, nil
+		}
+
+		var str string
+		switch v := args[0].(type) {
+		case string:
+			str = v
+		case int64:
+			str = fmt.Sprintf("%d", v)
+		case float64:
+			str = fmt.Sprintf("%g", v)
+		default:
+			str = fmt.Sprintf("%v", v)
+		}
+
+		return k8sCPUToNumber(str), nil
 	})
 
 	sqlitecore.RegisterScalarFunction("memory_to_bytes", 1, func(ctx *sqlitecore.FunctionContext, args []driver.Value) (driver.Value, error) {
-		return memoryToBytes(args[0].(string)), nil
+		if args[0] == nil {
+			return int64(0), nil
+		}
+
+		var str string
+		switch v := args[0].(type) {
+		case string:
+			str = v
+		case int64:
+			str = fmt.Sprintf("%d", v)
+		case float64:
+			str = fmt.Sprintf("%g", v)
+		default:
+			str = fmt.Sprintf("%v", v)
+		}
+
+		return memoryToBytes(str), nil
 	})
 }
