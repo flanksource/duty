@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/lib/pq"
 	"github.com/samber/lo"
@@ -80,8 +81,8 @@ func (c *ColumnDef) HasAttributes() bool {
 
 // +kubebuilder:object:generate=true
 type ColumnURL struct {
-	// ID of the config to link to.
-	Config string `json:"config,omitempty" template:"true"`
+	// ID of the config or search query.
+	Config types.CelExpression `json:"config,omitempty" template:"true"`
 
 	// Link to a view.
 	View *ViewURLRef `json:"view,omitempty" template:"true"`
@@ -124,7 +125,20 @@ func (colURL ColumnURL) Eval(env map[string]any) (any, error) {
 			c.View.Filter[k] = vv
 		}
 
-		return fmt.Sprintf("/views/%s/%s", c.View.Namespace, c.View.Name), nil
+		baseURL := fmt.Sprintf("/view/%s/%s", c.View.Namespace, c.View.Name)
+		if c.View.Namespace == "" {
+			baseURL = fmt.Sprintf("/view/%s", c.View.Name)
+		}
+
+		if len(c.View.Filter) > 0 {
+			params := url.Values{}
+			for k, v := range c.View.Filter {
+				params.Set(k, fmt.Sprintf("%v", v))
+			}
+			return fmt.Sprintf("%s?%s", baseURL, params.Encode()), nil
+		}
+
+		return baseURL, nil
 	}
 
 	return nil, nil
