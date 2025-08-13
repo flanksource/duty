@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/flanksource/duty/rbac/policy"
 )
@@ -202,9 +203,16 @@ var dbResourceObjMap = map[string]string{
 }
 
 func GetObjectByTable(resource string) string {
+	// view tables are dynamically generated so they are not found in the rbac policy
+	// For now, we allow access to view tables
+	if strings.HasPrefix(resource, "view_") {
+		return resource
+	}
+
 	if v, exists := dbResourceObjMap[resource]; exists {
 		return v
 	}
+
 	return ""
 }
 
