@@ -55,6 +55,12 @@ type ColumnDef struct {
 	// Configuration for gauge visualization
 	Gauge *GaugeConfig `json:"gauge,omitempty" yaml:"gauge,omitempty"`
 
+	// Icon to use for the column.
+	//
+	// Supports mapping to a row value.
+	// Example: icon: row.health
+	Icon *string `json:"icon,omitempty" yaml:"icon,omitempty"`
+
 	// Deprecated: Use properties instead. Example: URL
 	//
 	// For references the column this column is for.
@@ -72,11 +78,6 @@ type ColumnDef struct {
 
 	// Unit of the column
 	Unit string `json:"unit,omitempty" yaml:"unit,omitempty"`
-}
-
-func (c *ColumnDef) HasAttributes() bool {
-	return c.URL != nil ||
-		(c.Gauge != nil && (c.Gauge.Max != "" || c.Gauge.Min != ""))
 }
 
 // +kubebuilder:object:generate=true

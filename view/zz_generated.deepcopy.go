@@ -16,6 +16,11 @@ func (in *ColumnDef) DeepCopyInto(out *ColumnDef) {
 		*out = new(GaugeConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Icon != nil {
+		in, out := &in.Icon, &out.Icon
+		*out = new(string)
+		**out = **in
+	}
 	if in.For != nil {
 		in, out := &in.For, &out.For
 		*out = new(string)
