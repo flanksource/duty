@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/types"
 )
 
@@ -82,23 +85,43 @@ type ColumnDef struct {
 
 // +kubebuilder:object:generate=true
 type ColumnURL struct {
-	// ID of the config or search query.
+	// Cel expression that evaluates to the id of the config or search query.
+	// Example:
+	// - uuid: row.id
+	// - search term:  f("name=$(tags.namespace) tags.cluster=$(tags.cluster) type=Kubernetes::Namespace", row)
 	Config types.CelExpression `json:"config,omitempty" template:"true"`
 
 	// Link to a view.
 	View *ViewURLRef `json:"view,omitempty" template:"true"`
 }
 
-func (colURL ColumnURL) Eval(env map[string]any) (any, error) {
+func (colURL ColumnURL) Eval(ctx context.Context, env map[string]any) (any, error) {
 	c := colURL.DeepCopy()
 
 	if c.Config != "" {
-		configID, err := types.CelExpression(c.Config).Eval(env)
+		config, err := types.CelExpression(c.Config).Eval(env)
 		if err != nil {
 			return nil, err
 		}
 
-		return fmt.Sprintf("/catalog/%s", configID), nil
+		if _, err := uuid.Parse(config); err == nil {
+			return fmt.Sprintf("/catalog/%s", config), nil
+		} else if len(config) == 0 {
+			ctx.Logger.V(6).Infof("ColumnURL.Config evaluated to empty string '%s'", c.Config)
+		} else {
+			resourceSelector := types.ResourceSelector{Search: config}
+			configIDs, err := query.FindConfigIDsByResourceSelector(ctx, 1, resourceSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to execute resource selector '%s': %w", config, err)
+			}
+
+			if len(configIDs) > 0 {
+				config = configIDs[0].String()
+				return fmt.Sprintf("/catalog/%s", config), nil
+			} else {
+				ctx.Logger.V(6).Infof("no config found for ColumnURL.Config search term '%s'", config)
+			}
+		}
 	}
 
 	if c.View != nil {
