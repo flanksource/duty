@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/types"
 	"github.com/flanksource/duty/view"
 )
 
@@ -130,6 +132,44 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			err = DefaultContext.DB().Raw(`SELECT COUNT(*) FROM ` + pipelineView.GeneratedTableName()).Scan(&newRowCount).Error
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRowCount).To(BeZero())
+		})
+	})
+
+	ginkgo.Describe("ColumnURL.Eval", func() {
+		var configItem = dummy.NginxHelmRelease
+		env := map[string]any{
+			"row": configItem.AsMap(),
+		}
+
+		ginkgo.It("should handle UUID config values", func() {
+			colURL := view.ColumnURL{
+				Config: types.CelExpression(`row.id`),
+			}
+
+			result, err := colURL.Eval(DefaultContext, env)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal("/catalog/" + configItem.ID.String()))
+		})
+
+		ginkgo.It("should handle resource selector config values", func() {
+			colURL := view.ColumnURL{
+				// This can be row.id but we're testing the search query functionality
+				Config: types.CelExpression(`f("name=$(name) type=$(type)", row)`),
+			}
+
+			result, err := colURL.Eval(DefaultContext, env)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal("/catalog/" + configItem.ID.String()))
+		})
+
+		ginkgo.It("should NOT return error for resource selector with no matches", func() {
+			colURL := view.ColumnURL{
+				Config: types.CelExpression(`"name=nonexistent-config"`),
+			}
+
+			result, err := colURL.Eval(DefaultContext, env)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeNil())
 		})
 	})
 })
