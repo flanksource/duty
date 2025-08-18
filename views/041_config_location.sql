@@ -1,5 +1,5 @@
 -- Returns ids of config items that are children of the given config item based on location.
-CREATE OR REPLACE FUNCTION find_children_by_location(config_id uuid, include_deleted boolean DEFAULT false)
+CREATE OR REPLACE FUNCTION find_children_by_location(config_id uuid, prefix text DEFAULT '', include_deleted boolean DEFAULT false)
 RETURNS TABLE(id uuid, type text, name text)
 AS $$
 BEGIN
@@ -17,6 +17,7 @@ BEGIN
             CROSS JOIN unnest(ci.locations) AS loc
             WHERE parent.id = config_id
             AND loc LIKE parent_alias || '%' 
+            AND (prefix = '' OR parent_alias LIKE prefix || '%')
         )
         AND ci.id != config_id
         AND (include_deleted = true OR ci.deleted_at IS NULL);

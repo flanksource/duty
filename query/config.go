@@ -480,12 +480,12 @@ type ConfigChildrenByLocation struct {
 	Name string    `json:"name"`
 }
 
-func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, includeDeleted bool) ([]ConfigChildrenByLocation, error) {
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigChildrenByLocation, error) {
 	var children []ConfigChildrenByLocation
 	if err := ctx.DB().Raw(`
 		SELECT id, type, name 
-		FROM find_children_by_location(?, ?)
-	`, configID, includeDeleted).Scan(&children).Error; err != nil {
+		FROM find_children_by_location(?, ?, ?)
+	`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
 		return nil, err
 	}
 

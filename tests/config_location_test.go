@@ -10,7 +10,7 @@ import (
 
 var _ = ginkgo.Describe("Config Location Functions", func() {
 	ginkgo.It("should find children by location using find_children_by_location function", func() {
-		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.LogisticsAPIDeployment.ID, false)
+		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.LogisticsAPIDeployment.ID, "", false)
 		Expect(err).To(BeNil())
 		Expect(results).To(HaveLen(2))
 
@@ -19,5 +19,22 @@ var _ = ginkgo.Describe("Config Location Functions", func() {
 			{ID: dummy.LogisticsAPIPodConfig.ID, Type: *dummy.LogisticsAPIPodConfig.Type, Name: *dummy.LogisticsAPIPodConfig.Name},
 		}
 		Expect(results).To(ConsistOf(expected))
+	})
+
+	ginkgo.It("should filter by prefix - find pod via node kubernetes prefix", func() {
+		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesMachine1Node.ID, "node://kubernetes", false)
+		Expect(err).To(BeNil())
+		Expect(results).To(HaveLen(1))
+
+		expected := []query.ConfigChildrenByLocation{
+			{ID: dummy.LogisticsAPIPodConfig.ID, Type: *dummy.LogisticsAPIPodConfig.Type, Name: *dummy.LogisticsAPIPodConfig.Name},
+		}
+		Expect(results).To(ConsistOf(expected))
+	})
+
+	ginkgo.It("should filter by prefix - find nothing with node aws prefix", func() {
+		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesMachine1Node.ID, "node://aws", false)
+		Expect(err).To(BeNil())
+		Expect(results).To(HaveLen(0))
 	})
 })

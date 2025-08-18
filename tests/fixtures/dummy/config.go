@@ -294,6 +294,7 @@ var AllDummyConfigs = []models.ConfigItem{
 	KubernetesNodeA,
 	KubernetesNodeB,
 	KubernetesNodeAKSPool1,
+	KubernetesMachine1Node,
 	EC2InstanceA,
 	EC2InstanceB,
 	LogisticsAPIDeployment,

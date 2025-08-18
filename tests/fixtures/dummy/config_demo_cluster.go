@@ -228,6 +228,7 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	Locations: []string{
 		"deployment://kubernetes/demo/missioncontrol/logistics-api/logistics-api-7df4c7f6b7-x9k2m",
 		"replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7/logistics-api-7df4c7f6b7-x9k2m",
+		"node://kubernetes/machine-1/logistics-api-7df4c7f6b7-x9k2m",
 		"cluster://kubernetes/demo",
 		"namespace://kubernetes/demo/missioncontrol",
 	},
@@ -604,6 +605,31 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",
 	},
+}
+
+var KubernetesMachine1Node = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("machine-1"),
+	ConfigClass: models.ConfigClassNode,
+	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
+	Type:        lo.ToPtr("Kubernetes::Node"),
+	Health:      lo.ToPtr(models.HealthHealthy),
+	Status:      lo.ToPtr("Ready"),
+	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "machine-1"}}`),
+	Tags: map[string]string{
+		"cluster": "demo",
+	},
+	Aliases: []string{
+		"node://kubernetes/machine-1",
+		"node://aws/ec2-instance-1",
+	},
+	Locations: []string{
+		"cluster://kubernetes/demo",
+	},
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"cluster": "demo",
+		"role":    "worker",
+	}),
 }
 
 var ClusterAKSNodeRelationship = models.ConfigRelationship{
