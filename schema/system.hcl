@@ -105,8 +105,13 @@ table "event_queue" {
     columns = [column.id]
   }
   index "event_queue_name_properties" {
-    unique  = true
-    columns = [column.name, column.properties]
+    unique = true
+    on {
+      column = column.name
+    }
+    on {
+      expr = "md5(properties::text)"
+    }
   }
   index "event_queue_properties" {
     type    = GIN
