@@ -76,6 +76,13 @@ var LogisticsAPIDeployment = models.ConfigItem{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",
 	},
+	Aliases: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-api",
+	},
+	Locations: []string{
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "Deployment",
@@ -143,6 +150,14 @@ var LogisticsAPIReplicaSet = models.ConfigItem{
 		"cluster":   "demo",
 	},
 	ParentID: lo.ToPtr(LogisticsAPIDeployment.ID),
+	Aliases: []string{
+		"replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7",
+	},
+	Locations: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-api/logistics-api-7df4c7f6b7",
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "ReplicaSet",
@@ -207,6 +222,15 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("Running"),
 	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
+	Aliases: []string{
+		"pod://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7-x9k2m",
+	},
+	Locations: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-api/logistics-api-7df4c7f6b7-x9k2m",
+		"replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7/logistics-api-7df4c7f6b7-x9k2m",
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "v1",
       "kind": "Pod",
@@ -261,6 +285,13 @@ var LogisticsUIDeployment = models.ConfigItem{
 	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Aliases: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-ui",
+	},
+	Locations: []string{
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "Deployment",
@@ -344,6 +375,14 @@ var LogisticsUIReplicaSet = models.ConfigItem{
 		"cluster":   "demo",
 	},
 	ParentID: lo.ToPtr(LogisticsUIDeployment.ID),
+	Aliases: []string{
+		"replicaset://kubernetes/demo/missioncontrol/logistics-ui-6c8f9b4d5e",
+	},
+	Locations: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-ui/logistics-ui-6c8f9b4d5e",
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "ReplicaSet",
@@ -421,6 +460,15 @@ var LogisticsUIPodConfig = models.ConfigItem{
 	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("Running"),
 	ParentID:    lo.ToPtr(LogisticsUIReplicaSet.ID),
+	Aliases: []string{
+		"pod://kubernetes/demo/missioncontrol/logistics-ui-6c8f9b4d5e-m7n8p",
+	},
+	Locations: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-ui/logistics-ui-6c8f9b4d5e-m7n8p",
+		"replicaset://kubernetes/demo/missioncontrol/logistics-ui-6c8f9b4d5e/logistics-ui-6c8f9b4d5e-m7n8p",
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "v1",
       "kind": "Pod",
@@ -484,6 +532,13 @@ var LogisticsWorkerDeployment = models.ConfigItem{
 	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Kubernetes::Deployment"),
+	Aliases: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-worker",
+	},
+	Locations: []string{
+		"cluster://kubernetes/demo",
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 	Config: lo.ToPtr(`{
       "apiVersion": "apps/v1",
       "kind": "Deployment",

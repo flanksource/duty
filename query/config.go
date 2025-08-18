@@ -9,14 +9,15 @@ import (
 
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/flanksource/commons/duration"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ConfigSummaryRequestChanges struct {
@@ -471,4 +472,22 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	var dbConfigObjects []models.ConfigItem
 	err := query.Find(&dbConfigObjects).Error
 	return dbConfigObjects, err
+}
+
+type ConfigChildrenByLocation struct {
+	ID   uuid.UUID `json:"id"`
+	Type string    `json:"type"`
+	Name string    `json:"name"`
+}
+
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, includeDeleted bool) ([]ConfigChildrenByLocation, error) {
+	var children []ConfigChildrenByLocation
+	if err := ctx.DB().Raw(`
+		SELECT id, type, name 
+		FROM find_children_by_location(?, ?)
+	`, configID, includeDeleted).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
 }
