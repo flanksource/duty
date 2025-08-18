@@ -473,7 +473,7 @@ BEGIN
 
       INSERT INTO event_queue(name, properties)
       VALUES (event_name, jsonb_build_object('id', NEW.id))
-      ON CONFLICT (name, properties) DO UPDATE
+      ON CONFLICT (name, md5(properties::text)) DO UPDATE
       SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     END;
 
@@ -500,7 +500,7 @@ BEGIN
 
   INSERT INTO event_queue(name, properties)
   VALUES (event_name, jsonb_build_object('id', NEW.config_id, 'change_id', NEW.id))
-  ON CONFLICT (name, properties) DO UPDATE
+  ON CONFLICT (name, md5(properties::text)) DO UPDATE
   SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
   RETURN NEW;
