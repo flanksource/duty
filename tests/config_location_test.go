@@ -22,7 +22,7 @@ var _ = ginkgo.Describe("Config Location Functions", func() {
 	})
 
 	ginkgo.It("should filter by prefix - find pod via node kubernetes prefix", func() {
-		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesMachine1Node.ID, "node://kubernetes", false)
+		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesNodeA.ID, "node://kubernetes", false)
 		Expect(err).To(BeNil())
 		Expect(results).To(HaveLen(1))
 
@@ -33,7 +33,7 @@ var _ = ginkgo.Describe("Config Location Functions", func() {
 	})
 
 	ginkgo.It("should filter by prefix - find nothing with node aws prefix", func() {
-		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesMachine1Node.ID, "node://aws", false)
+		results, err := query.FindConfigChildrenByLocation(DefaultContext, dummy.KubernetesNodeA.ID, "node://aws", false)
 		Expect(err).To(BeNil())
 		Expect(results).To(HaveLen(0))
 	})

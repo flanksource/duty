@@ -104,6 +104,10 @@ var KubernetesNodeA = models.ConfigItem{
 		"region":  "us-east-1",
 	},
 	Health: lo.ToPtr(models.HealthHealthy),
+	Aliases: []string{
+		"node://kubernetes/node-a",
+		"node://aws/ec2-instance-1",
+	},
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -294,7 +298,6 @@ var AllDummyConfigs = []models.ConfigItem{
 	KubernetesNodeA,
 	KubernetesNodeB,
 	KubernetesNodeAKSPool1,
-	KubernetesMachine1Node,
 	EC2InstanceA,
 	EC2InstanceB,
 	LogisticsAPIDeployment,
