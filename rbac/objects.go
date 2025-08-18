@@ -167,6 +167,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/related_config_ids":                            policy.ObjectCatalog,
 	"rpc/related_configs_recursive":                     policy.ObjectCatalog,
 	"rpc/related_configs":                               policy.ObjectCatalog,
+	"rpc/find_children_by_location":                     policy.ObjectCatalog,
 	"rpc/soft_delete_canary":                            policy.ObjectCanary,
 	"rpc/soft_delete_check":                             policy.ObjectCanary,
 	"rpc/uuid_to_ulid":                                  policy.ObjectDatabasePublic,
