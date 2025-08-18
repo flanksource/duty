@@ -16,8 +16,8 @@ BEGIN
             CROSS JOIN unnest(parent.aliases) AS parent_alias
             CROSS JOIN unnest(ci.locations) AS loc
             WHERE parent.id = config_id
-            AND loc LIKE parent_alias || '%' 
-            AND (prefix = '' OR parent_alias LIKE prefix || '%')
+            AND LEFT(loc, LENGTH(parent_alias)) = parent_alias 
+            AND (prefix = '' OR LEFT(parent_alias, LENGTH(prefix)) = prefix)
         )
         AND ci.id != config_id
         AND (include_deleted = true OR ci.deleted_at IS NULL);
