@@ -887,6 +887,7 @@ CREATE OR REPLACE VIEW catalog_changes AS
 
 DROP VIEW IF EXISTS config_detail;
 
+-- config_detail
 CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,

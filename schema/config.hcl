@@ -259,6 +259,14 @@ table "config_items" {
     null = true
     type = bool
   }
+  column "aliases" {
+    null = true
+    type = sql("text[]")
+  }
+  column "locations" {
+    null = true
+    type = sql("text[]")
+  }
   column "external_id" {
     null = true
     type = sql("text[]")
@@ -425,6 +433,10 @@ table "config_items" {
   }
   index "idx_config_items_path" {
     columns = [column.path]
+  }
+  index "idx_config_items_locations" {
+    columns = [column.locations]
+    type    = GIN
   }
   check "config_item_name_type_not_empty" {
     expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
@@ -623,7 +635,7 @@ table "config_scrapers" {
   foreign_key "config_scrapers_application_id_fkey" {
     columns     = [column.application_id]
     ref_columns = [table.applications.column.id]
-    on_update   = CASCADE  
+    on_update   = CASCADE
     on_delete   = CASCADE
   }
   foreign_key "config_scrapers_created_by_fkey" {

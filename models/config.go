@@ -91,6 +91,8 @@ type ConfigItem struct {
 	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
 	ConfigClass     string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
 	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
+	Aliases         pq.StringArray       `gorm:"type:[]text" json:"aliases,omitempty"`
+	Locations       pq.StringArray       `gorm:"type:[]text" json:"locations,omitempty"`
 	Type            *string              `json:"type"`
 	Status          *string              `json:"status" gorm:"default:null"`
 	Ready           bool                 `json:"ready"`
