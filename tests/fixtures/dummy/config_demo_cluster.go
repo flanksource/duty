@@ -206,7 +206,10 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 	Health:      lo.ToPtr(models.HealthHealthy),
 	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("Running"),
-	ParentID:    lo.ToPtr(LogisticsAPIReplicaSet.ID),
+	ExternalID: []string{
+		"pod://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7-x9k2m",
+	},
+	ParentID: lo.ToPtr(LogisticsAPIReplicaSet.ID),
 	Config: lo.ToPtr(`{
       "apiVersion": "v1",
       "kind": "Pod",

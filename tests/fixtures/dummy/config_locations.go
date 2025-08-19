@@ -60,6 +60,12 @@ var RedisHelmReleaseLocation = models.ConfigLocation{
 }
 
 var AllDummyConfigLocations = []models.ConfigLocation{
+	{ID: LogisticsAPIPodConfig.ID, Location: "node://kubernetes/node-a"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-api/logistics-api-7df4c7f6b7-x9k2m"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7/logistics-api-7df4c7f6b7-x9k2m"},
+
 	EKSClusterLocation,
 	KubernetesNodeALocation,
 	KubernetesNodeBLocation,

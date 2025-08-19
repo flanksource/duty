@@ -4,13 +4,10 @@ CREATE INDEX IF NOT EXISTS config_locations_location_pattern_idx ON config_locat
 -- Function to get children by location based on config external IDs
 CREATE OR REPLACE FUNCTION get_children_by_location(
     config_id_param UUID, 
-    location_prefix TEXT DEFAULT NULL,
-    include_deleted BOOLEAN DEFAULT FALSE
+    alias_prefix TEXT DEFAULT NULL
 )
 RETURNS TABLE (
-    id UUID,
-    type TEXT,
-    name TEXT
+    id UUID
 ) AS $$
 DECLARE
     ext_id TEXT;
@@ -27,10 +24,11 @@ BEGIN
     END IF;
     
     -- Filter external_ids by prefix if provided
-    IF location_prefix IS NOT NULL AND location_prefix <> '' THEN
+    IF alias_prefix IS NOT NULL AND alias_prefix <> '' THEN
         filtered_external_ids := ARRAY(
-            SELECT unnest(filtered_external_ids) AS ext_id
-            WHERE ext_id LIKE location_prefix || '%'
+            SELECT ext_id_val
+            FROM unnest(filtered_external_ids) AS ext_id_val
+            WHERE ext_id_val = alias_prefix OR ext_id_val LIKE alias_prefix || '%'
         );
     END IF;
     
@@ -38,14 +36,9 @@ BEGIN
     FOREACH ext_id IN ARRAY filtered_external_ids
     LOOP
         RETURN QUERY
-        SELECT 
-            cl.id,
-            ci.type,
-            ci.name
+        SELECT cl.id
         FROM config_locations cl
-        JOIN config_items ci ON cl.id = ci.id
-        WHERE cl.location LIKE ext_id || '%'
-        AND (include_deleted OR ci.deleted_at IS NULL);
+        WHERE cl.location LIKE ext_id || '%' OR cl.location = ext_id;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
