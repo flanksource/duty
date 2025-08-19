@@ -28,7 +28,7 @@ BEGIN
         filtered_external_ids := ARRAY(
             SELECT ext_id_val
             FROM unnest(filtered_external_ids) AS ext_id_val
-            WHERE ext_id_val = alias_prefix OR ext_id_val LIKE alias_prefix || '%'
+            WHERE ext_id_val LIKE alias_prefix || '%'
         );
     END IF;
     
@@ -38,7 +38,7 @@ BEGIN
         RETURN QUERY
         SELECT cl.id
         FROM config_locations cl
-        WHERE cl.location LIKE ext_id || '%' OR cl.location = ext_id;
+        WHERE cl.location LIKE ext_id || '%';
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
