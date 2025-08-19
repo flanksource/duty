@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/types"
 )
 
 // Event represents the event queue table.
@@ -74,4 +76,11 @@ type EventQueueSummary struct {
 
 func (t *EventQueueSummary) TableName() string {
 	return "event_queue_summary"
+}
+
+func EventQueueUniqueConstraint() []clause.Column {
+	return []clause.Column{
+		{Name: "name"},
+		{Name: "md5(properties::text)", Raw: true},
+	}
 }
