@@ -84,6 +84,12 @@ var (
 	_ LabelableModel           = ConfigItem{}
 )
 
+// ConfigLocation represents the config_locations database table
+type ConfigLocation struct {
+	ID       uuid.UUID `json:"id"`
+	Location string    `json:"location"`
+}
+
 // ConfigItem represents the config item database table
 type ConfigItem struct {
 	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`

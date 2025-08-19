@@ -27,6 +27,7 @@ type DummyData struct {
 	ComponentRelationships []models.ComponentRelationship
 
 	Configs                      []models.ConfigItem
+	ConfigLocations              []models.ConfigLocation
 	ConfigRelationships          []models.ConfigRelationship
 	ConfigScrapers               []models.ConfigScraper
 	ConfigChanges                []models.ConfigChange
@@ -108,6 +109,10 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		t.Configs[i].UpdatedAt = &createTime
 	}
 	if err := gormDB.CreateInBatches(t.Configs, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.ConfigLocations, 100).Error; err != nil {
 		return err
 	}
 
@@ -302,6 +307,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
 		ConfigScrapers:               append([]models.ConfigScraper{}, AllConfigScrapers...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
+		ConfigLocations:              append([]models.ConfigLocation{}, AllDummyConfigLocations...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
 		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),

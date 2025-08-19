@@ -50,6 +50,7 @@ func Apply(ctx context.Context, connection string) error {
 	exclude := []string{
 		"config_items.properties_values",
 		"components.properties_values",
+		"config_locations.config_locations_location_pattern_idx",
 
 		// These indexes are managed in the views/037_notification_group_resources.sql file
 		// as they are dependent on the PostgreSQL version.
