@@ -1,5 +1,6 @@
 ---
-CREATE INDEX IF NOT EXISTS config_locations_location_pattern_idx ON config_locations (location text_pattern_ops);
+CREATE INDEX IF NOT EXISTS config_locations_location_pattern_idx 
+ON config_locations (location text_pattern_ops) INCLUDE (id);
 
 -- Function to get children by location based on config external IDs
 CREATE OR REPLACE FUNCTION get_children_id_by_location(
@@ -38,7 +39,7 @@ BEGIN
         RETURN QUERY
         SELECT cl.id
         FROM config_locations cl
-        WHERE cl.location LIKE ext_id || '%';
+        WHERE cl.location LIKE ext_id || '%' AND cl.id != config_id_param;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
@@ -58,6 +59,51 @@ BEGIN
     RETURN QUERY
     SELECT config_items.id, config_items.name, config_items.type FROM config_items 
     WHERE config_items.id IN (SELECT children_ids.id FROM get_children_id_by_location(config_id, alias_prefix) AS children_ids)
+        AND (include_deleted OR deleted_at IS NULL);
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get parent IDs by location based on config external IDs
+CREATE OR REPLACE FUNCTION get_parent_ids_by_location(
+    config_id UUID, 
+    alias_prefix TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    id UUID
+) AS $$
+DECLARE
+    location_row RECORD;
+BEGIN
+    -- For each location of the config item, find all configs that have this location in their external_id
+    FOR location_row IN 
+        SELECT cl.location
+        FROM config_locations cl
+        WHERE cl.id = config_id
+        AND (alias_prefix IS NULL OR alias_prefix = '' OR cl.location LIKE alias_prefix || '%')
+    LOOP
+        RETURN QUERY
+        SELECT ci.id
+        FROM config_items ci
+        WHERE location_row.location = ANY(ci.external_id);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 
+CREATE OR REPLACE FUNCTION get_parents_by_location(
+    config_id UUID, 
+    alias_prefix TEXT DEFAULT NULL,
+    include_deleted BOOLEAN DEFAULT FALSE
+)
+RETURNS TABLE (
+    id UUID,
+    name TEXT,
+    type TEXT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT config_items.id, config_items.name, config_items.type FROM config_items 
+    WHERE config_items.id IN (SELECT parent_ids.id FROM get_parent_ids_by_location(config_id, alias_prefix) AS parent_ids)
         AND (include_deleted OR deleted_at IS NULL);
 END;
 $$ LANGUAGE plpgsql;

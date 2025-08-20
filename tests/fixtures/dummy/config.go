@@ -78,7 +78,7 @@ var EKSCluster = models.ConfigItem{
 	ConfigClass: models.ConfigClassCluster,
 	Health:      lo.ToPtr(models.HealthUnknown),
 	Type:        lo.ToPtr("EKS::Cluster"),
-	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "production-eks"},
+	ExternalID:  pq.StringArray{"cluster://aws/us-east-1/production-eks", "production-eks"},
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -98,7 +98,7 @@ var KubernetesNodeA = models.ConfigItem{
 	ConfigClass: models.ConfigClassNode,
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "node://kubernetes/node-a", "kubernetes/nodes"},
+	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "node://kubernetes/demo/node-a", "kubernetes/nodes"},
 	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
@@ -302,6 +302,7 @@ var AllDummyConfigs = []models.ConfigItem{
 	KubernetesCluster,
 	KubernetesNodeA,
 	KubernetesNodeB,
+	MissionControlNamespace,
 	KubernetesNodeAKSPool1,
 	EC2InstanceA,
 	EC2InstanceB,

@@ -483,17 +483,35 @@ func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, pr
 	return children, nil
 }
 
-type ChildByLocation struct {
+func FindConfigParentIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+	var parents []uuid.UUID
+	if err := ctx.DB().Raw(`SELECT id FROM get_parent_ids_by_location(?, ?)`, configID, prefix).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
+}
+
+type ConfigMinimal struct {
 	ID   uuid.UUID `json:"id"`
 	Name string    `json:"name"`
 	Type string    `json:"type"`
 }
 
-func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ChildByLocation, error) {
-	var children []ChildByLocation
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var children []ConfigMinimal
 	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
 		return nil, err
 	}
 
 	return children, nil
+}
+
+func FindConfigParentsByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var parents []ConfigMinimal
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_parents_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
 }

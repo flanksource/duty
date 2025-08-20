@@ -32,6 +32,9 @@ var KubernetesCluster = models.ConfigItem{
 	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
 	Type:        lo.ToPtr("Kubernetes::Cluster"),
 	Health:      lo.ToPtr(models.HealthUnknown),
+	ExternalID: []string{
+		"cluster://kubernetes/demo",
+	},
 	Tags: types.JSONStringMap{
 		"cluster": "demo",
 	},
@@ -40,6 +43,18 @@ var KubernetesCluster = models.ConfigItem{
 		"environment": "development",
 		"telemetry":   "enabled",
 	}),
+}
+
+var MissionControlNamespace = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("missioncontrol"),
+	Type:        lo.ToPtr("Kubernetes::Namespace"),
+	ConfigClass: models.ConfigClassNamespace,
+	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Namespace", "metadata": {"name": "missioncontrol"}}`),
+	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
+	ExternalID: []string{
+		"namespace://kubernetes/demo/missioncontrol",
+	},
 }
 
 var KubernetesNodeAKSPool1 = models.ConfigItem{
@@ -51,6 +66,9 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 	CreatedAt:   DummyCreatedAt,
 	Status:      lo.ToPtr("healthy"),
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "aks-pool-1"}}`),
+	ExternalID: []string{
+		"node://kubernetes/aks-pool-1",
+	},
 	Tags: types.JSONStringMap{
 		"cluster":      "demo",
 		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
@@ -72,6 +90,9 @@ var LogisticsAPIDeployment = models.ConfigItem{
 	Health:      lo.ToPtr(models.HealthHealthy),
 	ConfigClass: models.ConfigClassDeployment,
 	ScraperID:   lo.ToPtr(KubeScrapeConfig.ID.String()),
+	ExternalID: []string{
+		"deployment://kubernetes/demo/missioncontrol/logistics-api",
+	},
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",
@@ -138,6 +159,9 @@ var LogisticsAPIReplicaSet = models.ConfigItem{
 	Name:        lo.ToPtr("logistics-api-7df4c7f6b7"),
 	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
 	Health:      lo.ToPtr(models.HealthHealthy),
+	ExternalID: []string{
+		"replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7",
+	},
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",
@@ -342,6 +366,9 @@ var LogisticsUIReplicaSet = models.ConfigItem{
 	Name:        lo.ToPtr("logistics-ui-6c8f9b4d5e"),
 	Type:        lo.ToPtr("Kubernetes::ReplicaSet"),
 	Health:      lo.ToPtr(models.HealthHealthy),
+	ExternalID: []string{
+		"replicaset://kubernetes/demo/missioncontrol/logistics-ui-6c8f9b4d5e",
+	},
 	Tags: map[string]string{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",

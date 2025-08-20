@@ -4,77 +4,40 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-var EKSClusterLocation = models.ConfigLocation{
-	ID:       EKSCluster.ID,
-	Location: "aws/us-east-1/clusters/production-eks",
-}
-
-var KubernetesNodeALocation = models.ConfigLocation{
-	ID:       KubernetesNodeA.ID,
-	Location: "aws/us-east-1/clusters/production-eks/nodes/node-a",
-}
-
-var KubernetesNodeBLocation = models.ConfigLocation{
-	ID:       KubernetesNodeB.ID,
-	Location: "aws/us-west-2/clusters/production-eks/nodes/node-b",
-}
-
-var EC2InstanceALocation = models.ConfigLocation{
-	ID:       EC2InstanceA.ID,
-	Location: "aws/us-east-1/instances/i-1234567890abcdef0",
-}
-
-var EC2InstanceBLocation = models.ConfigLocation{
-	ID:       EC2InstanceB.ID,
-	Location: "aws/us-west-2/instances/i-0987654321fedcba0",
-}
-
-var LogisticsAPIDeploymentLocation = models.ConfigLocation{
-	ID:       LogisticsAPIDeployment.ID,
-	Location: "kubernetes/logistics/deployments/logistics-api",
-}
-
-var LogisticsUIDeploymentLocation = models.ConfigLocation{
-	ID:       LogisticsUIDeployment.ID,
-	Location: "kubernetes/logistics/deployments/logistics-ui",
-}
-
-var LogisticsWorkerDeploymentLocation = models.ConfigLocation{
-	ID:       LogisticsWorkerDeployment.ID,
-	Location: "kubernetes/logistics/deployments/logistics-worker",
-}
-
-var LogisticsDBRDSLocation = models.ConfigLocation{
-	ID:       LogisticsDBRDS.ID,
-	Location: "aws/us-east-1/rds/logistics-db",
-}
-
-var NginxHelmReleaseLocation = models.ConfigLocation{
-	ID:       NginxHelmRelease.ID,
-	Location: "kubernetes/ingress-nginx/helm/nginx-ingress",
-}
-
-var RedisHelmReleaseLocation = models.ConfigLocation{
-	ID:       RedisHelmRelease.ID,
-	Location: "kubernetes/database/helm/redis",
-}
-
 var AllDummyConfigLocations = []models.ConfigLocation{
-	{ID: LogisticsAPIPodConfig.ID, Location: "node://kubernetes/node-a"},
-	{ID: LogisticsAPIPodConfig.ID, Location: "cluster://kubernetes/demo"},
-	{ID: LogisticsAPIPodConfig.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
-	{ID: LogisticsAPIPodConfig.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-api/logistics-api-7df4c7f6b7-x9k2m"},
-	{ID: LogisticsAPIPodConfig.ID, Location: "replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7/logistics-api-7df4c7f6b7-x9k2m"},
+	{ID: KubernetesNodeA.ID, Location: "cluster://aws/us-east-1/production-eks"},
+	{ID: KubernetesNodeA.ID, Location: "cluster://kubernetes/demo"},
 
-	EKSClusterLocation,
-	KubernetesNodeALocation,
-	KubernetesNodeBLocation,
-	EC2InstanceALocation,
-	EC2InstanceBLocation,
-	LogisticsAPIDeploymentLocation,
-	LogisticsUIDeploymentLocation,
-	LogisticsWorkerDeploymentLocation,
-	LogisticsDBRDSLocation,
-	NginxHelmReleaseLocation,
-	RedisHelmReleaseLocation,
+	{ID: MissionControlNamespace.ID, Location: "cluster://kubernetes/demo"},
+
+	{ID: LogisticsUIDeployment.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsUIDeployment.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+
+	{ID: LogisticsAPIDeployment.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsAPIDeployment.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+
+	{ID: LogisticsAPIPodConfig.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-api"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "node://kubernetes/demo/node-a"},
+	{ID: LogisticsAPIPodConfig.ID, Location: "replicaset://kubernetes/demo/missioncontrol/logistics-api-7df4c7f6b7"},
+
+	{ID: LogisticsAPIReplicaSet.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsAPIReplicaSet.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+	{ID: LogisticsAPIReplicaSet.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-api"},
+
+	{ID: LogisticsUIReplicaSet.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsUIReplicaSet.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+	{ID: LogisticsUIReplicaSet.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-ui"},
+
+	{ID: LogisticsUIPodConfig.ID, Location: "cluster://kubernetes/demo"},
+	{ID: LogisticsUIPodConfig.ID, Location: "deployment://kubernetes/demo/missioncontrol/logistics-ui"},
+	{ID: LogisticsUIPodConfig.ID, Location: "namespace://kubernetes/demo/missioncontrol"},
+	{ID: LogisticsUIPodConfig.ID, Location: "replicaset://kubernetes/demo/missioncontrol/logistics-ui-6c8f9b4d5e"},
+	{ID: LogisticsUIPodConfig.ID, Location: "node://kubernetes/demo/node-a"},
+
+	{ID: EKSCluster.ID, Location: "account://aws/flanksource"},
+	{ID: EKSCluster.ID, Location: "region://aws/us-east-1"},
+
+	{ID: KubernetesNodeAKSPool1.ID, Location: "cluster://kubernetes/demo"},
 }
