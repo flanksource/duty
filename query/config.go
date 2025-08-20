@@ -474,9 +474,24 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	return dbConfigObjects, err
 }
 
-func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
 	var children []uuid.UUID
-	if err := ctx.DB().Raw(`SELECT id FROM get_children_by_location(?, ?)`, configID, prefix).Scan(&children).Error; err != nil {
+	if err := ctx.DB().Raw(`SELECT id FROM get_children_id_by_location(?, ?)`, configID, prefix).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+type ChildByLocation struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Type string    `json:"type"`
+}
+
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ChildByLocation, error) {
+	var children []ChildByLocation
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
 		return nil, err
 	}
 

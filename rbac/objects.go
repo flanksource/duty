@@ -161,6 +161,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/lookup_components_by_config":                   policy.ObjectTopology,
 	"rpc/lookup_config_children":                        policy.ObjectCatalog,
 	"rpc/lookup_config_relations":                       policy.ObjectCatalog,
+	"rpc/get_children_id_by_location":                   policy.ObjectCatalog,
 	"rpc/get_children_by_location":                      policy.ObjectCatalog,
 	"rpc/lookup_configs_by_component":                   policy.ObjectTopology,
 	"rpc/lookup_related_configs":                        policy.ObjectCatalog,
