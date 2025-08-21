@@ -9,14 +9,15 @@ import (
 
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/flanksource/commons/duration"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ConfigSummaryRequestChanges struct {
@@ -471,4 +472,46 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	var dbConfigObjects []models.ConfigItem
 	err := query.Find(&dbConfigObjects).Error
 	return dbConfigObjects, err
+}
+
+func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+	var children []uuid.UUID
+	if err := ctx.DB().Raw(`SELECT id FROM get_children_id_by_location(?, ?)`, configID, prefix).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+func FindConfigParentIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+	var parents []uuid.UUID
+	if err := ctx.DB().Raw(`SELECT id FROM get_parent_ids_by_location(?, ?)`, configID, prefix).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
+}
+
+type ConfigMinimal struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Type string    `json:"type"`
+}
+
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var children []ConfigMinimal
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+func FindConfigParentsByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var parents []ConfigMinimal
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_parents_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/kubernetes"
@@ -77,6 +78,7 @@ var EKSCluster = models.ConfigItem{
 	ConfigClass: models.ConfigClassCluster,
 	Health:      lo.ToPtr(models.HealthUnknown),
 	Type:        lo.ToPtr("EKS::Cluster"),
+	ExternalID:  pq.StringArray{"cluster://aws/us-east-1/production-eks", "production-eks"},
 	Tags: types.JSONStringMap{
 		"cluster": "aws",
 		"account": "flanksource",
@@ -96,6 +98,7 @@ var KubernetesNodeA = models.ConfigItem{
 	ConfigClass: models.ConfigClassNode,
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "node://kubernetes/demo/node-a", "kubernetes/nodes"},
 	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
@@ -123,6 +126,7 @@ var KubernetesNodeB = models.ConfigItem{
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-b"}}`),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
+	ExternalID:  pq.StringArray{"aws/us-west-2/clusters", "node://kubernetes/node-b", "kubernetes/nodes"},
 	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24 * 2),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
@@ -150,6 +154,7 @@ var EC2InstanceA = models.ConfigItem{
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("EC2::Instance"),
+	ExternalID:  pq.StringArray{"aws/us-east-1", "testing/instances"},
 	Tags: types.JSONStringMap{
 		"account": "flanksource",
 	},
@@ -165,6 +170,7 @@ var EC2InstanceB = models.ConfigItem{
 	ConfigClass: models.ConfigClassVirtualMachine,
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("EC2::Instance"),
+	ExternalID:  pq.StringArray{"aws/us-west-2", "production/instances"},
 	Tags: types.JSONStringMap{
 		"account": "flanksource",
 	},
@@ -180,6 +186,7 @@ var LogisticsDBRDS = models.ConfigItem{
 	ConfigClass: models.ConfigClassDatabase,
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Logistics::DB::RDS"),
+	ExternalID:  pq.StringArray{"aws/us-east-1/rds", "logistics"},
 	Labels: lo.ToPtr(types.JSONStringMap{
 		"database":    "logistics",
 		"environment": "production",
@@ -198,6 +205,7 @@ var NginxHelmRelease = models.ConfigItem{
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Helm::Release"),
 	Status:      lo.ToPtr("deployed"),
+	ExternalID:  pq.StringArray{"kubernetes/ingress-nginx", "helm/nginx"},
 	Config: lo.ToPtr(`{
       "apiVersion": "helm.toolkit.fluxcd.io/v2beta1",
       "kind": "HelmRelease",
@@ -245,6 +253,7 @@ var RedisHelmRelease = models.ConfigItem{
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Helm::Release"),
 	Status:      lo.ToPtr("deployed"),
+	ExternalID:  pq.StringArray{"kubernetes/database", "helm/redis"},
 	Config: lo.ToPtr(`{
       "apiVersion": "helm.toolkit.fluxcd.io/v2beta1",
       "kind": "HelmRelease",
@@ -293,6 +302,7 @@ var AllDummyConfigs = []models.ConfigItem{
 	KubernetesCluster,
 	KubernetesNodeA,
 	KubernetesNodeB,
+	MissionControlNamespace,
 	KubernetesNodeAKSPool1,
 	EC2InstanceA,
 	EC2InstanceB,

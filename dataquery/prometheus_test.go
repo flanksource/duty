@@ -107,6 +107,7 @@ func TestTransformPrometheusResult_StringWithSpecialChars(t *testing.T) {
 }
 
 func TestTransformPrometheusResult_VectorSamples(t *testing.T) {
+	t.Skip("Demo instance is not available")
 	g := NewWithT(t)
 
 	ctx := context.New()
@@ -141,6 +142,7 @@ func TestTransformPrometheusResult_VectorSamples(t *testing.T) {
 }
 
 func TestTransformPrometheusResult_MatrixSamples(t *testing.T) {
+	t.Skip("Prometheus demo endpoint is not available")
 	g := NewWithT(t)
 
 	ctx := context.New()
@@ -172,6 +174,7 @@ func TestTransformPrometheusResult_MatrixSamples(t *testing.T) {
 }
 
 func TestTransformPrometheusResult_ScalarValue(t *testing.T) {
+	t.Skip("Prometheus demo endpoint is not available")
 	g := NewWithT(t)
 
 	ctx := context.New()
