@@ -696,3 +696,30 @@ type ConfigItemSummary struct {
 func (ConfigItemSummary) TableName() string {
 	return "configs"
 }
+
+func (c ConfigItemSummary) ToConfigItem() ConfigItem {
+	return ConfigItem{
+		ID:            c.ID,
+		ScraperID:     c.ScraperID,
+		AgentID:       c.AgentID,
+		ConfigClass:   c.ConfigClass,
+		ExternalID:    c.ExternalID,
+		Type:          c.Type,
+		Status:        c.Status,
+		Ready:         c.Ready,
+		Health:        c.Health,
+		Name:          c.Name,
+		Description:   c.Description,
+		Source:        c.Source,
+		Path:          c.Path,
+		CostPerMinute: c.CostPerMinute,
+		CostTotal1d:   c.CostTotal1d,
+		CostTotal7d:   c.CostTotal7d,
+		CostTotal30d:  c.CostTotal30d,
+		Labels:        c.Labels,
+		Tags:          c.Tags,
+		CreatedAt:     c.CreatedAt,
+		UpdatedAt:     c.UpdatedAt,
+		DeletedAt:     c.DeletedAt,
+	}
+}
