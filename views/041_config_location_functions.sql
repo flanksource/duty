@@ -104,6 +104,53 @@ BEGIN
     RETURN QUERY
     SELECT config_items.id, config_items.name, config_items.type FROM config_items 
     WHERE config_items.id IN (SELECT parent_ids.id FROM get_parent_ids_by_location(config_id, alias_prefix) AS parent_ids)
-        AND (include_deleted OR deleted_at IS NULL);
+        AND (include_deleted OR deleted_at IS NULL)
+    ORDER BY
+    CASE config_items.type
+            -- Level 1: Top-level infrastructure
+            WHEN 'AWS::::Account' THEN 1
+            WHEN 'Kubernetes::Cluster' THEN 1
+            
+            -- Level 2: Regional/Zone resources (AWS) and Cluster-wide resources (K8s)
+            WHEN 'AWS::Region' THEN 2
+            WHEN 'Kubernetes::Node' THEN 3
+            WHEN 'Kubernetes::StorageClass' THEN 3
+            WHEN 'Kubernetes::IngressClass' THEN 3
+            WHEN 'Kubernetes::ClusterRole' THEN 3
+            WHEN 'Kubernetes::Role' THEN 3
+
+            -- Level 3: Sub-regional resources (AWS) and Cluster-wide resources (K8s)
+            WHEN 'AWS::AvailabilityZone' THEN 3
+            WHEN 'AWS::AvailabilityZoneID' THEN 3
+            WHEN 'AWS::IAM::Role' THEN 3
+            WHEN 'AWS::IAM::User' THEN 3
+            WHEN 'Kubernetes::ClusterRoleBinding' THEN 3
+            WHEN 'Kubernetes::Namespace' THEN 3
+            WHEN 'Kubernetes::RoleBinding' THEN 3
+            WHEN 'Kubernetes::PersistentVolume' THEN 3
+            
+            -- Level 4:
+            WHEN 'AWS::EC2::VPC' THEN 4
+            WHEN 'AWS::S3::Bucket' THEN 4
+            WHEN 'Kubernetes::HelmRelease' THEN 4
+            WHEN 'Kubernetes::Kustomization' THEN 4
+            
+            -- Level 5:
+            WHEN 'AWS::EC2::Subnet' THEN 5
+            WHEN 'Kubernetes::Deployment' THEN 5
+            WHEN 'Kubernetes::StatefulSet' THEN 5
+            WHEN 'Kubernetes::DaemonSet' THEN 5
+            WHEN 'Kubernetes::Job' THEN 5
+            WHEN 'Kubernetes::CronJob' THEN 5
+            WHEN 'Kubernetes::Ingress' THEN 5
+
+            -- Level 6:
+            WHEN 'Kubernetes::Service' THEN 6
+            WHEN 'Kubernetes::Endpoints' THEN 6
+            WHEN 'Kubernetes::ReplicaSet' THEN 6
+            WHEN 'Kubernetes::PersistentVolumeClaim' THEN 6
+        ELSE 99 -- Fallback for unknown types
+    END,
+    config_items.name; -- Secondary sort by name for items at the same level;
 END;
 $$ LANGUAGE plpgsql;
