@@ -587,7 +587,7 @@ func insertJSONDataIntoViewTable(ctx context.Context, v models.View, jsonFileNam
 		rows = append(rows, row)
 	}
 
-	return view.InsertViewRows(ctx, v.GeneratedTableName(), columns, rows)
+	return view.InsertViewRows(ctx, v.GeneratedTableName(), columns, rows, "")
 }
 
 func createViewTable(ctx context.Context, testdata string) models.View {

@@ -134,6 +134,18 @@ func createTableSchema(tableName string, columns ViewColumnDefList, currentSchem
 		},
 	})
 
+	// Add request fingerprint column for cache differentiation
+	table.Columns = append(table.Columns, &schema.Column{
+		Name: "request_fingerprint",
+		Type: &schema.ColumnType{
+			Type: &schema.StringType{T: "text"},
+			Null: false,
+		},
+		Default: &schema.RawExpr{
+			X: "''",
+		},
+	})
+
 	// Add columns used for upstream reconciliation
 	table.Columns = append(table.Columns, &schema.Column{
 		Name: "agent_id",
@@ -207,10 +219,15 @@ func getAtlasType(colType ColumnType) schema.Type {
 	}
 }
 
-func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string) ([]Row, error) {
+func ReadViewTable(ctx context.Context, columnDef ViewColumnDefList, table string, requestFingerprint string) ([]Row, error) {
 	columns := columnDef.QuotedColumns()
 
-	rows, err := ctx.DB().Select(strings.Join(columns, ", ")).Table(table).Rows()
+	query := ctx.DB().Select(strings.Join(columns, ", ")).Table(table)
+	if requestFingerprint != "" {
+		query = query.Where("request_fingerprint = ?", requestFingerprint)
+	}
+
+	rows, err := query.Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read view table (%s): %w", table, err)
 	}
@@ -291,16 +308,22 @@ func convertViewRecordsToNativeTypes(viewRows []Row, columnDef ViewColumnDefList
 	return viewRows
 }
 
-func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList, rows []Row) error {
+func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList, rows []Row, requestFingerprint string) error {
 	if len(rows) == 0 {
-		return ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s", pq.QuoteIdentifier(table))).Error
+		// Delete existing rows for this fingerprint when no new rows are provided
+		return ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s WHERE request_fingerprint = ?", pq.QuoteIdentifier(table)), requestFingerprint).Error
 	}
 
+	// Add request_fingerprint to columns
 	quotedColumns := columns.QuotedColumns()
+	quotedColumns = append(quotedColumns, pq.QuoteIdentifier("request_fingerprint"))
+
 	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 	insertBuilder := psql.Insert(table).Columns(quotedColumns...)
 	for _, row := range rows {
-		insertBuilder = insertBuilder.Values(row...)
+		// Add request_fingerprint value to each row
+		rowWithFingerprint := append(row, requestFingerprint)
+		insertBuilder = insertBuilder.Values(rowWithFingerprint...)
 	}
 
 	pkColumns := columns.PrimaryKey()
@@ -341,14 +364,19 @@ func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList
 			%s
 		)
 		DELETE FROM %s AS t
-		WHERE NOT EXISTS (
+		WHERE request_fingerprint = $%d
+		AND NOT EXISTS (
 			SELECT 1 FROM upsert
 			WHERE %s
 		)`,
 		upsertSQL,
 		pq.QuoteIdentifier(table),
+		len(args)+1,
 		strings.Join(pkEq, " AND "),
 	)
+
+	// Add requestFingerprint to the args
+	args = append(args, requestFingerprint)
 
 	return ctx.DB().Exec(finalSQL, args...).Error
 }

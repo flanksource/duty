@@ -31,10 +31,15 @@ table "views" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "last_refresh" {
+    null    = true
+    type    = jsonb
+    comment = "JSON map of request fingerprints to their last run timestamps"
+  }
   column "last_ran" {
     null    = true
     type    = timestamptz
-    comment = "The last time the view queries were run and persisted"
+    comment = "Deprecated:The last time the view queries were run and persisted"
   }
   column "error" {
     null = true
@@ -66,6 +71,12 @@ table "view_panels" {
     type    = uuid
     comment = "maps one-to-one with views.id"
   }
+  column "request_fingerprint" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Fingerprint of request variables for cache differentiation"
+  }
   column "results" {
     null = false
     type = jsonb
@@ -87,7 +98,10 @@ table "view_panels" {
     on_delete   = NO_ACTION
   }
   primary_key {
-    columns = [column.view_id]
-    comment = "one record per view"
+    columns = [column.view_id, column.request_fingerprint]
+    comment = "one record per view per request fingerprint"
+  }
+  index "idx_view_panels_request_fingerprint" {
+    columns = [column.view_id, column.request_fingerprint]
   }
 }
