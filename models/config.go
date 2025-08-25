@@ -690,7 +690,7 @@ type ConfigItemSummary struct {
 	Ready         bool                 `json:"ready"`
 	Path          string               `json:"path,omitempty"`
 	Changes       int                  `json:"changes,omitempty"`
-	Analysis      int                  `json:"analysis,omitempty"`
+	Analysis      *types.JSONMap       `json:"analysis,omitempty"`
 }
 
 func (ConfigItemSummary) TableName() string {
