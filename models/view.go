@@ -25,10 +25,6 @@ type View struct {
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
 	Error     *string    `json:"error,omitempty" gorm:"default:NULL"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
-
-	// LastRefresh is a map[request_fingerprint]RFC3339 Timestamp.
-	// It stores the last time the view was refreshed for a given set of request variables.
-	LastRefresh types.JSON `json:"last_refresh,omitempty" gorm:"default:NULL"`
 }
 
 func (v View) GeneratedTableName() string {
@@ -59,6 +55,11 @@ type ViewPanel struct {
 	RequestFingerprint string    `json:"request_fingerprint" gorm:"primaryKey;default:''"`
 	AgentID            uuid.UUID `json:"agent_id"`
 	IsPushed           bool      `json:"is_pushed" gorm:"default:false"`
+
+	// RefreshedAt is the last time this view was refreshed for this request fingerprint.
+	//
+	// NOTE: This is the refresh time of entire view (not just the panels. It also indicates the refresh time of the table)
+	RefreshedAt *time.Time `json:"refreshed_at,omitempty" gorm:"default:now()"`
 
 	// Results is a JSON array of panel results
 	Results types.JSON `json:"results"`

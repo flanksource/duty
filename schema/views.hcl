@@ -31,11 +31,6 @@ table "views" {
     type    = timestamptz
     default = sql("now()")
   }
-  column "last_refresh" {
-    null    = true
-    type    = jsonb
-    comment = "JSON map of request fingerprints to their last run timestamps"
-  }
   column "last_ran" {
     null    = true
     type    = timestamptz
@@ -90,6 +85,12 @@ table "view_panels" {
     null    = false
     default = false
     type    = bool
+  }
+  column "refreshed_at" {
+    null    = true
+    type    = timestamptz
+    default = sql("now()")
+    comment = "Last time this view was refreshed for this request fingerprint"
   }
   foreign_key "view_panels_agent_id_fkey" {
     columns     = [column.agent_id]
