@@ -102,7 +102,7 @@ table "event_queue" {
       column = column.name
     }
     on {
-      expr = "md5(properties::text)"
+      expr = "(properties->>'id')"
     }
   }
   index "event_queue_properties" {
