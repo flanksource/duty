@@ -81,6 +81,6 @@ func (t *EventQueueSummary) TableName() string {
 func EventQueueUniqueConstraint() []clause.Column {
 	return []clause.Column{
 		{Name: "name"},
-		{Name: "md5(properties::text)", Raw: true},
+		{Name: "(properties->>'id')", Raw: true},
 	}
 }
