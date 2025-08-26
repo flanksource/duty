@@ -32,6 +32,10 @@ var DateMapper = func(ctx context.Context, val string) (any, error) {
 }
 
 var AgentMapper = func(ctx context.Context, id string) (any, error) {
+	if strings.ToLower(id) == "all" {
+		return nil, nil
+	}
+
 	if id, err := uuid.Parse(id); err == nil {
 		return id.String(), nil
 	}
@@ -322,9 +326,16 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 
 		val := fmt.Sprint(q.Value)
 		if mapper, ok := qm.FieldMapper[q.Field]; ok {
-			if q.Value, err = mapper(ctx, val); err != nil {
+			mappedVal, err := mapper(ctx, val)
+			if err != nil {
 				return nil, nil, err
 			}
+			// In certain cases, the mapper can return nil without error
+			// indicating that mapper should not be applied
+			if mappedVal == nil {
+				return tx, nil, nil
+			}
+			q.Value = mappedVal
 		}
 
 		if mapper, ok := CommonFields[q.Field]; ok {
