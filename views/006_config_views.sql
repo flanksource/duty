@@ -499,7 +499,7 @@ BEGIN
   END IF;
 
   INSERT INTO event_queue(name, properties)
-  VALUES (event_name, jsonb_build_object('id', NEW.config_id, 'change_id', NEW.id))
+  VALUES (event_name, jsonb_build_object('id', NEW.id, 'config_id', NEW.config_id))
   ON CONFLICT (name, (properties->>'id')) DO UPDATE
   SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
