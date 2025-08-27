@@ -54,7 +54,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should convert into native go types", func() {
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(10))
 			Expect(rows[0][DURATION_COLUMN]).To(BeAssignableToTypeOf(time.Duration(0)))
@@ -83,7 +83,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				},
 			}
 
-			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, newRows)
+			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, newRows, "")
 			Expect(err).ToNot(HaveOccurred())
 
 			var newRowCount int
@@ -91,7 +91,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newRowCount).To(Equal(len(newRows)))
 
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(len(newRows)))
 			Expect(rows[0][REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository")
@@ -114,7 +114,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				SWAPPED_LAST_RUN_BY_COLUMN = 1 // lastRunBy is now at 2nd column
 			)
 
-			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName())
+			rows, err := view.ReadViewTable(DefaultContext, columnDef, pipelineView.GeneratedTableName(), "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rows).To(HaveLen(2))
 			Expect(rows[0][SWAPPED_REPOSITORY_COLUMN]).To(Equal(newRows[0][REPOSITORY_COLUMN]), "repository is the 4th column")
@@ -124,7 +124,7 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should handle empty rows by clearing the table", func() {
-			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, []view.Row{})
+			err := view.InsertViewRows(DefaultContext, pipelineView.GeneratedTableName(), columnDef, []view.Row{}, "")
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify table is now empty

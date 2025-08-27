@@ -23,7 +23,6 @@ type View struct {
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
-	LastRan   *time.Time `json:"last_ran,omitempty" gorm:"default:NULL"`
 	Error     *string    `json:"error,omitempty" gorm:"default:NULL"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
@@ -52,9 +51,15 @@ func (v View) GetNamespace() string {
 
 // ViewPanel represents view panel data with push tracking
 type ViewPanel struct {
-	ViewID   uuid.UUID `json:"view_id" gorm:"primaryKey"`
-	AgentID  uuid.UUID `json:"agent_id"`
-	IsPushed bool      `json:"is_pushed" gorm:"default:false"`
+	ViewID             uuid.UUID `json:"view_id" gorm:"primaryKey"`
+	RequestFingerprint string    `json:"request_fingerprint" gorm:"primaryKey;default:''"`
+	AgentID            uuid.UUID `json:"agent_id"`
+	IsPushed           bool      `json:"is_pushed" gorm:"default:false"`
+
+	// RefreshedAt is the last time this view was refreshed for this request fingerprint.
+	//
+	// NOTE: This is the refresh time of entire view (not just the panels. It also indicates the refresh time of the table)
+	RefreshedAt *time.Time `json:"refreshed_at,omitempty" gorm:"default:now()"`
 
 	// Results is a JSON array of panel results
 	Results types.JSON `json:"results"`
@@ -65,7 +70,11 @@ func (ViewPanel) TableName() string {
 }
 
 func (v ViewPanel) PK() string {
-	return v.ViewID.String()
+	// Composite key: ViewID:RequestFingerprint
+	if v.RequestFingerprint == "" {
+		return v.ViewID.String()
+	}
+	return fmt.Sprintf("%s:%s", v.ViewID.String(), v.RequestFingerprint)
 }
 
 func (v ViewPanel) AsMap(removeFields ...string) map[string]any {
@@ -87,13 +96,20 @@ func (ViewPanel) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 }
 
 func (t ViewPanel) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
-	pks := lo.Map(items, func(item DBTable, _ int) []any {
+	// Build composite key conditions for ViewPanel with (view_id, request_fingerprint)
+	var conditions [][]any
+	for _, item := range items {
 		c := any(item).(ViewPanel)
-		return []any{c.ViewID}
-	})
+		conditions = append(conditions, []any{c.ViewID, c.RequestFingerprint})
+	}
 
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	// Use composite key in WHERE clause
 	return db.Table(t.TableName()).
-		Where("view_id IN ?", pks).
+		Where("(view_id, request_fingerprint) IN ?", conditions).
 		Update("is_pushed", true).Error
 }
 

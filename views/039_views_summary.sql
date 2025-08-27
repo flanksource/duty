@@ -8,7 +8,6 @@ SELECT
     spec->'display'->>'title' AS title,
     spec->'display'->>'icon' AS icon,
     (spec->'display'->>'ordinal')::int AS ordinal,
-    (spec->'display'->>'sidebar')::boolean AS sidebar,
-    last_ran
+    (spec->'display'->>'sidebar')::boolean AS sidebar
 FROM views
 WHERE deleted_at IS NULL;

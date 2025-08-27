@@ -64,7 +64,7 @@ var _ = ginkgo.Describe("View Migration Tests", ginkgo.Serial, ginkgo.Ordered, f
 				{"test-2", "Second Test", "inactive", "2023-01-02T00:00:00Z"},
 			}
 
-			err = pkgView.InsertViewRows(DefaultContext, testView.GeneratedTableName(), initialColumns, testData)
+			err = pkgView.InsertViewRows(DefaultContext, testView.GeneratedTableName(), initialColumns, testData, "")
 			Expect(err).ToNot(HaveOccurred())
 
 			var count int64
@@ -106,9 +106,12 @@ func migrateToNewColumns(ctx context.Context, view models.View, columns pkgView.
 	err = pkgView.CreateViewTable(ctx, view.GeneratedTableName(), columns)
 	Expect(err).ToNot(HaveOccurred())
 
+	// +2 for agent_id and is_pushed + 1 for __row__attributes + 1 for request_fingerprint
+	const reservedColumns = 4
+
 	// Fetch all the column names from the table
 	var columnNames []string
 	err = ctx.DB().Raw("SELECT column_name FROM information_schema.columns WHERE table_name = ?", view.GeneratedTableName()).Scan(&columnNames).Error
 	Expect(err).ToNot(HaveOccurred())
-	Expect(columnNames).To(HaveLen(len(columns) + 3)) // +2 for agent_id and is_pushed + 1 for __row__attributes
+	Expect(columnNames).To(HaveLen(len(columns) + reservedColumns))
 }

@@ -11,13 +11,13 @@ import (
 
 // +kubebuilder:object:generate=true
 type Query struct {
-	dataquery.Query `json:",inline" yaml:",inline"`
+	dataquery.Query `json:",inline" yaml:",inline" template:"true"`
 
 	// Configs queries config items
-	Configs *types.ResourceSelector `json:"configs,omitempty" yaml:"configs,omitempty"`
+	Configs *types.ResourceSelector `json:"configs,omitempty" yaml:"configs,omitempty" template:"true"`
 
 	// Changes queries config changes
-	Changes *types.ResourceSelector `json:"changes,omitempty" yaml:"changes,omitempty"`
+	Changes *types.ResourceSelector `json:"changes,omitempty" yaml:"changes,omitempty" template:"true"`
 }
 
 func (v *Query) IsEmpty() bool {

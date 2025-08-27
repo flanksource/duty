@@ -228,11 +228,14 @@ func (c ViewColumnDefList) QuotedColumns() []string {
 }
 
 func (c ViewColumnDefList) PrimaryKey() []string {
-	return lo.Map(lo.Filter(c, func(col ColumnDef, _ int) bool {
+	userDefinedPKs := lo.Map(lo.Filter(c, func(col ColumnDef, _ int) bool {
 		return col.PrimaryKey
 	}), func(col ColumnDef, _ int) string {
 		return col.Name
 	})
+	mustHavePKs := []string{"request_fingerprint"}
+	pkColumns := append(userDefinedPKs, mustHavePKs...)
+	return pkColumns
 }
 
 func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
