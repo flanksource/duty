@@ -239,6 +239,10 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 		searchConditions = append(searchConditions, fmt.Sprintf("status=%q", strings.Join(rs.Statuses, ",")))
 	}
 
+	if rs.Agent != "" {
+		searchConditions = append(searchConditions, fmt.Sprintf("agent=%q", quote(rs.Agent)))
+	}
+
 	if convertSelectors {
 		// Adding this flag for now until we migrate matchItems support in the SQL query
 		if rs.LabelSelector != "" {
