@@ -131,6 +131,17 @@ func (p Permission) ToArgs() []string {
 	}
 }
 
+func (p Permission) Hash() string {
+	return fmt.Sprintf("sub=%s,obj=%s,act=%s,d=%v,con=%s,id=%s",
+		p.Subject,
+		p.Object,
+		p.Action,
+		p.Deny,
+		p.Condition,
+		p.ID,
+	)
+}
+
 func NewPermission(perm []string) Permission {
 	return Permission{
 		Subject:   perm[0],
