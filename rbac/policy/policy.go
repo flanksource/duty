@@ -3,6 +3,8 @@ package policy
 import (
 	"fmt"
 	"strings"
+
+	"github.com/samber/lo"
 )
 
 func Read(objects ...string) ACL {
@@ -116,6 +118,17 @@ type Permission struct {
 	Action    string `json:"action,omitempty"`
 	Deny      bool   `json:"deny,omitempty"`
 	Condition string `json:"condition,omitempty"`
+}
+
+func (p Permission) ToArgs() []string {
+	return []string{
+		p.Subject,
+		p.Object,
+		p.Action,
+		lo.Ternary(p.Deny, "deny", ""),
+		p.Condition,
+		p.ID,
+	}
 }
 
 func NewPermission(perm []string) Permission {

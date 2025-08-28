@@ -82,6 +82,7 @@ type AccessToken struct {
 	Value     string     `json:"-" gorm:"not null"`
 	PersonID  uuid.UUID  `json:"person_id" gorm:"not null"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
+	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 

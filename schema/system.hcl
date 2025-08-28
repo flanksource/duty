@@ -21,6 +21,10 @@ table "access_tokens" {
     null = false
     type = timestamptz
   }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
   column "expires_at" {
     null = true # We can have never expiring tokens
     type = timestamptz
@@ -37,6 +41,12 @@ table "access_tokens" {
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "access_tokens_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
 
