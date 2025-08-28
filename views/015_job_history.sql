@@ -4,23 +4,17 @@ DROP VIEW IF EXISTS integrations_with_status;
 -- Intermediate view to get the latest job history status for each resource
 CREATE OR REPLACE VIEW
   job_history_latest_status AS
+
 WITH
-  max_created_at_job_history AS (
-    SELECT
-      resource_id,
-      MAX(created_at) AS max_created_at
-    FROM
-      job_history
-    GROUP BY
-      resource_id
-  ),
   latest_job_history AS (
     SELECT
       jh.*,
-      ROW_NUMBER() OVER (PARTITION BY jh.resource_id ORDER BY jh.created_at DESC, jh.id DESC) AS rn
+      ROW_NUMBER() OVER (
+        PARTITION BY jh.resource_id, jh.resource_type, jh.name
+        ORDER BY jh.created_at DESC, jh.id DESC
+      ) AS rn
     FROM
       job_history jh
-      JOIN max_created_at_job_history mc ON jh.resource_id = mc.resource_id AND jh.created_at = mc.max_created_at
   )
 SELECT
   latest_job_history.*
