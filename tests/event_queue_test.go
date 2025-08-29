@@ -3,7 +3,9 @@ package tests
 import (
 	"fmt"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm/clause"
@@ -41,8 +43,12 @@ var _ = ginkgo.Describe("Event queue", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		for i := range iterations {
+			uuuid, err := hash.DeterministicUUID(fmt.Sprintf("%s-%d", eventName, i))
+			Expect(err).ToNot(HaveOccurred())
+
 			DefaultContext.DB().Create(&models.Event{
-				Name: eventName,
+				Name:    eventName,
+				EventID: uuuid,
 				Properties: map[string]string{
 					"id": fmt.Sprintf("%d", i),
 				},
@@ -53,7 +59,7 @@ var _ = ginkgo.Describe("Event queue", func() {
 		Expect(handlerInvocationCount).To(Equal(iterations))
 	})
 
-	ginkgo.DescribeTable("should enforce uniqueness constraint on name and properties->>'id'",
+	ginkgo.DescribeTable("should enforce uniqueness constraint on name and event_id",
 		func(events []models.Event, shouldFail bool) {
 			for i, event := range events {
 				err := DefaultContext.DB().Create(&event).Error
@@ -73,10 +79,12 @@ var _ = ginkgo.Describe("Event queue", func() {
 			[]models.Event{
 				{
 					Name:       "test.unique.duplicate",
-					Properties: map[string]string{"id": "123"},
+					EventID:    uuid.MustParse("4c185f4e-aaf8-4039-ae2f-84bbb7094f66"),
+					Properties: map[string]string{"id": "12345"},
 				},
 				{
 					Name:       "test.unique.duplicate",
+					EventID:    uuid.MustParse("4c185f4e-aaf8-4039-ae2f-84bbb7094f66"),
 					Properties: map[string]string{"id": "123"},
 				},
 			},
@@ -86,11 +94,13 @@ var _ = ginkgo.Describe("Event queue", func() {
 			[]models.Event{
 				{
 					Name:       "test.unique.different-id",
+					EventID:    uuid.New(),
 					Properties: map[string]string{"id": "456"},
 				},
 				{
 					Name:       "test.unique.different-id",
-					Properties: map[string]string{"id": "789"},
+					EventID:    uuid.New(),
+					Properties: map[string]string{"id": "456"},
 				},
 			},
 			false,
@@ -99,10 +109,12 @@ var _ = ginkgo.Describe("Event queue", func() {
 			[]models.Event{
 				{
 					Name:       "test.unique.different-name-1",
+					EventID:    uuid.MustParse("9c82da24-4896-4341-9df2-07d7a4437a94"),
 					Properties: map[string]string{"id": "999"},
 				},
 				{
 					Name:       "test.unique.different-name-2",
+					EventID:    uuid.MustParse("9c82da24-4896-4341-9df2-07d7a4437a94"),
 					Properties: map[string]string{"id": "999"},
 				},
 			},
@@ -122,8 +134,8 @@ var _ = ginkgo.Describe("Event queue", func() {
 
 		// Try to create the same event again with OnConflict DoNothing
 		duplicateEvent := models.Event{
-			Name:       "test.unique.constraint",
-			Properties: map[string]string{"id": "conflict-test"},
+			Name:    "test.unique.constraint",
+			EventID: event.EventID,
 		}
 
 		err = DefaultContext.DB().Clauses(clause.OnConflict{
