@@ -471,9 +471,9 @@ BEGIN
           RAISE EXCEPTION 'Unexpected operation in trigger: %', TG_OP;
       END CASE;
 
-      INSERT INTO event_queue(name, properties)
-      VALUES (event_name, jsonb_build_object('id', NEW.id))
-      ON CONFLICT (name, (properties->>'id')) DO UPDATE
+      INSERT INTO event_queue(name, event_id)
+      VALUES (event_name, NEW.id)
+      ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE
       SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     END;
 
@@ -498,9 +498,9 @@ BEGIN
     event_name := 'config.updated';
   END IF;
 
-  INSERT INTO event_queue(name, properties)
-  VALUES (event_name, jsonb_build_object('id', NEW.id, 'config_id', NEW.config_id))
-  ON CONFLICT (name, (properties->>'id')) DO UPDATE
+  INSERT INTO event_queue(name, event_id, properties)
+  VALUES (event_name, NEW.id, jsonb_build_object('config_id', NEW.config_id))
+  ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE
   SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
   RETURN NEW;
