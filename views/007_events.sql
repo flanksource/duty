@@ -3,8 +3,8 @@ CREATE OR REPLACE FUNCTION insert_playbook_spec_approval_in_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
   IF OLD.spec->'approval' != NEW.spec->'approval' THEN
-    INSERT INTO event_queue(name, properties) VALUES ('playbook.spec.approval.updated', jsonb_build_object('id', NEW.id))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    INSERT INTO event_queue(name, event_id) VALUES ('playbook.spec.approval.updated', NEW.id)
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
   END IF;
 
   RETURN NULL;
@@ -20,8 +20,8 @@ EXECUTE PROCEDURE insert_playbook_spec_approval_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id, 'run_id', NEW.run_id))
-  ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+  INSERT INTO event_queue(name, event_id, properties) VALUES ('playbook.approval.inserted', NEW.id, jsonb_build_object('run_id', NEW.run_id))
+  ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -34,8 +34,8 @@ EXECUTE PROCEDURE insert_new_playbook_approvals_to_event_queue();
 -- Insert incident created in event_queue
 CREATE OR REPLACE FUNCTION insert_incident_creation_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO event_queue(name, properties) VALUES ('incident.created', jsonb_build_object('id', NEW.id))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    INSERT INTO event_queue(name, event_id) VALUES ('incident.created', NEW.id)
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -54,8 +54,8 @@ BEGIN
     END IF;
 
     event_name := 'incident.status.' || NEW.status;
-    INSERT INTO event_queue(name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    INSERT INTO event_queue(name, event_id) VALUES (event_name, NEW.id)
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -69,12 +69,12 @@ EXECUTE PROCEDURE insert_incident_updates_in_event_queue();
 CREATE OR REPLACE FUNCTION insert_responder_in_event_queue() RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('incident.responder.added', jsonb_build_object('id', NEW.id))
-        ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+        INSERT INTO event_queue(name, event_id) VALUES ('incident.responder.added', NEW.id)
+        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     ELSIF TG_OP = 'UPDATE' THEN
         IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
-            INSERT INTO event_queue(name, properties) VALUES ('incident.responder.removed', jsonb_build_object('id', NEW.id))
-            ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+            INSERT INTO event_queue(name, event_id) VALUES ('incident.responder.removed', NEW.id)
+            ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         END IF;
     END IF;
 
@@ -90,8 +90,8 @@ EXECUTE PROCEDURE insert_responder_in_event_queue();
 -- Insert incident comment creation in event_queue
 CREATE OR REPLACE FUNCTION insert_comment_in_event_queue () RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO event_queue(name, properties) VALUES ('incident.comment.added', jsonb_build_object('id', NEW.id))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    INSERT INTO event_queue(name, event_id) VALUES ('incident.comment.added', NEW.id)
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
@@ -110,21 +110,21 @@ BEGIN
 
     IF OLD.definition_of_done != NEW.definition_of_done THEN
         IF NEW.definition_of_done THEN
-            INSERT INTO event_queue(name, properties) VALUES ('incident.dod.added', jsonb_build_object('id', NEW.id))
-            ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+            INSERT INTO event_queue(name, event_id) VALUES ('incident.dod.added', NEW.id)
+            ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         ELSE
-            INSERT INTO event_queue(name, properties) VALUES ('incident.dod.removed', jsonb_build_object('id', NEW.id))
-            ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+            INSERT INTO event_queue(name, event_id) VALUES ('incident.dod.removed', NEW.id)
+            ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         END IF;
     END IF;
 
     IF OLD.done != NEW.done THEN
         IF NEW.done THEN
-            INSERT INTO event_queue(name, properties) VALUES ('incident.dod.passed', jsonb_build_object('id', NEW.id))
-            ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+            INSERT INTO event_queue(name, event_id) VALUES ('incident.dod.passed', NEW.id)
+            ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         ELSE
-            INSERT INTO event_queue(name, properties) VALUES ('incident.dod.regressed', jsonb_build_object('id', NEW.id))
-            ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+            INSERT INTO event_queue(name, event_id) VALUES ('incident.dod.regressed', NEW.id)
+            ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         END IF;
     END IF;
 
@@ -149,11 +149,11 @@ BEGIN
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.passed', jsonb_build_object('id', NEW.id, 'last_runtime', NEW.last_runtime))
-        ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.passed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, properties) VALUES ('check.failed', jsonb_build_object('id', NEW.id, 'last_runtime', NEW.last_runtime))
-        ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.failed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
     END IF;
 
     RETURN NULL;
@@ -188,9 +188,9 @@ BEGIN
         event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
     END IF;
 
-    INSERT INTO event_queue(name, properties)
-    VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET
+    INSERT INTO event_queue(name, event_id, properties)
+    VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description))
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
         created_at = NOW(),
         last_attempt = NULL,
         attempts = 0;
@@ -219,9 +219,8 @@ BEGIN
     END IF;
 
     event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
-
-    INSERT INTO event_queue (name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
-    ON CONFLICT (name, (properties->>'id')) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    INSERT INTO event_queue (name, event_id, properties) VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description))
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 
     RETURN NULL;
 END
