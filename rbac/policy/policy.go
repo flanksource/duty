@@ -131,6 +131,16 @@ func (p Permission) ToArgs() []string {
 	}
 }
 
+func (p Permission) ToArgsWithoutSubject() []string {
+	return []string{
+		p.Object,
+		p.Action,
+		lo.Ternary(p.Deny, "deny", ""),
+		p.Condition,
+		p.ID,
+	}
+}
+
 func (p Permission) Hash() string {
 	return fmt.Sprintf("sub=%s,obj=%s,act=%s,d=%v,con=%s,id=%s",
 		p.Subject,
@@ -142,15 +152,42 @@ func (p Permission) Hash() string {
 	)
 }
 
-func NewPermission(perm []string) Permission {
-	return Permission{
-		Subject:   perm[0],
-		Object:    perm[1],
-		Action:    perm[2],
-		Deny:      perm[3] == "deny",
-		Condition: perm[4],
-		ID:        perm[5],
+func (p Permission) HashWithoutSubject() string {
+	return fmt.Sprintf("obj=%s,act=%s,d=%v,con=%s,id=%s",
+		p.Object,
+		p.Action,
+		p.Deny,
+		p.Condition,
+		p.ID,
+	)
+}
+
+func NewPermission(perm []string) (p Permission) {
+	size := len(perm)
+	if size <= 0 {
+		return
 	}
+
+	if size > 0 {
+		p.Subject = perm[0]
+	}
+	if size > 1 {
+		p.Object = perm[1]
+	}
+	if size > 2 {
+		p.Action = perm[2]
+	}
+	if size > 3 {
+		p.Deny = perm[3] == "deny"
+	}
+	if size > 4 {
+		p.Condition = perm[4]
+	}
+	if size > 5 {
+		p.ID = perm[5]
+	}
+
+	return
 }
 
 func NewPermissions(perms [][]string) []Permission {

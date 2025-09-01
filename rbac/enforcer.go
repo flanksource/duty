@@ -11,6 +11,7 @@ import (
 	"github.com/casbin/casbin/v2/persist"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/lib/pq"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
@@ -166,7 +167,8 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 	for _, perm := range append(perms, implicit...) {
 		s = append(s, policy.NewPermission(perm))
 	}
-	return s, nil
+
+	return lo.Uniq(s), nil
 }
 
 func Check(ctx context.Context, subject, object, action string) bool {
