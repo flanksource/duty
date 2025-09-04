@@ -82,6 +82,9 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 	if err != nil {
 		return source, err
 	}
+	if ci == nil {
+		return source, nil
+	}
 
 	gitRepoRelationType := "Kubernetes::Kustomization/Kubernetes::GitRepository"
 	if lo.FromPtr(ci.Type) == "Kubernetes::Kustomization" {
