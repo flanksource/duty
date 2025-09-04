@@ -1,12 +1,17 @@
 package tests
 
 import (
+	"slices"
+
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 
 	dutyRBAC "github.com/flanksource/duty/rbac"
+	"github.com/flanksource/duty/rbac/policy"
 )
 
 type Info struct {
@@ -55,5 +60,17 @@ var _ = Describe("Authorization", func() {
 		for _, function := range info.Functions {
 			Expect(dutyRBAC.GetObjectByTable("rpc/"+function)).NotTo(BeEmpty(), function)
 		}
+	})
+
+	It("Should correctly return perms for a user", func() {
+		err := dutyRBAC.Init(DefaultContext, []string{uuid.Nil.String()})
+		Expect(err).NotTo(HaveOccurred())
+		perms, err := dutyRBAC.PermsForUser(uuid.Nil.String())
+		Expect(err).NotTo(HaveOccurred())
+		for _, p := range perms {
+			Expect(slices.Contains(policy.AllObjects, p.Object)).To(BeTrue())
+		}
+		adminSpecificPerms := lo.Filter(perms, func(p policy.Permission, _ int) bool { return p.Subject != policy.RoleEveryone })
+		Expect(len(adminSpecificPerms)).To(Equal(len(policy.AllObjects)))
 	})
 })
