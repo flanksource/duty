@@ -382,6 +382,7 @@ func ResetIsPushed(ctx context.Context) error {
 		models.ConfigChange{}.TableName():   fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
 		models.CheckStatus{}.TableName():    fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
 		models.JobHistory{}.TableName():     fmt.Sprintf(`time_start >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.ViewPanel{}.TableName():      fmt.Sprintf(`refreshed_at >= NOW() - INTERVAL '%d days'`, intervalDays),
 	}
 
 	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
@@ -397,7 +398,7 @@ func ResetIsPushed(ctx context.Context) error {
 			if err := ctx.DB().Table(table.TableName()).
 				Where(lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery)).
 				Update("is_pushed", false).Error; err != nil {
-				errs = append(errs, fmt.Errorf("error updating is_pushed for table[%s]: %w", table, err))
+				errs = append(errs, fmt.Errorf("error updating is_pushed for table[%s]: %w", table.TableName(), err))
 			}
 		}
 	}
