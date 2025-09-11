@@ -165,17 +165,7 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 	}
 	var s []policy.Permission
 	for _, perm := range append(perms, implicit...) {
-		p := policy.NewPermission(perm)
-		// If object is catchall, we change it to
-		// same permission per object
-		if p.Object == "*" {
-			for _, obj := range policy.AllObjects {
-				p.Object = obj
-				s = append(s, p)
-			}
-		} else {
-			s = append(s, p)
-		}
+		s = append(s, policy.NewPermission(perm))
 	}
 
 	return lo.Uniq(s), nil
