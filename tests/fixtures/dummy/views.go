@@ -13,35 +13,41 @@ var View = models.View{
 	Name:      "Mission Control",
 	Namespace: "default",
 	Spec: types.JSON([]byte(`{
-		"cacheTTL": "1h",
-		"panels": [
-			{
-				"name": "Average Duration",
-				"description": "Create Release average duration",
-				"type": "number",
-				"source": "changes",
-				"number": {
-					"unit": "seconds"
-				},
-				"query": {
-					"search": "change_type=GitHubActionRun*",
-					"name": "Create Release",
-					"types": [
-						"GitHubAction::Workflow"
-					],
-					"groupBy": [
-						"details.repository.full_name"
-					],
-					"aggregates": [
-						{
-							"function": "AVG",
-							"alias": "value",
-							"field": "details.duration"
-						}
-					]
-				}
-			}
-		]
+	  "queries": {
+		"pods": {
+		  "configs": {
+			"types": [
+			  "Kubernetes::Pod"
+			]
+		  }
+		}
+	  },
+	  "panels": [
+		{
+		  "name": "Pods",
+		  "description": "Number of Pods",
+		  "type": "gauge",
+		  "gauge": {
+			"min": "0",
+			"max": "100",
+			"thresholds": [
+			  {
+				"value": 0,
+				"color": "green"
+			  },
+			  {
+				"value": 60,
+				"color": "orange"
+			  },
+			  {
+				"value": 90,
+				"color": "red"
+			  }
+			]
+		  },
+		  "query": "SELECT COUNT(*) AS value FROM pods"
+		}
+	  ]
 	}`)),
 	Source:    "KubernetesCRD",
 	CreatedBy: lo.ToPtr(JohnDoe.ID),
