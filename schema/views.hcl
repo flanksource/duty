@@ -22,6 +22,10 @@ table "views" {
     type    = enum.source
     default = "KubernetesCRD"
   }
+  column "labels" {
+    null = true
+    type = jsonb
+  }
   column "created_by" {
     null = true
     type = uuid
