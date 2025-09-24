@@ -27,6 +27,10 @@ func FindViewIDsByResourceSelector(ctx context.Context, limit int, resourceSelec
 
 func GetViewsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.View, error) {
 	var views []models.View
+	if len(ids) == 0 {
+		return views, nil
+	}
+
 	if err := ctx.DB().Where("id IN ?", ids).Find(&views).Error; err != nil {
 		return nil, err
 	}
