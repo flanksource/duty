@@ -53,6 +53,21 @@ var _ = Describe("View Query Tests", func() {
 			})
 		})
 
+		Context("with view table selector", func() {
+			It("should execute view table selector query successfully", func() {
+				query := view.Query{
+					ViewTableSelector: &view.ViewSelector{
+						Namespace: dummy.PodView.Namespace,
+						Name:      dummy.PodView.Name,
+					},
+				}
+
+				results, err := view.ExecuteQuery(ctx, query)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(results).To(HaveLen(3))
+			})
+		})
+
 		Context("with empty query", func() {
 			It("should handle empty query by falling back to dataquery", func() {
 				query := view.Query{}
@@ -72,19 +87,19 @@ var _ = Describe("QueryViewTables", func() {
 	Context("with valid view selector", func() {
 		It("should query view tables successfully", func() {
 			selector := view.ViewSelector{
-				Name: "test-view",
+				Namespace: dummy.PodView.Namespace,
+				Name:      dummy.PodView.Name,
 			}
 
 			results, err := view.QueryViewTables(ctx, selector)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(results).To(HaveLen(0))
+			Expect(results).To(HaveLen(3))
 		})
 	})
 
 	Context("with empty view selector", func() {
 		It("should handle empty selector", func() {
 			selector := view.ViewSelector{}
-
 			results, err := view.QueryViewTables(ctx, selector)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(results).To(HaveLen(0))
@@ -106,24 +121,24 @@ var _ = Describe("QueryViewTables", func() {
 	Context("with label selector", func() {
 		It("should query views by label selector", func() {
 			selector := view.ViewSelector{
-				LabelSelector: "environment=test",
+				LabelSelector: "environment=production",
 			}
 
 			results, err := view.QueryViewTables(ctx, selector)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(results).To(HaveLen(0))
+			Expect(results).To(HaveLen(3))
 		})
 	})
 
 	Context("with namespace selector", func() {
 		It("should query views by namespace", func() {
 			selector := view.ViewSelector{
-				Namespace: "test-namespace",
+				Namespace: "default",
 			}
 
 			results, err := view.QueryViewTables(ctx, selector)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(results).To(HaveLen(0))
+			Expect(results).To(HaveLen(3))
 		})
 	})
 })
