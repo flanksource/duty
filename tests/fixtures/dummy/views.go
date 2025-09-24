@@ -12,15 +12,20 @@ var View = models.View{
 	ID:        uuid.New(),
 	Name:      "Mission Control",
 	Namespace: "default",
+	Labels: types.JSONStringMap{
+		"environment": "production",
+		"team":        "platform",
+		"version":     "v1.2.0",
+	},
 	Spec: types.JSON([]byte(`{
 	  "queries": {
-		"pods": {
-		  "configs": {
-			"types": [
-			  "Kubernetes::Pod"
-			]
-		  }
-		}
+			"pods": {
+				"configs": {
+					"types": [
+						"Kubernetes::Pod"
+					]
+				}
+			}
 	  },
 	  "panels": [
 		{
@@ -46,6 +51,39 @@ var View = models.View{
 			]
 		  },
 		  "query": "SELECT COUNT(*) AS value FROM pods"
+		}
+	  ]
+	}`)),
+	Source:    "KubernetesCRD",
+	CreatedBy: lo.ToPtr(JohnDoe.ID),
+	CreatedAt: DummyCreatedAt,
+}
+
+var ViewDev = models.View{
+	ID:        uuid.New(),
+	Name:      "Dev Dashboard",
+	Namespace: "development",
+	Labels: types.JSONStringMap{
+		"environment": "development",
+		"team":        "platform",
+		"version":     "v1.1.0",
+	},
+	Spec: types.JSON([]byte(`{
+	  "queries": {
+			"services": {
+				"configs": {
+					"types": [
+						"Kubernetes::Service"
+					]
+				}
+			}
+		},
+	  "panels": [
+		{
+		  "name": "Services",
+		  "description": "Number of Services",
+		  "type": "stat",
+		  "query": "SELECT COUNT(*) AS value FROM services"
 		}
 	  ]
 	}`)),
@@ -86,6 +124,7 @@ var PipelineView = models.ViewPanel{
 
 var AllDummyViews = []models.View{
 	View,
+	ViewDev,
 }
 
 var AllDummyViewPanels = []models.ViewPanel{
