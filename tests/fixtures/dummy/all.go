@@ -10,8 +10,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
+	"github.com/flanksource/duty/view"
 )
 
 var CurrentTime = time.Now()
@@ -45,6 +47,7 @@ type DummyData struct {
 
 	Views      []models.View
 	ViewPanels []models.ViewPanel
+	ViewTables []ViewGeneratedTable
 
 	Canaries                    []models.Canary
 	Checks                      []models.Check
@@ -57,8 +60,10 @@ type DummyData struct {
 	Permissions []models.Permission
 }
 
-func (t *DummyData) Populate(gormDB *gorm.DB) error {
+func (t *DummyData) Populate(ctx context.Context) error {
 	createTime := DummyCreatedAt
+
+	gormDB := ctx.DB()
 
 	if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value") {
@@ -204,6 +209,32 @@ func (t *DummyData) Populate(gormDB *gorm.DB) error {
 		return err
 	}
 
+	for _, viewTable := range t.ViewTables {
+		columnDefs, err := view.GetViewColumnDefs(ctx, viewTable.View.Namespace, viewTable.View.Name)
+		if err != nil {
+			return err
+		}
+
+		if err := view.CreateViewTable(ctx, viewTable.View.GeneratedTableName(), columnDefs); err != nil {
+			return err
+		}
+
+		var viewRows []view.Row
+		for _, row := range viewTable.Rows {
+			viewRow := make(view.Row, len(columnDefs))
+			for i, col := range columnDefs {
+				if val, exists := row[col.Name]; exists {
+					viewRow[i] = val
+				}
+			}
+			viewRows = append(viewRows, viewRow)
+		}
+
+		if err := view.InsertViewRows(ctx, viewTable.View.GeneratedTableName(), columnDefs, viewRows, "dummy-fixture"); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -326,6 +357,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
 		Views:                        append([]models.View{}, AllDummyViews...),
 		ViewPanels:                   append([]models.ViewPanel{}, AllDummyViewPanels...),
+		ViewTables:                   append([]ViewGeneratedTable{}, AllDummyViewTables...),
 		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
 		Permissions:                  append([]models.Permission{}, AllDummyPermissions...),
 	}

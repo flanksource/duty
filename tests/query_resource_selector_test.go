@@ -473,29 +473,29 @@ var _ = ginkgo.Describe("View Resource Selector", func() {
 		expectedViews     []models.View
 	}{
 		{
-			description: "name",
-			resourceSelectors: []types.ResourceSelector{{Name: dummy.View.Name}},
-			expectedViews: []models.View{dummy.View},
+			description:       "name",
+			resourceSelectors: []types.ResourceSelector{{Name: dummy.PodView.Name}},
+			expectedViews:     []models.View{dummy.PodView},
 		},
 		{
-			description: "namespace + name",
+			description:       "namespace + name",
 			resourceSelectors: []types.ResourceSelector{{Namespace: dummy.ViewDev.Namespace, Name: dummy.ViewDev.Name}},
-			expectedViews: []models.View{dummy.ViewDev},
+			expectedViews:     []models.View{dummy.ViewDev},
 		},
 		{
-			description: "label selector - single label",
+			description:       "label selector - single label",
 			resourceSelectors: []types.ResourceSelector{{LabelSelector: "environment=production"}},
-			expectedViews: []models.View{dummy.View},
+			expectedViews:     []models.View{dummy.PodView},
 		},
 		{
-			description: "label selector - multiple labels",
+			description:       "label selector - multiple labels",
 			resourceSelectors: []types.ResourceSelector{{LabelSelector: "team=platform,environment=development"}},
-			expectedViews: []models.View{dummy.ViewDev},
+			expectedViews:     []models.View{dummy.ViewDev},
 		},
 		{
-			description: "namespace with multiple views",
+			description:       "namespace with multiple views",
 			resourceSelectors: []types.ResourceSelector{{Namespace: "default"}},
-			expectedViews: []models.View{dummy.View},
+			expectedViews:     []models.View{dummy.PodView},
 		},
 	}
 
