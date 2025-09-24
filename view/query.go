@@ -29,7 +29,6 @@ func (vs *ViewSelector) ToResourceSelector() types.ResourceSelector {
 	}
 }
 
-// QueryViewTables queries data from view-generated tables based on the ViewTableSelector criteria
 func QueryViewTables(ctx context.Context, selector ViewSelector) ([]dataquery.QueryResultRow, error) {
 	var results []dataquery.QueryResultRow
 
