@@ -166,6 +166,8 @@ func reconcileTableGroupsWithGeneratedViews(ctx context.Context, client *Upstrea
 					PrimaryKey:    columnDef.PrimaryKey(),
 					ColumnDef:     columnDef.ToColumnTypeMap(),
 				})
+			} else {
+				ctx.Warnf("not reconciling view %s/%s because the column definitions do not match", view.GetNamespace(), view.Name)
 			}
 		}
 	}

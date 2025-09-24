@@ -30,7 +30,7 @@ func (t *PushFKError) Empty() bool {
 
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
 	var t models.Agent
-	tx := ctx.DB().Where("name = ?", name).First(&t)
+	tx := ctx.DB().Where("name = ?", name).Where("deleted_at IS NULL").First(&t)
 	return &t, tx.Error
 }
 
