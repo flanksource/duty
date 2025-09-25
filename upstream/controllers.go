@@ -94,7 +94,9 @@ func NewPushHandler(ringManager StatusRingManager) echo.HandlerFunc {
 		req.PopulateAgentID(agentID)
 		req.AddAgentConfig(lo.FromPtr(ctx.Agent()))
 
-		ctx.Logger.V(6).Infof("inserting push data %s", req.String())
+		if v := ctx.Logger.V(6); v.Enabled() {
+			v.Infof("inserting push data %s", req.String())
+		}
 
 		if err := InsertUpstreamMsg(ctx, &req); err != nil {
 			histogram.Label(StatusLabel, StatusError)
