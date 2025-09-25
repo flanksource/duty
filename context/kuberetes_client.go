@@ -89,7 +89,6 @@ func (c *KubernetesClient) SetExpiry(def time.Duration) {
 
 func (c *KubernetesClient) Refresh(ctx Context) (*rest.Config, error) {
 	if !c.HasExpired() && (c.Config.AuthProvider == nil || c.Config.BearerToken != "") {
-		c.logger.V(5).Infof("Skipping refresh, client has not expired")
 		return c.RestConfig(), nil
 	}
 	client, rc, err := c.Connection.Populate(ctx, true)
