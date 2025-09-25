@@ -12,15 +12,6 @@ import (
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
-	"github.com/flanksource/duty"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/job"
-	dutyKubernetes "github.com/flanksource/duty/kubernetes"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/shutdown"
-	"github.com/flanksource/duty/telemetry"
-	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/labstack/echo/v4"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,6 +25,16 @@ import (
 
 	//fix indirect go.mod
 	_ "github.com/spf13/cobra"
+
+	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/shutdown"
+	"github.com/flanksource/duty/telemetry"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 )
 
 const (
@@ -233,7 +234,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		if err := dummyData.Delete(ctx.DB()); err != nil {
 			logger.Errorf(err.Error())
 		}
-		err = dummyData.Populate(ctx.DB())
+		err = dummyData.Populate(ctx)
 		if err != nil {
 			return context.Context{}, err
 		}

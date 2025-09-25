@@ -277,6 +277,15 @@ var ConfigChangeQueryModel = QueryModel{
 	},
 }
 
+var ViewQueryModel = QueryModel{
+	Table: models.View{}.TableName(),
+	Columns: []string{
+		"name", "namespace",
+	},
+	JSONMapColumns: []string{"labels"},
+	HasLabels:      true,
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
@@ -291,6 +300,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return ConfigChangeQueryModel, nil
 	case models.ConfigItemSummary{}.TableName():
 		return ConfigItemSummaryQueryModel, nil
+	case models.View{}.TableName():
+		return ViewQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}
