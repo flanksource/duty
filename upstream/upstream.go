@@ -286,6 +286,11 @@ func (t *PushData) PopulateAgentID(id uuid.UUID) {
 	for i := range t.ViewPanels {
 		t.ViewPanels[i].AgentID = id
 	}
+	for view := range t.GeneratedViews {
+		for row := range t.GeneratedViews[view] {
+			t.GeneratedViews[view][row].Row["agent_id"] = id
+		}
+	}
 }
 
 // ApplyLabels injects additional labels to the suitable fields

@@ -26,7 +26,7 @@ type Row []any
 
 func GetViewColumnDefs(ctx context.Context, namespace, name string) (ViewColumnDefList, error) {
 	var view models.View
-	err := ctx.DB().Where("namespace = ? AND name = ?", namespace, name).First(&view).Error
+	err := ctx.DB().Where("namespace = ? AND name = ?", namespace, name).Where("deleted_at IS NULL").First(&view).Error
 	if err != nil {
 		return nil, err
 	}

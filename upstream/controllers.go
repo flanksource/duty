@@ -181,7 +181,7 @@ func listViews(ctx context.Context, viewIdentifiers []ViewIdentifier) ([]ViewWit
 	var result []ViewWithColumns
 	for _, viewId := range viewIdentifiers {
 		var viewModel models.View
-		if err := ctx.DB().Where("namespace = ? AND name = ?", viewId.Namespace, viewId.Name).Find(&viewModel).Error; err != nil {
+		if err := ctx.DB().Where("namespace = ? AND name = ?", viewId.Namespace, viewId.Name).Where("deleted_at IS NULL").Find(&viewModel).Error; err != nil {
 			return nil, fmt.Errorf("database error: %w", err)
 		}
 		if viewModel.ID == uuid.Nil {

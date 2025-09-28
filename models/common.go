@@ -193,7 +193,19 @@ func ConvertRowToNativeTypes(row map[string]any, columnDef map[string]ColumnType
 	for colName, value := range row {
 		colType, ok := columnDef[colName]
 		if !ok {
-			continue
+			// These could be columns that the system generates.
+			// They are not in the user specified columnDef.
+			switch colName {
+			case "agent_id":
+				// Do nothing
+
+			case "__row__attributes":
+				colType = ColumnTypeJSONB
+
+			default:
+				continue
+			}
+
 		}
 
 		switch colType {
