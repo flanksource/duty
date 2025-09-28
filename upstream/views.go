@@ -101,18 +101,16 @@ func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) e
 }
 
 // columnsMatch checks if two sets of column definitions match
-func columnsMatch(local []pkgView.ColumnDef, upstream []pkgView.ColumnDef) bool {
-	if len(local) != len(upstream) {
-		return false
-	}
+func columnsMatch(local []pkgView.ColumnDef, upstream []pkgView.ColumnDef) []string {
+	var nonMatching []string
 
 	for i, localCol := range local {
 		if localCol.Name != upstream[i].Name || localCol.Type != upstream[i].Type {
-			return false
+			nonMatching = append(nonMatching, localCol.Name)
 		}
 	}
 
-	return true
+	return nonMatching
 }
 
 func reconcileTableGroupsWithGeneratedViews(ctx context.Context, client *UpstreamClient) ([]PushGroup, error) {
@@ -160,14 +158,14 @@ func reconcileTableGroupsWithGeneratedViews(ctx context.Context, client *Upstrea
 
 		key := view.GetNamespace() + "/" + view.Name
 		if upstreamColumns, exists := upstreamViewMap[key]; exists {
-			if columnsMatch(columnDef, upstreamColumns) {
+			if nonMatching := columnsMatch(columnDef, upstreamColumns); len(nonMatching) == 0 {
 				pg.Tables = append(pg.Tables, models.GeneratedViewTable{
 					ViewTableName: view.GeneratedTableName(),
 					PrimaryKey:    columnDef.PrimaryKey(),
 					ColumnDef:     columnDef.ToColumnTypeMap(),
 				})
 			} else {
-				ctx.Warnf("not reconciling view %s/%s because the column definitions do not match", view.GetNamespace(), view.Name)
+				ctx.Warnf("not reconciling view %s/%s because the column definitions do not match: %v", view.GetNamespace(), view.Name, nonMatching)
 			}
 		}
 	}
