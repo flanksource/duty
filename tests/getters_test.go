@@ -1,13 +1,14 @@
 package tests
 
 import (
-	"github.com/flanksource/duty/query"
-	"github.com/flanksource/duty/tests/fixtures/dummy"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/types"
 )
 
 var _ = ginkgo.Describe("FindChecks", func() {
@@ -215,11 +216,6 @@ var _ = ginkgo.Describe("FindPlaybooks", func() {
 		{
 			Name:      "name",
 			Selectors: []types.ResourceSelector{{Name: dummy.EchoConfig.Name}},
-			Results:   []uuid.UUID{dummy.EchoConfig.ID},
-		},
-		{
-			Name:      "tags",
-			Selectors: []types.ResourceSelector{{TagSelector: "category=debug"}},
 			Results:   []uuid.UUID{dummy.EchoConfig.ID},
 		},
 		{

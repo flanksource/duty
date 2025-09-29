@@ -1,8 +1,9 @@
 package dummy
 
 import (
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+
+	"github.com/flanksource/duty/models"
 )
 
 var EchoConfig = models.Playbook{
@@ -13,10 +14,7 @@ var EchoConfig = models.Playbook{
 	Description: "echos the config spec",
 	Source:      models.SourceUI,
 	Category:    "debug",
-	Tags: map[string]string{
-		"category": "debug",
-	},
-	Spec: []byte("{}"),
+	Spec:        []byte("{}"),
 }
 
 var AllDummyPlaybooks = []models.Playbook{EchoConfig}
