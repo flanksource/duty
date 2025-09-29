@@ -330,6 +330,12 @@ func queryResourceSelector[T any](
 		return nil, err
 	}
 
+	if ctx.Properties().String("log.level.resourceSelector", "") != "" {
+		ctx.WithName("resourceSelector").Logger.WithValues("cacheKey", cacheKey).Tracef("query: %s", query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+			return tx.Find(&[]T{})
+		}))
+	}
+
 	var output []T
 	if err := query.Find(&output).Error; err != nil {
 		return nil, err
@@ -341,8 +347,8 @@ func queryResourceSelector[T any](
 			cacheDuration = time.Minute // if results weren't found, cache it shortly even on the immutable cache
 		}
 
-		if strings.HasPrefix(resourceSelector.Cache, "max-age=") {
-			d, err := duration.ParseDuration(strings.TrimPrefix(resourceSelector.Cache, "max-age="))
+		if after, ok := strings.CutPrefix(resourceSelector.Cache, "max-age="); ok {
+			d, err := duration.ParseDuration(after)
 			if err != nil {
 				return nil, err
 			}
