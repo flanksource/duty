@@ -1,4 +1,4 @@
-package rls
+package api
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 	t.Run("should set fingerprint to 'disabled' if Disable is true", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
+		payload := &RLSPayload{
 			Disable: true,
 		}
 		payload.EvalFingerprint()
@@ -21,7 +21,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 	t.Run("should compute deterministic fingerprint for Tags and Agents", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
+		payload := &RLSPayload{
 			Tags: []map[string]string{
 				{"z": "value1", "a": "value2"},
 				{"b": "value3"},
@@ -37,7 +37,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 	t.Run("should compute 'empty' fingerprint for empty Tags and Agents", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{}
+		payload := &RLSPayload{}
 		payload.EvalFingerprint()
 
 		g.Expect(payload.Fingerprint()).To(gomega.Equal("-"))
@@ -46,7 +46,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 	t.Run("should sort Tags and Agents deterministically", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
+		payload := &RLSPayload{
 			Tags: []map[string]string{
 				{"b": "value3"},
 				{"z": "value1", "a": "value2"},
@@ -62,7 +62,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 	t.Run("should cache the fingerprint after first computation", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
+		payload := &RLSPayload{
 			Tags: []map[string]string{
 				{"x": "value4"},
 			},

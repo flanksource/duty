@@ -1,81 +1,92 @@
 package rls
 
 import (
-	"encoding/json"
 	"fmt"
-	"slices"
-	"strings"
+	"time"
 
-	"github.com/flanksource/commons/collections"
-	"github.com/lib/pq"
-	"gorm.io/gorm"
+	"github.com/google/uuid"
+	"github.com/patrickmn/go-cache"
+	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac"
+	"github.com/flanksource/duty/rbac/policy"
 )
 
-// RLS Payload that's injected postgresl parameter `request.jwt.claims`
-type Payload struct {
-	// cached fingerprint
-	fingerprint string
+var rlsPayloadCache = cache.New(time.Hour, time.Hour)
 
-	Tags    []map[string]string `json:"tags,omitempty"`
-	Agents  []string            `json:"agents,omitempty"`
-	Disable bool                `json:"disable_rls,omitempty"`
+func FlushCache() {
+	rlsPayloadCache.Flush()
 }
 
-func (t *Payload) EvalFingerprint() {
-	if t.Disable {
-		t.fingerprint = "disabled"
-		return
+const (
+	// RLS Flag should be set explicitly to avoid unwanted DB Locks
+	FlagRLSEnable  = "rls.enable"
+	FlagRLSDisable = "rls.disable"
+)
+
+func GetPayload(ctx context.Context) (*api.RLSPayload, error) {
+	if !ctx.Properties().On(false, FlagRLSEnable) {
+		return &api.RLSPayload{Disable: true}, nil
 	}
 
-	var tagSelectors []string
-	for _, t := range t.Tags {
-		tagSelectors = append(tagSelectors, collections.SortedMap(t))
-	}
-	slices.Sort(tagSelectors)
-	slices.Sort(t.Agents)
-
-	t.fingerprint = fmt.Sprintf("%s-%s", strings.Join(t.Agents, "--"), strings.Join(tagSelectors, "--"))
-}
-
-func (t *Payload) Fingerprint() string {
-	if t.fingerprint == "" {
-		t.EvalFingerprint()
+	cacheKey := fmt.Sprintf("rls-payload-%s", ctx.User().ID.String())
+	if cached, ok := rlsPayloadCache.Get(cacheKey); ok {
+		return cached.(*api.RLSPayload), nil
 	}
 
-	return t.fingerprint
-}
+	if roles, err := rbac.RolesForUser(ctx.User().ID.String()); err != nil {
+		return nil, err
+	} else if !lo.Contains(roles, policy.RoleGuest) {
+		payload := &api.RLSPayload{Disable: true}
+		rlsPayloadCache.SetDefault(cacheKey, payload)
+		return payload, nil
+	}
 
-// Injects the payload as local parameter
-func (t Payload) SetPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, true)
-}
-
-// Injects the payload as sessions parameter
-func (t Payload) SetGlobalPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, false)
-}
-
-func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool) error {
-	rlsJSON, err := json.Marshal(t)
+	permissions, err := rbac.PermsForUser(ctx.User().ID.String())
 	if err != nil {
-		return fmt.Errorf("failed to marshall to json: %w", err)
+		return nil, err
 	}
 
-	var scope string
-	if local {
-		scope = "LOCAL"
+	var permissionWithIDs []string
+	for _, p := range permissions {
+		if p.Action != policy.ActionRead && p.Action != "*" {
+			continue
+		}
+
+		// TODO: support deny
+		if p.Deny {
+			continue
+		}
+
+		if uuid.Validate(p.ID) == nil {
+			permissionWithIDs = append(permissionWithIDs, p.ID)
+		}
 	}
 
-	if err := db.Exec(fmt.Sprintf("SET %s ROLE postgrest_api", scope)).Error; err != nil {
-		return fmt.Errorf("failed to set role: %w", err)
+	var permModels []models.Permission
+	if err := ctx.DB().Where("id IN ?", permissionWithIDs).Find(&permModels).Error; err != nil {
+		return nil, fmt.Errorf("failed to get permission for ids: %w", err)
 	}
 
-	// NOTE: SET statements in PostgreSQL do not support parameterized queries, so we must use fmt.Sprintf
-	// to inject the rlsJSON safely using pq.QuoteLiteral.
-	rlsSet := fmt.Sprintf(`SET %s request.jwt.claims TO %s`, scope, pq.QuoteLiteral(string(rlsJSON)))
-	if err := db.Exec(rlsSet).Error; err != nil {
-		return fmt.Errorf("failed to set RLS claims: %w", err)
+	var (
+		agentIDs []string
+		tags     = []map[string]string{}
+	)
+	for _, p := range permModels {
+		agentIDs = append(agentIDs, p.Agents...)
+		if len(p.Tags) > 0 {
+			tags = append(tags, p.Tags)
+		}
 	}
 
-	return nil
+	payload := &api.RLSPayload{
+		Agents: agentIDs,
+		Tags:   tags,
+	}
+	rlsPayloadCache.SetDefault(cacheKey, payload)
+
+	return payload, nil
 }

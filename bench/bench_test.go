@@ -7,8 +7,8 @@ import (
 
 	"github.com/flanksource/commons/logger"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	pkgRLS "github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/shutdown"
 	"github.com/flanksource/duty/tests/setup"
 )
@@ -136,10 +136,10 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig) {
 
 			b.Run(name, func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
-					var payload pkgRLS.Payload
+					var payload api.RLSPayload
 					if rls {
 						b.StopTimer()
-						payload = pkgRLS.Payload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
+						payload = api.RLSPayload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
 						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
 							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
 						}

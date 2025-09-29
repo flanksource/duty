@@ -21,11 +21,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/cache"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/tracing"
 	"github.com/flanksource/duty/types"
 )
@@ -439,17 +439,17 @@ func (k Context) LocalKubernetes() (*dutyKubernetes.Client, error) {
 	return localKubernetes, nil
 }
 
-func (k Context) WithRLSPayload(payload *rls.Payload) Context {
+func (k Context) WithRLSPayload(payload *api.RLSPayload) Context {
 	return k.WithValue(rlsPayloadCtxKey, payload)
 }
 
-func (k Context) RLSPayload() *rls.Payload {
+func (k Context) RLSPayload() *api.RLSPayload {
 	v := k.Value(rlsPayloadCtxKey)
 	if v == nil {
 		return nil
 	}
 
-	return v.(*rls.Payload)
+	return v.(*api.RLSPayload)
 }
 
 func (k Context) Topology() any {
