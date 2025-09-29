@@ -13,13 +13,14 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/samber/lo"
+	"github.com/samber/oops"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/functions"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
-	"github.com/samber/lo"
-	"github.com/samber/oops"
 )
 
 func RunMigrations(pool *sql.DB, config api.Config) error {
@@ -38,10 +39,15 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	}
 
 	// RLS enable/disable should always be explicit
+	//
+	// NOTE: must always run either rls_enable or rls_disable because the properties also dictates
+	// whether to run these scripts even if they haven't changed.
 	if config.EnableRLS {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "035_rls_disable.sql")
+		config.MustRun = append(config.MustRun, "034_rls_enable.sql")
 	} else if config.DisableRLS {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql")
+		config.MustRun = append(config.MustRun, "035_rls_disable.sql")
 	} else {
 		config.SkipMigrationFiles = append(config.SkipMigrationFiles, "034_rls_enable.sql", "035_rls_disable.sql")
 	}
