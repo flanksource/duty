@@ -466,6 +466,53 @@ var _ = ginkgo.Describe("ResoureSelectorPEG | Sort And Group By", ginkgo.Ordered
 	})
 })
 
+var _ = ginkgo.Describe("View Resource Selector", func() {
+	testData := []struct {
+		description       string
+		resourceSelectors []types.ResourceSelector
+		expectedViews     []models.View
+	}{
+		{
+			description:       "name",
+			resourceSelectors: []types.ResourceSelector{{Name: dummy.PodView.Name}},
+			expectedViews:     []models.View{dummy.PodView},
+		},
+		{
+			description:       "namespace + name",
+			resourceSelectors: []types.ResourceSelector{{Namespace: dummy.ViewDev.Namespace, Name: dummy.ViewDev.Name}},
+			expectedViews:     []models.View{dummy.ViewDev},
+		},
+		{
+			description:       "label selector - single label",
+			resourceSelectors: []types.ResourceSelector{{LabelSelector: "environment=production"}},
+			expectedViews:     []models.View{dummy.PodView},
+		},
+		{
+			description:       "label selector - multiple labels",
+			resourceSelectors: []types.ResourceSelector{{LabelSelector: "team=platform,environment=development"}},
+			expectedViews:     []models.View{dummy.ViewDev},
+		},
+		{
+			description:       "namespace with multiple views",
+			resourceSelectors: []types.ResourceSelector{{Namespace: "default"}},
+			expectedViews:     []models.View{dummy.PodView},
+		},
+	}
+
+	ginkgo.Describe("FindViewsByResourceSelector", func() {
+		for _, test := range testData {
+			ginkgo.It(test.description, func() {
+				views, err := query.FindViewsByResourceSelector(DefaultContext, -1, test.resourceSelectors...)
+				Expect(err).To(BeNil())
+				Expect(views).To(HaveLen(len(test.expectedViews)))
+				if len(test.expectedViews) > 0 {
+					Expect(models.GetIDs(views...)).To(ContainElements(models.GetIDs(test.expectedViews...)))
+				}
+			})
+		}
+	})
+})
+
 var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)
