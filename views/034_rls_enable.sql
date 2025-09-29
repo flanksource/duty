@@ -92,11 +92,10 @@ CREATE POLICY config_relationships_auth ON config_relationships
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE EXISTS (
-        -- just leverage the RLS on config_items
-        SELECT 1
-        FROM config_items
-        WHERE config_items.id = config_relationships.config_id AND config_items.id = config_relationships.related_id
+      ELSE (
+        -- just leverage the RLS on config_items - user must have access to both items
+        EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_relationships.config_id)
+        AND EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_relationships.related_id)
       )
       END
     );
