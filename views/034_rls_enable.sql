@@ -19,7 +19,7 @@ BEGIN
     END IF;
 
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_analysis') THEN
-        EXECUTE 'ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;';
+        EXECUTE 'ALTER TABLE config_analysis ENABLE ROW LEVEL SECURITY;';
     END IF;
 
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'components') THEN
@@ -153,4 +153,8 @@ ALTER VIEW config_tags SET (security_invoker = true);
 ALTER VIEW config_tags_labels_keys SET (security_invoker = true);
 ALTER VIEW config_types SET (security_invoker = true);
 ALTER VIEW configs SET (security_invoker = true);
+ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
+
+-- TODO: Move 034_rls_enable.sql as the last script (eg: 10000_rls_enable.sql)
+-- So that all the views are already created before it runs.

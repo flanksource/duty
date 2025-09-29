@@ -10,7 +10,7 @@ BEGIN
     END IF;
 
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_analysis') THEN
-        EXECUTE 'ALTER TABLE config_changes DISABLE ROW LEVEL SECURITY;';
+        EXECUTE 'ALTER TABLE config_analysis DISABLE ROW LEVEL SECURITY;';
     END IF;
 
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'components') THEN
@@ -22,7 +22,7 @@ BEGIN
     END IF;
 
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_relationships') THEN
-        RAISE NOTICE 'RLS is already disabled on config_relationships.';
+        EXECUTE 'ALTER TABLE config_relationships DISABLE ROW LEVEL SECURITY;';
     END IF;
 END $$;
 
@@ -35,3 +35,6 @@ DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 
 DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 
+DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
+
+DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
