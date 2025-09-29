@@ -3,11 +3,12 @@ package query
 import (
 	"time"
 
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/query/grammar"
 	"github.com/patrickmn/go-cache"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/query/grammar"
 )
 
 var LocalFilter = "deleted_at is NULL AND agent_id = '00000000-0000-0000-0000-000000000000' OR agent_id IS NULL"
@@ -96,10 +97,7 @@ func GetDistinctTags(ctx context.Context) ([]string, error) {
 	}
 
 	var tags []string
-	query := `
-	SELECT jsonb_object_keys(tags) FROM config_items
-	UNION
-	SELECT jsonb_object_keys(tags) FROM playbooks`
+	query := `SELECT jsonb_object_keys(tags) FROM config_items`
 	if err := ctx.DB().Raw(query).Scan(&tags).Error; err != nil {
 		return nil, err
 	}

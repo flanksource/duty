@@ -44,10 +44,6 @@ table "playbooks" {
     type    = text
     default = ""
   }
-  column "tags" {
-    null = true
-    type = jsonb
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
