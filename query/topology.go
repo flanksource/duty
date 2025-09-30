@@ -157,9 +157,13 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 
 	if !params.NoCache {
 		cacheKey = params.CacheKey()
+
+		// Note: When accessed via mission-control (i.e. when User is set),
+		// we need to cache per user due to permission differences.
 		if user := ctx.User(); user != nil {
 			cacheKey = fmt.Sprintf("%s-%s", cacheKey, user.ID.String())
 		}
+
 		if cached, ok := topologyCache.Get(cacheKey); ok {
 			ctx.GetSpan().SetAttributes(
 				attribute.Bool("cache.hit", true),
