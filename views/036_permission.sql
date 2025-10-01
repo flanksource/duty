@@ -36,6 +36,7 @@ SELECT
     p.name,
     p.namespace,
     p.description,
+    p.source,
     p.action,
     p.object,
     p.object_selector,
