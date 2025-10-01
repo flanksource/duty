@@ -32,6 +32,8 @@ type SearchResourcesRequest struct {
 	Components    []types.ResourceSelector `json:"components"`
 	Configs       []types.ResourceSelector `json:"configs"`
 	ConfigChanges []types.ResourceSelector `json:"config_changes"`
+	Playbooks     []types.ResourceSelector `json:"playbooks"`
+	Connections   []types.ResourceSelector `json:"connections"`
 }
 
 type SearchResourcesResponse struct {
@@ -39,6 +41,8 @@ type SearchResourcesResponse struct {
 	Components    []SelectedResource `json:"components,omitempty"`
 	Configs       []SelectedResource `json:"configs,omitempty"`
 	ConfigChanges []SelectedResource `json:"config_changes,omitempty"`
+	Playbooks     []SelectedResource `json:"playbooks,omitempty"`
+	Connections   []SelectedResource `json:"connections,omitempty"`
 }
 
 func (r *SearchResourcesResponse) GetIDs() []string {
@@ -47,6 +51,8 @@ func (r *SearchResourcesResponse) GetIDs() []string {
 	ids = append(ids, lo.Map(r.Configs, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Components, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.ConfigChanges, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.Playbooks, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.Connections, func(c SelectedResource, _ int) string { return c.ID })...)
 	return ids
 }
 
@@ -139,6 +145,40 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 				output.ConfigChanges = append(output.ConfigChanges, SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     agentID,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		if items, err := FindPlaybooksByResourceSelector(ctx, req.Limit, req.Playbooks...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output.Playbooks = append(output.Playbooks, SelectedResource{
+					ID:        items[i].GetID(),
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
+		if items, err := FindConnectionsByResourceSelector(ctx, req.Limit, req.Connections...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output.Connections = append(output.Connections, SelectedResource{
+					ID:        items[i].GetID(),
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),

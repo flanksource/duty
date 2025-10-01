@@ -58,6 +58,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		Components    []models.Component
 		Checks        []models.Check
 		ConfigChanges []models.CatalogChange
+		Playbooks     []models.Playbook
+		Connections   []models.Connection
 	}{
 		{
 			description: "id",
@@ -258,6 +260,41 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			},
 			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange},
 		},
+		{
+			description: "playbook by id",
+			query: query.SearchResourcesRequest{
+				Playbooks: []types.ResourceSelector{{ID: dummy.EchoConfig.ID.String()}},
+			},
+			Playbooks: []models.Playbook{dummy.EchoConfig},
+		},
+		{
+			description: "playbook by name and namespace",
+			query: query.SearchResourcesRequest{
+				Playbooks: []types.ResourceSelector{{Name: dummy.EchoConfig.Name, Namespace: dummy.EchoConfig.Namespace}},
+			},
+			Playbooks: []models.Playbook{dummy.EchoConfig},
+		},
+		{
+			description: "connection by id",
+			query: query.SearchResourcesRequest{
+				Connections: []types.ResourceSelector{{ID: dummy.AWSConnection.ID.String()}},
+			},
+			Connections: []models.Connection{dummy.AWSConnection},
+		},
+		{
+			description: "connection by type",
+			query: query.SearchResourcesRequest{
+				Connections: []types.ResourceSelector{{Types: []string{dummy.AWSConnection.Type}}},
+			},
+			Connections: []models.Connection{dummy.AWSConnection},
+		},
+		{
+			description: "connection by namespace",
+			query: query.SearchResourcesRequest{
+				Connections: []types.ResourceSelector{{Namespace: dummy.PostgresConnection.Namespace}},
+			},
+			Connections: []models.Connection{dummy.PostgresConnection},
+		},
 	}
 
 	ginkgo.Describe("search", ginkgo.Ordered, func() {
@@ -294,6 +331,8 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 		Components    []models.Component
 		Checks        []models.Check
 		ConfigChanges []models.CatalogChange
+		Playbooks     []models.Playbook
+		Connections   []models.Connection
 	}{
 		{
 			description: "field selector | Property lookup | configs",
@@ -337,6 +376,8 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.ConfigChanges...)), "should contain config changes")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Playbooks...)), "should contain playbooks")
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Connections...)), "should contain connections")
 		})
 	}
 })
