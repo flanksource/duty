@@ -255,6 +255,11 @@ var PlaybookQueryModel = QueryModel{
 	},
 }
 
+var ConnectionQueryModel = QueryModel{
+	Table:   models.Connection{}.TableName(),
+	Columns: []string{"id", "name", "namespace", "type"},
+}
+
 var ConfigChangeQueryModel = QueryModel{
 	Table: "catalog_changes",
 	Columns: []string{
@@ -296,6 +301,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return CheckQueryModel, nil
 	case models.Playbook{}.TableName():
 		return PlaybookQueryModel, nil
+	case models.Connection{}.TableName():
+		return ConnectionQueryModel, nil
 	case models.CatalogChange{}.TableName():
 		return ConfigChangeQueryModel, nil
 	case models.ConfigItemSummary{}.TableName():
