@@ -33,6 +33,10 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_relationships') THEN
         EXECUTE 'ALTER TABLE config_relationships ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'canaries') THEN
+        EXECUTE 'ALTER TABLE canaries ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -129,8 +133,23 @@ CREATE POLICY components_auth ON components
       END
     );
 
+-- Policy canaries
+DROP POLICY IF EXISTS canaries_auth ON canaries;
+
+CREATE POLICY canaries_auth ON canaries
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        SELECT 1 FROM jsonb_array_elements((current_setting('request.jwt.claims', TRUE)::json ->> 'labels')::jsonb) allowed_labels
+        WHERE canaries.labels::jsonb @> allowed_labels.value
+      )
+      END
+    );
+
 ALTER VIEW analysis_by_config SET (security_invoker = true);
 ALTER VIEW catalog_changes SET (security_invoker = true);
+ALTER VIEW check_summary SET (security_invoker = true);
 ALTER VIEW check_summary_by_config SET (security_invoker = true);
 ALTER VIEW check_summary_for_config SET (security_invoker = true);
 ALTER VIEW checks_by_config SET (security_invoker = true);
