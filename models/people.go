@@ -80,6 +80,7 @@ type AccessToken struct {
 	ID        uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name      string     `json:"name" gorm:"not null"`
 	Value     string     `json:"-" gorm:"not null"`
+	AutoRenew bool       `json:"auto_renew"`
 	PersonID  uuid.UUID  `json:"person_id" gorm:"not null"`
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
