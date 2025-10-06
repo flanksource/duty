@@ -78,8 +78,8 @@ SELECT
             'name', c.name
         )
     ELSE NULL END AS canary,
-    
-    -- PermissionGroup details 
+
+    -- PermissionGroup details
     CASE WHEN p.subject_type = 'group' THEN
         jsonb_build_object(
             'id', pg.id,
@@ -87,7 +87,7 @@ SELECT
             'name', pg.name
         )
     ELSE NULL END AS group,
-    
+
     -- Notification details (id, namespace, name)
     CASE WHEN p.subject_type = 'notification' THEN
         jsonb_build_object(
@@ -96,7 +96,7 @@ SELECT
             'name', n.name
         )
     ELSE NULL END AS notification,
-    
+
     -- Playbook details (id, namespace, name)
     CASE WHEN p.subject_type = 'playbook' THEN
         jsonb_build_object(
@@ -105,7 +105,7 @@ SELECT
             'name', pb.name
         )
     ELSE NULL END AS playbook,
-    
+
     -- Scraper details (id, namespace, name)
     CASE WHEN p.subject_type = 'scraper' THEN
         jsonb_build_object(
@@ -114,7 +114,7 @@ SELECT
             'name', cs.name
         )
     ELSE NULL END AS scraper,
-    
+
     -- Topology details (id, namespace, name)
     CASE WHEN p.subject_type = 'topology' THEN
         jsonb_build_object(
@@ -122,7 +122,44 @@ SELECT
             'namespace', tp.namespace,
             'name', tp.name
         )
-    ELSE NULL END AS topology
+    ELSE NULL END AS topology,
+
+    -- Component resource details (id, icon, name)
+    CASE WHEN p.component_id IS NOT NULL THEN
+        jsonb_build_object(
+            'id', comp.id,
+            'icon', COALESCE(comp.icon, comp.type),
+            'name', comp.name
+        )
+    ELSE NULL END AS component_object,
+
+    -- Config item resource details (id, icon, name)
+    CASE WHEN p.config_id IS NOT NULL THEN
+        jsonb_build_object(
+            'id', ci.id,
+            'icon', ci.icon,
+            'type', ci.type,
+            'name', ci.name
+        )
+    ELSE NULL END AS config_object,
+
+    -- Playbook resource details (id, icon, name)
+    CASE WHEN p.playbook_id IS NOT NULL THEN
+        jsonb_build_object(
+            'id', pb_res.id,
+            'icon', pb_res.icon,
+            'name', COALESCE(pb_res.spec->>'title', pb_res.name)
+        )
+    ELSE NULL END AS playbook_object,
+
+    -- Connection resource details (id, icon, name)
+    CASE WHEN p.connection_id IS NOT NULL THEN
+        jsonb_build_object(
+            'id', conn.id,
+            'type', conn.type,
+            'name', conn.name
+        )
+    ELSE NULL END AS connection_object
     
 FROM permissions p
 LEFT JOIN permission_groups pg ON p.subject_type = 'group' AND pg.name = p.subject AND pg.deleted_at IS NULL
@@ -133,4 +170,8 @@ LEFT JOIN notifications n ON p.subject_type = 'notification' AND n.id::text = p.
 LEFT JOIN playbooks pb ON p.subject_type = 'playbook' AND pb.id::text = p.subject AND pb.deleted_at IS NULL
 LEFT JOIN config_scrapers cs ON p.subject_type = 'scraper' AND cs.id::text = p.subject AND cs.deleted_at IS NULL
 LEFT JOIN topologies tp ON p.subject_type = 'topology' AND tp.id::text = p.subject AND tp.deleted_at IS NULL
+LEFT JOIN components comp ON p.component_id = comp.id AND comp.deleted_at IS NULL
+LEFT JOIN config_items ci ON p.config_id = ci.id AND ci.deleted_at IS NULL
+LEFT JOIN playbooks pb_res ON p.playbook_id = pb_res.id AND pb_res.deleted_at IS NULL
+LEFT JOIN connections conn ON p.connection_id = conn.id AND conn.deleted_at IS NULL
 WHERE p.deleted_at IS NULL;

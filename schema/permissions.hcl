@@ -64,28 +64,33 @@ table "permissions" {
   }
 
   column "component_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "component resource"
   }
 
   column "config_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "config item resource"
   }
 
   column "canary_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "canary resource"
   }
 
   column "playbook_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "playbook resource"
   }
 
   column "connection_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "connection resource"
   }
 
   column "created_by" {
@@ -93,16 +98,19 @@ table "permissions" {
     type = uuid
   }
 
+  # Deprecated. Use subject and subject_type instead.
   column "person_id" {
     null = true
     type = uuid
   }
 
+  # Deprecated. Use subject and subject_type instead.
   column "team_id" {
     null = true
     type = uuid
   }
 
+  # Deprecated. Use object and object_selector instead.
   column "notification_id" {
     null = true
     type = uuid
