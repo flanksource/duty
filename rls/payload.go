@@ -9,16 +9,28 @@ import (
 	"github.com/flanksource/commons/collections"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/types"
 )
+
+// ObjectSelectors contains resource selectors for different object types
+type ObjectSelectors struct {
+	Playbooks   []types.ResourceSelector `json:"playbooks,omitempty"`
+	Connections []types.ResourceSelector `json:"connections,omitempty"`
+	Configs     []types.ResourceSelector `json:"configs,omitempty"`
+	Components  []types.ResourceSelector `json:"components,omitempty"`
+}
 
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 type Payload struct {
 	// cached fingerprint
 	fingerprint string
 
-	Tags    []map[string]string `json:"tags,omitempty"`
-	Agents  []string            `json:"agents,omitempty"`
-	Disable bool                `json:"disable_rls,omitempty"`
+	Tags            []map[string]string `json:"tags,omitempty"`
+	Agents          []string            `json:"agents,omitempty"`
+	Objects         []string            `json:"objects,omitempty"`
+	ObjectSelectors *ObjectSelectors    `json:"object_selectors,omitempty"`
+	Disable         bool                `json:"disable_rls,omitempty"`
 }
 
 func (t *Payload) EvalFingerprint() {
@@ -33,8 +45,21 @@ func (t *Payload) EvalFingerprint() {
 	}
 	slices.Sort(tagSelectors)
 	slices.Sort(t.Agents)
+	slices.Sort(t.Objects)
 
-	t.fingerprint = fmt.Sprintf("%s-%s", strings.Join(t.Agents, "--"), strings.Join(tagSelectors, "--"))
+	var objectSelectorsStr string
+	if t.ObjectSelectors != nil {
+		if data, err := json.Marshal(t.ObjectSelectors); err == nil {
+			objectSelectorsStr = string(data)
+		}
+	}
+
+	t.fingerprint = fmt.Sprintf("%s-%s-%s-%s",
+		strings.Join(t.Agents, "--"),
+		strings.Join(tagSelectors, "--"),
+		strings.Join(t.Objects, "--"),
+		objectSelectorsStr,
+	)
 }
 
 func (t *Payload) Fingerprint() string {

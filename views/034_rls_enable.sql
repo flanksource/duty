@@ -7,6 +7,47 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Helper function to check if a name matches a selector pattern
+-- Supports comma-separated names and wildcards (prefix: "name-*", suffix: "*-name")
+CREATE OR REPLACE FUNCTION matches_name_selector(name TEXT, selector TEXT) RETURNS BOOLEAN AS $$
+DECLARE
+  pattern TEXT;
+  patterns TEXT[];
+BEGIN
+  IF selector IS NULL OR name IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Split comma-separated patterns
+  patterns := string_to_array(selector, ',');
+
+  FOREACH pattern IN ARRAY patterns LOOP
+    pattern := trim(pattern);
+
+    -- Exact match
+    IF pattern = name THEN
+      RETURN TRUE;
+    END IF;
+
+    -- Prefix wildcard: "echo-*" matches "echo-config", "echo-test", etc.
+    IF pattern LIKE '%*' AND NOT pattern LIKE '*%*' THEN
+      IF name LIKE (replace(pattern, '*', '%')) THEN
+        RETURN TRUE;
+      END IF;
+    END IF;
+
+    -- Suffix wildcard: "*-deployment" matches "restart-deployment", "scale-deployment", etc.
+    IF pattern LIKE '*%' AND NOT pattern LIKE '%*%*' THEN
+      IF name LIKE (replace(pattern, '*', '%')) THEN
+        RETURN TRUE;
+      END IF;
+    END IF;
+  END LOOP;
+
+  RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER;
+
 -- Enable RLS for tables
 DO $$
 BEGIN
@@ -36,6 +77,10 @@ BEGIN
 
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'canaries') THEN
         EXECUTE 'ALTER TABLE canaries ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbooks') THEN
+        EXECUTE 'ALTER TABLE playbooks ENABLE ROW LEVEL SECURITY;';
     END IF;
 END $$;
 
@@ -143,6 +188,27 @@ CREATE POLICY canaries_auth ON canaries
       ELSE EXISTS (
         SELECT 1 FROM jsonb_array_elements((current_setting('request.jwt.claims', TRUE)::json ->> 'labels')::jsonb) allowed_labels
         WHERE canaries.labels::jsonb @> allowed_labels.value
+      )
+      END
+    );
+
+-- Policy playbooks
+DROP POLICY IF EXISTS playbooks_auth ON playbooks;
+
+CREATE POLICY playbooks_auth ON playbooks
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE (
+        -- Check if 'playbooks' object type is allowed
+        'playbooks' = ANY (ARRAY(SELECT jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'objects')))
+        OR
+        -- Check if playbook name matches any selector in object_selectors.playbooks
+        EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(current_setting('request.jwt.claims')::jsonb -> 'object_selectors' -> 'playbooks') AS selector
+          WHERE matches_name_selector(playbooks.name, selector ->> 'name')
+        )
       )
       END
     );

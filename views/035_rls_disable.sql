@@ -24,6 +24,10 @@ BEGIN
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_relationships') THEN
         EXECUTE 'ALTER TABLE config_relationships DISABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbooks') THEN
+        EXECUTE 'ALTER TABLE playbooks DISABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- POLICIES
@@ -38,3 +42,5 @@ DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
 
 DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
+
+DROP POLICY IF EXISTS playbooks_auth ON playbooks;
