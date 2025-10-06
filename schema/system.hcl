@@ -17,6 +17,11 @@ table "access_tokens" {
     null = false
     type = text
   }
+  column "auto_renew" {
+    null = false
+    type = boolean
+    default = false
+  }
   column "created_at" {
     null = false
     type = timestamptz
