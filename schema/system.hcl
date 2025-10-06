@@ -20,7 +20,7 @@ table "access_tokens" {
   column "auto_renew" {
     null = false
     type = boolean
-    default = false
+    default = true
   }
   column "created_at" {
     null = false
