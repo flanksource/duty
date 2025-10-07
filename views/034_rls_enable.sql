@@ -226,7 +226,7 @@ CREATE POLICY canaries_auth ON canaries
         match_scope(
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'canary',
           NULL,
-          NULL,
+          canaries.agent_id,
           canaries.name
         )
       END
