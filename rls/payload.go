@@ -24,10 +24,12 @@ func (s Scope) IsEmpty() bool {
 
 func (s Scope) Fingerprint() string {
 	tagSelectors := collections.SortedMap(s.Tags)
-	slices.Sort(s.Agents)
-	slices.Sort(s.Names)
+	agentsCopy := slices.Clone(s.Agents)
+	namesCopy := slices.Clone(s.Names)
+	slices.Sort(agentsCopy)
+	slices.Sort(namesCopy)
 
-	data := fmt.Sprintf("agents:%s | tags:%s | names:%s", strings.Join(s.Agents, "--"), tagSelectors, strings.Join(s.Names, "--"))
+	data := fmt.Sprintf("agents:%s | tags:%s | names:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"))
 	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
 }
 
