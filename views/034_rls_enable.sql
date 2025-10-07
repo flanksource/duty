@@ -204,7 +204,7 @@ CREATE POLICY components_auth ON components
       ELSE
         match_scope(
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'component',
-          components.labels,
+          NULL,
           components.agent_id,
           components.name
         )
@@ -221,7 +221,7 @@ CREATE POLICY canaries_auth ON canaries
       ELSE
         match_scope(
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'canary',
-          canaries.labels,
+          NULL,
           NULL,
           canaries.name
         )
