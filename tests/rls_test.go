@@ -5,23 +5,27 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/job"
-	"github.com/flanksource/duty/migrate"
-	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/job"
+	"github.com/flanksource/duty/migrate"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rls"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 )
 
 type testCase struct {
-	jwtClaims     string
+	rlsPayload    rls.Payload
 	expectedCount *int64
 }
 
-func verifyConfigCount(tx *gorm.DB, jwtClaims string, expectedCount int64) {
-	Expect(tx.Exec(fmt.Sprintf("SET LOCAL request.jwt.claims = '%s'", jwtClaims)).Error).To(BeNil())
+func verifyConfigCount(tx *gorm.DB, rlsPayload rls.Payload, expectedCount int64) {
+	Expect(rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
 
 	var count int64
 	Expect(tx.Model(&models.ConfigItem{}).Count(&count).Error).To(BeNil())
@@ -61,14 +65,25 @@ var _ = Describe("RLS test", Ordered, func() {
 			tx = DefaultContext.DB().Begin()
 
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
-			Expect(tx.Exec(`SET LOCAL request.jwt.claims = '{"tags": [{"cluster": "aws"}]}'`).Error).To(BeNil())
+
+			payload := rls.Payload{
+				Config: []rls.Scope{
+					{Tags: map[string]string{"cluster": "aws"}},
+				},
+			}
+			Expect(payload.SetPostgresSessionRLS(tx)).To(BeNil())
 
 			err = job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
 		})
 
 		AfterAll(func() {
-			Expect(tx.Exec(`SET LOCAL request.jwt.claims = '{"tags": [{"cluster": "aws"}]}'`).Error).To(BeNil())
+			payload := rls.Payload{
+				Config: []rls.Scope{
+					{Tags: map[string]string{"cluster": "aws"}},
+				},
+			}
+			Expect(payload.SetPostgresSessionRLS(tx)).To(BeNil())
 			Expect(tx.Commit().Error).To(BeNil())
 		})
 
@@ -101,6 +116,7 @@ var _ = Describe("RLS test", Ordered, func() {
 		var (
 			tx                           *gorm.DB
 			totalConfigs                 int64
+			numConfigsWithAgent          int64
 			numConfigsWithFlanksourceTag int64
 			awsAndDemoCluster            int64
 		)
@@ -110,6 +126,7 @@ var _ = Describe("RLS test", Ordered, func() {
 
 			Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'account' = 'flanksource'").Model(&models.ConfigItem{}).Count(&numConfigsWithFlanksourceTag).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("agent_id = ?", uuid.Nil).Model(&models.ConfigItem{}).Count(&numConfigsWithAgent).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' OR tags->>'cluster' = 'demo'").Model(&models.ConfigItem{}).Count(&awsAndDemoCluster).Error).To(BeNil())
 		})
 
@@ -129,23 +146,63 @@ var _ = Describe("RLS test", Ordered, func() {
 
 				DescribeTable("JWT claim tests",
 					func(tc testCase) {
-						verifyConfigCount(tx, tc.jwtClaims, *tc.expectedCount)
+						verifyConfigCount(tx, tc.rlsPayload, *tc.expectedCount)
 					},
 					Entry("no permissions", testCase{
-						jwtClaims:     `{"tags": [{"cluster": "testing-cluster"}], "agents": ["10000000-0000-0000-0000-000000000000"]}`,
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags:   map[string]string{"cluster": "testing-cluster"},
+									Agents: []string{"10000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
 						expectedCount: lo.ToPtr(int64(0)),
 					}),
 					Entry("correct agent", testCase{
-						jwtClaims:     `{"tags": [{"cluster": "testing-cluster"}], "agents": ["00000000-0000-0000-0000-000000000000"]}`,
-						expectedCount: &totalConfigs,
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Agents: []string{"00000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
 					}),
 					Entry("correct tag", testCase{
-						jwtClaims:     `{"tags": [{"account": "flanksource"}], "agents": ["10000000-0000-0000-0000-000000000000"]}`,
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags: map[string]string{"account": "flanksource"},
+								},
+							},
+						},
 						expectedCount: &numConfigsWithFlanksourceTag,
 					}),
-					Entry("multiple tags", testCase{
-						jwtClaims:     `{"tags": [{"cluster": "aws"}, {"cluster": "demo"}]}`,
+					Entry("multiple tags (OR logic between scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "aws"}},
+								{Tags: map[string]string{"cluster": "demo"}},
+							},
+						},
 						expectedCount: &awsAndDemoCluster,
+					}),
+					Entry("specific name", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{*dummy.EKSCluster.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("wildcard name (match all)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalConfigs,
 					}),
 				)
 			})

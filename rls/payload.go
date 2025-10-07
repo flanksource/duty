@@ -7,18 +7,41 @@ import (
 	"strings"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/commons/hash"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
+
+type Scope struct {
+	Tags   map[string]string `json:"tags,omitempty"`
+	Agents []string          `json:"agents,omitempty"`
+	Names  []string          `json:"names,omitempty"`
+}
+
+func (s Scope) IsEmpty() bool {
+	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0
+}
+
+func (s Scope) Fingerprint() string {
+	tagSelectors := collections.SortedMap(s.Tags)
+	slices.Sort(s.Agents)
+	slices.Sort(s.Names)
+
+	data := fmt.Sprintf("agents:%s | tags:%s | names:%s", strings.Join(s.Agents, "--"), tagSelectors, strings.Join(s.Names, "--"))
+	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
+}
 
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 type Payload struct {
 	// cached fingerprint
 	fingerprint string
 
-	Tags    []map[string]string `json:"tags,omitempty"`
-	Agents  []string            `json:"agents,omitempty"`
-	Disable bool                `json:"disable_rls,omitempty"`
+	Config    []Scope `json:"config,omitempty"`
+	Component []Scope `json:"component,omitempty"`
+	Playbook  []Scope `json:"playbook,omitempty"`
+	Canary    []Scope `json:"canary,omitempty"`
+
+	Disable bool `json:"disable_rls,omitempty"`
 }
 
 func (t *Payload) EvalFingerprint() {
@@ -27,14 +50,22 @@ func (t *Payload) EvalFingerprint() {
 		return
 	}
 
-	var tagSelectors []string
-	for _, t := range t.Tags {
-		tagSelectors = append(tagSelectors, collections.SortedMap(t))
+	parts := []string{}
+	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary} {
+		for _, scope := range scopeArray {
+			if !scope.IsEmpty() {
+				parts = append(parts, scope.Fingerprint())
+			}
+		}
 	}
-	slices.Sort(tagSelectors)
-	slices.Sort(t.Agents)
 
-	t.fingerprint = fmt.Sprintf("%s-%s", strings.Join(t.Agents, "--"), strings.Join(tagSelectors, "--"))
+	if len(parts) == 0 {
+		t.fingerprint = "empty"
+		return
+	}
+
+	slices.Sort(parts)
+	t.fingerprint = hash.Sha256Hex(strings.Join(parts, " | "))
 }
 
 func (t *Payload) Fingerprint() string {
