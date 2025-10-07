@@ -22,13 +22,13 @@ table "access_scopes" {
     type = text
   }
 
-  column "sub_person_id" {
+  column "person_id" {
     null    = true
     type    = uuid
     comment = "Person subject for this access scope"
   }
 
-  column "sub_team_id" {
+  column "team_id" {
     null    = true
     type    = uuid
     comment = "Team subject for this access scope"
@@ -73,16 +73,6 @@ table "access_scopes" {
     columns = [column.id]
   }
 
-  index "access_scopes_sub_person_id_idx" {
-    columns = [column.sub_person_id]
-    where   = "deleted_at IS NULL"
-  }
-
-  index "access_scopes_sub_team_id_idx" {
-    columns = [column.sub_team_id]
-    where   = "deleted_at IS NULL"
-  }
-
   index "access_scopes_deleted_at_idx" {
     columns = [column.deleted_at]
   }
@@ -94,20 +84,20 @@ table "access_scopes" {
   }
 
   foreign_key "access_scopes_sub_person_id_fkey" {
-    columns     = [column.sub_person_id]
+    columns     = [column.person_id]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
 
   foreign_key "access_scopes_sub_team_id_fkey" {
-    columns     = [column.sub_team_id]
+    columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
 
   check "access_scopes_subject_check" {
-    expr = "(sub_person_id IS NOT NULL AND sub_team_id IS NULL) OR (sub_person_id IS NULL AND sub_team_id IS NOT NULL)"
+    expr = "(person_id IS NOT NULL AND team_id IS NULL) OR (person_id IS NULL AND team_id IS NOT NULL)"
   }
 }

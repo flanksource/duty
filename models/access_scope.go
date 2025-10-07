@@ -10,23 +10,27 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-// AccessScope represents a visibility boundary for human subjects
+// AccessScope represents a visibility boundary for Guest users
 type AccessScope struct {
-	ID          uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
-	Name        string    `json:"name"`
-	Namespace   string    `json:"namespace,omitempty"`
-	Description string    `json:"description,omitempty"`
+	ID          uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
+	Name        string         `json:"name"`
+	Namespace   string         `json:"namespace,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Source      string         `json:"source"`
+	CreatedAt   time.Time      `json:"created_at" gorm:"default:now()"`
+	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 
 	// Subject fields - exactly one should be set
-	SubPersonID *uuid.UUID `json:"sub_person_id,omitempty"`
-	SubTeamID   *uuid.UUID `json:"sub_team_id,omitempty"`
+	PersonID *uuid.UUID `json:"person_id,omitempty"`
+	TeamID   *uuid.UUID `json:"team_id,omitempty"`
 
-	Resources pq.StringArray `json:"resources" gorm:"type:text[]"` // Array of resource types
-	Scopes    types.JSON     `json:"scopes" gorm:"type:jsonb"`     // Array of AccessScopeScope stored as JSONB
-	Source    string         `json:"source"`
-	CreatedAt time.Time      `json:"created_at" gorm:"default:now()"`
-	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
-	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	// Set of resources, these scopes apply to.
+	// Resources can be: configs, playbooks, components, canaries
+	Resources pq.StringArray `json:"resources" gorm:"type:text[]"`
+
+	// Array of AccessScopeScope stored as JSONB
+	Scopes types.JSON `json:"scopes" gorm:"type:jsonb"`
 }
 
 func (AccessScope) TableName() string {
