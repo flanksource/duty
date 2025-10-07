@@ -112,6 +112,10 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'canaries') THEN
         EXECUTE 'ALTER TABLE canaries ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbooks') THEN
+        EXECUTE 'ALTER TABLE playbooks ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -228,6 +232,23 @@ CREATE POLICY canaries_auth ON canaries
       END
     );
 
+-- Policy playbooks
+DROP POLICY IF EXISTS playbooks_auth ON playbooks;
+
+CREATE POLICY playbooks_auth ON playbooks
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'playbook',
+          NULL,
+          NULL,
+          playbooks.name
+        )
+      END
+    );
+
 ALTER VIEW analysis_by_config SET (security_invoker = true);
 ALTER VIEW catalog_changes SET (security_invoker = true);
 ALTER VIEW check_summary SET (security_invoker = true);
@@ -254,6 +275,7 @@ ALTER VIEW config_types SET (security_invoker = true);
 ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
+ALTER VIEW playbook_names SET (security_invoker = true);
 
 -- TODO: Move 034_rls_enable.sql as the last script (eg: 10000_rls_enable.sql)
 -- So that all the views are already created before it runs.

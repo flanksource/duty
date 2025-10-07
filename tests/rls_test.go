@@ -285,4 +285,69 @@ var _ = Describe("RLS test", Ordered, func() {
 			})
 		}
 	})
+
+	var _ = Describe("playbooks query", func() {
+		var (
+			tx             *gorm.DB
+			totalPlaybooks int64
+		)
+
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+
+			Expect(DefaultContext.DB().Model(&models.Playbook{}).Count(&totalPlaybooks).Error).To(BeNil())
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+		})
+
+		for _, role := range []string{"postgrest_anon", "postgrest_api"} {
+			Context(role, Ordered, func() {
+				BeforeAll(func() {
+					Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
+
+					var currentRole string
+					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
+					Expect(currentRole).To(Equal(role))
+				})
+
+				DescribeTable("JWT claim tests",
+					func(tc testCase) {
+						Expect(tc.rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+						var count int64
+						Expect(tx.Model(&models.Playbook{}).Count(&count).Error).To(BeNil())
+						Expect(count).To(Equal(*tc.expectedCount))
+					},
+					Entry("no permissions", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Names: []string{"non-existent-playbook"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("specific name", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("wildcard name (match all)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalPlaybooks,
+					}),
+				)
+			})
+		}
+	})
 })
