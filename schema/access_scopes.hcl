@@ -49,7 +49,7 @@ table "access_scopes" {
   column "source" {
     null    = false
     type    = text
-    default = "CRD"
+    default = "UI"
   }
 
   column "created_at" {

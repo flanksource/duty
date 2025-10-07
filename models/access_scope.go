@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/types"
@@ -20,7 +21,7 @@ type AccessScope struct {
 	SubPersonID *uuid.UUID `json:"sub_person_id,omitempty"`
 	SubTeamID   *uuid.UUID `json:"sub_team_id,omitempty"`
 
-	Resources []string       `json:"resources" gorm:"type:text[]"` // Array of resource types
+	Resources pq.StringArray `json:"resources" gorm:"type:text[]"` // Array of resource types
 	Scopes    types.JSON     `json:"scopes" gorm:"type:jsonb"`     // Array of AccessScopeScope stored as JSONB
 	Source    string         `json:"source"`
 	CreatedAt time.Time      `json:"created_at" gorm:"default:now()"`
