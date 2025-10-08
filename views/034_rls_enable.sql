@@ -51,7 +51,7 @@ BEGIN
         IF scope_tags IS NULL OR jsonb_typeof(scope_tags) = 'null' OR scope_tags = '{}'::jsonb THEN
             tags_match := TRUE;
         ELSIF row_tags IS NULL THEN
-            tags_match := FALSE;
+            tags_match := TRUE; -- Resource doesn't have tags, ignore this check
         ELSE
             tags_match := row_tags @> scope_tags;
         END IF;
@@ -59,10 +59,10 @@ BEGIN
         -- Check agents match (row agent must be in list or wildcard)
         IF scope_agents IS NULL OR jsonb_typeof(scope_agents) = 'null' OR jsonb_array_length(scope_agents) = 0 THEN
             agents_match := TRUE;
+        ELSIF row_agent IS NULL THEN
+            agents_match := TRUE; -- Resource doesn't have agents, ignore this check
         ELSIF scope_agents = '["*"]'::jsonb THEN
             agents_match := row_agent IS NOT NULL;
-        ELSIF row_agent IS NULL THEN
-            agents_match := FALSE;
         ELSE
             agents_match := scope_agents @> to_jsonb(row_agent::text);
         END IF;

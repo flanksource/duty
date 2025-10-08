@@ -1025,6 +1025,17 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 						},
 						expectedCount: lo.ToPtr(int64(0)),
 					}),
+					Entry("agents defined in scope (should be ignored for playbooks)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Agents: []string{"10000000-0000-0000-0000-000000000000"},
+									Names:  []string{dummy.EchoConfig.Name},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)), // Should match because agents should be ignored
+					}),
 				)
 			})
 		}
