@@ -1036,6 +1036,27 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 						},
 						expectedCount: lo.ToPtr(int64(1)), // Should match because agents should be ignored
 					}),
+					Entry("tags only in scope (should deny access - no applicable fields)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Tags: map[string]string{"cluster": "homelab", "namespace": "default"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because playbooks don't support tags
+					}),
+					Entry("tags and agents only in scope (should deny access - no applicable fields)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Tags:   map[string]string{"cluster": "aws"},
+									Agents: []string{"10000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because playbooks support neither tags nor agents
+					}),
 				)
 			})
 		}

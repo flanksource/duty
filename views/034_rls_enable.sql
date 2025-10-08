@@ -40,10 +40,12 @@ BEGIN
         scope_agents := scope->'agents';
         scope_names := scope->'names';
 
-        -- Skip empty scopes (no filters defined means it would match everything)
-        IF (scope_tags IS NULL OR scope_tags = '{}'::jsonb)
-           AND COALESCE(jsonb_array_length(scope_agents), 0) = 0
-           AND COALESCE(jsonb_array_length(scope_names), 0) = 0 THEN
+        -- Check if scope has any fields applicable to this resource type
+        -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
+        -- If no applicable fields, scope is effectively empty for this resource type
+        IF ((scope_tags IS NULL OR scope_tags = '{}'::jsonb) OR row_tags IS NULL)
+           AND (COALESCE(jsonb_array_length(scope_agents), 0) = 0 OR row_agent IS NULL)
+           AND (COALESCE(jsonb_array_length(scope_names), 0) = 0 OR row_name IS NULL) THEN
             CONTINUE;
         END IF;
 
