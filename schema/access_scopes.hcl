@@ -52,6 +52,11 @@ table "access_scopes" {
     default = "UI"
   }
 
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -95,6 +100,13 @@ table "access_scopes" {
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+
+  foreign_key "access_scopes_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 
   check "access_scopes_subject_check" {
