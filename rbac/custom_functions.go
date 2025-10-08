@@ -7,11 +7,10 @@ import (
 	"fmt"
 
 	"github.com/casbin/govaluate"
-	"github.com/flanksource/commons/collections"
+	"github.com/google/uuid"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"github.com/google/uuid"
-	"github.com/samber/lo"
 )
 
 type Selectors struct {
@@ -19,31 +18,6 @@ type Selectors struct {
 	Connections []types.ResourceSelector `json:"connections,omitempty"`
 	Configs     []types.ResourceSelector `json:"configs,omitempty"`
 	Components  []types.ResourceSelector `json:"components,omitempty"`
-}
-
-func matchPerm(attr *models.ABACAttribute, _agents any, tagsEncoded string) (bool, error) {
-	var rAgents []string
-	switch v := _agents.(type) {
-	case []any:
-		rAgents = lo.Map(v, func(item any, _ int) string { return item.(string) })
-	case string:
-		if v != "" {
-			rAgents = append(rAgents, v)
-		}
-	}
-
-	rTags := collections.SelectorToMap(tagsEncoded)
-	if attr.Config.ID != uuid.Nil {
-		var agentsMatch = true
-		if len(rAgents) > 0 {
-			agentsMatch = lo.Contains(rAgents, attr.Config.AgentID.String())
-		}
-
-		tagsmatch := mapContains(rTags, attr.Config.Tags)
-		return tagsmatch && agentsMatch, nil
-	}
-
-	return false, nil
 }
 
 type addableEnforcer interface {
@@ -102,34 +76,6 @@ func matchResourceSelectorPair(pair resourcePair) bool {
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {
-	enforcer.AddFunction("matchPerm", func(args ...any) (any, error) {
-		if len(args) != 3 {
-			return false, fmt.Errorf("matchPerm needs 3 arguments. got %d", len(args))
-		}
-
-		obj := args[0]
-		if _, ok := obj.(string); ok {
-			// an object is required to satisfy the agents & tags requirement.
-			// If a role is passed, we don't match this permission.
-			return false, nil
-		}
-
-		attr, ok := obj.(*models.ABACAttribute)
-		if !ok {
-			return false, errors.New("[matchPerm] unknown input type: expected *models.ABACAttribute")
-		}
-
-		agents := args[1]
-		tags := args[2]
-
-		tagsEncoded, ok := tags.(string)
-		if !ok {
-			return false, errors.New("tags must be a string")
-		}
-
-		return matchPerm(attr, agents, tagsEncoded)
-	})
-
 	enforcer.AddFunction("matchResourceSelector", func(args ...any) (any, error) {
 		if len(args) != 2 {
 			return false, fmt.Errorf("matchResourceSelector needs 2 arguments. got %d", len(args))
@@ -166,15 +112,4 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 
 		return matchResourceSelector(attr, objectSelector)
 	})
-}
-
-// mapContains returns true if `request` fully contains `want`.
-func mapContains(want map[string]string, request map[string]string) bool {
-	for k, v := range want {
-		if request[k] != v {
-			return false
-		}
-	}
-
-	return true
 }

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/samber/lo"
 )
 
@@ -33,22 +32,6 @@ func TestPermission_Condition(t *testing.T) {
 			name:     "No fields set",
 			perm:     Permission{},
 			expected: "",
-		},
-		{
-			name: "agents",
-			perm: Permission{
-				Agents: pq.StringArray([]string{"aws", "azure"}),
-			},
-			expected: `matchPerm(r.obj, ('aws','azure'), '')`,
-		},
-		{
-			name: "tags",
-			perm: Permission{
-				Tags: map[string]string{
-					"cluster": "aws",
-				},
-			},
-			expected: `matchPerm(r.obj, (), 'cluster=aws')`,
 		},
 	}
 
