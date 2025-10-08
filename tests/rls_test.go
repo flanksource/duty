@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +33,7 @@ func verifyConfigCount(tx *gorm.DB, rlsPayload rls.Payload, expectedCount int64)
 	Expect(count).To(Equal(expectedCount))
 }
 
-var _ = Describe("RLS test", Ordered, func() {
+var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 	BeforeAll(func() {
 		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
 			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
@@ -118,7 +119,11 @@ var _ = Describe("RLS test", Ordered, func() {
 			totalConfigs                 int64
 			numConfigsWithAgent          int64
 			numConfigsWithFlanksourceTag int64
+			awsConfigs                   int64
 			awsAndDemoCluster            int64
+			awsTagAndNilAgent            int64
+			awsTagAndEKSName             int64
+			awsAndFlanksourceTags        int64
 		)
 
 		BeforeAll(func() {
@@ -127,7 +132,11 @@ var _ = Describe("RLS test", Ordered, func() {
 			Expect(DefaultContext.DB().Model(&models.ConfigItem{}).Count(&totalConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'account' = 'flanksource'").Model(&models.ConfigItem{}).Count(&numConfigsWithFlanksourceTag).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("agent_id = ?", uuid.Nil).Model(&models.ConfigItem{}).Count(&numConfigsWithAgent).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws'").Model(&models.ConfigItem{}).Count(&awsConfigs).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' OR tags->>'cluster' = 'demo'").Model(&models.ConfigItem{}).Count(&awsAndDemoCluster).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' AND agent_id = ?", uuid.Nil).Model(&models.ConfigItem{}).Count(&awsTagAndNilAgent).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name).Model(&models.ConfigItem{}).Count(&awsTagAndEKSName).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("tags->>'cluster' = 'aws' AND tags->>'account' = 'flanksource'").Model(&models.ConfigItem{}).Count(&awsAndFlanksourceTags).Error).To(BeNil())
 		})
 
 		AfterAll(func() {
@@ -142,6 +151,13 @@ var _ = Describe("RLS test", Ordered, func() {
 					var currentRole string
 					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
 					Expect(currentRole).To(Equal(role))
+				})
+
+				It("should allow access to all records when RLS is disabled", func() {
+					payload := rls.Payload{
+						Disable: true,
+					}
+					verifyConfigCount(tx, payload, totalConfigs)
 				})
 
 				DescribeTable("JWT claim tests",
@@ -204,6 +220,359 @@ var _ = Describe("RLS test", Ordered, func() {
 						},
 						expectedCount: &totalConfigs,
 					}),
+					Entry("wildcard agent (match all)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Agents: []string{"*"}},
+							},
+						},
+						expectedCount: &totalConfigs,
+					}),
+					Entry("tags AND agents (within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags:   map[string]string{"cluster": "aws"},
+									Agents: []string{uuid.Nil.String()},
+								},
+							},
+						},
+						expectedCount: &awsTagAndNilAgent,
+					}),
+					Entry("tags AND names (within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags:  map[string]string{"cluster": "aws"},
+									Names: []string{*dummy.EKSCluster.Name},
+								},
+							},
+						},
+						expectedCount: &awsTagAndEKSName,
+					}),
+					Entry("empty payload (no scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple names (OR within names array)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{*dummy.EKSCluster.Name, "non-existent-config"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("mixed scope criteria (OR logic between scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "aws"}},
+								{Agents: []string{uuid.Nil.String()}},
+								{Names: []string{*dummy.EKSCluster.Name}},
+							},
+						},
+						expectedCount: &numConfigsWithAgent, // Should be union of all three scopes
+					}),
+					Entry("invalid agent UUID (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Agents: []string{"not-a-valid-uuid"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in agents array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Agents: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty tag value (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": ""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{strings.ToUpper(*dummy.EKSCluster.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase tag value (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "AWS"}}, // uppercase
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("duplicate scopes (should work same as single)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "aws"}},
+								{Tags: map[string]string{"cluster": "aws"}}, // duplicate
+							},
+						},
+						expectedCount: &awsConfigs, // Should be same as single scope
+					}),
+					Entry("conflicting criteria within scope (agent matches but name doesn't)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},          // matches many
+									Names:  []string{"non-existent-config-name"}, // matches none
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // AND logic means both must match
+					}),
+					Entry("special characters in name (unicode)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{"config-名前-🚀"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple agents in single scope (OR within agents array)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Agents: []string{
+										uuid.Nil.String(),
+										"10000000-0000-0000-0000-000000000000",
+									},
+								},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
+					}),
+					Entry("multiple tags in single scope (AND logic)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags: map[string]string{
+										"cluster": "aws",
+										"account": "flanksource",
+									},
+								},
+							},
+						},
+						expectedCount: &awsAndFlanksourceTags,
+					}),
+					Entry("mixed valid and invalid agents", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Agents: []string{
+										"not-a-uuid",
+										uuid.Nil.String(),
+										"also-invalid",
+									},
+								},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
+					}),
+					Entry("very long agent list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Agents: append(
+										[]string{uuid.Nil.String()},
+										func() []string {
+											agents := make([]string, 99)
+											for i := range agents {
+												agents[i] = uuid.New().String()
+											}
+											return agents
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
+					}),
+					Entry("very long names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Names: append(
+										[]string{*dummy.EKSCluster.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-config-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("very many scopes (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Config: append(
+								[]rls.Scope{{Tags: map[string]string{"cluster": "aws"}}},
+								func() []rls.Scope {
+									scopes := make([]rls.Scope, 49)
+									for i := range scopes {
+										scopes[i] = rls.Scope{
+											Tags: map[string]string{"cluster": fmt.Sprintf("non-existent-%d", i)},
+										}
+									}
+									return scopes
+								}()...,
+							),
+						},
+						expectedCount: &awsConfigs,
+					}),
+					Entry("tag with special characters in key", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster-name-with-dashes": "value"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("tag key exists but value doesn't match", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "non-existent-value"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple tags where only one matches", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags: map[string]string{
+										"cluster":     "aws",
+										"nonexistent": "should-fail",
+									},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty tag map in scope", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags:   map[string]string{},
+									Agents: []string{uuid.Nil.String()},
+								},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
+					}),
+					Entry("whitespace-only values", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Names: []string{"   "},
+									Tags:  map[string]string{"cluster": "   "},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long name string", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{strings.Repeat("a", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long tag value", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": strings.Repeat("x", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard in middle", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{"Production*EKS"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard prefix", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Names: []string{"*EKS"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "aws"}},
+								{Names: []string{*dummy.EKSCluster.Name}},
+							},
+						},
+						expectedCount: &awsConfigs,
+					}),
+					Entry("agent UUID with uppercase", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Agents: []string{strings.ToUpper(uuid.Nil.String())}},
+							},
+						},
+						expectedCount: &numConfigsWithAgent,
+					}),
+					Entry("newline in tag value", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{Tags: map[string]string{"cluster": "aws\nmalicious"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("valid tag + valid agent + invalid name (AND within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Config: []rls.Scope{
+								{
+									Tags:   map[string]string{"cluster": "aws"},
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{"non-existent"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
 				)
 			})
 		}
@@ -214,6 +583,7 @@ var _ = Describe("RLS test", Ordered, func() {
 			tx                     *gorm.DB
 			totalComponents        int64
 			numComponentsWithAgent int64
+			agentAndLogisticsName  int64
 		)
 
 		BeforeAll(func() {
@@ -221,6 +591,7 @@ var _ = Describe("RLS test", Ordered, func() {
 
 			Expect(DefaultContext.DB().Model(&models.Component{}).Count(&totalComponents).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("agent_id = ?", uuid.Nil).Model(&models.Component{}).Count(&numComponentsWithAgent).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("agent_id = ? AND name = ?", uuid.Nil, dummy.Logistics.Name).Model(&models.Component{}).Count(&agentAndLogisticsName).Error).To(BeNil())
 		})
 
 		AfterAll(func() {
@@ -280,6 +651,207 @@ var _ = Describe("RLS test", Ordered, func() {
 							},
 						},
 						expectedCount: &totalComponents,
+					}),
+					Entry("agents AND names (within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{dummy.Logistics.Name},
+								},
+							},
+						},
+						expectedCount: &agentAndLogisticsName,
+					}),
+					Entry("empty payload (no scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple names (OR within names array)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{dummy.Logistics.Name, "non-existent-component"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("mixed scope criteria (OR logic between scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Agents: []string{uuid.Nil.String()}},
+								{Names: []string{dummy.Logistics.Name}},
+							},
+						},
+						expectedCount: &numComponentsWithAgent, // Should be union of both scopes
+					}),
+					Entry("invalid agent UUID (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Agents: []string{"invalid-uuid"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in agents array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Agents: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.Logistics.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("conflicting criteria within scope (agent matches but name doesn't)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{"non-existent-component"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // AND logic means both must match
+					}),
+					Entry("multiple agents in single scope", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: []string{
+										uuid.Nil.String(),
+										"10000000-0000-0000-0000-000000000000",
+									},
+								},
+							},
+						},
+						expectedCount: &numComponentsWithAgent,
+					}),
+					Entry("mixed valid and invalid agents", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: []string{
+										"not-a-uuid",
+										uuid.Nil.String(),
+									},
+								},
+							},
+						},
+						expectedCount: &numComponentsWithAgent,
+					}),
+					Entry("very long agent list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: append(
+										[]string{uuid.Nil.String()},
+										func() []string {
+											agents := make([]string, 99)
+											for i := range agents {
+												agents[i] = uuid.New().String()
+											}
+											return agents
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: &numComponentsWithAgent,
+					}),
+					Entry("very long names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Names: append(
+										[]string{dummy.Logistics.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-component-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("whitespace-only name", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long name string", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{strings.Repeat("a", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard in middle", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Names: []string{"Log*tics"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Agents: []string{uuid.Nil.String()}},
+								{Names: []string{dummy.Logistics.Name}},
+							},
+						},
+						expectedCount: &numComponentsWithAgent,
+					}),
+					Entry("agent UUID with uppercase", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{Agents: []string{strings.ToUpper(uuid.Nil.String())}},
+							},
+						},
+						expectedCount: &numComponentsWithAgent,
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("valid agent + invalid name (AND within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Component: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{"non-existent"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
 					}),
 				)
 			})
@@ -346,6 +918,113 @@ var _ = Describe("RLS test", Ordered, func() {
 						},
 						expectedCount: &totalPlaybooks,
 					}),
+					Entry("empty payload (no scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple names (OR within names array)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name, "non-existent-playbook"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.EchoConfig.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("duplicate scopes (should work same as single)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+								{Names: []string{dummy.EchoConfig.Name}}, // duplicate
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("very long names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Names: append(
+										[]string{dummy.EchoConfig.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-playbook-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("whitespace-only name", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long name string", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{strings.Repeat("a", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard in middle", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"Echo*Config"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard prefix", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"*Config"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
 				)
 			})
 		}
@@ -356,6 +1035,7 @@ var _ = Describe("RLS test", Ordered, func() {
 			tx                   *gorm.DB
 			totalCanaries        int64
 			numCanariesWithAgent int64
+			agentAndCanaryName   int64
 		)
 
 		BeforeAll(func() {
@@ -363,6 +1043,7 @@ var _ = Describe("RLS test", Ordered, func() {
 
 			Expect(DefaultContext.DB().Model(&models.Canary{}).Count(&totalCanaries).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("agent_id = ?", uuid.Nil).Model(&models.Canary{}).Count(&numCanariesWithAgent).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("agent_id = ? AND name = ?", uuid.Nil, dummy.LogisticsAPICanary.Name).Model(&models.Canary{}).Count(&agentAndCanaryName).Error).To(BeNil())
 		})
 
 		AfterAll(func() {
@@ -422,6 +1103,215 @@ var _ = Describe("RLS test", Ordered, func() {
 							},
 						},
 						expectedCount: &totalCanaries,
+					}),
+					Entry("agents AND names (within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{dummy.LogisticsAPICanary.Name},
+								},
+							},
+						},
+						expectedCount: &agentAndCanaryName,
+					}),
+					Entry("empty payload (no scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple names (OR within names array)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsAPICanary.Name, "non-existent-canary"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("mixed scope criteria (OR logic between scopes)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{uuid.Nil.String()}},
+								{Names: []string{dummy.LogisticsAPICanary.Name}},
+							},
+						},
+						expectedCount: &numCanariesWithAgent, // Should be union of both scopes
+					}),
+					Entry("invalid agent UUID (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{"not-valid-uuid"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in agents array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.LogisticsAPICanary.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("conflicting criteria within scope (agent matches but name doesn't)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{"non-existent-canary"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // AND logic means both must match
+					}),
+					Entry("multiple agents in single scope", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{
+										uuid.Nil.String(),
+										"10000000-0000-0000-0000-000000000000",
+									},
+								},
+							},
+						},
+						expectedCount: &numCanariesWithAgent,
+					}),
+					Entry("mixed valid and invalid agents", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{
+										"not-a-uuid",
+										uuid.Nil.String(),
+									},
+								},
+							},
+						},
+						expectedCount: &numCanariesWithAgent,
+					}),
+					Entry("very long agent list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: append(
+										[]string{uuid.Nil.String()},
+										func() []string {
+											agents := make([]string, 99)
+											for i := range agents {
+												agents[i] = uuid.New().String()
+											}
+											return agents
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: &numCanariesWithAgent,
+					}),
+					Entry("very long names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Names: append(
+										[]string{dummy.LogisticsAPICanary.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-canary-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("whitespace-only name", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long name string", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{strings.Repeat("a", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard in middle", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{"Logistics*Canary"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard prefix", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{"*Canary"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{uuid.Nil.String()}},
+								{Names: []string{dummy.LogisticsAPICanary.Name}},
+							},
+						},
+						expectedCount: &numCanariesWithAgent,
+					}),
+					Entry("agent UUID with uppercase", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{strings.ToUpper(uuid.Nil.String())}},
+							},
+						},
+						expectedCount: &numCanariesWithAgent,
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("valid agent + invalid name (AND within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{uuid.Nil.String()},
+									Names:  []string{"non-existent"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
 					}),
 				)
 			})

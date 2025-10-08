@@ -40,6 +40,13 @@ BEGIN
         scope_agents := scope->'agents';
         scope_names := scope->'names';
 
+        -- Skip empty scopes (no filters defined means it would match everything)
+        IF (scope_tags IS NULL OR scope_tags = '{}'::jsonb)
+           AND COALESCE(jsonb_array_length(scope_agents), 0) = 0
+           AND COALESCE(jsonb_array_length(scope_names), 0) = 0 THEN
+            CONTINUE;
+        END IF;
+
         -- Check tags match (row must contain all scope tags)
         IF scope_tags IS NULL OR jsonb_typeof(scope_tags) = 'null' OR scope_tags = '{}'::jsonb THEN
             tags_match := TRUE;
