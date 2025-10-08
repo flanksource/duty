@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	commons "github.com/flanksource/commons/logger"
@@ -44,9 +43,9 @@ const (
 
 type Logger interface {
 	LogMode(LogLevel) logger.Interface
-	Info(context.Context, string, ...interface{})
-	Warn(context.Context, string, ...interface{})
-	Error(context.Context, string, ...interface{})
+	Info(context.Context, string, ...any)
+	Warn(context.Context, string, ...any)
+	Error(context.Context, string, ...any)
 	Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error)
 }
 
@@ -68,6 +67,7 @@ type SqlLogger struct {
 func (l *SqlLogger) WithLogLevel(level any) *SqlLogger {
 	newlogger := *l
 	newlogger.Logger = l.Logger.WithV(level)
+	newlogger.baseLevel = commons.ParseLevel(newlogger, level)
 	return &newlogger
 }
 
@@ -82,8 +82,22 @@ func FromCommonsLevel(l commons.Logger, level any) logger.LogLevel {
 	return logger.LogLevel(commons.ParseLevel(l, level))
 }
 
+func gormToCommonsLogLevel(level logger.LogLevel) commons.LogLevel {
+	switch level {
+	case logger.Info:
+		return commons.Info
+	case logger.Silent:
+		return commons.Silent
+	case logger.Warn:
+		return commons.Warn
+	case logger.Error:
+		return commons.Error
+	}
+	return commons.Silent
+}
+
 func (l *SqlLogger) LogMode(level logger.LogLevel) logger.Interface {
-	return l.WithLogLevel(level)
+	return l.WithLogLevel(gormToCommonsLogLevel(level))
 }
 
 func NewSqlLogger(logger *commons.SlogLogger) logger.Interface {
@@ -96,7 +110,7 @@ func NewSqlLogger(logger *commons.SlogLogger) logger.Interface {
 		Logger:      logger,
 		traceParams: logger.IsTraceEnabled() || properties.On(false, "log.db.params"),
 		maxLength:   properties.Int(1024, "log.db.maxLength"),
-		baseLevel:   commons.Info,
+		baseLevel:   commons.Silent,
 	}
 }
 
@@ -130,37 +144,17 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 		sql, rows := fc()
 		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("ERROR >="+detailsFmt, elapsed/1e6, rows, err.Error()+" "+sql)
-		level = l.baseLevel - (commons.Error * -1)
+		level = commons.Error
 
 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0:
 		sql, rows := fc()
 		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("SLOW SQL >= "+detailsFmt, elapsed/1e6, rows, sql)
-		level = l.baseLevel - (commons.Warn * -1)
+		level = commons.Warn
 
 	case l.LogLevel == int(commons.Info):
 		sql, rows := fc()
 		sql = trunc(sql, l.maxLength)
-
-		switch strings.ToLower(strings.Split(strings.TrimSpace(sql), " ")[0]) {
-		case "select", "notify":
-			if rows == 0 {
-				level = l.baseLevel + commons.Trace1
-			} else {
-				level = commons.Trace
-			}
-
-		case "update", "insert", "delete":
-			if rows == 0 {
-				level = l.baseLevel + commons.Trace
-			} else {
-				level = l.baseLevel + commons.Debug
-			}
-		case "create", "alter", "drop":
-			level = l.baseLevel
-		default:
-			level = l.baseLevel + commons.Debug
-		}
 
 		msg = fmt.Sprintf(detailsFmt, elapsed/1e6, rows, sql)
 	}
@@ -178,7 +172,7 @@ func trunc(s string, length int) string {
 
 // ParamsFilter filter params
 func (l *SqlLogger) ParamsFilter(ctx context.Context, sql string, params ...interface{}) (string, []interface{}) {
-	if l.traceParams || l.GetLevel() >= commons.Trace1 {
+	if l.traceParams || l.GetLevel() >= commons.Info {
 		return sql, params
 	}
 	return sql, nil
