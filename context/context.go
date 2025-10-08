@@ -356,7 +356,8 @@ func (k Context) DB() *gorm.DB {
 	return v.WithContext(k)
 }
 
-func (k Context) DBLogQuery() *gorm.DB {
+// DebugDB returns a db instance which logs the query
+func (k Context) DebugDB() *gorm.DB {
 	l := logger.GetLogger("db-query-log")
 	l.SetLogLevel(8)
 	sl := dutyGorm.NewSqlLogger(l)
