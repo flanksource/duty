@@ -1328,4 +1328,132 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			})
 		}
 	})
+
+	var _ = Describe("playbook_runs query", func() {
+		var (
+			tx                  *gorm.DB
+			totalPlaybookRuns   int64
+			echoConfigRunsCount int64
+			restartPodRunsCount int64
+		)
+
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+
+			Expect(DefaultContext.DB().Model(&models.PlaybookRun{}).Count(&totalPlaybookRuns).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("playbook_id = ?", dummy.EchoConfig.ID).Model(&models.PlaybookRun{}).Count(&echoConfigRunsCount).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("playbook_id = ?", dummy.RestartPod.ID).Model(&models.PlaybookRun{}).Count(&restartPodRunsCount).Error).To(BeNil())
+
+			Expect(totalPlaybookRuns).To(BeNumerically(">", 0), "No playbook runs found in test data")
+			Expect(echoConfigRunsCount).To(BeNumerically(">", 0), "No playbook runs found for EchoConfig playbook")
+			Expect(restartPodRunsCount).To(BeNumerically(">", 0), "No playbook runs found for RestartPod playbook")
+			Expect(totalPlaybookRuns).To(Equal(echoConfigRunsCount + restartPodRunsCount))
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+		})
+
+		for _, role := range []string{"postgrest_anon", "postgrest_api"} {
+			Context(role, Ordered, func() {
+				BeforeAll(func() {
+					Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
+
+					var currentRole string
+					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
+					Expect(currentRole).To(Equal(role))
+				})
+
+				DescribeTable("JWT claim tests",
+					func(tc testCase) {
+						Expect(tc.rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+						var count int64
+						Expect(tx.Model(&models.PlaybookRun{}).Count(&count).Error).To(BeNil())
+						Expect(count).To(Equal(*tc.expectedCount))
+					},
+					Entry("no permissions (empty scopes array)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("no permissions (non-existent playbook)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									Names: []string{"non-existent-playbook"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("access only echo-config playbook runs", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+						},
+						expectedCount: &echoConfigRunsCount,
+					}),
+					Entry("access only restart-pod playbook runs", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.RestartPod.Name}},
+							},
+						},
+						expectedCount: &restartPodRunsCount,
+					}),
+					Entry("access both playbooks (OR logic)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name, dummy.RestartPod.Name}},
+							},
+						},
+						expectedCount: &totalPlaybookRuns,
+					}),
+					Entry("wildcard playbook name (match all runs)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalPlaybookRuns,
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase playbook name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.EchoConfig.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("whitespace-only name", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+				)
+			})
+		}
+	})
 })
