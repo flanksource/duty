@@ -221,7 +221,7 @@ var _ = ginkgo.Describe("FindPlaybooks", func() {
 		{
 			Name:      "namespace",
 			Selectors: []types.ResourceSelector{{Namespace: "default"}},
-			Results:   []uuid.UUID{dummy.EchoConfig.ID},
+			Results:   []uuid.UUID{},
 		},
 	}
 

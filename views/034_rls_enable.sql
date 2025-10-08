@@ -7,6 +7,90 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Generic function to match a row against an array of scopes
+-- Returns TRUE if the row matches ANY scope in the array (OR logic between scopes)
+-- Within a scope, ALL non-empty fields must match (AND logic within scope)
+CREATE OR REPLACE FUNCTION match_scope(
+    scopes jsonb,           -- Array of scope objects from JWT claims
+    row_tags jsonb,         -- The row's tags (can be NULL)
+    row_agent uuid,         -- The row's agent_id (can be NULL)
+    row_name text           -- The row's name (can be NULL)
+) RETURNS BOOLEAN AS $$
+DECLARE
+    scope jsonb;
+    scope_tags jsonb;
+    scope_agents jsonb;
+    scope_names jsonb;
+    tags_match boolean;
+    agents_match boolean;
+    names_match boolean;
+BEGIN
+    -- If scopes is NULL or not an array or empty, deny access
+    IF scopes IS NULL
+       OR jsonb_typeof(scopes) != 'array'
+       OR jsonb_array_length(scopes) = 0 THEN
+        RETURN FALSE;
+    END IF;
+
+    -- Iterate through each scope (OR logic between scopes)
+    FOR scope IN SELECT * FROM jsonb_array_elements(scopes)
+    LOOP
+        -- Extract fields from scope
+        scope_tags := scope->'tags';
+        scope_agents := scope->'agents';
+        scope_names := scope->'names';
+
+        -- Check if scope has any fields applicable to this resource type
+        -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
+        -- If no applicable fields, scope is effectively empty for this resource type
+        IF ((scope_tags IS NULL OR scope_tags = '{}'::jsonb) OR row_tags IS NULL)
+           AND (COALESCE(jsonb_array_length(scope_agents), 0) = 0 OR row_agent IS NULL)
+           AND (COALESCE(jsonb_array_length(scope_names), 0) = 0 OR row_name IS NULL) THEN
+            CONTINUE;
+        END IF;
+
+        -- Check tags match (row must contain all scope tags)
+        IF scope_tags IS NULL OR jsonb_typeof(scope_tags) = 'null' OR scope_tags = '{}'::jsonb THEN
+            tags_match := TRUE;
+        ELSIF row_tags IS NULL THEN
+            tags_match := TRUE; -- Resource doesn't have tags, ignore this check
+        ELSE
+            tags_match := row_tags @> scope_tags;
+        END IF;
+
+        -- Check agents match (row agent must be in list or wildcard)
+        IF scope_agents IS NULL OR jsonb_typeof(scope_agents) = 'null' OR jsonb_array_length(scope_agents) = 0 THEN
+            agents_match := TRUE;
+        ELSIF row_agent IS NULL THEN
+            agents_match := TRUE; -- Resource doesn't have agents, ignore this check
+        ELSIF scope_agents = '["*"]'::jsonb THEN
+            agents_match := row_agent IS NOT NULL;
+        ELSE
+            agents_match := scope_agents @> to_jsonb(row_agent::text);
+        END IF;
+
+        -- Check names match (row name must be in list or wildcard)
+        IF scope_names IS NULL OR jsonb_typeof(scope_names) = 'null' OR jsonb_array_length(scope_names) = 0 THEN
+            names_match := TRUE;
+        ELSIF scope_names = '["*"]'::jsonb THEN
+            names_match := row_name IS NOT NULL;
+        ELSIF row_name IS NULL THEN
+            names_match := FALSE;
+        ELSE
+            names_match := scope_names @> to_jsonb(row_name);
+        END IF;
+
+        -- If ALL conditions match (AND logic within scope), return TRUE
+        IF tags_match AND agents_match AND names_match THEN
+            RETURN TRUE;
+        END IF;
+    END LOOP;
+
+    -- No scope matched
+    RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Enable RLS for tables
 DO $$
 BEGIN
@@ -37,6 +121,14 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'canaries') THEN
         EXECUTE 'ALTER TABLE canaries ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbooks') THEN
+        EXECUTE 'ALTER TABLE playbooks ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_runs') THEN
+        EXECUTE 'ALTER TABLE playbook_runs ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -46,14 +138,13 @@ CREATE POLICY config_items_auth ON config_items
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE (
-        agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
-        OR 
-        EXISTS  (
-          SELECT 1 FROM jsonb_array_elements((current_setting('request.jwt.claims', TRUE)::json ->> 'tags')::jsonb) allowed_tags
-          WHERE config_items.tags::jsonb @> allowed_tags.value
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'config',
+          config_items.tags,
+          config_items.agent_id,
+          config_items.name
         )
-      )
       END
     );
 
@@ -127,9 +218,13 @@ CREATE POLICY components_auth ON components
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE (
-        agent_id = ANY (ARRAY (SELECT (jsonb_array_elements_text(current_setting('request.jwt.claims')::jsonb -> 'agents'))::uuid))
-      )
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'component',
+          NULL,
+          components.agent_id,
+          components.name
+        )
       END
     );
 
@@ -140,9 +235,45 @@ CREATE POLICY canaries_auth ON canaries
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'canary',
+          NULL,
+          canaries.agent_id,
+          canaries.name
+        )
+      END
+    );
+
+-- Policy playbooks
+DROP POLICY IF EXISTS playbooks_auth ON playbooks;
+
+CREATE POLICY playbooks_auth ON playbooks
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'playbook',
+          NULL,
+          NULL,
+          playbooks.name
+        )
+      END
+    );
+
+-- Policy playbook_runs
+DROP POLICY IF EXISTS playbook_runs_auth ON playbook_runs;
+
+CREATE POLICY playbook_runs_auth ON playbook_runs
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
-        SELECT 1 FROM jsonb_array_elements((current_setting('request.jwt.claims', TRUE)::json ->> 'labels')::jsonb) allowed_labels
-        WHERE canaries.labels::jsonb @> allowed_labels.value
+        -- just leverage the RLS on playbooks
+        SELECT 1
+        FROM playbooks
+        WHERE playbooks.id = playbook_runs.playbook_id
       )
       END
     );
@@ -173,6 +304,7 @@ ALTER VIEW config_types SET (security_invoker = true);
 ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
+ALTER VIEW playbook_names SET (security_invoker = true);
 
 -- TODO: Move 034_rls_enable.sql as the last script (eg: 10000_rls_enable.sql)
 -- So that all the views are already created before it runs.

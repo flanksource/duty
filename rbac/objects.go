@@ -130,10 +130,6 @@ var dbResourceObjMap = map[string]string{
 	"view_panels":                               policy.ObjectCatalog,
 	"people_roles":                              policy.ObjectDatabasePublic,
 	"people":                                    policy.ObjectPeople,
-	"permissions":                               policy.ObjectDatabaseSystem,
-	"permission_groups":                         policy.ObjectDatabaseSystem,
-	"permissions_summary":                       policy.ObjectDatabaseSystem,
-	"permissions_group_summary":                 policy.ObjectDatabaseSystem,
 	"playbook_action_agent_data":                policy.ObjectPlaybooks,
 	"playbook_approvals":                        policy.ObjectPlaybooks,
 	"playbook_names":                            policy.ObjectDatabasePublic,
@@ -198,6 +194,14 @@ var dbResourceObjMap = map[string]string{
 	"views":                                             policy.ObjectCatalog,
 	"views_summary":                                     policy.ObjectCatalog,
 
+	// permission
+	"access_scopes":             policy.ObjectDatabaseSystem,
+	"permissions":               policy.ObjectDatabaseSystem,
+	"permission_groups":         policy.ObjectDatabaseSystem,
+	"permissions_summary":       policy.ObjectDatabaseSystem,
+	"permissions_group_summary": policy.ObjectDatabaseSystem,
+
+	// Access logs
 	"config_access_logs":   policy.ObjectCatalog,
 	"access_reviews":       policy.ObjectCatalog,
 	"config_access":        policy.ObjectCatalog,
