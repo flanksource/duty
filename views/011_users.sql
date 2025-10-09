@@ -50,5 +50,6 @@ SELECT
 FROM
   people
   INNER JOIN casbin_rule cr ON cr.v0 = people.id::VARCHAR
+WHERE people.deleted_at IS NULL AND people.email IS NOT NULL
 GROUP BY
   people.id;

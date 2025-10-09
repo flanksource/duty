@@ -174,7 +174,7 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 func Check(ctx context.Context, subject, object, action string) bool {
 	hasEveryone, err := enforcer.HasRoleForUser(subject, policy.RoleEveryone)
 	if err != nil {
-		ctx.Errorf("RBAC Enforce failed: %v", err)
+		ctx.Errorf("failed to check role for user %s: %v", subject, err)
 		return false
 	}
 
@@ -187,7 +187,7 @@ func Check(ctx context.Context, subject, object, action string) bool {
 	if ctx.Properties().On(false, "casbin.explain") {
 		allowed, rules, err := enforcer.EnforceEx(subject, object, action)
 		if err != nil {
-			ctx.Errorf("RBAC Enforce failed: %v", err)
+			ctx.Errorf("failed run explained enforcer for user=%s, object=%s, action=%s: %v", subject, object, action, err)
 		}
 		ctx.Debugf("[%s] %s:%s -> %v (%s)", subject, object, action, allowed, strings.Join(rules, "\n\t"))
 		return allowed
@@ -195,7 +195,7 @@ func Check(ctx context.Context, subject, object, action string) bool {
 
 	allowed, err := enforcer.Enforce(subject, object, action)
 	if err != nil {
-		ctx.Errorf("RBAC Enforce failed: %v", err)
+		ctx.Errorf("failed to run enforcer for user=%s, action=%s: %v", subject, action, err)
 		return false
 	}
 	if ctx.IsTrace() {
