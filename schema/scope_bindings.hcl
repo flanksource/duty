@@ -23,14 +23,14 @@ table "scope_bindings" {
   }
 
   column "persons" {
-    null    = false
+    null    = true
     type    = sql("text[]")
     default = sql("'{}'::text[]")
     comment = "Array of person emails"
   }
 
   column "teams" {
-    null    = false
+    null    = true
     type    = sql("text[]")
     default = sql("'{}'::text[]")
     comment = "Array of team names"
