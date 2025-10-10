@@ -60,14 +60,18 @@ type Config struct {
 type SqlLogger struct {
 	Config
 	commons.Logger
-	traceParams bool
-	maxLength   int
-	baseLevel   commons.LogLevel
+	traceParams  bool
+	maxLength    int
+	baseLevel    commons.LogLevel
+	gormLogLevel logger.LogLevel
 }
 
 func (l *SqlLogger) WithLogLevel(level any) *SqlLogger {
 	newlogger := *l
 	newlogger.Logger = l.Logger.WithV(level)
+	if gormLevel, ok := level.(logger.LogLevel); ok {
+		newlogger.gormLogLevel = gormLevel
+	}
 	return &newlogger
 }
 
@@ -122,26 +126,22 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	}
 
 	elapsed := time.Since(begin)
-	msg := ""
 	level := l.baseLevel
+
+	sql, rows := fc()
+	sql = trunc(sql, l.maxLength)
+	msg := fmt.Sprintf(detailsFmt, elapsed/1e6, rows, sql)
 
 	switch {
 	case err != nil && (!errors.Is(err, gorm.ErrRecordNotFound) || !l.IgnoreRecordNotFoundError):
-		sql, rows := fc()
-		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("ERROR >="+detailsFmt, elapsed/1e6, rows, err.Error()+" "+sql)
 		level = l.baseLevel - (commons.Error * -1)
 
 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0:
-		sql, rows := fc()
-		sql = trunc(sql, l.maxLength)
 		msg = fmt.Sprintf("SLOW SQL >= "+detailsFmt, elapsed/1e6, rows, sql)
 		level = l.baseLevel - (commons.Warn * -1)
 
 	case l.LogLevel == int(commons.Info):
-		sql, rows := fc()
-		sql = trunc(sql, l.maxLength)
-
 		switch strings.ToLower(strings.Split(strings.TrimSpace(sql), " ")[0]) {
 		case "select", "notify":
 			if rows == 0 {
@@ -161,11 +161,15 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 		default:
 			level = l.baseLevel + commons.Debug
 		}
-
-		msg = fmt.Sprintf(detailsFmt, elapsed/1e6, rows, sql)
 	}
+
 	if l.IsLevelEnabled(level) {
 		l.V(level).Infof(msg)
+	}
+
+	// Activated when gorm.DB.Debug() is used
+	if l.gormLogLevel > logger.Silent {
+		l.Infof(msg)
 	}
 }
 
