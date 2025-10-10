@@ -16,10 +16,11 @@ type Scope struct {
 	Tags   map[string]string `json:"tags,omitempty"`
 	Agents []string          `json:"agents,omitempty"`
 	Names  []string          `json:"names,omitempty"`
+	ID     string            `json:"id,omitempty"`
 }
 
 func (s Scope) IsEmpty() bool {
-	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0
+	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0 && strings.TrimSpace(s.ID) == ""
 }
 
 func (s Scope) Fingerprint() string {
@@ -29,7 +30,7 @@ func (s Scope) Fingerprint() string {
 	slices.Sort(agentsCopy)
 	slices.Sort(namesCopy)
 
-	data := fmt.Sprintf("agents:%s | tags:%s | names:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"))
+	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID))
 	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
 }
 

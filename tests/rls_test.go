@@ -1057,6 +1057,53 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 						},
 						expectedCount: lo.ToPtr(int64(0)), // Should deny because playbooks support neither tags nor agents
 					}),
+					Entry("specific ID (should grant access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{ID: dummy.EchoConfig.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("wrong ID (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{ID: "00000000-0000-0000-0000-000000000000"},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("ID + matching name (AND logic - should grant access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									ID:    dummy.EchoConfig.ID.String(),
+									Names: []string{dummy.EchoConfig.Name},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("ID + non-matching name (AND logic - should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{
+									ID:    dummy.EchoConfig.ID.String(),
+									Names: []string{"wrong-name"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with different IDs (OR logic)", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{ID: dummy.EchoConfig.ID.String()},
+								{ID: dummy.RestartPod.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(2)),
+					}),
 				)
 			})
 		}
