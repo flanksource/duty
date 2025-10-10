@@ -158,6 +158,11 @@ table "permissions" {
   primary_key {
     columns = [column.id]
   }
+
+  check "permissions_selector_or_id_check" {
+    expr = "(object_selector IS NOT NULL)::int + (config_id IS NOT NULL)::int + (playbook_id IS NOT NULL)::int + (canary_id IS NOT NULL)::int + (component_id IS NOT NULL)::int + (connection_id IS NOT NULL)::int = 1"
+  }
+
   foreign_key "permissions_playbook_id_fkey" {
     columns     = [column.playbook_id]
     ref_columns = [table.playbooks.column.id]
