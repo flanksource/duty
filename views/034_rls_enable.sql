@@ -14,16 +14,19 @@ CREATE OR REPLACE FUNCTION match_scope(
     scopes jsonb,           -- Array of scope objects from JWT claims
     row_tags jsonb,         -- The row's tags (can be NULL)
     row_agent uuid,         -- The row's agent_id (can be NULL)
-    row_name text           -- The row's name (can be NULL)
+    row_name text,          -- The row's name (can be NULL)
+    row_id uuid             -- The row's ID (can be NULL)
 ) RETURNS BOOLEAN AS $$
 DECLARE
     scope jsonb;
     scope_tags jsonb;
     scope_agents jsonb;
     scope_names jsonb;
+    scope_id text;
     tags_match boolean;
     agents_match boolean;
     names_match boolean;
+    id_match boolean;
 BEGIN
     -- If scopes is NULL or not an array or empty, deny access
     IF scopes IS NULL
@@ -39,13 +42,15 @@ BEGIN
         scope_tags := scope->'tags';
         scope_agents := scope->'agents';
         scope_names := scope->'names';
+        scope_id := NULLIF(btrim(scope->>'id'), '');
 
         -- Check if scope has any fields applicable to this resource type
         -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
         -- If no applicable fields, scope is effectively empty for this resource type
         IF ((scope_tags IS NULL OR scope_tags = '{}'::jsonb) OR row_tags IS NULL)
            AND (COALESCE(jsonb_array_length(scope_agents), 0) = 0 OR row_agent IS NULL)
-           AND (COALESCE(jsonb_array_length(scope_names), 0) = 0 OR row_name IS NULL) THEN
+           AND (COALESCE(jsonb_array_length(scope_names), 0) = 0 OR row_name IS NULL)
+           AND (scope_id IS NULL OR row_id IS NULL) THEN
             CONTINUE;
         END IF;
 
@@ -80,8 +85,19 @@ BEGIN
             names_match := scope_names @> to_jsonb(row_name);
         END IF;
 
+        -- Check ID match (row ID must match if provided)
+        IF scope_id IS NULL THEN
+            id_match := TRUE;
+        ELSIF row_id IS NULL THEN
+            id_match := FALSE;
+        ELSIF scope_id = '*' THEN
+            id_match := row_id IS NOT NULL;
+        ELSE
+            id_match := lower(scope_id) = row_id::text;
+        END IF;
+
         -- If ALL conditions match (AND logic within scope), return TRUE
-        IF tags_match AND agents_match AND names_match THEN
+        IF tags_match AND agents_match AND names_match AND id_match THEN
             RETURN TRUE;
         END IF;
     END LOOP;
@@ -143,7 +159,8 @@ CREATE POLICY config_items_auth ON config_items
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'config',
           config_items.tags,
           config_items.agent_id,
-          config_items.name
+          config_items.name,
+          config_items.id
         )
       END
     );
@@ -223,7 +240,8 @@ CREATE POLICY components_auth ON components
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'component',
           NULL,
           components.agent_id,
-          components.name
+          components.name,
+          components.id
         )
       END
     );
@@ -240,7 +258,8 @@ CREATE POLICY canaries_auth ON canaries
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'canary',
           NULL,
           canaries.agent_id,
-          canaries.name
+          canaries.name,
+          canaries.id
         )
       END
     );
@@ -257,7 +276,8 @@ CREATE POLICY playbooks_auth ON playbooks
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'playbook',
           NULL,
           NULL,
-          playbooks.name
+          playbooks.name,
+          playbooks.id
         )
       END
     );
