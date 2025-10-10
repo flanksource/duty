@@ -13,11 +13,17 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+type ScopeRef struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
+}
+
 type Selectors struct {
 	Playbooks   []types.ResourceSelector `json:"playbooks,omitempty"`
 	Connections []types.ResourceSelector `json:"connections,omitempty"`
 	Configs     []types.ResourceSelector `json:"configs,omitempty"`
 	Components  []types.ResourceSelector `json:"components,omitempty"`
+	Scopes      []ScopeRef               `json:"scopes,omitempty"`
 }
 
 type addableEnforcer interface {
