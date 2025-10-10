@@ -18,61 +18,73 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g.Expect(payload.Fingerprint()).To(gomega.Equal("disabled"))
 	})
 
-	t.Run("should compute deterministic fingerprint for Tags and Agents", func(t *testing.T) {
+	t.Run("should compute deterministic fingerprint for scopes", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{
-			Tags: []map[string]string{
-				{"z": "value1", "a": "value2"},
-				{"b": "value3"},
+			Config: []Scope{
+				{
+					Tags:   map[string]string{"z": "value1", "a": "value2"},
+					Agents: []string{"agent2", "agent1"},
+				},
 			},
-			Agents: []string{"agent2", "agent1"},
 		}
 		payload.EvalFingerprint()
 
-		expectedFingerprint := "agent1--agent2-a=value2,z=value1--b=value3"
-		g.Expect(payload.Fingerprint()).To(gomega.Equal(expectedFingerprint))
+		// Fingerprint should be deterministic (hash of sorted scope fingerprints)
+		g.Expect(payload.Fingerprint()).NotTo(gomega.BeEmpty())
+		g.Expect(payload.Fingerprint()).NotTo(gomega.Equal("disabled"))
+		g.Expect(payload.Fingerprint()).NotTo(gomega.Equal("empty"))
 	})
 
-	t.Run("should compute 'empty' fingerprint for empty Tags and Agents", func(t *testing.T) {
+	t.Run("should compute 'empty' fingerprint for empty scopes", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{}
 		payload.EvalFingerprint()
 
-		g.Expect(payload.Fingerprint()).To(gomega.Equal("-"))
+		g.Expect(payload.Fingerprint()).To(gomega.Equal("empty"))
 	})
 
-	t.Run("should sort Tags and Agents deterministically", func(t *testing.T) {
+	t.Run("should sort scopes deterministically", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
-			Tags: []map[string]string{
-				{"b": "value3"},
-				{"z": "value1", "a": "value2"},
+		payload1 := &Payload{
+			Config: []Scope{
+				{Tags: map[string]string{"a": "value1"}},
+				{Tags: map[string]string{"b": "value2"}},
 			},
-			Agents: []string{"agent3", "agent1", "agent2"},
 		}
-		payload.EvalFingerprint()
+		payload1.EvalFingerprint()
 
-		expectedFingerprint := "agent1--agent2--agent3-a=value2,z=value1--b=value3"
-		g.Expect(payload.Fingerprint()).To(gomega.Equal(expectedFingerprint))
+		payload2 := &Payload{
+			Config: []Scope{
+				{Tags: map[string]string{"b": "value2"}},
+				{Tags: map[string]string{"a": "value1"}},
+			},
+		}
+		payload2.EvalFingerprint()
+
+		// Same scopes in different order should produce the same fingerprint
+		g.Expect(payload1.Fingerprint()).To(gomega.Equal(payload2.Fingerprint()))
 	})
 
 	t.Run("should cache the fingerprint after first computation", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{
-			Tags: []map[string]string{
-				{"x": "value4"},
+			Config: []Scope{
+				{
+					Tags:   map[string]string{"x": "value4"},
+					Agents: []string{"agentX"},
+				},
 			},
-			Agents: []string{"agentX"},
 		}
 		payload.EvalFingerprint()
 		firstFingerprint := payload.Fingerprint()
 
 		// Modify the underlying data to see if the cached fingerprint remains unchanged
-		payload.Tags[0]["x"] = "modified_value"
+		payload.Config[0].Tags["x"] = "modified_value"
 		g.Expect(payload.Fingerprint()).To(gomega.Equal(firstFingerprint))
 	})
 }

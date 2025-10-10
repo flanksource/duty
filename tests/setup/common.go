@@ -32,6 +32,7 @@ import (
 	"github.com/flanksource/duty/job"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac"
 	"github.com/flanksource/duty/shutdown"
 	"github.com/flanksource/duty/telemetry"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
@@ -343,4 +344,21 @@ func DumpEventQueue(ctx context.Context) {
 	}
 
 	tbl.Print()
+}
+
+// CreateUserWithRole creates a user and assigns the specified roles
+func CreateUserWithRole(ctx context.Context, name, email string, roles ...string) *models.Person {
+	user := &models.Person{
+		Name:  name,
+		Email: email,
+	}
+	err := ctx.DB().Create(user).Error
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, role := range roles {
+		_, err = rbac.Enforcer().AddRoleForUser(user.ID.String(), role)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	return user
 }

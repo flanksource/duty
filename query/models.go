@@ -291,6 +291,29 @@ var ViewQueryModel = QueryModel{
 	HasLabels:      true,
 }
 
+var CanaryQueryModel = QueryModel{
+	Table: models.Canary{}.TableName(),
+	Columns: []string{
+		"id", "name", "namespace", "agent_id",
+		"created_at", "updated_at", "deleted_at",
+	},
+	JSONMapColumns: []string{"labels", "spec"},
+	HasLabels:      true,
+	HasAgents:      true,
+	Aliases: map[string]string{
+		"created": "created_at",
+		"updated": "updated_at",
+		"deleted": "deleted_at",
+		"agent":   "agent_id",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"agent_id":   AgentMapper,
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
+	},
+}
+
 func GetModelFromTable(table string) (QueryModel, error) {
 	switch table {
 	case models.ConfigItem{}.TableName():
@@ -299,6 +322,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return ComponentQueryModel, nil
 	case models.Check{}.TableName():
 		return CheckQueryModel, nil
+	case models.Canary{}.TableName():
+		return CanaryQueryModel, nil
 	case models.Playbook{}.TableName():
 		return PlaybookQueryModel, nil
 	case models.Connection{}.TableName():

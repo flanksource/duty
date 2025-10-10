@@ -54,6 +54,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 	testData := []struct {
 		description   string
 		query         query.SearchResourcesRequest
+		Canaries      []models.Canary
 		Configs       []models.ConfigItem
 		Components    []models.Component
 		Checks        []models.Check
@@ -295,6 +296,59 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			},
 			Connections: []models.Connection{dummy.PostgresConnection},
 		},
+		{
+			description: "canary by id",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{ID: dummy.LogisticsAPICanary.ID.String()}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsAPICanary},
+		},
+		{
+			description: "canary by name",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Name: dummy.LogisticsDBCanary.Name}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsDBCanary},
+		},
+		{
+			description: "canary by namespace",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Namespace: "logistics"}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsAPICanary, dummy.LogisticsDBCanary},
+		},
+		{
+			description: "canary by name and namespace",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Name: dummy.LogisticsAPICanary.Name, Namespace: dummy.LogisticsAPICanary.Namespace}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsAPICanary},
+		},
+		{
+			description: "canary by agent",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Agent: dummy.GCPAgent.ID.String()}},
+			},
+			Canaries: []models.Canary{dummy.CartAPICanaryAgent},
+		},
+		{
+			description: "canary with name prefix",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Name: "dummy-logistics-*"}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsAPICanary, dummy.LogisticsDBCanary},
+		},
+		{
+			description: "multiple resource types including canaries",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Namespace: "logistics"}},
+				Checks:   []types.ResourceSelector{{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
+				Configs:  []types.ResourceSelector{{ID: dummy.EKSCluster.ID.String()}},
+			},
+			Canaries: []models.Canary{dummy.LogisticsAPICanary, dummy.LogisticsDBCanary},
+			Checks:   []models.Check{dummy.LogisticsAPIHealthHTTPCheck},
+			Configs:  []models.ConfigItem{dummy.EKSCluster},
+		},
 	}
 
 	ginkgo.Describe("search", ginkgo.Ordered, func() {
@@ -310,6 +364,7 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			ginkgo.It(test.description, func() {
 				items, err := query.SearchResources(DefaultContext, test.query)
 				Expect(err).To(BeNil())
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Canaries...)), "should contain canaries")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
@@ -327,6 +382,7 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 	testData := []struct {
 		description   string
 		query         query.SearchResourcesRequest
+		Canaries      []models.Canary
 		Configs       []models.ConfigItem
 		Components    []models.Component
 		Checks        []models.Check
@@ -372,6 +428,7 @@ var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, fun
 		ginkgo.It(test.description, func() {
 			items, err := query.SearchResources(DefaultContext, test.query)
 			Expect(err).To(BeNil())
+			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Canaries...)), "should contain canaries")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Configs...)), "should contain configs")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 			Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
@@ -429,17 +486,33 @@ var _ = ginkgo.Describe("Resoure Selector limits", ginkgo.Ordered, func() {
 		}
 	})
 
+	ginkgo.Context("It should return the fixed page size for canaries", func() {
+		for limit := 1; limit < 3; limit++ {
+			ginkgo.It(fmt.Sprintf("should work with %d page size", limit), func() {
+				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+					Limit:    limit,
+					Canaries: []types.ResourceSelector{{Namespace: "logistics"}},
+				})
+
+				Expect(err).To(BeNil())
+				Expect(limit).To(Equal(len(items.Canaries)))
+			})
+		}
+	})
+
 	ginkgo.Context("It should return the fixed page size for all types", func() {
 		for pageSize := 1; pageSize < 3; pageSize++ {
 			ginkgo.It(fmt.Sprintf("should work with %d page size", pageSize), func() {
 				items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
 					Limit:      pageSize,
+					Canaries:   []types.ResourceSelector{{Namespace: "logistics"}},
 					Configs:    []types.ResourceSelector{{Search: fmt.Sprintf("config_class=%s", models.ConfigClassNode)}},
 					Components: []types.ResourceSelector{{Types: []string{"Application"}}},
 					Checks:     []types.ResourceSelector{{Types: []string{"http"}, Agent: "all"}},
 				})
 
 				Expect(err).To(BeNil())
+				Expect(pageSize).To(Equal(len(items.Canaries)))
 				Expect(pageSize).To(Equal(len(items.Configs)))
 				Expect(pageSize).To(Equal(len(items.Components)))
 				Expect(pageSize).To(Equal(len(items.Checks)))

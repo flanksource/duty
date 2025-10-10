@@ -6,9 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flanksource/commons/collections"
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/types"
@@ -78,12 +76,6 @@ type Permission struct {
 	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedBy *uuid.UUID `json:"updated_by"`
 	DeletedAt *time.Time `json:"deleted_at"`
-
-	// List of agent ids whose configs/components are accessible to a person when RLS is enabled
-	Agents pq.StringArray `json:"agents,omitempty" gorm:"type:[]text"`
-
-	// List of config/component tags a person is allowed access to when RLS is enabled
-	Tags types.JSONStringMap `json:"tags,omitempty" gorm:"default:NULL"`
 }
 
 func (p Permission) PK() string {
@@ -129,28 +121,23 @@ func (t *Permission) Condition() string {
 	}
 
 	if t.ComponentID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Component.ID == %q", t.ComponentID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Component.ID) == %q", t.ComponentID.String()))
 	}
 
 	if t.ConfigID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Config.ID == %q", t.ConfigID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Config.ID) == %q", t.ConfigID.String()))
 	}
 
 	if t.CanaryID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Canary.ID == %q", t.CanaryID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Check.ID) == %q", t.CanaryID.String()))
 	}
 
 	if t.PlaybookID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Playbook.ID == %q", t.PlaybookID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Playbook.ID) == %q", t.PlaybookID.String()))
 	}
 
-	if len(t.Agents) > 0 || len(t.Tags) > 0 {
-		var agents []string
-		for _, agentID := range t.Agents {
-			agents = append(agents, fmt.Sprintf("'%s'", agentID))
-		}
-
-		rule = append(rule, fmt.Sprintf(`matchPerm(r.obj, (%s), '%s')`, strings.Join(agents, ","), collections.SortedMap(t.Tags)))
+	if t.ConnectionID != nil {
+		rule = append(rule, fmt.Sprintf("str(r.obj.Connection.ID) == %q", t.ConnectionID.String()))
 	}
 
 	return strings.Join(rule, " && ")

@@ -22,8 +22,9 @@ type DummyData struct {
 	People []models.Person
 	Agents []models.Agent
 
-	Playbooks   []models.Playbook
-	Connections []models.Connection
+	Playbooks     []models.Playbook
+	PlaybookRuns  []models.PlaybookRun
+	Connections   []models.Connection
 
 	Topologies             []models.Topology
 	Components             []models.Component
@@ -80,6 +81,10 @@ func (t *DummyData) Populate(ctx context.Context) error {
 	}
 
 	if err := gormDB.CreateInBatches(t.Playbooks, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.PlaybookRuns, 100).Error; err != nil {
 		return err
 	}
 
@@ -296,6 +301,10 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := DeleteAll(gormDB, t.PlaybookRuns); err != nil {
+		return err
+	}
+
 	if err := DeleteAll(gormDB, t.Playbooks); err != nil {
 		return err
 	}
@@ -340,6 +349,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 	// we're appending here so we do not mutate the original slice.
 	d := DummyData{
 		Playbooks:                    append([]models.Playbook{}, AllDummyPlaybooks...),
+		PlaybookRuns:                 append([]models.PlaybookRun{}, AllDummyPlaybookRuns...),
 		Connections:                  append([]models.Connection{}, AllDummyConnections...),
 		People:                       append([]models.Person{}, AllDummyPeople...),
 		Agents:                       append([]models.Agent{}, AllDummyAgents...),

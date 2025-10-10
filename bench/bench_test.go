@@ -139,7 +139,7 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig) {
 					var payload pkgRLS.Payload
 					if rls {
 						b.StopTimer()
-						payload = pkgRLS.Payload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
+						payload = pkgRLS.Payload{Config: []pkgRLS.Scope{{Tags: sampleTags[i%len(sampleTags)]}}}
 						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
 							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
 						}

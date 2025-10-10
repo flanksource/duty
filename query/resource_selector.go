@@ -28,6 +28,7 @@ type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
 
+	Canaries      []types.ResourceSelector `json:"canaries"`
 	Checks        []types.ResourceSelector `json:"checks"`
 	Components    []types.ResourceSelector `json:"components"`
 	Configs       []types.ResourceSelector `json:"configs"`
@@ -37,6 +38,7 @@ type SearchResourcesRequest struct {
 }
 
 type SearchResourcesResponse struct {
+	Canaries      []SelectedResource `json:"canaries,omitempty"`
 	Checks        []SelectedResource `json:"checks,omitempty"`
 	Components    []SelectedResource `json:"components,omitempty"`
 	Configs       []SelectedResource `json:"configs,omitempty"`
@@ -47,6 +49,7 @@ type SearchResourcesResponse struct {
 
 func (r *SearchResourcesResponse) GetIDs() []string {
 	var ids []string
+	ids = append(ids, lo.Map(r.Canaries, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Checks, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Configs, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Components, func(c SelectedResource, _ int) string { return c.ID })...)
@@ -74,6 +77,25 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	}
 
 	eg, _ := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		if items, err := FindCanaries(ctx, req.Limit, req.Canaries...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output.Canaries = append(output.Canaries, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     items[i].AgentID.String(),
+					Tags:      items[i].Labels,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
+				})
+			}
+		}
+
+		return nil
+	})
+
 	eg.Go(func() error {
 		if items, err := FindConfigsByResourceSelector(ctx, req.Limit, req.Configs...); err != nil {
 			return err

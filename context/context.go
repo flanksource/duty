@@ -356,6 +356,18 @@ func (k Context) DB() *gorm.DB {
 	return v.WithContext(k)
 }
 
+// DebugDB returns a db instance which logs the query
+func (k Context) DebugDB() *gorm.DB {
+	l := logger.GetLogger("db-query-log")
+	l.SetLogLevel(8)
+	sl := dutyGorm.NewSqlLogger(l)
+	db := k.DB()
+	if db == nil {
+		return nil
+	}
+	return db.Session(&gorm.Session{Logger: sl})
+}
+
 func (k Context) Pool() *pgxpool.Pool {
 	val := k.Value("pgxpool")
 	if val == nil {
