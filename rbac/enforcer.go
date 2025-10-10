@@ -198,6 +198,7 @@ func Check(ctx context.Context, subject, object, action string) bool {
 		ctx.Errorf("failed to run enforcer for user=%s, action=%s: %v", subject, action, err)
 		return false
 	}
+
 	if ctx.IsTrace() {
 		ctx.Tracef("rbac: %s %s:%s = %v", subject, object, action, allowed)
 	}
@@ -223,6 +224,15 @@ func CheckContext(ctx context.Context, object, action string) bool {
 func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribute, action string) bool {
 	if enforcer == nil {
 		return true
+	}
+
+	if ctx.Properties().On(false, "casbin.explain") {
+		allowed, rules, err := enforcer.EnforceEx(subject, attr, action)
+		if err != nil {
+			ctx.Errorf("failed run explained enforcer for subject=%s, action=%s: %v", subject, action, err)
+		}
+		ctx.Debugf("[%s] attr=%#v action=%s -> %v (%s)", subject, lo.FromPtr(attr), action, allowed, strings.Join(rules, "\n\t"))
+		return allowed
 	}
 
 	allowed, err := enforcer.Enforce(subject, attr, action)

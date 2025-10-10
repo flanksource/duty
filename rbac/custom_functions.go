@@ -118,4 +118,25 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 
 		return matchResourceSelector(attr, objectSelector)
 	})
+
+	// str converts UUIDs to strings for comparison in Casbin conditions.
+	// We need this because - for ABAC, our attributes may have IDs as uuid.UUID types.
+	// for casbin rules where we need to match Id against a <uuid-string>,
+	// attribute.ID == "<uuid-string>" will always be false because they are different types.
+	//
+	// This is useful when creating casbin policies from permissions that are tied to a specific resource by id.
+	enforcer.AddFunction("str", func(args ...any) (any, error) {
+		if len(args) != 1 {
+			return "", fmt.Errorf("str needs 1 argument. got %d", len(args))
+		}
+
+		switch v := args[0].(type) {
+		case uuid.UUID:
+			return v.String(), nil
+		case string:
+			return v, nil
+		default:
+			return fmt.Sprintf("%v", v), nil
+		}
+	})
 }

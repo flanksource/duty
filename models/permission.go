@@ -121,19 +121,23 @@ func (t *Permission) Condition() string {
 	}
 
 	if t.ComponentID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Component.ID == %q", t.ComponentID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Component.ID) == %q", t.ComponentID.String()))
 	}
 
 	if t.ConfigID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Config.ID == %q", t.ConfigID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Config.ID) == %q", t.ConfigID.String()))
 	}
 
 	if t.CanaryID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Canary.ID == %q", t.CanaryID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Check.ID) == %q", t.CanaryID.String()))
 	}
 
 	if t.PlaybookID != nil {
-		rule = append(rule, fmt.Sprintf("r.obj.Playbook.ID == %q", t.PlaybookID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Playbook.ID) == %q", t.PlaybookID.String()))
+	}
+
+	if t.ConnectionID != nil {
+		rule = append(rule, fmt.Sprintf("str(r.obj.Connection.ID) == %q", t.ConnectionID.String()))
 	}
 
 	return strings.Join(rule, " && ")
