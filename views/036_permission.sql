@@ -55,6 +55,7 @@ SELECT
     p.name,
     p.namespace,
     p.description,
+    p.error,
     p.source,
     p.action,
     p.object,
