@@ -19,9 +19,10 @@ CREATE OR REPLACE FUNCTION reset_permission_error_before_update ()
   RETURNS TRIGGER
   AS $$
 BEGIN
-  IF OLD.object_selector IS DISTINCT FROM NEW.object_selector THEN
+  IF OLD.error IS NOT NULL AND (OLD.object_selector IS DISTINCT FROM NEW.object_selector) THEN
     NEW.error = NULL;
   END IF;
+
   RETURN NEW;
 END
 $$
@@ -30,7 +31,7 @@ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER reset_permission_error_before_update_trigger
   BEFORE UPDATE ON permissions
   FOR EACH ROW
-  EXECUTE PROCEDURE reset_permission_error_before_update();
+  EXECUTE FUNCTION reset_permission_error_before_update();
 
 -- permission_group_summary
 CREATE OR REPLACE VIEW permissions_group_summary AS
