@@ -8,6 +8,14 @@
 
 ## Test Notes
 
-- Always use ginkgo to run the tests.
-- Always use gomega for assertions in tests.
+- To run the entire test suite, run `make test`.
 - To run a specific test. use `ginkgo -focus "TestName" -r`
+- To run tests in a package, use ginkgo with `--label-filter='!ignore_local'` flag.
+- Always use ginkgo to run tests. Never run `go test` directly.
+- Always use `github.com/onsi/gomega` package for assertions.
+- When using gomega with native go tests use this approach
+
+```go
+g := gomega.NewWithT(t)
+g.Expect(true).To(gomega.Equal(1 == 1))
+```

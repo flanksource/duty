@@ -1,7 +1,6 @@
 package rbac
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -106,13 +105,8 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 			return false, errors.New("attribute cannot be nil")
 		}
 
-		rs, err := base64.StdEncoding.DecodeString(selector)
-		if err != nil {
-			return false, err
-		}
-
 		var objectSelector Selectors
-		if err := json.Unmarshal([]byte(rs), &objectSelector); err != nil {
+		if err := json.Unmarshal([]byte(selector), &objectSelector); err != nil {
 			return false, err
 		}
 

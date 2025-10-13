@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -116,8 +115,7 @@ func (t *Permission) Condition() string {
 	var rule []string
 
 	if len(t.ObjectSelector) > 0 {
-		// TODO: Find a way to pass in the JSON encoded string instead of encoding with base64
-		rule = append(rule, fmt.Sprintf(`matchResourceSelector(r.obj, '%s')`, base64.StdEncoding.EncodeToString([]byte(t.ObjectSelector))))
+		rule = append(rule, fmt.Sprintf(`matchResourceSelector(r.obj, %q)`, string(t.ObjectSelector)))
 	}
 
 	if t.ComponentID != nil {

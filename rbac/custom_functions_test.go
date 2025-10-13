@@ -1,9 +1,13 @@
 package rbac
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/google/uuid"
+	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
@@ -222,6 +226,126 @@ func Test_matchResourceSelector(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("matchResourceSelector() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_matchResourceSelectorCasbinIntegration(t *testing.T) {
+	type testCase struct {
+		name     string
+		attr     *models.ABACAttribute
+		selector Selectors
+		want     bool
+	}
+
+	tests := []testCase{
+		{
+			name: "matching config selector",
+			attr: &models.ABACAttribute{
+				Config: models.ConfigItem{
+					ID:   uuid.New(),
+					Name: lo.ToPtr("airsonic"),
+					Tags: map[string]string{
+						"namespace": "default",
+					},
+				},
+			},
+			selector: Selectors{
+				Configs: []types.ResourceSelector{
+					{
+						Namespace: "default",
+						Name:      "airsonic",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "non-matching config selector - different name",
+			attr: &models.ABACAttribute{
+				Config: models.ConfigItem{
+					ID:   uuid.New(),
+					Name: lo.ToPtr("airsonic"),
+					Tags: map[string]string{
+						"namespace": "default",
+					},
+				},
+			},
+			selector: Selectors{
+				Configs: []types.ResourceSelector{
+					{
+						Namespace: "default",
+						Name:      "different-app",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "non-matching selector - attribute has config but selector expects playbook",
+			attr: &models.ABACAttribute{
+				Config: models.ConfigItem{
+					ID:   uuid.New(),
+					Name: lo.ToPtr("airsonic"),
+					Tags: map[string]string{
+						"namespace": "default",
+					},
+				},
+			},
+			selector: Selectors{
+				Playbooks: []types.ResourceSelector{
+					{
+						Name: "some-playbook",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "matching with wildcard selector",
+			attr: &models.ABACAttribute{
+				Config: models.ConfigItem{
+					ID:   uuid.New(),
+					Name: lo.ToPtr("airsonic"),
+					Tags: map[string]string{
+						"namespace": "default",
+					},
+				},
+			},
+			selector: Selectors{
+				Configs: []types.ResourceSelector{
+					{
+						Name: "*",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			enforcer, err := casbin.NewEnforcer("model.ini")
+			g.Expect(err).To(Succeed())
+
+			// Register custom functions
+			AddCustomFunctions(enforcer)
+
+			selectorJSON, err := json.Marshal(tt.selector)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// Add policy using the production model format: p = sub, obj, act, eft, condition, id
+			condition := fmt.Sprintf("matchResourceSelector(r.obj, %q)", string(selectorJSON))
+			policyID := "test-policy-" + tt.name
+
+			_, err = enforcer.AddPolicy("user1", "*", "read", "allow", condition, policyID)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			result, err := enforcer.Enforce("user1", tt.attr, "read")
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(result).To(Equal(tt.want))
 		})
 	}
 }
