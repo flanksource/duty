@@ -19,3 +19,16 @@
 g := gomega.NewWithT(t)
 g.Expect(true).To(gomega.Equal(1 == 1))
 ```
+
+### Comments guidelines
+
+- Only add comments if really really necessary. Do not add comments that simply explain the code.
+  - Exception: comments about functions are considered good practice in Go even if they are self-explanatory.
+
+### To Connect to local database
+
+Run
+
+```sh
+psql $DB_URL -c "SELECT VERSION()"
+```
