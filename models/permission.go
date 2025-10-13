@@ -49,6 +49,7 @@ type Permission struct {
 	Description string     `json:"description"`
 	Source      string     `json:"source"`
 	Until       *time.Time `json:"until"`
+	Error       *string    `json:"error,omitempty" gorm:"default:NULL"`
 
 	// Action supports matchItem
 	Action string `json:"action"`
