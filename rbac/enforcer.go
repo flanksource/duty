@@ -28,7 +28,7 @@ var defaultPolicies string
 //go:embed model.ini
 var DefaultModel string
 
-type Adapter func(db *gorm.DB, main *gormadapter.Adapter) persist.Adapter
+type Adapter func(ctx context.Context, main *gormadapter.Adapter) persist.Adapter
 
 func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error {
 	model, err := model.NewModelFromString(DefaultModel)
@@ -62,7 +62,7 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 
 	var adapter any = casbinRuleAdapter
 	for _, a := range adapters {
-		adapter = a(db, casbinRuleAdapter)
+		adapter = a(ctx, casbinRuleAdapter)
 	}
 
 	enforcer, err = casbin.NewSyncedCachedEnforcer(model, adapter)
