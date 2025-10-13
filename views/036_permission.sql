@@ -2,7 +2,7 @@ UPDATE
   permissions
 SET
   subject = COALESCE(team_id, person_id, notification_id),
-  subject_type = CASE 
+  subject_type = CASE
     WHEN team_id IS NOT NULL THEN 'team'
     WHEN person_id IS NOT NULL THEN 'person'
     WHEN notification_id IS NOT NULL THEN 'notification'
@@ -13,6 +13,26 @@ WHERE
   OR subject = '';
 
 -- ALTER TABLE permissions ALTER COLUMN subject SET NOT NULL;
+
+-- Handle before updates for permissions
+CREATE OR REPLACE FUNCTION reset_permission_error_before_update ()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  IF OLD.error IS NOT NULL AND (OLD.object_selector IS DISTINCT FROM NEW.object_selector) THEN
+    NEW.error = NULL;
+  END IF;
+
+  RETURN NEW;
+END
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER reset_permission_error_before_update_trigger
+  BEFORE UPDATE ON permissions
+  FOR EACH ROW
+  EXECUTE FUNCTION reset_permission_error_before_update();
+
 -- permission_group_summary
 CREATE OR REPLACE VIEW permissions_group_summary AS
 SELECT
@@ -36,6 +56,7 @@ SELECT
     p.name,
     p.namespace,
     p.description,
+    p.error,
     p.source,
     p.action,
     p.object,

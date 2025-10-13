@@ -138,6 +138,12 @@ table "permissions" {
     type = timestamptz
   }
 
+  column "error" {
+    null    = true
+    type    = text
+    comment = "stores error when invalid object selector is provided. eg: granting access to a non-existent scope"
+  }
+
   column "until" {
     null = true
     type = timestamptz
