@@ -474,6 +474,10 @@ type DescriptionProvider interface {
 	GetHealthDescription() string
 }
 
+type AgentProvider interface {
+	GetAgentID() string
+}
+
 type ResourceSelectable interface {
 	GetFieldsMatcher() fields.Fields
 	GetLabelsMatcher() labels.Labels
@@ -508,6 +512,11 @@ func extractResourceFieldValue(rs ResourceSelectable, field string) (string, err
 			return "", fmt.Errorf("failed to get health: %w", err)
 		}
 		return value, nil
+	case "agent":
+		if agentProvider, ok := rs.(AgentProvider); ok {
+			return agentProvider.GetAgentID(), nil
+		}
+		return "", nil
 	}
 
 	if strings.HasPrefix(field, "labels.") {

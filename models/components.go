@@ -336,6 +336,13 @@ func (c Component) GetType() string {
 	return c.Type
 }
 
+func (c Component) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
 func (c Component) GetLabelsMatcher() labels.Labels {
 	return componentLabelsProvider{c}
 }

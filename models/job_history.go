@@ -64,6 +64,13 @@ func (j JobHistory) TableName() string {
 	return "job_history"
 }
 
+func (j JobHistory) GetAgentID() string {
+	if j.AgentID == uuid.Nil {
+		return ""
+	}
+	return j.AgentID.String()
+}
+
 func NewJobHistory(log logger.Logger, name, resourceType, resourceID string) *JobHistory {
 	return &JobHistory{
 		Name:         name,

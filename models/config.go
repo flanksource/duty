@@ -306,6 +306,13 @@ func (c ConfigItem) GetStatus() (string, error) {
 	return *c.Status, nil
 }
 
+func (c ConfigItem) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
 func (c ConfigItem) GetHealthDescription() string {
 	return lo.FromPtr(c.Description)
 }
@@ -383,6 +390,13 @@ func FindScraperByConfigId(db *gorm.DB, configId string) (*ConfigScraper, error)
 
 func (c ConfigScraper) GetNamespace() string {
 	return c.Namespace
+}
+
+func (c ConfigScraper) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
 }
 
 func (c ConfigScraper) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
@@ -695,6 +709,13 @@ type ConfigItemSummary struct {
 
 func (ConfigItemSummary) TableName() string {
 	return "configs"
+}
+
+func (c ConfigItemSummary) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
 }
 
 func (c ConfigItemSummary) ToConfigItem() ConfigItem {
