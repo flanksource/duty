@@ -44,6 +44,13 @@ func ImportConfigs(data []byte) (configs []models.ConfigItem, relationships []mo
 			},
 		}
 
+		if agent, ok := object.GetAnnotations()["dummy.flanksource.com/agent"]; ok {
+			id, err := uuid.Parse(agent)
+			if err == nil {
+				ci.AgentID = id
+			}
+		}
+
 		if parent, ok := object.GetAnnotations()["config-db.flanksource.com/parent"]; ok {
 			id, err := uuid.Parse(parent)
 			if err == nil {
