@@ -135,6 +135,13 @@ func (c Check) GetType() string {
 	return c.Type
 }
 
+func (c Check) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
 func (c Check) GetStatus() (string, error) {
 	return string(c.Status), nil
 }

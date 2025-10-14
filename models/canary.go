@@ -99,6 +99,13 @@ func (c Canary) GetType() string {
 	return ""
 }
 
+func (c Canary) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
 func (c Canary) GetStatus() (string, error) {
 	return "", nil
 }

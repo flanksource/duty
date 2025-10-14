@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
-	"github.com/samber/lo/mutable"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/samber/lo/mutable"
 
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -358,6 +357,83 @@ var _ = Describe("Resource Selector", func() {
 					"type": "Kubernetes::Pod",
 					"tags": map[string]string{
 						"namespace": "music",
+					},
+				},
+			},
+			{
+				name: "Agent - matches ConfigItem with same agent",
+				resourceSelectors: []types.ResourceSelector{
+					{Agent: "ac4b1dc5-b249-471d-89d7-ba0c5de4997b"},
+					{Search: "agent=ac4b1dc5-b249-471d-89d7-ba0c5de4997b"},
+				},
+				selectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("ac4b1dc5-b249-471d-89d7-ba0c5de4997b"),
+					Name:    lo.ToPtr("homelab-vm"),
+				},
+				unselectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("12345678-1234-1234-1234-123456789012"),
+					Name:    lo.ToPtr("gcp-vm"),
+				},
+			},
+			{
+				name: "Agent - does not match ConfigItem with no agent",
+				resourceSelectors: []types.ResourceSelector{
+					{Agent: "ac4b1dc5-b249-471d-89d7-ba0c5de4997b"},
+				},
+				selectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("ac4b1dc5-b249-471d-89d7-ba0c5de4997b"),
+					Name:    lo.ToPtr("homelab-vm"),
+				},
+				unselectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.Nil,
+					Name:    lo.ToPtr("central-db"),
+				},
+			},
+			{
+				name: "Agent with multiple criteria",
+				resourceSelectors: []types.ResourceSelector{
+					{Agent: "ac4b1dc5-b249-471d-89d7-ba0c5de4997b", Namespace: "default"},
+				},
+				selectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("ac4b1dc5-b249-471d-89d7-ba0c5de4997b"),
+					Name:    lo.ToPtr("homelab-vm"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("ac4b1dc5-b249-471d-89d7-ba0c5de4997b"),
+					Name:    lo.ToPtr("homelab-vm-kube-system"),
+					Tags: types.JSONStringMap{
+						"namespace": "kube-system",
+					},
+				},
+			},
+			{
+				name: "Agent with multiple criteria - II",
+				resourceSelectors: []types.ResourceSelector{
+					{Agent: "ac4b1dc5-b249-471d-89d7-ba0c5de4997b", Namespace: "default"},
+				},
+				selectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.MustParse("ac4b1dc5-b249-471d-89d7-ba0c5de4997b"),
+					Name:    lo.ToPtr("homelab-vm"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					ID:      uuid.New(),
+					AgentID: uuid.New(),
+					Name:    lo.ToPtr("homelab-vm-kube-system"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
 					},
 				},
 			},

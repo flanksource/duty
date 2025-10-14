@@ -47,6 +47,13 @@ func (t Topology) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	return lo.Map(items, func(i Topology, _ int) DBTable { return i }), err
 }
 
+func (t Topology) GetAgentID() string {
+	if t.AgentID == uuid.Nil {
+		return ""
+	}
+	return t.AgentID.String()
+}
+
 func (t Topology) PK() string {
 	return t.ID.String()
 }
