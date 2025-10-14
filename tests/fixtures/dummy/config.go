@@ -51,6 +51,13 @@ func ImportConfigs(data []byte) (configs []models.ConfigItem, relationships []mo
 			}
 		}
 
+		if scraperID, ok := object.GetAnnotations()["dummy.flanksource.com/scraper-id"]; ok {
+			id, err := uuid.Parse(scraperID)
+			if err == nil {
+				ci.ScraperID = lo.ToPtr(id.String())
+			}
+		}
+
 		if parent, ok := object.GetAnnotations()["config-db.flanksource.com/parent"]; ok {
 			id, err := uuid.Parse(parent)
 			if err == nil {
@@ -397,7 +404,23 @@ var AzureConfigScraper = models.ConfigScraper{
 	Spec:   "{}",
 }
 
-var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper, KubeScrapeConfig}
+var HomelabKubeScraper = models.ConfigScraper{
+	ID:        uuid.MustParse("7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d"),
+	Name:      "homelab-kubernetes-scraper",
+	Namespace: "default",
+	AgentID:   HomelabAgent.ID,
+	Source:    models.SourceUI,
+	Spec: `{
+    "kubernetes": [
+      {
+        "clusterName": "homelab",
+        "namespace": "default"
+      }
+    ]
+  }`,
+}
+
+var AllConfigScrapers = []models.ConfigScraper{AzureConfigScraper, KubeScrapeConfig, HomelabKubeScraper}
 
 var ClusterNodeARelationship = models.ConfigRelationship{
 	ConfigID:  KubernetesCluster.ID.String(),

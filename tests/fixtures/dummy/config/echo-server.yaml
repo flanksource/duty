@@ -17,6 +17,7 @@ metadata:
     meta.helm.sh/release-name: echo-server
     meta.helm.sh/release-namespace: default
     dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
   creationTimestamp: "2025-05-30T18:37:01Z"
 spec:
   replicas: 1
@@ -73,6 +74,7 @@ metadata:
     meta.helm.sh/release-namespace: default
     config-db.flanksource.com/parent: c737b53a-4671-48e7-8bbe-92a6432f08f6
     dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
   creationTimestamp: "2025-05-30T18:37:01Z"
   ownerReferences:
   - apiVersion: apps/v1
@@ -133,6 +135,7 @@ metadata:
   annotations:
     config-db.flanksource.com/parent: 2c563bdb-8108-4383-9f51-647094c8c8f7
     dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
   creationTimestamp: "2025-10-07T08:18:52Z"
   ownerReferences:
   - apiVersion: apps/v1
