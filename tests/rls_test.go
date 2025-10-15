@@ -1524,4 +1524,237 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			})
 		}
 	})
+
+	var _ = Describe("checks query", func() {
+		var (
+			tx                            *gorm.DB
+			totalChecks                   int64
+			logisticsAPICanaryChecksCount int64
+			logisticsDBCanaryChecksCount  int64
+			cartAPICanaryAgentChecksCount int64
+			logisticsAPIAndDBCanaryChecks int64
+		)
+
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+
+			Expect(DefaultContext.DB().Model(&models.Check{}).Count(&totalChecks).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("canary_id = ?", dummy.LogisticsAPICanary.ID).Model(&models.Check{}).Count(&logisticsAPICanaryChecksCount).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("canary_id = ?", dummy.LogisticsDBCanary.ID).Model(&models.Check{}).Count(&logisticsDBCanaryChecksCount).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("canary_id = ?", dummy.CartAPICanaryAgent.ID).Model(&models.Check{}).Count(&cartAPICanaryAgentChecksCount).Error).To(BeNil())
+			logisticsAPIAndDBCanaryChecks = logisticsAPICanaryChecksCount + logisticsDBCanaryChecksCount
+
+			Expect(totalChecks).To(BeNumerically(">", 0), "No checks found in test data")
+			Expect(logisticsAPICanaryChecksCount).To(BeNumerically(">", 0), "No checks found for LogisticsAPICanary")
+			Expect(logisticsDBCanaryChecksCount).To(BeNumerically(">", 0), "No checks found for LogisticsDBCanary")
+			Expect(cartAPICanaryAgentChecksCount).To(BeNumerically(">", 0), "No checks found for CartAPICanaryAgent")
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+		})
+
+		for _, role := range []string{"postgrest_anon", "postgrest_api"} {
+			Context(role, Ordered, func() {
+				BeforeAll(func() {
+					Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
+
+					var currentRole string
+					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
+					Expect(currentRole).To(Equal(role))
+				})
+
+				DescribeTable("JWT claim tests",
+					func(tc testCase) {
+						Expect(tc.rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+						var count int64
+						Expect(tx.Model(&models.Check{}).Count(&count).Error).To(BeNil())
+						Expect(count).To(Equal(*tc.expectedCount))
+					},
+					Entry("no permissions (empty scopes array)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("no permissions (non-existent canary)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Names: []string{"non-existent-canary"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("access checks via canary name (LogisticsAPICanary)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsAPICanary.Name}},
+							},
+						},
+						expectedCount: &logisticsAPICanaryChecksCount,
+					}),
+					Entry("access checks via canary name (LogisticsDBCanary)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsDBCanary.Name}},
+							},
+						},
+						expectedCount: &logisticsDBCanaryChecksCount,
+					}),
+					Entry("access checks via canary agent (CartAPICanaryAgent)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Agents: []string{dummy.GCPAgent.ID.String()}},
+							},
+						},
+						expectedCount: &cartAPICanaryAgentChecksCount,
+					}),
+					Entry("access checks from multiple canaries (OR logic)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsAPICanary.Name, dummy.LogisticsDBCanary.Name}},
+							},
+						},
+						expectedCount: &logisticsAPIAndDBCanaryChecks,
+					}),
+					Entry("wildcard canary name (match all checks)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalChecks,
+					}),
+					Entry("empty string in canary names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase canary name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.LogisticsAPICanary.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("whitespace-only canary name", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("conflicting criteria within scope (agent matches but name doesn't)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{dummy.GCPAgent.ID.String()},
+									Names:  []string{"non-existent-canary"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // AND logic means both must match
+					}),
+					Entry("valid canary agent + valid canary name (AND within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{dummy.GCPAgent.ID.String()},
+									Names:  []string{dummy.CartAPICanaryAgent.Name},
+								},
+							},
+						},
+						expectedCount: &cartAPICanaryAgentChecksCount,
+					}),
+					Entry("multiple scopes with different canaries (OR logic)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsAPICanary.Name}},
+								{Names: []string{dummy.LogisticsDBCanary.Name}},
+							},
+						},
+						expectedCount: &logisticsAPIAndDBCanaryChecks,
+					}),
+					Entry("tags only in scope (should deny access - canaries don't support tags)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Tags: map[string]string{"cluster": "test"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because canaries don't support tags
+					}),
+					Entry("mixed valid canary name and irrelevant tags", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Names: []string{dummy.LogisticsAPICanary.Name},
+									Tags:  map[string]string{"cluster": "test"},
+								},
+							},
+						},
+						expectedCount: &logisticsAPICanaryChecksCount, // Tags should be ignored for canaries
+					}),
+					Entry("very long canary names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Names: append(
+										[]string{dummy.LogisticsAPICanary.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-canary-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: &logisticsAPICanaryChecksCount,
+					}),
+					Entry("multiple canary agents in single scope", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{
+									Agents: []string{
+										dummy.GCPAgent.ID.String(),
+										uuid.New().String(),
+									},
+								},
+							},
+						},
+						expectedCount: &cartAPICanaryAgentChecksCount,
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{
+								{Names: []string{dummy.LogisticsAPICanary.Name}},
+								{Agents: []string{uuid.Nil.String()}},
+							},
+						},
+						expectedCount: &logisticsAPIAndDBCanaryChecks, // Union of both scopes
+					}),
+				)
+			})
+		}
+	})
 })

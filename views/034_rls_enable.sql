@@ -145,6 +145,10 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_runs') THEN
         EXECUTE 'ALTER TABLE playbook_runs ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'checks') THEN
+        EXECUTE 'ALTER TABLE checks ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -294,6 +298,22 @@ CREATE POLICY playbook_runs_auth ON playbook_runs
         SELECT 1
         FROM playbooks
         WHERE playbooks.id = playbook_runs.playbook_id
+      )
+      END
+    );
+
+-- Policy checks
+DROP POLICY IF EXISTS checks_auth ON checks;
+
+CREATE POLICY checks_auth ON checks
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        -- just leverage the RLS on canaries
+        SELECT 1
+        FROM canaries
+        WHERE canaries.id = checks.canary_id
       )
       END
     );
