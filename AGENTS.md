@@ -6,6 +6,36 @@
 - The structs for the models are defined in @models/
 - Whenever a new table/view is added or removed, they must be addressed in `dbResourceObjMap` in @rbac/objects.go
 
+## Database RLS
+
+We use PostgreSQL Row-Level Security (RLS) to enforce multi-tenant access control. 
+RLS policies filter database rows based on JWT claims passed via PostgREST, ensuring users only see data they have permission to access.
+
+### Policy Patterns
+
+**Direct Policies**: Tables with direct RLS use the `match_scope()` function to evaluate JWT claims against row attributes (tags, agents, names, id).
+
+- Examples: `config_items`, `canaries`, `components`, `playbooks`
+- Policy checks row attributes directly using `match_scope(jwt_claims, row.tags, row.agent_id, row.name, row.id)`
+
+**Inherited Policies**: Child tables inherit access control from their parent using `EXISTS` clauses.
+
+- Examples: `checks` (inherits from `canaries`), `playbook_runs` (inherits from `playbooks`)
+- Policy: `EXISTS (SELECT 1 FROM parent_table WHERE parent_table.id = child_table.parent_id)`
+
+### Adding RLS to a Table
+
+1. Add RLS enable logic to `@views/034_rls_enable.sql`
+   - Enable RLS on the table
+   - Create the policy (either direct with `match_scope()` or inherited with `EXISTS`)
+2. Add counterpart disable logic to `@views/035_rls_disable.sql`
+   - Disable RLS on the table
+   - Drop the policy
+3. Add comprehensive test cases to `@tests/rls_test.go`
+   - Test access granted scenarios (various JWT claim combinations)
+   - Test access denied scenarios (empty scopes, non-existent resources, conflicting criteria)
+   - Test edge cases (wildcards, case sensitivity, empty strings)
+
 ## Test Notes
 
 - To run the entire test suite, run `make test`.
@@ -13,6 +43,8 @@
 - To run tests in a package, use ginkgo with `--label-filter='!ignore_local'` flag.
 - Always use ginkgo to run tests. Never run `go test` directly.
 - Always use `github.com/onsi/gomega` package for assertions.
+- our test suite sets up up an embedded postgres database with close to production data from @tests/fixtures/dummy/all.go.
+  Always try to use resources from the dummy dataset before creating one.
 - When using gomega with native go tests use this approach
 
 ```go
