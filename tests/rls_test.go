@@ -18,6 +18,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/types"
 )
 
 type testCase struct {
@@ -1523,6 +1524,67 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				)
 			})
 		}
+	})
+
+	var _ = Describe("INSERT QUERY", func() {
+		var tx *gorm.DB
+
+		// Verify that the implicit WITH CHECK clause works correctly for INSERT operations.
+		// PostgreSQL RLS policies without an explicit WITH CHECK clause will use the USING clause
+		// for both SELECT (read) and INSERT/UPDATE (write) operations.
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin()
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
+		})
+
+		AfterAll(func() {
+			Expect(tx.Rollback().Error).To(BeNil())
+		})
+
+		It("should allow INSERT when user has access to the config tags", func() {
+			payload := rls.Payload{
+				Config: []rls.Scope{
+					{Tags: map[string]string{"test-cluster": "test-value"}},
+				},
+			}
+			Expect(payload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+			newConfig := models.ConfigItem{
+				ID:          uuid.New(),
+				ConfigClass: "TestClass",
+				Type:        lo.ToPtr("Test::Type"),
+				Name:        lo.ToPtr("test-config-insert-allowed"),
+				Tags: types.JSONStringMap{
+					"test-cluster": "test-value",
+				},
+			}
+
+			err := tx.Create(&newConfig).Error
+			Expect(err).To(BeNil(), "Should allow INSERT when user has access to the tags")
+		})
+
+		It("should deny INSERT when user doesn't have access to the config tags", func() {
+			payload := rls.Payload{
+				Config: []rls.Scope{
+					{Tags: map[string]string{"cluster": "aws"}},
+				},
+			}
+			Expect(payload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+			newConfig := models.ConfigItem{
+				ID:          uuid.New(),
+				ConfigClass: "TestClass",
+				Type:        lo.ToPtr("Test::Type"),
+				Name:        lo.ToPtr("test-config-insert-denied"),
+				Tags: types.JSONStringMap{
+					"cluster": "unauthorized-cluster",
+				},
+			}
+
+			err := tx.Create(&newConfig).Error
+			Expect(err).ToNot(BeNil(), "Should deny INSERT when user doesn't have access to the tags")
+			Expect(err.Error()).To(ContainSubstring("new row violates row-level security policy"))
+		})
 	})
 
 	var _ = Describe("checks query", func() {
