@@ -43,7 +43,7 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 - To run tests in a package, use ginkgo with `--label-filter='!ignore_local'` flag.
 - Always use ginkgo to run tests. Never run `go test` directly.
 - Always use `github.com/onsi/gomega` package for assertions.
-- our test suite sets up up an embedded postgres database with close to production data from @tests/fixtures/dummy/all.go.
+- Our test suite sets up an embedded Postgres database with data close to production from @tests/fixtures/dummy/all.go.
   Always try to use resources from the dummy dataset before creating one.
 - When using gomega with native go tests use this approach
 
