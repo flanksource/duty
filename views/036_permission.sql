@@ -164,6 +164,14 @@ SELECT
         )
     ELSE NULL END AS config_object,
 
+    -- Canary resource details (id, name)
+    CASE WHEN p.canary_id IS NOT NULL THEN
+        jsonb_build_object(
+            'id', cn.id,
+            'name', cn.name
+        )
+    ELSE NULL END AS canary_object,
+
     -- Playbook resource details (id, icon, name)
     CASE WHEN p.playbook_id IS NOT NULL THEN
         jsonb_build_object(
@@ -193,6 +201,7 @@ LEFT JOIN config_scrapers cs ON p.subject_type = 'scraper' AND cs.id::text = p.s
 LEFT JOIN topologies tp ON p.subject_type = 'topology' AND tp.id::text = p.subject AND tp.deleted_at IS NULL
 LEFT JOIN components comp ON p.component_id = comp.id AND comp.deleted_at IS NULL
 LEFT JOIN config_items ci ON p.config_id = ci.id AND ci.deleted_at IS NULL
+LEFT JOIN canaries cn ON p.canary_id = cn.id AND cn.deleted_at IS NULL
 LEFT JOIN playbooks pb_res ON p.playbook_id = pb_res.id AND pb_res.deleted_at IS NULL
 LEFT JOIN connections conn ON p.connection_id = conn.id AND conn.deleted_at IS NULL
 WHERE p.deleted_at IS NULL;
