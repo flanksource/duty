@@ -1,6 +1,9 @@
 package query
 
-import "github.com/flanksource/duty/job"
+import (
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
+)
 
 var syncConfigCacheJob = &job.Job{
 	Name:          "SyncConfigCache",
@@ -23,15 +26,19 @@ var updateTypesCache = &job.Job{
 	RunNow:        true,
 	JitterDisable: true,
 	Fn: func(ctx job.JobRuntime) error {
-		var types []string
-		query := `SELECT type FROM config_items UNION SELECT type FROM components UNION SELECT type FROM checks`
-		if err := ctx.DB().Raw(query).Find(&types).Error; err != nil {
-			return err
-		}
-
-		allTypesCache.Swap(types)
-		return nil
+		return PopulateAllTypesCache(ctx.Context)
 	},
+}
+
+func PopulateAllTypesCache(ctx context.Context) error {
+	var types []string
+	query := `SELECT type FROM config_items UNION SELECT type FROM components UNION SELECT type FROM checks`
+	if err := ctx.DB().Raw(query).Find(&types).Error; err != nil {
+		return err
+	}
+
+	allTypesCache.Swap(types)
+	return nil
 }
 
 var Jobs = []*job.Job{

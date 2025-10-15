@@ -416,9 +416,8 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 
 		if qm.HasProperties {
 			column := "properties"
-			if strings.HasPrefix(originalField, fmt.Sprintf("%s.", column)) {
-				name := strings.TrimPrefix(originalField, fmt.Sprintf("%s.", column))
-				tx = filterProperties(tx, q.Op, name, val)
+			if after, ok := strings.CutPrefix(originalField, fmt.Sprintf("%s.", column)); ok {
+				tx = filterProperties(tx, q.Op, after, val)
 				q.Field = column
 			} else if originalField == column {
 				tx = filterJSONColumnValues(tx, column, q.Op, val)
@@ -432,15 +431,21 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 			}
 
 			if q.Field == "type" {
-				// allow case-insensitive suffix matching on the "type" field
-				// e.g. search query "type=POD" should match "Kubernetes::Pod"
+				// We have a special case for the 'type' field.
+				// Users are allowed to search the type by prefix.
+				// Example: search type=pod to match type=Kubernetes::Pod
+				if queryTerm, ok := q.Value.(string); ok && !hasSpecialCharacters(queryTerm) {
+					matchPattern := fmt.Sprintf("*%s", strings.ToLower(queryTerm))
+					if aValue := allTypesCache.Load(); aValue != nil {
+						var matchedTypes []string
+						for _, resourceType := range aValue.([]string) {
+							if collections.MatchItems(strings.ToLower(resourceType), matchPattern) {
+								matchedTypes = append(matchedTypes, resourceType)
+							}
+						}
 
-				matchPattern := fmt.Sprintf("*%s", strings.ToLower(q.Value.(string)))
-				if aValue := allTypesCache.Load(); aValue != nil {
-					for _, resourceType := range aValue.([]string) {
-						if collections.MatchItems(strings.ToLower(resourceType), matchPattern) {
-							q.Value = resourceType
-							break
+						if len(matchedTypes) > 0 {
+							q.Value = strings.Join(matchedTypes, ",")
 						}
 					}
 				}
@@ -464,6 +469,10 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 	}
 
 	return tx, clauses, nil
+}
+
+func hasSpecialCharacters(searchQuery string) bool {
+	return strings.ContainsAny(searchQuery, "*!")
 }
 
 func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator, val string) *gorm.DB {

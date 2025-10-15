@@ -108,11 +108,47 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
 		},
 		{
+			description: "type exact match",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"Kubernetes::Cluster"}}},
+			},
+			Configs: []models.ConfigItem{
+				dummy.KubernetesCluster,
+			},
+		},
+		{
+			description: "type suffix (implicit)", // if the user searches for type=POD, we must match Kubernetes::Pod
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"cluster"}}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesCluster},
+		},
+		{
 			description: "type prefix | configs",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{Types: []string{"Logistics::DB*"}}},
 			},
 			Configs: []models.ConfigItem{dummy.LogisticsDBRDS},
+		},
+		{
+			description: "type wildcard matching multiple types | configs",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"Kubernetes::*"}}},
+			},
+			Configs: []models.ConfigItem{
+				dummy.KubernetesCluster,
+				dummy.KubernetesNodeA,
+				dummy.KubernetesNodeB,
+				dummy.KubernetesNodeAKSPool1,
+				dummy.LogisticsAPIDeployment,
+				dummy.LogisticsAPIReplicaSet,
+				dummy.LogisticsAPIPodConfig,
+				dummy.LogisticsUIDeployment,
+				dummy.LogisticsUIReplicaSet,
+				dummy.LogisticsUIPodConfig,
+				dummy.LogisticsWorkerDeployment,
+				dummy.MissionControlNamespace,
+			},
 		},
 		{
 			description: "status prefix | configs",
@@ -353,11 +389,12 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 
 	ginkgo.Describe("search", ginkgo.Ordered, func() {
 		ginkgo.BeforeAll(func() {
-			_ = query.SyncConfigCache(DefaultContext)
+			Expect(query.SyncConfigCache(DefaultContext)).To(Succeed())
+			Expect(query.PopulateAllTypesCache(DefaultContext)).To(Succeed())
 		})
 
 		for _, test := range testData {
-			// if test.description != "labels | IN Query" {
+			// if test.description != "type suffix (implicit)" {
 			// 	continue
 			// }
 
@@ -376,7 +413,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 
 var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, func() {
 	ginkgo.BeforeAll(func() {
-		_ = query.SyncConfigCache(DefaultContext)
+		Expect(query.SyncConfigCache(DefaultContext)).To(Succeed())
+		Expect(query.PopulateAllTypesCache(DefaultContext)).To(Succeed())
 	})
 
 	testData := []struct {
