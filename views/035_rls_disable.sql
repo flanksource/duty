@@ -32,6 +32,14 @@ BEGIN
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbooks') THEN
         EXECUTE 'ALTER TABLE playbooks DISABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_runs') THEN
+        EXECUTE 'ALTER TABLE playbook_runs DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'checks') THEN
+        EXECUTE 'ALTER TABLE checks DISABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- POLICIES
@@ -50,3 +58,7 @@ DROP POLICY IF EXISTS config_relationships_auth ON config_relationships;
 DROP POLICY IF EXISTS canaries_auth ON canaries;
 
 DROP POLICY IF EXISTS playbooks_auth ON playbooks;
+
+DROP POLICY IF EXISTS playbook_runs_auth ON playbook_runs;
+
+DROP POLICY IF EXISTS checks_auth ON checks;
