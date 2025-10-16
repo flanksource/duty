@@ -293,11 +293,28 @@ CREATE POLICY playbook_runs_auth ON playbook_runs
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE EXISTS (
-        -- just leverage the RLS on playbooks
-        SELECT 1
-        FROM playbooks
-        WHERE playbooks.id = playbook_runs.playbook_id
+      ELSE (
+        -- User must have access to the playbook
+        EXISTS (
+          SELECT 1
+          FROM playbooks
+          WHERE playbooks.id = playbook_runs.playbook_id
+        )
+        AND
+        -- AND if run has a config_id, user must have access to that config
+        (playbook_runs.config_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM config_items
+          WHERE config_items.id = playbook_runs.config_id
+        ))
+        AND
+        -- AND if run has a check_id, user must have access to that check (via its canary)
+        (playbook_runs.check_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM checks
+          WHERE checks.id = playbook_runs.check_id
+        ))
+        -- Note: component_id check omitted (phasing out topology soon)
       )
       END
     );
