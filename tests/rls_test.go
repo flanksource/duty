@@ -1462,13 +1462,49 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 							Playbook: []rls.Scope{
 								{Names: []string{dummy.EchoConfig.Name}},
 							},
+							Config: []rls.Scope{
+								{Names: []string{"*"}},
+							},
 						},
 						expectedCount: &echoConfigRunsCount,
+					}),
+					Entry("access echo-config playbook runs but no access to the config", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("can access echo-config playbook but only 1 config", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+							Config: []rls.Scope{
+								{ID: dummy.KubernetesNodeA.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("access echo-config playbook runs but no access to the config", testCase{
+						rlsPayload: rls.Payload{
+							Playbook: []rls.Scope{
+								{Names: []string{dummy.EchoConfig.Name}},
+							},
+							Config: []rls.Scope{
+								{ID: dummy.EC2InstanceA.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
 					}),
 					Entry("access only restart-pod playbook runs", testCase{
 						rlsPayload: rls.Payload{
 							Playbook: []rls.Scope{
 								{Names: []string{dummy.RestartPod.Name}},
+							},
+							Config: []rls.Scope{
+								{Names: []string{"*"}},
 							},
 						},
 						expectedCount: &restartPodRunsCount,
@@ -1478,12 +1514,18 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 							Playbook: []rls.Scope{
 								{Names: []string{dummy.EchoConfig.Name, dummy.RestartPod.Name}},
 							},
+							Config: []rls.Scope{
+								{Names: []string{"*"}},
+							},
 						},
 						expectedCount: &totalPlaybookRuns,
 					}),
 					Entry("wildcard playbook name (match all runs)", testCase{
 						rlsPayload: rls.Payload{
 							Playbook: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+							Config: []rls.Scope{
 								{Names: []string{"*"}},
 							},
 						},
