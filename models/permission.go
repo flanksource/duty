@@ -128,7 +128,7 @@ func (t *Permission) Condition() string {
 	}
 
 	if t.CanaryID != nil {
-		rule = append(rule, fmt.Sprintf("str(r.obj.Check.ID) == %q", t.CanaryID.String()))
+		rule = append(rule, fmt.Sprintf("str(r.obj.Canary.ID) == %q", t.CanaryID.String()))
 	}
 
 	if t.PlaybookID != nil {
