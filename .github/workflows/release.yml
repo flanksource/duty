@@ -35,9 +35,10 @@ jobs:
 
           token: ${{ secrets.FLANKBOT }}
       - name: Setup Go
-        uses: buildjet/setup-go@v5
+        uses: actions/setup-go@v5
         with:
-          go-version: v1.24.x
+          go-version: 1.24.x
+          cache: false
 
       - name: Create commits
         run: |

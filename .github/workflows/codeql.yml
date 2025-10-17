@@ -44,9 +44,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
 
-      - uses: buildjet/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          check-latest: true
+          go-version: 1.24.x
+          cache: false
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
