@@ -38,6 +38,7 @@ jobs:
         uses: buildjet/setup-go@v5
         with:
           go-version: v1.24.x
+          cache: false # Dependencies change on every run (new duty version)
 
       - name: Create commits
         run: |
