@@ -81,6 +81,17 @@ func matchResourceSelectorPair(pair resourcePair) bool {
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {
+	// This is used in the Casbin matcher to differentiate between RBAC checks (string objects)
+	// and ABAC checks (ABACAttribute objects).
+	enforcer.AddFunction("isString", func(args ...any) (any, error) {
+		if len(args) != 1 {
+			return false, fmt.Errorf("isString needs 1 argument. got %d", len(args))
+		}
+
+		_, ok := args[0].(string)
+		return ok, nil
+	})
+
 	enforcer.AddFunction("matchResourceSelector", func(args ...any) (any, error) {
 		if len(args) != 2 {
 			return false, fmt.Errorf("matchResourceSelector needs 2 arguments. got %d", len(args))
