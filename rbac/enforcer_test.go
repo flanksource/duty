@@ -6,8 +6,9 @@ import (
 	"github.com/casbin/casbin/v2"
 	casbinModel "github.com/casbin/casbin/v2/model"
 	stringadapter "github.com/casbin/casbin/v2/persist/string-adapter"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
+
+	"github.com/flanksource/duty/models"
 )
 
 func NewEnforcer(policy string) (*casbin.Enforcer, error) {
@@ -30,6 +31,8 @@ p, johndoe, *, playbook:run, allow, r.obj.Playbook.Name == 'scale-deployment' , 
 p, johndoe, *, playbook:run, deny, r.obj.Playbook.Name == 'delete-deployment' , na
 p, johndoe, *, playbook:run, allow, r.obj.Playbook.Name == 'restart-deployment' && r.obj.Config.Tags.namespace == 'default' , na
 p, alice, *, playbook:run, deny, r.obj.Playbook.Name == 'restart-deployment' && r.obj.Config.Tags.namespace == 'default', na
+p, johndoe, *, read, allow, r.obj.Playbook.Name == 'echo', na
+p, bob, catalog, read, allow, , na
 `
 
 	var userID = uuid.New()
@@ -103,6 +106,34 @@ p, alice, *, playbook:run, deny, r.obj.Playbook.Name == 'restart-deployment' && 
 			obj:         "catalog",
 			act:         "read",
 			allowed:     false,
+		},
+		{
+			description: "RBAC check with string object should not crash when ABAC policies with conditions exist (issue #2428)",
+			user:        "johndoe",
+			obj:         "views",
+			act:         "read",
+			allowed:     false,
+		},
+		{
+			description: "RBAC check with string object (catalog) should work despite ABAC conditions",
+			user:        "johndoe",
+			obj:         "catalog",
+			act:         "read",
+			allowed:     false,
+		},
+		{
+			description: "RBAC check with string object (playbooks) should work despite ABAC conditions",
+			user:        "alice",
+			obj:         "playbooks",
+			act:         "read",
+			allowed:     false,
+		},
+		{
+			description: "RBAC check with string object should pass when matching simple policy (no condition)",
+			user:        "bob",
+			obj:         "catalog",
+			act:         "read",
+			allowed:     true,
 		},
 	}
 
