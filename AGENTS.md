@@ -25,10 +25,10 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 ### Adding RLS to a Table
 
-1. Add RLS enable logic to `@views/034_rls_enable.sql`
+1. Add RLS enable logic to `@views/9998_rls_enable.sql`
    - Enable RLS on the table
    - Create the policy (either direct with `match_scope()` or inherited with `EXISTS`)
-2. Add counterpart disable logic to `@views/035_rls_disable.sql`
+2. Add counterpart disable logic to `@views/9999_rls_disable.sql`
    - Disable RLS on the table
    - Drop the policy
 3. Add comprehensive test cases to `@tests/rls_test.go`
