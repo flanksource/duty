@@ -78,7 +78,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		sqlDB, err := DefaultContext.DB().DB()
 		Expect(err).To(BeNil())
 
-		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"034_rls_enable.sql", "035_rls_disable.sql"})
+		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"9998_rls_enable.sql", "9999_rls_disable.sql"})
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
 		Expect(len(views)).To(Equal(4), "RLS scripts & notification_group_resources index creation scripts are picked up here")

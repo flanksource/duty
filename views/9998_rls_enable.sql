@@ -362,6 +362,3 @@ ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
-
--- TODO: Move 034_rls_enable.sql as the last script (eg: 10000_rls_enable.sql)
--- So that all the views are already created before it runs.
