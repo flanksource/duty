@@ -35,7 +35,7 @@ jobs:
 
           token: ${{ secrets.FLANKBOT }}
       - name: Setup Go
-        uses: buildjet/setup-go@v5
+        uses: buildjet/setup-go@555ce355a95ff01018ffcf8fbbd9c44654db8374 # v5.0.2
         with:
           go-version: v1.24.x
           cache: false # Dependencies change on every run (new duty version)
@@ -62,7 +62,7 @@ jobs:
 
       - name: Enable Pull Request Automerge
         if: steps.cpr.outputs.pull-request-operation == 'created'
-        uses: peter-evans/enable-pull-request-automerge@v3
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d # v3.0.0
         with:
           token: ${{ secrets.FLANKBOT }}
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
