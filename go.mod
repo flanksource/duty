@@ -93,7 +93,7 @@ require (
 	golang.org/x/sync v0.17.0
 	gonum.org/v1/gonum v0.16.0
 	google.golang.org/api v0.249.0
-	google.golang.org/grpc v1.75.0
+	google.golang.org/grpc v1.76.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.30.0
@@ -184,7 +184,7 @@ require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
