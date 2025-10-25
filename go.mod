@@ -57,7 +57,7 @@ require (
 	github.com/liamylian/jsontime/v2 v2.0.0
 	github.com/lib/pq v1.10.9
 	github.com/nats-io/nats.go v1.42.0
-	github.com/ohler55/ojg v1.25.0
+	github.com/ohler55/ojg v1.26.10
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
