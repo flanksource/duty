@@ -1,6 +1,6 @@
 services:
   loki:
-    image: grafana/loki:3.5.1
+    image: grafana/loki:3.5.1@sha256:3a4e80320df38087263e9d450fd812010ee57e1e0b0679465672c0e227441f43
     ports:
       - '3100:3100'
     command: -config.file=/etc/loki/local-config.yaml
