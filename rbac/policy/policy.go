@@ -136,7 +136,7 @@ func (p Permission) ToArgsWithoutSubject() []string {
 		p.Object,
 		p.Action,
 		lo.Ternary(p.Deny, "deny", ""),
-		lo.Ternary(p.Condition != "", p.Condition, "true"),
+		lo.Ternary(p.Condition != "", p.Condition, ""),
 		lo.Ternary(p.ID != "", p.ID, "na"),
 	}
 }
