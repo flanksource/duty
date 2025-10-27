@@ -13,7 +13,7 @@
     - everyone
 - principal: viewer
   acl:
-    - objects: database.public,canaries,catalog,playbooks,topology,people,application
+    - objects: database.public,canaries,catalog,playbooks,topology,people,application,views
       actions: read
 - principal: guest
   inherit:

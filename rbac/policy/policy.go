@@ -242,6 +242,7 @@ const (
 	ObjectPeople           = "people"
 	ObjectNotification     = "notification"
 	ObjectMCP              = "mcp"
+	ObjectViews            = "views"
 )
 
 // Actions
@@ -294,4 +295,5 @@ var AllObjects = []string{
 	ObjectPeople,
 	ObjectNotification,
 	ObjectMCP,
+	ObjectViews,
 }
