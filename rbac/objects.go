@@ -127,7 +127,6 @@ var dbResourceObjMap = map[string]string{
 	"notification_groups":                       policy.ObjectNotification,
 	"notification_group_resources":              policy.ObjectNotification,
 	"notification_silences":                     policy.ObjectNotification,
-	"view_panels":                               policy.ObjectCatalog,
 	"people_roles":                              policy.ObjectDatabasePublic,
 	"people":                                    policy.ObjectPeople,
 	"playbook_action_agent_data":                policy.ObjectPlaybooks,
@@ -191,8 +190,11 @@ var dbResourceObjMap = map[string]string{
 	"topologies_with_status":                            policy.ObjectTopology,
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
-	"views":                                             policy.ObjectCatalog,
-	"views_summary":                                     policy.ObjectCatalog,
+
+	// views
+	"views":         policy.ObjectViews,
+	"view_panels":   policy.ObjectViews,
+	"views_summary": policy.ObjectViews,
 
 	// permission
 	"permissions":               policy.ObjectDatabaseSystem,
@@ -213,9 +215,9 @@ var dbResourceObjMap = map[string]string{
 
 func GetObjectByTable(resource string) string {
 	// view tables are dynamically generated so they are not found in the rbac policy
-	// For now, we allow access to view tables
+	// Map them to ObjectViews for permission checks
 	if strings.HasPrefix(resource, "view_") {
-		return resource
+		return policy.ObjectViews
 	}
 
 	if v, exists := dbResourceObjMap[resource]; exists {
