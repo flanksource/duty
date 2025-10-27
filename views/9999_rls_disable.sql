@@ -40,6 +40,14 @@ BEGIN
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'checks') THEN
         EXECUTE 'ALTER TABLE checks DISABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF (SELECT c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE c.relname = 'views' AND n.nspname = 'public') THEN
+        EXECUTE 'ALTER TABLE views DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'view_panels') THEN
+        EXECUTE 'ALTER TABLE view_panels DISABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- POLICIES
@@ -62,3 +70,7 @@ DROP POLICY IF EXISTS playbooks_auth ON playbooks;
 DROP POLICY IF EXISTS playbook_runs_auth ON playbook_runs;
 
 DROP POLICY IF EXISTS checks_auth ON checks;
+
+DROP POLICY IF EXISTS views_auth ON views;
+
+DROP POLICY IF EXISTS view_panels_auth ON view_panels;
