@@ -626,8 +626,8 @@ var _ = ginkgo.Describe("View Resource Selector", func() {
 	}{
 		{
 			description:       "name",
-			resourceSelectors: []types.ResourceSelector{{Name: dummy.PodView.Name}},
-			expectedViews:     []models.View{dummy.PodView},
+			resourceSelectors: []types.ResourceSelector{{Name: "metrics"}},
+			expectedViews:     []models.View{dummy.ImportedDummyViews["mc/metrics"]},
 		},
 		{
 			description:       "namespace + name",

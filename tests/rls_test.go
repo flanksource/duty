@@ -1861,4 +1861,469 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			})
 		}
 	})
+
+	var _ = Describe("views query", func() {
+		var (
+			tx                  *gorm.DB
+			totalViews          int64
+			podsViewCount       int64
+			devDashboardCount   int64
+			podsAndDevDashboard int64
+		)
+
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+
+			Expect(DefaultContext.DB().Model(&models.View{}).Where("deleted_at IS NULL").Count(&totalViews).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("name = ? AND deleted_at IS NULL", dummy.PodView.Name).Model(&models.View{}).Count(&podsViewCount).Error).To(BeNil())
+			Expect(DefaultContext.DB().Where("name = ? AND deleted_at IS NULL", dummy.ViewDev.Name).Model(&models.View{}).Count(&devDashboardCount).Error).To(BeNil())
+			podsAndDevDashboard = podsViewCount + devDashboardCount
+
+			Expect(totalViews).To(BeNumerically(">", 0), "No views found in test data")
+			Expect(podsViewCount).To(BeNumerically(">", 0), "No pods view found")
+			Expect(devDashboardCount).To(BeNumerically(">", 0), "No dev dashboard view found")
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+		})
+
+		for _, role := range []string{"postgrest_anon", "postgrest_api"} {
+			Context(role, Ordered, func() {
+				BeforeAll(func() {
+					Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
+
+					var currentRole string
+					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
+					Expect(currentRole).To(Equal(role))
+				})
+
+				DescribeTable("JWT claim tests",
+					func(tc testCase) {
+						Expect(tc.rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+						var count int64
+						Expect(tx.Model(&models.View{}).Where("deleted_at IS NULL").Count(&count).Error).To(BeNil())
+						Expect(count).To(Equal(*tc.expectedCount))
+					},
+					Entry("no permissions (empty scopes array)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("no permissions (non-existent view)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Names: []string{"non-existent-view"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("access specific view by name (pods)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name}},
+							},
+						},
+						expectedCount: &podsViewCount,
+					}),
+					Entry("access specific view by name (Dev Dashboard)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.ViewDev.Name}},
+							},
+						},
+						expectedCount: &devDashboardCount,
+					}),
+					Entry("access specific view by ID", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{ID: dummy.PodView.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("wildcard name (match all views)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalViews,
+					}),
+					Entry("wildcard ID (match all views)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{ID: "*"},
+							},
+						},
+						expectedCount: &totalViews,
+					}),
+					Entry("multiple view names (OR within names array)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name, dummy.ViewDev.Name}},
+							},
+						},
+						expectedCount: &podsAndDevDashboard,
+					}),
+					Entry("mixed scope criteria (OR logic between scopes)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name}},
+								{Names: []string{dummy.ViewDev.Name}},
+							},
+						},
+						expectedCount: &podsAndDevDashboard,
+					}),
+					Entry("ID + matching name (AND logic - should grant access)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									ID:    dummy.PodView.ID.String(),
+									Names: []string{dummy.PodView.Name},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("ID + non-matching name (AND logic - should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									ID:    dummy.PodView.ID.String(),
+									Names: []string{"wrong-name"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with different IDs (OR logic)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{ID: dummy.PodView.ID.String()},
+								{ID: dummy.ViewDev.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(2)),
+					}),
+					Entry("empty string in names array (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{""}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("case sensitivity - uppercase name (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{strings.ToUpper(dummy.PodView.Name)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("duplicate scopes (should work same as single)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name}},
+								{Names: []string{dummy.PodView.Name}}, // duplicate
+							},
+						},
+						expectedCount: &podsViewCount,
+					}),
+					Entry("very long names list (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Names: append(
+										[]string{dummy.PodView.Name},
+										func() []string {
+											names := make([]string, 99)
+											for i := range names {
+												names[i] = fmt.Sprintf("non-existent-view-%d", i)
+											}
+											return names
+										}()...,
+									),
+								},
+							},
+						},
+						expectedCount: &podsViewCount,
+					}),
+					Entry("whitespace-only name", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"   "}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("extremely long name string", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{strings.Repeat("a", 1000)}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard in middle", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"pod*view"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("name with wildcard prefix", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"*view"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("multiple scopes with overlapping results", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name}},
+								{ID: dummy.PodView.ID.String()},
+							},
+						},
+						expectedCount: &podsViewCount,
+					}),
+					Entry("empty scope object", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("wrong ID (should deny access)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{ID: "00000000-0000-0000-0000-000000000000"},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("tags only in scope (should deny access - views don't support tags)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Tags: map[string]string{"environment": "production"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because views don't support tags
+					}),
+					Entry("agents only in scope (should deny access - views don't support agents)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Agents: []string{"00000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because views don't support agents
+					}),
+					Entry("tags and agents only in scope (should deny access - no applicable fields)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Tags:   map[string]string{"environment": "production"},
+									Agents: []string{"00000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)), // Should deny because views support neither tags nor agents
+					}),
+					Entry("valid name + irrelevant tags (tags should be ignored)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Names: []string{dummy.PodView.Name},
+									Tags:  map[string]string{"environment": "production"},
+								},
+							},
+						},
+						expectedCount: &podsViewCount, // Tags should be ignored for views
+					}),
+					Entry("valid name + irrelevant agents (agents should be ignored)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Names:  []string{dummy.PodView.Name},
+									Agents: []string{"00000000-0000-0000-0000-000000000000"},
+								},
+							},
+						},
+						expectedCount: &podsViewCount, // Agents should be ignored for views
+					}),
+					Entry("mixed valid and invalid names", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{
+									Names: []string{
+										dummy.PodView.Name,
+										"non-existent-1",
+										dummy.ViewDev.Name,
+										"non-existent-2",
+									},
+								},
+							},
+						},
+						expectedCount: &podsAndDevDashboard,
+					}),
+					Entry("newline in name", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"pods\nmalicious"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("special characters in name (unicode)", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"view-名前-🚀"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("very many scopes (stress test)", testCase{
+						rlsPayload: rls.Payload{
+							View: append(
+								[]rls.Scope{{Names: []string{dummy.PodView.Name}}},
+								func() []rls.Scope {
+									scopes := make([]rls.Scope, 49)
+									for i := range scopes {
+										scopes[i] = rls.Scope{
+											Names: []string{fmt.Sprintf("non-existent-%d", i)},
+										}
+									}
+									return scopes
+								}()...,
+							),
+						},
+						expectedCount: &podsViewCount,
+					}),
+				)
+			})
+		}
+	})
+
+	var _ = Describe("view_panels query", func() {
+		var (
+			tx               *gorm.DB
+			totalViewPanels  int64
+			podViewPanelCount int64
+			devViewPanelCount int64
+		)
+
+		BeforeAll(func() {
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+
+			Expect(DefaultContext.DB().Model(&models.ViewPanel{}).Count(&totalViewPanels).Error).To(BeNil())
+			Expect(totalViewPanels).To(Equal(int64(2)), "Expected exactly 2 view panels in test data")
+
+			// Count panels for PodView specifically
+			Expect(DefaultContext.DB().Where("view_id = ?", dummy.PodView.ID).Model(&models.ViewPanel{}).Count(&podViewPanelCount).Error).To(BeNil())
+			Expect(podViewPanelCount).To(Equal(int64(1)), "Expected exactly 1 panel for PodView")
+
+			// Count panels for DevView specifically
+			Expect(DefaultContext.DB().Where("view_id = ?", dummy.ViewDev.ID).Model(&models.ViewPanel{}).Count(&devViewPanelCount).Error).To(BeNil())
+			Expect(devViewPanelCount).To(Equal(int64(1)), "Expected exactly 1 panel for DevView")
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+		})
+
+		for _, role := range []string{"postgrest_anon", "postgrest_api"} {
+			Context(role, Ordered, func() {
+				BeforeAll(func() {
+					Expect(tx.Exec(fmt.Sprintf("SET LOCAL ROLE '%s'", role)).Error).To(BeNil())
+
+					var currentRole string
+					Expect(tx.Raw("SELECT CURRENT_USER").Scan(&currentRole).Error).To(BeNil())
+					Expect(currentRole).To(Equal(role))
+				})
+
+				DescribeTable("JWT claim tests",
+					func(tc testCase) {
+						Expect(tc.rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+						var count int64
+						Expect(tx.Model(&models.ViewPanel{}).Count(&count).Error).To(BeNil())
+						Expect(count).To(Equal(*tc.expectedCount))
+					},
+					Entry("user has permission to PodView - should see 1 view panel", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("user has no view permissions - should see 0 view panels", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("user has permission to non-existent view - should see 0 view panels", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"non-existent-view"}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("user has permission to ViewDev - should see 1 view panel", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.ViewDev.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("user has permission to both views - should see 2 view panels", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{dummy.PodView.Name, dummy.ViewDev.Name}},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(2)),
+					}),
+					Entry("user has wildcard permission - should see all panels", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{Names: []string{"*"}},
+							},
+						},
+						expectedCount: &totalViewPanels,
+					}),
+					Entry("user has permission by view ID - should see panel", testCase{
+						rlsPayload: rls.Payload{
+							View: []rls.Scope{
+								{ID: dummy.PodView.ID.String()},
+							},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("RLS disabled - should see all panels", testCase{
+						rlsPayload: rls.Payload{
+							Disable: true,
+						},
+						expectedCount: &totalViewPanels,
+					}),
+				)
+			})
+		}
+	})
 })
