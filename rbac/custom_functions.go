@@ -12,22 +12,34 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-type ScopeRef struct {
+type NamespacedNameIDSelector struct {
+	ID        string `json:"id,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`
 }
 
+type ViewRef NamespacedNameIDSelector
+
+// Selectors represents the object_selector from a permission and specifies
+// resource selectors for multiple resource types used in ABAC authorization.
+//
+// For authorization to succeed, all specified resource type selectors must match
+// the corresponding resources in the ABACAttribute. If a selector is specified
+// for a resource type but the attribute lacks that resource, authorization fails.
+// If an attribute provides a resource but no selector exists for that type, the
+// permission is considered non-restrictive for that resource (authorized).
 type Selectors struct {
 	Playbooks   []types.ResourceSelector `json:"playbooks,omitempty"`
 	Connections []types.ResourceSelector `json:"connections,omitempty"`
 	Configs     []types.ResourceSelector `json:"configs,omitempty"`
 	Components  []types.ResourceSelector `json:"components,omitempty"`
-	Scopes      []ScopeRef               `json:"scopes,omitempty"`
+	Views       []ViewRef                `json:"views,omitempty"`
 }
 
 type addableEnforcer interface {
 	AddFunction(name string, function govaluate.ExpressionFunction)
 }
+
 type resourcePair struct {
 	attrField    uuid.UUID
 	attrResource types.ResourceSelectable
@@ -36,11 +48,23 @@ type resourcePair struct {
 
 // matchResourceSelector matches an ABACAttribute against resource selectors
 func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool, error) {
+	// The view selector isn't fully resourceSelector compliant yet.
+	// For now we start with just the namespace/name and id selector
+	var viewSelectors []types.ResourceSelector
+	for _, viewRef := range selector.Views {
+		viewSelectors = append(viewSelectors, types.ResourceSelector{
+			ID:        viewRef.ID,
+			Namespace: viewRef.Namespace,
+			Name:      viewRef.Name,
+		})
+	}
+
 	resourcePairs := []resourcePair{
 		{attr.Playbook.ID, &attr.Playbook, selector.Playbooks},
 		{attr.Component.ID, attr.Component, selector.Components},
 		{attr.Connection.ID, &attr.Connection, selector.Connections},
 		{attr.Config.ID, attr.Config, selector.Configs},
+		{attr.View.ID, &attr.View, viewSelectors},
 	}
 
 	for _, pair := range resourcePairs {
