@@ -143,6 +143,7 @@ type ABACAttribute struct {
 	Config     ConfigItem
 	Check      Check
 	Canary     Canary
+	View       View
 }
 
 type TaggableModel interface {

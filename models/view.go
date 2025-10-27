@@ -8,10 +8,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 
 	pkgDB "github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/types"
 )
+
+// Ensure interface compliance.
+//
+// NOTE: A view isn't entirely resource selectable
+// but we need it to implement the interface
+// Casbin, which uses matchResourceSelector() func.
+var _ types.ResourceSelectable = View{}
 
 // View represents the views database table
 type View struct {
@@ -48,6 +57,36 @@ func (v View) AsMap(removeFields ...string) map[string]any {
 
 func (v View) GetNamespace() string {
 	return v.Namespace
+}
+
+// ResourceSelectable interface implementation for View
+// Views only support namespace and name matching
+func (v View) GetFieldsMatcher() fields.Fields {
+	return noopMatcher{}
+}
+
+func (v View) GetLabelsMatcher() labels.Labels {
+	return noopMatcher{}
+}
+
+func (v View) GetID() string {
+	return v.ID.String()
+}
+
+func (v View) GetName() string {
+	return v.Name
+}
+
+func (v View) GetType() string {
+	return ""
+}
+
+func (v View) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (v View) GetHealth() (string, error) {
+	return "", nil
 }
 
 // ViewPanel represents view panel data with push tracking
