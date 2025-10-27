@@ -1,0 +1,34 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: View
+metadata:
+  name: pods
+  namespace: mc
+  uid: 18a1b2c3-d4e5-4f67-8901-2a3b4c5d6e7f
+  creationTimestamp: "2024-01-15T10:00:00Z"
+spec:
+  description: "View displaying all Kubernetes pods"
+  display:
+    title: "Kubernetes Pods"
+    icon: "pod"
+    sidebar: true
+    ordinal: 1
+  queries:
+    pods:
+      configs:
+        types:
+          - "Kubernetes::Pod"
+  columns:
+    - name: id
+      type: string
+      primaryKey: true
+    - name: name
+      type: string
+    - name: namespace
+      type: string
+    - name: status
+      type: string
+  mapping:
+    id: "row.id"
+    name: "row.name"
+    namespace: "row.tags['namespace']"
+    status: "row.status"
