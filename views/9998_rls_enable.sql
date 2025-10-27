@@ -149,6 +149,15 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'checks') THEN
         EXECUTE 'ALTER TABLE checks ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    -- Another relation called "views" exists in the information_schema schema.
+    IF NOT (SELECT c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE c.relname = 'views' AND n.nspname = 'public') THEN
+        EXECUTE 'ALTER TABLE views ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'view_panels') THEN
+        EXECUTE 'ALTER TABLE view_panels ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -335,6 +344,39 @@ CREATE POLICY checks_auth ON checks
       END
     );
 
+-- Policy views
+DROP POLICY IF EXISTS views_auth ON views;
+
+CREATE POLICY views_auth ON views
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        match_scope(
+          current_setting('request.jwt.claims', TRUE)::jsonb -> 'view',
+          NULL,
+          NULL,
+          views.name,
+          views.id
+        )
+      END
+    );
+
+-- Policy view_panels (inherits from parent views table)
+DROP POLICY IF EXISTS view_panels_auth ON view_panels;
+
+CREATE POLICY view_panels_auth ON view_panels
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        EXISTS (
+          SELECT 1 FROM views
+          WHERE views.id = view_panels.view_id
+        )
+      END
+    );
+
 ALTER VIEW analysis_by_config SET (security_invoker = true);
 ALTER VIEW catalog_changes SET (security_invoker = true);
 ALTER VIEW check_summary SET (security_invoker = true);
@@ -362,3 +404,4 @@ ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
+ALTER VIEW views_summary SET (security_invoker = true);
