@@ -353,6 +353,12 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 
 		switch qf.Op {
 		case grammar.Eq:
+			// Special case: agent=all should match any agent
+			// This mirrors the behavior in query.SetResourceSelectorClause where
+			// agent=all results in no agent filter being applied
+			if qf.Field == "agent" && len(patterns) == 1 && patterns[0] == "all" {
+				return true
+			}
 			return collections.MatchItems(value, patterns...)
 
 		case grammar.Neq:
