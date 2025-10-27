@@ -43,8 +43,40 @@ type Payload struct {
 	Component []Scope `json:"component,omitempty"`
 	Playbook  []Scope `json:"playbook,omitempty"`
 	Canary    []Scope `json:"canary,omitempty"`
+	View      []Scope `json:"view,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
+}
+
+// Get the JWT claims that'll be passed on to PostgREST
+func (t Payload) JWTClaims() map[string]any {
+	claims := make(map[string]any)
+	if t.Disable {
+		claims["disable_rls"] = true
+		return claims
+	}
+
+	if len(t.Config) > 0 {
+		claims["config"] = t.Config
+	}
+
+	if len(t.Component) > 0 {
+		claims["component"] = t.Component
+	}
+
+	if len(t.Playbook) > 0 {
+		claims["playbook"] = t.Playbook
+	}
+
+	if len(t.Canary) > 0 {
+		claims["canary"] = t.Canary
+	}
+
+	if len(t.View) > 0 {
+		claims["view"] = t.View
+	}
+
+	return claims
 }
 
 func (t *Payload) EvalFingerprint() {
@@ -54,7 +86,7 @@ func (t *Payload) EvalFingerprint() {
 	}
 
 	parts := []string{}
-	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary} {
+	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary, t.View} {
 		for _, scope := range scopeArray {
 			if !scope.IsEmpty() {
 				parts = append(parts, scope.Fingerprint())
