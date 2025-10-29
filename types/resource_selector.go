@@ -689,6 +689,11 @@ func (c GenericLabelsMatcher) Has(key string) bool {
 	return ok
 }
 
+func (c GenericLabelsMatcher) Lookup(key string) (string, bool) {
+	val, ok := c.Map[key]
+	return val, ok
+}
+
 type GenericLabelsMatcherAny struct {
 	Map map[string]any
 }
@@ -700,6 +705,11 @@ func (c GenericLabelsMatcherAny) Get(key string) string {
 func (c GenericLabelsMatcherAny) Has(key string) bool {
 	_, ok := c.Map[key]
 	return ok
+}
+
+func (c GenericLabelsMatcherAny) Lookup(key string) (string, bool) {
+	val, ok := c.Map[key]
+	return fmt.Sprintf("%v", val), ok
 }
 
 type UnstructuredResource struct {
