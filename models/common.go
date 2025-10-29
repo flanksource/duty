@@ -133,6 +133,10 @@ func (t noopMatcher) Get(field string) (value string) {
 	return ""
 }
 
+func (t noopMatcher) Lookup(key string) (string, bool) {
+	return "", false
+}
+
 // ABACAttribute is the object passed to casbin for authorization checks.
 //
 // NOTE: the fields are not a pointer to avoid nil pointer checks in the casbin policy.

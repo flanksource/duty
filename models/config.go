@@ -350,6 +350,15 @@ func (c configLabels) Has(key string) bool {
 	return ok
 }
 
+func (c configLabels) Lookup(key string) (string, bool) {
+	if c.Labels == nil || len(*c.Labels) == 0 {
+		return "", false
+	}
+
+	value, ok := (*c.Labels)[key]
+	return value, ok
+}
+
 // ConfigScraper represents the config_scrapers database table
 type ConfigScraper struct {
 	ID            uuid.UUID  `json:"id"`

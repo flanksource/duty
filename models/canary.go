@@ -162,3 +162,12 @@ func (t canaryLabels) Get(key string) (value string) {
 
 	return (t.Labels)[key]
 }
+
+func (t canaryLabels) Lookup(key string) (string, bool) {
+	if len(t.Labels) == 0 {
+		return "", false
+	}
+
+	value, ok := (t.Labels)[key]
+	return value, ok
+}
