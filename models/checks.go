@@ -179,6 +179,11 @@ func (c checkLabelsProvider) Has(key string) bool {
 	return ok
 }
 
+func (c checkLabelsProvider) Lookup(key string) (string, bool) {
+	value, ok := c.Labels[key]
+	return value, ok
+}
+
 type Checks []*Check
 
 func (c Checks) Len() int {

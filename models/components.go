@@ -364,6 +364,11 @@ func (c componentLabelsProvider) Has(key string) bool {
 	return ok
 }
 
+func (c componentLabelsProvider) Lookup(key string) (string, bool) {
+	value, ok := c.Labels[key]
+	return value, ok
+}
+
 var ComponentID = func(c Component) string {
 	return c.ID.String()
 }
