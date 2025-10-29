@@ -4,13 +4,28 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      # Group all updates together into a single PR
+      all-dependencies:
+        patterns:
+          - "*"  # Wildcard matches all dependencies
 
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: daily
+    groups:
+      # Group all updates together into a single PR
+      all-dependencies:
+        patterns:
+          - "*"  # Wildcard matches all dependencies
 
   - package-ecosystem: gomod
     directory: /hack/migrate
     schedule:
       interval: daily
+    groups:
+      # Group all updates together into a single PR
+      all-dependencies:
+        patterns:
+          - "*"  # Wildcard matches all dependencies
