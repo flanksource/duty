@@ -26,6 +26,8 @@ const (
 	StatusOK         = "ok"
 	StatusLabel      = "status"
 	AgentLabel       = "agent"
+
+	ForeignKeyError = "foreign key error"
 )
 
 func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.HandlerFunc {

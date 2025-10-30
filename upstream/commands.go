@@ -291,7 +291,7 @@ func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err 
 	}
 
 	conflicted = lo.Uniq(conflicted)
-	return api.Errorf(api.ECONFLICT, "foreign key error").
+	return api.Errorf(api.ECONFLICT, ForeignKeyError).
 		WithData(PushFKError{IDs: conflicted}).
 		WithDebugInfo("foreign key error for %d items", len(conflicted))
 }
@@ -327,7 +327,7 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		}
 
 		if retries > maxRetries {
-			return api.Errorf(api.ECONFLICT, "foreign key error").
+			return api.Errorf(api.ECONFLICT, ForeignKeyError).
 				WithData(PushFKError{IDs: lo.Map(failed, func(i T, _ int) string { return i.PK() })}).
 				WithDebugInfo("foreign key error for %d items after %d retries", len(failed), retries)
 		}
