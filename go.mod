@@ -30,7 +30,7 @@ require (
 	github.com/exaring/otelpgx v0.9.3
 	github.com/fergusstrange/embedded-postgres v1.32.0
 	github.com/flanksource/artifacts v1.0.18
-	github.com/flanksource/commons v1.43.0
+	github.com/flanksource/commons v1.43.1
 	github.com/flanksource/gomplate/v3 v3.24.60
 	github.com/flanksource/is-healthy v1.0.79
 	github.com/glebarez/sqlite v1.11.0
