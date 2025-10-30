@@ -116,11 +116,16 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 		respBody, _ := io.ReadAll(resp.Body)
 
 		var httpErr api.HTTPError
-		if json.Unmarshal(respBody, &httpErr) == nil {
-			return fmt.Errorf("non 2xx response: %w", httpErr)
+		err := json.Unmarshal(respBody, &httpErr)
+		if err == nil {
+			if httpErr.Err == ForeignKeyError {
+				return &httpErr
+			} else {
+				return fmt.Errorf("non 2xx response: %w", httpErr)
+			}
+		} else {
+			return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 		}
-
-		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 	}
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
