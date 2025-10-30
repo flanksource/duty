@@ -21,7 +21,7 @@ type HTTPError struct {
 
 // Error implements the error interface. Not used by the application otherwise.
 func (e *HTTPError) Error() string {
-	return fmt.Sprintf("error: message=%s data=%s ", e.Message, e.Data)
+	return fmt.Sprintf("error=%s message=%s data=%s ", e.Err, e.Message, e.Data)
 }
 
 func HTTPErrorFromErr(err error) *HTTPError {
