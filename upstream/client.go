@@ -117,7 +117,7 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 
 		var httpErr api.HTTPError
 		if json.Unmarshal(respBody, &httpErr) == nil {
-			return &httpErr
+			return fmt.Errorf("non 2xx response: %w", httpErr)
 		}
 
 		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
