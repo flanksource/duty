@@ -2,13 +2,17 @@ package shell
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/onsi/gomega"
+	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
-	"github.com/samber/lo"
 )
 
 func TestEnv(t *testing.T) {
@@ -50,18 +54,13 @@ func TestEnv(t *testing.T) {
 	ctx := context.New()
 	for _, td := range testData {
 		t.Run(td.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+
 			result, err := Run(ctx, td.exec)
-			if err != nil {
-				t.Fatalf("failed to run command %s", err)
-			}
+			g.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run command")
 
-			if result.ExitCode != 0 {
-				t.Errorf("unexpected non-zero exit code: %d", result.ExitCode)
-			}
-
-			if result.Stderr != "" {
-				t.Errorf("unexpected stderr: %s", result.Stderr)
-			}
+			g.Expect(result.ExitCode).To(gomega.Equal(0), "unexpected non-zero exit code")
+			g.Expect(result.Stderr).To(gomega.BeEmpty(), "unexpected stderr")
 
 			envVars := strings.Split(result.Stdout, "\n")
 
@@ -78,11 +77,46 @@ func TestEnv(t *testing.T) {
 
 			expected := collections.MapKeys(allowedEnvVars)
 			expected = append(expected, td.expectedVars...)
-			if !lo.Every(expected, envVarKeys) {
-				t.Errorf("expected %s, got %s", td.expectedVars, envVarKeys)
-			}
+			g.Expect(lo.Every(expected, envVarKeys)).To(gomega.BeTrue(), "expected env vars: %v, got: %v", td.expectedVars, envVarKeys)
 		})
 
 		os.RemoveAll("./shell-tmp/")
 	}
+}
+
+func TestPrepareEnvironment(t *testing.T) {
+	g := gomega.NewWithT(t)
+	ctx := context.New()
+
+	exec := Exec{
+		Checkout: &connection.GitConnection{
+			URL:    "https://github.com/flanksource/artifacts",
+			Branch: "main",
+		},
+	}
+
+	cmdCtx, err := prepareEnvironment(ctx, exec)
+	g.Expect(err).ToNot(gomega.HaveOccurred(), "prepareEnvironment failed")
+
+	g.Expect(cmdCtx.mountPoint).ToNot(gomega.BeEmpty(), "expected mountPoint to be set")
+	g.Expect(cmdCtx.mountPoint).To(gomega.HavePrefix("exec-checkout/"), "expected mountPoint to be in 'exec-checkout/' directory")
+
+	_, err = os.Stat(cmdCtx.mountPoint)
+	g.Expect(err).ToNot(gomega.HaveOccurred(), "mount point directory does not exist: %s", cmdCtx.mountPoint)
+
+	g.Expect(cmdCtx.extra["git"]).ToNot(gomega.BeNil(), "expected 'git' key in extra metadata")
+
+	gitURL, ok := cmdCtx.extra["git"].(string)
+	g.Expect(ok).To(gomega.BeTrue(), "expected git URL to be a string")
+	g.Expect(gitURL).To(gomega.ContainSubstring("github.com/flanksource/artifacts"), "expected git URL to contain 'github.com/flanksource/artifacts'")
+
+	g.Expect(cmdCtx.extra["commit"]).ToNot(gomega.BeNil(), "expected 'commit' key in extra metadata")
+
+	commitHash, ok := cmdCtx.extra["commit"].(string)
+	g.Expect(ok).To(gomega.BeTrue(), "expected commit hash to be a string")
+	g.Expect(commitHash).ToNot(gomega.BeEmpty(), "expected non-empty commit hash")
+
+	goModPath := filepath.Join(cmdCtx.mountPoint, "go.mod")
+	_, err = os.Stat(goModPath)
+	g.Expect(err).ToNot(gomega.HaveOccurred(), "expected go.mod to exist in mount point at %s", goModPath)
 }
