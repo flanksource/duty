@@ -98,59 +98,59 @@ func InferColumnTypes(rows []QueryResultRow) map[string]string {
 // inferBestColumnTypeFromSet determines the most appropriate SQLite type from a set of observed types
 func inferBestColumnTypeFromSet(typeSet set.Set[string]) string {
 	if len(typeSet) == 0 {
-		return "TEXT"
+		return models.SQLiteTypeTEXT
 	}
 
-	if typeSet.Contains("BLOB") {
-		return "BLOB"
+	if typeSet.Contains(models.SQLiteTypeBLOB) {
+		return models.SQLiteTypeBLOB
 	}
 
-	if typeSet.Contains("TEXT") {
-		return "TEXT"
+	if typeSet.Contains(models.SQLiteTypeTEXT) {
+		return models.SQLiteTypeTEXT
 	}
 
-	if typeSet.Contains("REAL") {
-		return "REAL"
+	if typeSet.Contains(models.SQLiteTypeREAL) {
+		return models.SQLiteTypeREAL
 	}
 
-	return "INTEGER"
+	return models.SQLiteTypeINTEGER
 }
 
 // goTypeToSQLiteType converts a Go value to SQLite column type
 func goTypeToSQLiteType(value any) string {
 	if value == nil {
-		return "TEXT"
+		return models.SQLiteTypeTEXT
 	}
 
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return "INTEGER"
+		return models.SQLiteTypeINTEGER
 	case float32, float64:
-		return "REAL"
+		return models.SQLiteTypeREAL
 	case bool:
-		return "INTEGER" // SQLite stores booleans as integers
+		return models.SQLiteTypeINTEGER // SQLite stores booleans as integers
 	case time.Time:
-		return "TEXT" // Store as ISO string
+		return models.SQLiteTypeTEXT // Store as ISO string
 	case string:
-		return "TEXT"
+		return models.SQLiteTypeTEXT
 	case []byte, json.RawMessage, types.JSON:
-		return "BLOB"
+		return models.SQLiteTypeBLOB
 	case types.JSONMap, types.JSONStringMap, map[string]any, map[string]string:
-		return "BLOB"
+		return models.SQLiteTypeBLOB
 	default:
 		rv := reflect.ValueOf(v)
 		switch rv.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return "INTEGER"
+			return models.SQLiteTypeINTEGER
 		case reflect.Float32, reflect.Float64:
-			return "REAL"
+			return models.SQLiteTypeREAL
 		case reflect.Bool:
-			return "INTEGER"
+			return models.SQLiteTypeINTEGER
 		case reflect.Map, reflect.Slice:
-			return "BLOB"
+			return models.SQLiteTypeBLOB
 		default:
-			return "TEXT"
+			return models.SQLiteTypeTEXT
 		}
 	}
 }
