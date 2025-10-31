@@ -12,6 +12,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// SQLite fundamental data types
+const (
+	SQLiteTypeINTEGER = "INTEGER"
+	SQLiteTypeREAL    = "REAL"
+	SQLiteTypeTEXT    = "TEXT"
+	SQLiteTypeBLOB    = "BLOB"
+)
+
 type Severity string
 
 const (
@@ -173,21 +181,21 @@ const (
 func (t ColumnType) SQLiteType() string {
 	switch t {
 	case ColumnTypeBoolean:
-		return "BOOLEAN"
+		return SQLiteTypeINTEGER
 	case ColumnTypeDateTime:
-		return "DATETIME"
+		return SQLiteTypeTEXT
 	case ColumnTypeDecimal:
-		return "DECIMAL"
+		return SQLiteTypeREAL
 	case ColumnTypeDuration:
-		return "INTEGER"
+		return SQLiteTypeINTEGER
 	case ColumnTypeInteger:
-		return "INTEGER"
+		return SQLiteTypeINTEGER
 	case ColumnTypeJSONB:
-		return "BLOB"
+		return SQLiteTypeBLOB
 	case ColumnTypeString:
-		return "TEXT"
+		return SQLiteTypeTEXT
 	default:
-		return "TEXT"
+		return SQLiteTypeTEXT
 	}
 }
 
