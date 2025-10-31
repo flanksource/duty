@@ -78,7 +78,12 @@ func (t *notifyRouter) getOrCreateChannel(size int, routes ...string) <-chan str
 
 func (t *notifyRouter) Run(ctx context.Context, channel string) {
 	eventQueueNotifyChannel := make(chan string)
-	go Listen(ctx, channel, eventQueueNotifyChannel)
+	go func() {
+		err := Listen(ctx, channel, eventQueueNotifyChannel)
+		if err != nil {
+			ctx.Errorf("notify router listener err: %v", err)
+		}
+	}()
 
 	t.consume(eventQueueNotifyChannel)
 }
