@@ -32,7 +32,7 @@ func Listen(ctx context.Context, channel string, listener chan<- string) error {
 	backoff := retry.WithMaxDuration(DBReconnectMaxDuration, retry.NewExponential(DBReconnectBackoffBaseDuration))
 	return retry.Do(ctx, backoff, func(retryCtx gocontext.Context) error {
 		if err := listenLoop(ctx, map[string][]chan<- string{channel: {listener}}); err != nil {
-			ctx.Warnf("listen loop failed, retrying: %v", err)
+			ctx.Debugf("listen loop failed, retrying: %v", err)
 			return retry.RetryableError(err)
 		}
 		return nil
@@ -62,7 +62,7 @@ func ListenMany(ctx context.Context, listeners ...ChannelListener) error {
 	backoff := retry.WithMaxDuration(DBReconnectMaxDuration, retry.NewExponential(DBReconnectBackoffBaseDuration))
 	return retry.Do(ctx, backoff, func(retryCtx gocontext.Context) error {
 		if err := listenLoop(ctx, channels); err != nil {
-			ctx.Warnf("listen loop failed, retrying: %v", err)
+			ctx.Debugf("listen loop failed, retrying: %v", err)
 			return retry.RetryableError(err)
 		}
 		return nil
