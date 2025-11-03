@@ -11,7 +11,7 @@ func TestPGRouter(t *testing.T) {
 	r := NewNotifyRouter()
 	pgNotifyChan := make(chan string)
 	go func() {
-		r.start(pgNotifyChan)
+		r.consume(pgNotifyChan)
 	}()
 
 	// Two subscribers

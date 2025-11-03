@@ -17,8 +17,8 @@ func defaultRouteExtractor(payload string) (string, string, error) {
 	return route, derivedPayload, nil
 }
 
-// notifyRouter distributes the pgNotify event to multiple channels
-// based on the payload.
+// notifyRouter distributes the pgNotify event on a single channel
+// to multiple Go channels based on the payload.
 type notifyRouter struct {
 	// when in signal mode, signals more than the channel size are simply discarded.
 	//
@@ -78,12 +78,17 @@ func (t *notifyRouter) getOrCreateChannel(size int, routes ...string) <-chan str
 
 func (t *notifyRouter) Run(ctx context.Context, channel string) {
 	eventQueueNotifyChannel := make(chan string)
-	go Listen(ctx, channel, eventQueueNotifyChannel)
+	go func() {
+		err := Listen(ctx, channel, eventQueueNotifyChannel)
+		if err != nil {
+			ctx.Errorf("notify router listener err: %v", err)
+		}
+	}()
 
-	t.start(eventQueueNotifyChannel)
+	t.consume(eventQueueNotifyChannel)
 }
 
-func (t *notifyRouter) start(channel chan string) {
+func (t *notifyRouter) consume(channel chan string) {
 	for payload := range channel {
 		if payload == "" {
 			continue
