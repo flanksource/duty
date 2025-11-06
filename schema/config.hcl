@@ -314,7 +314,7 @@ table "config_items" {
     comment = "derived from the tags column to enhance search performance for unkeyed tag values"
     as {
       # without the ::jsonpath type casting
-      # we get this error from Atlas: failed to compute diff: failed to diff realms: 
+      # we get this error from Atlas: failed to compute diff: failed to diff realms:
       # changing the generation expression for a column "tags_values" is not supported
       expr = "(jsonb_path_query_array(tags, '$[*].*'::jsonpath))"
       type = STORED
@@ -428,6 +428,29 @@ table "config_items" {
   }
   check "config_item_name_type_not_empty" {
     expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
+  }
+}
+
+table "config_items_last_scraped_time" {
+  schema = schema.public
+  unlogged = true
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "last_scraped_time" {
+    null = false
+    type = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.config_id]
+  }
+  foreign_key "config_items_last_scraped_at_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
   }
 
 }
@@ -623,7 +646,7 @@ table "config_scrapers" {
   foreign_key "config_scrapers_application_id_fkey" {
     columns     = [column.application_id]
     ref_columns = [table.applications.column.id]
-    on_update   = CASCADE  
+    on_update   = CASCADE
     on_delete   = CASCADE
   }
   foreign_key "config_scrapers_created_by_fkey" {

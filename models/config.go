@@ -92,37 +92,46 @@ type ConfigLocation struct {
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID              uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
-	ScraperID       *string              `json:"scraper_id,omitempty"`
-	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
-	ConfigClass     string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
-	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	Type            *string              `json:"type"`
-	Status          *string              `json:"status" gorm:"default:null"`
-	Ready           bool                 `json:"ready"`
-	Health          *Health              `json:"health"`
-	Name            *string              `json:"name,omitempty" faker:"name"`
-	Description     *string              `json:"description"`
-	Config          *string              `json:"config"`
-	Source          *string              `json:"source,omitempty"`
-	ParentID        *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
-	Path            string               `json:"path,omitempty" faker:"-"`
-	CostPerMinute   float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
-	CostTotal1d     float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
-	CostTotal7d     float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
-	CostTotal30d    float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
-	Labels          *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
-	Tags            types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
-	Properties      *types.Properties    `json:"properties,omitempty"`
-	LastScrapedTime *time.Time           `json:"last_scraped_time,omitempty"`
-	CreatedAt       time.Time            `json:"created_at" gorm:"<-:create"`
-	UpdatedAt       *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
-	DeleteReason    string               `json:"delete_reason,omitempty"`
+	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
+	ScraperID     *string              `json:"scraper_id,omitempty"`
+	AgentID       uuid.UUID            `json:"agent_id,omitempty"`
+	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
+	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
+	Type          *string              `json:"type"`
+	Status        *string              `json:"status" gorm:"default:null"`
+	Ready         bool                 `json:"ready"`
+	Health        *Health              `json:"health"`
+	Name          *string              `json:"name,omitempty" faker:"name"`
+	Description   *string              `json:"description"`
+	Config        *string              `json:"config"`
+	Source        *string              `json:"source,omitempty"`
+	ParentID      *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
+	Path          string               `json:"path,omitempty" faker:"-"`
+	CostPerMinute float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
+	CostTotal1d   float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
+	CostTotal7d   float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
+	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
+	Labels        *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
+	Tags          types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
+	Properties    *types.Properties    `json:"properties,omitempty"`
+	CreatedAt     time.Time            `json:"created_at" gorm:"<-:create"`
+	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
+	DeleteReason  string               `json:"delete_reason,omitempty"`
 
 	configJson map[string]any `json:"-" yaml:"-" gorm:"-"`
 }
 
+type ConfigItemLastScrapedTime struct {
+	ConfigID        string     `json:"config_id" gorm:"primaryKey"`
+	LastScrapedTime *time.Time `json:"last_scraped_time,omitempty"`
+}
+
+func (ConfigItemLastScrapedTime) TableName() string {
+	return "config_items_last_scraped_time"
+}
+
+// This should only be used for tests and its fixtures
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
 	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })
 
