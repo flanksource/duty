@@ -241,7 +241,6 @@ const (
 	ObjectTopology         = "topology"
 	ObjectPeople           = "people"
 	ObjectNotification     = "notification"
-	ObjectMCP              = "mcp"
 	ObjectViews            = "views"
 )
 
@@ -253,6 +252,8 @@ const (
 	ActionDelete = "delete"
 	ActionRead   = "read"
 	ActionUpdate = "update"
+
+	ActionMCPRun = "mcp:run"
 
 	// Playbooks
 	ActionPlaybookRun     = "playbook:run"
@@ -267,6 +268,7 @@ var AllActions = []string{
 	ActionUpdate,
 	ActionPlaybookApprove,
 	ActionPlaybookRun,
+	ActionMCPRun,
 }
 
 var AllObjects = []string{
@@ -294,6 +296,5 @@ var AllObjects = []string{
 	ObjectTopology,
 	ObjectPeople,
 	ObjectNotification,
-	ObjectMCP,
 	ObjectViews,
 }
