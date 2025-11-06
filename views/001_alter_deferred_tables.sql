@@ -45,52 +45,72 @@ $$;
 
 CREATE OR REPLACE FUNCTION delete_old_config_items(older_than_days INT)
 RETURNS void AS $$
+DECLARE
+  v_batch_size INT := 1000;
+  v_deleted_count INT;
+  v_total_deleted INT := 0;
 BEGIN
   SET CONSTRAINTS ALL DEFERRED;
 
   -- Create a temporary table to store config_item IDs to ignore
-  CREATE TEMP TABLE ignored_config_items AS
+  CREATE TEMP TABLE IF NOT EXISTS ignored_config_items AS
     SELECT DISTINCT config_id FROM evidences
     UNION SELECT DISTINCT config_id FROM playbook_runs
     UNION SELECT DISTINCT config_id FROM components;
 
-  -- Create a temporary table to store config_item IDs to delete
-  CREATE TEMP TABLE config_items_to_delete AS
-    SELECT id
-    FROM config_items
-    WHERE deleted_at < NOW() - INTERVAL '1 day' * older_than_days
-    AND NOT EXISTS (
-      SELECT 1
-      FROM ignored_config_items ici
-      WHERE ici.config_id = config_items.id
-    );
+  LOOP
+    -- Create a temporary table to store config_item IDs to delete for each batch
+    DROP TABLE IF EXISTS config_items_to_delete;
 
-  -- Delete related data in batches using the config_items_to_delete table
-  DELETE FROM config_analysis
-  WHERE config_id IN (SELECT id FROM config_items_to_delete);
+    CREATE TEMP TABLE config_items_to_delete AS
+      SELECT id
+      FROM config_items
+      WHERE deleted_at < NOW() - INTERVAL '1 day' * older_than_days
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ignored_config_items ici
+        WHERE ici.config_id = config_items.id
+      )
+      LIMIT v_batch_size;
 
-  DELETE FROM config_changes
-  WHERE config_id IN (SELECT id FROM config_items_to_delete);
+    -- Check if we have any items to delete
+    SELECT COUNT(*) INTO v_deleted_count FROM config_items_to_delete;
 
-  DELETE FROM config_relationships
-  WHERE config_id IN (SELECT id FROM config_items_to_delete)
-  OR related_id IN (SELECT id FROM config_items_to_delete);
+    EXIT WHEN v_deleted_count = 0;
 
-  DELETE FROM check_config_relationships
-  WHERE config_id IN (SELECT id FROM config_items_to_delete);
+    -- Delete related data in batches using the config_items_to_delete table
+    DELETE FROM config_analysis
+    WHERE config_id IN (SELECT id FROM config_items_to_delete);
 
-  -- Components are independent so we just unset config_id
-  UPDATE components SET config_id = NULL
-  WHERE config_id IN (SELECT id FROM config_items_to_delete);
+    DELETE FROM config_changes
+    WHERE config_id IN (SELECT id FROM config_items_to_delete);
 
-  -- Finally, delete the config_items themselves
-  DELETE FROM config_items
-  WHERE id IN (SELECT id FROM config_items_to_delete);
+    DELETE FROM config_relationships
+    WHERE config_id IN (SELECT id FROM config_items_to_delete)
+    OR related_id IN (SELECT id FROM config_items_to_delete);
 
-  UPDATE config_items SET parent_id = NULL WHERE parent_id IN (SELECT id FROM config_items_to_delete);
+    DELETE FROM check_config_relationships
+    WHERE config_id IN (SELECT id FROM config_items_to_delete);
 
-  -- Drop the temporary tables
-  DROP TABLE ignored_config_items;
-  DROP TABLE config_items_to_delete;
+    -- Components are independent so we just unset config_id
+    UPDATE components SET config_id = NULL
+    WHERE config_id IN (SELECT id FROM config_items_to_delete);
+
+    -- Update parent_id references before deleting
+    UPDATE config_items SET parent_id = NULL WHERE parent_id IN (SELECT id FROM config_items_to_delete);
+
+    -- Finally, delete the config_items themselves
+    DELETE FROM config_items
+    WHERE id IN (SELECT id FROM config_items_to_delete);
+
+    v_total_deleted := v_total_deleted + v_deleted_count;
+
+    -- Drop the temporary table for this batch
+    DROP TABLE config_items_to_delete;
+  END LOOP;
+
+  DROP TABLE IF EXISTS ignored_config_items;
+
+  RAISE NOTICE 'Total config items deleted: %', v_total_deleted;
 END;
 $$ LANGUAGE plpgsql;
