@@ -5,9 +5,11 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/flanksource/duty/cache"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3/conv"
@@ -72,7 +74,14 @@ func getOrigin(ci *models.ConfigItem) (map[string]any, error) {
 	return origin, nil
 }
 
+// GitOpsSource rarely changes, so we cache it for 24 hours
+var gitOpsSourceCache = cache.NewCache[GitOpsSource]("GetGitOpsSource", time.Hour*24)
+
 func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
+	if val, err := gitOpsSourceCache.Get(ctx, id); err == nil {
+		return val, nil
+	}
+
 	var source GitOpsSource
 	if id == uuid.Nil {
 		return source, nil
@@ -118,6 +127,7 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 		source.Git.Link = fmt.Sprintf("https://%s/tree/%s/%s", stripScheme(source.Git.URL), source.Git.Branch, source.Git.File)
 	}
 
+	_ = gitOpsSourceCache.Set(ctx, id, source)
 	return source, nil
 }
 
