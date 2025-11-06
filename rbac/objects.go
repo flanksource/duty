@@ -67,6 +67,7 @@ var dbResourceObjMap = map[string]string{
 	"config_detail":                             policy.ObjectCatalog,
 	"config_items_aws":                          policy.ObjectCatalog,
 	"config_items":                              policy.ObjectCatalog,
+	"config_items_last_scraped_time":            policy.ObjectCatalog,
 	"config_labels":                             policy.ObjectDatabasePublic,
 	"config_names":                              policy.ObjectDatabasePublic,
 	"config_relationships":                      policy.ObjectCatalog,
