@@ -164,6 +164,8 @@ table "integrations" {
 
 table "job_history" {
   schema = schema.public
+  unlogged = true
+
   column "id" {
     null    = false
     type    = uuid

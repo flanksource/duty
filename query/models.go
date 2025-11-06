@@ -117,7 +117,7 @@ var ConfigItemQueryModel = QueryModel{
 	Columns: []string{
 		"id", "name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 		"cost_total_1d", "cost_total_7d", "cost_total_30d", "cost_per_minute",
-		"created_at", "updated_at", "deleted_at", "last_scraped_time",
+		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"labels", "tags", "config"},
 	HasProperties:  true,
@@ -128,17 +128,15 @@ var ConfigItemQueryModel = QueryModel{
 		"created":     "created_at",
 		"updated":     "updated_at",
 		"deleted":     "deleted_at",
-		"scraped":     "last_scraped_time",
 		"agent":       "agent_id",
 		"config_type": "type",
 		"namespace":   "tags.namespace",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
-		"agent_id":          AgentMapper,
-		"created_at":        DateMapper,
-		"updated_at":        DateMapper,
-		"deleted_at":        DateMapper,
-		"last_scraped_time": DateMapper,
+		"agent_id":   AgentMapper,
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
 	},
 }
 
@@ -206,11 +204,10 @@ var ComponentQueryModel = QueryModel{
 	HasAgents:     true,
 	HasLabels:     true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
-		"agent_id":          AgentMapper,
-		"created_at":        DateMapper,
-		"updated_at":        DateMapper,
-		"deleted_at":        DateMapper,
-		"last_scraped_time": DateMapper,
+		"agent_id":   AgentMapper,
+		"created_at": DateMapper,
+		"updated_at": DateMapper,
+		"deleted_at": DateMapper,
 	},
 }
 
