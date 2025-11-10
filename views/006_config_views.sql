@@ -1096,3 +1096,22 @@ CREATE OR REPLACE TRIGGER config_items_create_alias_relationships_update
     FOR EACH ROW
     WHEN (OLD.external_id IS DISTINCT FROM NEW.external_id OR OLD.type IS DISTINCT FROM NEW.type)
     EXECUTE FUNCTION create_alias_config_relationships();
+
+-- Function to update config_items_last_scraped_time when config_item is inserted
+CREATE OR REPLACE FUNCTION update_config_items_last_scraped_time()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO config_items_last_scraped_time (config_id, last_scraped_time)
+    VALUES (NEW.id, NOW())
+    ON CONFLICT (config_id)
+    DO UPDATE SET last_scraped_time = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call the function after config_item insert
+CREATE OR REPLACE TRIGGER config_items_update_last_scraped_time
+    AFTER INSERT ON config_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_config_items_last_scraped_time();
