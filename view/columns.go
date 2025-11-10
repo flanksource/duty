@@ -17,19 +17,20 @@ import (
 type ColumnType string
 
 const (
-	ColumnTypeBoolean   ColumnType = "boolean"
-	ColumnTypeBytes     ColumnType = "bytes"
-	ColumnTypeDateTime  ColumnType = "datetime"
-	ColumnTypeDecimal   ColumnType = "decimal"
-	ColumnTypeDuration  ColumnType = "duration"
-	ColumnTypeGauge     ColumnType = "gauge"
-	ColumnTypeHealth    ColumnType = "health"
-	ColumnTypeMillicore ColumnType = "millicore"
-	ColumnTypeNumber    ColumnType = "number"
-	ColumnTypeStatus    ColumnType = "status"
-	ColumnTypeString    ColumnType = "string"
-	ColumnTypeURL       ColumnType = "url"
-	ColumnTypeBadge     ColumnType = "badge"
+	ColumnTypeBoolean    ColumnType = "boolean"
+	ColumnTypeBytes      ColumnType = "bytes"
+	ColumnTypeConfigItem ColumnType = "config_item"
+	ColumnTypeDateTime   ColumnType = "datetime"
+	ColumnTypeDecimal    ColumnType = "decimal"
+	ColumnTypeDuration   ColumnType = "duration"
+	ColumnTypeGauge      ColumnType = "gauge"
+	ColumnTypeHealth     ColumnType = "health"
+	ColumnTypeMillicore  ColumnType = "millicore"
+	ColumnTypeNumber     ColumnType = "number"
+	ColumnTypeStatus     ColumnType = "status"
+	ColumnTypeString     ColumnType = "string"
+	ColumnTypeURL        ColumnType = "url"
+	ColumnTypeBadge      ColumnType = "badge"
 
 	// reserved type for internal use.
 	// Stores properties for all the columns in a row.
@@ -46,7 +47,7 @@ type ColumnDef struct {
 	// PrimaryKey indicates if the column is a primary key
 	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
-	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url;badge
+	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url;badge;config_item
 	Type ColumnType `json:"type" yaml:"type"`
 
 	// Description of the column
@@ -258,6 +259,8 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 		case ColumnTypeGauge:
 			return col.Name, models.ColumnTypeJSONB
 		case ColumnTypeURL:
+			return col.Name, models.ColumnTypeString
+		case ColumnTypeConfigItem:
 			return col.Name, models.ColumnTypeString
 		default:
 			return col.Name, models.ColumnTypeString
