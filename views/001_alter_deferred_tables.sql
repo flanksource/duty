@@ -43,6 +43,7 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS delete_old_config_items;
 CREATE OR REPLACE PROCEDURE delete_old_config_items(older_than_days INT)
 LANGUAGE plpgsql
 AS $$
