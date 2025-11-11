@@ -43,17 +43,17 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION delete_old_config_items(older_than_days INT)
-RETURNS void AS $$
+CREATE OR REPLACE PROCEDURE delete_old_config_items(older_than_days INT)
+LANGUAGE plpgsql
+AS $$
 DECLARE
   v_batch_size INT := 1000;
   v_deleted_count INT;
   v_total_deleted INT := 0;
 BEGIN
-  SET CONSTRAINTS ALL DEFERRED;
-
   -- Create a temporary table to store config_item IDs to ignore
-  CREATE TEMP TABLE IF NOT EXISTS ignored_config_items AS
+  DROP TABLE IF EXISTS ignored_config_items;
+  CREATE TEMP TABLE ignored_config_items AS
     SELECT DISTINCT config_id FROM evidences
     UNION SELECT DISTINCT config_id FROM playbook_runs
     UNION SELECT DISTINCT config_id FROM components;
@@ -77,6 +77,9 @@ BEGIN
     SELECT COUNT(*) INTO v_deleted_count FROM config_items_to_delete;
 
     EXIT WHEN v_deleted_count = 0;
+
+    -- Set constraints deferred for this batch
+    SET CONSTRAINTS ALL DEFERRED;
 
     -- Delete related data in batches using the config_items_to_delete table
     DELETE FROM config_analysis
@@ -107,10 +110,14 @@ BEGIN
 
     -- Drop the temporary table for this batch
     DROP TABLE config_items_to_delete;
+
+    -- Commit this batch to persist the changes
+    COMMIT;
+
   END LOOP;
 
   DROP TABLE IF EXISTS ignored_config_items;
 
   RAISE NOTICE 'Total config items deleted: %', v_total_deleted;
 END;
-$$ LANGUAGE plpgsql;
+$$;
