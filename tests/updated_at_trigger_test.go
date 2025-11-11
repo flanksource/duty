@@ -61,9 +61,11 @@ var _ = ginkgo.Describe("Test updated_at trigger behaviour", ginkgo.Ordered, fun
 		Expect(err).To(BeNil())
 
 		c1, err := gorm.G[models.ConfigItem](DefaultContext.DB()).Where("id = ?", config1.ID).First(DefaultContext)
+		Expect(err).To(BeNil())
 		Expect(lo.FromPtr(c1.DeletedAt)).To(BeTemporally("~", eightDaysAgo, time.Minute), "deleted_at should not be updated")
 
 		c2, err := gorm.G[models.ConfigItem](DefaultContext.DB()).Where("id = ?", config2.ID).First(DefaultContext)
+		Expect(err).To(BeNil())
 		Expect(lo.FromPtr(c2.DeletedAt)).ToNot(BeTemporally("~", eightDaysAgo, time.Minute), "deleted_at should be updated")
 
 		// Update deleted_at for both components
@@ -73,9 +75,11 @@ var _ = ginkgo.Describe("Test updated_at trigger behaviour", ginkgo.Ordered, fun
 		Expect(err).To(BeNil())
 
 		comp1, err := gorm.G[models.Component](DefaultContext.DB()).Where("id = ?", component1.ID).First(DefaultContext)
+		Expect(err).To(BeNil())
 		Expect(lo.FromPtr(comp1.DeletedAt)).To(BeTemporally("~", eightDaysAgo, time.Minute), "deleted_at should not be updated")
 
 		comp2, err := gorm.G[models.Component](DefaultContext.DB()).Where("id = ?", component2.ID).First(DefaultContext)
+		Expect(err).To(BeNil())
 		Expect(lo.FromPtr(comp2.DeletedAt)).ToNot(BeTemporally("~", eightDaysAgo, time.Minute), "deleted_at should be updated")
 	})
 
