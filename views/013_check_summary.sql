@@ -72,7 +72,7 @@ CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged as
   ORDER  BY check_id,
             TIME DESC;
 
-CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
   SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail from check_status_summary_hour
   UNION
   SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail from check_status_summary_aged where
