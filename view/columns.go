@@ -37,16 +37,17 @@ const (
 	ColumnTypeAttributes ColumnType = "row_attributes"
 )
 
-// CardStyle defines predefined card rendering styles
-type CardStyle string
+// CardPosition defines predefined card rendering styles
+type CardPosition string
 
 const (
-	CardStyleTitle    CardStyle = "title"
-	CardStyleSubtitle CardStyle = "subtitle"
-	CardStyleBadge    CardStyle = "badge"
-	CardStyleProperty CardStyle = "property"
-	CardStyleFooter   CardStyle = "footer"
-	CardsStyleChip    CardStyle = "chip"
+	CardPositionTitle    CardPosition = "title"
+	CardPositionSubtitle CardPosition = "subtitle"
+
+	// Show on the header after subtitle
+	CardPositionDeck   CardPosition = "deck"
+	CardPositionBody   CardPosition = "body"
+	CardPositionFooter CardPosition = "footer"
 )
 
 // ColumnDef defines a column in the view
@@ -98,8 +99,9 @@ type ColumnDef struct {
 	// Unit of the column
 	Unit string `json:"unit,omitempty" yaml:"unit,omitempty"`
 
-	// Card configuration for card view rendering
-	Card *CardConfig `json:"card,omitempty" yaml:"card,omitempty"`
+	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer
+	// Position defines the visual presentation style for the card field
+	CardPosition CardPosition `json:"cardPosition,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -202,17 +204,6 @@ const (
 
 type ColumnFilter struct {
 	Type ColumnFilterType `json:"type" yaml:"type"`
-}
-
-// CardConfig defines how a column appears in card view
-// +kubebuilder:object:generate=true
-type CardConfig struct {
-	// Enabled indicates whether the column appears in card view
-	Enabled bool `json:"enabled" yaml:"enabled"`
-
-	// +kubebuilder:validation:Enum=title;subtitle;badge;property;footer;chip
-	// Style defines the visual presentation style for the card field
-	Style CardStyle `json:"style,omitempty" yaml:"style,omitempty"`
 }
 
 // GaugeThreshold defines a threshold configuration for gauge charts
