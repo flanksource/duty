@@ -59,6 +59,9 @@ type ColumnDef struct {
 	// Configuration for gauge visualization
 	Gauge *GaugeConfig `json:"gauge,omitempty" yaml:"gauge,omitempty"`
 
+	// Configuration for config item columns
+	ConfigItem *ConfigItemColumnType `json:"configItem,omitempty"`
+
 	// Icon to use for the column.
 	//
 	// Supports mapping to a row value.
@@ -207,6 +210,13 @@ type GaugeConfig struct {
 	Min        string           `json:"min,omitempty" yaml:"min,omitempty"`
 	Precision  int              `json:"precision,omitempty" yaml:"precision,omitempty"`
 	Thresholds []GaugeThreshold `json:"thresholds,omitempty" yaml:"thresholds,omitempty"`
+}
+
+type ConfigItemColumnType struct {
+	// IDField which field, from the merged query result, to use as the config item ID
+	//
+	// If not specified, defaults to "id"
+	IDField string `json:"idField,omitempty"`
 }
 
 type ViewColumnDefList []ColumnDef
