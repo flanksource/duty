@@ -341,10 +341,6 @@ table "config_items" {
     null = true
     type = uuid
   }
-  column "last_scraped_time" {
-    null = true
-    type = timestamptz
-  }
   column "created_at" {
     null    = false
     type    = timestamptz

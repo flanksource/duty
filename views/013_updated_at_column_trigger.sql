@@ -11,6 +11,16 @@ BEGIN
 
   oldrow = hstore(OLD.*);
 
+  IF to_jsonb(NEW) ? 'deleted_at' THEN
+    -- If deleted_at is already set, do not modify it
+    IF OLD.deleted_at IS NOT NULL THEN
+        NEW.deleted_at := OLD.deleted_at;
+    END IF;
+    IF NEW.deleted_at IS NOT NULL THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+
   -- If record belongs to agent updated_at should not be changed
   IF exist(oldrow, 'agent_id') AND oldrow->'agent_id' != '00000000-0000-0000-0000-000000000000' THEN
     RETURN NEW;
@@ -23,12 +33,6 @@ BEGIN
     END IF;
   END IF;
 
-  IF to_jsonb(NEW) ? 'deleted_at' THEN
-    IF NEW.deleted_at IS NOT NULL THEN
-      RETURN NEW;
-    END IF;
-  END IF;
-  
   changed_fields = hstore(NEW.*) - oldrow;
   IF TG_TABLE_NAME = 'canaries' AND NOT (changed_fields ? 'spec')  THEN
     RETURN NEW; -- For canaries, only spec column should be considered
@@ -43,19 +47,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Iterate over all tables (excluding views) in the current schema and 
+-- Iterate over all tables (excluding views) in the current schema and
 -- create a trigger on each table that has an "updated_at" column
-DO $$ 
-DECLARE 
+DO $$
+DECLARE
   tbl_name TEXT;
 BEGIN
   FOR tbl_name IN
     SELECT table_name
     FROM information_schema.columns
-    WHERE 
-      table_schema = current_schema() 
+    WHERE
+      table_schema = current_schema()
       AND column_name = 'updated_at'
-      AND table_name NOT IN (SELECT table_name FROM information_schema.views WHERE table_schema = current_schema()) 
+      AND table_name NOT IN (SELECT table_name FROM information_schema.views WHERE table_schema = current_schema())
   LOOP
     EXECUTE format('CREATE OR REPLACE TRIGGER %I_update_updated_at
       BEFORE UPDATE ON %I

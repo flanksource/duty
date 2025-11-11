@@ -890,6 +890,7 @@ DROP VIEW IF EXISTS config_detail;
 CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,
+    config_items_last_scraped_time.last_scraped_time,
     agents.name as agent_name,
     json_build_object(
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
@@ -904,6 +905,7 @@ CREATE OR REPLACE VIEW config_detail AS
     ) ELSE NULL END as scraper
   FROM config_items as ci
     LEFT JOIN agents ON agents.id = ci.agent_id
+    LEFT JOIN config_items_last_scraped_time ON config_items_last_scraped_time.config_id = ci.id
     LEFT JOIN config_scrapers ON config_scrapers.id = ci.scraper_id
     LEFT JOIN
       (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
