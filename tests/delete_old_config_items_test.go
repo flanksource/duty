@@ -172,9 +172,9 @@ var _ = ginkgo.Describe("Delete old config items", ginkgo.Ordered, func() {
 		Expect(err).To(BeNil())
 		Expect(countBefore).To(Equal(int64(1500)), "should have 1500 batch configs before deletion")
 
-		// Call the function to delete config items older than 7 days
-		// This should process them in batches of 1000
-		err = DefaultContext.DB().Exec("SELECT delete_old_config_items(7)").Error
+		// Call the procedure to delete config items older than 7 days
+		// This should process them in batches of 1000, committing after each batch
+		err = DefaultContext.DB().Exec("CALL delete_old_config_items(7)").Error
 		Expect(err).To(BeNil())
 
 		// Verify old configs are deleted (hard delete, so they won't exist even with Unscoped)
