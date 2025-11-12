@@ -58,7 +58,7 @@ jobs:
           commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           token: ${{ secrets.FLANKBOT }}
-          labels: dependencies
+          labels: dependencies,ready
 
       - name: Enable Pull Request Automerge
         if: steps.cpr.outputs.pull-request-operation == 'created'
