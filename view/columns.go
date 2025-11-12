@@ -37,6 +37,19 @@ const (
 	ColumnTypeAttributes ColumnType = "row_attributes"
 )
 
+// CardPosition defines predefined card rendering styles
+type CardPosition string
+
+const (
+	CardPositionTitle    CardPosition = "title"
+	CardPositionSubtitle CardPosition = "subtitle"
+
+	// Show on the header after subtitle
+	CardPositionDeck   CardPosition = "deck"
+	CardPositionBody   CardPosition = "body"
+	CardPositionFooter CardPosition = "footer"
+)
+
 // ColumnDef defines a column in the view
 // +kubebuilder:object:generate=true
 // +kubebuilder:validation:XValidation:rule="self.type=='gauge' ? has(self.gauge) : !has(self.gauge)",message="gauge config required when type is gauge, not allowed for other types"
@@ -85,6 +98,10 @@ type ColumnDef struct {
 
 	// Unit of the column
 	Unit string `json:"unit,omitempty" yaml:"unit,omitempty"`
+
+	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer
+	// Position defines the visual presentation style for the card field
+	CardPosition CardPosition `json:"cardPosition,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
