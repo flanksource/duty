@@ -154,6 +154,14 @@ func (ConfigItemLastScrapedTime) UpdateIsPushed(db *gorm.DB, items []DBTable) er
 	return db.Model(&ConfigItemLastScrapedTime{}).Where("config_id IN ?", ids).Update("is_pushed", true).Error
 }
 
+func (ConfigItemLastScrapedTime) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigItemLastScrapedTime).ConfigID.String()
+	})
+
+	return db.Model(&ConfigItem{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 // This should only be used for tests and its fixtures
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
 	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })

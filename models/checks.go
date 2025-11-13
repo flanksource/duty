@@ -240,6 +240,14 @@ func (ChecksUnlogged) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	return db.Model(&ChecksUnlogged{}).Where("check_id IN ?", ids).Update("is_pushed", true).Error
 }
 
+func (ChecksUnlogged) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ChecksUnlogged).CheckID.String()
+	})
+
+	return db.Model(&Check{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 type CheckStatus struct {
 	CheckID   uuid.UUID `json:"check_id" gorm:"primaryKey"`
 	Status    bool      `json:"status"`

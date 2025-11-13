@@ -40,6 +40,7 @@ var (
 	_ parentIsPushedUpdater = (*models.ConfigChange)(nil)
 	_ parentIsPushedUpdater = (*models.ConfigAnalysis)(nil)
 	_ parentIsPushedUpdater = (*models.ConfigRelationship)(nil)
+	_ parentIsPushedUpdater = (*models.ConfigItemLastScrapedTime)(nil)
 
 	_ parentIsPushedUpdater = (*models.Component)(nil)
 	_ parentIsPushedUpdater = (*models.ComponentRelationship)(nil)
@@ -47,6 +48,7 @@ var (
 
 	_ parentIsPushedUpdater = (*models.Check)(nil)
 	_ parentIsPushedUpdater = (*models.CheckStatus)(nil)
+	_ parentIsPushedUpdater = (*models.ChecksUnlogged)(nil)
 )
 
 // Tables whose primary key is not just the "id" column need to implement this interface.
@@ -58,6 +60,7 @@ var (
 	_ customIsPushedUpdater = (*models.CheckConfigRelationship)(nil)
 	_ customIsPushedUpdater = (*models.GeneratedViewTable)(nil)
 	_ customIsPushedUpdater = (*models.ConfigItemLastScrapedTime)(nil)
+	_ customIsPushedUpdater = (*models.ChecksUnlogged)(nil)
 )
 
 type ForeignKeyErrorSummary struct {
@@ -204,7 +207,7 @@ var reconcileTableGroups = []PushGroup{
 	},
 	{
 		Name:   "canaries",
-		Tables: []pushableTable{models.Canary{}, models.Check{}, models.CheckStatus{}},
+		Tables: []pushableTable{models.Canary{}, models.Check{}, models.CheckStatus{}, models.ChecksUnlogged{}},
 	},
 	{
 		Name:      "CheckComponentRelationship",
