@@ -44,6 +44,7 @@ var dbResourceObjMap = map[string]string{
 	"checks_by_config":                          policy.ObjectCanary,
 	"checks_status_artifacts":                   policy.ObjectCanary,
 	"checks":                                    policy.ObjectCanary,
+	"checks_unlogged":                           policy.ObjectCanary,
 	"comment_responders":                        policy.ObjectIncident,
 	"comments":                                  policy.ObjectIncident,
 	"component_labels":                          policy.ObjectDatabasePublic,

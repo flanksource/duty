@@ -224,7 +224,7 @@ func (ChecksUnlogged) PK() string {
 func (ChecksUnlogged) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ChecksUnlogged
 	err := db.Select("checks_unlogged.*").
-		Joins("LEFT JOIN checks ON checks_unlogged.config_id = checks.id").
+		Joins("LEFT JOIN checks ON checks_unlogged.check_id = checks.id").
 		Where("checks.agent_id = ?", uuid.Nil).
 		Where("checks_unlogged.is_pushed IS FALSE").
 		Find(&items).Error
