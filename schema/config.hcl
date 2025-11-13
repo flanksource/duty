@@ -439,6 +439,13 @@ table "config_items_last_scraped_time" {
     type = timestamptz
     default = sql("now()")
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
+  }
+
   primary_key {
     columns = [column.config_id]
   }

@@ -310,6 +310,12 @@ table "checks_unlogged" {
     null = true
     type = timestamptz
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
+  }
 
   primary_key {
     columns = [column.check_id]

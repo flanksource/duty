@@ -222,11 +222,22 @@ func (ChecksUnlogged) PK() string {
 }
 
 func (ChecksUnlogged) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
-	return nil, nil
+	var items []ChecksUnlogged
+	err := db.Select("checks_unlogged.*").
+		Joins("LEFT JOIN checks ON checks_unlogged.config_id = checks.id").
+		Where("checks.agent_id = ?", uuid.Nil).
+		Where("checks_unlogged.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ChecksUnlogged, _ int) DBTable { return i }), err
 }
 
 func (ChecksUnlogged) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
-	return nil
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ChecksUnlogged)
+		return []string{c.CheckID.String()}
+	})
+
+	return db.Model(&ChecksUnlogged{}).Where("check_id IN ?", ids).Update("is_pushed", true).Error
 }
 
 type CheckStatus struct {
