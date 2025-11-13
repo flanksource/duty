@@ -131,6 +131,18 @@ func (ConfigItemLastScrapedTime) TableName() string {
 	return "config_items_last_scraped_time"
 }
 
+func (ConfigItemLastScrapedTime) PK() string {
+	return "config_id"
+}
+
+func (ConfigItemLastScrapedTime) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	return nil, nil
+}
+
+func (ConfigItemLastScrapedTime) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	return nil
+}
+
 // This should only be used for tests and its fixtures
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
 	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })

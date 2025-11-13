@@ -57,6 +57,7 @@ var (
 	_ customIsPushedUpdater = (*models.CheckComponentRelationship)(nil)
 	_ customIsPushedUpdater = (*models.CheckConfigRelationship)(nil)
 	_ customIsPushedUpdater = (*models.GeneratedViewTable)(nil)
+	_ customIsPushedUpdater = (*models.ConfigItemLastScrapedTime)(nil)
 )
 
 type ForeignKeyErrorSummary struct {
@@ -192,8 +193,10 @@ const generatedViewsGroup = "generated_views"
 
 var reconcileTableGroups = []PushGroup{
 	{
-		Name:   "configs",
-		Tables: []pushableTable{models.ConfigScraper{}, models.ConfigItem{}, models.ConfigChange{}, models.ConfigAnalysis{}, models.ConfigRelationship{}},
+		Name: "configs",
+		Tables: []pushableTable{
+			models.ConfigScraper{}, models.ConfigItem{}, models.ConfigItemLastScrapedTime{},
+			models.ConfigChange{}, models.ConfigAnalysis{}, models.ConfigRelationship{}},
 	},
 	{
 		Name:   "topologies",

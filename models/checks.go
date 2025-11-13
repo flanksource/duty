@@ -47,8 +47,6 @@ type Check struct {
 	Severity           Severity            `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Transformed        bool                `json:"transformed,omitempty"`
-	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
-	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
 	CreatedAt          *time.Time          `json:"created_at,omitempty" gorm:"<-:create"`
 	UpdatedAt          *time.Time          `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -204,6 +202,30 @@ func (c Checks) Find(key string) *Check {
 			return check
 		}
 	}
+	return nil
+}
+
+type ChecksUnlogged struct {
+	CheckID     uuid.UUID  `json:"check_id" gorm:"primaryKey"`
+	CanaryID    uuid.UUID  `json:"canary_id"`
+	Status      string     `json:"status"`
+	LastRuntime *time.Time `json:"last_runtime,omitempty"`
+	NextRuntime *time.Time `json:"next_runtime,omitempty"`
+}
+
+func (ChecksUnlogged) TableName() string {
+	return "checks_unlogged"
+}
+
+func (ChecksUnlogged) PK() string {
+	return "check_id"
+}
+
+func (ChecksUnlogged) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	return nil, nil
+}
+
+func (ChecksUnlogged) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	return nil
 }
 

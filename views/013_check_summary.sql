@@ -98,12 +98,12 @@ CREATE OR REPLACE VIEW check_summary AS
     checks.status,
     checks.description,
     checks.namespace,
-    canaries.namespace as canary_namespace,
-    canaries.name as canary_name,
-    canaries.labels || checks.labels as labels,
+    canaries.namespace AS canary_namespace,
+    canaries.name AS canary_name,
+    canaries.labels || checks.labels AS labels,
     checks.severity,
     checks.owner,
-    checks.last_runtime,
+    checks_unlogged.last_runtime,
     checks.created_at,
     checks.updated_at,
     checks.deleted_at,
@@ -111,7 +111,8 @@ CREATE OR REPLACE VIEW check_summary AS
   FROM
     checks
     INNER JOIN canaries ON checks.canary_id = canaries.id
-    LEFT JOIN check_status_summary ON checks.id = check_status_summary.check_id;
+    LEFT JOIN check_status_summary ON checks.id = check_status_summary.check_id
+    LEFT JOIN checks_unlogged ON checks.id = check_status_summary.check_id;
 
 -- For last transition
 CREATE OR REPLACE FUNCTION update_last_transition_time_for_check () RETURNS TRIGGER AS $$

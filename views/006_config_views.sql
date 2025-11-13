@@ -1017,10 +1017,11 @@ SELECT
   checks.severity,
   checks.status,
   checks.icon,
-  checks.last_runtime
+  checks_unlogged.last_runtime
 FROM
   check_config_relationships
   INNER JOIN checks ON checks.id = check_config_relationships.check_id
+  LEFT JOIN checks_unlogged ON checks.id = checks_unlogged.check_id
 WHERE
   check_config_relationships.deleted_at IS NULL;
 
