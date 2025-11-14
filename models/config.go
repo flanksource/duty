@@ -123,12 +123,43 @@ type ConfigItem struct {
 }
 
 type ConfigItemLastScrapedTime struct {
-	ConfigID        string     `json:"config_id" gorm:"primaryKey"`
+	ConfigID        uuid.UUID  `json:"config_id" gorm:"primaryKey"`
 	LastScrapedTime *time.Time `json:"last_scraped_time,omitempty"`
 }
 
 func (ConfigItemLastScrapedTime) TableName() string {
 	return "config_items_last_scraped_time"
+}
+
+func (ConfigItemLastScrapedTime) PK() string {
+	return "config_id"
+}
+
+func (ConfigItemLastScrapedTime) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ConfigItemLastScrapedTime
+	err := db.Select("config_items_last_scraped_time.*").
+		Joins("LEFT JOIN config_items ci ON config_items_last_scraped_time.config_id = ci.id").
+		Where("ci.agent_id = ?", uuid.Nil).
+		Where("config_items_last_scraped_time.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ConfigItemLastScrapedTime, _ int) DBTable { return i }), err
+}
+
+func (ConfigItemLastScrapedTime) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ConfigItemLastScrapedTime)
+		return []string{c.ConfigID.String()}
+	})
+
+	return db.Model(&ConfigItemLastScrapedTime{}).Where("config_id IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (ConfigItemLastScrapedTime) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ConfigItemLastScrapedTime).ConfigID.String()
+	})
+
+	return db.Model(&ConfigItem{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
 }
 
 // This should only be used for tests and its fixtures

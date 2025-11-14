@@ -1,12 +1,12 @@
 -- Insert playbook `spec.approval` updates to event queue
-CREATE OR REPLACE FUNCTION insert_playbook_spec_approval_in_event_queue() 
+CREATE OR REPLACE FUNCTION insert_playbook_spec_approval_in_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
   IF OLD.spec->'approval' != NEW.spec->'approval' THEN
     INSERT INTO event_queue(name, properties) VALUES ('playbook.spec.approval.updated', jsonb_build_object('id', NEW.id))
     ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
   END IF;
-    
+
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -17,7 +17,7 @@ FOR EACH ROW
 EXECUTE PROCEDURE insert_playbook_spec_approval_in_event_queue();
 
 -- Insert new playbook approvals to event queue
-CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue() 
+CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO event_queue(name, properties) VALUES ('playbook.approval.inserted', jsonb_build_object('id', NEW.id, 'run_id', NEW.run_id))
@@ -127,13 +127,13 @@ BEGIN
             ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
         END IF;
     END IF;
-    
+
     RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER evidence_dod_updates
-AFTER UPDATE ON evidences 
+AFTER UPDATE ON evidences
 FOR EACH ROW
 EXECUTE PROCEDURE insert_definition_of_done_updates_in_event_queue();
 
@@ -142,6 +142,10 @@ CREATE OR REPLACE FUNCTION insert_check_updates_in_event_queue () RETURNS TRIGGE
 BEGIN
     IF OLD.status = NEW.status THEN
       RETURN NULL;
+    END IF;
+
+    IF NEW.status != 'healthy' OR NEW.status != 'unhealthy' THEN
+        RETURN NULL;
     END IF;
 
     IF NEW.status = 'healthy' THEN
@@ -157,7 +161,7 @@ END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER check_enqueue
-AFTER UPDATE ON checks
+AFTER UPDATE ON checks_unlogged
 FOR EACH ROW
 EXECUTE PROCEDURE insert_check_updates_in_event_queue ();
 
@@ -215,7 +219,7 @@ BEGIN
     END IF;
 
     event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
-    
+
     INSERT INTO event_queue (name, properties) VALUES (event_name, jsonb_build_object('id', NEW.id, 'status', NEW.status, 'description', NEW.description))
     ON CONFLICT (name, properties) DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
 

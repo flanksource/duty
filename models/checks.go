@@ -47,8 +47,6 @@ type Check struct {
 	Severity           Severity            `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Transformed        bool                `json:"transformed,omitempty"`
-	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
-	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
 	CreatedAt          *time.Time          `json:"created_at,omitempty" gorm:"<-:create"`
 	UpdatedAt          *time.Time          `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -205,6 +203,49 @@ func (c Checks) Find(key string) *Check {
 		}
 	}
 	return nil
+}
+
+type ChecksUnlogged struct {
+	CheckID     uuid.UUID  `json:"check_id" gorm:"primaryKey"`
+	CanaryID    uuid.UUID  `json:"canary_id"`
+	Status      string     `json:"status"`
+	LastRuntime *time.Time `json:"last_runtime,omitempty"`
+	NextRuntime *time.Time `json:"next_runtime,omitempty"`
+}
+
+func (ChecksUnlogged) TableName() string {
+	return "checks_unlogged"
+}
+
+func (ChecksUnlogged) PK() string {
+	return "check_id"
+}
+
+func (ChecksUnlogged) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ChecksUnlogged
+	err := db.Select("checks_unlogged.*").
+		Joins("LEFT JOIN checks ON checks_unlogged.check_id = checks.id").
+		Where("checks.agent_id = ?", uuid.Nil).
+		Where("checks_unlogged.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ChecksUnlogged, _ int) DBTable { return i }), err
+}
+
+func (ChecksUnlogged) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ChecksUnlogged)
+		return []string{c.CheckID.String()}
+	})
+
+	return db.Model(&ChecksUnlogged{}).Where("check_id IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (ChecksUnlogged) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ChecksUnlogged).CheckID.String()
+	})
+
+	return db.Model(&Check{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
 }
 
 type CheckStatus struct {

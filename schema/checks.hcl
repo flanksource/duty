@@ -287,6 +287,47 @@ table "checks" {
   }
 }
 
+table "checks_unlogged" {
+  schema = schema.public
+  unlogged = true
+  column "check_id" {
+    null = false
+    type = uuid
+  }
+  column "canary_id" {
+    null = false
+    type = uuid
+  }
+  column "status" {
+    null = true
+    type = text
+  }
+  column "last_runtime" {
+    null = true
+    type = timestamptz
+  }
+  column "next_runtime" {
+    null = true
+    type = timestamptz
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
+  }
+
+  primary_key {
+    columns = [column.check_id]
+  }
+  foreign_key "checks_unlogged_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+}
+
 table "check_statuses_1h" {
   schema = schema.public
   column "check_id" {

@@ -67,7 +67,7 @@ DROP VIEW IF EXISTS canaries_with_status;
 CREATE OR REPLACE VIEW canaries_with_status AS
 WITH canaries_last_runtime AS (
     SELECT MAX(last_runtime) as last_runtime, canary_id
-    FROM checks
+    FROM checks_unlogged
     GROUP BY canary_id
 )
 SELECT
