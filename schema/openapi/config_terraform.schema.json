@@ -1,113 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/config-db/api/v1/azure",
-  "$ref": "#/$defs/Azure",
+  "$id": "https://github.com/flanksource/config-db/api/v1/terraform",
+  "$ref": "#/$defs/Terraform",
   "$defs": {
-    "Azure": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "items": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "class": {
-          "type": "string"
-        },
-        "format": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "timestampFormat": {
-          "type": "string"
-        },
-        "createFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "deleteFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
-        "labels": {
-          "$ref": "#/$defs/JSONStringMap"
-        },
-        "tags": {
-          "$ref": "#/$defs/Tags"
-        },
-        "properties": {
-          "items": {
-            "$ref": "#/$defs/ConfigProperties"
-          },
-          "type": "array"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "subscriptionID": {
-          "type": "string"
-        },
-        "clientID": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "clientSecret": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "tenantID": {
-          "type": "string"
-        },
-        "include": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "exclusions": {
-          "$ref": "#/$defs/AzureExclusions"
-        },
-        "entra": {
-          "$ref": "#/$defs/Entra"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "subscriptionID"
-      ]
-    },
-    "AzureExclusions": {
-      "properties": {
-        "activityLogs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ChangeMapping": {
       "properties": {
         "filter": {
@@ -225,42 +120,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Entra": {
-      "properties": {
-        "users": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "groups": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRegistrations": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "enterpriseApps": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRoleAssignments": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "EnvVar": {
       "properties": {
         "name": {
@@ -294,6 +153,30 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "GCSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        },
+        "bucket": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "HelmRefKeySelector": {
       "properties": {
         "name": {
@@ -308,12 +191,6 @@
       "required": [
         "key"
       ]
-    },
-    "Items": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
     },
     "JSONStringMap": {
       "additionalProperties": {
@@ -447,52 +324,40 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ResourceSelector": {
+    "S3Connection": {
       "properties": {
-        "agent": {
+        "connection": {
           "type": "string"
         },
-        "scope": {
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
           "type": "string"
         },
-        "cache": {
+        "region": {
           "type": "string"
         },
-        "search": {
+        "endpoint": {
           "type": "string"
         },
-        "limit": {
-          "type": "integer"
-        },
-        "includeDeleted": {
+        "skipTLSVerify": {
           "type": "boolean"
         },
-        "id": {
+        "bucket": {
           "type": "string"
         },
-        "name": {
+        "objectPath": {
           "type": "string"
         },
-        "namespace": {
-          "type": "string"
-        },
-        "tagSelector": {
-          "type": "string"
-        },
-        "labelSelector": {
-          "type": "string"
-        },
-        "fieldSelector": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "types": {
-          "$ref": "#/$defs/Items"
-        },
-        "statuses": {
-          "$ref": "#/$defs/Items"
+        "usePathStyle": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -539,6 +404,91 @@
         "$ref": "#/$defs/Tag"
       },
       "type": "array"
+    },
+    "Terraform": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/TerraformStateSource"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "state"
+      ]
+    },
+    "TerraformStateSource": {
+      "properties": {
+        "s3": {
+          "$ref": "#/$defs/S3Connection"
+        },
+        "gcs": {
+          "$ref": "#/$defs/GCSConnection"
+        },
+        "local": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Transform": {
       "properties": {

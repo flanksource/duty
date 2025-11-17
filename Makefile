@@ -60,7 +60,9 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-schema/openapi/_definitions.json:
+update-schemas: download-openapi-schemas schema-definitions
+
+schema-definitions:
 	cat schema/openapi/connection.schema.json |  jq 'del(.["$$ref"], .["$$id"], .["$$schema"] )' > schema/openapi/connection.definitions.json
 	cat schema/openapi/scrape_config.spec.schema.json |  jq 'del(.["$$ref"], .["$$id"], .["$$schema"] )' > schema/openapi/scrape_config.definitions.json
 	cat schema/openapi/notification.schema.json |  jq 'del(.["$$ref"], .["$$id"], .["$$schema"] )' > schema/openapi/notification.definitions.json

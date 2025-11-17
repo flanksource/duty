@@ -1,113 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/config-db/api/v1/azure",
-  "$ref": "#/$defs/Azure",
+  "$id": "https://github.com/flanksource/config-db/api/v1/http",
+  "$ref": "#/$defs/HTTP",
   "$defs": {
-    "Azure": {
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "items": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "class": {
-          "type": "string"
-        },
-        "format": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "timestampFormat": {
-          "type": "string"
-        },
-        "createFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "deleteFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
-        "labels": {
-          "$ref": "#/$defs/JSONStringMap"
-        },
-        "tags": {
-          "$ref": "#/$defs/Tags"
-        },
-        "properties": {
-          "items": {
-            "$ref": "#/$defs/ConfigProperties"
-          },
-          "type": "array"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "subscriptionID": {
-          "type": "string"
-        },
-        "clientID": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "clientSecret": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "tenantID": {
-          "type": "string"
-        },
-        "include": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "exclusions": {
-          "$ref": "#/$defs/AzureExclusions"
-        },
-        "entra": {
-          "$ref": "#/$defs/Entra"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "subscriptionID"
-      ]
-    },
-    "AzureExclusions": {
-      "properties": {
-        "activityLogs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ChangeMapping": {
       "properties": {
         "filter": {
@@ -225,42 +120,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Entra": {
-      "properties": {
-        "users": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "groups": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRegistrations": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "enterpriseApps": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRoleAssignments": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "EnvVar": {
       "properties": {
         "name": {
@@ -294,6 +153,117 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "HTTP": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "ntlm": {
+          "type": "boolean"
+        },
+        "ntlmv2": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        },
+        "bearer": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth"
+        },
+        "tls": {
+          "$ref": "#/$defs/TLSConfig"
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "method": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "HelmRefKeySelector": {
       "properties": {
         "name": {
@@ -308,12 +278,6 @@
       "required": [
         "key"
       ]
-    },
-    "Items": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
     },
     "JSONStringMap": {
       "additionalProperties": {
@@ -405,6 +369,33 @@
       },
       "type": "array"
     },
+    "OAuth": {
+      "properties": {
+        "clientID": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "scope": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tokenURL": {
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "RelationshipConfig": {
       "properties": {
         "id": {
@@ -447,57 +438,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ResourceSelector": {
-      "properties": {
-        "agent": {
-          "type": "string"
-        },
-        "scope": {
-          "type": "string"
-        },
-        "cache": {
-          "type": "string"
-        },
-        "search": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "integer"
-        },
-        "includeDeleted": {
-          "type": "boolean"
-        },
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "tagSelector": {
-          "type": "string"
-        },
-        "labelSelector": {
-          "type": "string"
-        },
-        "fieldSelector": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "types": {
-          "$ref": "#/$defs/Items"
-        },
-        "statuses": {
-          "$ref": "#/$defs/Items"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "SecretKeySelector": {
       "properties": {
         "name": {
@@ -512,6 +452,27 @@
       "required": [
         "key"
       ]
+    },
+    "TLSConfig": {
+      "properties": {
+        "insecureSkipVerify": {
+          "type": "boolean"
+        },
+        "handshakeTimeout": {
+          "type": "integer"
+        },
+        "ca": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "cert": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "key": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Tag": {
       "properties": {

@@ -1,26 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/canary-checker/api/v1/mysql-check",
-  "$ref": "#/$defs/MysqlCheck",
+  "$id": "https://github.com/flanksource/canary-checker/api/v1/pub-sub-check",
+  "$ref": "#/$defs/PubSubCheck",
   "$defs": {
-    "CheckRelationship": {
-      "properties": {
-        "components": {
-          "items": {
-            "$ref": "#/$defs/RelationshipSelectorTemplate"
-          },
-          "type": "array"
-        },
-        "configs": {
-          "items": {
-            "$ref": "#/$defs/RelationshipSelectorTemplate"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -84,26 +66,46 @@
         "key"
       ]
     },
+    "KafkaConfig": {
+      "properties": {
+        "brokers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "brokers",
+        "topic",
+        "group"
+      ]
+    },
     "Labels": {
       "additionalProperties": {
         "type": "string"
       },
       "type": "object"
     },
-    "Lookup": {
+    "MemoryConfig": {
       "properties": {
-        "expr": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "label": {
+        "queue": {
           "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "queue"
+      ]
     },
     "MetricLabel": {
       "properties": {
@@ -147,7 +149,25 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "MysqlCheck": {
+    "NATSConfig": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "queue": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "subject"
+      ]
+    },
+    "PubSubCheck": {
       "properties": {
         "description": {
           "type": "string"
@@ -185,29 +205,23 @@
         "transform": {
           "$ref": "#/$defs/Template"
         },
-        "relationships": {
-          "$ref": "#/$defs/CheckRelationship"
+        "sqs": {
+          "$ref": "#/$defs/SQSConfig"
         },
-        "connection": {
-          "type": "string"
+        "pubsub": {
+          "$ref": "#/$defs/PubSubConfig"
         },
-        "url": {
-          "type": "string"
+        "rabbitmq": {
+          "$ref": "#/$defs/RabbitConfig"
         },
-        "username": {
-          "$ref": "#/$defs/EnvVar"
+        "memory": {
+          "$ref": "#/$defs/MemoryConfig"
         },
-        "password": {
-          "$ref": "#/$defs/EnvVar"
+        "kafka": {
+          "$ref": "#/$defs/KafkaConfig"
         },
-        "timeout": {
-          "type": "integer"
-        },
-        "query": {
-          "type": "string"
-        },
-        "results": {
-          "type": "integer"
+        "nats": {
+          "$ref": "#/$defs/NATSConfig"
         }
       },
       "additionalProperties": false,
@@ -216,38 +230,107 @@
         "name"
       ]
     },
-    "RelationshipSelectorTemplate": {
+    "PubSubConfig": {
       "properties": {
-        "id": {
-          "$ref": "#/$defs/Lookup"
+        "project_id": {
+          "type": "string"
         },
-        "external_id": {
-          "$ref": "#/$defs/Lookup"
+        "subscription": {
+          "type": "string"
         },
-        "name": {
-          "$ref": "#/$defs/Lookup"
+        "connection": {
+          "type": "string"
         },
-        "namespace": {
-          "$ref": "#/$defs/Lookup"
+        "endpoint": {
+          "type": "string"
         },
-        "type": {
-          "$ref": "#/$defs/Lookup"
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
         },
-        "agent": {
-          "$ref": "#/$defs/Lookup"
+        "skipTLSVerify": {
+          "type": "boolean"
         },
-        "scope": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "labels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
+        "project": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "required": [
+        "project_id",
+        "subscription"
+      ]
+    },
+    "RabbitConfig": {
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "queue": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "username",
+        "password",
+        "queue"
+      ]
+    },
+    "SQSConfig": {
+      "properties": {
+        "queue": {
+          "type": "string"
+        },
+        "raw": {
+          "type": "boolean"
+        },
+        "waitTime": {
+          "type": "integer"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "queue",
+        "raw"
+      ]
     },
     "SecretKeySelector": {
       "properties": {

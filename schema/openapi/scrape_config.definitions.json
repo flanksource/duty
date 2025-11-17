@@ -108,6 +108,42 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AWSS3": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "region": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Authentication": {
       "properties": {
         "username": {
@@ -189,7 +225,37 @@
         "subscriptionID": {
           "type": "string"
         },
-        "organisation": {
+        "clientID": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "clientSecret": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "tenantID": {
+          "type": "string"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "exclusions": {
+          "$ref": "#/$defs/AzureExclusions"
+        },
+        "entra": {
+          "$ref": "#/$defs/Entra"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "subscriptionID"
+      ]
+    },
+    "AzureBlobStorage": {
+      "properties": {
+        "connection": {
           "type": "string"
         },
         "clientID": {
@@ -201,15 +267,26 @@
         "tenantID": {
           "type": "string"
         },
-        "exclusions": {
-          "$ref": "#/$defs/AzureExclusions"
+        "account": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "collection": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "subscriptionID",
-        "organisation"
+        "collection"
       ]
     },
     "AzureDevops": {
@@ -312,6 +389,30 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "BigQueryConfig": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CNRMConnection": {
       "properties": {
         "gke": {
@@ -391,6 +492,84 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Clickhouse": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "awsS3": {
+          "$ref": "#/$defs/AWSS3"
+        },
+        "azureBlobStorage": {
+          "$ref": "#/$defs/AzureBlobStorage"
+        },
+        "clickhouseURL": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "query"
+      ]
     },
     "CloudTrail": {
       "properties": {
@@ -557,6 +736,42 @@
         "cluster"
       ]
     },
+    "Entra": {
+      "properties": {
+        "users": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "appRegistrations": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "enterpriseApps": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        },
+        "appRoleAssignments": {
+          "items": {
+            "$ref": "#/$defs/ResourceSelector"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "EnvVar": {
       "properties": {
         "name": {
@@ -636,6 +851,54 @@
         },
         "secretKeyRef": {
           "$ref": "#/$defs/SecretKeySelector"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "FieldMappingConfig": {
+      "properties": {
+        "id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "message": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "host": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "severity": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -789,11 +1052,17 @@
           },
           "type": "array"
         },
+        "connection": {
+          "type": "string"
+        },
         "endpoint": {
           "type": "string"
         },
         "credentials": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
         },
         "project": {
           "type": "string"
@@ -809,6 +1078,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "auditLogs": {
+          "$ref": "#/$defs/GCPAuditLogs"
         }
       },
       "additionalProperties": false,
@@ -816,6 +1088,66 @@
       "required": [
         "project"
       ]
+    },
+    "GCPAuditLogs": {
+      "properties": {
+        "dataset": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "userAgents": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "principalEmails": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "permissions": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "serviceNames": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "methods": {
+          "$ref": "#/$defs/MatchExpressions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GCPCloudLoggingConfig": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "GCSConnection": {
       "properties": {
@@ -830,6 +1162,9 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "project": {
+          "type": "string"
         },
         "bucket": {
           "type": "string"
@@ -851,6 +1186,9 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "project": {
+          "type": "string"
         },
         "projectID": {
           "type": "string"
@@ -938,23 +1276,27 @@
         "personalAccessToken": {
           "$ref": "#/$defs/EnvVar"
         },
-        "connection": {
-          "type": "string"
-        },
         "workflows": {
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
         "owner",
-        "repository",
-        "personalAccessToken",
-        "workflows"
+        "repository"
       ]
     },
     "HTTP": {
@@ -1088,6 +1430,29 @@
         "type": "string"
       },
       "type": "object"
+    },
+    "KafkaConfig": {
+      "properties": {
+        "brokers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "brokers",
+        "topic",
+        "group"
+      ]
     },
     "Kubernetes": {
       "properties": {
@@ -1443,6 +1808,150 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "LocationOrAlias": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "withParent": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ]
+    },
+    "Logs": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "loki": {
+          "$ref": "#/$defs/LokiConfig"
+        },
+        "gcpCloudLogging": {
+          "$ref": "#/$defs/GCPCloudLoggingConfig"
+        },
+        "openSearch": {
+          "$ref": "#/$defs/OpenSearchConfig"
+        },
+        "bigQuery": {
+          "$ref": "#/$defs/BigQueryConfig"
+        },
+        "fieldMapping": {
+          "$ref": "#/$defs/FieldMappingConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LokiConfig": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Lookup": {
       "properties": {
         "expr": {
@@ -1511,6 +2020,36 @@
         "type": "string"
       },
       "type": "array"
+    },
+    "MemoryConfig": {
+      "properties": {
+        "queue": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "queue"
+      ]
+    },
+    "NATSConfig": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "queue": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "subject"
+      ]
     },
     "OAuth": {
       "properties": {
@@ -1605,6 +2144,35 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "OpenSearchConfig": {
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "index": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "address",
+        "index",
+        "query"
+      ]
+    },
     "OwnerReference": {
       "properties": {
         "apiVersion": {
@@ -1649,6 +2217,149 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "PubSub": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "sqs": {
+          "$ref": "#/$defs/SQSConfig"
+        },
+        "pubsub": {
+          "$ref": "#/$defs/PubSubConfig"
+        },
+        "rabbitmq": {
+          "$ref": "#/$defs/RabbitConfig"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryConfig"
+        },
+        "kafka": {
+          "$ref": "#/$defs/KafkaConfig"
+        },
+        "nats": {
+          "$ref": "#/$defs/NATSConfig"
+        },
+        "maxMessages": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PubSubConfig": {
+      "properties": {
+        "project_id": {
+          "type": "string"
+        },
+        "subscription": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "project_id",
+        "subscription"
+      ]
+    },
+    "RabbitConfig": {
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "queue": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "username",
+        "password",
+        "queue"
+      ]
     },
     "RelationshipConfig": {
       "properties": {
@@ -1852,6 +2563,49 @@
         "query"
       ]
     },
+    "SQSConfig": {
+      "properties": {
+        "queue": {
+          "type": "string"
+        },
+        "raw": {
+          "type": "boolean"
+        },
+        "waitTime": {
+          "type": "integer"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "queue",
+        "raw"
+      ]
+    },
     "ScrapeConfig": {
       "properties": {
         "kind": {
@@ -1970,6 +2724,27 @@
             "$ref": "#/$defs/HTTP"
           },
           "type": "array"
+        },
+        "clickhouse": {
+          "items": {
+            "$ref": "#/$defs/Clickhouse"
+          },
+          "type": "array"
+        },
+        "logs": {
+          "items": {
+            "$ref": "#/$defs/Logs"
+          },
+          "type": "array"
+        },
+        "pubsub": {
+          "items": {
+            "$ref": "#/$defs/PubSub"
+          },
+          "type": "array"
+        },
+        "system": {
+          "type": "boolean"
         },
         "crdSync": {
           "type": "boolean"
@@ -2319,6 +3094,18 @@
         },
         "changes": {
           "$ref": "#/$defs/TransformChange"
+        },
+        "locations": {
+          "items": {
+            "$ref": "#/$defs/LocationOrAlias"
+          },
+          "type": "array"
+        },
+        "aliases": {
+          "items": {
+            "$ref": "#/$defs/LocationOrAlias"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
