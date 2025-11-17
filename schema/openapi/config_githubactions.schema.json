@@ -221,23 +221,27 @@
         "personalAccessToken": {
           "$ref": "#/$defs/EnvVar"
         },
-        "connection": {
-          "type": "string"
-        },
         "workflows": {
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "actor": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
         "owner",
-        "repository",
-        "personalAccessToken",
-        "workflows"
+        "repository"
       ]
     },
     "HelmRefKeySelector": {
@@ -284,6 +288,30 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "LocationOrAlias": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "withParent": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ]
     },
     "Lookup": {
       "properties": {
@@ -436,6 +464,18 @@
         },
         "changes": {
           "$ref": "#/$defs/TransformChange"
+        },
+        "locations": {
+          "items": {
+            "$ref": "#/$defs/LocationOrAlias"
+          },
+          "type": "array"
+        },
+        "aliases": {
+          "items": {
+            "$ref": "#/$defs/LocationOrAlias"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,

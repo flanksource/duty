@@ -1,26 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/canary-checker/api/v1/mysql-check",
-  "$ref": "#/$defs/MysqlCheck",
+  "$id": "https://github.com/flanksource/canary-checker/api/v1/gcp-incidents-check",
+  "$ref": "#/$defs/GCPIncidentsCheck",
   "$defs": {
-    "CheckRelationship": {
-      "properties": {
-        "components": {
-          "items": {
-            "$ref": "#/$defs/RelationshipSelectorTemplate"
-          },
-          "type": "array"
-        },
-        "configs": {
-          "items": {
-            "$ref": "#/$defs/RelationshipSelectorTemplate"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -69,6 +51,68 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "GCPIncidentsCheck": {
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "labels": {
+          "$ref": "#/$defs/Labels"
+        },
+        "transformDeleteStrategy": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metrics"
+          },
+          "type": "array"
+        },
+        "test": {
+          "$ref": "#/$defs/Template"
+        },
+        "display": {
+          "$ref": "#/$defs/Template"
+        },
+        "transform": {
+          "$ref": "#/$defs/Template"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "subscription": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "subscription",
+        "project"
+      ]
+    },
     "HelmRefKeySelector": {
       "properties": {
         "name": {
@@ -88,21 +132,6 @@
       "additionalProperties": {
         "type": "string"
       },
-      "type": "object"
-    },
-    "Lookup": {
-      "properties": {
-        "expr": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
       "type": "object"
     },
     "MetricLabel": {
@@ -142,108 +171,6 @@
         },
         "value": {
           "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "MysqlCheck": {
-      "properties": {
-        "description": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "icon": {
-          "type": "string"
-        },
-        "labels": {
-          "$ref": "#/$defs/Labels"
-        },
-        "transformDeleteStrategy": {
-          "type": "string"
-        },
-        "metrics": {
-          "items": {
-            "$ref": "#/$defs/Metrics"
-          },
-          "type": "array"
-        },
-        "markFailOnEmpty": {
-          "type": "boolean"
-        },
-        "test": {
-          "$ref": "#/$defs/Template"
-        },
-        "display": {
-          "$ref": "#/$defs/Template"
-        },
-        "transform": {
-          "$ref": "#/$defs/Template"
-        },
-        "relationships": {
-          "$ref": "#/$defs/CheckRelationship"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "username": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "password": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "timeout": {
-          "type": "integer"
-        },
-        "query": {
-          "type": "string"
-        },
-        "results": {
-          "type": "integer"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name"
-      ]
-    },
-    "RelationshipSelectorTemplate": {
-      "properties": {
-        "id": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "external_id": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "name": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "namespace": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "type": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "agent": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "scope": {
-          "$ref": "#/$defs/Lookup"
-        },
-        "labels": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
         }
       },
       "additionalProperties": false,

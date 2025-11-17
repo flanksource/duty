@@ -1,108 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/config-db/api/v1/azure",
-  "$ref": "#/$defs/Azure",
+  "$id": "https://github.com/flanksource/config-db/api/v1/slack",
+  "$ref": "#/$defs/Slack",
   "$defs": {
-    "Azure": {
+    "ChangeExtractionMapping": {
       "properties": {
-        "id": {
-          "type": "string"
+        "createdAt": {
+          "$ref": "#/$defs/ValueExpression"
         },
-        "name": {
-          "type": "string"
+        "severity": {
+          "$ref": "#/$defs/ValueExpression"
         },
-        "description": {
-          "type": "string"
-        },
-        "items": {
-          "type": "string"
+        "summary": {
+          "$ref": "#/$defs/ValueExpression"
         },
         "type": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "details": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "timeFormat": {
           "type": "string"
-        },
-        "class": {
-          "type": "string"
-        },
-        "format": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "timestampFormat": {
-          "type": "string"
-        },
-        "createFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "deleteFields": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "transform": {
-          "$ref": "#/$defs/Transform"
-        },
-        "labels": {
-          "$ref": "#/$defs/JSONStringMap"
-        },
-        "tags": {
-          "$ref": "#/$defs/Tags"
-        },
-        "properties": {
-          "items": {
-            "$ref": "#/$defs/ConfigProperties"
-          },
-          "type": "array"
-        },
-        "connection": {
-          "type": "string"
-        },
-        "subscriptionID": {
-          "type": "string"
-        },
-        "clientID": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "clientSecret": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "tenantID": {
-          "type": "string"
-        },
-        "include": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "exclusions": {
-          "$ref": "#/$defs/AzureExclusions"
-        },
-        "entra": {
-          "$ref": "#/$defs/Entra"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "subscriptionID"
-      ]
-    },
-    "AzureExclusions": {
-      "properties": {
-        "activityLogs": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -225,42 +144,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "Entra": {
-      "properties": {
-        "users": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "groups": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRegistrations": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "enterpriseApps": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        },
-        "appRoleAssignments": {
-          "items": {
-            "$ref": "#/$defs/ResourceSelector"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "EnvVar": {
       "properties": {
         "name": {
@@ -271,6 +154,57 @@
         },
         "valueFrom": {
           "$ref": "#/$defs/EnvVarSource"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EnvVarResourceSelector": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "name": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "namespace": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "types": {
+          "items": {
+            "$ref": "#/$defs/ValueExpression"
+          },
+          "type": "array"
+        },
+        "statuses": {
+          "items": {
+            "$ref": "#/$defs/ValueExpression"
+          },
+          "type": "array"
+        },
+        "healths": {
+          "items": {
+            "$ref": "#/$defs/ValueExpression"
+          },
+          "type": "array"
+        },
+        "tagSelector": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "labelSelector": {
+          "$ref": "#/$defs/ValueExpression"
+        },
+        "fieldSelector": {
+          "$ref": "#/$defs/ValueExpression"
         }
       },
       "additionalProperties": false,
@@ -308,12 +242,6 @@
       "required": [
         "key"
       ]
-    },
-    "Items": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
     },
     "JSONStringMap": {
       "additionalProperties": {
@@ -405,6 +333,12 @@
       },
       "type": "array"
     },
+    "MatchExpressions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "RelationshipConfig": {
       "properties": {
         "id": {
@@ -447,57 +381,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ResourceSelector": {
-      "properties": {
-        "agent": {
-          "type": "string"
-        },
-        "scope": {
-          "type": "string"
-        },
-        "cache": {
-          "type": "string"
-        },
-        "search": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "integer"
-        },
-        "includeDeleted": {
-          "type": "boolean"
-        },
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "tagSelector": {
-          "type": "string"
-        },
-        "labelSelector": {
-          "type": "string"
-        },
-        "fieldSelector": {
-          "type": "string"
-        },
-        "health": {
-          "type": "string"
-        },
-        "types": {
-          "$ref": "#/$defs/Items"
-        },
-        "statuses": {
-          "$ref": "#/$defs/Items"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "SecretKeySelector": {
       "properties": {
         "name": {
@@ -512,6 +395,139 @@
       "required": [
         "key"
       ]
+    },
+    "Slack": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "class": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "timestampFormat": {
+          "type": "string"
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap"
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array"
+        },
+        "token": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "since": {
+          "type": "string"
+        },
+        "channels": {
+          "$ref": "#/$defs/MatchExpressions"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/SlackChangeExtractionRule"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "token",
+        "rules"
+      ]
+    },
+    "SlackChangeAcceptanceFilter": {
+      "properties": {
+        "bot": {
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/$defs/SlackUserFilter"
+        },
+        "expr": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SlackChangeExtractionRule": {
+      "properties": {
+        "regexp": {
+          "type": "string"
+        },
+        "mapping": {
+          "$ref": "#/$defs/ChangeExtractionMapping"
+        },
+        "config": {
+          "items": {
+            "$ref": "#/$defs/EnvVarResourceSelector"
+          },
+          "type": "array"
+        },
+        "filter": {
+          "$ref": "#/$defs/SlackChangeAcceptanceFilter"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "config"
+      ]
+    },
+    "SlackUserFilter": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Tag": {
       "properties": {
@@ -601,6 +617,18 @@
             "type": "string"
           },
           "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ValueExpression": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

@@ -152,6 +152,18 @@
         "path"
       ]
     },
+    "AutoMerge": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "rebase": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AzureConnection": {
       "properties": {
         "connection": {
@@ -388,6 +400,54 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "FieldMappingConfig": {
+      "properties": {
+        "id": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "message": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "host": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "severity": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "GCPConnection": {
       "properties": {
         "connection": {
@@ -401,6 +461,9 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "project": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -419,6 +482,9 @@
         },
         "skipTLSVerify": {
           "type": "boolean"
+        },
+        "project": {
+          "type": "string"
         },
         "projectID": {
           "type": "string"
@@ -545,6 +611,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "autoMerge": {
+          "$ref": "#/$defs/AutoMerge"
         }
       },
       "additionalProperties": false,
@@ -732,6 +801,270 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "LogDedupe": {
+      "properties": {
+        "window": {
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "fields"
+      ]
+    },
+    "LogsAction": {
+      "properties": {
+        "loki": {
+          "$ref": "#/$defs/LogsActionLoki"
+        },
+        "cloudwatch": {
+          "$ref": "#/$defs/LogsActionCloudWatch"
+        },
+        "opensearch": {
+          "$ref": "#/$defs/LogsActionOpenSearch"
+        },
+        "kubernetes": {
+          "$ref": "#/$defs/LogsKubernetes"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LogsActionCloudWatch": {
+      "properties": {
+        "dedupe": {
+          "$ref": "#/$defs/LogDedupe"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mapping": {
+          "$ref": "#/$defs/FieldMappingConfig"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "logGroup": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "logGroup",
+        "query"
+      ]
+    },
+    "LogsActionLoki": {
+      "properties": {
+        "dedupe": {
+          "$ref": "#/$defs/LogDedupe"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mapping": {
+          "$ref": "#/$defs/FieldMappingConfig"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LogsActionOpenSearch": {
+      "properties": {
+        "dedupe": {
+          "$ref": "#/$defs/LogDedupe"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mapping": {
+          "$ref": "#/$defs/FieldMappingConfig"
+        },
+        "address": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "index": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "address",
+        "index",
+        "query"
+      ]
+    },
+    "LogsKubernetes": {
+      "properties": {
+        "dedupe": {
+          "$ref": "#/$defs/LogDedupe"
+        },
+        "match": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mapping": {
+          "$ref": "#/$defs/FieldMappingConfig"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "kubeconfig": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
+        },
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "apiVersion": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pods": {
+          "$ref": "#/$defs/ResourceSelectors"
+        },
+        "containers": {
+          "$ref": "#/$defs/MatchExpressions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "kind",
+        "apiVersion",
+        "namespace",
+        "name"
+      ]
+    },
+    "MatchExpressions": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "NotificationAction": {
       "properties": {
         "url": {
@@ -812,6 +1145,9 @@
         },
         "notification": {
           "$ref": "#/$defs/NotificationAction"
+        },
+        "logs": {
+          "$ref": "#/$defs/LogsAction"
         }
       },
       "additionalProperties": false,

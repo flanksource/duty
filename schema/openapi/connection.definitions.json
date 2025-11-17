@@ -381,6 +381,24 @@
         "certificate"
       ]
     },
+    "ConnectionLoki": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
     "ConnectionMSSQL": {
       "properties": {
         "url": {
@@ -673,6 +691,9 @@
         "fromAddress": {
           "type": "string"
         },
+        "fromName": {
+          "type": "string"
+        },
         "toAddresses": {
           "items": {
             "type": "string"
@@ -696,7 +717,8 @@
       "type": "object",
       "required": [
         "host",
-        "fromAddress"
+        "fromAddress",
+        "fromName"
       ]
     },
     "ConnectionSlack": {
@@ -787,6 +809,9 @@
         },
         "kubernetes": {
           "$ref": "#/$defs/ConnectionKubernetes"
+        },
+        "loki": {
+          "$ref": "#/$defs/ConnectionLoki"
         },
         "mssql": {
           "$ref": "#/$defs/ConnectionMSSQL"
