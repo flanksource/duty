@@ -43,12 +43,36 @@ type CardPosition string
 const (
 	CardPositionTitle    CardPosition = "title"
 	CardPositionSubtitle CardPosition = "subtitle"
+	CardPositionBody     CardPosition = "body"
+	CardPositionFooter   CardPosition = "footer"
 
 	// Show on the header after subtitle
-	CardPositionDeck   CardPosition = "deck"
-	CardPositionBody   CardPosition = "body"
-	CardPositionFooter CardPosition = "footer"
+	CardPositionDeck CardPosition = "deck"
+
+	// Show on the header right side
+	CardPositionHeaderRight CardPosition = "headerRight"
 )
+
+// CardConfig defines card layout configuration
+// +kubebuilder:object:generate=true
+type CardConfig struct {
+	// Position defines where the field is displayed on the card
+	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer;headerRight
+	Position string `json:"position" yaml:"position"`
+
+	// Columns defines the number of columns for the field layout
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=2
+	// +kubebuilder:default=1
+	Columns int `json:"columns,omitempty" yaml:"columns,omitempty"`
+
+	// CardAccent optionally displays a colored divider below the card header.
+	// It's a cel expression.
+	//
+	// Accepts Tailwind CSS background color classes (e.g., "bg-red-200", "bg-green-300").
+	// Leave empty for no accent divider.
+	CardAccent string `json:"cardAccent,omitempty"`
+}
 
 // ColumnDef defines a column in the view
 // +kubebuilder:object:generate=true
@@ -99,8 +123,12 @@ type ColumnDef struct {
 	// Unit of the column
 	Unit string `json:"unit,omitempty" yaml:"unit,omitempty"`
 
-	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer
-	// Position defines the visual presentation style for the card field
+	// Card defines the card layout configuration for the field
+	Card *CardConfig `json:"card,omitempty" yaml:"card,omitempty"`
+
+	// Deprecated: Use Card instead
+	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer;headerRight
+	// CardPosition defines the visual presentation style for the card field
 	CardPosition CardPosition `json:"cardPosition,omitempty"`
 }
 
