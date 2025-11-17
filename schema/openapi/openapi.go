@@ -1,4 +1,4 @@
-package schemas
+package openapi
 
 import (
 	"embed"
