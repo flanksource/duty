@@ -58,20 +58,10 @@ const (
 type CardConfig struct {
 	// Position defines where the field is displayed on the card
 	// +kubebuilder:validation:Enum=title;subtitle;deck;body;footer;headerRight
-	Position string `json:"position" yaml:"position"`
+	Position string `json:"position,omitempty" yaml:"position,omitempty"`
 
-	// Columns defines the number of columns for the field layout
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2
-	// +kubebuilder:default=1
-	Columns int `json:"columns,omitempty" yaml:"columns,omitempty"`
-
-	// CardAccent optionally displays a colored divider below the card header.
-	// It's a cel expression.
-	//
-	// Accepts Tailwind CSS background color classes (e.g., "bg-red-200", "bg-green-300").
-	// Leave empty for no accent divider.
-	CardAccent string `json:"cardAccent,omitempty"`
+	// UseForAccent indicates if this column's value should be used for the accent color
+	UseForAccent bool `json:"useForAccent,omitempty" yaml:"useForAccent,omitempty"`
 }
 
 // ColumnDef defines a column in the view
