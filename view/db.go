@@ -95,7 +95,18 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 
 	if len(changes) > 0 {
 		if err := client.ApplyChanges(ctx, changes); err != nil {
-			return fmt.Errorf("failed to apply changes: %w", err)
+			ctx.Logger.Warnf("View table migration failed for %s, dropping and recreating (data will be lost): %v", tableName, err)
+
+			// Drop the table
+			if dropErr := ctx.DB().Exec("DROP TABLE IF EXISTS " + pq.QuoteIdentifier(tableName)).Error; dropErr != nil {
+				return fmt.Errorf("failed to drop table %s: %w (original error: %v)", tableName, dropErr, err)
+			}
+
+			// Recreate with fresh table
+			changes = []schema.Change{&schema.AddTable{T: desiredState}}
+			if err := client.ApplyChanges(ctx, changes); err != nil {
+				return fmt.Errorf("failed to recreate table after drop: %w", err)
+			}
 		}
 	}
 
