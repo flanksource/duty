@@ -44,6 +44,16 @@ var _ = ginkgo.Describe("View Migration Tests", ginkgo.Serial, ginkgo.Ordered, f
 		{Name: "description", Type: pkgView.ColumnTypeString},
 	}
 
+	// Add email as primary key (backward incompatible - email column has NULL values in existing data)
+	backwardIncompatibleColumns := pkgView.ViewColumnDefList{
+		{Name: "id", Type: pkgView.ColumnTypeString},
+		{Name: "name", Type: pkgView.ColumnTypeString},
+		{Name: "email", Type: pkgView.ColumnTypeString, PrimaryKey: true},
+		{Name: "created_at", Type: pkgView.ColumnTypeDateTime},
+		{Name: "priority", Type: pkgView.ColumnTypeNumber},
+		{Name: "description", Type: pkgView.ColumnTypeString},
+	}
+
 	ginkgo.BeforeAll(func() {
 		testView = models.View{
 			ID:        uuid.New(),
@@ -89,6 +99,10 @@ var _ = ginkgo.Describe("View Migration Tests", ginkgo.Serial, ginkgo.Ordered, f
 
 		ginkgo.It("should update the view with removed columns", func() {
 			migrateToNewColumns(DefaultContext, testView, removedColumns)
+		})
+
+		ginkgo.It("should drop and recreate table when primary key change fails", func() {
+			migrateToNewColumns(DefaultContext, testView, backwardIncompatibleColumns)
 		})
 	})
 })
