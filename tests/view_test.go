@@ -135,6 +135,55 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 		})
 	})
 
+	ginkgo.Describe("CreateViewTable", func() {
+		var testView models.View
+		var testTableName string
+
+		ginkgo.BeforeAll(func() {
+			testView = createViewTable(DefaultContext, "test_grants")
+			testTableName = testView.GeneratedTableName()
+		})
+
+		ginkgo.AfterAll(func() {
+			DefaultContext.DB().Exec("DROP TABLE IF EXISTS " + testTableName)
+		})
+
+		ginkgo.It("should create __grants column in view table", func() {
+			var columnExists bool
+			err := DefaultContext.DB().Raw(`
+				SELECT EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_name = ? AND column_name = '__grants'
+				)
+			`, testTableName).Scan(&columnExists).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(columnExists).To(BeTrue(), "__grants column should exist in view table")
+		})
+
+		ginkgo.It("should enable RLS on view table", func() {
+			var rlsEnabled bool
+			err := DefaultContext.DB().Raw(`
+        SELECT relrowsecurity
+        FROM pg_class
+        WHERE relname = ? AND relkind = 'r'
+    `, testTableName).Scan(&rlsEnabled).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rlsEnabled).To(BeTrue(), "RLS should be enabled on view table")
+		})
+
+		ginkgo.It("should create view_grants_policy on view table", func() {
+			var policyExists bool
+			err := DefaultContext.DB().Raw(`
+				SELECT EXISTS (
+					SELECT 1 FROM pg_policies
+					WHERE tablename = ? AND policyname = 'view_grants_policy'
+				)
+			`, testTableName).Scan(&policyExists).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(policyExists).To(BeTrue(), "view_grants_policy should exist on view table")
+		})
+	})
+
 	ginkgo.Describe("ColumnURL.Eval", func() {
 		var configItem = dummy.NginxHelmRelease
 		env := map[string]any{
