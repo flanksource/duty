@@ -174,7 +174,7 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		return nil, fmt.Errorf("db is not configured")
 	}
 
-	if err := db.Where("name = ? AND namespace = ?", name, namespace).
+	if err := db.Where("name = ? AND namespace = ? AND deleted_at IS NULL", name, namespace).
 		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		// NOTE: For backward compatibility reason we use the namespace as the connection type
 		// Before: connection://<type>/<name>
 		// Now: connection://<namespace>/<name.
-		if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+		if err := ctx.DB().Where("name = ? AND type = ? AND deleted_at IS NULL", name, namespace).
 			First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		} else if connection.ID != uuid.Nil {
