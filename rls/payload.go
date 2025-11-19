@@ -44,6 +44,7 @@ type Payload struct {
 	Playbook  []Scope `json:"playbook,omitempty"`
 	Canary    []Scope `json:"canary,omitempty"`
 	View      []Scope `json:"view,omitempty"`
+	Scopes    []string `json:"scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
@@ -76,6 +77,10 @@ func (t Payload) JWTClaims() map[string]any {
 		claims["view"] = t.View
 	}
 
+	if len(t.Scopes) > 0 {
+		claims["scopes"] = t.Scopes
+	}
+
 	return claims
 }
 
@@ -92,6 +97,13 @@ func (t *Payload) EvalFingerprint() {
 				parts = append(parts, scope.Fingerprint())
 			}
 		}
+	}
+
+	// Include scope UUIDs in fingerprint
+	if len(t.Scopes) > 0 {
+		scopesCopy := slices.Clone(t.Scopes)
+		slices.Sort(scopesCopy)
+		parts = append(parts, strings.Join(scopesCopy, ","))
 	}
 
 	if len(parts) == 0 {
