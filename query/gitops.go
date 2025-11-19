@@ -101,9 +101,16 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 	}
 
 	gitRepos := TraverseConfig(ctx, id.String(), gitRepoRelationType, string(models.RelatedConfigTypeIncoming))
-	if len(gitRepos) > 0 && gitRepos[0].Config != nil {
-		source.Git.URL = gitRepos[0].NestedString("spec", "url")
-		source.Git.Branch = gitRepos[0].NestedString("spec", "ref", "branch")
+	if gitRepo := lo.FirstOrEmpty(gitRepos); gitRepo.Config != nil {
+		source.Git.URL = gitRepo.NestedString("spec", "url")
+		// These are in order of precedence for fluxcd.io/GitRepository
+		source.Git.Branch = lo.CoalesceOrEmpty(
+			gitRepo.NestedString("spec", "ref", "commit"),
+			gitRepo.NestedString("spec", "ref", "name"),
+			gitRepo.NestedString("spec", "ref", "semver"),
+			gitRepo.NestedString("spec", "ref", "tag"),
+			gitRepo.NestedString("spec", "ref", "branch"),
+		)
 	}
 
 	if lo.FromPtr(ci.Type) == "Kubernetes::Kustomization" {
