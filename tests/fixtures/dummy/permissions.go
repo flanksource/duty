@@ -43,8 +43,21 @@ var AlanTuringReadConnectionsPermission = models.Permission{
 	CreatedAt:      DummyCreatedAt,
 }
 
+var MissionControlPodsViewerReadScopePermission = models.Permission{
+	ID:             uuid.MustParse("c8d9e0f1-a2b3-4c5d-8e9f-0a1b2c3d4e5f"),
+	Namespace:      "default",
+	Name:           "mission-control-pods-viewer-scope-read",
+	Subject:        MissionControlPodsViewer.ID.String(),
+	SubjectType:    models.PermissionSubjectTypePerson,
+	Action:         "read",
+	ObjectSelector: types.JSON(`{"scopes": [{"name": "mission-control-pods"}]}`),
+	Source:         models.SourceUI,
+	CreatedAt:      DummyCreatedAt,
+}
+
 var AllDummyPermissions = []models.Permission{
 	AlanTuringConfigPermission,
 	AlanTuringRunAllPlaybooksPermission,
 	AlanTuringReadConnectionsPermission,
+	MissionControlPodsViewerReadScopePermission,
 }
