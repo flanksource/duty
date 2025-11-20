@@ -123,12 +123,16 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 
 func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 	// Enable RLS on table
-	if err := ctx.DB().Exec("ALTER TABLE "+pq.QuoteIdentifier(tableName)+" ENABLE ROW LEVEL SECURITY").Error; err != nil {
+	if err := ctx.DB().Exec("ALTER TABLE " + pq.QuoteIdentifier(tableName) + " ENABLE ROW LEVEL SECURITY").Error; err != nil {
 		return fmt.Errorf("failed to enable RLS: %w", err)
 	}
 
 	// Drop existing policy if present
-	ctx.DB().Exec("DROP POLICY IF EXISTS view_grants_policy ON " + pq.QuoteIdentifier(tableName))
+	if err := ctx.DB().
+		Exec("DROP POLICY IF EXISTS view_grants_policy ON " + pq.QuoteIdentifier(tableName)).
+		Error; err != nil {
+		return fmt.Errorf("failed to drop existing RLS policy: %w", err)
+	}
 
 	// Create the grants policy
 	policy := fmt.Sprintf(`
