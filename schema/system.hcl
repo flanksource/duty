@@ -41,6 +41,9 @@ table "access_tokens" {
     unique  = true
     columns = [column.person_id, column.name]
   }
+  index "access_tokens_value_idx" {
+    columns = [column.value]
+  }
   foreign_key "access_tokens_person_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
