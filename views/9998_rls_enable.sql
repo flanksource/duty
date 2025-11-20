@@ -1,12 +1,3 @@
-CREATE
-OR REPLACE FUNCTION is_rls_disabled () RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN (current_setting('request.jwt.claims', TRUE) IS NULL
-    OR current_setting('request.jwt.claims', TRUE) = ''
-    OR current_setting('request.jwt.claims', TRUE)::jsonb ->> 'disable_rls' IS NOT NULL);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Generic function to match a row against an array of scopes
 -- Returns TRUE if the row matches ANY scope in the array (OR logic between scopes)
 -- Within a scope, ALL non-empty fields must match (AND logic within scope)
@@ -405,33 +396,3 @@ ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
-
--- Function to check if user has access to a row on a generated table for a view based on grants
--- Grants are a jsonb array of scope UUIDs that are allowed to access the row
--- User scopes are provided in JWT claims
--- NULL or empty grants means row is hidden from all (no access)
---
--- Examples:
---   User scopes: ['scope-a', 'scope-b'], Row grants: ['scope-a', 'scope-c'] → TRUE (scope-a overlaps)
---   User scopes: ['scope-x'], Row grants: ['scope-a', 'scope-b'] → FALSE (no overlap)
---   User scopes: ['scope-a'], Row grants: NULL → FALSE (hidden)
---   User scopes: ['scope-a'], Row grants: [] → FALSE (hidden)
-CREATE
-OR REPLACE FUNCTION check_view_grants(grants jsonb) RETURNS BOOLEAN AS $$
-BEGIN
-  IF grants IS NULL OR jsonb_array_length(grants) = 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  RETURN EXISTS (
-    SELECT 1 FROM jsonb_array_elements_text(grants) AS grant_uuid
-    WHERE grant_uuid = ANY(
-      COALESCE(
-        ARRAY(SELECT jsonb_array_elements_text(
-          COALESCE(current_setting('request.jwt.claims', TRUE)::jsonb -> 'scopes', '[]'::jsonb)
-        )), '{}'::text[]
-      )
-    )
-  );
-END;
-$$ LANGUAGE plpgsql STABLE;
