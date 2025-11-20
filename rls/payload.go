@@ -44,7 +44,10 @@ type Payload struct {
 	Playbook  []Scope `json:"playbook,omitempty"`
 	Canary    []Scope `json:"canary,omitempty"`
 	View      []Scope `json:"view,omitempty"`
-	Scopes    []string `json:"scopes,omitempty"`
+
+	// Scopes contains the list of scope UUIDs the user has access to.
+	// This is used for generated view tables only (for now).
+	Scopes []string `json:"scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
