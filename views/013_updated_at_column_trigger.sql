@@ -47,7 +47,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Iterate over all tables (excluding views) in the current schema and
+-- Iterate over all tables (excluding postgres views and the generated view tables) in the current schema and
 -- create a trigger on each table that has an "updated_at" column
 DO $$
 DECLARE
@@ -60,6 +60,7 @@ BEGIN
       table_schema = current_schema()
       AND column_name = 'updated_at'
       AND table_name NOT IN (SELECT table_name FROM information_schema.views WHERE table_schema = current_schema())
+      AND table_name NOT LIKE 'view_%' -- these are generated_view tables. We don't manage its updated_at column.
   LOOP
     EXECUTE format('CREATE OR REPLACE TRIGGER %I_update_updated_at
       BEFORE UPDATE ON %I
