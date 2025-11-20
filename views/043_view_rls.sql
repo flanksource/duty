@@ -26,4 +26,4 @@ BEGIN
     )
   );
 END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql VOLATILE;
