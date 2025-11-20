@@ -428,7 +428,7 @@ BEGIN
     WHERE grant_uuid = ANY(
       COALESCE(
         ARRAY(SELECT jsonb_array_elements_text(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'scopes'
+          COALESCE(current_setting('request.jwt.claims', TRUE)::jsonb -> 'scopes', '[]'::jsonb)
         )), '{}'::text[]
       )
     )
