@@ -45,6 +45,10 @@ type Payload struct {
 	Canary    []Scope `json:"canary,omitempty"`
 	View      []Scope `json:"view,omitempty"`
 
+	// Scopes contains the list of scope UUIDs the user has access to.
+	// This is used for generated view tables only (for now).
+	Scopes []string `json:"scopes,omitempty"`
+
 	Disable bool `json:"disable_rls,omitempty"`
 }
 
@@ -76,6 +80,10 @@ func (t Payload) JWTClaims() map[string]any {
 		claims["view"] = t.View
 	}
 
+	if len(t.Scopes) > 0 {
+		claims["scopes"] = t.Scopes
+	}
+
 	return claims
 }
 
@@ -92,6 +100,13 @@ func (t *Payload) EvalFingerprint() {
 				parts = append(parts, scope.Fingerprint())
 			}
 		}
+	}
+
+	// Include scope UUIDs in fingerprint
+	if len(t.Scopes) > 0 {
+		scopesCopy := slices.Clone(t.Scopes)
+		slices.Sort(scopesCopy)
+		parts = append(parts, strings.Join(scopesCopy, ","))
 	}
 
 	if len(parts) == 0 {

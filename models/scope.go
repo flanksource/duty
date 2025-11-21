@@ -29,3 +29,7 @@ type Scope struct {
 func (Scope) TableName() string {
 	return "scopes"
 }
+
+func (s Scope) PK() string {
+	return s.ID.String()
+}
