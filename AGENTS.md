@@ -8,7 +8,7 @@
 
 ## Database RLS
 
-We use PostgreSQL Row-Level Security (RLS) to enforce multi-tenant access control. 
+We use PostgreSQL Row-Level Security (RLS) to enforce multi-tenant access control.
 RLS policies filter database rows based on JWT claims passed via PostgREST, ensuring users only see data they have permission to access.
 
 ### Policy Patterns
@@ -35,6 +35,14 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
    - Test access granted scenarios (various JWT claim combinations)
    - Test access denied scenarios (empty scopes, non-existent resources, conflicting criteria)
    - Test edge cases (wildcards, case sensitivity, empty strings)
+
+### PostgREST JWT Claims Injection
+
+The RLS policies work by injecting JWT claims into PostgreSQL session variables via `request.jwt.claims`. The flow is:
+
+- Go code builds an RLS Payload (scopes for config, component, playbook, canary, view) in `@rls/payload.go`
+- `SetPostgresSessionRLS()` serializes the Payload to JSON and executes: `SET request.jwt.claims TO <json>`
+- PostgreSQL RLS policies read `(current_setting('request.jwt.claims')::jsonb)` to enforce access control
 
 ## Test Notes
 
