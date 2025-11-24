@@ -878,6 +878,7 @@ CREATE OR REPLACE VIEW catalog_changes AS
     cc.source,
     cc.summary,
     cc.details,
+    cc.diff,
     cc.created_by,
     cc.count,
     cc.first_observed,
