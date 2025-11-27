@@ -19,7 +19,10 @@ import (
 	"github.com/flanksource/duty/models"
 )
 
-const ReservedColumnAttributes = "__row__attributes"
+const (
+	ReservedColumnAttributes = "__row__attributes"
+	ReservedColumnGrants     = "__grants"
+)
 
 // Row represents a single row of data mapped to view columns
 type Row []any
@@ -110,6 +113,42 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 		}
 	}
 
+	// Apply RLS policy to enforce grants
+	if err := ensureViewRLSPolicy(ctx, tableName); err != nil {
+		return fmt.Errorf("failed to apply RLS policy: %w", err)
+	}
+
+	return nil
+}
+
+func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
+	// Enable RLS on table
+	if err := ctx.DB().Exec("ALTER TABLE " + pq.QuoteIdentifier(tableName) + " ENABLE ROW LEVEL SECURITY").Error; err != nil {
+		return fmt.Errorf("failed to enable RLS: %w", err)
+	}
+
+	// Drop existing policy if present
+	if err := ctx.DB().
+		Exec("DROP POLICY IF EXISTS view_grants_policy ON " + pq.QuoteIdentifier(tableName)).
+		Error; err != nil {
+		return fmt.Errorf("failed to drop existing RLS policy: %w", err)
+	}
+
+	// Create the grants policy
+	policy := fmt.Sprintf(`
+		CREATE POLICY view_grants_policy ON %s
+			FOR ALL TO postgrest_api, postgrest_anon
+			USING (
+				CASE WHEN is_rls_disabled() THEN TRUE
+				ELSE check_view_grants(__grants)
+				END
+			)
+	`, pq.QuoteIdentifier(tableName))
+
+	if err := ctx.DB().Exec(policy).Error; err != nil {
+		return fmt.Errorf("failed to create RLS policy: %w", err)
+	}
+
 	return nil
 }
 
@@ -139,6 +178,15 @@ func createTableSchema(tableName string, columns ViewColumnDefList, currentSchem
 	// Example: column.url = "https://flanksource.com"
 	table.Columns = append(table.Columns, &schema.Column{
 		Name: ReservedColumnAttributes,
+		Type: &schema.ColumnType{
+			Type: &schema.JSONType{T: "jsonb"},
+			Null: true,
+		},
+	})
+
+	// Add grants column for row-level access control
+	table.Columns = append(table.Columns, &schema.Column{
+		Name: ReservedColumnGrants,
 		Type: &schema.ColumnType{
 			Type: &schema.JSONType{T: "jsonb"},
 			Null: true,
@@ -224,6 +272,8 @@ func getAtlasType(colType ColumnType) schema.Type {
 	case ColumnTypeMillicore:
 		return &schema.FloatType{T: "float"}
 	case ColumnTypeAttributes:
+		return &schema.JSONType{T: "jsonb"}
+	case ColumnTypeGrants:
 		return &schema.JSONType{T: "jsonb"}
 	default:
 		return &schema.StringType{T: "text"}

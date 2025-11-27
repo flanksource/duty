@@ -60,6 +60,7 @@ type DummyData struct {
 	JobHistories []models.JobHistory
 
 	Permissions []models.Permission
+	Scopes      []models.Scope
 }
 
 func (t *DummyData) Populate(ctx context.Context) error {
@@ -207,6 +208,10 @@ func (t *DummyData) Populate(ctx context.Context) error {
 		return err
 	}
 
+	if err := gormDB.CreateInBatches(t.Scopes, 100).Error; err != nil {
+		return err
+	}
+
 	if err := gormDB.CreateInBatches(t.Permissions, 100).Error; err != nil {
 		return err
 	}
@@ -266,6 +271,10 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	}
 
 	if err := DeleteAll(gormDB, t.Permissions); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Scopes); err != nil {
 		return err
 	}
 
@@ -380,6 +389,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ViewTables:                   append([]ViewGeneratedTable{}, AllDummyViewTables...),
 		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
 		Permissions:                  append([]models.Permission{}, AllDummyPermissions...),
+		Scopes:                       append([]models.Scope{}, AllDummyScopes...),
 	}
 
 	return d

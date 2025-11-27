@@ -120,8 +120,11 @@ func migrateToNewColumns(ctx context.Context, view models.View, columns pkgView.
 	err = pkgView.CreateViewTable(ctx, view.GeneratedTableName(), columns)
 	Expect(err).ToNot(HaveOccurred())
 
-	// +2 for agent_id and is_pushed + 1 for __row__attributes + 1 for request_fingerprint
-	const reservedColumns = 4
+	// +2 for agent_id and is_pushed
+	// + 1 for __row__attributes
+	// + 1 for __grants
+	// + 1 for request_fingerprint
+	const reservedColumns = 5
 
 	// Fetch all the column names from the table
 	var columnNames []string

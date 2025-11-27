@@ -35,6 +35,10 @@ const (
 	// reserved type for internal use.
 	// Stores properties for all the columns in a row.
 	ColumnTypeAttributes ColumnType = "row_attributes"
+
+	// reserved type for internal use.
+	// Stores scope UUIDs for row-level access control.
+	ColumnTypeGrants ColumnType = "grants"
 )
 
 // CardPosition defines predefined card rendering styles
