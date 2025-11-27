@@ -214,7 +214,8 @@ ON canaries.id = notification_send_history.resource_id AND notification_send_his
 --- notification_send_history_summary
 CREATE OR REPLACE VIEW notification_send_history_summary as
 SELECT 
-  notification_send_history.*, 
+  notification_send_history.*,
+  config_items.tags AS "resource_tags",
   "nsh_resources"."resource",
   "nsh_resources"."resource_type",
   CASE
@@ -232,8 +233,8 @@ SELECT
     ELSE NULL
   END::jsonb AS playbook_run
 FROM notification_send_history
-LEFT JOIN notification_send_history_resources AS "nsh_resources"
-ON notification_send_history.resource_id = nsh_resources.id;
+LEFT JOIN notification_send_history_resources AS "nsh_resources" ON notification_send_history.resource_id = nsh_resources.id
+LEFT JOIN config_items ON nsh_resources.resource_type = 'config' AND config_items.id = notification_send_history.resource_id;
 
 -- Insert notification_send_history updates as config_changes
 CREATE OR REPLACE FUNCTION insert_notification_history_config_change()
