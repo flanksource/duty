@@ -122,6 +122,7 @@ var dbResourceObjMap = map[string]string{
 	"networks":                                  policy.ObjectAuthConfidential,
 	"notification_send_history":                 policy.ObjectMonitor,
 	"notification_send_history_resources":       policy.ObjectMonitor,
+	"notification_send_history_resource_tags":   policy.ObjectMonitor,
 	"notification_send_history_summary":         policy.ObjectMonitor,
 	"rpc/notification_send_history_of_resource": policy.ObjectMonitor,
 	"notifications_summary":                     policy.ObjectMonitor,

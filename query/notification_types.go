@@ -73,7 +73,7 @@ func (r *NotificationSendHistorySummaryRequest) summarySelectColumns() []string 
 	return []string{
 		"resource",
 		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
-		"ANY_VALUE(resource_tags) as resource_tags",
+		"MAX(CASE WHEN rn = 1 THEN resource_tags::text END)::jsonb AS resource_tags",
 		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
 		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
 		"MAX(CASE WHEN rn = 1 THEN resource_health_description END) AS resource_health_description",
