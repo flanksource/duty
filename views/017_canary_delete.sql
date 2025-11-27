@@ -4,7 +4,7 @@ BEGIN
   UPDATE check_component_relationships
   SET deleted_at = NEW.deleted_at
   WHERE canary_id = OLD.id AND deleted_at IS NULL;
-  
+
   UPDATE checks
   SET deleted_at = NEW.deleted_at
   WHERE canary_id = OLD.id AND deleted_at IS NULL;
@@ -25,6 +25,12 @@ BEGIN
   UPDATE check_component_relationships
   SET deleted_at = NEW.deleted_at
   WHERE check_id = OLD.id AND deleted_at IS NULL;
+
+  UPDATE canaries
+  SET deleted_at = NOW()
+  WHERE
+    deleted_at IS NULL AND
+    source = 'check=' || OLD.id;
 
   RETURN NEW;
 END;
