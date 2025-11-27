@@ -56,6 +56,7 @@ func (r *NotificationSendHistorySummaryRequest) baseSelectColumns() []string {
 	return []string{
 		"resource",
 		"resource_type",
+		"resource_tags",
 		"resource_health",
 		"resource_status",
 		"resource_health_description",
@@ -72,6 +73,7 @@ func (r *NotificationSendHistorySummaryRequest) summarySelectColumns() []string 
 	return []string{
 		"resource",
 		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
+		"ANY_VALUE(resource_tags) as resource_tags",
 		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
 		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
 		"MAX(CASE WHEN rn = 1 THEN resource_health_description END) AS resource_health_description",
@@ -139,7 +141,7 @@ func (r *NotificationSendHistorySummaryRequest) getGroupByColumns() []string {
 	var output []string
 	for _, g := range r.GroupBy {
 		switch g {
-		case "resource", "resource_id", "resource_type", "status", "source_event":
+		case "resource", "resource_id", "resource_type", "resource_tags", "status", "source_event":
 			output = append(output, g)
 		default:
 			logger.Debugf("unknown groupBy: %s", g)
