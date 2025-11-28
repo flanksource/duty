@@ -316,6 +316,16 @@ table "checks_unlogged" {
     type    = bool
     comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
   }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
 
   primary_key {
     columns = [column.check_id]
