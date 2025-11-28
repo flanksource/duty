@@ -29,6 +29,9 @@ type NotificationSendHistorySummaryRequest struct {
 	PageIndex int `json:"pageIndex"`
 	PageSize  int `json:"pageSize"`
 
+	// Parsed .Tags field
+	tagSelector labels.Selector
+
 	from *time.Time
 	to   *time.Time
 }
@@ -48,6 +51,14 @@ func (r *NotificationSendHistorySummaryRequest) Validate() error {
 		} else {
 			r.to = lo.ToPtr(expr.Time())
 		}
+	}
+
+	if r.Tags != "" {
+		selector, err := labels.Parse(r.Tags)
+		if err != nil {
+			return fmt.Errorf("invalid tagSelector(%s): %s", r.Tags, err)
+		}
+		r.tagSelector = selector
 	}
 
 	return nil
@@ -122,12 +133,8 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 		clauses = append(clauses, clause...)
 	}
 
-	if r.Tags != "" {
-		parsedLabelSelector, err := labels.Parse(r.Tags)
-		if err != nil {
-			return nil
-		}
-		requirements, _ := parsedLabelSelector.Requirements()
+	if r.tagSelector != nil {
+		requirements, _ := r.tagSelector.Requirements()
 		for _, req := range requirements {
 			clauses = append(clauses, jsonColumnRequirementsToGormClause("resource_tags", req)...)
 		}

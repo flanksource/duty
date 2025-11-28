@@ -461,8 +461,8 @@ func jsonColumnRequirementsToGormClause(column string, r labels.Requirement) []c
 		}
 	case selection.Exists:
 		clauses = append(clauses, clause.Expr{
-			SQL:  fmt.Sprintf("%s ?? ?", column),
-			Vars: []any{r.Key()},
+			SQL:  fmt.Sprintf("%s ? ?", column),
+			Vars: []any{gorm.Expr("?"), r.Key()},
 		})
 	case selection.GreaterThan:
 		for val := range r.Values() {
