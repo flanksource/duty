@@ -10,6 +10,7 @@ import (
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm/clause"
 
+	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/types"
 )
 
@@ -19,7 +20,8 @@ type NotificationSendHistorySummaryRequest struct {
 	GroupBy                 []string              `json:"groupBy"`
 	Status                  types.MatchExpression `json:"status"` // matchItem
 	ResourceType            string                `json:"resourceType"`
-	Search                  string                `json:"search"` // search on resource name
+	Tags                    string                `json:"tags"`
+	Search                  string                `json:"search"`
 	From                    string                `json:"from"`
 	To                      string                `json:"to"`
 	IncludeDeletedResources bool                  `json:"includeDeletedResources"`
@@ -118,6 +120,17 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 
 		clause, _ := parseAndBuildFilteringQuery(r.Search, "resource->>'name'", true)
 		clauses = append(clauses, clause...)
+	}
+
+	if r.Tags != "" {
+		parsedLabelSelector, err := labels.Parse(r.Tags)
+		if err != nil {
+			return nil
+		}
+		requirements, _ := parsedLabelSelector.Requirements()
+		for _, req := range requirements {
+			clauses = append(clauses, jsonColumnRequirementsToGormClause("resource_tags", req)...)
+		}
 	}
 
 	return clauses

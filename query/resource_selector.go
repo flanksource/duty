@@ -424,35 +424,69 @@ func queryResourceSelector[T any](
 	return output, nil
 }
 
-// jsonColumnRequirementsToSQLClause to converts each selector requirement into a gorm SQL clause for a column
-func jsonColumnRequirementsToSQLClause(q *gorm.DB, column string, r labels.Requirement) *gorm.DB {
+// jsonColumnRequirementsToGormClause converts a selector requirement into gorm clause expressions for a JSON column
+func jsonColumnRequirementsToGormClause(column string, r labels.Requirement) []clause.Expression {
+	var clauses []clause.Expression
+
 	switch r.Operator() {
 	case selection.Equals, selection.DoubleEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s @> ?", column), types.JSONStringMap{r.Key(): val})
+			clauses = append(clauses, clause.Expr{
+				SQL:  fmt.Sprintf("%s @> ?", column),
+				Vars: []any{types.JSONStringMap{r.Key(): val}},
+			})
 		}
 	case selection.NotEquals:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' != ?", column, r.Key()), lo.Ternary[any](val == "nil", nil, val))
+			clauses = append(clauses, clause.Expr{
+				SQL:  fmt.Sprintf("%s->>'%s' != ?", column, r.Key()),
+				Vars: []any{lo.Ternary[any](val == "nil", nil, val)},
+			})
 		}
 	case selection.In:
-		q = q.Where(fmt.Sprintf("%s->>'%s' IN ?", column, r.Key()), collections.MapKeys(r.Values()))
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf("%s->>'%s' IN ?", column, r.Key()),
+			Vars: []any{collections.MapKeys(r.Values())},
+		})
 	case selection.NotIn:
-		q = q.Where(fmt.Sprintf("%s->>'%s' NOT IN ?", column, r.Key()), collections.MapKeys(r.Values()))
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf("%s->>'%s' NOT IN ?", column, r.Key()),
+			Vars: []any{collections.MapKeys(r.Values())},
+		})
 	case selection.DoesNotExist:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' IS NULL", column, val))
+			clauses = append(clauses, clause.Expr{
+				SQL: fmt.Sprintf("%s->>'%s' IS NULL", column, val),
+			})
 		}
 	case selection.Exists:
-		q = q.Where(fmt.Sprintf("%s ? ?", column), gorm.Expr("?"), r.Key())
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf("%s ?? ?", column),
+			Vars: []any{r.Key()},
+		})
 	case selection.GreaterThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' > ?", column, r.Key()), val)
+			clauses = append(clauses, clause.Expr{
+				SQL:  fmt.Sprintf("%s->>'%s' > ?", column, r.Key()),
+				Vars: []any{val},
+			})
 		}
 	case selection.LessThan:
 		for val := range r.Values() {
-			q = q.Where(fmt.Sprintf("%s->>'%s' < ?", column, r.Key()), val)
+			clauses = append(clauses, clause.Expr{
+				SQL:  fmt.Sprintf("%s->>'%s' < ?", column, r.Key()),
+				Vars: []any{val},
+			})
 		}
+	}
+
+	return clauses
+}
+
+// jsonColumnRequirementsToSQLClause converts each selector requirement into a gorm SQL clause for a column
+func jsonColumnRequirementsToSQLClause(q *gorm.DB, column string, r labels.Requirement) *gorm.DB {
+	for _, c := range jsonColumnRequirementsToGormClause(column, r) {
+		q = q.Clauses(c)
 	}
 
 	return q
