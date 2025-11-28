@@ -15,7 +15,7 @@ END $$;
 
 DROP VIEW IF EXISTS check_status_summary_hour;
 
-CREATE OR REPLACE VIEW check_status_summary_hour as
+CREATE OR REPLACE VIEW check_status_summary_hour AS
   SELECT
     check_id,
     PERCENTILE_DISC(0.99) WITHIN GROUP (
@@ -51,10 +51,10 @@ CREATE OR REPLACE VIEW check_status_summary_hour as
   FROM
     check_statuses
   WHERE
-    time > (NOW() at TIME ZONE 'utc' - Interval '1 hour')  GROUP BY
-    check_id;
+    time > (NOW() at TIME ZONE 'utc' - Interval '1 hour')
+  GROUP BY  check_id;
 
-CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged as
+CREATE MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged AS
   SELECT DISTINCT ON (check_id) check_id,
   duration AS p99,
   duration as p95,
@@ -66,19 +66,32 @@ CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary_aged as
   CASE  WHEN check_statuses.status = TRUE THEN TIME   ELSE NULL END AS last_pass,
   CASE  WHEN check_statuses.status = FALSE THEN TIME  ELSE NULL END AS last_fail
   FROM   check_statuses
-        inner join checks ON check_statuses.check_id = checks.id
+    INNER JOIN checks ON check_statuses.check_id = checks.id
   WHERE  checks.deleted_at IS NULL and check_id not in (select check_id from check_status_summary_hour)
+  ORDER  BY check_id, time DESC;
 
-  ORDER  BY check_id,
-            TIME DESC;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
-  SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail from check_status_summary_hour
+CREATE  MATERIALIZED VIEW IF NOT EXISTS check_status_summary AS
+  SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail
+  FROM check_status_summary_hour
   UNION
-  SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail from check_status_summary_aged where
-    check_id not in (select check_id from check_status_summary_hour)
-;
+  SELECT check_id, p99,p95, p50, mean, passed, failed, last_check, last_pass, last_fail
+  FROM check_status_summary_aged
+  WHERE
+    check_id NOT IN (SELECT check_id FROM check_status_summary_hour);
 
+
+
+CREATE OR REPLACE FUNCTION refresh_check_status_summary_aged() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW check_status_summary_aged;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION refresh_check_status_summary() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW check_status_summary;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE VIEW check_summary AS
   SELECT
@@ -162,6 +175,15 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
   FROM
     agg_check_statuses
     JOIN checks ON checks.id = agg_check_statuses.check_id;
+
+
+
+CREATE OR REPLACE FUNCTION check_size_summary() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW check_size_summary;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 -- check_summary_for_config
 CREATE OR REPLACE VIEW check_summary_for_config AS

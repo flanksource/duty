@@ -34,9 +34,14 @@ LEFT JOIN
 GROUP BY
     ci.id, ci.name;
 
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_3d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_3d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_summary_7d AS
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS  config_item_summary_7d AS
 WITH type_counts AS (
     SELECT
         ca.config_id,
@@ -64,8 +69,14 @@ LEFT JOIN
 GROUP BY
     ci.id, ci.name;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_item_summary_30d AS
+
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_7d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_7d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS config_item_summary_30d AS
 WITH type_counts AS (
     SELECT
         ca.config_id,
@@ -92,6 +103,14 @@ LEFT JOIN
     config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '30 days'
 GROUP BY
     ci.id, ci.name;
+
+
+
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_30d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_30d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE or REPLACE VIEW configs AS
   SELECT
