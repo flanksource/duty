@@ -255,9 +255,8 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 
 	for _, grant := range grants {
 		if _, err := db.Exec(fmt.Sprintf(grant, roleName)); err != nil {
-			log.Errorf("Failed to apply grants for %s: %+v", roleName, err)
+			log.Errorf("Failed to apply grant[%s] for %s: %+v", grant, roleName, err)
 		}
-
 	}
 
 	return nil
