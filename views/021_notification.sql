@@ -236,6 +236,23 @@ FROM notification_send_history
 LEFT JOIN notification_send_history_resources AS "nsh_resources" ON notification_send_history.resource_id = nsh_resources.id
 LEFT JOIN config_items ON nsh_resources.resource_type = 'config' AND config_items.id = notification_send_history.resource_id;
 
+--- notification_send_history_resource_tags
+DROP VIEW IF EXISTS notification_send_history_resource_tags;
+
+CREATE OR REPLACE VIEW notification_send_history_resource_tags AS
+WITH config_resources AS (
+  SELECT DISTINCT config_items.tags
+  FROM notification_send_history
+  JOIN config_items ON config_items.id = notification_send_history.resource_id
+  WHERE notification_send_history.source_event LIKE 'config.%'
+    AND config_items.deleted_at IS NULL
+)
+SELECT d.key, d.value
+FROM config_resources
+JOIN json_each_text(config_resources.tags::json) d ON TRUE
+GROUP BY d.key, d.value
+ORDER BY d.key, d.value;
+
 -- Insert notification_send_history updates as config_changes
 CREATE OR REPLACE FUNCTION insert_notification_history_config_change()
 RETURNS TRIGGER AS $$

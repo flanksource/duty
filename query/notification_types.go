@@ -10,6 +10,7 @@ import (
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm/clause"
 
+	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/types"
 )
 
@@ -19,13 +20,17 @@ type NotificationSendHistorySummaryRequest struct {
 	GroupBy                 []string              `json:"groupBy"`
 	Status                  types.MatchExpression `json:"status"` // matchItem
 	ResourceType            string                `json:"resourceType"`
-	Search                  string                `json:"search"` // search on resource name
+	Tags                    string                `json:"tags"`
+	Search                  string                `json:"search"`
 	From                    string                `json:"from"`
 	To                      string                `json:"to"`
 	IncludeDeletedResources bool                  `json:"includeDeletedResources"`
 
 	PageIndex int `json:"pageIndex"`
 	PageSize  int `json:"pageSize"`
+
+	// Parsed .Tags field
+	tagSelector labels.Selector
 
 	from *time.Time
 	to   *time.Time
@@ -48,6 +53,14 @@ func (r *NotificationSendHistorySummaryRequest) Validate() error {
 		}
 	}
 
+	if r.Tags != "" {
+		selector, err := labels.Parse(r.Tags)
+		if err != nil {
+			return fmt.Errorf("invalid tagSelector(%s): %s", r.Tags, err)
+		}
+		r.tagSelector = selector
+	}
+
 	return nil
 }
 
@@ -56,6 +69,7 @@ func (r *NotificationSendHistorySummaryRequest) baseSelectColumns() []string {
 	return []string{
 		"resource",
 		"resource_type",
+		"resource_tags",
 		"resource_health",
 		"resource_status",
 		"resource_health_description",
@@ -72,6 +86,7 @@ func (r *NotificationSendHistorySummaryRequest) summarySelectColumns() []string 
 	return []string{
 		"resource",
 		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
+		"MAX(CASE WHEN rn = 1 THEN resource_tags::text END)::jsonb AS resource_tags",
 		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
 		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
 		"MAX(CASE WHEN rn = 1 THEN resource_health_description END) AS resource_health_description",
@@ -118,6 +133,13 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 		clauses = append(clauses, clause...)
 	}
 
+	if r.tagSelector != nil {
+		requirements, _ := r.tagSelector.Requirements()
+		for _, req := range requirements {
+			clauses = append(clauses, jsonColumnRequirementsToGormClause("resource_tags", req)...)
+		}
+	}
+
 	return clauses
 }
 
@@ -139,7 +161,7 @@ func (r *NotificationSendHistorySummaryRequest) getGroupByColumns() []string {
 	var output []string
 	for _, g := range r.GroupBy {
 		switch g {
-		case "resource", "resource_id", "resource_type", "status", "source_event":
+		case "resource", "resource_id", "resource_type", "resource_tags", "status", "source_event":
 			output = append(output, g)
 		default:
 			logger.Debugf("unknown groupBy: %s", g)
