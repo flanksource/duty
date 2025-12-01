@@ -275,6 +275,8 @@ func getAtlasType(colType ColumnType) schema.Type {
 		return &schema.JSONType{T: "jsonb"}
 	case ColumnTypeGrants:
 		return &schema.JSONType{T: "jsonb"}
+	case ColumnTypeLabels:
+		return &schema.JSONType{T: "jsonb"}
 	default:
 		return &schema.StringType{T: "text"}
 	}
@@ -331,6 +333,11 @@ func convertViewRecordsToNativeTypes(viewRows []Row, columnDef ViewColumnDefList
 				}
 
 			case ColumnTypeAttributes:
+				if raw, ok := viewRow[i].([]uint8); ok {
+					viewRow[i] = json.RawMessage(raw)
+				}
+
+			case ColumnTypeLabels:
 				if raw, ok := viewRow[i].([]uint8); ok {
 					viewRow[i] = json.RawMessage(raw)
 				}
