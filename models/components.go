@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/gomplate/v3"
@@ -94,6 +96,69 @@ type Component struct {
 	// Mark it as true when the component is processed
 	// during topology tree creation
 	NodeProcessed bool `json:"-" gorm:"-"`
+}
+
+func (c Component) Pretty() api.Text {
+	t := clicky.Text("")
+
+	if c.Health != nil {
+		t = t.Add(c.Health.Pretty()).AddText(" ")
+	}
+
+	t = t.AddText(c.Name, "font-bold")
+
+	if c.Type != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.Type, "text-xs text-purple-600 bg-purple-50"))
+	}
+
+	if c.Status != "" {
+		statusText := clicky.Text(string(c.Status), "text-xs text-gray-600")
+		t = t.AddText(" ").Add(statusText.Wrap("(", ")"))
+	}
+
+	if c.Owner != "" {
+		t = t.AddText(" 👤 ", "text-gray-500").AddText(c.Owner, "text-sm text-gray-600")
+	}
+
+	if len(c.Labels) > 0 {
+		t = t.NewLine().AddText("  Labels: ", "text-sm text-gray-500")
+		for key, val := range c.Labels {
+			t = t.Add(clicky.Text(fmt.Sprintf("%s=%s", key, val), "text-xs bg-gray-100 text-gray-700").Wrap("[", "]")).AddText(" ")
+		}
+	}
+
+	return t
+}
+
+func (c Component) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name":   clicky.Text(c.Name, "font-bold"),
+		"type":   clicky.Text(c.Type, "text-purple-600"),
+		"status": clicky.Text(string(c.Status), "text-gray-700"),
+		"health": clicky.Text("", "text-gray-400"),
+	}
+
+	if c.Health != nil {
+		row["health"] = c.Health.Pretty()
+	}
+
+	if c.Namespace != "" {
+		row["namespace"] = clicky.Text(c.Namespace, "text-blue-600")
+	}
+
+	if c.Owner != "" {
+		row["owner"] = clicky.Text(c.Owner, "text-gray-600")
+	}
+
+	if c.CostTotal30d > 0 {
+		row["cost"] = clicky.Text(fmt.Sprintf("$%.2f", c.CostTotal30d), "text-green-700")
+	}
+
+	if c.CreatedAt != (time.Time{}) {
+		row["age"] = api.Human(time.Since(c.CreatedAt), "text-gray-600")
+	}
+
+	return row
 }
 
 func (t Component) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
