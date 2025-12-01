@@ -14,7 +14,7 @@ BEGIN
   IF to_jsonb(NEW) ? 'deleted_at' THEN
     -- If deleted_at is already set, do not modify it
     IF OLD.deleted_at IS NOT NULL THEN
-        NEW.deleted_at := OLD.deleted_at;
+        RETURN NEW;
     END IF;
     IF NEW.deleted_at IS NOT NULL THEN
       RETURN NEW;
