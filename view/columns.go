@@ -31,6 +31,7 @@ const (
 	ColumnTypeString     ColumnType = "string"
 	ColumnTypeURL        ColumnType = "url"
 	ColumnTypeBadge      ColumnType = "badge"
+	ColumnTypeLabels     ColumnType = "labels"
 
 	// reserved type for internal use.
 	// Stores properties for all the columns in a row.
@@ -78,7 +79,7 @@ type ColumnDef struct {
 	// PrimaryKey indicates if the column is a primary key
 	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
-	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url;badge;config_item
+	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url;badge;config_item;labels
 	Type ColumnType `json:"type" yaml:"type"`
 
 	// Description of the column
@@ -306,6 +307,8 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 		case ColumnTypeDuration:
 			return col.Name, models.ColumnTypeDuration
 		case ColumnTypeGauge:
+			return col.Name, models.ColumnTypeJSONB
+		case ColumnTypeLabels:
 			return col.Name, models.ColumnTypeJSONB
 		case ColumnTypeURL:
 			return col.Name, models.ColumnTypeString
