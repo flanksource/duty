@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/console"
 	"github.com/google/uuid"
@@ -37,6 +39,33 @@ const (
 	PlaybookRunStatusWaiting         PlaybookRunStatus = "waiting" // waiting for a consumer
 )
 
+func (p PlaybookRunStatus) Pretty() api.Text {
+	var icon, style string
+	switch p {
+	case PlaybookRunStatusCompleted:
+		icon, style = "✓", "text-green-600 font-bold"
+	case PlaybookRunStatusFailed:
+		icon, style = "✗", "text-red-600 font-bold"
+	case PlaybookRunStatusCancelled:
+		icon, style = "⊘", "text-gray-600"
+	case PlaybookRunStatusTimedOut:
+		icon, style = "⏱", "text-orange-600"
+	case PlaybookRunStatusRunning:
+		icon, style = "▶", "text-blue-600"
+	case PlaybookRunStatusRetrying:
+		icon, style = "🔄", "text-yellow-600"
+	case PlaybookRunStatusPendingApproval:
+		icon, style = "⏸", "text-purple-600"
+	case PlaybookRunStatusScheduled, PlaybookRunStatusWaiting:
+		icon, style = "⏳", "text-cyan-600"
+	case PlaybookRunStatusSleeping:
+		icon, style = "💤", "text-gray-500"
+	default:
+		icon, style = "•", "text-gray-500"
+	}
+	return clicky.Text(icon+" ", style).Append(string(p), "capitalize "+style)
+}
+
 // PlaybookRunStatus are statuses for a playbook run and its actions.
 type PlaybookActionStatus string
 
@@ -51,6 +80,29 @@ const (
 	PlaybookActionStatusSkipped         PlaybookActionStatus = "skipped"
 	PlaybookActionStatusSleeping        PlaybookActionStatus = "sleeping"
 )
+
+func (p PlaybookActionStatus) Pretty() api.Text {
+	var icon, style string
+	switch p {
+	case PlaybookActionStatusCompleted:
+		icon, style = "✓", "text-green-600"
+	case PlaybookActionStatusFailed:
+		icon, style = "✗", "text-red-600"
+	case PlaybookActionStatusRunning:
+		icon, style = "▶", "text-blue-600"
+	case PlaybookActionStatusSkipped:
+		icon, style = "⊘", "text-gray-500"
+	case PlaybookActionStatusWaitingChildren, PlaybookActionStatusWaiting:
+		icon, style = "⏳", "text-cyan-600"
+	case PlaybookActionStatusScheduled:
+		icon, style = "📅", "text-purple-600"
+	case PlaybookActionStatusSleeping:
+		icon, style = "💤", "text-gray-500"
+	default:
+		icon, style = "•", "text-gray-500"
+	}
+	return clicky.Text(icon+" ", style).Append(string(p), "capitalize "+style)
+}
 
 var PlaybookActionFinalStates = []PlaybookActionStatus{
 	PlaybookActionStatusFailed,
@@ -104,6 +156,59 @@ type Playbook struct {
 	CreatedAt   time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	UpdatedAt   time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt   *time.Time `json:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+}
+
+func (p Playbook) Pretty() api.Text {
+	t := clicky.Text("")
+
+	if p.Icon != "" {
+		t = t.AddText(p.Icon+" ", "")
+	} else {
+		t = t.AddText("📋 ", "text-gray-600")
+	}
+
+	displayName := p.Title
+	if displayName == "" {
+		displayName = p.Name
+	}
+
+	t = t.AddText(displayName, "font-bold text-purple-700")
+
+	if p.Category != "" {
+		t = t.AddText(" ").Add(clicky.Text(p.Category, "text-xs text-indigo-600 bg-indigo-50"))
+	}
+
+	if p.Namespace != "" {
+		t = t.AddText(" 📦 ", "text-gray-500").AddText(p.Namespace, "text-sm text-gray-600")
+	}
+
+	if p.Description != "" {
+		t = t.NewLine().AddText("  "+p.Description, "text-sm text-gray-600")
+	}
+
+	return t
+}
+
+func (p Playbook) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name": clicky.Text(lo.Ternary(p.Title != "", p.Title, p.Name), "font-bold"),
+	}
+
+	if p.Category != "" {
+		row["category"] = clicky.Text(p.Category, "text-indigo-600")
+	}
+
+	if p.Namespace != "" {
+		row["namespace"] = clicky.Text(p.Namespace, "text-blue-600")
+	}
+
+	if p.Source != "" {
+		row["source"] = clicky.Text(p.Source, "text-gray-600 text-xs")
+	}
+
+	row["age"] = api.Human(time.Since(p.CreatedAt), "text-gray-600")
+
+	return row
 }
 
 func (p Playbook) SelectableFields() map[string]any {
@@ -211,6 +316,49 @@ type PlaybookRun struct {
 
 	// Parent notification send's id
 	NotificationSendID *uuid.UUID `json:"notification_send_id,omitempty"`
+}
+
+func (p PlaybookRun) Pretty() api.Text {
+	t := p.Status.Pretty().AddText(" ")
+	t = t.AddText(p.ID.String()[:8], "font-bold font-mono text-purple-700")
+
+	if p.StartTime != nil && p.EndTime != nil {
+		duration := p.EndTime.Sub(*p.StartTime)
+		t = t.AddText(" • ", "text-gray-400")
+		t = t.Add(api.Human(duration, "text-gray-600"))
+	} else if p.StartTime != nil {
+		elapsed := time.Since(*p.StartTime)
+		t = t.AddText(" • ", "text-gray-400")
+		t = t.Add(api.Human(elapsed, "text-blue-600"))
+	}
+
+	if p.Error != nil && *p.Error != "" {
+		t = t.NewLine().AddText("  Error: "+*p.Error, "text-sm text-red-600")
+	}
+
+	return t
+}
+
+func (p PlaybookRun) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"id":     clicky.Text(p.ID.String()[:8], "font-mono text-xs"),
+		"status": p.Status.Pretty(),
+	}
+
+	if p.StartTime != nil && p.EndTime != nil {
+		duration := p.EndTime.Sub(*p.StartTime)
+		row["duration"] = api.Human(duration, "text-gray-600")
+	} else if p.StartTime != nil {
+		row["duration"] = api.Human(time.Since(*p.StartTime), "text-blue-600")
+	}
+
+	row["created_at"] = api.Human(time.Since(p.CreatedAt), "text-gray-600")
+
+	if p.Error != nil && *p.Error != "" {
+		row["error"] = clicky.Text(*p.Error, "text-red-600 text-sm")
+	}
+
+	return row
 }
 
 func (p PlaybookRun) TableName() string {
