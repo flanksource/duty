@@ -12,10 +12,11 @@ BEGIN
   oldrow = hstore(OLD.*);
 
   IF to_jsonb(NEW) ? 'deleted_at' THEN
-    -- If deleted_at is already set, do not modify it
-    IF OLD.deleted_at IS NOT NULL THEN
-        RETURN NEW;
+    -- Prevent changing deleted_at to a different non-null value
+    IF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NOT NULL THEN
+      NEW.deleted_at := OLD.deleted_at;
     END IF;
+    -- Skip updated_at modification for soft-deleted records
     IF NEW.deleted_at IS NOT NULL THEN
       RETURN NEW;
     END IF;
