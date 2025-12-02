@@ -153,12 +153,11 @@ var _ = Describe("Connection", Ordered, func() {
 var _ = Describe("SQLConnection", func() {
 	It("should create a client and execute a query", func() {
 		conn := models.Connection{
-			Name:       "sql-conn",
-			Namespace:  "default",
-			Type:       models.ConnectionTypePostgres,
-			URL:        setup.PgUrl,
-			Source:     models.SourceUI,
-			Properties: map[string]string{"sslmode": "false"},
+			Name:      "sql-conn",
+			Namespace: "default",
+			Type:      models.ConnectionTypePostgres,
+			URL:       setup.PgUrl,
+			Source:    models.SourceUI,
 		}
 		Expect(DefaultContext.DB().Create(&conn).Error).ToNot(HaveOccurred())
 		defer DefaultContext.DB().Delete(&conn)

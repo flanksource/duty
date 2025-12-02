@@ -4,7 +4,6 @@ import (
 	databasesql "database/sql"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -29,8 +28,6 @@ type SQLConnection struct {
 	URL            types.EnvVar `yaml:"url,omitempty" json:"url,omitempty"`
 	Username       types.EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
 	Password       types.EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
-	InsecureTLS    bool         `yaml:"insecureTLS,omitempty" json:"insecureTLS,omitempty"`
-	SSLMode        bool         `yaml:"sslmode,omitempty" json:"sslmode,omitempty"`
 
 	client *databasesql.DB
 }
@@ -45,12 +42,6 @@ func (s *SQLConnection) FromModel(connection models.Connection) error {
 	s.URL = types.EnvVar{ValueStatic: connection.URL}
 	s.Username = types.EnvVar{ValueStatic: connection.Username}
 	s.Password = types.EnvVar{ValueStatic: connection.Password}
-	s.InsecureTLS = connection.InsecureTLS
-	if sslmode, ok := connection.Properties["sslmode"]; ok {
-		if val, err := strconv.ParseBool(sslmode); err == nil {
-			s.SSLMode = val
-		}
-	}
 	return nil
 }
 
@@ -61,18 +52,12 @@ func (s SQLConnection) ToModel() models.Connection {
 	}
 
 	conn := models.Connection{
-		Name:        s.ConnectionName,
-		Type:        connType,
-		URL:         s.URL.ValueStatic,
-		Username:    s.Username.ValueStatic,
-		Password:    s.Password.ValueStatic,
-		InsecureTLS: s.InsecureTLS,
+		Name:     s.ConnectionName,
+		Type:     connType,
+		URL:      s.URL.ValueStatic,
+		Username: s.Username.ValueStatic,
+		Password: s.Password.ValueStatic,
 	}
-
-	if conn.Properties == nil {
-		conn.Properties = make(types.JSONStringMap)
-	}
-	conn.Properties["sslmode"] = strconv.FormatBool(s.SSLMode)
 
 	return conn
 }
