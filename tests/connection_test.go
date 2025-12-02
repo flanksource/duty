@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,6 +12,7 @@ import (
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/tests/setup"
 )
 
 var _ = Describe("Exec Connection", Ordered, func() {
@@ -145,5 +147,47 @@ var _ = Describe("Connection", Ordered, func() {
 
 	It("should template out the url", func() {
 		Expect(connection.URL).To(Equal("sql://db?user=bar&password=secret"))
+	})
+})
+
+var _ = Describe("SQLConnection", func() {
+	It("should create a client and execute a query", func() {
+		conn := models.Connection{
+			Name:      "sql-conn",
+			Namespace: "default",
+			Type:      models.ConnectionTypePostgres,
+			URL:       setup.PgUrl,
+			Source:    models.SourceUI,
+		}
+		Expect(DefaultContext.DB().Create(&conn).Error).ToNot(HaveOccurred())
+		defer DefaultContext.DB().Delete(&conn)
+
+		sqlConn := connection.SQLConnection{
+			ConnectionName: fmt.Sprintf("connection://%s/%s", conn.Namespace, conn.Name),
+		}
+		Expect(sqlConn.HydrateConnection(DefaultContext)).To(Succeed())
+
+		client, err := sqlConn.Client(DefaultContext)
+		Expect(err).ToNot(HaveOccurred())
+		defer sqlConn.Close()
+
+		type row struct {
+			TableName string `gorm:"column:table_name"`
+			TableType string `gorm:"column:table_type"`
+		}
+
+		rows, err := client.Query("SELECT table_name, table_type FROM information_schema.tables LIMIT 5")
+		Expect(err).ToNot(HaveOccurred())
+		defer rows.Close()
+
+		var results []row
+		for rows.Next() {
+			var r row
+			Expect(rows.Scan(&r.TableName, &r.TableType)).To(Succeed())
+			results = append(results, r)
+		}
+		Expect(rows.Err()).ToNot(HaveOccurred())
+		Expect(len(results)).To(Equal(5))
+
 	})
 })
