@@ -67,7 +67,11 @@ type Query struct {
 }
 
 func (v *Query) IsEmpty() bool {
-	return v.Configs == nil && v.Changes == nil && v.ViewTableSelector == nil && v.Query.IsEmpty()
+	configsEmpty := v.Configs == nil || v.Configs.IsEmpty()
+	changesEmpty := v.Changes == nil || v.Changes.IsEmpty()
+	viewTablesEmpty := v.ViewTableSelector == nil || v.ViewTableSelector.IsEmpty()
+
+	return configsEmpty && changesEmpty && viewTablesEmpty && v.Query.IsEmpty()
 }
 
 // ExecuteQuery executes a single query and returns results with query name

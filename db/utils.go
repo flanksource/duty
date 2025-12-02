@@ -94,29 +94,9 @@ func ReadTable(db *gorm.DB, tableName string, clauses ...clause.Expression) ([]m
 	}
 	defer rows.Close()
 
-	columns, err := rows.Columns()
+	result, err := ScanRows[map[string]any](rows)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %w", err)
-	}
-
-	var result []map[string]any
-	for rows.Next() {
-		values := make([]any, len(columns))
-		valuePtrs := make([]any, len(columns))
-		for i := range columns {
-			valuePtrs[i] = &values[i]
-		}
-
-		if err := rows.Scan(valuePtrs...); err != nil {
-			return nil, fmt.Errorf("failed to scan row: %w", err)
-		}
-
-		row := make(map[string]any)
-		for i, column := range columns {
-			row[column] = values[i]
-		}
-
-		result = append(result, row)
+		return nil, fmt.Errorf("failed to scan rows: %w", err)
 	}
 
 	return result, nil
