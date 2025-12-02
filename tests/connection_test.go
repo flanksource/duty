@@ -147,3 +147,42 @@ var _ = Describe("Connection", Ordered, func() {
 		Expect(connection.URL).To(Equal("sql://db?user=bar&password=secret"))
 	})
 })
+
+var _ = Describe("SQLConnection", func() {
+	It("should convert to/from model", func() {
+		model := models.Connection{
+			Name:     "sql-conn",
+			Type:     models.ConnectionTypePostgres,
+			URL:      "postgres://localhost:5432/db",
+			Username: "user",
+			Password: "pass",
+		}
+
+		var sqlConn connection.SQLConnection
+		Expect(sqlConn.FromModel(model)).To(Succeed())
+
+		roundTripped := sqlConn.ToModel()
+		Expect(roundTripped.Name).To(Equal(model.Name))
+		Expect(roundTripped.Type).To(Equal(model.Type))
+		Expect(roundTripped.URL).To(Equal(model.URL))
+		Expect(roundTripped.Username).To(Equal(model.Username))
+		Expect(roundTripped.Password).To(Equal(model.Password))
+		Expect(roundTripped.Properties).To(HaveKeyWithValue("sslmode", "false"))
+	})
+
+	It("should map sslmode flag to/from properties", func() {
+		model := models.Connection{
+			Name:       "sql-conn-ssl",
+			Type:       models.ConnectionTypePostgres,
+			URL:        "postgres://localhost:5432/db",
+			Properties: map[string]string{"sslmode": "true"},
+		}
+
+		var sqlConn connection.SQLConnection
+		Expect(sqlConn.FromModel(model)).To(Succeed())
+		Expect(sqlConn.SSLMode).To(BeTrue())
+
+		roundTripped := sqlConn.ToModel()
+		Expect(roundTripped.Properties).To(HaveKeyWithValue("sslmode", "true"))
+	})
+})
