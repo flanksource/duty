@@ -9,6 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         postgres-version:
           - {
@@ -101,6 +102,7 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         postgres-version:
           - {
