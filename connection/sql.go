@@ -28,8 +28,6 @@ type SQLConnection struct {
 	URL            types.EnvVar `yaml:"url,omitempty" json:"url,omitempty"`
 	Username       types.EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
 	Password       types.EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
-
-	client *databasesql.DB
 }
 
 func (s *SQLConnection) FromModel(connection models.Connection) error {
@@ -66,10 +64,6 @@ func (s SQLConnection) ToModel() models.Connection {
 //
 // NOTE: Must be run on a hydrated SQLConnection.
 func (s *SQLConnection) Client(ctx context.Context) (*databasesql.DB, error) {
-	if s.client != nil {
-		return s.client, nil
-	}
-
 	if s.Type == "" {
 		s.Type = models.ConnectionTypePostgres
 	}
@@ -88,18 +82,7 @@ func (s *SQLConnection) Client(ctx context.Context) (*databasesql.DB, error) {
 		return nil, err
 	}
 
-	s.client = client
-	return s.client, nil
-}
-
-func (s *SQLConnection) Close() error {
-	if s.client == nil {
-		return nil
-	}
-
-	err := s.client.Close()
-	s.client = nil
-	return err
+	return client, nil
 }
 
 func (s *SQLConnection) HydrateConnection(ctx context.Context) error {
