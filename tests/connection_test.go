@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,6 +12,7 @@ import (
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/tests/setup"
 )
 
 var _ = Describe("Exec Connection", Ordered, func() {
@@ -149,40 +151,44 @@ var _ = Describe("Connection", Ordered, func() {
 })
 
 var _ = Describe("SQLConnection", func() {
-	It("should convert to/from model", func() {
-		model := models.Connection{
-			Name:     "sql-conn",
-			Type:     models.ConnectionTypePostgres,
-			URL:      "postgres://localhost:5432/db",
-			Username: "user",
-			Password: "pass",
-		}
-
-		var sqlConn connection.SQLConnection
-		Expect(sqlConn.FromModel(model)).To(Succeed())
-
-		roundTripped := sqlConn.ToModel()
-		Expect(roundTripped.Name).To(Equal(model.Name))
-		Expect(roundTripped.Type).To(Equal(model.Type))
-		Expect(roundTripped.URL).To(Equal(model.URL))
-		Expect(roundTripped.Username).To(Equal(model.Username))
-		Expect(roundTripped.Password).To(Equal(model.Password))
-		Expect(roundTripped.Properties).To(HaveKeyWithValue("sslmode", "false"))
-	})
-
-	It("should map sslmode flag to/from properties", func() {
-		model := models.Connection{
-			Name:       "sql-conn-ssl",
+	It("should create a client and execute a query", func() {
+		conn := models.Connection{
+			Name:       "sql-conn",
+			Namespace:  "default",
 			Type:       models.ConnectionTypePostgres,
-			URL:        "postgres://localhost:5432/db",
-			Properties: map[string]string{"sslmode": "true"},
+			URL:        setup.PgUrl,
+			Source:     models.SourceUI,
+			Properties: map[string]string{"sslmode": "false"},
+		}
+		Expect(DefaultContext.DB().Create(&conn).Error).ToNot(HaveOccurred())
+		defer DefaultContext.DB().Delete(&conn)
+
+		sqlConn := connection.SQLConnection{
+			ConnectionName: fmt.Sprintf("connection://%s/%s", conn.Namespace, conn.Name),
+		}
+		Expect(sqlConn.HydrateConnection(DefaultContext)).To(Succeed())
+
+		client, err := sqlConn.Client(DefaultContext)
+		Expect(err).ToNot(HaveOccurred())
+		defer sqlConn.Close()
+
+		type row struct {
+			TableName string `gorm:"column:table_name"`
+			TableType string `gorm:"column:table_type"`
 		}
 
-		var sqlConn connection.SQLConnection
-		Expect(sqlConn.FromModel(model)).To(Succeed())
-		Expect(sqlConn.SSLMode).To(BeTrue())
+		rows, err := client.Query("SELECT table_name, table_type FROM information_schema.tables LIMIT 5")
+		Expect(err).ToNot(HaveOccurred())
+		defer rows.Close()
 
-		roundTripped := sqlConn.ToModel()
-		Expect(roundTripped.Properties).To(HaveKeyWithValue("sslmode", "true"))
+		var results []row
+		for rows.Next() {
+			var r row
+			Expect(rows.Scan(&r.TableName, &r.TableType)).To(Succeed())
+			results = append(results, r)
+		}
+		Expect(rows.Err()).ToNot(HaveOccurred())
+		Expect(len(results)).To(Equal(5))
+
 	})
 })

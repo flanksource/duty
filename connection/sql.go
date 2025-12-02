@@ -77,13 +77,12 @@ func (s SQLConnection) ToModel() models.Connection {
 	return conn
 }
 
+// Client creates and returns a database/sql DB client
+//
+// NOTE: Must be run on a hydrated SQLConnection.
 func (s *SQLConnection) Client(ctx context.Context) (*databasesql.DB, error) {
 	if s.client != nil {
 		return s.client, nil
-	}
-
-	if err := s.hydrate(ctx); err != nil {
-		return nil, err
 	}
 
 	if s.Type == "" {
@@ -118,7 +117,7 @@ func (s *SQLConnection) Close() error {
 	return err
 }
 
-func (s *SQLConnection) hydrate(ctx context.Context) error {
+func (s *SQLConnection) HydrateConnection(ctx context.Context) error {
 	if s.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(s.ConnectionName)
 		if err != nil {
