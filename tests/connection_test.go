@@ -169,7 +169,7 @@ var _ = Describe("SQLConnection", func() {
 
 		client, err := sqlConn.Client(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
-		defer sqlConn.Close()
+		defer client.Close()
 
 		type row struct {
 			TableName string `gorm:"column:table_name"`
