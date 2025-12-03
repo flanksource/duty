@@ -1,18 +1,19 @@
 package query
 
 import (
+	gocontext "context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	gocontext "context"
-
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 )
 
 var DefaultQueryTimeout = 30 * time.Second
@@ -109,7 +110,7 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 
 		var summaries []models.CheckSummary
 		if err := json.Unmarshal(jsonData, &summaries); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal components: %w", err)
+			return nil, api.Errorf(api.EINVALID, "failed to unmarshal check summaries: %v", err)
 		}
 
 		results = append(results, summaries...)
