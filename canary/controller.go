@@ -23,13 +23,13 @@ func SummaryHandler(c echo.Context) error {
 
 	var queryOpt query.CheckSummaryOptions
 	if err := c.Bind(&queryOpt); err != nil {
-		return api.Errorf(api.EINVALID, "invalid request: %v", err)
+		return api.WriteError(c, api.Errorf(api.EINVALID, "invalid request: %v", err))
 	}
 
 	start := time.Now()
 	results, err := query.CheckSummary(ctx, query.CheckSummaryOptions(queryOpt))
 	if err != nil {
-		return api.Errorf(api.EINTERNAL, "failed to get check summary: %v", err)
+		return api.WriteError(c, err)
 	}
 
 	apiResponse := &SummaryResponse{
