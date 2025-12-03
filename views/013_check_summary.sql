@@ -125,7 +125,7 @@ CREATE OR REPLACE VIEW check_summary AS
     checks
     INNER JOIN canaries ON checks.canary_id = canaries.id
     LEFT JOIN check_status_summary ON checks.id = check_status_summary.check_id
-    LEFT JOIN checks_unlogged ON checks.id = check_status_summary.check_id;
+    LEFT JOIN checks_unlogged ON checks.id = checks_unlogged.check_id;
 
 -- For last transition
 CREATE OR REPLACE FUNCTION update_last_transition_time_for_check () RETURNS TRIGGER AS $$
