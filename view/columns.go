@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
@@ -135,6 +136,9 @@ type ColumnURL struct {
 	// - search term:  f("name=$(tags.namespace) tags.cluster=$(tags.cluster) type=Kubernetes::Namespace", row)
 	Config types.CelExpression `json:"config,omitempty" template:"true"`
 
+	// Template a custom URL using Go template.
+	Template types.GoTemplate `json:"template,omitempty" yaml:"template,omitempty"`
+
 	// Link to a view.
 	View *ViewURLRef `json:"view,omitempty" template:"true"`
 }
@@ -207,6 +211,15 @@ func (colURL ColumnURL) Eval(ctx context.Context, env map[string]any) (any, erro
 		}
 
 		return baseURL, nil
+	}
+
+	if c.Template != "" {
+		custom, err := ctx.RunTemplate(gomplate.Template{Template: string(c.Template)}, env)
+		if err != nil {
+			return nil, err
+		}
+
+		return custom, nil
 	}
 
 	return nil, nil
