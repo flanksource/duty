@@ -41,7 +41,6 @@ func (g *GCSConnection) Client(ctx context.Context) (*gcs.Client, error) {
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		}
-
 		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
 	}
 
