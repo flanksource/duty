@@ -30,8 +30,6 @@ const (
 	ColumnTypeNumber     ColumnType = "number"
 	ColumnTypeStatus     ColumnType = "status"
 	ColumnTypeString     ColumnType = "string"
-	ColumnTypeURL        ColumnType = "url"
-	ColumnTypeBadge      ColumnType = "badge"
 	ColumnTypeLabels     ColumnType = "labels"
 
 	// reserved type for internal use.
@@ -70,6 +68,20 @@ type CardConfig struct {
 	UseForAccent bool `json:"useForAccent,omitempty" yaml:"useForAccent,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+type ColorSource struct {
+	// Auto indicates UI uses heuristics to determine color based on value
+	Auto bool `json:"auto,omitempty" yaml:"auto,omitempty"`
+
+	// Map defines explicit color mappings for specific values
+	Map map[string]string `json:"map,omitempty" yaml:"map,omitempty"`
+}
+
+// +kubebuilder:object:generate=true
+type BadgeConfig struct {
+	Color *ColorSource `json:"color,omitempty" yaml:"color,omitempty"`
+}
+
 // ColumnDef defines a column in the view
 // +kubebuilder:object:generate=true
 // +kubebuilder:validation:XValidation:rule="self.type=='gauge' ? has(self.gauge) : !has(self.gauge)",message="gauge config required when type is gauge, not allowed for other types"
@@ -80,7 +92,7 @@ type ColumnDef struct {
 	// PrimaryKey indicates if the column is a primary key
 	PrimaryKey bool `json:"primaryKey,omitempty" yaml:"primaryKey,omitempty"`
 
-	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;url;badge;config_item;labels
+	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;config_item;labels
 	Type ColumnType `json:"type" yaml:"type"`
 
 	// Description of the column
@@ -94,6 +106,9 @@ type ColumnDef struct {
 
 	// Configuration for config item columns
 	ConfigItem *ConfigItemColumnType `json:"configItem,omitempty"`
+
+	// Badge configuration for the column
+	Badge *BadgeConfig `json:"badge,omitempty" yaml:"badge,omitempty"`
 
 	// Icon to use for the column.
 	//
@@ -323,8 +338,6 @@ func (c ViewColumnDefList) ToColumnTypeMap() map[string]models.ColumnType {
 			return col.Name, models.ColumnTypeJSONB
 		case ColumnTypeLabels:
 			return col.Name, models.ColumnTypeJSONB
-		case ColumnTypeURL:
-			return col.Name, models.ColumnTypeString
 		case ColumnTypeConfigItem:
 			return col.Name, models.ColumnTypeString
 		default:
