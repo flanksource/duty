@@ -95,6 +95,9 @@ type ColumnDef struct {
 	// +kubebuilder:validation:Enum=string;number;boolean;datetime;duration;health;status;gauge;bytes;decimal;millicore;config_item;labels
 	Type ColumnType `json:"type" yaml:"type"`
 
+	// Width defines the display width of the column (e.g. "2" for weight or "150px")
+	Width string `json:"width,omitempty" yaml:"width,omitempty"`
+
 	// Description of the column
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 
