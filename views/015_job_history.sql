@@ -177,6 +177,7 @@ FROM
     SELECT *
     FROM job_history_latest_status jh
     WHERE jh.resource_id = config_scrapers.id::TEXT
+    AND jh.resource_type = 'config_scraper'
     ORDER BY jh.created_at DESC
     LIMIT 1
   ) job_history_latest_status ON TRUE
