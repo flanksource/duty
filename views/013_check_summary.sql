@@ -178,7 +178,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS check_size_summary as
 
 
 
-CREATE OR REPLACE FUNCTION check_size_summary() RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION refresh_check_size_summary() RETURNS VOID AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW check_size_summary;
 END;
