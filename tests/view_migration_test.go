@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -103,6 +105,71 @@ var _ = ginkgo.Describe("View Migration Tests", ginkgo.Serial, ginkgo.Ordered, f
 
 		ginkgo.It("should drop and recreate table when primary key change fails", func() {
 			migrateToNewColumns(DefaultContext, testView, backwardIncompatibleColumns)
+		})
+
+		ginkgo.It("should drop and recreate table using atlas client when run inside a transaction", func() {
+			transactionalView := models.View{
+				ID:        uuid.New(),
+				Name:      "txn_view",
+				Namespace: "default",
+				Spec:      types.JSON("{}"),
+				Source:    models.SourceApplicationCRD,
+			}
+
+			err := DefaultContext.DB().Create(&transactionalView).Error
+			Expect(err).ToNot(HaveOccurred())
+
+			defer func() {
+				err := DefaultContext.DB().Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", pq.QuoteIdentifier(transactionalView.GeneratedTableName()))).Error
+				Expect(err).ToNot(HaveOccurred())
+
+				err = DefaultContext.DB().Delete(&transactionalView).Error
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			initialColumns := pkgView.ViewColumnDefList{
+				{Name: "id", Type: pkgView.ColumnTypeString, PrimaryKey: true},
+				{Name: "name", Type: pkgView.ColumnTypeString},
+			}
+
+			err = pkgView.CreateViewTable(DefaultContext, transactionalView.GeneratedTableName(), initialColumns)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = pkgView.InsertViewRows(DefaultContext, transactionalView.GeneratedTableName(), initialColumns, []pkgView.Row{
+				{"row-1", "First"},
+				{"row-2", "Second"},
+			}, "")
+			Expect(err).ToNot(HaveOccurred())
+
+			incompatibleColumns := pkgView.ViewColumnDefList{
+				{Name: "id", Type: pkgView.ColumnTypeString},
+				{Name: "name", Type: pkgView.ColumnTypeString},
+				{Name: "email", Type: pkgView.ColumnTypeString, PrimaryKey: true},
+			}
+
+			err = DefaultContext.Transaction(func(txCtx context.Context, _ trace.Span) error {
+				spec := map[string]any{
+					"columns": incompatibleColumns,
+				}
+				specBytes, marshalErr := json.Marshal(spec)
+				Expect(marshalErr).ToNot(HaveOccurred())
+
+				updateErr := txCtx.DB().Model(&transactionalView).Update("spec", types.JSON(specBytes)).Error
+				Expect(updateErr).ToNot(HaveOccurred())
+
+				return pkgView.CreateViewTable(txCtx, transactionalView.GeneratedTableName(), incompatibleColumns)
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			var columnNames []string
+			err = DefaultContext.DB().Raw("SELECT column_name FROM information_schema.columns WHERE table_name = ?", transactionalView.GeneratedTableName()).Scan(&columnNames).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(columnNames).To(ContainElements("email"))
+
+			var rowCount int64
+			err = DefaultContext.DB().Table(transactionalView.GeneratedTableName()).Count(&rowCount).Error
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rowCount).To(BeZero())
 		})
 	})
 })

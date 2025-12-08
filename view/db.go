@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"ariga.io/atlas/sql/schema"
-	"ariga.io/atlas/sql/sqlclient"
 	"github.com/Masterminds/squirrel"
 	"github.com/flanksource/commons/logger"
 	"github.com/gofrs/uuid"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 )
 
@@ -65,11 +65,13 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 		return fmt.Errorf("no primary key columns found in view table definition")
 	}
 
-	client, err := sqlclient.Open(ctx, ctx.ConnectionString())
+	client, closeFn, err := db.NewAtlasClient(ctx, ctx.DB().Config.ConnPool)
 	if err != nil {
 		return fmt.Errorf("failed to open SQL client: %w", err)
 	}
-	defer client.Close()
+	if closeFn != nil {
+		defer closeFn()
+	}
 
 	currentState, err := client.InspectSchema(ctx, api.DefaultConfig.Schema, &schema.InspectOptions{Tables: []string{tableName}})
 	if err != nil {
