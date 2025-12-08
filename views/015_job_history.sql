@@ -173,7 +173,13 @@ SELECT
     ) as agent
 FROM
   config_scrapers
-  LEFT JOIN job_history_latest_status ON config_scrapers.id::TEXT = job_history_latest_status.resource_id
+  LEFT JOIN LATERAL (
+    SELECT *
+    FROM job_history_latest_status jh
+    WHERE jh.resource_id = config_scrapers.id::TEXT
+    ORDER BY jh.created_at DESC
+    LIMIT 1
+  ) job_history_latest_status ON TRUE
   LEFT JOIN agents ON agents.id = config_scrapers.agent_id
   LEFT JOIN (
     SELECT
