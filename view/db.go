@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ariga.io/atlas/sql/schema"
+	"ariga.io/atlas/sql/sqlclient"
 	"github.com/Masterminds/squirrel"
 	"github.com/flanksource/commons/logger"
 	"github.com/gofrs/uuid"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/models"
 )
 
@@ -65,13 +65,11 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 		return fmt.Errorf("no primary key columns found in view table definition")
 	}
 
-	client, closeFn, err := db.NewAtlasClient(ctx, ctx.DB().Config.ConnPool)
+	client, err := sqlclient.Open(ctx, ctx.ConnectionString())
 	if err != nil {
 		return fmt.Errorf("failed to open SQL client: %w", err)
 	}
-	if closeFn != nil {
-		defer closeFn()
-	}
+	defer client.Close()
 
 	currentState, err := client.InspectSchema(ctx, api.DefaultConfig.Schema, &schema.InspectOptions{Tables: []string{tableName}})
 	if err != nil {
@@ -102,13 +100,25 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 		if err := client.ApplyChanges(ctx, changes); err != nil {
 			ctx.Logger.Warnf("View table migration failed for %s, dropping and recreating (data will be lost): %v", tableName, err)
 
-			// Drop the table
-			if dropErr := ctx.DB().Exec("DROP TABLE IF EXISTS " + pq.QuoteIdentifier(tableName)).Error; dropErr != nil {
-				return fmt.Errorf("failed to drop table %s: %w (original error: %v)", tableName, dropErr, err)
+			// The schema migration has failed.
+			// This can be due to
+			// - incompatible/breaking changes (e.g., changing primary key)
+			// - or due to invalid schema.
+			// If it's the first case, we need to drop and recreate the table.
+
+			currentState, inspectErr := client.InspectSchema(ctx, api.DefaultConfig.Schema, &schema.InspectOptions{Tables: []string{tableName}})
+			if inspectErr != nil {
+				return fmt.Errorf("failed to re-inspect schema for table %s: %w (original error: %v)", tableName, inspectErr, err)
+			} else if len(currentState.Tables) == 0 {
+				// The table doesn't even exist. There's no point in re-trying.
+				return fmt.Errorf("failed to recreate table %s: %w", tableName, err)
 			}
 
-			// Recreate with fresh table
-			changes = []schema.Change{&schema.AddTable{T: desiredState}}
+			changes = []schema.Change{
+				&schema.DropTable{T: currentState.Tables[0]},
+				&schema.AddTable{T: desiredState},
+			}
+
 			if err := client.ApplyChanges(ctx, changes); err != nil {
 				return fmt.Errorf("failed to recreate table after drop: %w", err)
 			}
