@@ -49,12 +49,12 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 }
 
 // RunSQL runs a query and returns the results
-func RunSQL(ctx context.Context, query string) ([]QueryResultRow, error) {
+func RunSQL(ctx context.Context, query string, values ...any) ([]QueryResultRow, error) {
 	if query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
 
-	rows, err := ctx.DB().Raw(query).Rows()
+	rows, err := ctx.DB().Raw(query, values...).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
