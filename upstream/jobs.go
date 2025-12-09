@@ -383,15 +383,16 @@ func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableT
 func ResetIsPushed(ctx context.Context) error {
 	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 7)
 
-	overrides := map[string]string{
-		models.ConfigAnalysis{}.TableName(): fmt.Sprintf(`first_observed >= NOW() - INTERVAL '%d days' OR last_observed >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays),
-		models.ConfigChange{}.TableName():   fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
-		models.CheckStatus{}.TableName():    fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
-		models.JobHistory{}.TableName():     fmt.Sprintf(`time_start >= NOW() - INTERVAL '%d days'`, intervalDays),
-		models.ViewPanel{}.TableName():      fmt.Sprintf(`refreshed_at >= NOW() - INTERVAL '%d days'`, intervalDays),
-	}
-
 	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
+	overrides := map[string]string{
+		models.ConfigAnalysis{}.TableName():            fmt.Sprintf(`first_observed >= NOW() - INTERVAL '%d days' OR last_observed >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays),
+		models.ConfigChange{}.TableName():              fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.CheckStatus{}.TableName():               fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.JobHistory{}.TableName():                fmt.Sprintf(`time_start >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.ViewPanel{}.TableName():                 fmt.Sprintf(`refreshed_at >= NOW() - INTERVAL '%d days'`, intervalDays),
+		models.ChecksUnlogged{}.TableName():            defQuery, // We need default query without deleted_at
+		models.ConfigItemLastScrapedTime{}.TableName(): defQuery, // We need default query without deleted_at
+	}
 
 	if !ctx.Properties().On(false, "job.ResetIsPushed.ignore_deleted_at") {
 		defQuery += " AND deleted_at IS NULL"
