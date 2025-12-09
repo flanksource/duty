@@ -98,17 +98,27 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 
 	if len(changes) > 0 {
 		if err := client.ApplyChanges(ctx, changes); err != nil {
-			ctx.Logger.Warnf("View table migration failed for %s, dropping and recreating (data will be lost): %v", tableName, err)
+			// The schema migration has failed. This can be due to
+			// - incompatible/breaking changes (e.g., changing primary key)
+			// - or due to invalid schema.
+			// If it's the first case, we need to drop and recreate the table.
+			// Else, the view spec needs to be fixed by the user.
 
-			// Drop the table
-			if dropErr := ctx.DB().Exec("DROP TABLE IF EXISTS " + pq.QuoteIdentifier(tableName)).Error; dropErr != nil {
-				return fmt.Errorf("failed to drop table %s: %w (original error: %v)", tableName, dropErr, err)
+			currentState, inspectErr := client.InspectSchema(ctx, api.DefaultConfig.Schema, &schema.InspectOptions{Tables: []string{tableName}})
+			if inspectErr != nil {
+				return fmt.Errorf("failed to re-inspect schema for table %s: %w (original error: %v)", tableName, inspectErr, err)
+			} else if len(currentState.Tables) == 0 {
+				// The table doesn't even exist. There's no point in re-trying.
+				return fmt.Errorf("failed to recreate table %s: %w", tableName, err)
 			}
 
-			// Recreate with fresh table
-			changes = []schema.Change{&schema.AddTable{T: desiredState}}
-			if err := client.ApplyChanges(ctx, changes); err != nil {
-				return fmt.Errorf("failed to recreate table after drop: %w", err)
+			ctx.Logger.Warnf("View table migration failed for %s, dropping and recreating (data will be lost): %v", tableName, err)
+			changesToRecreate := []schema.Change{
+				&schema.DropTable{T: currentState.Tables[0]},
+				&schema.AddTable{T: desiredState},
+			}
+			if err := client.ApplyChanges(ctx, changesToRecreate); err != nil {
+				return fmt.Errorf("failed to drop and recreate table %s: %w", tableName, err)
 			}
 		}
 	}
