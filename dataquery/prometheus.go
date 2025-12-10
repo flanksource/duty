@@ -20,6 +20,9 @@ type PrometheusRange struct {
 	Step  string `json:"step" yaml:"step"`
 }
 
+// LabelKeys filters which metric labels to include in the response. If empty, all labels are returned.
+type LabelKeys []string
+
 func (pr PrometheusRange) toPrometheusRange(now time.Time) (promV1.Range, error) {
 	if pr.Start == "" {
 		return promV1.Range{}, fmt.Errorf("prometheus range start time is required")
@@ -72,6 +75,9 @@ type PrometheusQuery struct {
 
 	// Range runs a PromQL range query when specified
 	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty"`
+
+	// LabelKeys restricts returned metric labels to the provided list.
+	LabelKeys []string `json:"labelKeys,omitempty" yaml:"labelKeys,omitempty"`
 }
 
 // executePrometheusQuery executes a Prometheus query and returns results
@@ -94,12 +100,12 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 		return nil, fmt.Errorf("failed to execute PromQL query: %w", err)
 	}
 
-	results, err := transformPrometheusResult(result)
+	rows, err := transformPrometheusResult(result, pq.LabelKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform prometheus result: %w", err)
 	}
 
-	return results, nil
+	return rows, nil
 }
 
 // executePromQLQuery executes a PromQL query against Prometheus
@@ -135,8 +141,28 @@ func executePromQLQuery(ctx context.Context, client promV1.API, pq PrometheusQue
 	return result, nil
 }
 
+func addMetricLabels(row QueryResultRow, metric model.Metric, include []string) {
+	if len(include) == 0 {
+		for label, value := range metric {
+			row[string(label)] = string(value)
+		}
+		return
+	}
+
+	includeSet := make(map[string]struct{}, len(include))
+	for _, l := range include {
+		includeSet[l] = struct{}{}
+	}
+
+	for label, value := range metric {
+		if _, ok := includeSet[string(label)]; ok {
+			row[string(label)] = string(value)
+		}
+	}
+}
+
 // transformPrometheusResult transforms Prometheus model.Value to QueryResultRow format
-func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
+func transformPrometheusResult(result model.Value, labelKeys []string) ([]QueryResultRow, error) {
 	if result == nil {
 		return []QueryResultRow{}, nil
 	}
@@ -148,10 +174,7 @@ func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
 		for _, sample := range v {
 			row := QueryResultRow{}
 
-			// Add metric labels
-			for label, value := range sample.Metric {
-				row[string(label)] = string(value)
-			}
+			addMetricLabels(row, sample.Metric, labelKeys)
 
 			// Add the value
 			row["value"] = float64(sample.Value)
@@ -163,10 +186,7 @@ func transformPrometheusResult(result model.Value) ([]QueryResultRow, error) {
 			for _, samplePair := range sampleStream.Values {
 				row := QueryResultRow{}
 
-				// Add metric labels
-				for label, value := range sampleStream.Metric {
-					row[string(label)] = string(value)
-				}
+				addMetricLabels(row, sampleStream.Metric, labelKeys)
 
 				// Add timestamp and value
 				row["timestamp"] = samplePair.Timestamp.Time()

@@ -14,7 +14,7 @@ import (
 func TestTransformPrometheusResult_NilResult(t *testing.T) {
 	g := NewWithT(t)
 
-	result, err := transformPrometheusResult(nil)
+	result, err := transformPrometheusResult(nil, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(BeEmpty())
 }
@@ -23,7 +23,7 @@ func TestTransformPrometheusResult_EmptyVector(t *testing.T) {
 	g := NewWithT(t)
 
 	vector := model.Vector{}
-	result, err := transformPrometheusResult(vector)
+	result, err := transformPrometheusResult(vector, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(BeEmpty())
 }
@@ -32,7 +32,7 @@ func TestTransformPrometheusResult_EmptyMatrix(t *testing.T) {
 	g := NewWithT(t)
 
 	matrix := model.Matrix{}
-	result, err := transformPrometheusResult(matrix)
+	result, err := transformPrometheusResult(matrix, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(BeEmpty())
 }
@@ -49,7 +49,7 @@ func TestTransformPrometheusResult_MatrixWithEmptyStream(t *testing.T) {
 		},
 	}
 
-	result, err := transformPrometheusResult(matrix)
+	result, err := transformPrometheusResult(matrix, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(BeEmpty())
 }
@@ -61,7 +61,7 @@ func TestTransformPrometheusResult_ZeroScalarValue(t *testing.T) {
 		Value: 0.0,
 	}
 
-	result, err := transformPrometheusResult(scalar)
+	result, err := transformPrometheusResult(scalar, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(HaveLen(1))
 	g.Expect(result[0]["value"]).To(Equal(0.0))
@@ -74,7 +74,7 @@ func TestTransformPrometheusResult_NegativeScalarValue(t *testing.T) {
 		Value: -42.5,
 	}
 
-	result, err := transformPrometheusResult(scalar)
+	result, err := transformPrometheusResult(scalar, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(HaveLen(1))
 	g.Expect(result[0]["value"]).To(Equal(-42.5))
@@ -87,7 +87,7 @@ func TestTransformPrometheusResult_EmptyStringValue(t *testing.T) {
 		Value: "",
 	}
 
-	result, err := transformPrometheusResult(str)
+	result, err := transformPrometheusResult(str, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(HaveLen(1))
 	g.Expect(result[0]["value"]).To(Equal(""))
@@ -100,7 +100,7 @@ func TestTransformPrometheusResult_StringWithSpecialChars(t *testing.T) {
 		Value: "test with spaces and symbols !@#$%",
 	}
 
-	result, err := transformPrometheusResult(str)
+	result, err := transformPrometheusResult(str, nil)
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(result).To(HaveLen(1))
 	g.Expect(result[0]["value"]).To(Equal("test with spaces and symbols !@#$%"))
