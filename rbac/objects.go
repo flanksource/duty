@@ -72,6 +72,7 @@ var dbResourceObjMap = map[string]string{
 	"config_labels":                             policy.ObjectDatabasePublic,
 	"config_names":                              policy.ObjectDatabasePublic,
 	"config_relationships":                      policy.ObjectCatalog,
+	"config_properties":                         policy.ObjectCatalog,
 	"config_scrapers_with_status":               policy.ObjectMonitor,
 	"config_scrapers":                           policy.ObjectDatabaseSettings,
 	"config_statuses":                           policy.ObjectDatabasePublic,
