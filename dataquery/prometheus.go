@@ -25,7 +25,7 @@ type PrometheusQuery struct {
 	// Range runs a PromQL range query when specified
 	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty"`
 
-	// MatchLabels is a list of labels, when provided, are incldued in the result.
+	// MatchLabels is a list of labels, when provided, are included in the result.
 	// Example:
 	// If a query produces {a:1, b:2, c:3, d:4} value=30.0
 	// then, with matchLabels = [a,b]
@@ -115,8 +115,7 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 // runPromQL executes a PromQL query against Prometheus
 func runPromQL(ctx context.Context, client promV1.API, pq PrometheusQuery) (model.Value, error) {
 	if pq.Range != nil {
-		now := time.Now()
-		promRange, err := pq.Range.toPrometheusRange(now)
+		promRange, err := pq.Range.toPrometheusRange(time.Now())
 		if err != nil {
 			return nil, err
 		}
