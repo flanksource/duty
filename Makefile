@@ -5,7 +5,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
-GOLANGCI_LINT_VERSION ?= v2.5.0
+GOLANGCI_LINT_VERSION ?= v2.7.2
 
 .PHONY: ginkgo
 ginkgo:
