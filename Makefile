@@ -5,7 +5,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
-GOLANGCI_LINT_VERSION ?= v2.5.0
+GOLANGCI_LINT_VERSION ?= v2.7.2
 
 .PHONY: ginkgo
 ginkgo:
@@ -44,6 +44,16 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
+# Generate OpenAPI schema
+.PHONY: gen-schemas
+gen-schemas:
+	cp go.mod hack/generate-schemas && \
+	cd hack/generate-schemas && \
+	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
+	go mod edit -replace=github.com/flanksource/duty=../../../duty && \
+	go mod tidy && \
+	go run ./main.go
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object paths="./types/..."
@@ -56,6 +66,9 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object paths="./view/..."
 	$(CONTROLLER_GEN) object paths="./"
 	PATH=$(LOCALBIN):${PATH} go generate ./...
+
+.PHONY: manifests
+manifests: generate gen-schemas
 
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
@@ -100,7 +113,7 @@ download-openapi-schemas:
 hack/migrate/go.mod: tidy
 	cp go.mod hack/migrate && \
 	cd hack/migrate && \
-	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
+	go mod edit -module=github.com/flanksource/duty/hack/migrate && \
 	go mod edit -require=github.com/flanksource/duty@v1.0.0 && \
  	go mod edit -replace=github.com/flanksource/duty=../../ && \
 	go mod tidy
