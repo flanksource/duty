@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -30,6 +32,23 @@ const (
 	SeverityCritical Severity = "critical"
 )
 
+func (s Severity) Pretty() api.Text {
+	switch s {
+	case SeverityCritical:
+		return clicky.Text(string(s), "uppercase font-bold text-red-600 bg-red-50")
+	case SeverityHigh:
+		return clicky.Text(string(s), "uppercase font-bold text-orange-600 bg-orange-50")
+	case SeverityMedium:
+		return clicky.Text(string(s), "capitalize text-yellow-700 bg-yellow-50")
+	case SeverityLow:
+		return clicky.Text(string(s), "capitalize text-blue-600 bg-blue-50")
+	case SeverityInfo:
+		return clicky.Text(string(s), "capitalize text-gray-600")
+	default:
+		return clicky.Text(string(s), "text-gray-500")
+	}
+}
+
 type Health string
 
 const (
@@ -38,6 +57,21 @@ const (
 	HealthUnknown   Health = "unknown"
 	HealthWarning   Health = "warning"
 )
+
+func (h Health) Pretty() api.Text {
+	switch h {
+	case HealthHealthy:
+		return clicky.Text("✓ ", "text-green-600").Append(string(h), "capitalize text-green-600")
+	case HealthUnhealthy:
+		return clicky.Text("✗ ", "text-red-600").Append(string(h), "capitalize text-red-600")
+	case HealthWarning:
+		return clicky.Text("! ", "text-yellow-600").Append(string(h), "capitalize text-yellow-600")
+	case HealthUnknown:
+		return clicky.Text("? ", "text-gray-500").Append(string(h), "capitalize text-gray-500")
+	default:
+		return clicky.Text(string(h), "text-gray-500")
+	}
+}
 
 func WorseHealth(healths ...Health) Health {
 	worst := HealthHealthy
@@ -141,7 +175,7 @@ func (t noopMatcher) Get(field string) (value string) {
 	return ""
 }
 
-func (t noopMatcher) Lookup(key string) (string, bool) {
+func (t noopMatcher) Lookup(field string) (value string, exists bool) {
 	return "", false
 }
 

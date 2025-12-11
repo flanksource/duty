@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -20,6 +22,17 @@ const (
 	CheckStatusHealthy   = "healthy"
 	CheckStatusUnhealthy = "unhealthy"
 )
+
+func (c CheckHealthStatus) Pretty() api.Text {
+	switch c {
+	case CheckStatusHealthy:
+		return clicky.Text("✓ ", "text-green-600").Append(string(c), "capitalize text-green-600")
+	case CheckStatusUnhealthy:
+		return clicky.Text("✗ ", "text-red-600").Append(string(c), "capitalize text-red-600")
+	default:
+		return clicky.Text(string(c), "text-gray-500")
+	}
+}
 
 var CheckHealthStatuses = []CheckHealthStatus{
 	CheckStatusHealthy,
@@ -65,6 +78,56 @@ type Check struct {
 	EarliestRuntime *time.Time `json:"earliestRuntime,omitempty" gorm:"-"`
 	LatestRuntime   *time.Time `json:"latestRuntime,omitempty" gorm:"-"`
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
+}
+
+func (c Check) Pretty() api.Text {
+	t := c.Status.Pretty().AddText(" ")
+	t = t.AddText(c.Name, "font-bold")
+
+	if c.Type != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.Type, "text-xs text-cyan-600 bg-cyan-50"))
+	}
+
+	if c.Severity != "" {
+		t = t.AddText(" ")
+		t = t.Add(c.Severity.Pretty())
+	}
+
+	if c.Namespace != "" {
+		t = t.AddText(" 📦 ", "text-gray-500").AddText(c.Namespace, "text-sm text-gray-600")
+	}
+
+	if c.Description != "" {
+		t = t.NewLine().AddText("  "+c.Description, "text-sm text-gray-600")
+	}
+
+	return t
+}
+
+func (c Check) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name":   clicky.Text(c.Name, "font-bold"),
+		"type":   clicky.Text(c.Type, "text-cyan-600"),
+		"status": c.Status.Pretty(),
+	}
+
+	if c.Severity != "" {
+		row["severity"] = c.Severity.Pretty()
+	}
+
+	if c.Namespace != "" {
+		row["namespace"] = clicky.Text(c.Namespace, "text-blue-600")
+	}
+
+	// if c.LastRuntime != nil {
+	// 	row["last_run"] = api.Human(time.Since(*c.LastRuntime), "text-gray-600")
+	// }
+
+	if c.CreatedAt != nil {
+		row["age"] = api.Human(time.Since(*c.CreatedAt), "text-gray-600")
+	}
+
+	return row
 }
 
 func (t Check) Value() any {
@@ -260,6 +323,72 @@ type CheckStatus struct {
 	CreatedAt time.Time `json:"created_at,omitempty" gorm:"<-:create"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (c CheckStatus) Pretty() api.Text {
+	var icon, style string
+	if c.Status {
+		icon, style = "✓", "text-green-600"
+	} else {
+		icon, style = "✗", "text-red-600"
+	}
+
+	t := clicky.Text(icon+" ", style)
+
+	if c.Invalid {
+		t = t.AddText("Invalid", "font-bold text-orange-600")
+	} else if c.Status {
+		t = t.AddText("Passed", "font-bold text-green-600")
+	} else {
+		t = t.AddText("Failed", "font-bold text-red-600")
+	}
+
+	if c.Duration > 0 {
+		duration := time.Duration(c.Duration) * time.Millisecond
+		t = t.AddText(" • ", "text-gray-400")
+		t = t.Add(api.Human(duration, "text-gray-600"))
+	}
+
+	if c.Message != "" {
+		t = t.NewLine().AddText("  "+c.Message, "text-sm text-gray-600")
+	}
+
+	if c.Error != "" {
+		t = t.NewLine().AddText("  "+c.Error, "text-sm text-red-600")
+	}
+
+	return t
+}
+
+func (c CheckStatus) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"time": clicky.Text(c.Time, "font-mono text-xs text-gray-600"),
+	}
+
+	if c.Status {
+		row["status"] = clicky.Text("✓ Passed", "text-green-600")
+	} else {
+		row["status"] = clicky.Text("✗ Failed", "text-red-600")
+	}
+
+	if c.Invalid {
+		row["status"] = clicky.Text("! Invalid", "text-orange-600")
+	}
+
+	if c.Duration > 0 {
+		duration := time.Duration(c.Duration) * time.Millisecond
+		row["duration"] = api.Human(duration, "text-gray-600")
+	}
+
+	if c.Message != "" {
+		row["message"] = clicky.Text(c.Message, "text-gray-700")
+	}
+
+	if c.Error != "" {
+		row["error"] = clicky.Text(c.Error, "text-red-600 text-sm")
+	}
+
+	return row
 }
 
 func (t CheckStatus) Value() any {

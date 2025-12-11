@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
@@ -40,6 +42,29 @@ const (
 	PermissionSubjectTypeTeam         PermissionSubjectType = "team"
 	PermissionSubjectTypeTopology     PermissionSubjectType = "topology"
 )
+
+func (p PermissionSubjectType) Pretty() api.Text {
+	var icon string
+	switch p {
+	case PermissionSubjectTypePerson:
+		icon = "👤"
+	case PermissionSubjectTypeGroup, PermissionSubjectTypeTeam:
+		icon = "👥"
+	case PermissionSubjectTypePlaybook:
+		icon = "📋"
+	case PermissionSubjectTypeScraper:
+		icon = "🔄"
+	case PermissionSubjectTypeCanary:
+		icon = "🐤"
+	case PermissionSubjectTypeTopology:
+		icon = "🗺️"
+	case PermissionSubjectTypeNotification:
+		icon = "🔔"
+	default:
+		icon = "•"
+	}
+	return clicky.Text(icon+" ", "text-gray-700").Append(string(p), "capitalize text-gray-700")
+}
 
 type Permission struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`

@@ -1,6 +1,8 @@
 package opensearch
 
 import (
+	"time"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
 
@@ -19,6 +21,22 @@ type Request struct {
 	Index string `json:"index" template:"true"`
 	Query string `json:"query" template:"true"`
 	Limit string `json:"limit,omitempty" template:"true"`
+}
+
+// ScrollOptions contains configuration for scroll operations
+type ScrollOptions struct {
+	// Size is the number of documents to fetch per scroll request
+	Size int `json:"size,omitempty"`
+	// Timeout is how long to keep the scroll context alive
+	Timeout time.Duration `json:"timeout,omitempty"`
+	// Enabled determines if scroll should be used automatically for large result sets
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// ScrollRequest extends Request with scroll-specific options
+type ScrollRequest struct {
+	Request
+	Scroll ScrollOptions `json:"scroll,omitempty"`
 }
 
 type TotalHitsInfo struct {
@@ -59,6 +77,7 @@ type Response struct {
 	Took     float64  `json:"took"`
 	TimedOut bool     `json:"timed_out"`
 	Hits     HitsInfo `json:"hits"`
+	ScrollID string   `json:"_scroll_id,omitempty"`
 }
 
 type SearchHit struct {
