@@ -3,6 +3,42 @@
   "$id": "https://github.com/flanksource/incident-commander/api/v1/view",
   "$ref": "#/$defs/View",
   "$defs": {
+    "BadgeConfig": {
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/ColorSource"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CardConfig": {
+      "properties": {
+        "position": {
+          "type": "string"
+        },
+        "useForAccent": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ColorSource": {
+      "properties": {
+        "auto": {
+          "type": "boolean"
+        },
+        "map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ColumnDef": {
       "properties": {
         "name": {
@@ -12,6 +48,9 @@
           "type": "boolean"
         },
         "type": {
+          "type": "string"
+        },
+        "width": {
           "type": "string"
         },
         "description": {
@@ -25,6 +64,9 @@
         },
         "configItem": {
           "$ref": "#/$defs/ConfigItemColumnType"
+        },
+        "badge": {
+          "$ref": "#/$defs/BadgeConfig"
         },
         "icon": {
           "type": "string"
@@ -40,6 +82,9 @@
         },
         "unit": {
           "type": "string"
+        },
+        "card": {
+          "$ref": "#/$defs/CardConfig"
         },
         "cardPosition": {
           "type": "string"
@@ -67,6 +112,9 @@
     "ColumnURL": {
       "properties": {
         "config": {
+          "type": "string"
+        },
+        "template": {
           "type": "string"
         },
         "view": {
@@ -99,6 +147,30 @@
       "required": [
         "key"
       ]
+    },
+    "DisplayCard": {
+      "properties": {
+        "columns": {
+          "type": "integer"
+        },
+        "default": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DisplayTable": {
+      "properties": {
+        "sort": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "EnvVar": {
       "properties": {
@@ -566,6 +638,33 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "SQLQuery": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "url": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "query"
+      ]
+    },
     "SecretKeySelector": {
       "properties": {
         "name": {
@@ -659,8 +758,11 @@
         "configTab": {
           "$ref": "#/$defs/ResourceSelector"
         },
-        "filter": {
-          "type": "string"
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -683,6 +785,12 @@
         "title": {
           "type": "string"
         },
+        "card": {
+          "$ref": "#/$defs/DisplayCard"
+        },
+        "table": {
+          "$ref": "#/$defs/DisplayTable"
+        },
         "plugins": {
           "items": {
             "$ref": "#/$defs/ViewConfigUIPlugin"
@@ -697,6 +805,9 @@
       "properties": {
         "prometheus": {
           "$ref": "#/$defs/PrometheusQuery"
+        },
+        "sql": {
+          "$ref": "#/$defs/SQLQuery"
         },
         "configs": {
           "$ref": "#/$defs/ResourceSelector"
@@ -716,6 +827,41 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ViewRef": {
+      "properties": {
+        "namespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "namespace",
+        "name"
+      ]
+    },
+    "ViewSection": {
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "viewRef": {
+          "$ref": "#/$defs/ViewRef"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "title",
+        "viewRef"
+      ]
     },
     "ViewSelector": {
       "properties": {
@@ -770,6 +916,12 @@
         "templating": {
           "items": {
             "$ref": "#/$defs/ViewVariable"
+          },
+          "type": "array"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/ViewSection"
           },
           "type": "array"
         }
