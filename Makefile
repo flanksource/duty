@@ -113,7 +113,7 @@ download-openapi-schemas:
 hack/migrate/go.mod: tidy
 	cp go.mod hack/migrate && \
 	cd hack/migrate && \
-	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
+	go mod edit -module=github.com/flanksource/duty/hack/migrate && \
 	go mod edit -require=github.com/flanksource/duty@v1.0.0 && \
  	go mod edit -replace=github.com/flanksource/duty=../../ && \
 	go mod tidy
