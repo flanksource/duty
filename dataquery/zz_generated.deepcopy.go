@@ -15,8 +15,8 @@ func (in *PrometheusQuery) DeepCopyInto(out *PrometheusQuery) {
 		*out = new(PrometheusRange)
 		**out = **in
 	}
-	if in.LabelKeys != nil {
-		in, out := &in.LabelKeys, &out.LabelKeys
+	if in.MatchLabels != nil {
+		in, out := &in.MatchLabels, &out.MatchLabels
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

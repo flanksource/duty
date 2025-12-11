@@ -7,11 +7,33 @@ import (
 	"github.com/flanksource/commons/duration"
 	promV1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 )
+
+// +kubebuilder:object:generate=true
+// PrometheusQuery defines a Prometheus query configuration
+type PrometheusQuery struct {
+	connection.PrometheusConnection `json:",inline" yaml:",inline"`
+
+	// Query is the PromQL query string
+	Query string `json:"query" yaml:"query"`
+
+	// Range runs a PromQL range query when specified
+	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty"`
+
+	// MatchLabels is a list of labels, when provided, are incldued in the result.
+	// Example:
+	// If a query produces {a:1, b:2, c:3, d:4} value=30.0
+	// then, with matchLabels = [a,b]
+	// The result will only have {a:1, b:2} value=30.0
+	//
+	// This helps in have a deterministic schema for the query result.
+	MatchLabels []string `json:"matchLabels,omitempty" yaml:"matchLabels,omitempty"`
+}
 
 // PrometheusRange defines parameters for running a range query.
 type PrometheusRange struct {
@@ -19,9 +41,6 @@ type PrometheusRange struct {
 	End   string `json:"end" yaml:"end"`
 	Step  string `json:"step" yaml:"step"`
 }
-
-// LabelKeys filters which metric labels to include in the response. If empty, all labels are returned.
-type LabelKeys []string
 
 func (pr PrometheusRange) toPrometheusRange(now time.Time) (promV1.Range, error) {
 	if pr.Start == "" {
@@ -65,21 +84,6 @@ func (pr PrometheusRange) toPrometheusRange(now time.Time) (promV1.Range, error)
 	}, nil
 }
 
-// +kubebuilder:object:generate=true
-// PrometheusQuery defines a Prometheus query configuration
-type PrometheusQuery struct {
-	connection.PrometheusConnection `json:",inline" yaml:",inline"`
-
-	// Query is the PromQL query string
-	Query string `json:"query" yaml:"query"`
-
-	// Range runs a PromQL range query when specified
-	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty"`
-
-	// LabelKeys restricts returned metric labels to the provided list.
-	LabelKeys []string `json:"labelKeys,omitempty" yaml:"labelKeys,omitempty"`
-}
-
 // executePrometheusQuery executes a Prometheus query and returns results
 func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryResultRow, error) {
 	if pq.Query == "" {
@@ -95,12 +99,12 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 		return nil, fmt.Errorf("failed to create prometheus client: %w", err)
 	}
 
-	result, err := executePromQLQuery(ctx, client, pq)
+	result, err := runPromQL(ctx, client, pq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute PromQL query: %w", err)
+		return nil, fmt.Errorf("failed to run PromQL query: %w", err)
 	}
 
-	rows, err := transformPrometheusResult(result, pq.LabelKeys)
+	rows, err := transformPrometheusResult(result, pq.MatchLabels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform prometheus result: %w", err)
 	}
@@ -108,8 +112,8 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 	return rows, nil
 }
 
-// executePromQLQuery executes a PromQL query against Prometheus
-func executePromQLQuery(ctx context.Context, client promV1.API, pq PrometheusQuery) (model.Value, error) {
+// runPromQL executes a PromQL query against Prometheus
+func runPromQL(ctx context.Context, client promV1.API, pq PrometheusQuery) (model.Value, error) {
 	if pq.Range != nil {
 		now := time.Now()
 		promRange, err := pq.Range.toPrometheusRange(now)
@@ -141,28 +145,21 @@ func executePromQLQuery(ctx context.Context, client promV1.API, pq PrometheusQue
 	return result, nil
 }
 
-func addMetricLabels(row QueryResultRow, metric model.Metric, include []string) {
-	if len(include) == 0 {
-		for label, value := range metric {
-			row[string(label)] = string(value)
-		}
-		return
-	}
-
-	includeSet := make(map[string]struct{}, len(include))
-	for _, l := range include {
-		includeSet[l] = struct{}{}
-	}
-
+func rowFromMetric(metric model.Metric, matchLabels []string) QueryResultRow {
+	var row = make(QueryResultRow)
 	for label, value := range metric {
-		if _, ok := includeSet[string(label)]; ok {
+		if len(matchLabels) == 0 {
+			row[string(label)] = string(value)
+		} else if lo.Contains(matchLabels, string(label)) {
 			row[string(label)] = string(value)
 		}
 	}
+
+	return row
 }
 
 // transformPrometheusResult transforms Prometheus model.Value to QueryResultRow format
-func transformPrometheusResult(result model.Value, labelKeys []string) ([]QueryResultRow, error) {
+func transformPrometheusResult(result model.Value, matchLabels []string) ([]QueryResultRow, error) {
 	if result == nil {
 		return []QueryResultRow{}, nil
 	}
@@ -172,11 +169,7 @@ func transformPrometheusResult(result model.Value, labelKeys []string) ([]QueryR
 	switch v := result.(type) {
 	case model.Vector:
 		for _, sample := range v {
-			row := QueryResultRow{}
-
-			addMetricLabels(row, sample.Metric, labelKeys)
-
-			// Add the value
+			row := rowFromMetric(sample.Metric, matchLabels)
 			row["value"] = float64(sample.Value)
 			results = append(results, row)
 		}
@@ -184,11 +177,7 @@ func transformPrometheusResult(result model.Value, labelKeys []string) ([]QueryR
 	case model.Matrix:
 		for _, sampleStream := range v {
 			for _, samplePair := range sampleStream.Values {
-				row := QueryResultRow{}
-
-				addMetricLabels(row, sampleStream.Metric, labelKeys)
-
-				// Add timestamp and value
+				row := rowFromMetric(sampleStream.Metric, matchLabels)
 				row["timestamp"] = samplePair.Timestamp.Time()
 				row["value"] = float64(samplePair.Value)
 				results = append(results, row)
