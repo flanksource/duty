@@ -32,6 +32,8 @@ var _ = ginkgo.Describe("AsMap", func() {
 				"agent_id":    "00000000-0000-0000-0000-000000000000",
 				"ready":       false,
 				"description": nil,
+				"tags":        map[string]string{},
+				"labels":      map[string]string{},
 				"config": map[string]any{
 					"name":        "dummy-canary",
 					"agent_id":    "00000000-0000-0000-0000-000000000000",
