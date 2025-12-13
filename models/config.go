@@ -240,15 +240,20 @@ func (ci ConfigItem) String() string {
 
 func (ci ConfigItem) AsMap(removeFields ...string) map[string]any {
 	env := asMap(ci, removeFields...)
-	if ci.Config == nil || *ci.Config == "" {
-		return env
+	if _, ok := env["tags"]; !ok || env["tags"] == nil {
+		env["tags"] = map[string]string{}
+	}
+	if _, ok := env["labels"]; !ok || env["labels"] == nil {
+		env["labels"] = map[string]string{}
 	}
 
-	var m map[string]any
-	if err := json.Unmarshal([]byte(*ci.Config), &m); err != nil {
-		return env
+	if ci.Config != nil && *ci.Config != "" {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(*ci.Config), &m); err != nil {
+			return env
+		}
+		env["config"] = m
 	}
-	env["config"] = m
 
 	return env
 }
