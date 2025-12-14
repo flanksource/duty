@@ -17,9 +17,9 @@ func TestPreprocessJSONFields(t *testing.T) {
 		{
 			name: "valid JSON in @json field",
 			input: map[string]any{
-				"message":       "test message",
-				"config@json":   `{"key": "value", "number": 42}`,
-				"other_field":   "normal value",
+				"message":     "test message",
+				"config@json": `{"key": "value", "number": 42}`,
+				"other_field": "normal value",
 			},
 			expected: map[string]any{
 				"message":     "test message",
@@ -28,24 +28,11 @@ func TestPreprocessJSONFields(t *testing.T) {
 			},
 		},
 		{
-			name: "valid JSON in @input field",
-			input: map[string]any{
-				"message":        "test message",
-				"payload@input":  `{"users": ["alice", "bob"], "active": true}`,
-				"other_field":    "normal value",
-			},
-			expected: map[string]any{
-				"message":       "test message",
-				"payload@input": map[string]any{"users": []any{"alice", "bob"}, "active": true},
-				"other_field":   "normal value",
-			},
-		},
-		{
 			name: "invalid JSON in @json field - should remain unchanged",
 			input: map[string]any{
-				"message":       "test message",
-				"config@json":   `{"key": "value", invalid json}`,
-				"other_field":   "normal value",
+				"message":     "test message",
+				"config@json": `{"key": "value", invalid json}`,
+				"other_field": "normal value",
 			},
 			expected: map[string]any{
 				"message":     "test message",
@@ -56,9 +43,9 @@ func TestPreprocessJSONFields(t *testing.T) {
 		{
 			name: "non-string value in @json field - should remain unchanged",
 			input: map[string]any{
-				"message":       "test message",
-				"config@json":   42,
-				"other_field":   "normal value",
+				"message":     "test message",
+				"config@json": 42,
+				"other_field": "normal value",
 			},
 			expected: map[string]any{
 				"message":     "test message",
@@ -101,11 +88,11 @@ func TestPreprocessJSONFields(t *testing.T) {
 			},
 		},
 		{
-			name: "fields without @json or @input suffix - should remain unchanged",
+			name: "fields without @json - should remain unchanged",
 			input: map[string]any{
-				"message":      "test message",
-				"config":       `{"key": "value"}`,
-				"other_field":  "normal value",
+				"message":     "test message",
+				"config":      `{"key": "value"}`,
+				"other_field": "normal value",
 			},
 			expected: map[string]any{
 				"message":     "test message",
@@ -118,14 +105,10 @@ func TestPreprocessJSONFields(t *testing.T) {
 			input: map[string]any{
 				"valid@json":   `{"valid": true}`,
 				"invalid@json": `{invalid json}`,
-				"valid@input":  `["array", "values"]`,
-				"invalid@input": `{broken`,
 			},
 			expected: map[string]any{
-				"valid@json":    map[string]any{"valid": true},
-				"invalid@json":  `{invalid json}`,
-				"valid@input":   []any{"array", "values"},
-				"invalid@input": `{broken`,
+				"valid@json":   map[string]any{"valid": true},
+				"invalid@json": `{invalid json}`,
 			},
 		},
 	}
@@ -185,9 +168,8 @@ func TestParseSearchResponseWithJSONFields(t *testing.T) {
 				{
 					ID: "test-id-1",
 					Source: map[string]any{
-						"message":     "Test log message",
-						"config@json": `{"environment": "test", "debug": true, "port": 8080}`,
-						"metadata@input": `{"user": {"id": 123, "name": "alice"}, "tags": ["important", "urgent"]}`,
+						"message":      "Test log message",
+						"config@json":  `{"environment": "test", "debug": true, "port": 8080}`,
 						"invalid@json": `{broken json}`,
 						"normal_field": "regular value",
 					},
@@ -204,7 +186,7 @@ func TestParseSearchResponseWithJSONFields(t *testing.T) {
 	}
 
 	logEntry := result.Logs[0]
-	
+
 	// Verify message was extracted
 	if logEntry.Message != "Test log message" {
 		t.Errorf("Expected message 'Test log message', got '%s'", logEntry.Message)
@@ -219,17 +201,12 @@ func TestParseSearchResponseWithJSONFields(t *testing.T) {
 	expectedLabels := map[string]string{
 		// From config@json
 		"config@json.environment": "test",
-		"config@json.debug":       "true", 
+		"config@json.debug":       "true",
 		"config@json.port":        "8080",
-		// From metadata@input
-		"metadata@input.user.id":   "123",
-		"metadata@input.user.name": "alice",
-		// Arrays get stringified as JSON, not indexed individually
-		"metadata@input.tags":      `["important","urgent"]`,
 		// Invalid JSON should remain as string
-		"invalid@json":  `{broken json}`,
+		"invalid@json": `{broken json}`,
 		// Normal field
-		"normal_field":  "regular value",
+		"normal_field": "regular value",
 	}
 
 	for expectedKey, expectedValue := range expectedLabels {

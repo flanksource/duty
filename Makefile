@@ -7,18 +7,15 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 CONTROLLER_TOOLS_VERSION ?= v0.19.0
 GOLANGCI_LINT_VERSION ?= v2.7.2
 
-.PHONY: ginkgo
-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo
 
-test: ginkgo
-	ginkgo -r -v --skip-package=tests/e2e
+test:
+		go run github.com/onsi/ginkgo/v2/ginkgo -r -v --skip-package=tests/e2e
 
 .PHONY: test-e2e
-test-e2e: ginkgo
+test-e2e:
 	cd tests/e2e && docker-compose up -d && \
 	timeout 60 bash -c 'until curl -s http://localhost:3100/ready >/dev/null 2>&1; do sleep 2; done' && \
-	(ginkgo -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
+	(	go run github.com/onsi/ginkgo/v2/ginkgo -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
 
 .PHONY: e2e-services
 e2e-services: ## Run e2e test services in foreground with automatic cleanup on exit
