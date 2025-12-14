@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/hash"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -69,12 +71,50 @@ const (
 	AnalysisTypeTechDebt       AnalysisType = "technical_debt"
 )
 
+func (a AnalysisType) Pretty() api.Text {
+	var icon, style string
+	switch a {
+	case AnalysisTypeSecurity:
+		icon, style = "🔒", "text-red-700 bg-red-50"
+	case AnalysisTypeCost:
+		icon, style = "💰", "text-green-700 bg-green-50"
+	case AnalysisTypePerformance:
+		icon, style = "⚡", "text-yellow-700 bg-yellow-50"
+	case AnalysisTypeAvailability:
+		icon, style = "🟢", "text-blue-700 bg-blue-50"
+	case AnalysisTypeReliability:
+		icon, style = "🔄", "text-purple-700 bg-purple-50"
+	case AnalysisTypeCompliance:
+		icon, style = "✅", "text-indigo-700 bg-indigo-50"
+	case AnalysisTypeTechDebt:
+		icon, style = "⚙️", "text-gray-700 bg-gray-50"
+	case AnalysisTypeRecommendation:
+		icon, style = "💡", "text-cyan-700 bg-cyan-50"
+	case AnalysisTypeIntegration:
+		icon, style = "🔗", "text-teal-700 bg-teal-50"
+	default:
+		icon, style = "📊", "text-gray-600"
+	}
+	return clicky.Text(icon+" ", style).Append(string(a), "capitalize "+style)
+}
+
 type RelatedConfigDirection string
 
 const (
 	RelatedConfigTypeIncoming RelatedConfigDirection = "incoming"
 	RelatedConfigTypeOutgoing RelatedConfigDirection = "outgoing"
 )
+
+func (r RelatedConfigDirection) Pretty() api.Text {
+	switch r {
+	case RelatedConfigTypeIncoming:
+		return clicky.Text("← ", "text-blue-600").Append(string(r), "capitalize text-blue-600")
+	case RelatedConfigTypeOutgoing:
+		return clicky.Text("→ ", "text-purple-600").Append(string(r), "capitalize text-purple-600")
+	default:
+		return clicky.Text(string(r), "text-gray-500")
+	}
+}
 
 // Ensure interface compliance
 var (
@@ -121,7 +161,6 @@ type ConfigItem struct {
 
 	configJson map[string]any `json:"-" yaml:"-" gorm:"-"`
 }
-
 type ConfigItemLastScrapedTime struct {
 	ConfigID        uuid.UUID  `json:"config_id" gorm:"primaryKey"`
 	LastScrapedTime *time.Time `json:"last_scraped_time,omitempty"`
@@ -163,6 +202,62 @@ func (ConfigItemLastScrapedTime) UpdateParentsIsPushed(db *gorm.DB, items []DBTa
 }
 
 // This should only be used for tests and its fixtures
+
+func (c ConfigItem) Pretty() api.Text {
+	t := clicky.Text("")
+
+	if c.Health != nil {
+		t = t.Add(c.Health.Pretty()).AddText(" ")
+	}
+
+	t = t.AddText(lo.FromPtrOr(c.Name, "<unnamed>"), "font-bold")
+
+	if c.Type != nil {
+		t = t.AddText(" ")
+		t = t.Add(clicky.Text(lo.FromPtr(c.Type), "text-xs text-gray-600 bg-gray-100").Wrap("(", ")"))
+	}
+
+	if c.ConfigClass != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.ConfigClass, "text-xs text-blue-600 bg-blue-50"))
+	}
+
+	if len(c.Tags) > 0 {
+		t = t.NewLine().AddText("  Tags: ", "text-sm text-gray-500")
+		for key, val := range c.Tags {
+			t = t.Add(clicky.Text(fmt.Sprintf("%s=%s", key, val), "text-xs bg-gray-100 text-gray-700").Wrap("[", "]")).AddText(" ")
+		}
+	}
+
+	return t
+}
+
+func (c ConfigItem) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name":   clicky.Text(lo.FromPtrOr(c.Name, "<unnamed>"), "font-bold"),
+		"type":   clicky.Text(lo.FromPtrOr(c.Type, "-"), "text-gray-600"),
+		"class":  clicky.Text(c.ConfigClass, "text-blue-600"),
+		"health": clicky.Text("", "text-gray-400"),
+	}
+
+	if c.Health != nil {
+		row["health"] = c.Health.Pretty()
+	}
+
+	if c.Status != nil {
+		row["status"] = clicky.Text(lo.FromPtr(c.Status), "text-gray-700")
+	}
+
+	if c.CostTotal30d > 0 {
+		row["cost"] = clicky.Text(fmt.Sprintf("$%.2f", c.CostTotal30d), "text-green-700")
+	}
+
+	if c.CreatedAt != (time.Time{}) {
+		row["age"] = api.Human(time.Since(c.CreatedAt), "text-gray-600")
+	}
+
+	return row
+}
+
 func DeleteAllConfigs(db *gorm.DB, configs ...ConfigItem) error {
 	ids := lo.Map(configs, func(c ConfigItem, _ int) string { return c.ID.String() })
 
@@ -400,8 +495,12 @@ func (c configLabels) Lookup(key string) (string, bool) {
 		return "", false
 	}
 
-	value, ok := (*c.Labels)[key]
-	return value, ok
+	val, exists := (*c.Labels)[key]
+	if !exists {
+		return "", false
+	}
+
+	return fmt.Sprintf("%v", val), true
 }
 
 // ConfigScraper represents the config_scrapers database table
@@ -597,6 +696,46 @@ type ConfigChange struct {
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
 
+func (c ConfigChange) Pretty() api.Text {
+	t := c.Severity.Pretty().AddText(" ")
+	t = t.AddText(c.ChangeType, "font-bold text-purple-700")
+
+	if c.Summary != "" {
+		t = t.NewLine().AddText("  "+c.Summary, "text-sm text-gray-700")
+	}
+
+	if c.Source != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.Source, "text-xs text-gray-500").Wrap("(", ")"))
+	}
+
+	if c.CreatedAt != nil {
+		t = t.AddText(" • ", "text-gray-400")
+		t = t.Add(api.Human(time.Since(*c.CreatedAt), "text-gray-600"))
+	}
+
+	return t
+}
+
+func (c ConfigChange) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"change_type": clicky.Text(c.ChangeType, "font-bold"),
+		"severity":    c.Severity.Pretty(),
+		"summary":     clicky.Text(c.Summary, "text-gray-700"),
+		"source":      clicky.Text(c.Source, "text-gray-600"),
+	}
+
+	if c.CreatedAt != nil {
+		row["age"] = api.Human(time.Since(*c.CreatedAt), "text-gray-600")
+		row["created_at"] = clicky.Text(c.CreatedAt.Format("2006-01-02 15:04"), "text-gray-600 font-mono text-xs")
+	}
+
+	if c.Count > 1 {
+		row["count"] = clicky.Text(fmt.Sprintf("%d", c.Count), "text-blue-600 font-bold")
+	}
+
+	return row
+}
+
 func (t ConfigChange) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
 	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
 		return item.(ConfigChange).ConfigID
@@ -670,6 +809,53 @@ type ConfigAnalysis struct {
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (c ConfigAnalysis) Pretty() api.Text {
+	t := c.Severity.Pretty().AddText(" ")
+	t = t.Add(c.AnalysisType.Pretty()).AddText(" ")
+	t = t.AddText(c.Analyzer, "font-bold text-gray-800")
+
+	if c.Summary != "" {
+		t = t.NewLine().AddText("  "+c.Summary, "text-sm text-gray-700")
+	}
+
+	if c.Source != "" {
+		t = t.AddText(" ").Add(clicky.Text("via "+c.Source, "text-xs text-gray-500 italic"))
+	}
+
+	if c.Status != "" {
+		statusStyle := "text-blue-600"
+		if c.Status == "resolved" {
+			statusStyle = "text-green-600"
+		} else if c.Status == "silenced" {
+			statusStyle = "text-gray-500"
+		}
+		t = t.AddText(" ").Add(clicky.Text(c.Status, statusStyle).Wrap("[", "]"))
+	}
+
+	return t
+}
+
+func (c ConfigAnalysis) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"analyzer": clicky.Text(c.Analyzer, "font-bold"),
+		"severity": c.Severity.Pretty(),
+		"type":     c.AnalysisType.Pretty(),
+		"summary":  clicky.Text(c.Summary, "text-gray-700"),
+		"status":   clicky.Text(c.Status, "text-blue-600"),
+		"source":   clicky.Text(c.Source, "text-gray-500 text-xs"),
+	}
+
+	if c.FirstObserved != nil {
+		row["first_seen"] = api.Human(time.Since(*c.FirstObserved), "text-gray-600")
+	}
+
+	if c.LastObserved != nil {
+		row["last_seen"] = api.Human(time.Since(*c.LastObserved), "text-gray-600")
+	}
+
+	return row
 }
 
 func (t ConfigAnalysis) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {

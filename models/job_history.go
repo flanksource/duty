@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
@@ -24,6 +26,27 @@ const (
 	StatusStale   = "STALE"
 	StatusSkipped = "SKIPPED"
 )
+
+func (j JobStatus) Pretty() api.Text {
+	var icon, style string
+	switch j {
+	case StatusSuccess:
+		icon, style = "✓", "text-green-600 font-bold"
+	case StatusFailed:
+		icon, style = "✗", "text-red-600 font-bold"
+	case StatusWarning:
+		icon, style = "!", "text-yellow-600 font-bold"
+	case StatusRunning:
+		icon, style = "▶", "text-blue-600"
+	case StatusStale:
+		icon, style = "⏱", "text-gray-500"
+	case StatusSkipped:
+		icon, style = "⊘", "text-gray-400"
+	default:
+		icon, style = "•", "text-gray-500"
+	}
+	return clicky.Text(icon+" ", style).Append(string(j), style)
+}
 
 type JobHistory struct {
 	ID             uuid.UUID `gorm:"default:generate_ulid()"`

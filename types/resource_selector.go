@@ -676,6 +676,21 @@ func (c GenericFieldMatcher) Has(key string) bool {
 	return ok
 }
 
+func (c GenericFieldMatcher) Lookup(key string) (value string, exists bool) {
+	val, exists := c.Fields[key]
+	if !exists {
+		return "", false
+	}
+
+	switch v := val.(type) {
+	case string:
+		return v, true
+	default:
+		marshalled, _ := json.Marshal(v)
+		return string(marshalled), true
+	}
+}
+
 type GenericLabelsMatcher struct {
 	Map map[string]string
 }
@@ -689,9 +704,10 @@ func (c GenericLabelsMatcher) Has(key string) bool {
 	return ok
 }
 
-func (c GenericLabelsMatcher) Lookup(key string) (string, bool) {
-	val, ok := c.Map[key]
-	return val, ok
+// Lookup returns the value for the provided label if it exists and whether the provided label exist
+func (c GenericLabelsMatcher) Lookup(label string) (value string, exists bool) {
+	value, exists = c.Map[label]
+	return
 }
 
 type GenericLabelsMatcherAny struct {
@@ -707,9 +723,12 @@ func (c GenericLabelsMatcherAny) Has(key string) bool {
 	return ok
 }
 
-func (c GenericLabelsMatcherAny) Lookup(key string) (string, bool) {
-	val, ok := c.Map[key]
-	return fmt.Sprintf("%v", val), ok
+func (c GenericLabelsMatcherAny) Lookup(label string) (value string, exists bool) {
+	val, exists := c.Map[label]
+	if !exists {
+		return "", false
+	}
+	return fmt.Sprintf("%v", val), true
 }
 
 type UnstructuredResource struct {
