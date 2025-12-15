@@ -3,6 +3,7 @@ package shell
 import (
 	"bufio"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -47,14 +48,47 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 			parts := strings.Fields(strings.TrimSpace(firstLine[2:]))
 			if len(parts) == 0 {
 				return "", nil
-			} else if len(parts) == 1 {
-				// No args, just interpreter and assume it supports the -c flag
-				return parts[0], []string{"-c"}
 			}
-			return parts[0], parts[1:]
+
+			interpreter := parts[0]
+			args := parts[1:]
+			base := filepath.Base(interpreter)
+
+			if base == "env" && len(args) > 0 {
+				interpreter = args[0]
+				args = args[1:]
+				base = filepath.Base(interpreter)
+			}
+
+			switch base {
+			case "python", "python3":
+				if !containsArg(args, "-c") {
+					args = append(args, "-c")
+				}
+			case "node":
+				if !containsArg(args, "-e") {
+					args = append(args, "-e")
+				}
+			default:
+				if len(args) == 0 {
+					// No args, just interpreter and assume it supports the -c flag
+					args = append(args, "-c")
+				}
+			}
+
+			return interpreter, args
 		}
 	}
 	return DefaultInterpreter, DefaultInterpreterArgs
+}
+
+func containsArg(args []string, target string) bool {
+	for _, arg := range args {
+		if arg == target {
+			return true
+		}
+	}
+	return false
 }
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.

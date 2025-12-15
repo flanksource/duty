@@ -120,3 +120,48 @@ func TestPrepareEnvironment(t *testing.T) {
 	_, err = os.Stat(goModPath)
 	g.Expect(err).ToNot(gomega.HaveOccurred(), "expected go.mod to exist in mount point at %s", goModPath)
 }
+
+func TestDetectInterpreterFromShebang(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	testCases := []struct {
+		name        string
+		script      string
+		interpreter string
+		args        []string
+	}{
+		{
+			name:        "python via env",
+			script:      "#!/usr/bin/env python\nprint('hello')",
+			interpreter: "python",
+			args:        []string{"-c"},
+		},
+		{
+			name:        "python3 with arg",
+			script:      "#!/usr/bin/python3 -u\nprint('hello')",
+			interpreter: "/usr/bin/python3",
+			args:        []string{"-u", "-c"},
+		},
+		{
+			name:        "node via env",
+			script:      "#!/usr/bin/env node\nconsole.log('hello')",
+			interpreter: "node",
+			args:        []string{"-e"},
+		},
+		{
+			name:        "other default flag",
+			script:      "#!/bin/sh\necho hello",
+			interpreter: "/bin/sh",
+			args:        []string{"-c"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			interpreter, args := DetectInterpreterFromShebang(tc.script)
+
+			g.Expect(interpreter).To(gomega.Equal(tc.interpreter))
+			g.Expect(args).To(gomega.Equal(tc.args))
+		})
+	}
+}
