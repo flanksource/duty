@@ -113,7 +113,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			Force:     true,
 			Prune:     true,
 			Auth:      gitClient.Auth,
-			Depth:     gitClient.Depth}); err != nil {
+			Depth:     gitClient.Depth}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return extra, ctx.Oops().Wrapf(err, "error during git fetch")
 		}
 
@@ -127,7 +127,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			}
 
 			for _, ref := range list {
-				if strings.HasSuffix(ref.Name().String(), gitClient.Branch) {
+				if ref.Name().Short() == gitClient.Branch {
 					refName = ref.Name()
 					ctx.Logger.V(4).Infof("found ref %s matching %s", refName, gitClient.Branch)
 				}
