@@ -3,14 +3,15 @@ package connection
 import (
 	"fmt"
 
-	"github.com/flanksource/duty/context"
-	dutyKubernetes "github.com/flanksource/duty/kubernetes"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/flanksource/duty/context"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 // +kubebuilder:object:generate=true
@@ -20,13 +21,17 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-func (t KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
 			return nil, nil, err
 		} else if connection == nil {
 			return nil, nil, fmt.Errorf("connection[%s] not found", t.ConnectionName)
+		}
+
+		if t.Kubeconfig == nil {
+			t.Kubeconfig = &types.EnvVar{}
 		}
 
 		t.Kubeconfig.ValueStatic = connection.Certificate
