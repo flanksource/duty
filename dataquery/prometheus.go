@@ -36,7 +36,7 @@ type PrometheusQuery struct {
 	// Deprecated: use SelectLabels
 	MatchLabels []string `json:"matchLabels,omitempty" yaml:"matchLabels,omitempty"`
 
-	// MatchLabels is a list of labels, when provided, are included in the result.
+	// SelectLabels is a list of labels, when provided, are included in the result.
 	// Example:
 	// If a query produces {a:1, b:2, c:3, d:4} value=30.0
 	// then, with matchLabels = [a,b]
