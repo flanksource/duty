@@ -2,7 +2,6 @@ package connection
 
 import (
 	gocontext "context"
-	"fmt"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
@@ -24,7 +23,7 @@ func Get(ctx context.Context, connectionName string) (*models.Connection, error)
 	if err != nil {
 		return nil, err
 	} else if connection == nil {
-		return nil, fmt.Errorf("connection (%s) not found", connectionName)
+		return nil, ctx.Oops().Code(api.ENOTFOUND).Errorf("connection (%s) not found", connectionName)
 	}
 
 	attr := models.ABACAttribute{Connection: *connection}
