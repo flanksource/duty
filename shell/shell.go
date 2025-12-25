@@ -18,12 +18,13 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
-	"github.com/flanksource/duty/connection"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
+
+	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 )
 
 // List of env var keys that we pass on to the exec command
@@ -144,44 +145,14 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		return nil, ctx.Oops().Wrap(err)
 	}
 
-	if exec.Chroot == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, ctx.Oops().Wrap(err)
-		}
-		cmdDir := envParams.mountPoint
-		if cmdDir == "" {
-			cmdDir = path.Join(properties.String(cwd, "shell.tmp.dir"), "shell-tmp", uuid.New().String())
-			if err := os.MkdirAll(cmdDir, 0700); err != nil {
-				return nil, ctx.Oops().Wrap(err)
-			}
-		}
-		cmd.Dir = cmdDir
+	if mountPoint, err := getCmdDir(ctx, exec.Chroot, envParams.mountPoint); err != nil {
+		return nil, ctx.Oops().Wrap(err)
 	} else {
-		if stat, err := os.Stat(exec.Chroot); err != nil {
-			return nil, ctx.Oops().Wrap(err)
-		} else if stat.IsDir() {
-			envParams.mountPoint = stat.Name()
-			return nil, fmt.Errorf("%s is not a directory", exec.Chroot)
-		} else {
-			envParams.mountPoint = filepath.Dir(stat.Name())
-		}
-		cmd.Dir = exec.Chroot
+		envParams.mountPoint = mountPoint
+		cmd.Dir = mountPoint
 	}
 
-	// Set to a non-nil empty slice to prevent access to current environment variables
-	cmd.Env = []string{}
-
-	for _, e := range os.Environ() {
-		key, _, ok := strings.Cut(e, "=")
-		if _, exists := allowedEnvVars[key]; exists && ok {
-			cmd.Env = append(cmd.Env, e)
-		}
-	}
-
-	if len(envParams.envs) != 0 {
-		cmd.Env = append(cmd.Env, envParams.envs...)
-	}
+	cmd.Env = getEnvVar(envParams.envs)
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -341,4 +312,50 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 	}
 
 	return &result, nil
+}
+
+func getEnvVar(userSuppliedEnvs []string) []string {
+	// Set to a non-nil empty slice to prevent access to current environment variables
+	env := []string{}
+
+	for _, e := range os.Environ() {
+		key, _, ok := strings.Cut(e, "=")
+		if _, exists := allowedEnvVars[key]; exists && ok {
+			env = append(env, e)
+		}
+	}
+
+	if len(userSuppliedEnvs) != 0 {
+		env = append(env, userSuppliedEnvs...)
+	}
+
+	return env
+}
+
+func getCmdDir(ctx context.Context, chroot, mountPoint string) (string, error) {
+	if chroot != "" {
+		if stat, err := os.Stat(chroot); err != nil {
+			return "", ctx.Oops().Wrap(err)
+		} else if !stat.IsDir() {
+			return "", fmt.Errorf("%s is not a directory", chroot)
+		} else {
+			return chroot, nil
+		}
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", ctx.Oops().Wrap(err)
+	}
+
+	if mountPoint != "" {
+		return mountPoint, nil
+	}
+
+	cmdDir := path.Join(properties.String(cwd, "shell.tmp.dir"), "shell-tmp", uuid.New().String())
+	if err := os.MkdirAll(cmdDir, 0700); err != nil {
+		return "", ctx.Oops().Wrap(err)
+	}
+
+	return cmdDir, nil
 }
