@@ -5,6 +5,7 @@ import (
 	gocontext "context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	osExec "os/exec"
 	"path"
@@ -140,19 +141,19 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 
 func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, error) {
 	ctx.Logger.V(3).Infof("running: %s %s", cmd.Path, lo.Map(cmd.Args, func(arg string, _ int) string { return strings.TrimSpace(arg) }))
-	envParams, err := prepareEnvironment(ctx, exec)
+	cmdCtx, err := prepareEnvironment(ctx, exec)
 	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	}
 
-	if mountPoint, err := getCmdDir(ctx, exec.Chroot, envParams.mountPoint); err != nil {
+	if mountPoint, err := getCmdDir(ctx, exec.Chroot, cmdCtx.mountPoint); err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	} else {
-		envParams.mountPoint = mountPoint
+		cmdCtx.mountPoint = mountPoint
 		cmd.Dir = mountPoint
 	}
 
-	cmd.Env = getEnvVar(envParams.envs)
+	cmd.Env = getEnvVar(cmdCtx.envs)
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -168,10 +169,10 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		}()
 	}
 
-	envParams.artifacts = exec.Artifacts
-	envParams.cmd = cmd
+	cmdCtx.artifacts = exec.Artifacts
+	cmdCtx.cmd = cmd
 
-	return runCmd(ctx, envParams)
+	return runCmd(ctx, cmdCtx)
 }
 
 type commandContext struct {
@@ -305,9 +306,7 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 		if extra, err := client.Clone(ctx, result.mountPoint); err != nil {
 			return nil, err
 		} else {
-			for k, v := range extra {
-				result.extra[k] = v
-			}
+			maps.Copy(result.extra, extra)
 		}
 	}
 
