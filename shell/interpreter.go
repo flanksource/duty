@@ -116,14 +116,6 @@ func isNodeInterpreter(interpreter string) bool {
 	}
 }
 
-func isBunInterpreter(interpreter string) bool {
-	switch filepath.Base(interpreter) {
-	case "bun":
-		return true
-	default:
-		return false
-	}
-}
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.
 func DetectDefaultInterpreter() (string, []string) {

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/flanksource/commons/properties"
@@ -20,8 +19,7 @@ type ExecSetup struct {
 
 // +kubebuilder:object:generate=true
 type RuntimeSetup struct {
-	Version  string   `json:"version,omitempty" yaml:"version,omitempty"`
-	Packages []string `json:"packages,omitempty" yaml:"packages,omitempty"`
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // applySetupRuntimeEnv installs the dependencies and updates the PATH env var
@@ -37,11 +35,6 @@ func applySetupRuntimeEnv(exec Exec, envs []string) ([]string, error) {
 
 	if len(setupResult.binDirs) != 0 {
 		envs = pathEnvWithBinDirs(envs, setupResult.binDirs)
-	}
-
-	envs, err = installSetupPackages(*exec.Setup, setupResult.baseDir, envs)
-	if err != nil {
-		return nil, err
 	}
 
 	return envs, nil
@@ -74,13 +67,19 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 	}{
 		{name: "bun", setup: setup.Bun},
 	}
+	if setup.Python != nil {
+		runtimes = append(runtimes, struct {
+			name  string
+			setup *RuntimeSetup
+		}{name: "uv", setup: setup.Python})
+	}
 
 	for _, runtime := range runtimes {
 		if runtime.setup == nil {
 			continue
 		}
 		version := strings.TrimSpace(runtime.setup.Version)
-		if version == "" {
+		if runtime.name == "uv" || version == "" {
 			version = "latest"
 		}
 		paths, err := installRuntime(runtime.name, version, baseDir)
@@ -92,20 +91,6 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 	}
 
 	return result, nil
-}
-
-func installSetupPackages(setup ExecSetup, baseDir string, envs []string) ([]string, error) {
-	if baseDir == "" {
-		return envs, nil
-	}
-	if setup.Python != nil && len(setup.Python.Packages) != 0 {
-		return nil, fmt.Errorf("python packages are not installed via setup; use uv script dependencies")
-	}
-	if setup.Bun != nil && len(setup.Bun.Packages) != 0 {
-		return nil, fmt.Errorf("bun packages are not installed via setup; use bun auto-install")
-	}
-
-	return envs, nil
 }
 
 func installRuntime(name string, version string, baseDir string) (runtimePaths, error) {
@@ -206,33 +191,4 @@ func pathEnvWithBinDirs(envs []string, binDirs []string) []string {
 
 	envs = append(envs, fmt.Sprintf("PATH=%s", strings.Join(newPath, string(os.PathListSeparator))))
 	return envs
-}
-
-func prependEnvVars(envs []string, vars map[string]string) []string {
-	if len(vars) == 0 {
-		return envs
-	}
-
-	keys := make([]string, 0, len(vars))
-	for key := range vars {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	updated := make([]string, 0, len(envs)+len(vars))
-	for _, key := range keys {
-		updated = append(updated, fmt.Sprintf("%s=%s", key, vars[key]))
-	}
-
-	for _, env := range envs {
-		key, _, ok := strings.Cut(env, "=")
-		if ok {
-			if _, exists := vars[key]; exists {
-				continue
-			}
-		}
-		updated = append(updated, env)
-	}
-
-	return updated
 }
