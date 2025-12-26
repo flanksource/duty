@@ -72,6 +72,7 @@ type Exec struct {
 	Artifacts   []Artifact
 	EnvVars     []types.EnvVar
 	Chroot      string
+	Setup       *ExecSetup
 }
 
 // +kubebuilder:object:generate=true
@@ -146,14 +147,18 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		return nil, ctx.Oops().Wrap(err)
 	}
 
+	cmd.Env = getEnvVar(cmdCtx.envs)
+
+	if err := applySetupRuntimeEnv(exec, cmd); err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
 	if mountPoint, err := getCmdDir(ctx, exec.Chroot, cmdCtx.mountPoint); err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	} else {
 		cmdCtx.mountPoint = mountPoint
 		cmd.Dir = mountPoint
 	}
-
-	cmd.Env = getEnvVar(cmdCtx.envs)
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -317,15 +322,17 @@ func getEnvVar(userSuppliedEnvs []string) []string {
 	// Set to a non-nil empty slice to prevent access to current environment variables
 	env := []string{}
 
+	// Before the env vars from the host, because if there are duplicates
+	// we use the first Env var that we see
+	if len(userSuppliedEnvs) != 0 {
+		env = append(env, userSuppliedEnvs...)
+	}
+
 	for _, e := range os.Environ() {
 		key, _, ok := strings.Cut(e, "=")
 		if _, exists := allowedEnvVars[key]; exists && ok {
 			env = append(env, e)
 		}
-	}
-
-	if len(userSuppliedEnvs) != 0 {
-		env = append(env, userSuppliedEnvs...)
 	}
 
 	return env
