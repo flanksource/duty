@@ -90,7 +90,7 @@ require (
 	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 	golang.org/x/oauth2 v0.32.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.19.0
 	gonum.org/v1/gonum v0.16.0
 	google.golang.org/api v0.254.0
 	google.golang.org/grpc v1.76.0
