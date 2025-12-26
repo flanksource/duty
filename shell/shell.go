@@ -141,9 +141,57 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 	runID := uuid.New().String()
 
 	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
-	envs, err = applySetupRuntimeEnv(exec, envs, runID)
+	envs, err = applySetupRuntimeEnv(exec, envs)
 	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
+	}
+
+	interpreter, _ := DetectInterpreterFromShebang(exec.Script)
+	if exec.Setup != nil && exec.Setup.Python != nil && isPythonInterpreter(interpreter) {
+		scriptPath, err := writePythonScript(runID, exec.Script)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		uvArgs := []string{"run"}
+		if version := strings.TrimSpace(exec.Setup.Python.Version); version != "" {
+			uvArgs = append(uvArgs, "--python", version)
+		}
+		uvArgs = append(uvArgs, scriptPath)
+		uvPath, err := resolveInterpreterPath("uv", envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		cmd := osExec.CommandContext(ctx, uvPath, uvArgs...)
+		cmd.Env = envs
+		return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
+	}
+	if exec.Setup != nil && exec.Setup.Bun != nil && isNodeInterpreter(interpreter) {
+		scriptPath, err := writeNodeScript(runID, exec.Script)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		bunArgs := []string{"run", scriptPath}
+		bunPath, err := resolveInterpreterPath("bun", envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		cmd := osExec.CommandContext(ctx, bunPath, bunArgs...)
+		cmd.Env = envs
+		return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
+	}
+	if exec.Setup != nil && exec.Setup.Bun != nil && isBunInterpreter(interpreter) {
+		scriptBody := strings.TrimSpace(TrimLine(exec.Script, "#!"))
+		if scriptBody == "" {
+			return nil, ctx.Oops().Errorf("empty script")
+		}
+		bunArgs := []string{"-e", scriptBody}
+		bunPath, err := resolveInterpreterPath("bun", envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		cmd := osExec.CommandContext(ctx, bunPath, bunArgs...)
+		cmd.Env = envs
+		return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
 	}
 
 	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs)
@@ -163,8 +211,7 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 
 	envs := getEnvVar(cmdCtx.envs)
 
-	runID := uuid.New().String()
-	envs, err = applySetupRuntimeEnv(exec, envs, runID)
+	envs, err = applySetupRuntimeEnv(exec, envs)
 	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	}
@@ -174,13 +221,6 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 
 func runPreparedCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd, cmdCtx *commandContext, envs []string) (*ExecDetails, error) {
 	cmd.Env = envs
-
-	if mountPoint, err := getCmdDir(ctx, exec.Chroot, cmdCtx.mountPoint); err != nil {
-		return nil, ctx.Oops().Wrap(err)
-	} else {
-		cmdCtx.mountPoint = mountPoint
-		cmd.Dir = mountPoint
-	}
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -312,11 +352,8 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 			return nil, fmt.Errorf("error hydrating connection: %w", err)
 		}
 
-		if dir := lo.FromPtr(checkout.Destination); dir != "" {
-			result.mountPoint = filepath.Join(result.mountPoint, dir)
-		} else {
-			result.mountPoint = filepath.Join(result.mountPoint, "exec-checkout", hash.Sha256Hex(checkout.URL))
-		}
+		result.mountPoint = filepath.Join(result.mountPoint, "exec-checkout", hash.Sha256Hex(checkout.URL))
+
 		// We allow multiple checks to use the same checkout location, for disk space and performance reasons
 		// however git does not allow multiple operations to be performed, so we need to lock it
 		lock := checkoutLocks.TryLock(result.mountPoint, 5*time.Minute)
@@ -386,4 +423,48 @@ func getCmdDir(ctx context.Context, chroot, mountPoint string) (string, error) {
 	}
 
 	return cmdDir, nil
+}
+
+func writePythonScript(runID string, script string) (string, error) {
+	baseDir, err := resolveSetupBaseDir()
+	if err != nil {
+		return "", err
+	}
+	if baseDir == "" {
+		return "", fmt.Errorf("shell-bin-dir is required for uv python scripts")
+	}
+
+	scriptDir := filepath.Join(baseDir, "runs", runID, "python")
+	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+		return "", err
+	}
+
+	scriptPath := filepath.Join(scriptDir, "script.py")
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		return "", err
+	}
+
+	return scriptPath, nil
+}
+
+func writeNodeScript(runID string, script string) (string, error) {
+	baseDir, err := resolveSetupBaseDir()
+	if err != nil {
+		return "", err
+	}
+	if baseDir == "" {
+		return "", fmt.Errorf("shell-bin-dir is required for bun scripts")
+	}
+
+	scriptDir := filepath.Join(baseDir, "runs", runID, "node")
+	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+		return "", err
+	}
+
+	scriptPath := filepath.Join(scriptDir, "script.js")
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		return "", err
+	}
+
+	return scriptPath, nil
 }

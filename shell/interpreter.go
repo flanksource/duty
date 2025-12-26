@@ -72,19 +72,23 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 				base = filepath.Base(interpreter)
 			}
 
-			switch base {
-			case "python", "python3":
-				if !lo.Contains(args, "-c") {
-					args = append(args, "-c")
-				}
-			case "node":
-				if !lo.Contains(args, "-e") {
-					args = append(args, "-e")
-				}
-			default:
-				if len(args) == 0 {
-					// No args, just interpreter and assume it supports the -c flag
-					args = append(args, "-c")
+	switch base {
+	case "python", "python3":
+		if !lo.Contains(args, "-c") {
+			args = append(args, "-c")
+		}
+	case "node":
+		if !lo.Contains(args, "-e") {
+			args = append(args, "-e")
+		}
+	case "bun":
+		if !lo.Contains(args, "-e") {
+			args = append(args, "-e")
+		}
+	default:
+		if len(args) == 0 {
+			// No args, just interpreter and assume it supports the -c flag
+			args = append(args, "-c")
 				}
 			}
 
@@ -92,6 +96,33 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 		}
 	}
 	return DefaultInterpreter, DefaultInterpreterArgs
+}
+
+func isPythonInterpreter(interpreter string) bool {
+	switch filepath.Base(interpreter) {
+	case "python", "python3":
+		return true
+	default:
+		return false
+	}
+}
+
+func isNodeInterpreter(interpreter string) bool {
+	switch filepath.Base(interpreter) {
+	case "node":
+		return true
+	default:
+		return false
+	}
+}
+
+func isBunInterpreter(interpreter string) bool {
+	switch filepath.Base(interpreter) {
+	case "bun":
+		return true
+	default:
+		return false
+	}
 }
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.
