@@ -20,10 +20,10 @@ type PrometheusQuery struct {
 	connection.PrometheusConnection `json:",inline" yaml:",inline"`
 
 	// Query is the PromQL query string
-	Query string `json:"query" yaml:"query"`
+	Query string `json:"query" yaml:"query" template:"true"`
 
 	// Range runs a PromQL range query when specified
-	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty"`
+	Range *PrometheusRange `json:"range,omitempty" yaml:"range,omitempty" template:"true"`
 
 	// MatchLabels is a list of labels, when provided, are included in the result.
 	// Example:
@@ -32,14 +32,25 @@ type PrometheusQuery struct {
 	// The result will only have {a:1, b:2} value=30.0
 	//
 	// This helps in have a deterministic schema for the query result.
+	//
+	// Deprecated: use SelectLabels
 	MatchLabels []string `json:"matchLabels,omitempty" yaml:"matchLabels,omitempty"`
+
+	// SelectLabels is a list of labels, when provided, are included in the result.
+	// Example:
+	// If a query produces {a:1, b:2, c:3, d:4} value=30.0
+	// then, with matchLabels = [a,b]
+	// The result will only have {a:1, b:2} value=30.0
+	//
+	// This helps in have a deterministic schema for the query result.
+	SelectLabels []string `json:"selectLabels,omitempty"`
 }
 
 // PrometheusRange defines parameters for running a range query.
 type PrometheusRange struct {
-	Start string `json:"start" yaml:"start"`
-	End   string `json:"end" yaml:"end"`
-	Step  string `json:"step" yaml:"step"`
+	Start string `json:"start" yaml:"start" template:"true"`
+	End   string `json:"end" yaml:"end" template:"true"`
+	Step  string `json:"step" yaml:"step" template:"true"`
 }
 
 func (pr PrometheusRange) toPrometheusRange(now time.Time) (promV1.Range, error) {
@@ -104,7 +115,12 @@ func executePrometheusQuery(ctx context.Context, pq PrometheusQuery) ([]QueryRes
 		return nil, fmt.Errorf("failed to run PromQL query: %w", err)
 	}
 
-	rows, err := transformPrometheusResult(result, pq.MatchLabels)
+	selectLabels := pq.SelectLabels
+	if len(selectLabels) == 0 && len(pq.MatchLabels) > 0 {
+		selectLabels = pq.MatchLabels
+	}
+
+	rows, err := transformPrometheusResult(result, selectLabels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform prometheus result: %w", err)
 	}
@@ -158,7 +174,7 @@ func rowFromMetric(metric model.Metric, matchLabels []string) QueryResultRow {
 }
 
 // transformPrometheusResult transforms Prometheus model.Value to QueryResultRow format
-func transformPrometheusResult(result model.Value, matchLabels []string) ([]QueryResultRow, error) {
+func transformPrometheusResult(result model.Value, selectLabels []string) ([]QueryResultRow, error) {
 	if result == nil {
 		return []QueryResultRow{}, nil
 	}
@@ -168,7 +184,7 @@ func transformPrometheusResult(result model.Value, matchLabels []string) ([]Quer
 	switch v := result.(type) {
 	case model.Vector:
 		for _, sample := range v {
-			row := rowFromMetric(sample.Metric, matchLabels)
+			row := rowFromMetric(sample.Metric, selectLabels)
 			row["value"] = float64(sample.Value)
 			results = append(results, row)
 		}
@@ -176,7 +192,7 @@ func transformPrometheusResult(result model.Value, matchLabels []string) ([]Quer
 	case model.Matrix:
 		for _, sampleStream := range v {
 			for _, samplePair := range sampleStream.Values {
-				row := rowFromMetric(sampleStream.Metric, matchLabels)
+				row := rowFromMetric(sampleStream.Metric, selectLabels)
 				row["timestamp"] = samplePair.Timestamp.Time()
 				row["value"] = float64(samplePair.Value)
 				results = append(results, row)
