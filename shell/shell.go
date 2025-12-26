@@ -132,12 +132,26 @@ func YQ(ctx context.Context, path string, script string) (string, error) {
 }
 
 func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
-	cmd, err := CreateCommandFromScript(ctx, exec.Script)
+	cmdCtx, err := prepareEnvironment(ctx, exec)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	envs := getEnvVar(cmdCtx.envs)
+	runID := uuid.New().String()
+
+	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
+	envs, err = applySetupRuntimeEnv(exec, envs, runID)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrap(err)
 	}
 
-	return RunCmd(ctx, exec, cmd)
+	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
 }
 
 func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, error) {
@@ -147,11 +161,19 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		return nil, ctx.Oops().Wrap(err)
 	}
 
-	cmd.Env = getEnvVar(cmdCtx.envs)
+	envs := getEnvVar(cmdCtx.envs)
 
-	if err := applySetupRuntimeEnv(exec, cmd); err != nil {
+	runID := uuid.New().String()
+	envs, err = applySetupRuntimeEnv(exec, envs, runID)
+	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	}
+
+	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
+}
+
+func runPreparedCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd, cmdCtx *commandContext, envs []string) (*ExecDetails, error) {
+	cmd.Env = envs
 
 	if mountPoint, err := getCmdDir(ctx, exec.Chroot, cmdCtx.mountPoint); err != nil {
 		return nil, ctx.Oops().Wrap(err)

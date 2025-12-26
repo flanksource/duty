@@ -2,6 +2,8 @@ package shell
 
 import (
 	"bufio"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -20,14 +22,22 @@ func init() {
 }
 
 // CreateCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
-func CreateCommandFromScript(ctx context.Context, script string) (*exec.Cmd, error) {
+func CreateCommandFromScript(ctx context.Context, script string, envs []string) (*exec.Cmd, error) {
 	interpreter, args := DetectInterpreterFromShebang(script)
 	script = TrimLine(script, "#!")
 	if script == "" {
 		return nil, ctx.Oops().Errorf("empty script")
 	}
 	args = append(args, script)
-	return exec.CommandContext(ctx, interpreter, args...), nil
+
+	resolved, err := resolveInterpreterPath(interpreter, envs)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	cmd.Env = envs
+	return cmd, nil
 }
 
 func TrimLine(lines string, prefix string) string {
@@ -108,4 +118,48 @@ func DetectDefaultInterpreter() (string, []string) {
 		}
 	}
 	return "", nil
+}
+
+func resolveInterpreterPath(interpreter string, envs []string) (string, error) {
+	if interpreter == "" {
+		return "", fmt.Errorf("empty interpreter")
+	}
+	if filepath.IsAbs(interpreter) || strings.ContainsAny(interpreter, string(os.PathSeparator)+"/") {
+		return interpreter, nil
+	}
+
+	pathEnv := pluckPathEnv(envs)
+	if pathEnv == "" {
+		return exec.LookPath(interpreter)
+	}
+
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+		path := filepath.Join(dir, interpreter)
+		if isExecutable(path) {
+			return path, nil
+		}
+		if runtime.GOOS == "windows" {
+			for _, ext := range []string{".exe", ".cmd", ".bat"} {
+				if isExecutable(path + ext) {
+					return path + ext, nil
+				}
+			}
+		}
+	}
+
+	return "", exec.ErrNotFound
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	return info.Mode()&0111 != 0
 }
