@@ -145,6 +145,9 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 
 func runPreparedCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd, cmdCtx *commandContext, envs []string) (*ExecDetails, error) {
 	cmd.Env = envs
+	if cmdCtx.mountPoint != "" {
+		cmd.Dir = cmdCtx.mountPoint
+	}
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -259,6 +262,9 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 	result := commandContext{
 		extra: make(map[string]any),
 	}
+	if exec.Checkout == nil && exec.Chroot != "" {
+		result.mountPoint = exec.Chroot
+	}
 
 	for _, env := range exec.EnvVars {
 		val, err := ctx.GetEnvValueFromCache(env, ctx.GetNamespace())
@@ -276,7 +282,7 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 			return nil, fmt.Errorf("error hydrating connection: %w", err)
 		}
 
-		result.mountPoint = filepath.Join(result.mountPoint, "exec-checkout", hash.Sha256Hex(checkout.URL))
+		result.mountPoint = filepath.Join("exec-checkout", hash.Sha256Hex(checkout.URL))
 
 		// We allow multiple checks to use the same checkout location, for disk space and performance reasons
 		// however git does not allow multiple operations to be performed, so we need to lock it

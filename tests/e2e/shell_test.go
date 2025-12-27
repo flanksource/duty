@@ -6,6 +6,7 @@ import (
 
 	"github.com/onsi/gomega"
 
+	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/shell"
 )
@@ -28,6 +29,36 @@ func TestShellRun(t *testing.T) {
 				Script: `#!/usr/bin/env bun
 				import isOdd from 'is-odd'
 				console.log(isOdd(3))`,
+			},
+		},
+		{
+			name:   "python with checkout",
+			stdout: "Lint",
+			exec: shell.Exec{
+				Checkout: &connection.GitConnection{
+					URL: "https://github.com/flanksource/artifacts",
+				},
+				Setup: &shell.ExecSetup{
+					Python: &shell.RuntimeSetup{
+						Version: "latest",
+					},
+				},
+				Script: `#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "pyyaml",
+# ]
+# ///
+
+import yaml
+
+workflow_path = ".github/workflows/lint.yml"
+
+with open(workflow_path, "r", encoding="utf-8") as f:
+		data = yaml.safe_load(f)
+title = data.get("name")
+
+print(title)`,
 			},
 		},
 		{
