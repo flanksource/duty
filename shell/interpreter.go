@@ -2,6 +2,8 @@ package shell
 
 import (
 	"bufio"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -20,14 +22,34 @@ func init() {
 }
 
 // CreateCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
-func CreateCommandFromScript(ctx context.Context, script string) (*exec.Cmd, error) {
-	interpreter, args := DetectInterpreterFromShebang(script)
+func CreateCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string) (*exec.Cmd, error) {
+	shebangInterpreter, _ := DetectInterpreterFromShebang(script)
+	interpreter, args := remapInterpreter(script, setup)
 	script = TrimLine(script, "#!")
 	if script == "" {
 		return nil, ctx.Oops().Errorf("empty script")
 	}
-	args = append(args, script)
-	return exec.CommandContext(ctx, interpreter, args...), nil
+
+	if isPythonBase(shebangInterpreter) {
+		// The uv run command can only auto-install dependencies with when the script is coming from a file and not inlined.
+		// That's why, we write the script to a file.
+		scriptPath, err := writeScriptToFile(runID, "script.py", script)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		args = append(args, scriptPath)
+	} else {
+		args = append(args, script)
+	}
+
+	resolved, err := resolveInterpreterPath(interpreter, envs)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	cmd.Env = envs
+	return cmd, nil
 }
 
 func TrimLine(lines string, prefix string) string {
@@ -71,6 +93,10 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 				if !lo.Contains(args, "-e") {
 					args = append(args, "-e")
 				}
+			case "bun":
+				if !lo.Contains(args, "-e") {
+					args = append(args, "-e")
+				}
 			default:
 				if len(args) == 0 {
 					// No args, just interpreter and assume it supports the -c flag
@@ -82,6 +108,31 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 		}
 	}
 	return DefaultInterpreter, DefaultInterpreterArgs
+}
+
+func remapInterpreter(script string, setup *ExecSetup) (string, []string) {
+	interpreter, args := DetectInterpreterFromShebang(script)
+	if !isPythonBase(interpreter) {
+		return interpreter, args
+	}
+
+	uvArgs := []string{"run", "--quiet"}
+	if setup != nil && setup.Python != nil {
+		version := strings.TrimSpace(setup.Python.Version)
+		if version != "" && version != "latest" {
+			uvArgs = append(uvArgs, "--python", version)
+		}
+	}
+	return "uv", uvArgs
+}
+
+func isPythonBase(interpreter string) bool {
+	switch filepath.Base(interpreter) {
+	case "python", "python3":
+		return true
+	default:
+		return false
+	}
 }
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.
@@ -108,4 +159,48 @@ func DetectDefaultInterpreter() (string, []string) {
 		}
 	}
 	return "", nil
+}
+
+func resolveInterpreterPath(interpreter string, envs []string) (string, error) {
+	if interpreter == "" {
+		return "", fmt.Errorf("empty interpreter")
+	}
+	if filepath.IsAbs(interpreter) || strings.ContainsAny(interpreter, string(os.PathSeparator)+"/") {
+		return interpreter, nil
+	}
+
+	pathEnv := pluckPathEnv(envs)
+	if pathEnv == "" {
+		return exec.LookPath(interpreter)
+	}
+
+	var isExecutable = func(path string) bool {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return false
+		}
+		if runtime.GOOS == "windows" {
+			return true
+		}
+		return info.Mode()&0111 != 0
+	}
+
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+		path := filepath.Join(dir, interpreter)
+		if isExecutable(path) {
+			return path, nil
+		}
+		if runtime.GOOS == "windows" {
+			for _, ext := range []string{".exe", ".cmd", ".bat"} {
+				if isExecutable(path + ext) {
+					return path + ext, nil
+				}
+			}
+		}
+	}
+
+	return "", exec.ErrNotFound
 }
