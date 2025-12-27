@@ -152,7 +152,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
-		uvArgs := []string{"run"}
+		uvArgs := []string{"run", "--quiet"}
 		if version := strings.TrimSpace(exec.Setup.Python.Version); version != "" {
 			uvArgs = append(uvArgs, "--python", version)
 		}
@@ -165,7 +165,6 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		cmd.Env = envs
 		return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
 	}
-
 
 	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs)
 	if err != nil {
