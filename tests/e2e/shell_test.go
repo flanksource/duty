@@ -76,8 +76,8 @@ print(is_even(2))
 			g.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run command")
 
 			g.Expect(result.ExitCode).To(gomega.Equal(0), "unexpected non-zero exit code")
-			g.Expect(result.Stderr).To(gomega.BeEmpty(), "unexpected stderr")
-			g.Expect(result.Stdout).To(gomega.Equal(td.stdout), "unexpected stderr")
+			g.Expect(result.Stdout).To(gomega.Equal(td.stdout))
+			g.Expect(result.Stderr).To(gomega.BeEmpty(), "unexpected stderr", result.Stderr)
 		})
 
 		os.RemoveAll("./shell-tmp/")

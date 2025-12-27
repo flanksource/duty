@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/flanksource/commons/properties"
@@ -66,25 +65,24 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 		setup *RuntimeSetup
 	}{
 		{name: "bun", setup: setup.Bun},
-	}
-	if setup.Python != nil {
-		runtimes = append(runtimes, struct {
-			name  string
-			setup *RuntimeSetup
-		}{name: "uv", setup: setup.Python})
+		{name: "uv", setup: setup.Python},
 	}
 
 	for _, runtime := range runtimes {
 		if runtime.setup == nil {
 			continue
 		}
+
 		version := strings.TrimSpace(runtime.setup.Version)
 		if runtime.name == "uv" || version == "" {
+			// we must not map the python version to the uv version.
+			// We always download the latest uv version.
 			version = "latest"
 		}
+
 		paths, err := installRuntime(runtime.name, version, baseDir)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("failed to install %s %s", runtime.name, version)
 		}
 
 		result.binDirs = append(result.binDirs, paths.binDir)
@@ -141,24 +139,6 @@ func pluckPathEnv(envs []string) string {
 	}
 
 	return ""
-}
-
-func findRuntimeBinary(binDir string, candidates []string) (string, error) {
-	suffixes := []string{""}
-	if runtime.GOOS == "windows" {
-		suffixes = append(suffixes, ".exe", ".cmd", ".bat")
-	}
-
-	for _, candidate := range candidates {
-		for _, suffix := range suffixes {
-			path := filepath.Join(binDir, candidate+suffix)
-			if info, err := os.Stat(path); err == nil && !info.IsDir() {
-				return path, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no runtime binary found in %s for %s", binDir, strings.Join(candidates, ", "))
 }
 
 func pathEnvWithBinDirs(envs []string, binDirs []string) []string {

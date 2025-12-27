@@ -2,7 +2,6 @@ package shell
 
 import (
 	"bytes"
-	gocontext "context"
 	"fmt"
 	"io"
 	"maps"
@@ -104,32 +103,6 @@ func (e *ExecDetails) GetArtifacts() []artifacts.Artifact {
 	return e.Artifacts
 }
 
-func JQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.jq.timeout"))
-	defer cancel()
-	cmd := osExec.CommandContext(_ctx, "jq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
-	if err != nil {
-		return "", err
-	}
-	return result.Stdout, nil
-}
-
-func YQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.yq.timeout", "shell.jq.timeout"))
-	defer cancel()
-	cmd := osExec.CommandContext(_ctx, "yq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
-	if err != nil {
-		return "", err
-	}
-	return result.Stdout, nil
-}
-
 func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 	cmdCtx, err := prepareEnvironment(ctx, exec)
 	if err != nil {
@@ -145,28 +118,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		return nil, ctx.Oops().Wrap(err)
 	}
 
-	interpreter, _ := DetectInterpreterFromShebang(exec.Script)
-
-	if exec.Setup != nil && exec.Setup.Python != nil && isPythonInterpreter(interpreter) {
-		scriptPath, err := writeScriptToFile(runID, "python", "script.py", exec.Script)
-		if err != nil {
-			return nil, ctx.Oops().Wrap(err)
-		}
-		uvArgs := []string{"run", "--quiet"}
-		if version := strings.TrimSpace(exec.Setup.Python.Version); version != "" {
-			uvArgs = append(uvArgs, "--python", version)
-		}
-		uvArgs = append(uvArgs, scriptPath)
-		uvPath, err := resolveInterpreterPath("uv", envs)
-		if err != nil {
-			return nil, ctx.Oops().Wrap(err)
-		}
-		cmd := osExec.CommandContext(ctx, uvPath, uvArgs...)
-		cmd.Env = envs
-		return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
-	}
-
-	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs)
+	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrap(err)
 	}
@@ -369,7 +321,7 @@ func getEnvVar(userSuppliedEnvs []string) []string {
 	return env
 }
 
-func writeScriptToFile(runID string, runtime string, fileName string, script string) (string, error) {
+func writeScriptToFile(runID string, fileName string, script string) (string, error) {
 	baseDir, err := resolveSetupBaseDir()
 	if err != nil {
 		return "", err
@@ -378,7 +330,7 @@ func writeScriptToFile(runID string, runtime string, fileName string, script str
 		return "", fmt.Errorf("shell-bin-dir is required for script file execution")
 	}
 
-	scriptDir := filepath.Join(baseDir, "runs", runID, runtime)
+	scriptDir := filepath.Join(baseDir, "runs", runID)
 	if err := os.MkdirAll(scriptDir, 0755); err != nil {
 		return "", err
 	}

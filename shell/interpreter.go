@@ -22,13 +22,25 @@ func init() {
 }
 
 // CreateCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
-func CreateCommandFromScript(ctx context.Context, script string, envs []string) (*exec.Cmd, error) {
-	interpreter, args := DetectInterpreterFromShebang(script)
+func CreateCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string) (*exec.Cmd, error) {
+	shebangInterpreter, _ := DetectInterpreterFromShebang(script)
+	interpreter, args := remapInterpreter(script, setup)
 	script = TrimLine(script, "#!")
 	if script == "" {
 		return nil, ctx.Oops().Errorf("empty script")
 	}
-	args = append(args, script)
+
+	if isPythonBase(shebangInterpreter) {
+		// The uv run command can only auto-install dependencies with when the script is coming from a file and not inlined.
+		// That's why, we write the script to a file.
+		scriptPath, err := writeScriptToFile(runID, "script.py", script)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		args = append(args, scriptPath)
+	} else {
+		args = append(args, script)
+	}
 
 	resolved, err := resolveInterpreterPath(interpreter, envs)
 	if err != nil {
@@ -72,23 +84,23 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 				base = filepath.Base(interpreter)
 			}
 
-	switch base {
-	case "python", "python3":
-		if !lo.Contains(args, "-c") {
-			args = append(args, "-c")
-		}
-	case "node":
-		if !lo.Contains(args, "-e") {
-			args = append(args, "-e")
-		}
-	case "bun":
-		if !lo.Contains(args, "-e") {
-			args = append(args, "-e")
-		}
-	default:
-		if len(args) == 0 {
-			// No args, just interpreter and assume it supports the -c flag
-			args = append(args, "-c")
+			switch base {
+			case "python", "python3":
+				if !lo.Contains(args, "-c") {
+					args = append(args, "-c")
+				}
+			case "node":
+				if !lo.Contains(args, "-e") {
+					args = append(args, "-e")
+				}
+			case "bun":
+				if !lo.Contains(args, "-e") {
+					args = append(args, "-e")
+				}
+			default:
+				if len(args) == 0 {
+					// No args, just interpreter and assume it supports the -c flag
+					args = append(args, "-c")
 				}
 			}
 
@@ -98,7 +110,23 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 	return DefaultInterpreter, DefaultInterpreterArgs
 }
 
-func isPythonInterpreter(interpreter string) bool {
+func remapInterpreter(script string, setup *ExecSetup) (string, []string) {
+	interpreter, args := DetectInterpreterFromShebang(script)
+	if !isPythonBase(interpreter) {
+		return interpreter, args
+	}
+
+	uvArgs := []string{"run", "--quiet"}
+	if setup != nil && setup.Python != nil {
+		version := strings.TrimSpace(setup.Python.Version)
+		if version != "" && version != "latest" {
+			uvArgs = append(uvArgs, "--python", version)
+		}
+	}
+	return "uv", uvArgs
+}
+
+func isPythonBase(interpreter string) bool {
 	switch filepath.Base(interpreter) {
 	case "python", "python3":
 		return true
@@ -106,16 +134,6 @@ func isPythonInterpreter(interpreter string) bool {
 		return false
 	}
 }
-
-func isNodeInterpreter(interpreter string) bool {
-	switch filepath.Base(interpreter) {
-	case "node":
-		return true
-	default:
-		return false
-	}
-}
-
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.
 func DetectDefaultInterpreter() (string, []string) {
@@ -156,6 +174,17 @@ func resolveInterpreterPath(interpreter string, envs []string) (string, error) {
 		return exec.LookPath(interpreter)
 	}
 
+	var isExecutable = func(path string) bool {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return false
+		}
+		if runtime.GOOS == "windows" {
+			return true
+		}
+		return info.Mode()&0111 != 0
+	}
+
 	for _, dir := range filepath.SplitList(pathEnv) {
 		if dir == "" {
 			continue
@@ -174,15 +203,4 @@ func resolveInterpreterPath(interpreter string, envs []string) (string, error) {
 	}
 
 	return "", exec.ErrNotFound
-}
-
-func isExecutable(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return false
-	}
-	if runtime.GOOS == "windows" {
-		return true
-	}
-	return info.Mode()&0111 != 0
 }
