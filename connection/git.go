@@ -10,18 +10,17 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
-	"github.com/flanksource/duty/context"
-	"github.com/samber/lo"
-
 	git "github.com/go-git/go-git/v5"
-
-	"github.com/flanksource/duty/types"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/samber/lo"
 	ssh2 "golang.org/x/crypto/ssh"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 )
 
 const (
@@ -174,6 +173,8 @@ type GitConnection struct {
 	Branch string `yaml:"branch,omitempty" json:"branch,omitempty"`
 	// Destination is the full path to where the contents of the URL should be downloaded to.
 	// If left empty, the sha256 hash of the URL will be used as the dir name.
+	//
+	// Deprecated: no similar functionality available. This depends on the use case
 	Destination *string `yaml:"destination,omitempty" json:"destination,omitempty"`
 }
 

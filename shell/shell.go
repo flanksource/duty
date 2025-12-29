@@ -2,13 +2,11 @@ package shell
 
 import (
 	"bytes"
-	gocontext "context"
 	"fmt"
 	"io"
 	"maps"
 	"os"
 	osExec "os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -72,6 +70,7 @@ type Exec struct {
 	Artifacts   []Artifact
 	EnvVars     []types.EnvVar
 	Chroot      string
+	Setup       *ExecSetup
 }
 
 // +kubebuilder:object:generate=true
@@ -104,39 +103,27 @@ func (e *ExecDetails) GetArtifacts() []artifacts.Artifact {
 	return e.Artifacts
 }
 
-func JQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.jq.timeout"))
-	defer cancel()
-	cmd := osExec.CommandContext(_ctx, "jq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
-	if err != nil {
-		return "", err
-	}
-	return result.Stdout, nil
-}
-
-func YQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.yq.timeout", "shell.jq.timeout"))
-	defer cancel()
-	cmd := osExec.CommandContext(_ctx, "yq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
-	if err != nil {
-		return "", err
-	}
-	return result.Stdout, nil
-}
-
 func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
-	cmd, err := CreateCommandFromScript(ctx, exec.Script)
+	cmdCtx, err := prepareEnvironment(ctx, exec)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	envs := getEnvVar(cmdCtx.envs)
+	runID := uuid.New().String()
+
+	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
+	envs, err = applySetupRuntimeEnv(exec, envs)
+	if err != nil {
+		return nil, ctx.Oops().Wrap(err)
+	}
+
+	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrap(err)
 	}
 
-	return RunCmd(ctx, exec, cmd)
+	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
 }
 
 func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, error) {
@@ -146,14 +133,21 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 		return nil, ctx.Oops().Wrap(err)
 	}
 
-	if mountPoint, err := getCmdDir(ctx, exec.Chroot, cmdCtx.mountPoint); err != nil {
+	envs := getEnvVar(cmdCtx.envs)
+
+	envs, err = applySetupRuntimeEnv(exec, envs)
+	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
-	} else {
-		cmdCtx.mountPoint = mountPoint
-		cmd.Dir = mountPoint
 	}
 
-	cmd.Env = getEnvVar(cmdCtx.envs)
+	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
+}
+
+func runPreparedCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd, cmdCtx *commandContext, envs []string) (*ExecDetails, error) {
+	cmd.Env = envs
+	if cmdCtx.mountPoint != "" {
+		cmd.Dir = cmdCtx.mountPoint
+	}
 
 	if setupResult, err := connection.SetupConnection(ctx, exec.Connections, cmd); err != nil {
 		return nil, ctx.Oops().Wrap(err)
@@ -268,6 +262,9 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 	result := commandContext{
 		extra: make(map[string]any),
 	}
+	if exec.Checkout == nil && exec.Chroot != "" {
+		result.mountPoint = exec.Chroot
+	}
 
 	for _, env := range exec.EnvVars {
 		val, err := ctx.GetEnvValueFromCache(env, ctx.GetNamespace())
@@ -285,11 +282,8 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 			return nil, fmt.Errorf("error hydrating connection: %w", err)
 		}
 
-		if dir := lo.FromPtr(checkout.Destination); dir != "" {
-			result.mountPoint = filepath.Join(result.mountPoint, dir)
-		} else {
-			result.mountPoint = filepath.Join(result.mountPoint, "exec-checkout", hash.Sha256Hex(checkout.URL))
-		}
+		result.mountPoint = filepath.Join("exec-checkout", hash.Sha256Hex(checkout.URL))
+
 		// We allow multiple checks to use the same checkout location, for disk space and performance reasons
 		// however git does not allow multiple operations to be performed, so we need to lock it
 		lock := checkoutLocks.TryLock(result.mountPoint, 5*time.Minute)
@@ -317,6 +311,12 @@ func getEnvVar(userSuppliedEnvs []string) []string {
 	// Set to a non-nil empty slice to prevent access to current environment variables
 	env := []string{}
 
+	// Before the env vars from the host, because if there are duplicates
+	// we use the first Env var that we see
+	if len(userSuppliedEnvs) != 0 {
+		env = append(env, userSuppliedEnvs...)
+	}
+
 	for _, e := range os.Environ() {
 		key, _, ok := strings.Cut(e, "=")
 		if _, exists := allowedEnvVars[key]; exists && ok {
@@ -324,37 +324,27 @@ func getEnvVar(userSuppliedEnvs []string) []string {
 		}
 	}
 
-	if len(userSuppliedEnvs) != 0 {
-		env = append(env, userSuppliedEnvs...)
-	}
-
 	return env
 }
 
-func getCmdDir(ctx context.Context, chroot, mountPoint string) (string, error) {
-	if chroot != "" {
-		if stat, err := os.Stat(chroot); err != nil {
-			return "", ctx.Oops().Wrap(err)
-		} else if !stat.IsDir() {
-			return "", fmt.Errorf("%s is not a directory", chroot)
-		} else {
-			return chroot, nil
-		}
-	}
-
-	cwd, err := os.Getwd()
+func writeScriptToFile(runID string, fileName string, script string) (string, error) {
+	baseDir, err := resolveSetupBaseDir()
 	if err != nil {
-		return "", ctx.Oops().Wrap(err)
+		return "", err
+	}
+	if baseDir == "" {
+		return "", fmt.Errorf("shell-bin-dir is required for script file execution")
 	}
 
-	if mountPoint != "" {
-		return mountPoint, nil
+	scriptDir := filepath.Join(baseDir, "runs", runID)
+	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+		return "", err
 	}
 
-	cmdDir := path.Join(properties.String(cwd, "shell.tmp.dir"), "shell-tmp", uuid.New().String())
-	if err := os.MkdirAll(cmdDir, 0700); err != nil {
-		return "", ctx.Oops().Wrap(err)
+	scriptPath := filepath.Join(scriptDir, fileName)
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		return "", err
 	}
 
-	return cmdDir, nil
+	return scriptPath, nil
 }
