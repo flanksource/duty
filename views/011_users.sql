@@ -53,3 +53,19 @@ FROM
 WHERE people.deleted_at IS NULL AND people.email IS NOT NULL
 GROUP BY
   people.id;
+
+CREATE OR REPLACE VIEW
+  users AS
+SELECT
+  i.id,
+  i.traits,
+  TRIM(CONCAT(i.traits::json->'name'->>'first', ' ', i.traits::json->'name'->>'last')) AS name,
+  i.traits::json->>'email' AS email,
+  i.created_at,
+  i.state,
+  p.last_login,
+  pr.roles
+FROM
+  identities i
+  LEFT JOIN people p ON i.id = p.id
+  LEFT JOIN people_roles pr ON i.id = pr.id;
