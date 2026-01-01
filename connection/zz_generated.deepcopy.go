@@ -193,6 +193,11 @@ func (in *GitConnection) DeepCopyInto(out *GitConnection) {
 		*out = new(types.EnvVar)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Depth != nil {
+		in, out := &in.Depth, &out.Depth
+		*out = new(int)
+		**out = **in
+	}
 	if in.Destination != nil {
 		in, out := &in.Destination, &out.Destination
 		*out = new(string)

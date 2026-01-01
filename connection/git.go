@@ -172,7 +172,7 @@ type GitConnection struct {
 	Type   string `yaml:"type,omitempty" json:"type,omitempty"`
 	Branch string `yaml:"branch,omitempty" json:"branch,omitempty"`
 
-	Depth int `json:"depth,omitempty"`
+	Depth *int `json:"depth,omitempty"`
 	// Destination is the full path to where the contents of the URL should be downloaded to.
 	// If left empty, the sha256 hash of the URL will be used as the dir name.
 	//
@@ -265,7 +265,7 @@ func (c *GitConnection) HydrateConnection(ctx context.Context) error {
 func CreateGitConfig(ctx context.Context, conn *GitConnection) (*GitClient, error) {
 	config := &GitClient{
 		URL:    conn.URL,
-		Depth:  lo.CoalesceOrEmpty(conn.Depth, 1),
+		Depth:  lo.Ternary(conn.Depth == nil, 1, lo.FromPtr(conn.Depth)),
 		Branch: lo.CoalesceOrEmpty(conn.Branch, "main"),
 	}
 
