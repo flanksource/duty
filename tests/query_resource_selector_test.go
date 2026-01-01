@@ -765,7 +765,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			// If this test fails, adjust relative time in query
 			// for the expected result
 			description: "component created_at now query",
-			query:       `created_at>now-2y`,
+			query:       `created_at>now-4y`,
 			expectedIDs: []uuid.UUID{dummy.FluxComponent.ID},
 			resource:    "component",
 		},
