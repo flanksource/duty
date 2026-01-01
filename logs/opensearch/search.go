@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	opensearch "github.com/opensearch-project/opensearch-go/v2"
+	"github.com/samber/lo"
 
+	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
+	"github.com/flanksource/duty/types"
 )
 
 type searcher struct {
@@ -19,27 +22,27 @@ type searcher struct {
 }
 
 func New(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingConfig) (*searcher, error) {
-	cfg := opensearch.Config{
-		Addresses: []string{backend.Address},
+	conn := connection.OpensearchConnection{
+		ConnectionName: backend.ConnectionName,
+	}
+	if backend.Address != "" {
+		conn.URLs = []string{backend.Address}
 	}
 
-	if backend.Username != nil {
-		username, err := ctx.GetEnvValueFromCache(*backend.Username, ctx.GetNamespace())
-		if err != nil {
-			return nil, ctx.Oops().Wrapf(err, "error getting the openSearch config")
+	if !lo.FromPtr(backend.Username).IsEmpty() && !lo.FromPtr(backend.Password).IsEmpty() {
+		conn.HTTPBasicAuth = types.HTTPBasicAuth{
+			Authentication: types.Authentication{
+				Username: lo.FromPtr(backend.Username),
+				Password: lo.FromPtr(backend.Password),
+			},
 		}
-		cfg.Username = username
 	}
 
-	if backend.Password != nil {
-		password, err := ctx.GetEnvValueFromCache(*backend.Password, ctx.GetNamespace())
-		if err != nil {
-			return nil, ctx.Oops().Wrapf(err, "error getting the openSearch config")
-		}
-		cfg.Password = password
+	if err := conn.Hydrate(ctx); err != nil {
+		return nil, ctx.Oops().Wrapf(err, "error hydrating opensearch connection")
 	}
 
-	client, err := opensearch.NewClient(cfg)
+	client, err := conn.Client()
 	if err != nil {
 		return nil, ctx.Oops().Wrapf(err, "error creating the openSearch client")
 	}

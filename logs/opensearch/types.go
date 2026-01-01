@@ -9,9 +9,10 @@ import (
 
 // +kubebuilder:object:generate=true
 type Backend struct {
-	Address  string        `json:"address"`
-	Username *types.EnvVar `json:"username,omitempty"`
-	Password *types.EnvVar `json:"password,omitempty"`
+	ConnectionName string        `json:"connection,omitempty"`
+	Address        string        `json:"address,omitempty"`
+	Username       *types.EnvVar `json:"username,omitempty"`
+	Password       *types.EnvVar `json:"password,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
