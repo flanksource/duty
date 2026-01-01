@@ -17,7 +17,7 @@ import (
 
 // +kubebuilder:object:generate=true
 type OpensearchConnection struct {
-	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
+	ConnectionName      string `json:"-"`
 	types.HTTPBasicAuth `json:",inline"`
 	// +kubebuilder:validation:MinItems=1
 	URLs               []string `json:"urls,omitempty" yaml:"urls,omitempty"`
@@ -26,8 +26,6 @@ type OpensearchConnection struct {
 }
 
 func (c *OpensearchConnection) FromModel(connection models.Connection) error {
-	c.ConnectionName = connection.Name
-
 	if err := c.Username.Scan(connection.Username); err != nil {
 		return fmt.Errorf("error scanning username: %w", err)
 	}
