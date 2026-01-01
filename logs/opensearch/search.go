@@ -29,7 +29,7 @@ func New(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingC
 		conn.URLs = []string{backend.Address}
 	}
 
-	if !backend.Username.IsEmpty() && !backend.Password.IsEmpty() {
+	if !lo.FromPtr(backend.Username).IsEmpty() && !lo.FromPtr(backend.Password).IsEmpty() {
 		conn.HTTPBasicAuth = types.HTTPBasicAuth{
 			Authentication: types.Authentication{
 				Username: lo.FromPtr(backend.Username),
