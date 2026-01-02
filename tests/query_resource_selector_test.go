@@ -262,6 +262,13 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs: []models.ConfigItem{dummy.EKSCluster, dummy.KubernetesCluster},
 		},
 		{
+			description: "labels | DoesNotExist Query",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{LabelSelector: "!storageprofile", Types: []string{"Kubernetes::Node"}}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA},
+		},
+		{
 			description: "search | field selector | prefix | configs",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{Search: "config_class=Virtual*"}},
