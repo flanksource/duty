@@ -612,6 +612,41 @@ func (k Context) Wrap(ctx gocontext.Context) Context {
 		WithNamespace(k.GetNamespace())
 }
 
+// WithoutDeadline returns a new Context that is decoupled from cancellation/deadlines
+// while preserving metadata and logging/tracing settings.
+func WithoutDeadline(ctx Context) Context {
+	detached := ctx.Wrap(gocontext.Background())
+
+	if objects := ctx.Objects(); len(objects) > 0 {
+		detached = detached.WithObject(objects...)
+	}
+	if user := ctx.User(); user != nil {
+		detached = detached.WithUser(user)
+	}
+	if agent := ctx.Agent(); agent != nil {
+		detached = detached.WithAgent(*agent)
+	}
+	if subject := ctx.Subject(); subject != "" {
+		detached = detached.WithSubject(subject)
+	}
+	if topology := ctx.Topology(); topology != nil {
+		detached = detached.WithTopology(topology)
+	}
+	if payload := ctx.RLSPayload(); payload != nil {
+		detached = detached.WithRLSPayload(payload)
+	}
+	if values := ctx.Value("values"); values != nil {
+		detached = detached.WithValue("values", values)
+	}
+	if ctx.IsTrace() {
+		detached = detached.WithTrace()
+	} else if ctx.IsDebug() {
+		detached = detached.WithDebug()
+	}
+
+	return detached
+}
+
 func stringSliceToMap(s []string) map[string]string {
 	m := make(map[string]string)
 	for i := 0; i < len(s)-1; i += 2 {
