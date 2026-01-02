@@ -454,11 +454,9 @@ func jsonColumnRequirementsToGormClause(column string, r labels.Requirement) []c
 			Vars: []any{collections.MapKeys(r.Values())},
 		})
 	case selection.DoesNotExist:
-		for val := range r.Values() {
-			clauses = append(clauses, clause.Expr{
-				SQL: fmt.Sprintf("%s->>'%s' IS NULL", column, val),
-			})
-		}
+		clauses = append(clauses, clause.Expr{
+			SQL: fmt.Sprintf("%s->>'%s' IS NULL", column, r.Key()),
+		})
 	case selection.Exists:
 		clauses = append(clauses, clause.Expr{
 			SQL:  fmt.Sprintf("%s ? ?", column),
