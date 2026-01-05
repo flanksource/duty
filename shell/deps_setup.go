@@ -22,12 +22,8 @@ type RuntimeSetup struct {
 }
 
 // applySetupRuntimeEnv installs the dependencies and updates the PATH env var
-func applySetupRuntimeEnv(exec Exec, envs []string) ([]string, error) {
-	if exec.Setup == nil {
-		return envs, nil
-	}
-
-	setupResult, err := installSetupRuntimes(*exec.Setup)
+func applySetupRuntimeEnv(setup ExecSetup, envs []string) ([]string, error) {
+	setupResult, err := installSetupRuntimes(setup)
 	if err != nil {
 		return nil, err
 	}

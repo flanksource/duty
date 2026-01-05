@@ -113,14 +113,32 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 	runID := uuid.New().String()
 
 	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
-	envs, err = applySetupRuntimeEnv(exec, envs)
-	if err != nil {
-		return nil, ctx.Oops().Wrap(err)
+	if exec.Setup != nil {
+		envs, err = applySetupRuntimeEnv(*exec.Setup, envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+	} else {
+		// if setup isn't specified explicity, infer it from the shebang
+		shebangInterpreter, _ := DetectInterpreterFromShebang(exec.Script)
+		var inferredSetup ExecSetup
+		if strings.Contains(shebangInterpreter, "python") {
+			inferredSetup.Python = &RuntimeSetup{Version: "latest"}
+		}
+
+		if strings.Contains(shebangInterpreter, "bun") {
+			inferredSetup.Bun = &RuntimeSetup{Version: "latest"}
+		}
+
+		envs, err = applySetupRuntimeEnv(inferredSetup, envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrapf(err, "failed to install inferred runtime")
+		}
 	}
 
 	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
 	if err != nil {
-		return nil, oops.Hint(exec.Script).Wrap(err)
+		return nil, oops.Hint(exec.Script).Wrapf(err, "failed to create command from script")
 	}
 
 	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
@@ -135,9 +153,11 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 
 	envs := getEnvVar(cmdCtx.envs)
 
-	envs, err = applySetupRuntimeEnv(exec, envs)
-	if err != nil {
-		return nil, ctx.Oops().Wrap(err)
+	if exec.Setup != nil {
+		envs, err = applySetupRuntimeEnv(*exec.Setup, envs)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
 	}
 
 	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
