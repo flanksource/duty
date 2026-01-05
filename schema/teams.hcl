@@ -94,6 +94,11 @@ table "team_members" {
     null = false
     type = uuid
   }
+  column "source" {
+    type = text
+    null = false
+    default = "UI"
+  }
   primary_key {
     columns = [column.team_id, column.person_id]
   }
