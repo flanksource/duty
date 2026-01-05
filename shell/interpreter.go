@@ -44,7 +44,7 @@ func CreateCommandFromScript(ctx context.Context, script string, envs []string, 
 
 	resolved, err := resolveInterpreterPath(interpreter, envs)
 	if err != nil {
-		return nil, ctx.Oops().Wrap(err)
+		return nil, ctx.Oops().Wrapf(err, "failed to resolve interpreter path (%s)", interpreter)
 	}
 
 	cmd := exec.CommandContext(ctx, resolved, args...)
