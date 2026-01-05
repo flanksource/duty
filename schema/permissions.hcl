@@ -35,8 +35,8 @@ table "permissions" {
   }
 
   column "subject" {
-    # This should be non-nullable. 
-    # But since we're only adding this column now, we will use the migration to populate the value for existing records 
+    # This should be non-nullable.
+    # But since we're only adding this column now, we will use the migration to populate the value for existing records
     # and then make it non nullable.
     null = true
     type = text
