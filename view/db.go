@@ -10,9 +10,10 @@ import (
 	"ariga.io/atlas/sql/sqlclient"
 	"github.com/Masterminds/squirrel"
 	"github.com/flanksource/commons/logger"
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
@@ -387,74 +388,119 @@ func convertViewRecordsToNativeTypes(viewRows []Row, columnDef ViewColumnDefList
 }
 
 func InsertViewRows(ctx context.Context, table string, columns ViewColumnDefList, rows []Row, requestFingerprint string) error {
+	// NOTE: Views refresh frequently; we stage into a temp table and conditionally upsert to avoid
+	// unnecessary row churn at the cost of extra complexity.
 	if len(rows) == 0 {
 		// Delete existing rows for this fingerprint when no new rows are provided
 		return ctx.DB().Exec(fmt.Sprintf("DELETE FROM %s WHERE request_fingerprint = ?", pq.QuoteIdentifier(table)), requestFingerprint).Error
 	}
 
-	// Add request_fingerprint to columns
-	quotedColumns := columns.QuotedColumns()
-	quotedColumns = append(quotedColumns, pq.QuoteIdentifier("request_fingerprint"))
+	return ctx.DB().Transaction(func(tx *gorm.DB) error {
+		tempID := uuid.New()
+		tempTable := fmt.Sprintf("tmp_view_rows_%s", strings.ReplaceAll(tempID.String(), "-", ""))
 
-	psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
-	insertBuilder := psql.Insert(table).Columns(quotedColumns...)
-	for _, row := range rows {
-		// Add request_fingerprint value to each row
-		rowWithFingerprint := append(row, requestFingerprint)
-		insertBuilder = insertBuilder.Values(rowWithFingerprint...)
-	}
-
-	pkColumns := columns.PrimaryKey()
-	quotedPrimaryKeys := lo.Map(pkColumns, func(col string, _ int) string {
-		return pq.QuoteIdentifier(col)
-	})
-
-	conflictCols := strings.Join(quotedPrimaryKeys, ", ")
-	var updateClauses []string
-	for _, col := range columns {
-		if !col.PrimaryKey {
-			quotedCol := pq.QuoteIdentifier(col.Name)
-			updateClauses = append(updateClauses, fmt.Sprintf("%s = EXCLUDED.%s", quotedCol, quotedCol))
-		}
-	}
-
-	upsertBuilder := insertBuilder.Suffix(
-		fmt.Sprintf("ON CONFLICT (%s) DO UPDATE SET %s RETURNING %s",
-			conflictCols,
-			strings.Join(updateClauses, ", "),
-			strings.Join(pkColumns, ", "),
-		),
-	)
-
-	upsertSQL, args, err := upsertBuilder.ToSql()
-	if err != nil {
-		return fmt.Errorf("failed to build upsert query: %w", err)
-	}
-
-	var pkEq []string
-	for _, pk := range pkColumns {
-		q := pq.QuoteIdentifier(pk)
-		pkEq = append(pkEq, fmt.Sprintf("t.%s = upsert.%s", q, q))
-	}
-
-	finalSQL := fmt.Sprintf(`
-		WITH upsert AS (
-			%s
+		createTempSQL := fmt.Sprintf(
+			"CREATE TEMP TABLE %s (LIKE %s INCLUDING DEFAULTS) ON COMMIT DROP",
+			pq.QuoteIdentifier(tempTable),
+			pq.QuoteIdentifier(table),
 		)
-		DELETE FROM %s AS t
-		WHERE request_fingerprint = $%d
-		AND NOT EXISTS (
-			SELECT 1 FROM upsert
-			WHERE %s
-		)`,
-		upsertSQL,
-		pq.QuoteIdentifier(table),
-		len(args)+1,
-		strings.Join(pkEq, " AND "),
-	)
+		if err := tx.Exec(createTempSQL).Error; err != nil {
+			return fmt.Errorf("failed to create temp table: %w", err)
+		}
 
-	// Add requestFingerprint to the args
-	args = append(args, requestFingerprint)
+		quotedColumns := columns.QuotedColumns()
+		quotedColumns = append(quotedColumns, pq.QuoteIdentifier("request_fingerprint"))
 
-	return ctx.DB().Exec(finalSQL, args...).Error
+		paramsPerRow := len(quotedColumns)
+		const maxParams = 65535
+		batchSize := maxParams / paramsPerRow
+		if batchSize < 1 {
+			return fmt.Errorf("too many columns (%d) to fit within parameter limit", paramsPerRow)
+		}
+		if len(rows) > batchSize {
+			ctx.Logger.Warnf("InsertViewRows: batching %d rows (batch size %d) to stay under 65,535 parameter limit", len(rows), batchSize)
+		}
+
+		psql := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+		for start := 0; start < len(rows); start += batchSize {
+			end := min(start+batchSize, len(rows))
+
+			insertBuilder := psql.Insert(tempTable).Columns(quotedColumns...)
+			for _, row := range rows[start:end] {
+				rowWithFingerprint := append(row, requestFingerprint)
+				insertBuilder = insertBuilder.Values(rowWithFingerprint...)
+			}
+
+			insertSQL, args, err := insertBuilder.ToSql()
+			if err != nil {
+				return fmt.Errorf("failed to build temp insert query: %w", err)
+			}
+			if err := tx.Exec(insertSQL, args...).Error; err != nil {
+				return fmt.Errorf("failed to insert rows into temp table: %w", err)
+			}
+		}
+
+		pkColumns := columns.PrimaryKey()
+		quotedPrimaryKeys := lo.Map(pkColumns, func(col string, _ int) string {
+			return pq.QuoteIdentifier(col)
+		})
+
+		conflictCols := strings.Join(quotedPrimaryKeys, ", ")
+		var updateClauses []string
+		var distinctClauses []string
+		for _, col := range columns {
+			if !col.PrimaryKey {
+				quotedCol := pq.QuoteIdentifier(col.Name)
+				updateClauses = append(updateClauses, fmt.Sprintf("%s = EXCLUDED.%s", quotedCol, quotedCol))
+				distinctClauses = append(distinctClauses, fmt.Sprintf("%s.%s IS DISTINCT FROM EXCLUDED.%s", pq.QuoteIdentifier(table), quotedCol, quotedCol))
+			}
+		}
+
+		onConflict := fmt.Sprintf("ON CONFLICT (%s) DO NOTHING", conflictCols)
+		if len(updateClauses) > 0 {
+			onConflict = fmt.Sprintf(
+				"ON CONFLICT (%s) DO UPDATE SET %s WHERE %s",
+				conflictCols,
+				strings.Join(updateClauses, ", "),
+				strings.Join(distinctClauses, " OR "),
+			)
+		}
+
+		// Move staged rows into the main table using INSERT ... SELECT from the temp table.
+		upsertSQL := fmt.Sprintf(
+			"INSERT INTO %s (%s) SELECT %s FROM %s %s",
+			pq.QuoteIdentifier(table),
+			strings.Join(quotedColumns, ", "),
+			strings.Join(quotedColumns, ", "),
+			pq.QuoteIdentifier(tempTable),
+			onConflict,
+		)
+		if err := tx.Exec(upsertSQL).Error; err != nil {
+			return fmt.Errorf("failed to upsert view rows: %w", err)
+		}
+
+		var pkEq []string
+		for _, pk := range pkColumns {
+			q := pq.QuoteIdentifier(pk)
+			pkEq = append(pkEq, fmt.Sprintf("t.%s = tmp.%s", q, q))
+		}
+
+		deleteSQL := fmt.Sprintf(`
+			DELETE FROM %s AS t
+			WHERE request_fingerprint = $1
+			AND NOT EXISTS (
+				SELECT 1 FROM %s AS tmp
+				WHERE %s
+			)`,
+			pq.QuoteIdentifier(table),
+			pq.QuoteIdentifier(tempTable),
+			strings.Join(pkEq, " AND "),
+		)
+
+		if err := tx.Exec(deleteSQL, requestFingerprint).Error; err != nil {
+			return fmt.Errorf("failed to delete stale view rows: %w", err)
+		}
+
+		return nil
+	})
 }
