@@ -1,12 +1,15 @@
 package tests
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/dataquery"
+	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 	"github.com/flanksource/duty/view"
@@ -65,6 +68,31 @@ var _ = Describe("View Query Tests", func() {
 				results, err := view.ExecuteQuery(ctx, query)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(results).To(HaveLen(3))
+			})
+		})
+
+		Context("with related configs query", func() {
+			It("should execute related configs query successfully", func() {
+				viewQuery := view.Query{
+					RelatedConfigs: &view.RelatedConfigsQuery{
+						ID:       dummy.KubernetesCluster.ID.String(),
+						Relation: query.Outgoing,
+					},
+				}
+
+				results, err := view.ExecuteQuery(ctx, viewQuery)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(results).ToNot(BeEmpty())
+
+				ids := lo.Map(results, func(result dataquery.QueryResultRow, _ int) string {
+					return fmt.Sprintf("%v", result["id"])
+				})
+				Expect(ids).ToNot(ContainElement(dummy.KubernetesCluster.ID.String()))
+
+				names := lo.Map(results, func(result dataquery.QueryResultRow, _ int) string {
+					return fmt.Sprintf("%v", result["name"])
+				})
+				Expect(names).To(ContainElements("node-a", "node-b", *dummy.KubernetesNodeAKSPool1.Name))
 			})
 		})
 
