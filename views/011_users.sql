@@ -50,6 +50,9 @@ SELECT
 FROM
   people
   INNER JOIN casbin_rule cr ON cr.v0 = people.id::VARCHAR
-WHERE people.deleted_at IS NULL AND people.email IS NOT NULL
+  LEFT JOIN teams t ON t.id::text = cr.v1 OR t.name = cr.v1
+WHERE people.deleted_at IS NULL
+  AND people.email IS NOT NULL
+  AND t.id IS NULL -- don't return teams
 GROUP BY
   people.id;
