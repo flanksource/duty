@@ -114,7 +114,7 @@ func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFun
 	debug.GET("/properties", func(c echo.Context) error {
 		props := ctx.Properties().SupportedProperties()
 		data, _ := json.MarshalIndent(props, "", "  ")
-		return c.Blob(200, "application/json", data)
+		return c.Blob(200, echo.MIMEApplicationJSON, data)
 	})
 
 	debug.GET("/system/properties", func(c echo.Context) error {
@@ -122,14 +122,13 @@ func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFun
 	})
 
 	debug.POST("/property", func(c echo.Context) error {
-		id := c.Request().FormValue("name")
+		name := c.Request().FormValue("name")
 		value := c.Request().FormValue("value")
-		if id != "" && value != "" {
-			properties.Set(id, value)
-			return c.NoContent(http.StatusOK)
-		} else {
-			return c.JSON(http.StatusBadRequest, fmt.Errorf("property id / value is missing"))
+		if name == "" || value == "" {
+			return c.String(http.StatusBadRequest, "property name or value is missing")
 		}
+		properties.Set(name, value)
+		return c.NoContent(http.StatusOK)
 	})
 
 	debug.POST("/cron/run", func(c echo.Context) error {

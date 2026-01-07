@@ -75,7 +75,7 @@ func (p Properties) On(def bool, keys ...string) bool {
 			Default: def,
 		}
 		if v == nil {
-			k, ok := p[key]
+			k, ok := p.getProperty(key)
 			if ok {
 				v = lo.ToPtr(k == "true" || k == "enabled" || k == "on")
 				prop.Value = v
@@ -90,7 +90,7 @@ func (p Properties) On(def bool, keys ...string) bool {
 }
 
 func (p Properties) Duration(key string, def time.Duration) time.Duration {
-	if d, ok := p[key]; !ok {
+	if d, ok := p.getProperty(key); !ok {
 		newProp(PropertyType{
 			Type:    "duration",
 			Key:     key,
@@ -124,7 +124,7 @@ func (p Properties) Int(key string, def int) int {
 		Default: def,
 	}
 
-	if v, ok := p[key]; ok {
+	if v, ok := p.getProperty(key); ok {
 		prop.Value = v
 		if i, err := strconv.Atoi(v); err != nil {
 			logger.Warnf("property[%s] invalid int %s", key, v)
@@ -145,7 +145,7 @@ func (p Properties) String(key string, def string) string {
 		Key:     key,
 		Default: def,
 	}
-	if d, ok := p[key]; ok {
+	if d, ok := p.getProperty(key); ok {
 		prop.Value = d
 		newProp(prop)
 		return d
@@ -161,7 +161,7 @@ func (p Properties) Off(key string, def bool) bool {
 		Key:     key,
 		Default: def,
 	}
-	k, ok := p[key]
+	k, ok := p.getProperty(key)
 	if !ok {
 		newProp(prop)
 		return def
@@ -170,6 +170,18 @@ func (p Properties) Off(key string, def bool) bool {
 	prop.Value = v
 	newProp(prop)
 	return v
+}
+
+func (p Properties) getProperty(key string) (string, bool) {
+	// Global property takes precdence
+	v := properties.Get(key)
+	if v != "" {
+		return v, true
+	}
+
+	// Look in context properties
+	v, ok := p[key]
+	return v, ok
 }
 
 // Properties returns a cached map of properties
