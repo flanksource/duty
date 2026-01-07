@@ -173,7 +173,7 @@ func (p Properties) Off(key string, def bool) bool {
 }
 
 func (p Properties) getProperty(key string) (string, bool) {
-	// Global property takes precendce
+	// Global property takes precdence
 	v := properties.Get(key)
 	if v != "" {
 		return v, true
