@@ -160,9 +160,10 @@ table "teams" {
   primary_key {
     columns = [column.id]
   }
-  index "team_name_deleted_at_key" {
+ index "team_name_key" {
     unique  = true
-    columns = [column.name, column.deleted_at]
+    columns = [column.name]
+    where   = "deleted_at IS NULL"
   }
   foreign_key "teams_created_by_fkey" {
     columns     = [column.created_by]
