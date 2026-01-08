@@ -187,6 +187,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
+					Icon:      items[i].Icon,
 				})
 			}
 		}
