@@ -157,7 +157,8 @@ DROP VIEW IF EXISTS notification_send_history_resources;
 CREATE OR REPLACE VIEW notification_send_history_resources AS
 SELECT 
   config_items.id,
-  'config' AS "resource_type",
+  'config' AS "resource_kind",
+  config_items.type AS "resource_type",
   jsonb_build_object(
     'id', config_items.id,
     'name', config_items.name,
@@ -172,7 +173,8 @@ ON config_items.id = notification_send_history.resource_id AND notification_send
 UNION
 SELECT
   components.id,
-  'component' AS "resource_type",
+  'component' AS "resource_kind",
+  components.type AS "resource_type",
   jsonb_build_object(
     'id', components.id,
     'name', components.name,
@@ -187,7 +189,8 @@ ON components.id = notification_send_history.resource_id AND notification_send_h
 UNION
 SELECT
   checks.id,
-  'check' AS "resource_type",
+  'check' AS "resource_kind",
+  checks.type AS "resource_type",
   jsonb_build_object(
     'id', checks.id,
     'name', checks.name,
@@ -202,7 +205,8 @@ ON checks.id = notification_send_history.resource_id AND notification_send_histo
 UNION
 SELECT
   canaries.id,
-  'canary' AS "resource_type",
+  'canary' AS "resource_kind",
+  NULL::text AS "resource_type",
   jsonb_build_object(
     'id', canaries.id,
     'name', canaries.name,
@@ -217,6 +221,7 @@ SELECT
   notification_send_history.*,
   config_items.tags AS "resource_tags",
   "nsh_resources"."resource",
+  "nsh_resources"."resource_kind",
   "nsh_resources"."resource_type",
   CASE
     WHEN notification_send_history.playbook_run_id IS NOT NULL THEN (
@@ -234,7 +239,7 @@ SELECT
   END::jsonb AS playbook_run
 FROM notification_send_history
 LEFT JOIN notification_send_history_resources AS "nsh_resources" ON notification_send_history.resource_id = nsh_resources.id
-LEFT JOIN config_items ON nsh_resources.resource_type = 'config' AND config_items.id = notification_send_history.resource_id;
+LEFT JOIN config_items ON nsh_resources.resource_kind = 'config' AND config_items.id = notification_send_history.resource_id;
 
 --- notification_send_history_resource_tags
 DROP VIEW IF EXISTS notification_send_history_resource_tags;
