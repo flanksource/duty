@@ -16,15 +16,23 @@ import (
 
 const notificationSummaryPageSizeDefault = 50
 
+type NotificationResourceKind string
+
+const (
+	NotificationResourceKindConfig = "config"
+	NotificationResourceKindCheck  = "checks"
+)
+
 type NotificationSendHistorySummaryRequest struct {
-	GroupBy                 []string              `json:"groupBy"`
-	Status                  types.MatchExpression `json:"status"` // matchItem
-	ResourceType            string                `json:"resourceType"`
-	Tags                    string                `json:"tags"`
-	Search                  string                `json:"search"`
-	From                    string                `json:"from"`
-	To                      string                `json:"to"`
-	IncludeDeletedResources bool                  `json:"includeDeletedResources"`
+	GroupBy                 []string                 `json:"groupBy"`
+	Status                  types.MatchExpression    `json:"status"` // matchItem
+	ResourceType            string                   `json:"resourceType"`
+	ResourceKind            NotificationResourceKind `json:"resourceKind"`
+	Tags                    string                   `json:"tags"`
+	Search                  string                   `json:"search"`
+	From                    string                   `json:"from"`
+	To                      string                   `json:"to"`
+	IncludeDeletedResources bool                     `json:"includeDeletedResources"`
 
 	PageIndex int `json:"pageIndex"`
 	PageSize  int `json:"pageSize"`
@@ -69,6 +77,7 @@ func (r *NotificationSendHistorySummaryRequest) baseSelectColumns() []string {
 	return []string{
 		"resource",
 		"resource_type",
+		"resource_kind",
 		"resource_tags",
 		"resource_health",
 		"resource_status",
@@ -86,6 +95,7 @@ func (r *NotificationSendHistorySummaryRequest) summarySelectColumns() []string 
 	return []string{
 		"resource",
 		"MAX(CASE WHEN rn = 1 THEN resource_type END) AS resource_type",
+		"MAX(CASE WHEN rn = 1 THEN resource_kind END) AS resource_kind",
 		"MAX(CASE WHEN rn = 1 THEN resource_tags::text END)::jsonb AS resource_tags",
 		"MAX(CASE WHEN rn = 1 THEN resource_health END) AS resource_health",
 		"MAX(CASE WHEN rn = 1 THEN resource_status END) AS resource_status",
@@ -117,6 +127,11 @@ func (r *NotificationSendHistorySummaryRequest) baseWhereClause() []clause.Expre
 
 	if r.ResourceType != "" {
 		clause, _ := parseAndBuildFilteringQuery(string(r.ResourceType), "resource_type", false)
+		clauses = append(clauses, clause...)
+	}
+
+	if r.ResourceKind != "" {
+		clause, _ := parseAndBuildFilteringQuery(string(r.ResourceKind), "resource_kind", false)
 		clauses = append(clauses, clause...)
 	}
 
@@ -161,7 +176,7 @@ func (r *NotificationSendHistorySummaryRequest) getGroupByColumns() []string {
 	var output []string
 	for _, g := range r.GroupBy {
 		switch g {
-		case "resource", "resource_id", "resource_type", "resource_tags", "status", "source_event":
+		case "resource", "resource_id", "resource_type", "resource_kind", "resource_tags", "status", "source_event":
 			output = append(output, g)
 		default:
 			logger.Debugf("unknown groupBy: %s", g)
