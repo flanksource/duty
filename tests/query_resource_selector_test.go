@@ -1022,7 +1022,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "related configs | outgoing direction",
-			query:       fmt.Sprintf(`direction=outgoing related=%s`, dummy.KubernetesCluster.ID.String()),
+			query:       fmt.Sprintf(`related="%s,direction=outgoing"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
@@ -1033,7 +1033,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "related configs | incoming direction",
-			query:       fmt.Sprintf(`direction=incoming related=%s`, dummy.KubernetesNodeA.ID.String()),
+			query:       fmt.Sprintf(`related="%s,direction=incoming"`, dummy.KubernetesNodeA.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
@@ -1051,7 +1051,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "related configs | with depth limit",
-			query:       fmt.Sprintf(`direction=outgoing depth=1 related=%s`, dummy.KubernetesCluster.ID.String()),
+			query:       fmt.Sprintf(`related="%s,direction=outgoing,depth=1"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
@@ -1062,7 +1062,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "related configs | config_summary",
-			query:       fmt.Sprintf(`direction=outgoing related=%s`, dummy.KubernetesCluster.ID.String()),
+			query:       fmt.Sprintf(`related="%s,direction=outgoing"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
@@ -1080,7 +1080,7 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		},
 		{
 			description: "related configs | invalid direction",
-			query:       `direction=invalid`,
+			query:       fmt.Sprintf(`related="%s,direction=invalid"`, dummy.KubernetesCluster.ID.String()),
 			resource:    "config",
 			err:         true,
 			errMsg:      "invalid direction",
