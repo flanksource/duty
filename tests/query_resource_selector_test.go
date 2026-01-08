@@ -1020,6 +1020,71 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
 			resource:    "config_summary",
 		},
+		{
+			description: "related configs | outgoing direction",
+			query:       fmt.Sprintf(`direction=outgoing related=%s`, dummy.KubernetesCluster.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesCluster.ID,
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "related configs | incoming direction",
+			query:       fmt.Sprintf(`direction=incoming related=%s`, dummy.KubernetesNodeA.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesCluster.ID,
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "related configs | all direction (default)",
+			query:       fmt.Sprintf(`related=%s`, dummy.KubernetesNodeA.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesCluster.ID,
+				dummy.KubernetesNodeA.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "related configs | with depth limit",
+			query:       fmt.Sprintf(`direction=outgoing depth=1 related=%s`, dummy.KubernetesCluster.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesCluster.ID,
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "related configs | config_summary",
+			query:       fmt.Sprintf(`direction=outgoing related=%s`, dummy.KubernetesCluster.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesCluster.ID,
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config_summary",
+		},
+		{
+			description: "related configs | invalid config id",
+			query:       `related=invalid-uuid`,
+			resource:    "config",
+			err:         true,
+			errMsg:      "invalid config ID",
+		},
+		{
+			description: "related configs | invalid direction",
+			query:       `direction=invalid`,
+			resource:    "config",
+			err:         true,
+			errMsg:      "invalid direction",
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){

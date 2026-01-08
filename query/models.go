@@ -57,6 +57,78 @@ var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op gr
 	return tx
 }
 
+// relatedDirectionMapper stores the direction value for the related field.
+// Use with: direction=incoming|outgoing|all
+var relatedDirectionMapper = func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+	switch strings.ToLower(val) {
+	case "incoming", "outgoing", "all":
+		return tx.Set("related_direction", strings.ToLower(val)), nil
+	default:
+		return nil, fmt.Errorf("invalid direction: %s (must be incoming, outgoing, or all)", val)
+	}
+}
+
+// relatedDepthMapper stores the depth value for the related field.
+// Use with: depth=<integer>
+var relatedDepthMapper = func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+	depth, err := strconv.Atoi(val)
+	if err != nil {
+		return nil, fmt.Errorf("invalid depth: %w", err)
+	}
+	return tx.Set("related_depth", depth), nil
+}
+
+// relatedConfigsMapper handles the `related` field in PEG queries.
+// Syntax: related=<config_id> direction=<direction> depth=<depth>
+// - config_id: Required UUID of the config to find related configs for
+// - direction: Optional, set via separate field (default: "all")
+// - depth: Optional, set via separate field (default: 5)
+var relatedConfigsMapper = func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
+	configID, err := uuid.Parse(val)
+	if err != nil {
+		return nil, fmt.Errorf("invalid config ID: %w", err)
+	}
+
+	query := RelationQuery{
+		ID:       configID,
+		Relation: All,
+		Incoming: Both,
+		Outgoing: Both,
+	}
+
+	// Get direction from tx if set
+	if dir, ok := tx.Get("related_direction"); ok {
+		switch dir.(string) {
+		case "incoming":
+			query.Relation = Incoming
+		case "outgoing":
+			query.Relation = Outgoing
+		case "all":
+			query.Relation = All
+		}
+	}
+
+	// Get depth from tx if set
+	if depth, ok := tx.Get("related_depth"); ok {
+		d := depth.(int)
+		query.MaxDepth = &d
+	}
+
+	relatedConfigs, err := GetRelatedConfigs(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get related configs: %w", err)
+	}
+
+	if len(relatedConfigs) == 0 {
+		tx = tx.Where("1 = 0")
+		return tx, nil
+	}
+
+	relatedIDs := lo.Map(relatedConfigs, func(rc RelatedConfig, _ int) uuid.UUID { return rc.ID })
+	tx = tx.Where("id IN ?", relatedIDs)
+	return tx, nil
+}
+
 var CommonFields = map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 	"limit": func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 		if i, err := strconv.Atoi(val); err == nil {
@@ -119,6 +191,11 @@ var ConfigItemQueryModel = QueryModel{
 		"cost_total_1d", "cost_total_7d", "cost_total_30d", "cost_per_minute",
 		"created_at", "updated_at", "deleted_at",
 	},
+	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+		"related":   relatedConfigsMapper,
+		"direction": relatedDirectionMapper,
+		"depth":     relatedDepthMapper,
+	},
 	JSONMapColumns: []string{"labels", "tags", "config"},
 	HasProperties:  true,
 	HasTags:        true,
@@ -147,6 +224,11 @@ var ConfigItemSummaryQueryModel = QueryModel{
 		"source", "created_by", "created_at", "updated_at", "deleted_at", "cost_per_minute",
 		"cost_total_1d", "cost_total_7d", "cost_total_30d", "agent_id", "status", "health",
 		"ready", "path", "changes", "analysis",
+	},
+	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
+		"related":   relatedConfigsMapper,
+		"direction": relatedDirectionMapper,
+		"depth":     relatedDepthMapper,
 	},
 	JSONMapColumns: []string{"labels", "tags"},
 	HasTags:        true,
@@ -338,7 +420,7 @@ func GetModelFromTable(table string) (QueryModel, error) {
 
 // QueryModel.Apply will ignore these fields when converting to clauses
 // as we modify the tx directly for them
-var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags", "properties", "component_config_traverse"}
+var ignoreFieldsForClauses = []string{"sort", "offset", "limit", "labels", "config", "tags", "properties", "component_config_traverse", "related", "direction", "depth"}
 
 func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.DB) (*gorm.DB, []clause.Expression, error) {
 	if tx == nil {
