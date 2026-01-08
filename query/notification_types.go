@@ -19,8 +19,10 @@ const notificationSummaryPageSizeDefault = 50
 type NotificationResourceKind string
 
 const (
-	NotificationResourceKindConfig = "config"
-	NotificationResourceKindCheck  = "checks"
+	NotificationResourceKindConfig    = "config"
+	NotificationResourceKindCheck     = "check"
+	NotificationResourceKindComponent = "component"
+	NotificationResourceKindCanary    = "canary"
 )
 
 type NotificationSendHistorySummaryRequest struct {

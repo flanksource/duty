@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"time"
 
+	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type NotificationSummaryGroupByResource struct {
@@ -82,7 +83,7 @@ var _ = ginkgo.Describe("Notification Summary", ginkgo.Ordered, ginkgo.Serial, f
 	ginkgo.It("should return the correct notification summary", func() {
 		request := query.NotificationSendHistorySummaryRequest{
 			Search:       *dummy.LogisticsAPIPodConfig.Name,
-			ResourceType: "config",
+			ResourceKind: query.NotificationResourceKindConfig,
 			From:         "now-18m",
 		}
 		notificationSummary, err := query.NotificationSendHistorySummary(DefaultContext, request)
