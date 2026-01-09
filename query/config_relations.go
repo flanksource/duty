@@ -3,12 +3,13 @@ package query
 import (
 	"time"
 
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 type RelatedConfig struct {
@@ -32,6 +33,46 @@ type RelatedConfig struct {
 	Ready         bool                `json:"ready"`
 	Health        *models.Health      `json:"health"`
 	Path          string              `json:"path"`
+}
+
+func (rc RelatedConfig) TemplateEnv() map[string]any {
+	var deletedAt any
+	if rc.DeletedAt != nil {
+		deletedAt = rc.DeletedAt.Format(time.RFC3339Nano)
+	}
+
+	var status any
+	if rc.Status != nil {
+		status = *rc.Status
+	}
+
+	var health any
+	if rc.Health != nil {
+		health = *rc.Health
+	}
+
+	return map[string]any{
+		"relation":        rc.Relation,
+		"related_ids":     []string(rc.RelatedIDs),
+		"id":              rc.ID.String(),
+		"name":            rc.Name,
+		"type":            rc.Type,
+		"tags":            rc.Tags,
+		"changes":         rc.Changes,
+		"analysis":        rc.Analysis,
+		"cost_per_minute": rc.CostPerMinute,
+		"cost_total_1d":   rc.CostTotal1d,
+		"cost_total_7d":   rc.CostTotal7d,
+		"cost_total_30d":  rc.CostTotal30d,
+		"created_at":      rc.CreatedAt.Format(time.RFC3339Nano),
+		"updated_at":      rc.UpdatedAt.Format(time.RFC3339Nano),
+		"deleted_at":      deletedAt,
+		"agent_id":        rc.AgentID.String(),
+		"status":          status,
+		"ready":           rc.Ready,
+		"health":          health,
+		"path":            rc.Path,
+	}
 }
 
 type RelationQuery struct {
