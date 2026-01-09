@@ -1,7 +1,9 @@
 table "external_users" {
   schema = schema.public
   column "id" {
+    null    = false
     type = uuid
+    default = sql("generate_ulid()")
   }
   column "account_id" {
     comment = "Azure tenant ID, AWS account ID, GCP project ID"
@@ -54,7 +56,9 @@ table "external_users" {
 table "external_groups" {
   schema = schema.public
   column "id" {
+    null    = false
     type = uuid
+    default = sql("generate_ulid()")
   }
   column "account_id" {
     comment = "Azure tenant ID, AWS account ID, GCP project ID"
@@ -137,7 +141,10 @@ table "external_user_groups" {
 table "external_roles" {
   schema = schema.public
   column "id" {
+    null    = false
     type = uuid
+    default = sql("generate_ulid()")
+
   }
   column "scraper_id" {
     type = uuid
