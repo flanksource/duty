@@ -84,6 +84,8 @@ func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfi
 		query.Outgoing = Both
 	}
 
+	// FIXME: Self config is returned here for creating graph in UI. We need to update UI to
+	//        add the node itself. Issue: github.com/flanksource/duty/issues/1722
 	err := ctx.DB().Raw("SELECT * FROM related_configs_recursive(?, ?, ?, ?, ?, ?)",
 		query.ID,
 		query.Relation,
@@ -91,6 +93,8 @@ func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfi
 		*query.MaxDepth,
 		query.Incoming,
 		query.Outgoing).Find(&relatedConfigs).Error
+
+	relatedConfigs = lo.Filter(relatedConfigs, func(c RelatedConfig, _ int) bool { return c.ID != query.ID })
 
 	return relatedConfigs, err
 }
