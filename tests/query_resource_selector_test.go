@@ -1020,11 +1020,12 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
 			resource:    "config_summary",
 		},
+		// type defaults to "both" when not specified, so this returns
+		// both hard and soft relationships
 		{
 			description: "related configs | outgoing direction",
 			query:       fmt.Sprintf(`related="%s,direction=outgoing"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
-				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
 				dummy.KubernetesNodeB.ID,
 				dummy.KubernetesNodeAKSPool1.ID,
@@ -1036,7 +1037,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			query:       fmt.Sprintf(`related="%s,direction=incoming"`, dummy.KubernetesNodeA.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
-				dummy.KubernetesNodeA.ID,
 			},
 			resource: "config",
 		},
@@ -1045,7 +1045,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			query:       fmt.Sprintf(`related=%s`, dummy.KubernetesNodeA.ID.String()),
 			expectedIDs: []uuid.UUID{
 				dummy.KubernetesCluster.ID,
-				dummy.KubernetesNodeA.ID,
 			},
 			resource: "config",
 		},
@@ -1053,7 +1052,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			description: "related configs | with depth limit",
 			query:       fmt.Sprintf(`related="%s,direction=outgoing,depth=1"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
-				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
 				dummy.KubernetesNodeB.ID,
 				dummy.KubernetesNodeAKSPool1.ID,
@@ -1064,7 +1062,6 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			description: "related configs | config_summary",
 			query:       fmt.Sprintf(`related="%s,direction=outgoing"`, dummy.KubernetesCluster.ID.String()),
 			expectedIDs: []uuid.UUID{
-				dummy.KubernetesCluster.ID,
 				dummy.KubernetesNodeA.ID,
 				dummy.KubernetesNodeB.ID,
 				dummy.KubernetesNodeAKSPool1.ID,
@@ -1084,6 +1081,29 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 			err:         true,
 			errMsg:      "invalid direction",
+		},
+		{
+			description: "related configs | type=hard",
+			query:       fmt.Sprintf(`related="%s,direction=outgoing,type=hard"`, dummy.KubernetesCluster.ID.String()),
+			expectedIDs: []uuid.UUID{},
+			resource:    "config",
+		},
+		{
+			description: "related configs | type=soft",
+			query:       fmt.Sprintf(`related="%s,direction=outgoing,type=soft"`, dummy.KubernetesCluster.ID.String()),
+			expectedIDs: []uuid.UUID{
+				dummy.KubernetesNodeA.ID,
+				dummy.KubernetesNodeB.ID,
+				dummy.KubernetesNodeAKSPool1.ID,
+			},
+			resource: "config",
+		},
+		{
+			description: "related configs | invalid type",
+			query:       fmt.Sprintf(`related="%s,type=invalid"`, dummy.KubernetesCluster.ID.String()),
+			resource:    "config",
+			err:         true,
+			errMsg:      "invalid type",
 		},
 	}
 

@@ -204,9 +204,9 @@ var _ = ginkgo.Describe("Config relationship recursive", ginkgo.Ordered, func() 
 				relatedConfigs, err := query.GetRelatedConfigs(DefaultContext, query.RelationQuery{ID: F.ID})
 				Expect(err).To(BeNil())
 
-				Expect(relatedConfigs).To(HaveLen(6))
+				Expect(relatedConfigs).To(HaveLen(5))
 				relatedIDs := lo.Map(relatedConfigs, func(rc query.RelatedConfig, _ int) uuid.UUID { return rc.ID })
-				Expect(relatedIDs).To(ConsistOf([]uuid.UUID{C.ID, A.ID, H.ID, D.ID, B.ID, F.ID}))
+				Expect(relatedIDs).To(ConsistOf([]uuid.UUID{C.ID, A.ID, H.ID, D.ID, B.ID}))
 			})
 
 			ginkgo.It("should return parents of a non-leaf node in a cyclic path", func() {
@@ -354,12 +354,11 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 		Expect(err).To(BeNil())
 
 		relatedIDs := lo.Map(relatedConfigs, func(rc query.RelatedConfig, _ int) uuid.UUID { return rc.ID })
-		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, replicaset.ID, deployment.ID, podA.ID, podB.ID}))
+		Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, replicaset.ID, podA.ID, podB.ID}))
 
 		outgoingRelatedIDsMap := map[string][]string{
 			cluster.ID.String():      {namespacedev.ID.String()},
 			namespacedev.ID.String(): {deployment.ID.String()},
-			deployment.ID.String():   {replicaset.ID.String()},
 			replicaset.ID.String():   {podA.ID.String(), podB.ID.String()},
 		}
 		for i := range relatedConfigs {
@@ -378,15 +377,14 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 			})
 
 			Expect(err).To(BeNil())
-			Expect(relatedConfigs).To(HaveLen(3))
+			Expect(relatedConfigs).To(HaveLen(2))
 
 			relatedIDs := lo.Map(relatedConfigs, func(rc query.RelatedConfig, _ int) uuid.UUID { return rc.ID })
-			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, deployment.ID}))
+			Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID}))
 
 			outgoingRelatedIDsMap := map[string][]string{
 				cluster.ID.String():      {namespacedev.ID.String()},
 				namespacedev.ID.String(): {deployment.ID.String()},
-				deployment.ID.String():   nil,
 			}
 			for i := range relatedConfigs {
 				Expect(outgoingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)),
@@ -404,10 +402,10 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 				})
 
 				Expect(err).To(BeNil())
-				Expect(relatedConfigs).To(HaveLen(5))
+				Expect(relatedConfigs).To(HaveLen(4))
 
 				relatedIDs := lo.Map(relatedConfigs, func(rc query.RelatedConfig, _ int) uuid.UUID { return rc.ID })
-				Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, deployment.ID, kustomization.ID, *kustomization.ParentID}))
+				Expect(relatedIDs).To(ConsistOf([]uuid.UUID{namespacedev.ID, cluster.ID, kustomization.ID, *kustomization.ParentID}))
 			})
 		})
 

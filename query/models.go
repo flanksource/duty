@@ -57,11 +57,12 @@ var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op gr
 }
 
 // relatedConfigsMapper handles the `related` field in PEG queries.
-// Syntax: related=<config_id>,direction=<direction>,depth=<depth>
+// Syntax: related=<config_id>,direction=<direction>,depth=<depth>,type=<type>
 // - config_id: Required UUID of the config to find related configs for
 // - direction: Optional, one of "incoming", "outgoing", "all" (default: "all")
 // - depth: Optional integer for max depth (default: 5)
-// Example: related=abc-123,direction=outgoing,depth=3
+// - type: Optional, one of "hard", "soft", "both" (default: "both")
+// Example: related=abc-123,direction=outgoing,depth=3,type=hard
 var relatedConfigsMapper = func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error) {
 	query := RelationQuery{
 		Relation: All,
@@ -94,6 +95,20 @@ var relatedConfigsMapper = func(ctx context.Context, tx *gorm.DB, val string) (*
 					return nil, fmt.Errorf("invalid depth: %w", err)
 				}
 				query.MaxDepth = &depth
+			case "type":
+				switch strings.ToLower(value) {
+				case "hard":
+					query.Incoming = Hard
+					query.Outgoing = Hard
+				case "soft":
+					query.Incoming = Soft
+					query.Outgoing = Soft
+				case "both":
+					query.Incoming = Both
+					query.Outgoing = Both
+				default:
+					return nil, fmt.Errorf("invalid type: %s (must be hard, soft, or both)", value)
+				}
 			default:
 				return nil, fmt.Errorf("unknown parameter: %s", key)
 			}
