@@ -1020,6 +1020,8 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			expectedIDs: []uuid.UUID{dummy.LogisticsDBRDS.ID},
 			resource:    "config_summary",
 		},
+		// type defaults to "both" when not specified, so this returns
+		// both hard and soft relationships
 		{
 			description: "related configs | outgoing direction",
 			query:       fmt.Sprintf(`related="%s,direction=outgoing"`, dummy.KubernetesCluster.ID.String()),
