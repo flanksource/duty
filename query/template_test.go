@@ -119,6 +119,10 @@ func TestMatchQuery(t *testing.T) {
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.environment=prod')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.cost-center=engineering')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.nonexistent=value')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.team')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!tags.team')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'tags.nonexistent')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!tags.nonexistent')", "true"},
 
 		// Labels matching
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name=my-app')", "true"},
@@ -127,6 +131,10 @@ func TestMatchQuery(t *testing.T) {
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/component=backend')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.deployment.kubernetes.io/revision=42')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.nonexistent=value')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.app.kubernetes.io/name')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!labels.app.kubernetes.io/name')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'labels.account')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!labels.account')", "true"},
 
 		// Properties matching
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.cpu=2000m')", "true"},
@@ -135,6 +143,10 @@ func TestMatchQuery(t *testing.T) {
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.replicas=3')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.maxReplicas=10')", "true"},
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.nonexistent=value')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.cpu')", "true"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!properties.cpu')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'properties.nonexistent')", "false"},
+		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, '!properties.nonexistent')", "true"},
 
 		// Multiple field combinations
 		{map[string]any{"config": configItem.AsMap()}, "matchQuery(config, 'name=my-app type=Kubernetes::Deployment')", "true"},

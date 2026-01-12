@@ -18,7 +18,7 @@ const (
 	In        QueryOperator = "in"
 	NotIn     QueryOperator = "notin"
 	Exists    QueryOperator = "exists"
-	NotExists QueryOperator = "!"
+	NotExists QueryOperator = "notexists"
 )
 
 func (op QueryOperator) ToSelectionOperator() selection.Operator {
