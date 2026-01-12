@@ -22,6 +22,9 @@ FieldQuery
   = _ '(' _ q:Query _ ')'_ {
       return makeFQFromQuery(q)
     }
+  / _ ef:ExistsField _ {
+      return ef, nil
+    }
   / _ f:Field _ {
       return makeFQFromField(f)
     }
@@ -47,6 +50,24 @@ Field
   = src:Source _ op:Operator _ value:Value {
       return &QueryField{Field:src.(string), Op: op.(QueryOperator), Value:value}, nil
   }
+
+ExistsField
+  = "!" _ src:ExistSource _ !Operator {
+      return &QueryField{Field:src.(string), Op: NotExists}, nil
+    }
+  / src:ExistSource _ !Operator {
+      return &QueryField{Field:src.(string), Op: Exists}, nil
+    }
+
+ExistSource
+  = name:ExistPrefix path:("." Identifier)+ {
+      return makeSource(name,path)
+    }
+
+ExistPrefix
+  = ("labels" / "tags" / "properties") {
+      return string(c.text), nil
+    }
 
 Source
   = name:Identifier path:("." Identifier)* {

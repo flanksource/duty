@@ -252,6 +252,44 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Label selector EXISTS query",
+				resourceSelectors: []types.ResourceSelector{
+					{Types: []string{"AWS::AvailabilityZone"}, LabelSelector: "account"},
+				},
+				selectable: models.ConfigItem{
+					Type: lo.ToPtr("AWS::AvailabilityZone"),
+					Labels: lo.ToPtr(types.JSONStringMap{
+						"account": "prod-account",
+						"region":  "us-east-1",
+					}),
+				},
+				unselectable: models.ConfigItem{
+					Type: lo.ToPtr("AWS::AvailabilityZone"),
+					Labels: lo.ToPtr(types.JSONStringMap{
+						"region": "us-east-1",
+					}),
+				},
+			},
+			{
+				name: "Label selector DOES NOT EXIST query",
+				resourceSelectors: []types.ResourceSelector{
+					{Types: []string{"AWS::AvailabilityZone"}, LabelSelector: "!account"},
+				},
+				selectable: models.ConfigItem{
+					Type: lo.ToPtr("AWS::AvailabilityZone"),
+					Labels: lo.ToPtr(types.JSONStringMap{
+						"region": "us-east-1",
+					}),
+				},
+				unselectable: models.ConfigItem{
+					Type: lo.ToPtr("AWS::AvailabilityZone"),
+					Labels: lo.ToPtr(types.JSONStringMap{
+						"account": "prod-account",
+						"region":  "us-east-1",
+					}),
+				},
+			},
+			{
 				name: "Tag selector",
 				resourceSelectors: []types.ResourceSelector{
 					{Namespace: "default", TagSelector: "cluster=aws"},

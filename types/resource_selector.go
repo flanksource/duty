@@ -294,6 +294,15 @@ func selectorToPegCondition(fieldPrefix, selector string) []string {
 
 	var searchConditions []string
 	for _, requirement := range requirements {
+		if requirement.Operator() == selection.Exists {
+			searchConditions = append(searchConditions, fmt.Sprintf("%s%s", fieldPrefix, requirement.Key()))
+			continue
+		}
+		if requirement.Operator() == selection.DoesNotExist {
+			searchConditions = append(searchConditions, fmt.Sprintf("!%s%s", fieldPrefix, requirement.Key()))
+			continue
+		}
+
 		operator := grammar.Eq
 
 		switch requirement.Operator() {
@@ -338,7 +347,18 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 
 func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelectable) bool {
 	if qf.Field != "" {
-		var err error
+		if qf.Op == grammar.Exists || qf.Op == grammar.NotExists {
+			exists, err := resourceFieldExists(s, qf.Field)
+			if err != nil {
+				logger.Errorf("failed to check field existence for %v: %v", qf.Field, err)
+				return false
+			}
+
+			if qf.Op == grammar.Exists {
+				return exists
+			}
+			return !exists
+		}
 
 		value, err := extractResourceFieldValue(s, qf.Field)
 		if err != nil {
@@ -494,6 +514,39 @@ type ResourceSelectable interface {
 	GetType() string
 	GetStatus() (string, error)
 	GetHealth() (string, error)
+}
+
+func resourceFieldExists(rs ResourceSelectable, field string) (bool, error) {
+	if strings.HasPrefix(field, "labels.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "labels."))
+		if rs.GetLabelsMatcher() == nil {
+			return false, nil
+		}
+		_, ok := rs.GetLabelsMatcher().Lookup(key)
+		return ok, nil
+	}
+	if strings.HasPrefix(field, "tags.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "tags."))
+		if tagsMatcher, ok := rs.(TagsMatchable); ok && tagsMatcher.GetTagsMatcher() != nil {
+			_, exists := tagsMatcher.GetTagsMatcher().Lookup(key)
+			return exists, nil
+		}
+		return false, nil
+	}
+	if strings.HasPrefix(field, "properties.") {
+		key := strings.TrimSpace(strings.TrimPrefix(field, "properties."))
+		propertiesJSON := rs.GetFieldsMatcher().Get("properties")
+		if propertiesJSON == "" {
+			return false, nil
+		}
+		var properties Properties
+		if err := json.Unmarshal([]byte(propertiesJSON), &properties); err != nil {
+			return false, fmt.Errorf("failed to unmarshall properties: %w", err)
+		}
+		return properties.Find(key) != nil, nil
+	}
+
+	return false, nil
 }
 
 func extractResourceFieldValue(rs ResourceSelectable, field string) (string, error) {

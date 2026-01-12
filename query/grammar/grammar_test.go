@@ -178,4 +178,54 @@ var _ = Describe("grammar", func() {
 		Expect(resultJSON).To(MatchJSON(expected))
 
 	})
+
+	It("parses label exists", func() {
+		result, err := ParsePEG("labels.account")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "labels.account",
+	                "op": "exists"
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("parses label not exists", func() {
+		result, err := ParsePEG("!labels.account")
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "labels.account",
+	                "op": "notexists"
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
 })
