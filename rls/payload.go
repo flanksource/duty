@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,16 @@ type Scope struct {
 	Names  []string          `json:"names,omitempty"`
 	ID     string            `json:"id,omitempty"`
 }
+
+type WildcardResourceScope string
+
+const (
+	WildcardResourceScopeConfig    WildcardResourceScope = "config"
+	WildcardResourceScopeComponent WildcardResourceScope = "component"
+	WildcardResourceScopeCanary    WildcardResourceScope = "canary"
+	WildcardResourceScopePlaybook  WildcardResourceScope = "playbook"
+	WildcardResourceScopeView      WildcardResourceScope = "view"
+)
 
 func (s Scope) IsEmpty() bool {
 	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0 && strings.TrimSpace(s.ID) == ""
@@ -39,15 +50,13 @@ type Payload struct {
 	// cached fingerprint
 	fingerprint string
 
-	Config    []Scope `json:"config,omitempty"`
-	Component []Scope `json:"component,omitempty"`
-	Playbook  []Scope `json:"playbook,omitempty"`
-	Canary    []Scope `json:"canary,omitempty"`
-	View      []Scope `json:"view,omitempty"`
-
 	// Scopes contains the list of scope UUIDs the user has access to.
-	// This is used for generated view tables only (for now).
-	Scopes []string `json:"scopes,omitempty"`
+	Scopes []uuid.UUID `json:"scopes,omitempty"`
+
+	// WildcardScopes contains resource types that grant access to all rows of that type.
+	// Wildcard scopes are not materialized directly into the table rows to avoid high writes/updates.
+	// Instead, if a user has wildcard scope to a resource type, then the RLS policy matches immediately.
+	WildcardScopes []WildcardResourceScope `json:"wildcard_scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
@@ -60,28 +69,12 @@ func (t Payload) JWTClaims() map[string]any {
 		return claims
 	}
 
-	if len(t.Config) > 0 {
-		claims["config"] = t.Config
-	}
-
-	if len(t.Component) > 0 {
-		claims["component"] = t.Component
-	}
-
-	if len(t.Playbook) > 0 {
-		claims["playbook"] = t.Playbook
-	}
-
-	if len(t.Canary) > 0 {
-		claims["canary"] = t.Canary
-	}
-
-	if len(t.View) > 0 {
-		claims["view"] = t.View
-	}
-
 	if len(t.Scopes) > 0 {
 		claims["scopes"] = t.Scopes
+	}
+
+	if len(t.WildcardScopes) > 0 {
+		claims["wildcard_scopes"] = t.WildcardScopes
 	}
 
 	return claims
@@ -94,19 +87,22 @@ func (t *Payload) EvalFingerprint() {
 	}
 
 	parts := []string{}
-	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary, t.View} {
-		for _, scope := range scopeArray {
-			if !scope.IsEmpty() {
-				parts = append(parts, scope.Fingerprint())
-			}
-		}
-	}
-
-	// Include scope UUIDs in fingerprint
 	if len(t.Scopes) > 0 {
-		scopesCopy := slices.Clone(t.Scopes)
+		scopesCopy := make([]string, 0, len(t.Scopes))
+		for _, scope := range t.Scopes {
+			scopesCopy = append(scopesCopy, scope.String())
+		}
 		slices.Sort(scopesCopy)
 		parts = append(parts, strings.Join(scopesCopy, ","))
+	}
+
+	if len(t.WildcardScopes) > 0 {
+		wildcardsCopy := make([]string, 0, len(t.WildcardScopes))
+		for _, wildcard := range t.WildcardScopes {
+			wildcardsCopy = append(wildcardsCopy, string(wildcard))
+		}
+		slices.Sort(wildcardsCopy)
+		parts = append(parts, strings.Join(wildcardsCopy, ","))
 	}
 
 	if len(parts) == 0 {

@@ -3,6 +3,7 @@ package rls
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 )
 
@@ -22,12 +23,11 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{
-			Config: []Scope{
-				{
-					Tags:   map[string]string{"z": "value1", "a": "value2"},
-					Agents: []string{"agent2", "agent1"},
-				},
+			Scopes: []uuid.UUID{
+				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
+				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
 			},
+			WildcardScopes: []WildcardResourceScope{WildcardResourceScopePlaybook, WildcardResourceScopeConfig},
 		}
 		payload.EvalFingerprint()
 
@@ -50,18 +50,20 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload1 := &Payload{
-			Config: []Scope{
-				{Tags: map[string]string{"a": "value1"}},
-				{Tags: map[string]string{"b": "value2"}},
+			Scopes: []uuid.UUID{
+				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
+				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
 			},
+			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeView, WildcardResourceScopeConfig},
 		}
 		payload1.EvalFingerprint()
 
 		payload2 := &Payload{
-			Config: []Scope{
-				{Tags: map[string]string{"b": "value2"}},
-				{Tags: map[string]string{"a": "value1"}},
+			Scopes: []uuid.UUID{
+				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
+				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
 			},
+			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeConfig, WildcardResourceScopeView},
 		}
 		payload2.EvalFingerprint()
 
@@ -73,18 +75,14 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{
-			Config: []Scope{
-				{
-					Tags:   map[string]string{"x": "value4"},
-					Agents: []string{"agentX"},
-				},
-			},
+			Scopes:         []uuid.UUID{uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2")},
+			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeCanary},
 		}
 		payload.EvalFingerprint()
 		firstFingerprint := payload.Fingerprint()
 
 		// Modify the underlying data to see if the cached fingerprint remains unchanged
-		payload.Config[0].Tags["x"] = "modified_value"
+		payload.Scopes[0] = uuid.MustParse("f4a1fcb2-4cf7-48f2-9e68-6457e8c4e9e6")
 		g.Expect(payload.Fingerprint()).To(gomega.Equal(firstFingerprint))
 	})
 }
