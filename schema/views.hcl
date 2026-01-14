@@ -26,6 +26,10 @@ table "views" {
     null = true
     type = jsonb
   }
+  column "__scope" {
+    null = true
+    type = sql("uuid[]")
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -60,6 +64,10 @@ table "views" {
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "views__scope_gin_idx" {
+    columns = [column.__scope]
+    type    = GIN
   }
 }
 

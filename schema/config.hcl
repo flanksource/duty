@@ -308,6 +308,10 @@ table "config_items" {
     type    = jsonb
     comment = "contains a list of tags"
   }
+  column "__scope" {
+    null = true
+    type = sql("uuid[]")
+  }
   column "tags_values" {
     null    = true
     type    = jsonb
@@ -406,6 +410,10 @@ table "config_items" {
   }
   index "idx_config_items_tags" {
     columns = [column.tags]
+    type    = GIN
+  }
+  index "config_items__scope_gin_idx" {
+    columns = [column.__scope]
     type    = GIN
   }
   index "idx_config_items_tags_values" {

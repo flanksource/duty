@@ -22,6 +22,10 @@ table "canaries" {
     null = true
     type = jsonb
   }
+  column "__scope" {
+    null = true
+    type = sql("uuid[]")
+  }
   column "annotations" {
     null = true
     type = jsonb
@@ -83,6 +87,10 @@ table "canaries" {
   }
   index "canaries_source_idx" {
     columns = [column.source]
+  }
+  index "canaries__scope_gin_idx" {
+    columns = [column.__scope]
+    type    = GIN
   }
 }
 
