@@ -6,6 +6,7 @@ name: Benchmark
 permissions:
   contents: read
   issues: write
+  pull-requests: write
 
 jobs:
   bench:
@@ -37,16 +38,9 @@ jobs:
       - name: Build benchmark (base)
         run: |
           cd .bench/base
-          go test -c ./bench
-      - name: Benchmark base
-        run: |
-          cd .bench/base
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
             go test -bench=. -benchtime=${BENCH_TIME} -count=${BENCH_COUNT} -timeout 30m \
             github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
-      - name: Build benchmark (head)
-        run: |
-          go test -c ./bench
       - name: Benchmark head
         run: |
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
@@ -77,27 +71,33 @@ jobs:
             bench-report.md
           retention-days: 14
       - name: Post report to PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          body=$(jq -Rs . < bench-report.md)
-          marker="benchmark-report"
-          comments_api="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments?per_page=100"
-          existing_id=$(curl -sS \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            "$comments_api" | jq -r ".[] | select(.body | contains(\"$marker\")) | .id" | head -n 1)
-          if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
-            curl -sS -X PATCH \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"body\":${body}}" \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/comments/$existing_id" >/dev/null
-          else
-            curl -sS \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"body\":${body}}" \
-              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" >/dev/null
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('bench-report.md', 'utf8');
+            const marker = 'benchmark-report';
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.data.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
