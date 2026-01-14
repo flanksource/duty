@@ -25,31 +25,26 @@ jobs:
         uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
         with:
           fetch-depth: 0
-      - uses: buildjet/cache@3e70d19e31d6a8030aeddf6ed8dbe601f94d09f4 # v4.0.2
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-            .bin
-          key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
-          restore-keys: |
-            cache-
       - name: Install benchstat
         if: github.event_name == 'pull_request'
         run: |
-          go install golang.org/x/perf/cmd/benchstat@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          GOBIN="$PWD/.bin" go install golang.org/x/perf/cmd/benchstat@latest
+          echo "$PWD/.bin" >> "$GITHUB_PATH"
       - name: Resolve refs
         id: refs
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "base_sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
             echo "head_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
-            echo "bench_target=bench-ci" >> "$GITHUB_OUTPUT"
+            echo "bench_time=1s" >> "$GITHUB_OUTPUT"
+            echo "bench_count=1" >> "$GITHUB_OUTPUT"
+            echo "bench_sizes=10000,25000" >> "$GITHUB_OUTPUT"
           else
             echo "base_sha=origin/main" >> "$GITHUB_OUTPUT"
             echo "head_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-            echo "bench_target=bench" >> "$GITHUB_OUTPUT"
+            echo "bench_time=10s" >> "$GITHUB_OUTPUT"
+            echo "bench_count=1" >> "$GITHUB_OUTPUT"
+            echo "bench_sizes=" >> "$GITHUB_OUTPUT"
           fi
       - name: Prepare base worktree
         if: github.event_name == 'pull_request'
@@ -60,21 +55,29 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           cd .bench/base
-          make ${{ steps.refs.outputs.bench_target }} | tee "$GITHUB_WORKSPACE/bench-base.txt"
+          DUTY_BENCH_SIZES="${{ steps.refs.outputs.bench_sizes }}" \
+            go test -bench=. -benchtime=${{ steps.refs.outputs.bench_time }} -count=${{ steps.refs.outputs.bench_count }} -timeout 30m \
+            github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
       - name: Benchmark head
         run: |
-          make ${{ steps.refs.outputs.bench_target }} | tee bench-head.txt
+          DUTY_BENCH_SIZES="${{ steps.refs.outputs.bench_sizes }}" \
+            go test -bench=. -benchtime=${{ steps.refs.outputs.bench_time }} -count=${{ steps.refs.outputs.bench_count }} -timeout 30m \
+            github.com/flanksource/duty/bench | tee bench-head.txt
       - name: Compare
         if: github.event_name == 'pull_request'
         run: |
           benchstat bench-base.txt bench-head.txt > benchstat.txt
-          go run ./hack/bench/compare \
-            --base bench-base.txt \
-            --head bench-head.txt \
-            --benchstat benchstat.txt \
-            --output bench-report.md \
-            --base-ref "${{ steps.refs.outputs.base_sha }}" \
-            --head-ref "${{ steps.refs.outputs.head_sha }}"
+          {
+            echo "<!-- benchmark-report -->"
+            echo "## Benchstat"
+            echo ""
+            echo "Base: \`${{ steps.refs.outputs.base_sha }}\`"
+            echo "Head: \`${{ steps.refs.outputs.head_sha }}\`"
+            echo ""
+            echo '```text'
+            cat benchstat.txt
+            echo '```'
+          } > bench-report.md
       - name: Upload artifacts
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
