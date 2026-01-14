@@ -3,6 +3,8 @@ package bench_test
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/flanksource/commons/logger"
@@ -46,8 +48,32 @@ var (
 	connUrl string
 
 	// number of total configs in the database
-	testSizes = []int{10_000, 25_000, 50_000, 100_000}
+	defaultTestSizes = []int{10_000, 25_000, 50_000, 100_000}
 )
+
+func benchSizes() []int {
+	raw := strings.TrimSpace(os.Getenv("DUTY_BENCH_SIZES"))
+	if raw == "" {
+		return defaultTestSizes
+	}
+	parts := strings.Split(raw, ",")
+	sizes := make([]int, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		value, err := strconv.Atoi(part)
+		if err != nil || value <= 0 {
+			continue
+		}
+		sizes = append(sizes, value)
+	}
+	if len(sizes) == 0 {
+		return defaultTestSizes
+	}
+	return sizes
+}
 
 func setupTestDB(dbPath string) error {
 	logger.Infof("using %q as the pg data dir", dbPath)
@@ -89,7 +115,7 @@ func TestMain(m *testing.M) {
 }
 
 func BenchmarkMain(b *testing.B) {
-	for _, size := range testSizes {
+	for _, size := range benchSizes() {
 		resetPG(b, false)
 		_, err := setupConfigsForSize(testCtx, size)
 		if err != nil {
