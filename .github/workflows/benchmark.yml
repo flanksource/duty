@@ -13,9 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      BENCH_TIME: 1s
-      BENCH_COUNT: "1"
-      BENCH_SIZES: 10000,25000
+      BENCH_SIZES: 15000
     steps:
       - name: Install Go
         uses: buildjet/setup-go@555ce355a95ff01018ffcf8fbbd9c44654db8374 # v5.0.2
