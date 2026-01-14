@@ -77,12 +77,12 @@ jobs:
         run: |
           cd .bench/base
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -timeout 15m \
+            go test -bench=. -count=6 -timeout 15m \
             github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
       - name: Benchmark head
         run: |
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -timeout 15m \
+            go test -bench=. -count=6 -timeout 15m \
             github.com/flanksource/duty/bench | tee bench-head.txt
       - name: Compare
         run: |
