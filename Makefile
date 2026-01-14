@@ -30,6 +30,10 @@ e2e-services: ## Run e2e test services in foreground with automatic cleanup on e
 bench:
 	go test -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
 
+.PHONY: bench-ci
+bench-ci:
+	DUTY_BENCH_SIZES=10000,25000 go test -bench=. -benchtime=1s -count=1 -timeout 30m github.com/flanksource/duty/bench
+
 fmt:
 	go fmt ./...
 
