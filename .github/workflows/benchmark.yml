@@ -29,7 +29,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const marker = '<!-- benchmark-report -->';
+            const marker = '<!-- benchstat-report -->';
             const body = [
               marker,
               'Benchmark running.',
@@ -88,7 +88,7 @@ jobs:
         run: |
           benchstat bench-base.txt bench-head.txt > benchstat.txt
           {
-            echo "<!-- benchmark-report -->"
+            echo "<!-- benchstat-report -->"
             echo "## Benchstat"
             echo ""
             echo "Base: \`${{ github.event.pull_request.base.sha }}\`"
