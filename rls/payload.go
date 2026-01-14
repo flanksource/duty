@@ -6,19 +6,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
-
-type Scope struct {
-	Tags   map[string]string `json:"tags,omitempty"`
-	Agents []string          `json:"agents,omitempty"`
-	Names  []string          `json:"names,omitempty"`
-	ID     string            `json:"id,omitempty"`
-}
 
 type WildcardResourceScope string
 
@@ -29,21 +21,6 @@ const (
 	WildcardResourceScopePlaybook  WildcardResourceScope = "playbook"
 	WildcardResourceScopeView      WildcardResourceScope = "view"
 )
-
-func (s Scope) IsEmpty() bool {
-	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0 && strings.TrimSpace(s.ID) == ""
-}
-
-func (s Scope) Fingerprint() string {
-	tagSelectors := collections.SortedMap(s.Tags)
-	agentsCopy := slices.Clone(s.Agents)
-	namesCopy := slices.Clone(s.Names)
-	slices.Sort(agentsCopy)
-	slices.Sort(namesCopy)
-
-	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID))
-	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
-}
 
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 type Payload struct {
