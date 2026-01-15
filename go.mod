@@ -32,7 +32,7 @@ require (
 	github.com/flanksource/artifacts v1.0.18
 	github.com/flanksource/commons v1.44.0
 	github.com/flanksource/deps v1.0.20
-	github.com/flanksource/gomplate/v3 v3.24.65
+	github.com/flanksource/gomplate/v3 v3.24.66
 	github.com/flanksource/is-healthy v1.0.82
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-git/v5 v5.16.3
