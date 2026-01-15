@@ -238,3 +238,120 @@ var _ = Describe("External Users Aliases", Ordered, func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("External Roles Aliases", Ordered, func() {
+	var scraperID uuid.UUID
+
+	BeforeAll(func() {
+		scraperID = uuid.MustParse(*dummy.KubernetesCluster.ScraperID)
+	})
+
+	It("should lowercase, sort and unique aliases on insert", func() {
+		role := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Lowercase",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{"Role-Bob", "ROLE-ALICE", "ROLE-alice", "ROLE-alice", "ROLE-CHARLIE"},
+		}
+		err := DefaultContext.DB().Create(&role).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalRole
+		err = DefaultContext.DB().Where("id = ?", role.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"role-alice", "role-bob", "role-charlie"}))
+	})
+
+	It("should normalize aliases on update", func() {
+		role := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Update",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{"role-update-initial"},
+		}
+		err := DefaultContext.DB().Create(&role).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = DefaultContext.DB().Model(&role).Update("aliases", pq.StringArray{"ROLE-UPDATE-ZEBRA", "Role-Update-Apple", "role-update-zebra"}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalRole
+		err = DefaultContext.DB().Where("id = ?", role.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"role-update-apple", "role-update-zebra"}))
+	})
+
+	It("should handle null aliases", func() {
+		role := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Null Aliases",
+			ScraperID: &scraperID,
+			Aliases:   nil,
+		}
+		err := DefaultContext.DB().Create(&role).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalRole
+		err = DefaultContext.DB().Where("id = ?", role.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fetched.Aliases).To(BeNil())
+	})
+
+	It("should handle empty aliases array", func() {
+		role := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Empty Aliases",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{},
+		}
+		err := DefaultContext.DB().Create(&role).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalRole
+		err = DefaultContext.DB().Where("id = ?", role.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{}))
+	})
+
+	It("should enforce unique aliases constraint", func() {
+		aliases := pq.StringArray{"role-unique-alias-1", "role-unique-alias-2"}
+
+		role1 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Unique 1",
+			ScraperID: &scraperID,
+			Aliases:   aliases,
+		}
+		err := DefaultContext.DB().Create(&role1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		role2 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Unique 2",
+			ScraperID: &scraperID,
+			Aliases:   aliases,
+		}
+		err = DefaultContext.DB().Create(&role2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should enforce unique constraint case-insensitively", func() {
+		role1 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Case Unique 1",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{"RoleCaseTest1", "RoleCaseTest2"},
+		}
+		err := DefaultContext.DB().Create(&role1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		role2 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Case Unique 2",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{"rolecasetest1", "ROLECASETEST2"},
+		}
+		err = DefaultContext.DB().Create(&role2).Error
+		Expect(err).To(HaveOccurred())
+	})
+})

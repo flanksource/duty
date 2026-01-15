@@ -126,6 +126,9 @@ type ExternalRole struct {
 	RoleType      string         `json:"role_type"`
 	Name          string         `json:"name"`
 	Description   string         `json:"description"`
+	CreatedAt     time.Time      `json:"created_at" gorm:"<-:create"`
+	UpdatedAt     *time.Time     `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt     *time.Time     `json:"deleted_at,omitempty"`
 }
 
 func (e ExternalRole) PK() string {
