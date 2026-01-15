@@ -2,7 +2,7 @@ table "external_users" {
   schema = schema.public
   column "id" {
     null    = false
-    type = uuid
+    type    = uuid
     default = sql("generate_ulid()")
   }
   column "account_id" {
@@ -51,13 +51,18 @@ table "external_users" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "external_users_aliases_key" {
+    unique  = true
+    columns = [column.aliases]
+    where   = "deleted_at IS NULL"
+  }
 }
 
 table "external_groups" {
   schema = schema.public
   column "id" {
     null    = false
-    type = uuid
+    type    = uuid
     default = sql("generate_ulid()")
   }
   column "account_id" {
@@ -142,7 +147,7 @@ table "external_roles" {
   schema = schema.public
   column "id" {
     null    = false
-    type = uuid
+    type    = uuid
     default = sql("generate_ulid()")
 
   }
@@ -250,6 +255,7 @@ table "config_access" {
   column "id" {
     type    = text
     comment = "not a uuid. depends on the source. example: Microsoft has 0Tr1liTQeU2nA2LDmGCS4qwxw-A6_GhNos_LscLVs6w"
+    default = sql("generate_ulid()")
   }
   column "config_id" {
     type = uuid

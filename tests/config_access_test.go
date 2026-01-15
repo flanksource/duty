@@ -6,6 +6,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -118,5 +119,122 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 		Expect(accessSummaries[2].User).To(Equal(user4.Name))
 		Expect(accessSummaries[2].Email).To(Equal(*user4.Email))
 		Expect(accessSummaries[2].LastSignedInAt.UTC()).To(Equal(referenceTime.UTC().Add(-3 * time.Hour)))
+	})
+})
+
+var _ = Describe("External Users Aliases", Ordered, func() {
+	var scraperID uuid.UUID
+
+	BeforeAll(func() {
+		scraperID = uuid.MustParse(*dummy.KubernetesCluster.ScraperID)
+	})
+
+	It("should lowercase, sort and unique aliases on insert", func() {
+		user := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Lowercase User",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"Lowercase-Bob", "LOWERCASE-ALICE", "LOWERCASE-alice", "LOWERCASE-alice", "LOWERCASE-CHARLIE"},
+		}
+		err := DefaultContext.DB().Create(&user).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalUser
+		err = DefaultContext.DB().Where("id = ?", user.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"lowercase-alice", "lowercase-bob", "lowercase-charlie"}))
+	})
+
+	It("should normalize aliases on update", func() {
+		user := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Update User",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"update-initial"},
+		}
+		err := DefaultContext.DB().Create(&user).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = DefaultContext.DB().Model(&user).Update("aliases", pq.StringArray{"UPDATE-ZEBRA", "Update-Apple", "update-zebra"}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalUser
+		err = DefaultContext.DB().Where("id = ?", user.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"update-apple", "update-zebra"}))
+	})
+
+	It("should handle null aliases", func() {
+		user := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Null Aliases User",
+			ScraperID: scraperID,
+			Aliases:   nil,
+		}
+		err := DefaultContext.DB().Create(&user).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalUser
+		err = DefaultContext.DB().Where("id = ?", user.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fetched.Aliases).To(BeNil())
+	})
+
+	It("should handle empty aliases array", func() {
+		user := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Empty Aliases User",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{},
+		}
+		err := DefaultContext.DB().Create(&user).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalUser
+		err = DefaultContext.DB().Where("id = ?", user.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{}))
+	})
+
+	It("should enforce unique aliases constraint", func() {
+		aliases := pq.StringArray{"unique-alias-1", "unique-alias-2"}
+
+		user1 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Unique User 1",
+			ScraperID: scraperID,
+			Aliases:   aliases,
+		}
+		err := DefaultContext.DB().Create(&user1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		user2 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Unique User 2",
+			ScraperID: scraperID,
+			Aliases:   aliases,
+		}
+		err = DefaultContext.DB().Create(&user2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should enforce unique constraint case-insensitively", func() {
+		user1 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Case Unique User 1",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"CaseTest1", "CaseTest2"},
+		}
+		err := DefaultContext.DB().Create(&user1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		user2 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Case Unique User 2",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"casetest1", "CASETEST2"},
+		}
+		err = DefaultContext.DB().Create(&user2).Error
+		Expect(err).To(HaveOccurred())
 	})
 })

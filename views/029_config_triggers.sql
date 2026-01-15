@@ -88,3 +88,21 @@ CREATE OR REPLACE TRIGGER config_health_as_config_changes
   AFTER INSERT OR UPDATE ON config_items
   FOR EACH ROW
   EXECUTE PROCEDURE insert_config_health_updates_as_config_changes();
+
+-- Normalize external_users aliases: lowercase, deduplicate, and sort
+CREATE OR REPLACE FUNCTION normalize_external_users_aliases()
+  RETURNS TRIGGER
+  AS $$
+BEGIN
+  IF NEW.aliases IS NOT NULL THEN
+    NEW.aliases := ARRAY(SELECT DISTINCT LOWER(elem) FROM unnest(NEW.aliases) AS elem ORDER BY LOWER(elem));
+  END IF;
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER normalize_external_users_aliases_trigger
+  BEFORE INSERT OR UPDATE ON external_users
+  FOR EACH ROW
+  EXECUTE PROCEDURE normalize_external_users_aliases();
