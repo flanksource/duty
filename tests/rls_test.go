@@ -43,12 +43,6 @@ func payloadWithScopes(scopeIDs ...*uuid.UUID) func() rls.Payload {
 	}
 }
 
-func payloadWildcard(scope rls.WildcardResourceScope) func() rls.Payload {
-	return func() rls.Payload {
-		return rls.Payload{WildcardScopes: []rls.WildcardResourceScope{scope}}
-	}
-}
-
 func payloadDisabled() func() rls.Payload {
 	return func() rls.Payload {
 		return rls.Payload{Disable: true}
@@ -118,7 +112,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("aws scope", scopeCase{payload: payloadWithScopes(&awsScopeID), expectedCount: &awsConfigs}),
 					Entry("combined scopes", scopeCase{payload: payloadWithScopes(&awsScopeID, &demoScopeID), expectedCount: &awsOrDemo}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeConfig), expectedCount: &totalConfigs}),
 					Entry("rls disabled", scopeCase{payload: payloadDisabled(), expectedCount: &totalConfigs}),
 				)
 			})
@@ -173,7 +166,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("agent scope", scopeCase{payload: payloadWithScopes(&agentScopeID), expectedCount: &agentComponents}),
 					Entry("name scope", scopeCase{payload: payloadWithScopes(&logisticsScopeID), expectedCount: &logisticsComponents}),
 					Entry("combined scopes", scopeCase{payload: payloadWithScopes(&agentScopeID, &logisticsScopeID), expectedCount: &agentOrLogistics}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeComponent), expectedCount: &totalComponents}),
 				)
 			})
 		}
@@ -222,7 +214,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("echo scope", scopeCase{payload: payloadWithScopes(&echoScopeID), expectedCount: lo.ToPtr(int64(1))}),
 					Entry("combined scopes", scopeCase{payload: payloadWithScopes(&echoScopeID, &restartScopeID), expectedCount: &combinedPlaybook}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopePlaybook), expectedCount: &totalPlaybooks}),
 				)
 			})
 		}
@@ -269,7 +260,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					},
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("logistics scope", scopeCase{payload: payloadWithScopes(&logisticsScopeID), expectedCount: lo.ToPtr(int64(1))}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeCanary), expectedCount: &totalCanaries}),
 				)
 
 				DescribeTable("checks inherit canary RLS",
@@ -282,7 +272,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					},
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("logistics scope", scopeCase{payload: payloadWithScopes(&logisticsScopeID), expectedCount: &logisticsChecks}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeCanary), expectedCount: &totalChecks}),
 				)
 			})
 		}
@@ -339,7 +328,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("pod view", scopeCase{payload: payloadWithScopes(&podScopeID), expectedCount: lo.ToPtr(int64(1))}),
 					Entry("combined", scopeCase{payload: payloadWithScopes(&podScopeID, &devScopeID), expectedCount: &combinedViews}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeView), expectedCount: &totalViews}),
 				)
 
 				DescribeTable("view panels",
@@ -354,7 +342,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("pod view", scopeCase{payload: payloadWithScopes(&podScopeID), expectedCount: &podViewPanels}),
 					Entry("dev view", scopeCase{payload: payloadWithScopes(&devScopeID), expectedCount: &devViewPanels}),
 					Entry("combined", scopeCase{payload: payloadWithScopes(&podScopeID, &devScopeID), expectedCount: &combinedPanels}),
-					Entry("wildcard", scopeCase{payload: payloadWildcard(rls.WildcardResourceScopeView), expectedCount: &totalPanels}),
 				)
 			})
 		}

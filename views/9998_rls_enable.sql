@@ -59,8 +59,7 @@ CREATE POLICY config_items_auth ON config_items
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_has_wildcard('config')
-        OR (COALESCE(config_items.__scope, '{}'::uuid[]) && rls_scope_access())
+        (config_items.__scope && rls_scope_access())
       END
     );
 
@@ -135,8 +134,7 @@ CREATE POLICY components_auth ON components
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_has_wildcard('component')
-        OR (COALESCE(components.__scope, '{}'::uuid[]) && rls_scope_access())
+        (components.__scope && rls_scope_access())
       END
     );
 
@@ -148,8 +146,7 @@ CREATE POLICY canaries_auth ON canaries
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_has_wildcard('canary')
-        OR (COALESCE(canaries.__scope, '{}'::uuid[]) && rls_scope_access())
+        (canaries.__scope && rls_scope_access())
       END
     );
 
@@ -161,8 +158,7 @@ CREATE POLICY playbooks_auth ON playbooks
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_has_wildcard('playbook')
-        OR (COALESCE(playbooks.__scope, '{}'::uuid[]) && rls_scope_access())
+        (playbooks.__scope && rls_scope_access())
       END
     );
 
@@ -223,8 +219,7 @@ CREATE POLICY views_auth ON views
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_has_wildcard('view')
-        OR (COALESCE(views.__scope, '{}'::uuid[]) && rls_scope_access())
+        (views.__scope && rls_scope_access())
       END
     );
 

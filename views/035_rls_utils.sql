@@ -28,24 +28,3 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY INVOKER;
-
--- rls_has_wildcard reports whether request.jwt.claims includes the given wildcard scope type.
-CREATE
-OR REPLACE FUNCTION rls_has_wildcard(scope_type TEXT) RETURNS BOOLEAN AS $$
-DECLARE
-  jwt_claims TEXT;
-BEGIN
-  jwt_claims := current_setting('request.jwt.claims', TRUE);
-  IF jwt_claims IS NULL OR jwt_claims = '' THEN
-    RETURN FALSE;
-  END IF;
-
-  RETURN EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements_text(
-      COALESCE(jwt_claims::jsonb -> 'wildcard_scopes', '[]'::jsonb)
-    ) AS wildcard
-    WHERE wildcard = scope_type
-  );
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY INVOKER;

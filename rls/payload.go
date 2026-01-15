@@ -12,16 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type WildcardResourceScope string
-
-const (
-	WildcardResourceScopeConfig    WildcardResourceScope = "config"
-	WildcardResourceScopeComponent WildcardResourceScope = "component"
-	WildcardResourceScopeCanary    WildcardResourceScope = "canary"
-	WildcardResourceScopePlaybook  WildcardResourceScope = "playbook"
-	WildcardResourceScopeView      WildcardResourceScope = "view"
-)
-
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 type Payload struct {
 	// cached fingerprint
@@ -29,11 +19,6 @@ type Payload struct {
 
 	// Scopes contains the list of scope UUIDs the user has access to.
 	Scopes []uuid.UUID `json:"scopes,omitempty"`
-
-	// WildcardScopes contains resource types that grant access to all rows of that type.
-	// Wildcard scopes are not materialized directly into the table rows to avoid high writes/updates.
-	// Instead, if a user has wildcard scope to a resource type, then the RLS policy matches immediately.
-	WildcardScopes []WildcardResourceScope `json:"wildcard_scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
@@ -50,10 +35,6 @@ func (t Payload) JWTClaims() map[string]any {
 		claims["scopes"] = t.Scopes
 	}
 
-	if len(t.WildcardScopes) > 0 {
-		claims["wildcard_scopes"] = t.WildcardScopes
-	}
-
 	return claims
 }
 
@@ -63,32 +44,17 @@ func (t *Payload) EvalFingerprint() {
 		return
 	}
 
-	parts := []string{}
-	if len(t.Scopes) > 0 {
-		scopesCopy := make([]string, 0, len(t.Scopes))
-		for _, scope := range t.Scopes {
-			scopesCopy = append(scopesCopy, scope.String())
-		}
-		slices.Sort(scopesCopy)
-		parts = append(parts, strings.Join(scopesCopy, ","))
-	}
-
-	if len(t.WildcardScopes) > 0 {
-		wildcardsCopy := make([]string, 0, len(t.WildcardScopes))
-		for _, wildcard := range t.WildcardScopes {
-			wildcardsCopy = append(wildcardsCopy, string(wildcard))
-		}
-		slices.Sort(wildcardsCopy)
-		parts = append(parts, strings.Join(wildcardsCopy, ","))
-	}
-
-	if len(parts) == 0 {
+	if len(t.Scopes) == 0 {
 		t.fingerprint = "empty"
 		return
 	}
 
-	slices.Sort(parts)
-	t.fingerprint = hash.Sha256Hex(strings.Join(parts, " | "))
+	scopesCopy := make([]string, 0, len(t.Scopes))
+	for _, scope := range t.Scopes {
+		scopesCopy = append(scopesCopy, scope.String())
+	}
+	slices.Sort(scopesCopy)
+	t.fingerprint = hash.Sha256Hex(strings.Join(scopesCopy, ","))
 }
 
 func (t *Payload) Fingerprint() string {

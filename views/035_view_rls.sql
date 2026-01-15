@@ -11,10 +11,6 @@
 CREATE
 OR REPLACE FUNCTION check_view_grants(grants jsonb) RETURNS BOOLEAN AS $$
 BEGIN
-  IF rls_has_wildcard('view') THEN
-    RETURN TRUE;
-  END IF;
-
   IF grants IS NULL OR jsonb_array_length(grants) = 0 THEN
     RETURN FALSE;
   END IF;

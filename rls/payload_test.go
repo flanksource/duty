@@ -27,7 +27,6 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
 				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
 			},
-			WildcardScopes: []WildcardResourceScope{WildcardResourceScopePlaybook, WildcardResourceScopeConfig},
 		}
 		payload.EvalFingerprint()
 
@@ -54,7 +53,6 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
 				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
 			},
-			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeView, WildcardResourceScopeConfig},
 		}
 		payload1.EvalFingerprint()
 
@@ -63,7 +61,6 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 				uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2"),
 				uuid.MustParse("0a1ce1b2-5d90-4e74-8d30-2f4f0d30f8e4"),
 			},
-			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeConfig, WildcardResourceScopeView},
 		}
 		payload2.EvalFingerprint()
 
@@ -75,8 +72,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{
-			Scopes:         []uuid.UUID{uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2")},
-			WildcardScopes: []WildcardResourceScope{WildcardResourceScopeCanary},
+			Scopes: []uuid.UUID{uuid.MustParse("b6e3e8b2-8cda-4b70-bde7-3fb48c36d3f2")},
 		}
 		payload.EvalFingerprint()
 		firstFingerprint := payload.Fingerprint()
