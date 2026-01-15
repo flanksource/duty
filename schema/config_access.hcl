@@ -103,6 +103,11 @@ table "external_groups" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "external_groups_aliases_key" {
+    unique  = true
+    columns = [column.aliases]
+    where   = "deleted_at IS NULL"
+  }
 }
 
 table "external_user_groups" {
