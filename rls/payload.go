@@ -67,15 +67,26 @@ func (t *Payload) Fingerprint() string {
 
 // Injects the payload as local parameter
 func (t Payload) SetPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, true)
+	return t.setPostgresSessionRLS(db, true, "postgrest_api")
 }
 
 // Injects the payload as sessions parameter
 func (t Payload) SetGlobalPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, false)
+	return t.setPostgresSessionRLS(db, false, "postgrest_api")
 }
 
-func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool) error {
+func (t Payload) SetPostgresSessionRLSWithRole(db *gorm.DB, role string) error {
+	return t.setPostgresSessionRLS(db, true, role)
+}
+
+func (t Payload) SetGlobalPostgresSessionRLSWithRole(db *gorm.DB, role string) error {
+	return t.setPostgresSessionRLS(db, false, role)
+}
+
+func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool, role string) error {
+	if role == "" {
+		return fmt.Errorf("role is required")
+	}
 	rlsJSON, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("failed to marshall to json: %w", err)
@@ -86,7 +97,7 @@ func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool) error {
 		scope = "LOCAL"
 	}
 
-	if err := db.Exec(fmt.Sprintf("SET %s ROLE postgrest_api", scope)).Error; err != nil {
+	if err := db.Exec(fmt.Sprintf("SET %s ROLE %s", scope, pq.QuoteIdentifier(role))).Error; err != nil {
 		return fmt.Errorf("failed to set role: %w", err)
 	}
 

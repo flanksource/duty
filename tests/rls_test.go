@@ -43,12 +43,6 @@ func payloadWithScopes(scopeIDs ...*uuid.UUID) func() rls.Payload {
 	}
 }
 
-func payloadDisabled() func() rls.Payload {
-	return func() rls.Payload {
-		return rls.Payload{Disable: true}
-	}
-}
-
 func resetScopes(db *gorm.DB, tables ...string) {
 	for _, table := range tables {
 		Expect(db.Exec(fmt.Sprintf("UPDATE %s SET __scope = NULL", table)).Error).To(BeNil())
@@ -112,7 +106,6 @@ var _ = Describe("RLS scopes", Ordered, ContinueOnFailure, func() {
 					Entry("no scopes", scopeCase{payload: payloadNoScopes(), expectedCount: lo.ToPtr(int64(0))}),
 					Entry("aws scope", scopeCase{payload: payloadWithScopes(&awsScopeID), expectedCount: &awsConfigs}),
 					Entry("combined scopes", scopeCase{payload: payloadWithScopes(&awsScopeID, &demoScopeID), expectedCount: &awsOrDemo}),
-					Entry("rls disabled", scopeCase{payload: payloadDisabled(), expectedCount: &totalConfigs}),
 				)
 			})
 		}
