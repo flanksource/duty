@@ -111,3 +111,8 @@ CREATE OR REPLACE TRIGGER normalize_external_roles_aliases_trigger
   BEFORE INSERT OR UPDATE ON external_roles
   FOR EACH ROW
   EXECUTE PROCEDURE normalize_aliases();
+
+CREATE OR REPLACE TRIGGER normalize_external_groups_aliases_trigger
+  BEFORE INSERT OR UPDATE ON external_groups
+  FOR EACH ROW
+  EXECUTE PROCEDURE normalize_aliases();

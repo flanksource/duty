@@ -355,3 +355,120 @@ var _ = Describe("External Roles Aliases", Ordered, func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("External Groups Aliases", Ordered, func() {
+	var scraperID uuid.UUID
+
+	BeforeAll(func() {
+		scraperID = uuid.MustParse(*dummy.KubernetesCluster.ScraperID)
+	})
+
+	It("should lowercase, sort and unique aliases on insert", func() {
+		group := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Lowercase",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"Group-Bob", "GROUP-ALICE", "GROUP-alice", "GROUP-alice", "GROUP-CHARLIE"},
+		}
+		err := DefaultContext.DB().Create(&group).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalGroup
+		err = DefaultContext.DB().Where("id = ?", group.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"group-alice", "group-bob", "group-charlie"}))
+	})
+
+	It("should normalize aliases on update", func() {
+		group := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Update",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"group-update-initial"},
+		}
+		err := DefaultContext.DB().Create(&group).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = DefaultContext.DB().Model(&group).Update("aliases", pq.StringArray{"GROUP-UPDATE-ZEBRA", "Group-Update-Apple", "group-update-zebra"}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalGroup
+		err = DefaultContext.DB().Where("id = ?", group.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{"group-update-apple", "group-update-zebra"}))
+	})
+
+	It("should handle null aliases", func() {
+		group := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Null Aliases",
+			ScraperID: scraperID,
+			Aliases:   nil,
+		}
+		err := DefaultContext.DB().Create(&group).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalGroup
+		err = DefaultContext.DB().Where("id = ?", group.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fetched.Aliases).To(BeNil())
+	})
+
+	It("should handle empty aliases array", func() {
+		group := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Empty Aliases",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{},
+		}
+		err := DefaultContext.DB().Create(&group).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var fetched models.ExternalGroup
+		err = DefaultContext.DB().Where("id = ?", group.ID).First(&fetched).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]string(fetched.Aliases)).To(Equal([]string{}))
+	})
+
+	It("should enforce unique aliases constraint", func() {
+		aliases := pq.StringArray{"group-unique-alias-1", "group-unique-alias-2"}
+
+		group1 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Unique 1",
+			ScraperID: scraperID,
+			Aliases:   aliases,
+		}
+		err := DefaultContext.DB().Create(&group1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		group2 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Unique 2",
+			ScraperID: scraperID,
+			Aliases:   aliases,
+		}
+		err = DefaultContext.DB().Create(&group2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should enforce unique constraint case-insensitively", func() {
+		group1 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Case Unique 1",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"GroupCaseTest1", "GroupCaseTest2"},
+		}
+		err := DefaultContext.DB().Create(&group1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		group2 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Case Unique 2",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{"groupcasetest1", "GROUPCASETEST2"},
+		}
+		err = DefaultContext.DB().Create(&group2).Error
+		Expect(err).To(HaveOccurred())
+	})
+})
