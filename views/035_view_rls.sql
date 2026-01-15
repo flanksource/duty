@@ -17,13 +17,7 @@ BEGIN
 
   RETURN EXISTS (
     SELECT 1 FROM jsonb_array_elements_text(grants) AS grant_uuid
-    WHERE grant_uuid = ANY(
-      COALESCE(
-        ARRAY(SELECT jsonb_array_elements_text(
-          COALESCE(current_setting('request.jwt.claims', TRUE)::jsonb -> 'scopes', '[]'::jsonb)
-        )), '{}'::text[]
-      )
-    )
+    WHERE grant_uuid::uuid = ANY(rls_scope_access())
   );
 END;
 $$ LANGUAGE plpgsql VOLATILE;

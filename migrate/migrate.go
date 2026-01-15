@@ -13,6 +13,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 
@@ -232,7 +233,7 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 	if err := db.QueryRow("SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = $1 LIMIT 1", roleName).Scan(&count); err != nil {
 		return err
 	} else if count == 0 {
-		if _, err := db.Exec(fmt.Sprintf("CREATE ROLE %s", roleName)); err != nil {
+		if _, err := db.Exec(fmt.Sprintf("CREATE ROLE %s", pq.QuoteIdentifier(roleName))); err != nil {
 			return err
 		} else {
 			log.Infof("Created role %s", roleName)
@@ -245,7 +246,7 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 		if granted, err := checkIfRoleIsGranted(db, roleName, user); err != nil {
 			return err
 		} else if !granted {
-			if _, err := db.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, roleName, user)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, pq.QuoteIdentifier(roleName), user)); err != nil {
 				log.Errorf("Failed to grant role %s to %s", roleName, user)
 			} else {
 				log.Infof("Granted %s to %s", roleName, user)
@@ -254,7 +255,7 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 	}
 
 	for _, grant := range grants {
-		if _, err := db.Exec(fmt.Sprintf(grant, roleName)); err != nil {
+		if _, err := db.Exec(fmt.Sprintf(grant, pq.QuoteIdentifier(roleName))); err != nil {
 			log.Errorf("Failed to apply grant[%s] for %s: %+v", grant, roleName, err)
 		}
 	}
@@ -269,6 +270,19 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
 		"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s",
 		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s"); err != nil {
 		return err
+	}
+
+	if config.Postgrest.DBRoleBypass != "" {
+		if err := createRole(pool, config.Postgrest.DBRoleBypass, config,
+			"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %s",
+			"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s",
+			"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s",
+			"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s"); err != nil {
+			return err
+		}
+		if _, err := pool.Exec(fmt.Sprintf("ALTER ROLE %s BYPASSRLS", pq.QuoteIdentifier(config.Postgrest.DBRoleBypass))); err != nil {
+			logger.GetLogger("migrate").Errorf("Failed to set BYPASSRLS for role %s: %v", config.Postgrest.DBRoleBypass, err)
+		}
 	}
 	if err := createRole(pool, config.Postgrest.AnonDBRole, config,
 		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s",

@@ -197,6 +197,10 @@ table "components" {
     null = true
     type = jsonb
   }
+  column "__scope" {
+    null = true
+    type = sql("uuid[]")
+  }
   column "hidden" {
     null    = false
     type    = boolean
@@ -362,6 +366,10 @@ table "components" {
   }
   index "idx_components_properties" {
     columns = [column.properties]
+    type    = GIN
+  }
+  index "components__scope_gin_idx" {
+    columns = [column.__scope]
     type    = GIN
   }
   index "components_topology_id_type_name_parent_id_key" {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
 
 	"github.com/flanksource/duty/context"
 	pkgRLS "github.com/flanksource/duty/rls"
@@ -165,9 +166,9 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig) {
 					var payload pkgRLS.Payload
 					if rls {
 						b.StopTimer()
-						payload = pkgRLS.Payload{Config: []pkgRLS.Scope{{Tags: sampleTags[i%len(sampleTags)]}}}
+						payload = pkgRLS.Payload{Scopes: []uuid.UUID{benchScopeIDs[i%len(benchScopeIDs)]}}
 						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
-							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
+							b.Fatalf("failed to setup rls payload with scope(%v): %v", payload, err)
 						}
 
 						if err := verifyRLSPayload(testCtx); err != nil {

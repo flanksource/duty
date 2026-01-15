@@ -12,6 +12,10 @@ ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
 test: ginkgo
+	# cleanup git directories that were downloaded from previous test run
+	# cuz we don't want to run their unit tests
+	rm -rf tests/e2e/exec-checkout
+	
 	ginkgo -r -v --skip-package=tests/e2e
 
 .PHONY: test-e2e

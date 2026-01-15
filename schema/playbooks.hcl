@@ -31,6 +31,10 @@ table "playbooks" {
     null = false
     type = jsonb
   }
+  column "__scope" {
+    null = true
+    type = sql("uuid[]")
+  }
   column "created_by" {
     null = true
     type = uuid
@@ -65,6 +69,10 @@ table "playbooks" {
     unique  = true
     columns = [column.namespace, column.name, column.category]
     where   = "deleted_at IS NULL"
+  }
+  index "playbooks__scope_gin_idx" {
+    columns = [column.__scope]
+    type    = GIN
   }
   foreign_key "playbook_created_by_fkey" {
     columns     = [column.created_by]

@@ -2,6 +2,7 @@ package bench_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -27,6 +28,8 @@ var sampleTags = []map[string]string{
 	{"region": "us-east-1"},
 	{"region": "us-east-2"},
 }
+
+var benchScopeIDs []uuid.UUID
 
 func generateConfigItems(ctx context.Context, count int) error {
 	var iter int
@@ -116,6 +119,25 @@ func verifyRLSPayload(ctx context.Context) error {
 func setupConfigsForSize(ctx context.Context, size int) ([]uuid.UUID, error) {
 	if err := generateConfigItems(ctx, size); err != nil {
 		return nil, fmt.Errorf("failed to generate configs: %w", err)
+	}
+
+	benchScopeIDs = make([]uuid.UUID, len(sampleTags))
+	for i, tag := range sampleTags {
+		scopeID := uuid.New()
+		benchScopeIDs[i] = scopeID
+		tagJSON, err := json.Marshal(tag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize bench scope tag: %w", err)
+		}
+
+		if err := ctx.DB().Exec(`
+			UPDATE config_items
+			SET __scope = array_append(COALESCE(__scope, '{}'::uuid[]), ?)
+			WHERE tags @> ?::jsonb
+			  AND NOT (COALESCE(__scope, '{}'::uuid[]) @> ARRAY[?]::uuid[])
+		`, scopeID, string(tagJSON), scopeID).Error; err != nil {
+			return nil, fmt.Errorf("failed to materialize bench scope: %w", err)
+		}
 	}
 
 	var configIDs []uuid.UUID

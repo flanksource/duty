@@ -10,12 +10,13 @@ import (
 
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
-		Version:    "v10.0.0",
-		DBRole:     "postgrest_api",
-		AnonDBRole: "",
-		Port:       3000,
-		AdminPort:  3001,
-		MaxRows:    2000,
+		Version:      "v10.0.0",
+		DBRole:       "postgrest_api",
+		DBRoleBypass: "rls_bypasser",
+		AnonDBRole:   "",
+		Port:         3000,
+		AdminPort:    3001,
+		MaxRows:      2000,
 	},
 }
 
@@ -123,15 +124,22 @@ func (c Config) GetUsername() string {
 }
 
 type PostgrestConfig struct {
-	Port       int
-	Disable    bool
-	LogLevel   string
-	URL        string
-	Version    string
-	JWTSecret  string
-	DBRole     string
+	Port      int
+	Disable   bool
+	LogLevel  string
+	URL       string
+	Version   string
+	JWTSecret string
+	AdminPort int
+
+	// DBRole is the PostgREST role used for authenticated requests.
+	DBRole string
+
+	// DBRoleBypass is the PostgREST role used to bypass RLS for admin requests.
+	DBRoleBypass string
+
+	// AnonDBRole is the PostgREST role used for unauthenticated requests.
 	AnonDBRole string
-	AdminPort  int
 
 	// A hard limit to the number of rows PostgREST will fetch from a view, table, or stored procedure.
 	// Limits payload size for accidental or malicious requests.
