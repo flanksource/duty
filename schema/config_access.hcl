@@ -177,6 +177,19 @@ table "external_roles" {
     type = text
     null = true
   }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null = true
+    type = timestamptz
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
   primary_key {
     columns = [column.id]
   }
@@ -189,6 +202,11 @@ table "external_roles" {
     ref_columns = [table.applications.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "external_roles_aliases_key" {
+    unique  = true
+    columns = [column.aliases]
+    where   = "deleted_at IS NULL"
   }
 }
 
