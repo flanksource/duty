@@ -63,8 +63,8 @@ type KubernetesConnection struct {
 // +kubebuilder:object:generate=true
 type KubernetesProxy struct {
 	KubernetesConnection `json:",inline"`
-	PortForward          *dutyKubernetes.PortForwardOptions
-	HTTPAPI              bool
+	PortForward          *dutyKubernetes.PortForwardOptions `json:"portForward,omitempty"`
+	HTTPAPI              bool                               `json:"httpAPI,omitempty"`
 }
 
 func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string) (string, chan struct{}, error) {
@@ -88,7 +88,7 @@ func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string)
 		ep, err := dutyKubernetes.GetProxiedURL(actualEndpoint, restConifg)
 		return ep, nil, err
 	}
-	return "", nil, fmt.Errorf("either portForward or httpApi should be set")
+	return "", nil, fmt.Errorf("either portForward or httpAPI should be set")
 }
 
 // String returns a human readable string representation of the KubernetesConnection
