@@ -2,6 +2,7 @@ package connection
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/samber/lo"
 	"k8s.io/client-go/kubernetes"
@@ -57,6 +58,37 @@ type KubernetesConnection struct {
 	EKS  *EKSConnection  `json:"eks,omitempty"`
 	GKE  *GKEConnection  `json:"gke,omitempty"`
 	CNRM *CNRMConnection `json:"cnrm,omitempty"`
+}
+
+// +kubebuilder:object:generate=true
+type KubernetesProxy struct {
+	KubernetesConnection `json:",inline"`
+	PortForward          *dutyKubernetes.PortForwardOptions
+	HTTPAPI              bool
+}
+
+func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string) (string, chan struct{}, error) {
+	k8sClient, restConifg, err := p.Populate(ctx, true)
+	if err != nil {
+		return "", nil, err
+	}
+	if p.PortForward != nil {
+		port, stopChan, err := dutyKubernetes.PortForward(ctx, k8sClient, restConifg, *p.PortForward)
+		if err != nil {
+			return "", nil, err
+		}
+		parsedURL, err := url.Parse(actualEndpoint)
+		if err != nil {
+			return "", nil, fmt.Errorf("error parsing url[%s]: %w", actualEndpoint, err)
+		}
+		parsedURL.Host = fmt.Sprint("localhost:%d", port)
+		return parsedURL.String(), stopChan, nil
+	}
+	if p.HTTPAPI {
+		ep, err := dutyKubernetes.GetProxiedURL(actualEndpoint, restConifg)
+		return ep, nil, err
+	}
+	return "", nil, fmt.Errorf("either portForward or httpApi should be set")
 }
 
 // String returns a human readable string representation of the KubernetesConnection

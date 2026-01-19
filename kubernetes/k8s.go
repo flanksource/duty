@@ -2,7 +2,9 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	netURL "net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -200,4 +202,35 @@ func GetClusterName(config *rest.Config) string {
 	}
 
 	return config.Host
+}
+
+func GetTransportRoundtripper(config *rest.Config) (func(http.RoundTripper) http.RoundTripper, error) {
+	k8srt, err := rest.TransportFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transport config for k8s: %w", err)
+	}
+
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return k8srt
+	}, nil
+}
+
+func GetProxiedURL(url string, config *rest.Config) (string, error) {
+	parsedURL, err := netURL.Parse(url)
+	if err != nil {
+		return "", fmt.Errorf("error parsing url[%s]: %w", url, err)
+	}
+
+	port := lo.CoalesceOrEmpty(parsedURL.Port(), lo.Ternary(parsedURL.Scheme == "https", "443", "80"))
+	parts := strings.Split(parsedURL.Hostname(), ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("host[%s] is invalid. Use `service.namespace` format", parsedURL.Hostname())
+	}
+	svc, ns := parts[0], parts[1]
+	path := strings.TrimPrefix(parsedURL.EscapedPath(), "/")
+	proxyURL := fmt.Sprintf("%s/api/v1/namespaces/%s/services/%s:%s/proxy/%s", config.Host, ns, svc, port, path)
+	if parsedURL.RawQuery != "" {
+		proxyURL += "?" + parsedURL.RawQuery
+	}
+	return proxyURL, nil
 }
