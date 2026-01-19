@@ -113,7 +113,13 @@ const (
 type NotificationSendHistory struct {
 	ID             uuid.UUID `json:"id,omitempty" gorm:"default:generate_ulid()"`
 	NotificationID uuid.UUID `json:"notification_id"`
-	Body           *string   `json:"body,omitempty"`
+
+	// Deprecated: we use BodyPayload. Remove later
+	Body *string `json:"body,omitempty"`
+
+	// BodyPayload stores the clicky Schema + Data
+	BodyPayload types.JSON `json:"body_payload,omitempty" gorm:"column:body_payload"`
+
 	Error          *string   `json:"error,omitempty"`
 	DurationMillis int64     `json:"duration_millis,omitempty"`
 	CreatedAt      time.Time `json:"created_at" time_format:"postgres_timestamp"`

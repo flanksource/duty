@@ -184,6 +184,11 @@ table "notification_send_history" {
     null = true # nullable for unsent notifications
     type = text
   }
+  column "body_payload" {
+    null    = true
+    type    = jsonb
+    comment = "schema and data payload for clicky formatting"
+  }
   column "status" {
     null = true
     type = text
