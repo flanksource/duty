@@ -10,12 +10,12 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-DO $$ 
-DECLARE 
+DO $$
+DECLARE
   table_name TEXT;
-BEGIN 
-  FOR table_name IN 
-    SELECT t.table_name 
+BEGIN
+  FOR table_name IN
+    SELECT t.table_name
     FROM information_schema.tables  t
     WHERE t.table_schema = current_schema() AND t.table_type = 'BASE TABLE'
       AND t.table_name IN (
@@ -25,7 +25,9 @@ BEGIN
         'canaries',
         'components',
         'checks',
+        'checks_unlogged',
         'config_items',
+        'config_items_last_scraped_time',
         'config_analysis',
         'config_changes',
         'check_statuses',
@@ -35,7 +37,7 @@ BEGIN
         'config_component_relationships',
         'config_relationships'
       )
-  LOOP 
+  LOOP
     EXECUTE format('
       CREATE OR REPLACE TRIGGER %I_reset_is_pushed_before_update
       BEFORE UPDATE ON %I
@@ -43,5 +45,5 @@ BEGIN
       EXECUTE PROCEDURE reset_is_pushed_before_update()',
       table_name, table_name
     );
-  END LOOP; 
+  END LOOP;
 END $$;
