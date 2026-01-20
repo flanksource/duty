@@ -94,7 +94,7 @@ require (
 	golang.org/x/sync v0.18.0
 	gonum.org/v1/gonum v0.16.0
 	google.golang.org/api v0.254.0
-	google.golang.org/grpc v1.76.0
+	google.golang.org/grpc v1.78.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.0
