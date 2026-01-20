@@ -1,6 +1,10 @@
 package views
 
-import "embed"
+import (
+	"embed"
+
+	"github.com/flanksource/commons/properties"
+)
 
 //go:embed *.sql
 var views embed.FS
@@ -17,6 +21,14 @@ func GetViews() (map[string]string, error) {
 			return nil, err
 		}
 		funcs[file.Name()] = string(script)
+	}
+
+	usePrecomputed := properties.On(false, "rls.precomputed_scope")
+	if precomputed, ok := funcs["9998_rls_enable_precomputed.sql"]; ok {
+		if usePrecomputed {
+			funcs["9998_rls_enable.sql"] = precomputed
+		}
+		delete(funcs, "9998_rls_enable_precomputed.sql")
 	}
 	return funcs, nil
 }

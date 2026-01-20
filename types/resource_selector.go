@@ -328,10 +328,6 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		return false
 	}
 
-	if rs.Wildcard() {
-		return true
-	}
-
 	peg := rs.ToPeg(true)
 	if peg == "" {
 		return false

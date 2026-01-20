@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
@@ -46,8 +47,7 @@ type Payload struct {
 	View      []Scope `json:"view,omitempty"`
 
 	// Scopes contains the list of scope UUIDs the user has access to.
-	// This is used for generated view tables only (for now).
-	Scopes []string `json:"scopes,omitempty"`
+	Scopes []uuid.UUID `json:"scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
@@ -102,9 +102,11 @@ func (t *Payload) EvalFingerprint() {
 		}
 	}
 
-	// Include scope UUIDs in fingerprint
 	if len(t.Scopes) > 0 {
-		scopesCopy := slices.Clone(t.Scopes)
+		scopesCopy := make([]string, 0, len(t.Scopes))
+		for _, scope := range t.Scopes {
+			scopesCopy = append(scopesCopy, scope.String())
+		}
 		slices.Sort(scopesCopy)
 		parts = append(parts, strings.Join(scopesCopy, ","))
 	}
@@ -128,15 +130,26 @@ func (t *Payload) Fingerprint() string {
 
 // Injects the payload as local parameter
 func (t Payload) SetPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, true)
+	return t.setPostgresSessionRLS(db, true, "postgrest_api")
 }
 
 // Injects the payload as sessions parameter
 func (t Payload) SetGlobalPostgresSessionRLS(db *gorm.DB) error {
-	return t.setPostgresSessionRLS(db, false)
+	return t.setPostgresSessionRLS(db, false, "postgrest_api")
 }
 
-func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool) error {
+func (t Payload) SetPostgresSessionRLSWithRole(db *gorm.DB, role string) error {
+	return t.setPostgresSessionRLS(db, true, role)
+}
+
+func (t Payload) SetGlobalPostgresSessionRLSWithRole(db *gorm.DB, role string) error {
+	return t.setPostgresSessionRLS(db, false, role)
+}
+
+func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool, role string) error {
+	if role == "" {
+		return fmt.Errorf("role is required")
+	}
 	rlsJSON, err := json.Marshal(t)
 	if err != nil {
 		return fmt.Errorf("failed to marshall to json: %w", err)
@@ -147,7 +160,7 @@ func (t Payload) setPostgresSessionRLS(db *gorm.DB, local bool) error {
 		scope = "LOCAL"
 	}
 
-	if err := db.Exec(fmt.Sprintf("SET %s ROLE postgrest_api", scope)).Error; err != nil {
+	if err := db.Exec(fmt.Sprintf("SET %s ROLE %s", scope, pq.QuoteIdentifier(role))).Error; err != nil {
 		return fmt.Errorf("failed to set role: %w", err)
 	}
 

@@ -2219,8 +2219,8 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 	var _ = Describe("view_panels query", func() {
 		var (
-			tx               *gorm.DB
-			totalViewPanels  int64
+			tx                *gorm.DB
+			totalViewPanels   int64
 			podViewPanelCount int64
 			devViewPanelCount int64
 		)

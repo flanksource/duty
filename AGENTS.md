@@ -15,10 +15,11 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 ### Policy Patterns
 
-**Direct Policies**: Tables with direct RLS use the `match_scope()` function to evaluate JWT claims against row attributes (tags, agents, names, id).
+**Direct Policies**: Tables with direct RLS default to `match_scope()` against JWT claims.
 
-- Examples: `config_items`, `canaries`, `components`, `playbooks`
-- Policy checks row attributes directly using `match_scope(jwt_claims, row.tags, row.agent_id, row.name, row.id)`
+- Examples: `config_items`, `canaries`, `components`, `playbooks`, `views`
+- Default policy uses `match_scope(claims, tags, agent_id, name, id)` with wildcard support.
+- When `rls.precomputed_scope` is enabled at migration time, policies switch to `__scope && rls_scope_access()` instead.
 
 **Inherited Policies**: Child tables inherit access control from their parent using `EXISTS` clauses.
 
@@ -29,7 +30,8 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 1. Add RLS enable logic to `@views/9998_rls_enable.sql`
    - Enable RLS on the table
-   - Create the policy (either direct with `match_scope()` or inherited with `EXISTS`)
+   - Create the default match_scope policy (or inherited with `EXISTS`)
+   - If needed, mirror the change in `@views/9998_rls_enable_precomputed.sql` for precomputed mode
 2. Add counterpart disable logic to `@views/9999_rls_disable.sql`
    - Disable RLS on the table
    - Drop the policy
@@ -42,7 +44,7 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 The RLS policies work by injecting JWT claims into PostgreSQL session variables via `request.jwt.claims`. The flow is:
 
-- Go code builds an RLS Payload (scopes for config, component, playbook, canary, view) in `@rls/payload.go`
+- Go code builds an RLS Payload (scope UUIDs + wildcard scopes) in `@rls/payload.go`
 - `SetPostgresSessionRLS()` serializes the Payload to JSON and executes: `SET request.jwt.claims TO <json>`
 - PostgreSQL RLS policies read `(current_setting('request.jwt.claims')::jsonb)` to enforce access control
 
