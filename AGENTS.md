@@ -15,10 +15,11 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 ### Policy Patterns
 
-**Direct Policies**: Tables with direct RLS use the `__scope` array column and compare it against JWT claims.
+**Direct Policies**: Tables with direct RLS default to `match_scope()` against JWT claims.
 
 - Examples: `config_items`, `canaries`, `components`, `playbooks`, `views`
-- Policy checks scope overlap using `COALESCE(__scope, '{}'::uuid[]) && rls_scope_access()` and wildcard via `rls_has_wildcard('<type>')`.
+- Default policy uses `match_scope(claims, tags, agent_id, name, id)` with wildcard support.
+- When `rls.precomputed_scope` is enabled at migration time, policies switch to `__scope && rls_scope_access()` instead.
 
 **Inherited Policies**: Child tables inherit access control from their parent using `EXISTS` clauses.
 
@@ -29,7 +30,8 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 1. Add RLS enable logic to `@views/9998_rls_enable.sql`
    - Enable RLS on the table
-   - Create the policy (either direct with `__scope` overlap or inherited with `EXISTS`)
+   - Create the default match_scope policy (or inherited with `EXISTS`)
+   - If needed, mirror the change in `@views/9998_rls_enable_precomputed.sql` for precomputed mode
 2. Add counterpart disable logic to `@views/9999_rls_disable.sql`
    - Disable RLS on the table
    - Drop the policy

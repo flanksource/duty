@@ -153,7 +153,9 @@ func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 		CREATE POLICY view_grants_policy ON %s
 			FOR ALL TO postgrest_api, postgrest_anon
 			USING (
-				check_view_grants(__grants)
+				CASE WHEN is_rls_disabled() THEN TRUE
+				ELSE check_view_grants(__grants)
+				END
 			)
 	`, pq.QuoteIdentifier(tableName))
 

@@ -6,16 +6,45 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
+type Scope struct {
+	Tags   map[string]string `json:"tags,omitempty"`
+	Agents []string          `json:"agents,omitempty"`
+	Names  []string          `json:"names,omitempty"`
+	ID     string            `json:"id,omitempty"`
+}
+
+func (s Scope) IsEmpty() bool {
+	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0 && strings.TrimSpace(s.ID) == ""
+}
+
+func (s Scope) Fingerprint() string {
+	tagSelectors := collections.SortedMap(s.Tags)
+	agentsCopy := slices.Clone(s.Agents)
+	namesCopy := slices.Clone(s.Names)
+	slices.Sort(agentsCopy)
+	slices.Sort(namesCopy)
+
+	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID))
+	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
+}
+
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 type Payload struct {
 	// cached fingerprint
 	fingerprint string
+
+	Config    []Scope `json:"config,omitempty"`
+	Component []Scope `json:"component,omitempty"`
+	Playbook  []Scope `json:"playbook,omitempty"`
+	Canary    []Scope `json:"canary,omitempty"`
+	View      []Scope `json:"view,omitempty"`
 
 	// Scopes contains the list of scope UUIDs the user has access to.
 	Scopes []uuid.UUID `json:"scopes,omitempty"`
@@ -31,6 +60,26 @@ func (t Payload) JWTClaims() map[string]any {
 		return claims
 	}
 
+	if len(t.Config) > 0 {
+		claims["config"] = t.Config
+	}
+
+	if len(t.Component) > 0 {
+		claims["component"] = t.Component
+	}
+
+	if len(t.Playbook) > 0 {
+		claims["playbook"] = t.Playbook
+	}
+
+	if len(t.Canary) > 0 {
+		claims["canary"] = t.Canary
+	}
+
+	if len(t.View) > 0 {
+		claims["view"] = t.View
+	}
+
 	if len(t.Scopes) > 0 {
 		claims["scopes"] = t.Scopes
 	}
@@ -44,17 +93,31 @@ func (t *Payload) EvalFingerprint() {
 		return
 	}
 
-	if len(t.Scopes) == 0 {
+	parts := []string{}
+	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary, t.View} {
+		for _, scope := range scopeArray {
+			if !scope.IsEmpty() {
+				parts = append(parts, scope.Fingerprint())
+			}
+		}
+	}
+
+	if len(t.Scopes) > 0 {
+		scopesCopy := make([]string, 0, len(t.Scopes))
+		for _, scope := range t.Scopes {
+			scopesCopy = append(scopesCopy, scope.String())
+		}
+		slices.Sort(scopesCopy)
+		parts = append(parts, strings.Join(scopesCopy, ","))
+	}
+
+	if len(parts) == 0 {
 		t.fingerprint = "empty"
 		return
 	}
 
-	scopesCopy := make([]string, 0, len(t.Scopes))
-	for _, scope := range t.Scopes {
-		scopesCopy = append(scopesCopy, scope.String())
-	}
-	slices.Sort(scopesCopy)
-	t.fingerprint = hash.Sha256Hex(strings.Join(scopesCopy, ","))
+	slices.Sort(parts)
+	t.fingerprint = hash.Sha256Hex(strings.Join(parts, " | "))
 }
 
 func (t *Payload) Fingerprint() string {
