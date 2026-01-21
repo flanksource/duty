@@ -92,7 +92,7 @@ func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string)
 		return "", nil, err
 	}
 
-	parsedURL.Host = fmt.Sprint("localhost:%d", port)
+	parsedURL.Host = fmt.Sprintf("localhost:%d", port)
 	return parsedURL.String(), stopChan, nil
 }
 
