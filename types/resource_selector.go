@@ -332,7 +332,7 @@ func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
 		return true
 	}
 
-	peg := rs.ToPeg(true)
+	peg := rs.Canonical().ToPeg(true)
 	if peg == "" {
 		return false
 	}

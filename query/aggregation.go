@@ -54,7 +54,7 @@ func Aggregate(ctx context.Context, table string, query types.AggregatedResource
 
 	if !query.ResourceSelector.IsEmpty() {
 		var err error
-		db, err = SetResourceSelectorClause(ctx, query.ResourceSelector, db, table)
+		db, err = SetResourceSelectorClause(ctx, query.ResourceSelector.Canonical(), db, table)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply resource selector: %w", err)
 		}

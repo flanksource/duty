@@ -352,6 +352,8 @@ func queryResourceSelector[T any](
 		return nil, nil
 	}
 
+	resourceSelector = resourceSelector.Canonical()
+
 	// must create a deep copy to avoid mutating the original order of the select columns
 	var selectColumnsCopy = make([]string, len(selectColumns))
 	copy(selectColumnsCopy, selectColumns)
