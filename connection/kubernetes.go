@@ -3,6 +3,7 @@ package connection
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/samber/lo"
 	"k8s.io/client-go/kubernetes"
@@ -62,9 +63,10 @@ type KubernetesConnection struct {
 
 // +kubebuilder:object:generate=true
 type KubernetesProxy struct {
-	KubernetesConnection `json:",inline"`
-	PortForward          *dutyKubernetes.PortForwardOptions `json:"portForward,omitempty"`
-	HTTPAPI              bool                               `json:"httpAPI,omitempty"`
+	KubernetesConnection              `json:",inline"`
+	dutyKubernetes.PortForwardOptions `json:",inline"`
+	HTTPAPI                           bool `json:"httpAPI,omitempty"`
+	PortForward                       bool
 }
 
 func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string) (string, chan struct{}, error) {
@@ -72,20 +74,26 @@ func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string)
 	if err != nil {
 		return "", nil, err
 	}
-	if p.PortForward != nil {
-		port, stopChan, err := dutyKubernetes.PortForward(ctx, k8sClient, restConifg, *p.PortForward)
-		if err != nil {
-			return "", nil, err
-		}
+	if p.PortForward {
 		parsedURL, err := url.Parse(actualEndpoint)
 		if err != nil {
 			return "", nil, fmt.Errorf("error parsing url[%s]: %w", actualEndpoint, err)
 		}
+		if p.PortForwardOptions.RemotePort == 0 {
+			if portStr := parsedURL.Port(); portStr != "" {
+				p.PortForwardOptions.RemotePort, _ = strconv.Atoi(portStr)
+			}
+		}
+		port, stopChan, err := dutyKubernetes.PortForward(ctx, k8sClient, restConifg, p.PortForwardOptions)
+		if err != nil {
+			return "", nil, err
+		}
+
 		parsedURL.Host = fmt.Sprint("localhost:%d", port)
 		return parsedURL.String(), stopChan, nil
 	}
 	if p.HTTPAPI {
-		ep, err := dutyKubernetes.GetProxiedURL(actualEndpoint, restConifg)
+		ep, err := dutyKubernetes.GetProxiedURL(ctx, k8sClient, restConifg, p.PortForwardOptions, actualEndpoint)
 		return ep, nil, err
 	}
 	return "", nil, fmt.Errorf("either portForward or httpAPI should be set")
