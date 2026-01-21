@@ -101,6 +101,92 @@ var _ = Describe("Resource Selector", func() {
 				},
 			},
 			{
+				name: "Namespace wildcard ignored",
+				resourceSelectors: []types.ResourceSelector{
+					{Name: "airsonic", Namespace: "*"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("airsonic"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+			},
+			{
+				name: "Tag selector wildcard exists",
+				resourceSelectors: []types.ResourceSelector{
+					{TagSelector: "cluster=*"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"cluster": "prod",
+					},
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+			},
+			{
+				name: "Tag selector wildcard with requirement",
+				resourceSelectors: []types.ResourceSelector{
+					{TagSelector: "cluster=*,namespace=default"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"cluster":   "prod",
+						"namespace": "default",
+					},
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Tags: types.JSONStringMap{
+						"namespace": "default",
+					},
+				},
+			},
+			{
+				name: "Label selector wildcard exists",
+				resourceSelectors: []types.ResourceSelector{
+					{LabelSelector: "app=*,tier=backend"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Labels: &types.JSONStringMap{
+						"app":  "api",
+						"tier": "backend",
+					},
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+					Labels: &types.JSONStringMap{
+						"tier": "backend",
+					},
+				},
+			},
+			{
+				name: "Field selector wildcard ignored",
+				resourceSelectors: []types.ResourceSelector{
+					{Name: "airsonic", FieldSelector: "owner=*"},
+				},
+				selectable: models.ConfigItem{
+					Name: lo.ToPtr("airsonic"),
+				},
+				unselectable: models.ConfigItem{
+					Name: lo.ToPtr("silverbullet"),
+				},
+			},
+			{
 				name: "Types",
 				resourceSelectors: []types.ResourceSelector{
 					{Types: []string{"Kubernetes::Pod"}},
@@ -497,6 +583,37 @@ var _ = Describe("Resource Selector", func() {
 					}
 				})
 			}
+		})
+
+		Describe("Canonical", func() {
+			It("should normalize wildcard values", func() {
+				rs := types.ResourceSelector{
+					ID:            "*",
+					Name:          "*",
+					Namespace:     "*",
+					Agent:         "*",
+					Scope:         "*",
+					TagSelector:   "cluster=*",
+					LabelSelector: "app=*,tier=backend",
+					FieldSelector: "owner=*",
+					Types:         []string{"*", "Kubernetes::Pod"},
+					Statuses:      []string{"*", "healthy"},
+					Health:        "*,warning",
+				}
+
+				canonical := rs.Canonical()
+				Expect(canonical.ID).To(Equal(""))
+				Expect(canonical.Name).To(Equal("*"))
+				Expect(canonical.Namespace).To(Equal(""))
+				Expect(canonical.Agent).To(Equal("all"))
+				Expect(canonical.Scope).To(Equal(""))
+				Expect(canonical.TagSelector).To(Equal("cluster"))
+				Expect(canonical.LabelSelector).To(Equal("app,tier=backend"))
+				Expect(canonical.FieldSelector).To(Equal(""))
+				Expect(canonical.Types).To(Equal(types.Items{"Kubernetes::Pod"}))
+				Expect(canonical.Statuses).To(Equal(types.Items{"healthy"}))
+				Expect(canonical.Health).To(Equal(types.MatchExpression("warning")))
+			})
 		})
 	})
 })
