@@ -2,7 +2,9 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	netURL "net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -14,6 +16,8 @@ import (
 	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
 	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
@@ -200,4 +204,90 @@ func GetClusterName(config *rest.Config) string {
 	}
 
 	return config.Host
+}
+
+func GetTransportRoundtripper(config *rest.Config) (func(http.RoundTripper) http.RoundTripper, error) {
+	k8srt, err := rest.TransportFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transport config for k8s: %w", err)
+	}
+
+	return func(rt http.RoundTripper) http.RoundTripper {
+		return k8srt
+	}, nil
+}
+
+func GetProxiedURL(ctx context.Context, k8s kubernetes.Interface, config *rest.Config, opts PortForwardOptions, url string) (string, error) {
+	parsedURL, err := netURL.Parse(url)
+	if err != nil {
+		return "", fmt.Errorf("error parsing url[%s]: %w", url, err)
+	}
+
+	port := lo.CoalesceOrEmpty(lo.Ternary(opts.RemotePort > 0, fmt.Sprintf("%d", opts.RemotePort), ""), parsedURL.Port(), "80")
+	path := strings.TrimPrefix(parsedURL.EscapedPath(), "/")
+
+	var proxyURL string
+	switch opts.Kind {
+	case "service":
+		proxyURL = fmt.Sprintf("%s/api/v1/namespaces/%s/services/%s:%s/proxy/%s", config.Host, opts.Namespace, opts.Name, port, path)
+
+	case "pod":
+		proxyURL = fmt.Sprintf("%s/api/v1/namespaces/%s/pods/%s:%s/proxy/%s", config.Host, opts.Namespace, opts.Name, port, path)
+
+	case "deployment":
+		podName, err := getPodForDeployment(ctx, k8s, opts)
+		if err != nil {
+			return "", err
+		}
+		proxyURL = fmt.Sprintf("%s/api/v1/namespaces/%s/pods/%s:%s/proxy/%s", config.Host, opts.Namespace, podName, port, path)
+
+	default:
+		return "", fmt.Errorf("unsupported kind: %s", opts.Kind)
+	}
+
+	if parsedURL.RawQuery != "" {
+		proxyURL += "?" + parsedURL.RawQuery
+	}
+	return proxyURL, nil
+}
+
+func getPodForDeployment(ctx context.Context, k8s kubernetes.Interface, opts PortForwardOptions) (string, error) {
+	var podSelector map[string]string
+
+	if opts.Name != "" {
+		deployment, err := k8s.AppsV1().Deployments(opts.Namespace).Get(ctx, opts.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("deployment %s not found: %w", opts.Name, err)
+		}
+		podSelector = deployment.Spec.Selector.MatchLabels
+	} else if opts.LabelSelector != "" {
+		deployments, err := k8s.AppsV1().Deployments(opts.Namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: opts.LabelSelector,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to list deployments: %w", err)
+		}
+		if len(deployments.Items) == 0 {
+			return "", fmt.Errorf("no deployments found matching selector %s", opts.LabelSelector)
+		}
+		podSelector = deployments.Items[0].Spec.Selector.MatchLabels
+	} else {
+		return "", fmt.Errorf("either Name or LabelSelector must be provided")
+	}
+
+	if len(podSelector) == 0 {
+		return "", fmt.Errorf("deployment has no pod selector")
+	}
+
+	pods, err := k8s.CoreV1().Pods(opts.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.Set(podSelector).String(),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list pods for deployment: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		return "", fmt.Errorf("no pods found for deployment")
+	}
+
+	return pods.Items[0].Name, nil
 }
