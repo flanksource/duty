@@ -69,12 +69,12 @@ type KubernetesProxy struct {
 }
 
 func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string) (string, chan struct{}, error) {
-	k8sClient, restConifg, err := p.Populate(ctx, true)
+	k8sClient, restConfig, err := p.Populate(ctx, true)
 	if err != nil {
 		return "", nil, err
 	}
 	if p.HTTPAPI {
-		ep, err := dutyKubernetes.GetProxiedURL(ctx, k8sClient, restConifg, p.PortForwardOptions, actualEndpoint)
+		ep, err := dutyKubernetes.GetProxiedURL(ctx, k8sClient, restConfig, p.PortForwardOptions, actualEndpoint)
 		return ep, nil, err
 	}
 
@@ -87,7 +87,7 @@ func (p KubernetesProxy) GetEndpoint(ctx context.Context, actualEndpoint string)
 			p.PortForwardOptions.RemotePort, _ = strconv.Atoi(portStr)
 		}
 	}
-	port, stopChan, err := dutyKubernetes.PortForward(ctx, k8sClient, restConifg, p.PortForwardOptions)
+	port, stopChan, err := dutyKubernetes.PortForward(ctx, k8sClient, restConfig, p.PortForwardOptions)
 	if err != nil {
 		return "", nil, err
 	}
