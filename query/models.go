@@ -343,8 +343,9 @@ var PlaybookQueryModel = QueryModel{
 }
 
 var ConnectionQueryModel = QueryModel{
-	Table:   models.Connection{}.TableName(),
-	Columns: []string{"id", "name", "namespace", "type"},
+	Table:         models.Connection{}.TableName(),
+	Columns:       []string{"id", "name", "namespace", "type"},
+	HasProperties: true,
 }
 
 var ConfigChangeQueryModel = QueryModel{
