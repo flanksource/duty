@@ -184,7 +184,7 @@ func (o PortForwardOptions) validate() error {
 		return fmt.Errorf("type[%s] should be one of pod, service, deployment", o.Kind)
 	}
 	if o.Namespace == "" {
-		return fmt.Errorf("Namespace is required")
+		return fmt.Errorf("namespace is required")
 	}
 	if o.Name == "" && o.LabelSelector == "" {
 		return fmt.Errorf("either Name or LabelSelector must be provided")
