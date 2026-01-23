@@ -127,8 +127,11 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 	// Apply RLS policy to enforce grants
 	// (Re)apply RLS and Policy on first table creation or on schema changes
 	if len(changes) > 0 {
-		if err := ensureViewRLSPolicy(ctx, tableName); err != nil {
-			return fmt.Errorf("failed to apply RLS policy: %w", err)
+		applyRLS := api.DefaultConfig.EnableRLS && !api.DefaultConfig.DisableRLS
+		if applyRLS {
+			if err := ensureViewRLSPolicy(ctx, tableName); err != nil {
+				return fmt.Errorf("failed to apply RLS policy: %w", err)
+			}
 		}
 	}
 
