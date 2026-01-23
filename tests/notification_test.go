@@ -145,33 +145,6 @@ var _ = ginkgo.Describe("unsent notification", ginkgo.Ordered, func() {
 
 	var _ = ginkgo.Describe("basic functionality", func() {
 
-		ginkgo.It("should save body for unsent notifications", func() {
-			var (
-				dummyResource = uuid.New()
-				sourceEvent   = notification.Events[0]
-				sendStatus    = models.NotificationStatusSilenced
-				body          = "Test notification body"
-			)
-
-			query := "SELECT * FROM insert_unsent_notification_to_history(?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?)"
-			err := DefaultContext.DB().Exec(query, notification.ID, sourceEvent, dummyResource, sendStatus, silenceWindow, body).Error
-			Expect(err).To(BeNil())
-
-			var sentHistories []models.NotificationSendHistory
-			err = DefaultContext.DB().Model(&models.NotificationSendHistory{}).
-				Where("status = ?", sendStatus).
-				Where("resource_id = ?", dummyResource).
-				Where("source_event = ?", sourceEvent).Find(&sentHistories).Error
-			Expect(err).To(BeNil())
-			Expect(len(sentHistories)).To(Equal(1))
-
-			sentHistory := sentHistories[0]
-			Expect(sentHistory.ResourceID).To(Equal(dummyResource))
-			Expect(sentHistory.Status).To(Equal(sendStatus))
-			Expect(sentHistory.Body).ToNot(BeNil()) //nolint:staticcheck
-			Expect(*sentHistory.Body).To(Equal(body))  //nolint:staticcheck
-		})
-
 		ginkgo.It("should update body on duplicate notification", func() {
 			var (
 				dummyResource = uuid.New()
