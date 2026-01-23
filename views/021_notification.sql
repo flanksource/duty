@@ -37,6 +37,7 @@ CREATE OR REPLACE TRIGGER reset_notification_silence_error_before_update_trigger
 
 -- Ensure the previous function is cleaned up.
 DROP FUNCTION IF EXISTS insert_unsent_notification_to_history(uuid, text, uuid, text, interval);
+DROP FUNCTION IF EXISTS insert_unsent_notification_to_history(uuid, text, uuid, text, interval, uuid, uuid, uuid, uuid, uuid, uuid, text);
 
 --- A function to insert only those notifications that were unsent.
 --- It deals with the deduplication of inserting the same notification again if it was silenced or blocked by repeatInterval.
