@@ -67,8 +67,14 @@ FROM config_access_unwrapped
 JOIN config_items ON config_access_unwrapped.config_id = config_items.id
 JOIN external_users ON config_access_unwrapped.external_user_id = external_users.id
 LEFT JOIN external_roles ON config_access_unwrapped.external_role_id = external_roles.id
-LEFT JOIN config_access_logs 
-  ON config_access_unwrapped.config_id = config_access_logs.config_id 
-  AND config_access_unwrapped.external_user_id = config_access_logs.external_user_id
-  AND config_access_unwrapped.scraper_id = config_access_logs.scraper_id
+LEFT JOIN LATERAL (
+  SELECT created_at 
+  FROM config_access_logs 
+  WHERE config_access_logs.config_id = config_access_unwrapped.config_id 
+    AND config_access_logs.external_user_id = config_access_unwrapped.external_user_id
+    AND (config_access_unwrapped.scraper_id IS NULL 
+         OR config_access_logs.scraper_id = config_access_unwrapped.scraper_id)
+  ORDER BY created_at DESC
+  LIMIT 1
+) config_access_logs ON true
 WHERE config_access_unwrapped.deleted_at IS NULL;
