@@ -43,8 +43,8 @@ SELECT
 
 -- config_access_summary
 -- Provides a summary of config access control, resolving external users and groups.
--- Uses LATERAL join to fetch only the most recent access log per user-config combination,
--- avoiding duplicate rows from multiple sign-in entries.
+-- Note: config_access_logs stores at most one log per (config_id, external_user_id, scraper_id).
+-- Multiple rows for the same user-config pair are possible if detected by different scrapers.
 DROP VIEW IF EXISTS config_access_summary;
 
 CREATE VIEW config_access_summary AS
@@ -60,19 +60,15 @@ SELECT
   config_access_unwrapped.created_at as created_at,
   config_access_unwrapped.deleted_at as deleted_at,
   config_access_unwrapped.created_by as created_by,
-  latest_logs.created_at as last_signed_in_at,
+  config_access_logs.created_at as last_signed_in_at,
   config_access_unwrapped.last_reviewed_at as last_reviewed_at,
   config_access_unwrapped.last_reviewed_by as last_reviewed_by
 FROM config_access_unwrapped
 JOIN config_items ON config_access_unwrapped.config_id = config_items.id
 JOIN external_users ON config_access_unwrapped.external_user_id = external_users.id
 LEFT JOIN external_roles ON config_access_unwrapped.external_role_id = external_roles.id
-LEFT JOIN LATERAL (
-  SELECT created_at 
-  FROM config_access_logs 
-  WHERE config_access_logs.config_id = config_access_unwrapped.config_id 
-  AND config_access_logs.external_user_id = config_access_unwrapped.external_user_id
-  ORDER BY created_at DESC 
-  LIMIT 1
-) latest_logs ON true
+LEFT JOIN config_access_logs 
+  ON config_access_unwrapped.config_id = config_access_logs.config_id 
+  AND config_access_unwrapped.external_user_id = config_access_logs.external_user_id
+  AND config_access_unwrapped.scraper_id = config_access_logs.scraper_id
 WHERE config_access_unwrapped.deleted_at IS NULL;
