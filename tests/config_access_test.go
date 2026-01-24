@@ -164,13 +164,15 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 		err = DefaultContext.DB().Create(&oldestLog).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		// Update the same log to a NEWER timestamp (simulating a user accessing later)
-		// In real scenarios, this would be updated via application logic
+		// Create another access log with a NEWER timestamp (simulating a user accessing later)
 		newerTimestamp := referenceTime.Add(-30 * time.Minute)
-		err = DefaultContext.DB().
-			Model(&oldestLog).
-			Update("created_at", newerTimestamp).
-			Error
+		newerLog := models.ConfigAccessLog{
+			ExternalUserID: testUser.ID,
+			ConfigID:       testConfig.ID,
+			ScraperID:      scraperID,
+			CreatedAt:      newerTimestamp,
+		}
+		err = DefaultContext.DB().Create(&newerLog).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		// Query the config_access_summary view for this specific config
