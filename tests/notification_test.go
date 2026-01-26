@@ -145,33 +145,6 @@ var _ = ginkgo.Describe("unsent notification", ginkgo.Ordered, func() {
 
 	var _ = ginkgo.Describe("basic functionality", func() {
 
-		ginkgo.It("should save body for unsent notifications", func() {
-			var (
-				dummyResource = uuid.New()
-				sourceEvent   = notification.Events[0]
-				sendStatus    = models.NotificationStatusSilenced
-				body          = "Test notification body"
-			)
-
-			query := "SELECT * FROM insert_unsent_notification_to_history(?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?)"
-			err := DefaultContext.DB().Exec(query, notification.ID, sourceEvent, dummyResource, sendStatus, silenceWindow, body).Error
-			Expect(err).To(BeNil())
-
-			var sentHistories []models.NotificationSendHistory
-			err = DefaultContext.DB().Model(&models.NotificationSendHistory{}).
-				Where("status = ?", sendStatus).
-				Where("resource_id = ?", dummyResource).
-				Where("source_event = ?", sourceEvent).Find(&sentHistories).Error
-			Expect(err).To(BeNil())
-			Expect(len(sentHistories)).To(Equal(1))
-
-			sentHistory := sentHistories[0]
-			Expect(sentHistory.ResourceID).To(Equal(dummyResource))
-			Expect(sentHistory.Status).To(Equal(sendStatus))
-			Expect(sentHistory.Body).ToNot(BeNil()) //nolint:staticcheck
-			Expect(*sentHistory.Body).To(Equal(body))  //nolint:staticcheck
-		})
-
 		ginkgo.It("should update body on duplicate notification", func() {
 			var (
 				dummyResource = uuid.New()
@@ -203,6 +176,65 @@ var _ = ginkgo.Describe("unsent notification", ginkgo.Ordered, func() {
 			Expect(sentHistory.Count).To(Equal(2), "Expected count to be 2 after duplicate insert")
 			Expect(sentHistory.Body).ToNot(BeNil()) //nolint:staticcheck
 			Expect(*sentHistory.Body).To(Equal(updatedBody), "Body should be updated to the newest value") //nolint:staticcheck
+		})
+
+		ginkgo.It("should save body_payload for unsent notifications", func() {
+			var (
+				dummyResource = uuid.New()
+				sourceEvent   = notification.Events[0]
+				sendStatus    = models.NotificationStatusSilenced
+				bodyPayload   = `{"schema": "test", "data": {"key": "value"}}`
+			)
+
+			query := "SELECT * FROM insert_unsent_notification_to_history(?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?::jsonb)"
+			err := DefaultContext.DB().Exec(query, notification.ID, sourceEvent, dummyResource, sendStatus, silenceWindow, bodyPayload).Error
+			Expect(err).To(BeNil())
+
+			var sentHistories []models.NotificationSendHistory
+			err = DefaultContext.DB().Model(&models.NotificationSendHistory{}).
+				Where("status = ?", sendStatus).
+				Where("resource_id = ?", dummyResource).
+				Where("source_event = ?", sourceEvent).Find(&sentHistories).Error
+			Expect(err).To(BeNil())
+			Expect(len(sentHistories)).To(Equal(1))
+
+			sentHistory := sentHistories[0]
+			Expect(sentHistory.ResourceID).To(Equal(dummyResource))
+			Expect(sentHistory.Status).To(Equal(sendStatus))
+			Expect(sentHistory.BodyPayload).ToNot(BeNil())
+			Expect(string(sentHistory.BodyPayload)).To(MatchJSON(bodyPayload))
+		})
+
+		ginkgo.It("should update body_payload on duplicate notification", func() {
+			var (
+				dummyResource      = uuid.New()
+				sourceEvent        = notification.Events[0]
+				sendStatus         = models.NotificationStatusSilenced
+				firstBodyPayload   = `{"schema": "test", "data": {"version": 1}}`
+				updatedBodyPayload = `{"schema": "test", "data": {"version": 2}}`
+			)
+
+			// Insert first notification
+			query := "SELECT * FROM insert_unsent_notification_to_history(?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?::jsonb)"
+			err := DefaultContext.DB().Exec(query, notification.ID, sourceEvent, dummyResource, sendStatus, silenceWindow, firstBodyPayload).Error
+			Expect(err).To(BeNil())
+
+			// Insert second notification with same parameters but different body_payload
+			err = DefaultContext.DB().Exec(query, notification.ID, sourceEvent, dummyResource, sendStatus, silenceWindow, updatedBodyPayload).Error
+			Expect(err).To(BeNil())
+
+			var sentHistories []models.NotificationSendHistory
+			err = DefaultContext.DB().Model(&models.NotificationSendHistory{}).
+				Where("status = ?", sendStatus).
+				Where("resource_id = ?", dummyResource).
+				Where("source_event = ?", sourceEvent).Find(&sentHistories).Error
+			Expect(err).To(BeNil())
+			Expect(len(sentHistories)).To(Equal(1), "Expected only one notification due to deduplication")
+
+			sentHistory := sentHistories[0]
+			Expect(sentHistory.Count).To(Equal(2), "Expected count to be 2 after duplicate insert")
+			Expect(sentHistory.BodyPayload).ToNot(BeNil())
+			Expect(string(sentHistory.BodyPayload)).To(MatchJSON(updatedBodyPayload), "BodyPayload should be updated to the newest value")
 		})
 	})
 })
