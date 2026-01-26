@@ -202,7 +202,7 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 
 	for _, header := range conn.Headers {
 		if !header.IsEmpty() {
-			req.Header.Set(header.Name, header.ValueStatic)
+			req.Header.Add(header.Name, header.ValueStatic)
 		}
 	}
 
