@@ -38,10 +38,11 @@ func (t TLSConfig) IsEmpty() bool {
 type HTTPConnection struct {
 	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.HTTPBasicAuth `json:",inline"`
-	URL                 string       `json:"url,omitempty" yaml:"url,omitempty"`
-	Bearer              types.EnvVar `json:"bearer,omitempty" yaml:"bearer,omitempty"`
-	OAuth               types.OAuth  `json:"oauth,omitempty" yaml:"oauth,omitempty"`
-	TLS                 TLSConfig    `json:"tls,omitempty" yaml:"tls,omitempty"`
+	URL                 string         `json:"url,omitempty" yaml:"url,omitempty"`
+	Bearer              types.EnvVar   `json:"bearer,omitempty" yaml:"bearer,omitempty"`
+	OAuth               types.OAuth    `json:"oauth,omitempty" yaml:"oauth,omitempty"`
+	TLS                 TLSConfig      `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Headers             []types.EnvVar `json:"headers,omitempty" yaml:"headers,omitempty"`
 }
 
 func (t *HTTPConnection) FromModel(connection models.Connection) error {
@@ -69,6 +70,12 @@ func (t *HTTPConnection) FromModel(connection models.Connection) error {
 	if clientSecret := connection.Properties["clientSecret"]; clientSecret != "" {
 		if err := t.OAuth.ClientSecret.Scan(clientSecret); err != nil {
 			return fmt.Errorf("error scanning oauth client_secret: %w", err)
+		}
+	}
+
+	if headers := connection.Properties["headers"]; headers != "" {
+		if err := json.Unmarshal([]byte(headers), &t.Headers); err != nil {
+			return fmt.Errorf("error unmarshaling headers: %w", err)
 		}
 	}
 
@@ -141,6 +148,14 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 	if err != nil {
 		return h, err
 	}
+
+	for i := range h.Headers {
+		h.Headers[i].ValueStatic, err = ctx.GetEnvValueFromCache(h.Headers[i], namespace)
+		if err != nil {
+			return h, err
+		}
+	}
+
 	return h, nil
 }
 
@@ -174,6 +189,12 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 		rt.Base = oauthTransport.RoundTripper(rt.Base)
 	}
 
+	for _, header := range conn.Headers {
+		if !header.IsEmpty() {
+			req.Header.Set(header.Name, header.ValueStatic)
+		}
+	}
+
 	if !conn.TLS.IsEmpty() {
 		rt.TLS = conn.TLS
 	}
@@ -199,6 +220,12 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client,
 			Params:       conn.OAuth.Params,
 			Scopes:       conn.OAuth.Scopes,
 		})
+	}
+
+	for _, header := range conn.Headers {
+		if !header.IsEmpty() {
+			client.Header(header.Name, header.ValueStatic)
+		}
 	}
 
 	if !conn.TLS.IsEmpty() {
@@ -255,6 +282,12 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 		}
 		if oauthScopes := conn.Properties["scopes"]; oauthScopes != "" {
 			httpConn.OAuth.Scopes = strings.Split(oauthScopes, ",")
+		}
+
+		if headers := conn.Properties["headers"]; headers != "" {
+			if err := json.Unmarshal([]byte(headers), &httpConn.Headers); err != nil {
+				return httpConn, fmt.Errorf("error unmarshaling headers: %w", err)
+			}
 		}
 
 		if _, err := httpConn.Hydrate(ctx, conn.Namespace); err != nil {
