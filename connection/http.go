@@ -72,6 +72,17 @@ func (t *HTTPConnection) FromModel(connection models.Connection) error {
 			return fmt.Errorf("error scanning oauth client_secret: %w", err)
 		}
 	}
+	if tokenURL := connection.Properties["tokenURL"]; tokenURL != "" {
+		t.OAuth.TokenURL = tokenURL
+	}
+	if params := connection.Properties["params"]; params != "" {
+		if err := json.Unmarshal([]byte(params), &t.OAuth.Params); err != nil {
+			return fmt.Errorf("error unmarshaling oauth params: %w", err)
+		}
+	}
+	if scopes := connection.Properties["scopes"]; scopes != "" {
+		t.OAuth.Scopes = strings.Split(scopes, ",")
+	}
 
 	if headers := connection.Properties["headers"]; headers != "" {
 		if err := json.Unmarshal([]byte(headers), &t.Headers); err != nil {
@@ -248,46 +259,8 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 	var httpConn HTTPConnection
 	switch conn.Type {
 	case models.ConnectionTypeHTTP, models.ConnectionTypePrometheus:
-		httpConn.URL = conn.URL
-		if err := httpConn.Username.Scan(conn.Username); err != nil {
-			return httpConn, fmt.Errorf("error scanning username: %w", err)
-		}
-		if err := httpConn.Password.Scan(conn.Password); err != nil {
-			return httpConn, fmt.Errorf("error scanning password: %w", err)
-		}
-
-		if bearer := conn.Properties["bearer"]; bearer != "" {
-			if err := httpConn.Bearer.Scan(bearer); err != nil {
-				return httpConn, fmt.Errorf("error scanning bearer: %w", err)
-			}
-		}
-
-		if oauthClientID := conn.Properties["clientID"]; oauthClientID != "" {
-			if err := httpConn.OAuth.ClientID.Scan(oauthClientID); err != nil {
-				return httpConn, fmt.Errorf("error scanning oauth_client_id: %w", err)
-			}
-		}
-		if oauthClientSecret := conn.Properties["clientSecret"]; oauthClientSecret != "" {
-			if err := httpConn.OAuth.ClientSecret.Scan(oauthClientSecret); err != nil {
-				return httpConn, fmt.Errorf("error scanning oauth_client_secret: %w", err)
-			}
-		}
-		if oauthTokenURL := conn.Properties["tokenURL"]; oauthTokenURL != "" {
-			httpConn.OAuth.TokenURL = oauthTokenURL
-		}
-		if oauthParams := conn.Properties["params"]; oauthParams != "" {
-			if err := json.Unmarshal([]byte(oauthParams), &httpConn.OAuth.Params); err != nil {
-				return httpConn, fmt.Errorf("error unmarshaling params:%s in oauth: %w", oauthParams, err)
-			}
-		}
-		if oauthScopes := conn.Properties["scopes"]; oauthScopes != "" {
-			httpConn.OAuth.Scopes = strings.Split(oauthScopes, ",")
-		}
-
-		if headers := conn.Properties["headers"]; headers != "" {
-			if err := json.Unmarshal([]byte(headers), &httpConn.Headers); err != nil {
-				return httpConn, fmt.Errorf("error unmarshaling headers: %w", err)
-			}
+		if err := httpConn.FromModel(conn); err != nil {
+			return httpConn, err
 		}
 
 		if _, err := httpConn.Hydrate(ctx, conn.Namespace); err != nil {
