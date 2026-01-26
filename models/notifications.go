@@ -114,10 +114,11 @@ type NotificationSendHistory struct {
 	ID             uuid.UUID `json:"id,omitempty" gorm:"default:generate_ulid()"`
 	NotificationID uuid.UUID `json:"notification_id"`
 
-	// Deprecated: we use BodyPayload. Remove later
+	// Deprecated: legacy rendered body kept for backward compatibility.
+	// New notifications no longer populate this field; use BodyPayload instead.
 	Body *string `json:"body,omitempty"`
 
-	// BodyPayload stores the clicky Schema + Data
+	// BodyPayload stores the clicky Schema + Data (source of truth).
 	BodyPayload types.JSON `json:"body_payload,omitempty" gorm:"column:body_payload"`
 
 	Error          *string   `json:"error,omitempty"`
