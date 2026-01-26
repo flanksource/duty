@@ -221,6 +221,8 @@ FROM canaries JOIN notification_send_history
 ON canaries.id = notification_send_history.resource_id AND notification_send_history.source_event LIKE 'canary.%';
 
 --- notification_send_history_summary
+-- NOTE: notification_send_history.body is legacy and may be empty for new notifications.
+-- Use body_payload for the source of truth.
 CREATE OR REPLACE VIEW notification_send_history_summary as
 SELECT 
   notification_send_history.*,
@@ -245,6 +247,8 @@ SELECT
 FROM notification_send_history
 LEFT JOIN notification_send_history_resources AS "nsh_resources" ON notification_send_history.resource_id = nsh_resources.id
 LEFT JOIN config_items ON nsh_resources.resource_kind = 'config' AND config_items.id = notification_send_history.resource_id;
+
+COMMENT ON COLUMN notification_send_history.body IS 'Deprecated: legacy rendered body; new notifications do not populate this field. Use body_payload instead.';
 
 --- notification_send_history_resource_tags
 CREATE OR REPLACE VIEW notification_send_history_resource_tags AS
