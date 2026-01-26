@@ -43,6 +43,7 @@ var _ = Describe("HTTP Connection", func() {
 		}))
 		defer server.Close()
 
+		// Use test secret from the fake kubernetes client that we setup here: tests/setup/common.go
 		headersJSON, err := json.Marshal([]types.EnvVar{
 			{
 				Name: "X-API-Key",
@@ -91,6 +92,38 @@ var _ = Describe("HTTP Connection", func() {
 		resp, err := client.R(gocontext.Background()).
 			Header("Content-Type", "application/json").
 			Post(httpConn.URL, expectedPayload)
+		Expect(err).ToNot(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
+	It("should work without headers", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		conn := models.Connection{
+			Name:      "http-test-no-headers",
+			Namespace: "default",
+			Type:      models.ConnectionTypeHTTP,
+			URL:       server.URL,
+			Source:    models.SourceUI,
+		}
+
+		Expect(DefaultContext.DB().Create(&conn).Error).ToNot(HaveOccurred())
+		defer DefaultContext.DB().Delete(&conn)
+
+		storedConn, err := DefaultContext.GetConnection("http-test-no-headers", "default")
+		Expect(err).ToNot(HaveOccurred())
+
+		httpConn, err := connection.NewHTTPConnection(DefaultContext, *storedConn)
+		Expect(err).ToNot(HaveOccurred())
+
+		client, err := connection.CreateHTTPClient(DefaultContext, httpConn)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp, err := client.R(gocontext.Background()).Get(httpConn.URL)
 		Expect(err).ToNot(HaveOccurred())
 		defer resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
