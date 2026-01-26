@@ -38,6 +38,13 @@ type DummyData struct {
 	ConfigAnalyses               []models.ConfigAnalysis
 	ConfigComponentRelationships []models.ConfigComponentRelationship
 
+	ExternalUsers      []models.ExternalUser
+	ExternalRoles      []models.ExternalRole
+	ExternalGroups     []models.ExternalGroup
+	ExternalUserGroups []models.ExternalUserGroup
+	ConfigAccesses     []models.ConfigAccess
+	ConfigAccessLogs   []models.ConfigAccessLog
+
 	Notifications []models.Notification
 
 	Teams      []models.Team
@@ -118,6 +125,42 @@ func (t *DummyData) Populate(ctx context.Context) error {
 	}
 	if err := gormDB.CreateInBatches(t.Configs, 100).Error; err != nil {
 		return err
+	}
+
+	if len(t.ExternalUsers) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalUsers, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if len(t.ExternalGroups) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalGroups, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if len(t.ExternalUserGroups) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalUserGroups, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if len(t.ExternalRoles) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalRoles, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if len(t.ConfigAccesses) > 0 {
+		if err := gormDB.CreateInBatches(t.ConfigAccesses, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if len(t.ConfigAccessLogs) > 0 {
+		if err := gormDB.CreateInBatches(t.ConfigAccessLogs, 100).Error; err != nil {
+			return err
+		}
 	}
 
 	if err := gormDB.CreateInBatches(t.ConfigLocations, 100).Error; err != nil {
@@ -294,6 +337,42 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if len(t.ConfigAccessLogs) > 0 {
+		for _, accessLog := range t.ConfigAccessLogs {
+			if err := gormDB.Where("config_id = ? AND external_user_id = ? AND scraper_id = ?",
+				accessLog.ConfigID, accessLog.ExternalUserID, accessLog.ScraperID).
+				Delete(&models.ConfigAccessLog{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := DeleteAll(gormDB, t.ConfigAccesses); err != nil {
+		return err
+	}
+
+	if len(t.ExternalUserGroups) > 0 {
+		for _, membership := range t.ExternalUserGroups {
+			if err := gormDB.Where("external_user_id = ? AND external_group_id = ?",
+				membership.ExternalUserID, membership.ExternalGroupID).
+				Delete(&models.ExternalUserGroup{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalGroups); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalRoles); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalUsers); err != nil {
+		return err
+	}
+
 	if err := DeleteAll(gormDB, t.ConfigScrapers); err != nil {
 		return err
 	}
@@ -372,6 +451,12 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
 		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),
 		ConfigComponentRelationships: append([]models.ConfigComponentRelationship{}, AllDummyConfigComponentRelationships...),
+		ExternalUsers:                append([]models.ExternalUser{}, AllDummyExternalUsers...),
+		ExternalRoles:                append([]models.ExternalRole{}, AllDummyExternalRoles...),
+		ExternalGroups:               append([]models.ExternalGroup{}, AllDummyExternalGroups...),
+		ExternalUserGroups:           append([]models.ExternalUserGroup{}, AllDummyExternalUserGroups...),
+		ConfigAccesses:               append([]models.ConfigAccess{}, AllDummyConfigAccesses...),
+		ConfigAccessLogs:             append([]models.ConfigAccessLog{}, AllDummyConfigAccessLogs...),
 		Teams:                        append([]models.Team{}, AllDummyTeams...),
 		Notifications:                append([]models.Notification{}, AllDummyNotifications...),
 		Incidents:                    append([]models.Incident{}, AllDummyIncidents...),
@@ -1179,6 +1264,12 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ConfigChanges:                configChanges,
 		ConfigAnalyses:               configAnalysis,
 		ConfigComponentRelationships: configComponentRelationships,
+		ExternalUsers:                []models.ExternalUser{},
+		ExternalRoles:                []models.ExternalRole{},
+		ExternalGroups:               []models.ExternalGroup{},
+		ExternalUserGroups:           []models.ExternalUserGroup{},
+		ConfigAccesses:               []models.ConfigAccess{},
+		ConfigAccessLogs:             []models.ConfigAccessLog{},
 
 		Teams:      teams,
 		Responders: responders,
