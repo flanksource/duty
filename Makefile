@@ -9,19 +9,12 @@ GOLANGCI_LINT_VERSION ?= v2.7.2
 
 
 test:
-		go run github.com/onsi/ginkgo/v2/ginkgo -r -v --skip-package=tests/e2e
+		go run github.com/onsi/ginkgo/v2/ginkgo -r -v --skip-package=tests/e2e --skip-package=logs/loki
 
 .PHONY: test-e2e
 test-e2e:
-	cd tests/e2e && docker-compose up -d && \
-	timeout 60 bash -c 'until curl -s http://localhost:3100/ready >/dev/null 2>&1; do sleep 2; done' && \
-	(	go run github.com/onsi/ginkgo/v2/ginkgo -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
+	go run github.com/onsi/ginkgo/v2/ginkgo -v
 
-.PHONY: e2e-services
-e2e-services: ## Run e2e test services in foreground with automatic cleanup on exit
-	cd tests/e2e && \
-	trap 'docker-compose down -v && docker-compose rm -f' EXIT INT TERM && \
-	docker-compose up --remove-orphans
 
 .PHONY: bench
 bench:

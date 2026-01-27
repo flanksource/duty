@@ -2,6 +2,7 @@ package loki
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -51,7 +52,7 @@ func NewServer(config ServerConfig) *Server {
 }
 
 func (s *Server) Start() error {
-	res, err := deps.Install("loki", "", deps.WithBinDir(s.config.BinDir))
+	res, err := deps.InstallWithContext(context.Background(), "loki", "any", deps.WithBinDir(s.config.BinDir))
 	if err != nil {
 		return fmt.Errorf("failed to install loki: %w", err)
 	}
