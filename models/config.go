@@ -826,9 +826,10 @@ func (c ConfigAnalysis) Pretty() api.Text {
 
 	if c.Status != "" {
 		statusStyle := "text-blue-600"
-		if c.Status == "resolved" {
+		switch c.Status {
+		case "resolved":
 			statusStyle = "text-green-600"
-		} else if c.Status == "silenced" {
+		case "silenced":
 			statusStyle = "text-gray-500"
 		}
 		t = t.AddText(" ").Add(clicky.Text(c.Status, statusStyle).Wrap("[", "]"))

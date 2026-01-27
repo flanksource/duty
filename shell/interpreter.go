@@ -38,6 +38,14 @@ func CreateCommandFromScript(ctx context.Context, script string, envs []string, 
 			return nil, ctx.Oops().Wrap(err)
 		}
 		args = append(args, scriptPath)
+	} else if isPowershellBase(shebangInterpreter) {
+		// PowerShell uses -File for script files (requires .ps1 extension)
+		scriptPath, err := writeScriptToFile(runID, "script.ps1", script)
+		if err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		interpreter = "pwsh"
+		args = []string{"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath}
 	} else {
 		args = append(args, script)
 	}
@@ -94,9 +102,14 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 					args = append(args, "-e")
 				}
 			case "bun":
+				if !lo.Contains(args, "-i") {
+					args = append(args, "-i")
+				}
 				if !lo.Contains(args, "-e") {
 					args = append(args, "-e")
 				}
+			case "pwsh", "powershell":
+				// PowerShell uses -File for script files, handled separately in CreateCommandFromScript
 			default:
 				if len(args) == 0 {
 					// No args, just interpreter and assume it supports the -c flag
@@ -133,6 +146,12 @@ func isPythonBase(interpreter string) bool {
 	default:
 		return false
 	}
+}
+
+func isPowershellBase(interpreter string) bool {
+	base := filepath.Base(interpreter)
+	base = strings.TrimSuffix(base, ".exe")
+	return base == "pwsh" || base == "powershell"
 }
 
 // DetectDefaultInterpreter detects the default interpreter based on the OS.

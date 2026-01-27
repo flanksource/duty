@@ -153,7 +153,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			if commit, err := iter.Next(); err != nil {
 				return extra, ctx.Oops().Wrapf(err, "unable to get HEAD commit")
 			} else {
-				ctx.Logger.V(4).Infof("checked out commit: %s (%s)", strings.Split(commit.Message, "\n")[0], commit.Hash.String()[0:8])
+				ctx.Logger.Debugf("checked out %s", commit.Hash.String()[0:8])
 			}
 		}
 	}

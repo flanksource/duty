@@ -12,18 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - {
-              tag: '14',
-              sha: 'sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a',
-            }
-          - {
-              tag: '15',
-              sha: 'sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7',
-            }
-          - {
-              tag: '16',
-              sha: 'sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99',
-            }
+          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
+          - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
+          - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     services:
       postgres:
         image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
@@ -39,6 +30,15 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      - name: Install deps
+        uses: flanksource/deps@v1.0.23
+        with:
+          tools: |
+            bun
+            uv
+            powershell
+            postgrest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Go
         uses: buildjet/setup-go@555ce355a95ff01018ffcf8fbbd9c44654db8374 # v5.0.2
         with:
@@ -59,7 +59,7 @@ jobs:
         run: make test
         env:
           DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
-          DUTY_DB_CREATE: 'false'
+          DUTY_DB_CREATE: "false"
           DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
 
   e2e:
@@ -96,7 +96,7 @@ jobs:
           make ginkgo
           ginkgo -r tests/e2e/
         env:
-          DUTY_DB_DISABLE_RLS: 'true'
+          DUTY_DB_DISABLE_RLS: "true"
           LOKI_URL: http://localhost:3100
 
   migrate:
@@ -105,18 +105,9 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - {
-              tag: '14',
-              sha: 'sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a',
-            }
-          - {
-              tag: '15',
-              sha: 'sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7',
-            }
-          - {
-              tag: '16',
-              sha: 'sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99',
-            }
+          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
+          - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
+          - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     env:
       migrate_command: >
         make -B tidy hack/migrate/go.mod &&

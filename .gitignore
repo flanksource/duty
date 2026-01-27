@@ -13,3 +13,5 @@ __debug_bin*
 # This is where shell tests clone the checkout repository
 exec-checkout/
 shell-bin-dir
+ginkgo-report-*
+.ginkgo

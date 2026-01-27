@@ -114,7 +114,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 
 	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
 	if exec.Setup != nil {
-		envs, err = applySetupRuntimeEnv(*exec.Setup, envs)
+		envs, err = applySetupRuntimeEnv(ctx, *exec.Setup, envs)
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
@@ -123,14 +123,18 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		shebangInterpreter, _ := DetectInterpreterFromShebang(exec.Script)
 		var inferredSetup ExecSetup
 		if strings.Contains(shebangInterpreter, "python") {
-			inferredSetup.Python = &RuntimeSetup{Version: "latest"}
+			inferredSetup.Python = &RuntimeSetup{Version: "any"}
 		}
 
 		if strings.Contains(shebangInterpreter, "bun") {
-			inferredSetup.Bun = &RuntimeSetup{Version: "latest"}
+			inferredSetup.Bun = &RuntimeSetup{Version: "any"}
 		}
 
-		envs, err = applySetupRuntimeEnv(inferredSetup, envs)
+		if isPowershellBase(shebangInterpreter) {
+			inferredSetup.Powershell = &RuntimeSetup{Version: "any"}
+		}
+
+		envs, err = applySetupRuntimeEnv(ctx, inferredSetup, envs)
 		if err != nil {
 			return nil, ctx.Oops().Wrapf(err, "failed to install inferred runtime")
 		}
@@ -154,7 +158,7 @@ func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, erro
 	envs := getEnvVar(cmdCtx.envs)
 
 	if exec.Setup != nil {
-		envs, err = applySetupRuntimeEnv(*exec.Setup, envs)
+		envs, err = applySetupRuntimeEnv(ctx, *exec.Setup, envs)
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}

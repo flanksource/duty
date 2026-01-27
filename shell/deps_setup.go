@@ -8,12 +8,14 @@ import (
 
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/deps"
+	"github.com/flanksource/duty/context"
 )
 
 // +kubebuilder:object:generate=true
 type ExecSetup struct {
-	Bun    *RuntimeSetup `json:"bun,omitempty" yaml:"bun,omitempty"`
-	Python *RuntimeSetup `json:"python,omitempty" yaml:"python,omitempty"`
+	Bun        *RuntimeSetup `json:"bun,omitempty" yaml:"bun,omitempty"`
+	Python     *RuntimeSetup `json:"python,omitempty" yaml:"python,omitempty"`
+	Powershell *RuntimeSetup `json:"powershell,omitempty" yaml:"powershell,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -22,8 +24,8 @@ type RuntimeSetup struct {
 }
 
 // applySetupRuntimeEnv installs the dependencies and updates the PATH env var
-func applySetupRuntimeEnv(setup ExecSetup, envs []string) ([]string, error) {
-	setupResult, err := installSetupRuntimes(setup)
+func applySetupRuntimeEnv(ctx context.Context, setup ExecSetup, envs []string) ([]string, error) {
+	setupResult, err := installSetupRuntimes(ctx, setup)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +46,9 @@ type runtimePaths struct {
 	runtimeDir string
 	binDir     string
 	appDir     string
-	cacheDir   string
-	tmpDir     string
 }
 
-func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
+func installSetupRuntimes(ctx context.Context, setup ExecSetup) (setupRuntimeResult, error) {
 	result := setupRuntimeResult{}
 	baseDir, err := resolveSetupBaseDir()
 	if err != nil || baseDir == "" {
@@ -62,6 +62,7 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 	}{
 		{name: "bun", setup: setup.Bun},
 		{name: "uv", setup: setup.Python},
+		{name: "powershell", setup: setup.Powershell},
 	}
 
 	for _, runtime := range runtimes {
@@ -73,12 +74,12 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 		if runtime.name == "uv" || version == "" {
 			// we must not map the python version to the uv version.
 			// We always download the latest uv version.
-			version = "latest"
+			version = "any"
 		}
 
-		paths, err := installRuntime(runtime.name, version, baseDir)
+		paths, err := installRuntime(ctx, runtime.name, version, baseDir)
 		if err != nil {
-			return result, fmt.Errorf("failed to install %s %s", runtime.name, version)
+			return result, err
 		}
 
 		result.binDirs = append(result.binDirs, paths.binDir)
@@ -87,25 +88,24 @@ func installSetupRuntimes(setup ExecSetup) (setupRuntimeResult, error) {
 	return result, nil
 }
 
-func installRuntime(name string, version string, baseDir string) (runtimePaths, error) {
+func installRuntime(ctx context.Context, name string, version string, baseDir string) (runtimePaths, error) {
 	runtimeDir := filepath.Join(baseDir, name, version)
 	binDir := filepath.Join(runtimeDir, "bin")
 	appDir := filepath.Join(runtimeDir, "apps")
-	cacheDir := filepath.Join(runtimeDir, "cache")
-	tmpDir := filepath.Join(runtimeDir, "tmp")
 
-	for _, dir := range []string{binDir, appDir, cacheDir, tmpDir} {
+	for _, dir := range []string{binDir, appDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return runtimePaths{}, err
 		}
 	}
 
-	_, err := deps.Install(name, version,
+	result, err := deps.InstallWithContext(ctx, name, version,
 		deps.WithBinDir(binDir),
 		deps.WithAppDir(appDir),
-		deps.WithCacheDir(cacheDir),
-		deps.WithTmpDir(tmpDir),
 	)
+	if result != nil && ctx.IsDebug() {
+		ctx.Debugf("%s", result.Pretty().ANSI())
+	}
 	if err != nil {
 		return runtimePaths{}, err
 	}
@@ -114,8 +114,6 @@ func installRuntime(name string, version string, baseDir string) (runtimePaths, 
 		runtimeDir: runtimeDir,
 		binDir:     binDir,
 		appDir:     appDir,
-		cacheDir:   cacheDir,
-		tmpDir:     tmpDir,
 	}, nil
 }
 
