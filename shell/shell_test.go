@@ -4,10 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/connection"
@@ -15,153 +15,237 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-func TestEnv(t *testing.T) {
-	testData := []struct {
-		name         string
-		exec         Exec
-		expectedVars []string
-	}{
-		{
-			name: "access custom env vars",
-			exec: Exec{
-				Script: "env",
-				EnvVars: []types.EnvVar{
-					{Name: "mc_test_secret", ValueStatic: "abcdef"},
-				},
-			},
-			expectedVars: []string{"mc_test_secret"},
-		},
-		{
-			name: "access multiple custom env vars",
-			exec: Exec{
-				Script: "env",
-				EnvVars: []types.EnvVar{
-					{Name: "mc_test_secret_key", ValueStatic: "abc"},
-					{Name: "mc_test_secret_id", ValueStatic: "xyz"},
-				},
-			},
-			expectedVars: []string{"mc_test_secret_key", "mc_test_secret_id"},
-		},
-		{
-			name: "no access to process env",
-			exec: Exec{
-				Script: "env",
-			},
-			expectedVars: []string{},
-		},
-	}
-
-	ctx := context.New()
-	for _, td := range testData {
-		t.Run(td.name, func(t *testing.T) {
-			g := gomega.NewWithT(t)
-
-			result, err := Run(ctx, td.exec)
-			g.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run command")
-
-			g.Expect(result.ExitCode).To(gomega.Equal(0), "unexpected non-zero exit code")
-			g.Expect(result.Stderr).To(gomega.BeEmpty(), "unexpected stderr")
-
-			envVars := strings.Split(result.Stdout, "\n")
-
-			// These env vars are always made available.
-			envVars = lo.Filter(envVars, func(v string, _ int) bool {
-				key, _, _ := strings.Cut(v, "=")
-				return key != "PWD" && key != "SHLVL" && key != "_"
-			})
-
-			envVarKeys := lo.Map(envVars, func(v string, _ int) string {
-				key, _, _ := strings.Cut(v, "=")
-				return key
-			})
-
-			expected := collections.MapKeys(allowedEnvVars)
-			expected = append(expected, td.expectedVars...)
-			g.Expect(lo.Every(expected, envVarKeys)).To(gomega.BeTrue(), "expected env vars: %v, got: %v", td.expectedVars, envVarKeys)
-		})
-
+var _ = ginkgo.Describe("Shell Run", ginkgo.Label("slow"), func() {
+	ginkgo.AfterEach(func() {
 		os.RemoveAll("./shell-tmp/")
-	}
-}
+	})
 
-func TestPrepareEnvironment(t *testing.T) {
-	g := gomega.NewWithT(t)
 	ctx := context.New()
 
-	exec := Exec{
-		Checkout: &connection.GitConnection{
-			URL:    "https://github.com/flanksource/artifacts",
-			Branch: "main",
-		},
-	}
+	ginkgo.It("should run bun scripts", func() {
+		exec := Exec{
+			Setup: &ExecSetup{
+				Bun: &RuntimeSetup{
+					Version: "any",
+				},
+			},
+			Script: `#!/usr/bin/env bun
+				import isOdd from 'is-odd'
+				console.log(isOdd(3))`,
+		}
 
-	cmdCtx, err := prepareEnvironment(ctx, exec)
-	g.Expect(err).ToNot(gomega.HaveOccurred(), "prepareEnvironment failed")
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stdout).To(Equal("true"))
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr", result.Stderr)
+	})
 
-	g.Expect(cmdCtx.mountPoint).ToNot(gomega.BeEmpty(), "expected mountPoint to be set")
-	g.Expect(cmdCtx.mountPoint).To(gomega.HavePrefix("exec-checkout/"), "expected mountPoint to be in 'exec-checkout/' directory")
+	ginkgo.It("should run python with checkout", func() {
+		exec := Exec{
+			Checkout: &connection.GitConnection{
+				URL: "https://github.com/flanksource/artifacts",
+			},
+			Setup: &ExecSetup{
+				Python: &RuntimeSetup{
+					Version: "any",
+				},
+			},
+			Script: `#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "pyyaml",
+# ]
+# ///
 
-	_, err = os.Stat(cmdCtx.mountPoint)
-	g.Expect(err).ToNot(gomega.HaveOccurred(), "mount point directory does not exist: %s", cmdCtx.mountPoint)
+import yaml
 
-	g.Expect(cmdCtx.extra["git"]).ToNot(gomega.BeNil(), "expected 'git' key in extra metadata")
+workflow_path = ".github/workflows/lint.yml"
 
-	gitURL, ok := cmdCtx.extra["git"].(string)
-	g.Expect(ok).To(gomega.BeTrue(), "expected git URL to be a string")
-	g.Expect(gitURL).To(gomega.ContainSubstring("github.com/flanksource/artifacts"), "expected git URL to contain 'github.com/flanksource/artifacts'")
+with open(workflow_path, "r", encoding="utf-8") as f:
+		data = yaml.safe_load(f)
+title = data.get("name")
 
-	g.Expect(cmdCtx.extra["commit"]).ToNot(gomega.BeNil(), "expected 'commit' key in extra metadata")
+print(title)`,
+		}
 
-	commitHash, ok := cmdCtx.extra["commit"].(string)
-	g.Expect(ok).To(gomega.BeTrue(), "expected commit hash to be a string")
-	g.Expect(commitHash).ToNot(gomega.BeEmpty(), "expected non-empty commit hash")
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stdout).To(Equal("Lint"))
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr", result.Stderr)
+	})
 
-	goModPath := filepath.Join(cmdCtx.mountPoint, "go.mod")
-	_, err = os.Stat(goModPath)
-	g.Expect(err).ToNot(gomega.HaveOccurred(), "expected go.mod to exist in mount point at %s", goModPath)
+	ginkgo.It("should run python3", func() {
+		exec := Exec{
+			Setup: &ExecSetup{
+				Python: &RuntimeSetup{
+					Version: "3.10.2",
+				},
+			},
+			Script: `#!/usr/bin/env python3
+import platform
+print(platform.python_version())
+`,
+		}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stdout).To(Equal("3.10.2"))
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr", result.Stderr)
+	})
+
+	ginkgo.It("should run python3 with packages", func() {
+		exec := Exec{
+			Setup: &ExecSetup{
+				Python: &RuntimeSetup{
+					Version: "3.10.2",
+				},
+			},
+			Script: `#!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "is-even",
+# ]
+# ///
+from is_even import is_even
+print(is_even(2))
+`,
+		}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stdout).To(Equal("True"))
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr", result.Stderr)
+	})
+})
+
+var _ = ginkgo.Describe("Environment Variables", func() {
+	ginkgo.AfterEach(func() {
+		os.RemoveAll("./shell-tmp/")
+	})
+
+	ctx := context.New()
+
+	ginkgo.It("should access custom env vars", func() {
+		exec := Exec{
+			Script: "env",
+			EnvVars: []types.EnvVar{
+				{Name: "mc_test_secret", ValueStatic: "abcdef"},
+			},
+		}
+		expectedVars := []string{"mc_test_secret"}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr")
+
+		envVarKeys := extractEnvVarKeys(result.Stdout)
+		expected := append(collections.MapKeys(allowedEnvVars), expectedVars...)
+		Expect(lo.Every(expected, envVarKeys)).To(BeTrue(), "expected env vars: %v, got: %v", expectedVars, envVarKeys)
+	})
+
+	ginkgo.It("should access multiple custom env vars", func() {
+		exec := Exec{
+			Script: "env",
+			EnvVars: []types.EnvVar{
+				{Name: "mc_test_secret_key", ValueStatic: "abc"},
+				{Name: "mc_test_secret_id", ValueStatic: "xyz"},
+			},
+		}
+		expectedVars := []string{"mc_test_secret_key", "mc_test_secret_id"}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr")
+
+		envVarKeys := extractEnvVarKeys(result.Stdout)
+		expected := append(collections.MapKeys(allowedEnvVars), expectedVars...)
+		Expect(lo.Every(expected, envVarKeys)).To(BeTrue(), "expected env vars: %v, got: %v", expectedVars, envVarKeys)
+	})
+
+	ginkgo.It("should not access process env", func() {
+		exec := Exec{
+			Script: "env",
+		}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run command")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code")
+		Expect(result.Stderr).To(BeEmpty(), "unexpected stderr")
+
+		envVarKeys := extractEnvVarKeys(result.Stdout)
+		expected := collections.MapKeys(allowedEnvVars)
+		Expect(lo.Every(expected, envVarKeys)).To(BeTrue(), "expected env vars: %v, got: %v", []string{}, envVarKeys)
+	})
+})
+
+func extractEnvVarKeys(stdout string) []string {
+	envVars := strings.Split(stdout, "\n")
+	envVars = lo.Filter(envVars, func(v string, _ int) bool {
+		key, _, _ := strings.Cut(v, "=")
+		return key != "PWD" && key != "SHLVL" && key != "_"
+	})
+	return lo.Map(envVars, func(v string, _ int) string {
+		key, _, _ := strings.Cut(v, "=")
+		return key
+	})
 }
 
-func TestDetectInterpreterFromShebang(t *testing.T) {
-	g := gomega.NewWithT(t)
+var _ = ginkgo.Describe("PrepareEnvironment", ginkgo.Label("slow"), func() {
+	ctx := context.New()
 
-	testCases := []struct {
-		name        string
-		script      string
-		interpreter string
-		args        []string
-	}{
-		{
-			name:        "python via env",
-			script:      "#!/usr/bin/env python\nprint('hello')",
-			interpreter: "python",
-			args:        []string{"-c"},
-		},
-		{
-			name:        "python3 with arg",
-			script:      "#!/usr/bin/python3 -u\nprint('hello')",
-			interpreter: "/usr/bin/python3",
-			args:        []string{"-u", "-c"},
-		},
-		{
-			name:        "node via env",
-			script:      "#!/usr/bin/env node\nconsole.log('hello')",
-			interpreter: "node",
-			args:        []string{"-e"},
-		},
-		{
-			name:        "other default flag",
-			script:      "#!/bin/sh\necho hello",
-			interpreter: "/bin/sh",
-			args:        []string{"-c"},
-		},
-	}
+	ginkgo.It("should setup git checkout correctly", func() {
+		exec := Exec{
+			Checkout: &connection.GitConnection{
+				URL:    "https://github.com/flanksource/artifacts",
+				Branch: "main",
+			},
+		}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			interpreter, args := DetectInterpreterFromShebang(tc.script)
+		cmdCtx, err := prepareEnvironment(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "prepareEnvironment failed")
 
-			g.Expect(interpreter).To(gomega.Equal(tc.interpreter))
-			g.Expect(args).To(gomega.Equal(tc.args))
-		})
-	}
-}
+		Expect(cmdCtx.mountPoint).ToNot(BeEmpty(), "expected mountPoint to be set")
+		Expect(cmdCtx.mountPoint).To(HavePrefix("exec-checkout/"), "expected mountPoint to be in 'exec-checkout/' directory")
+
+		_, err = os.Stat(cmdCtx.mountPoint)
+		Expect(err).ToNot(HaveOccurred(), "mount point directory does not exist: %s", cmdCtx.mountPoint)
+
+		Expect(cmdCtx.extra["git"]).ToNot(BeNil(), "expected 'git' key in extra metadata")
+
+		gitURL, ok := cmdCtx.extra["git"].(string)
+		Expect(ok).To(BeTrue(), "expected git URL to be a string")
+		Expect(gitURL).To(ContainSubstring("github.com/flanksource/artifacts"), "expected git URL to contain 'github.com/flanksource/artifacts'")
+
+		Expect(cmdCtx.extra["commit"]).ToNot(BeNil(), "expected 'commit' key in extra metadata")
+
+		commitHash, ok := cmdCtx.extra["commit"].(string)
+		Expect(ok).To(BeTrue(), "expected commit hash to be a string")
+		Expect(commitHash).ToNot(BeEmpty(), "expected non-empty commit hash")
+
+		goModPath := filepath.Join(cmdCtx.mountPoint, "go.mod")
+		_, err = os.Stat(goModPath)
+		Expect(err).ToNot(HaveOccurred(), "expected go.mod to exist in mount point at %s", goModPath)
+	})
+})
+
+var _ = ginkgo.Describe("DetectInterpreterFromShebang", func() {
+	ginkgo.DescribeTable("interpreter detection",
+		func(script, expectedInterpreter string, expectedArgs []string) {
+			interpreter, args := DetectInterpreterFromShebang(script)
+			Expect(interpreter).To(Equal(expectedInterpreter))
+			Expect(args).To(Equal(expectedArgs))
+		},
+		ginkgo.Entry("python via env", "#!/usr/bin/env python\nprint('hello')", "python", []string{"-c"}),
+		ginkgo.Entry("python3 with arg", "#!/usr/bin/python3 -u\nprint('hello')", "/usr/bin/python3", []string{"-u", "-c"}),
+		ginkgo.Entry("node via env", "#!/usr/bin/env node\nconsole.log('hello')", "node", []string{"-e"}),
+		ginkgo.Entry("other default flag", "#!/bin/sh\necho hello", "/bin/sh", []string{"-c"}),
+		ginkgo.Entry("pwsh via env", "#!/usr/bin/env pwsh\nWrite-Host 'hello'", "pwsh", []string{}),
+		ginkgo.Entry("powershell via env", "#!/usr/bin/env powershell\nWrite-Host 'hello'", "powershell", []string{}),
+	)
+})
