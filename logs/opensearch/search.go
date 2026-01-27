@@ -11,10 +11,8 @@ import (
 	opensearch "github.com/opensearch-project/opensearch-go/v2"
 	"github.com/opensearch-project/opensearch-go/v2/opensearchtransport"
 
-	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
-	"github.com/flanksource/duty/types"
 )
 
 type Searcher struct {
@@ -45,15 +43,20 @@ func New(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingC
 	if backend.Username != nil {
 		username, err := ctx.GetEnvValueFromCache(*backend.Username, ctx.GetNamespace())
 		if err != nil {
-			return nil, ctx.Oops().Wrapf(err, "error getting the openSearch config")
+			return nil, ctx.Oops().Wrapf(err, "error getting the openSearch username")
 		}
+		cfg.Username = username
 	}
 
-	if err := conn.Hydrate(ctx); err != nil {
-		return nil, ctx.Oops().Wrapf(err, "error hydrating opensearch connection")
+	if backend.Password != nil {
+		password, err := ctx.GetEnvValueFromCache(*backend.Password, ctx.GetNamespace())
+		if err != nil {
+			return nil, ctx.Oops().Wrapf(err, "error getting the openSearch password")
+		}
+		cfg.Password = password
 	}
 
-	client, err := conn.Client()
+	client, err := opensearch.NewClient(cfg)
 	if err != nil {
 		return nil, ctx.Oops().Wrapf(err, "error creating the openSearch client")
 	}
