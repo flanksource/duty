@@ -7,6 +7,7 @@ import (
 	gcs "cloud.google.com/go/storage"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -49,7 +50,11 @@ func (g *GCSConnection) Client(ctx context.Context) (*gcs.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(credential)))
+		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), gcs.ScopeReadWrite)
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, option.WithCredentials(creds))
 	} else {
 		clientOpts = append(clientOpts, option.WithoutAuthentication())
 	}

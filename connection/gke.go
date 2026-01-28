@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/flanksource/duty/context"
+	"golang.org/x/oauth2/google"
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
 	"k8s.io/client-go/kubernetes"
@@ -58,7 +59,11 @@ func (t *GKEConnection) Client(ctx context.Context) (*container.Service, error) 
 		if err != nil {
 			return nil, err
 		}
-		clientOpts = append(clientOpts, option.WithCredentialsJSON([]byte(credential)))
+		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), container.CloudPlatformScope)
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, option.WithCredentials(creds))
 	} else {
 		clientOpts = append(clientOpts, option.WithoutAuthentication())
 	}

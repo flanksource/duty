@@ -1,12 +1,9 @@
-package e2e
+package loki_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"maps"
-	"net/http"
+	"context"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -14,45 +11,44 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/flanksource/duty/connection"
-	"github.com/flanksource/duty/context"
+	dutyCtx "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
 	"github.com/flanksource/duty/logs/loki"
 )
 
+func TestLoki(t *testing.T) {
+	logger.Use(ginkgo.GinkgoWriter)
+	RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "Loki Suite")
+}
+
 var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 	var (
-		lokiURL string
-		ctx     context.Context
+		lokiServer *loki.Server
+		ctx        dutyCtx.Context
+		tempDir    string
 	)
 
 	ginkgo.BeforeAll(func() {
-		lokiURL = os.Getenv("LOKI_URL")
-		if lokiURL == "" {
-			lokiURL = "http://localhost:3100"
-		}
-		ctx = DefaultContext
-
-		Eventually(func() error {
-			resp, err := http.Get(lokiURL + "/ready")
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != 200 {
-				return fmt.Errorf("loki not ready, status: %d", resp.StatusCode)
-			}
-
-			return nil
-		}, 30*time.Second, 2*time.Second).Should(Succeed())
-
-		err := injectLokiLogs(lokiURL, map[string]string{"source": "setup"})
+		ctx = dutyCtx.NewContext(context.Background())
+		tempDir, _ = os.MkdirTemp("", "loki")
+		lokiServer = loki.NewServer(loki.ServerConfig{DataPath: tempDir})
+		err := lokiServer.Start()
 		Expect(err).NotTo(HaveOccurred())
+
+		err = lokiServer.UploadLogs(testLogStreams(), map[string]string{"source": "setup"})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	ginkgo.AfterAll(func() {
+		if lokiServer != nil {
+			_ = lokiServer.Stop()
+		}
 	})
 
 	ginkgo.Describe("Fetch", func() {
 		ginkgo.It("should fetch logs successfully", func() {
-			conn := connection.Loki{URL: lokiURL}
+			conn := connection.Loki{URL: lokiServer.URL()}
 			lokiClient := loki.New(conn, nil)
 
 			request := loki.Request{
@@ -71,7 +67,7 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should handle empty query results", func() {
-			conn := connection.Loki{URL: lokiURL}
+			conn := connection.Loki{URL: lokiServer.URL()}
 			lokiClient := loki.New(conn, nil)
 
 			request := loki.Request{
@@ -90,7 +86,7 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should handle invalid queries gracefully", func() {
-			conn := connection.Loki{URL: lokiURL}
+			conn := connection.Loki{URL: lokiServer.URL()}
 			lokiClient := loki.New(conn, nil)
 
 			request := loki.Request{
@@ -109,7 +105,7 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 
 	ginkgo.Describe("Stream", func() {
 		ginkgo.It("should establish streaming connection", func() {
-			conn := connection.Loki{URL: lokiURL}
+			conn := connection.Loki{URL: lokiServer.URL()}
 			lokiClient := loki.New(conn, nil)
 
 			streamCtx, cancel := ctx.WithTimeout(5 * time.Second)
@@ -142,13 +138,12 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("should receive logs in streaming mode", func() {
-			conn := connection.Loki{URL: lokiURL}
+			conn := connection.Loki{URL: lokiServer.URL()}
 			lokiClient := loki.New(conn, nil)
 
 			streamCtx, cancel := ctx.WithTimeout(30 * time.Second)
 			defer cancel()
 
-			// Start streaming with limit 0 to only get new logs
 			request := loki.StreamRequest{
 				Query:    `{job="test"}`,
 				DelayFor: 0,
@@ -158,14 +153,12 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 			logChan, err := lokiClient.Stream(streamCtx, request)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Inject new log lines after stream is started
+			injectErr := make(chan error, 1)
 			go func() {
-				time.Sleep(2 * time.Second) // Give stream time to be ready
-				err := injectLokiLogs(lokiURL, map[string]string{"source": "streaming", "testcase": "live"})
-				Expect(err).NotTo(HaveOccurred())
+				time.Sleep(2 * time.Second)
+				injectErr <- lokiServer.UploadLogs(testLogStreams(), map[string]string{"source": "streaming", "testcase": "live"})
 			}()
 
-			// Wait for the newly injected logs
 			var receivedLogs []*logs.LogLine
 			timeout := time.After(15 * time.Second)
 
@@ -178,55 +171,33 @@ var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, func() {
 					}
 					Expect(item.Error).To(BeNil())
 					receivedLogs = append(receivedLogs, item.LogLine)
-					// Got at least one new log, test is successful
 					if len(receivedLogs) >= 1 {
 						break receiveLogs
 					}
+
+				case err := <-injectErr:
+					Expect(err).NotTo(HaveOccurred())
 
 				case <-timeout:
 					break receiveLogs
 				}
 			}
 
-			// We should have received the newly injected logs
 			Expect(len(receivedLogs)).To(BeNumerically(">=", 1))
 		})
 	})
 })
 
-type LogEntry struct {
-	Timestamp int64
-	Message   string
-}
-
-type LogStream struct {
-	Labels  map[string]string
-	Entries []LogEntry
-}
-
-func (ls LogStream) ToLokiFormat() map[string]any {
-	values := make([][]string, len(ls.Entries))
-	for i, entry := range ls.Entries {
-		values[i] = []string{fmt.Sprintf("%d", entry.Timestamp), entry.Message}
-	}
-
-	return map[string]any{
-		"stream": ls.Labels,
-		"values": values,
-	}
-}
-
-func injectLokiLogs(lokiURL string, extraLabels map[string]string) error {
+func testLogStreams() []loki.LogStream {
 	now := time.Now().UnixNano()
-
-	streams := []LogStream{
+	return []loki.LogStream{
 		{
 			Labels: map[string]string{
 				"job":   "test",
 				"level": "info",
 				"host":  "test-host-1",
 			},
-			Entries: []LogEntry{
+			Entries: []loki.LogEntry{
 				{Timestamp: now, Message: "Test log message 1 - info level"},
 				{Timestamp: now + 1000000, Message: "Test log message 2 - another info"},
 				{Timestamp: now + 2000000, Message: "Test log message 3 - final info"},
@@ -238,7 +209,7 @@ func injectLokiLogs(lokiURL string, extraLabels map[string]string) error {
 				"level": "error",
 				"host":  "test-host-2",
 			},
-			Entries: []LogEntry{
+			Entries: []loki.LogEntry{
 				{Timestamp: now + 3000000, Message: "Test error message 1"},
 				{Timestamp: now + 4000000, Message: "Test error message 2"},
 			},
@@ -250,47 +221,10 @@ func injectLokiLogs(lokiURL string, extraLabels map[string]string) error {
 				"severity": "warning",
 				"instance": "prod-server-1",
 			},
-			Entries: []LogEntry{
+			Entries: []loki.LogEntry{
 				{Timestamp: now + 5000000, Message: "Production warning message"},
 				{Timestamp: now + 6000000, Message: "Another production warning"},
 			},
 		},
 	}
-
-	// Add extra labels to all streams
-	for i := range streams {
-		maps.Copy(streams[i].Labels, extraLabels)
-	}
-
-	// Convert streams to Loki format
-	lokiStreams := make([]map[string]any, len(streams))
-	for i, stream := range streams {
-		lokiStreams[i] = stream.ToLokiFormat()
-	}
-
-	logData := map[string]any{
-		"streams": lokiStreams,
-	}
-
-	jsonData, err := json.Marshal(logData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal log data: %w", err)
-	}
-
-	resp, err := http.Post(
-		lokiURL+"/loki/api/v1/push",
-		"application/json",
-		bytes.NewBuffer(jsonData),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to push logs to loki: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("failed to push logs, status code: %d", resp.StatusCode)
-	}
-
-	time.Sleep(2 * time.Second)
-	return nil
 }
