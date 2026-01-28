@@ -71,7 +71,7 @@ jobs:
           restore-keys: |
             cache-
 
-      - uses: flanksource/deps@v1
+      - uses: flanksource/deps
         with:
           tools: |
             loki@3.5.1
