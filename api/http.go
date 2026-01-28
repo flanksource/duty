@@ -45,7 +45,8 @@ func WriteSuccess(c echo.Context, payload any) error {
 func WriteError(c echo.Context, err error) error {
 	var oopsErr oops.OopsError
 	if errors.As(err, &oopsErr) {
-		return c.JSON(ErrorStatusCode(oopsErr.Code()), oopsErr)
+		code, _ := oopsErr.Code().(string)
+		return c.JSON(ErrorStatusCode(code), oopsErr)
 	}
 
 	code, message, data := ErrorCode(err), ErrorMessage(err), ErrorData(err)
