@@ -2,10 +2,10 @@ package openapi
 
 import (
 	"embed"
-	"net/http"
+	"strings"
 
+	"github.com/kaptinlin/jsonschema"
 	"github.com/samber/oops"
-	"github.com/xeipuuv/gojsonschema"
 )
 
 //go:embed *
@@ -15,16 +15,25 @@ func ValidatePlaybookSpec(schema []byte) (error, error) {
 	return ValidateSpec("playbook-spec.schema.json", schema)
 }
 
-func ValidateSpec(path string, schema []byte) (error, error) {
-	var playbookSchemaLoader = gojsonschema.NewReferenceLoaderFileSystem("file:///"+path, http.FS(Schemas))
-	documentLoader := gojsonschema.NewBytesLoader(schema)
-	result, err := gojsonschema.Validate(playbookSchemaLoader, documentLoader)
+func ValidateSpec(path string, data []byte) (error, error) {
+	schemaBytes, err := Schemas.ReadFile(path)
 	if err != nil {
-		return nil, oops.Wrap(err)
+		return nil, oops.Wrapf(err, "failed to read schema file %s", path)
 	}
 
-	if len(result.Errors()) != 0 {
-		return oops.Errorf("spec is invalid: %v", result.Errors()), nil
+	compiler := jsonschema.NewCompiler()
+	schema, err := compiler.Compile(schemaBytes)
+	if err != nil {
+		return nil, oops.Wrapf(err, "failed to compile schema %s", path)
+	}
+
+	result := schema.Validate(data)
+	if !result.IsValid() {
+		var errMsgs []string
+		for field, evalErr := range result.Errors {
+			errMsgs = append(errMsgs, field+": "+evalErr.Message)
+		}
+		return oops.Errorf("spec is invalid: %s", strings.Join(errMsgs, "; ")), nil
 	}
 
 	return nil, nil
