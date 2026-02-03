@@ -18,6 +18,8 @@ import (
 
 const defaultHTTPBodyMaxSizeBytes = 25 * 1024 * 1024
 
+const bodyMaxSizeProperty = "view.http.body.max_size_bytes"
+
 // +kubebuilder:object:generate=true
 // HTTPQuery defines an HTTP query configuration
 type HTTPQuery struct {
@@ -84,12 +86,15 @@ func executeHTTPQuery(ctx context.Context, hq HTTPQuery) ([]QueryResultRow, erro
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute http request: %w", err)
-	} else if !resp.IsOK() {
+	}
+	defer resp.Body.Close()
+
+	if !resp.IsOK() {
 		peak, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
 		return nil, fmt.Errorf("http request failed with status %d: %s", resp.StatusCode, string(peak))
 	}
 
-	maxBodySize := int64(ctx.Properties().Int("view.http.body.max_size_bytes", defaultHTTPBodyMaxSizeBytes))
+	maxBodySize := int64(ctx.Properties().Int(bodyMaxSizeProperty, defaultHTTPBodyMaxSizeBytes))
 	if maxBodySize <= 0 {
 		maxBodySize = defaultHTTPBodyMaxSizeBytes
 	}
@@ -120,8 +125,6 @@ func executeHTTPQuery(ctx context.Context, hq HTTPQuery) ([]QueryResultRow, erro
 
 	return transformHTTPResult(body)
 }
-
-const bodyMaxSizeProperty = "view.http.body.max_size_bytes"
 
 // readHTTPBodyWithLimit reads the response body with a size guard.
 // Returns a descriptive error if the body exceeds maxBytes.

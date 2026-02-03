@@ -25,7 +25,8 @@ func TestExecuteHTTPQuery_JSONArray(t *testing.T) {
 			{"id": 2, "name": "Bob", "active": false},
 			{"id": 3, "name": "Charlie", "active": true},
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -60,7 +61,8 @@ func TestExecuteHTTPQuery_JSONObject(t *testing.T) {
 			"status": "active",
 			"count":  100,
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -92,7 +94,7 @@ func TestExecuteHTTPQuery_BasicAuth(t *testing.T) {
 		user, pass, ok := r.BasicAuth()
 		if !ok || user != "admin" || pass != "secret123" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 			return
 		}
 
@@ -101,7 +103,8 @@ func TestExecuteHTTPQuery_BasicAuth(t *testing.T) {
 			{"id": 1, "resource": "server-1", "status": "running"},
 			{"id": 2, "resource": "server-2", "status": "stopped"},
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -137,7 +140,7 @@ func TestExecuteHTTPQuery_BasicAuth_Unauthorized(t *testing.T) {
 		user, pass, ok := r.BasicAuth()
 		if !ok || user != "admin" || pass != "secret123" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -172,14 +175,16 @@ func TestExecuteHTTPQuery_PostWithBody(t *testing.T) {
 		g.Expect(r.Method).To(Equal("POST"))
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		err := json.NewDecoder(r.Body).Decode(&body)
+		g.Expect(err).ToNot(HaveOccurred())
 
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]any{
 			"received": body,
 			"status":   "created",
 		}
-		json.NewEncoder(w).Encode(response)
+		err = json.NewEncoder(w).Encode(response)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -216,7 +221,8 @@ func TestExecuteHTTPQuery_JSONPath(t *testing.T) {
 			"skip":  0,
 			"limit": 10,
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -255,7 +261,8 @@ func TestExecuteHTTPQuery_JSONPath_NestedPath(t *testing.T) {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -292,7 +299,8 @@ func TestExecuteHTTPQuery_JSONPath_SingleObject(t *testing.T) {
 				{"id": 2},
 			},
 		}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -322,7 +330,8 @@ func TestExecuteHTTPQuery_JSONPath_NoMatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		data := map[string]any{"foo": "bar"}
-		json.NewEncoder(w).Encode(data)
+		err := json.NewEncoder(w).Encode(data)
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
@@ -346,7 +355,8 @@ func TestExecuteHTTPQuery_JSONPath_InvalidExpression(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"data": []int{1, 2, 3}})
+		err := json.NewEncoder(w).Encode(map[string]any{"data": []int{1, 2, 3}})
+		g.Expect(err).ToNot(HaveOccurred())
 	}))
 	defer server.Close()
 
