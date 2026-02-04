@@ -181,8 +181,9 @@ table "notification_send_history" {
     type = uuid
   }
   column "body" {
-    null = true # nullable for unsent notifications
-    type = text
+    null    = true # nullable for unsent notifications
+    type    = text
+    comment = "Rendered body for raw/custom templates and existing clients. Use body_payload for clicky-formatted notifications."
   }
   column "body_payload" {
     null    = true
