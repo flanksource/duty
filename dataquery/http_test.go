@@ -178,6 +178,10 @@ func TestExecuteHTTPQuery_PostWithBody(t *testing.T) {
 		err := json.NewDecoder(r.Body).Decode(&body)
 		g.Expect(err).ToNot(HaveOccurred())
 
+		// Verify the POST body was sent correctly
+		g.Expect(body).To(HaveKeyWithValue("name", "test"))
+		g.Expect(body).To(HaveKeyWithValue("value", float64(42)))
+
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]any{
 			"received": body,
