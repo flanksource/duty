@@ -62,24 +62,18 @@ func executeHTTPQuery(ctx context.Context, hq HTTPQuery) ([]QueryResultRow, erro
 
 	req := client.R(ctx)
 
-	if hq.Body != "" {
-		if err := req.Body(strings.NewReader(hq.Body)); err != nil {
-			return nil, fmt.Errorf("failed to set request body: %w", err)
-		}
-	}
-
 	var resp *commonshttp.Response
 	switch method {
 	case http.MethodGet:
 		resp, err = req.Get(url)
 	case http.MethodPost:
-		resp, err = req.Post(url, nil)
+		resp, err = req.Post(url, hq.Body)
 	case http.MethodPut:
-		resp, err = req.Put(url, nil)
+		resp, err = req.Put(url, hq.Body)
 	case http.MethodDelete:
 		resp, err = req.Delete(url)
 	case http.MethodPatch:
-		resp, err = req.Patch(url, nil)
+		resp, err = req.Patch(url, hq.Body)
 	default:
 		return nil, fmt.Errorf("unsupported http method: %s", method)
 	}
