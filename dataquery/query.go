@@ -13,10 +13,13 @@ type Query struct {
 
 	// SQL runs arbitrary SQL queries against a configured SQL connection
 	SQL *SQLQuery `json:"sql,omitempty" yaml:"sql,omitempty"`
+
+	// HTTP executes an HTTP request and extracts data from the JSON response
+	HTTP *HTTPQuery `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
 func (v *Query) IsEmpty() bool {
-	return v.Prometheus == nil && v.SQL == nil
+	return v.Prometheus == nil && v.SQL == nil && v.HTTP == nil
 }
 
 type QueryResultRow map[string]any
@@ -25,7 +28,7 @@ type QueryResultRow map[string]any
 func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 	var results []QueryResultRow
 	switch {
-	case q.Prometheus != nil && q.SQL != nil:
+	case (q.Prometheus != nil && q.SQL != nil) || (q.Prometheus != nil && q.HTTP != nil) || (q.SQL != nil && q.HTTP != nil):
 		return nil, fmt.Errorf("multiple data sources specified")
 	case q.Prometheus != nil:
 		prometheusResults, err := executePrometheusQuery(ctx, *q.Prometheus)
@@ -41,6 +44,13 @@ func ExecuteQuery(ctx context.Context, q Query) ([]QueryResultRow, error) {
 		}
 
 		results = sqlResults
+	case q.HTTP != nil:
+		httpResults, err := executeHTTPQuery(ctx, *q.HTTP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute http query: %w", err)
+		}
+
+		results = httpResults
 	default:
 		return nil, fmt.Errorf("query has no data source specified")
 	}
