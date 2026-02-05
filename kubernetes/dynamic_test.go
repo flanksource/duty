@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestParseAPIVersionKind(t *testing.T) {
@@ -58,6 +57,29 @@ func TestParseAPIVersionKind(t *testing.T) {
 			input:       "serving.knative.dev/v1/Service/extra",
 			expectError: true,
 		},
+		{
+			name:        "empty string",
+			input:       "",
+			expectError: true,
+		},
+		{
+			name:            "empty group segment is valid",
+			input:           "/v1/Pod",
+			expectedGroup:   "",
+			expectedVersion: "v1",
+			expectedKind:    "Pod",
+			expectError:     false,
+		},
+		{
+			name:        "empty version segment",
+			input:       "apps//Deployment",
+			expectError: true,
+		},
+		{
+			name:        "empty kind segment",
+			input:       "v1/",
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -77,14 +99,4 @@ func TestParseAPIVersionKind(t *testing.T) {
 	}
 }
 
-func TestParseAPIVersionKindReturnsGVK(t *testing.T) {
-	g := gomega.NewWithT(t)
 
-	gvk, err := ParseAPIVersionKind("apps/v1/Deployment")
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(gvk).To(gomega.Equal(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    "Deployment",
-	}))
-}

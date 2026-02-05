@@ -114,34 +114,38 @@ func (c *Client) FetchResources(
 func (c *Client) GetClientByGroupVersionKind(
 	ctx context.Context, group, version, kind string,
 ) (dynamic.NamespaceableResourceInterface, error) {
+	client, _, err := c.GetClientAndMappingByGroupVersionKind(ctx, group, version, kind)
+	return client, err
+}
+
+func (c *Client) GetClientAndMappingByGroupVersionKind(
+	ctx context.Context, group, version, kind string,
+) (dynamic.NamespaceableResourceInterface, *meta.RESTMapping, error) {
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	cacheKey := group + version + kind
+	cacheKey := strings.Join([]string{group, version, kind}, "/")
 	if res, err := c.gvkClientResourceCache.Get(ctx, cacheKey); err == nil {
-		return dynamicClient.Resource(res.gvr), nil
+		return dynamicClient.Resource(res.gvr), res.mapping, nil
 	}
 
-	rm, _ := c.GetRestMapper()
-	gvk, err := rm.KindFor(schema.GroupVersionResource{
-		Resource: kind,
-		Group:    group,
-		Version:  version,
-	})
+	rm, err := c.GetRestMapper()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
-	mapping, err := rm.RESTMapping(gk, gvk.Version)
+	mapping, err := rm.RESTMapping(schema.GroupKind{Group: group, Kind: kind}, version)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	_ = c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping})
-	return dynamicClient.Resource(mapping.Resource), nil
+	if err := c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping}); err != nil {
+		c.logger.Errorf("failed to set gvk cache for %s: %s", cacheKey, err)
+	}
+
+	return dynamicClient.Resource(mapping.Resource), mapping, nil
 }
 
 func (c *Client) RestConfig() *rest.Config {
@@ -163,7 +167,11 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 		return dynamicClient.Resource(res.gvr), res.mapping, nil
 	}
 
-	rm, _ := c.GetRestMapper()
+	rm, err := c.GetRestMapper()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get rest mapper: %w", err)
+	}
+
 	gvk, err := rm.KindFor(schema.GroupVersionResource{
 		Resource: kind,
 	})
@@ -203,24 +211,31 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 func ParseAPIVersionKind(apiVersionKind string) (schema.GroupVersionKind, error) {
 	parts := strings.Split(apiVersionKind, "/")
 
+	var gvk schema.GroupVersionKind
 	switch len(parts) {
 	case 2:
 		// Format: version/kind (e.g., "v1/Pod" for core API group)
-		return schema.GroupVersionKind{
+		gvk = schema.GroupVersionKind{
 			Group:   "",
 			Version: parts[0],
 			Kind:    parts[1],
-		}, nil
+		}
 	case 3:
 		// Format: group/version/kind (e.g., "apps/v1/Deployment", "serving.knative.dev/v1/Service")
-		return schema.GroupVersionKind{
+		gvk = schema.GroupVersionKind{
 			Group:   parts[0],
 			Version: parts[1],
 			Kind:    parts[2],
-		}, nil
+		}
 	default:
 		return schema.GroupVersionKind{}, fmt.Errorf("invalid apiVersion/Kind format: %q (expected \"version/Kind\" or \"group/version/Kind\")", apiVersionKind)
 	}
+
+	if gvk.Version == "" || gvk.Kind == "" {
+		return schema.GroupVersionKind{}, fmt.Errorf("invalid apiVersion/Kind format: %q (version and kind must not be empty)", apiVersionKind)
+	}
+
+	return gvk, nil
 }
 
 func (c *Client) DeleteByGVK(ctx context.Context, namespace, name string, gvk schema.GroupVersionKind) (bool, error) {
@@ -517,43 +532,37 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 	timer := timer.NewTimer()
 
 	var resources []unstructured.Unstructured
-	for _, apiVersionKind := range selector.Types {
-		if strings.ToLower(apiVersionKind) == "namespace" && selector.IsMetadataOnly() {
+	for _, resourceType := range selector.Types {
+		apiVersionKind := strings.TrimPrefix(resourceType, "Kubernetes::")
+
+		if selector.IsMetadataOnly() && strings.EqualFold(kindFromType(apiVersionKind), "namespace") {
 			if name, ok := selector.ToGetOptions(); ok {
-				return []unstructured.Unstructured{{
+				resources = append(resources, unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion:": "v1",
-						"kind":        "Namespace",
+						"apiVersion": "v1",
+						"kind":       "Namespace",
 						"metadata": map[string]any{
 							"name": name,
 						},
 					},
-				}}, nil
+				})
+				continue
 			}
 		}
-
-		apiVersionKind = strings.TrimPrefix(apiVersionKind, "Kubernetes::")
 
 		var client dynamic.NamespaceableResourceInterface
 		var rm *meta.RESTMapping
 		var err error
 
-		// Check if kind uses apiVersion/Kind format (e.g., "v1/Pod", "apps/v1/Deployment")
 		if strings.Contains(apiVersionKind, "/") {
-			gvk, err := ParseAPIVersionKind(apiVersionKind)
-			if err != nil {
-				return nil, err
+			gvk, parseErr := ParseAPIVersionKind(apiVersionKind)
+			if parseErr != nil {
+				return nil, parseErr
 			}
 
-			client, err = c.GetClientByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
+			client, rm, err = c.GetClientAndMappingByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
-			}
-
-			restMapper, _ := c.GetRestMapper()
-			rm, err = restMapper.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get rest mapping for %s: %w", apiVersionKind, err)
 			}
 		} else {
 			client, rm, err = c.GetClientByKind(apiVersionKind)
@@ -615,6 +624,16 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 
 	c.logger.Debugf("%s => count=%d duration=%s", selector, len(resources), timer)
 	return resources, nil
+}
+
+// kindFromType extracts the kind from a type string that may be
+// prefixed with "Kubernetes::" or in apiVersion/Kind format.
+func kindFromType(t string) string {
+	t = strings.TrimPrefix(t, "Kubernetes::")
+	if i := strings.LastIndex(t, "/"); i != -1 {
+		return t[i+1:]
+	}
+	return t
 }
 
 func safeString(buf *bytes.Buffer) string {
