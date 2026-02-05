@@ -2,7 +2,6 @@
 // This source code is licensed under the Apache 2.0 license found at
 // https://github.com/ariga/atlas/blob/master/LICENSE
 
-
 package schema
 
 import (
@@ -36,7 +35,7 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 	for _, change := range changes {
 		switch change := change.(type) {
 		case *schema.DropTable:
-			logger.Debugf("Skipping drop table of %s", change.T.Name)
+			logger.GetLogger("migrate").Tracef("Skipping drop table of %s", change.T.Name)
 		default:
 			filtered = append(filtered, change)
 		}
@@ -45,7 +44,23 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 }
 
 func Apply(ctx context.Context, connection string) error {
-	from, err := dbReader(ctx, connection, []string{})
+	log := logger.GetLogger("migrate")
+
+	// https://atlasgo.io/versioned/diff#exclude-objects
+	exclude := []string{
+		"config_items.properties_values",
+		"components.properties_values",
+		"config_locations.config_locations_location_pattern_idx",
+
+		// These indexes are managed in the views/037_notification_group_resources.sql file
+		// as they are dependent on the PostgreSQL version.
+		"notification_group_resources.unique_notification_group_resources_unresolved",
+		"notification_group_resources.unique_notification_group_resources_unresolved_config",
+		"notification_group_resources.unique_notification_group_resources_unresolved_check",
+		"notification_group_resources.unique_notification_group_resources_unresolved_component",
+	}
+
+	from, err := dbReader(ctx, connection, exclude)
 	if err != nil {
 		return fmt.Errorf("failed to open connection: %w", err)
 	}
@@ -68,7 +83,7 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	if len(changes) == 0 {
-		logger.Infof("No changes detected")
+		log.Debugf("No changes detected")
 		return nil
 	}
 
@@ -80,14 +95,14 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	for _, change := range plan.Changes {
-		logger.Debugf(change.Cmd)
+		log.Tracef("%s", change.Cmd)
 	}
 
 	if err = client.ApplyChanges(ctx, changes); err != nil {
 		return fmt.Errorf("applied %d changes and then failed: %w", len(changes), err)
 	}
 
-	logger.Infof("Applied %d changes", len(changes))
+	log.V(1).Infof("Applied %d changes", len(changes))
 	return nil
 }
 

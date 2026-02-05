@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/utils"
+	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
 	"github.com/flanksource/gomplate/v3"
@@ -14,115 +15,89 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+func assertTraverseConfig(from models.ConfigItem, relationType string, direction string, to ...models.ConfigItem) {
+	got := query.TraverseConfig(DefaultContext, from.ID.String(), relationType, direction)
+	Expect(got).To(EqualConfigs(to...))
+}
+
+func traverseTemplate(from models.ConfigItem, relationType string, direction string) string {
+	templateEnv := map[string]any{
+		"configID": from.ID.String(),
+	}
+
+	template := gomplate.Template{
+		Expression: fmt.Sprintf("dyn(catalog.traverse(configID, '%s', '%s')).map(i, i.id).join(' ')", relationType, direction),
+	}
+	gotExpr, err := DefaultContext.RunTemplate(template, templateEnv)
+	Expect(err).ToNot(HaveOccurred())
+	return gotExpr
+}
+
 var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 	ginkgo.It("should be able to traverse config relationships via types", func() {
-		configItems := map[string]models.ConfigItem{
-			"deployment":                 {ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment")},
-			"helm-release-of-deployment": {ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease")},
-			"kustomize-of-helm-release":  {ID: uuid.New(), Name: utils.Ptr("aws-demo-infra"), Type: utils.Ptr("Kubernetes::Kustomization")},
-			"kustomize-of-kustomize":     {ID: uuid.New(), Name: utils.Ptr("aws-demo-bootstrap"), Type: utils.Ptr("Kubernetes::Kustomization")},
-		}
+		deployment := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("canary-checker"), Type: utils.Ptr("Kubernetes::Deployment"), ConfigClass: "Deployment"}
+		helmRelease := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("mission-control"), Type: utils.Ptr("Kubernetes::HelmRelease"), ConfigClass: "HelmRelease"}
+		kustomize := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("aws-demo-infra"), Type: utils.Ptr("Kubernetes::Kustomization"), ConfigClass: "Kustomization"}
+		bootstrap := models.ConfigItem{ID: uuid.New(), Name: utils.Ptr("aws-demo-bootstrap"), Type: utils.Ptr("Kubernetes::Kustomization"), ConfigClass: "Kustomization"}
+		all := []models.ConfigItem{deployment, helmRelease, kustomize, bootstrap}
 		ctx := DefaultContext
-		err := ctx.DB().Save(lo.Values(configItems)).Error
+		err := ctx.DB().Save(all).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		configRelations := []models.ConfigRelationship{
-			{ConfigID: configItems["helm-release-of-deployment"].ID.String(), RelatedID: configItems["deployment"].ID.String(), Relation: "HelmReleaseDeployment"},
-			{ConfigID: configItems["kustomize-of-helm-release"].ID.String(), RelatedID: configItems["helm-release-of-deployment"].ID.String(), Relation: "KustomizationHelmRelease"},
-			{ConfigID: configItems["kustomize-of-kustomize"].ID.String(), RelatedID: configItems["kustomize-of-helm-release"].ID.String(), Relation: "KustomizationKustomization"},
+			{ConfigID: helmRelease.ID.String(), RelatedID: deployment.ID.String(), Relation: "HelmReleaseDeployment"},
+			{ConfigID: kustomize.ID.String(), RelatedID: helmRelease.ID.String(), Relation: "KustomizationHelmRelease"},
+			{ConfigID: bootstrap.ID.String(), RelatedID: kustomize.ID.String(), Relation: "KustomizationKustomization"},
 		}
 		err = ctx.DB().Clauses(clause.OnConflict{DoNothing: true}).Save(configRelations).Error
 		Expect(err).ToNot(HaveOccurred())
 
+		err = job.RefreshConfigItemSummary7d(DefaultContext)
+		Expect(err).To(BeNil())
+
 		err = query.SyncConfigCache(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		got := query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease", "incoming")
-		Expect(got).ToNot(BeNil())
-		Expect(got[0].ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease", "incoming", helmRelease)
 
-		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
-		Expect(got).ToNot(BeNil())
-		Expect(len(got)).To(Equal(2))
-		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
-		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
+		assertTraverseConfig(helmRelease, "Kubernetes::Kustomization", "incoming", kustomize, bootstrap)
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Kustomization", "incoming")
-		Expect(got).ToNot(BeNil())
-		Expect(len(got)).To(Equal(2))
-		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
-		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
+		assertTraverseConfig(deployment, "Kubernetes::Kustomization", "incoming", bootstrap, kustomize)
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization", "incoming")
-		Expect(got).ToNot(BeNil())
-		Expect(len(got)).To(Equal(2))
-		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-helm-release"].ID.String()))
-		Expect(got[1].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Kustomization", "incoming", kustomize, bootstrap)
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Kustomization/Kubernetes::Kustomization", "incoming")
+		got := query.TraverseConfig(DefaultContext, deployment.ID.String(), "Kubernetes::Kustomization/Kubernetes::Kustomization", "incoming")
 		Expect(got).ToNot(BeNil())
 		// This should only return 1 object since we are
 		// passing explicit path for the boostrap kustomization
 		Expect(len(got)).To(Equal(1))
-		Expect(got[0].ID.String()).To(Equal(configItems["kustomize-of-kustomize"].ID.String()))
+		Expect(got[0].ID.String()).To(Equal(bootstrap.ID.String()))
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Pod", "incoming")
-		Expect(got).To(BeNil())
+		assertTraverseConfig(deployment, "Kubernetes::Pod", "incoming")
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::Node", "incoming")
-		Expect(got).To(BeNil())
+		assertTraverseConfig(deployment, "Kubernetes::Node", "incoming")
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Node", "incoming")
 
-		got = query.TraverseConfig(DefaultContext, configItems["deployment"].ID.String(), "Kubernetes::HelmRelease/Kubernetes::Node", "incoming")
-		Expect(got).To(BeNil())
+		assertTraverseConfig(helmRelease, "Kubernetes::Deployment", "outgoing", deployment)
 
-		got = query.TraverseConfig(DefaultContext, configItems["helm-release-of-deployment"].ID.String(), "Kubernetes::Deployment", "outgoing")
-		Expect(got).ToNot(BeNil())
-		Expect(got[0].ID.String()).To(Equal(configItems["deployment"].ID.String()))
+		assertTraverseConfig(kustomize, "Kubernetes::HelmRelease", "outgoing", helmRelease)
 
-		got = query.TraverseConfig(DefaultContext, configItems["kustomize-of-helm-release"].ID.String(), "Kubernetes::HelmRelease", "outgoing")
-		Expect(got).ToNot(BeNil())
-		Expect(got[0].ID.String()).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+		assertTraverseConfig(kustomize, "Kubernetes::Deployment", "outgoing", deployment)
 
-		got = query.TraverseConfig(DefaultContext, configItems["kustomize-of-helm-release"].ID.String(), "Kubernetes::Deployment", "outgoing")
-		Expect(got).ToNot(BeNil())
-		Expect(got[0].ID.String()).To(Equal(configItems["deployment"].ID.String()))
+		Expect(traverseTemplate(deployment, "Kubernetes::HelmRelease", "incoming")).
+			To(Equal(helmRelease.ID.String()))
 
-		// Test with CEL Exprs
-		templateEnv := map[string]any{
-			"configID":          configItems["deployment"].ID.String(),
-			"configIDKustomize": configItems["kustomize-of-helm-release"].ID.String(),
-		}
+		Expect(traverseTemplate(deployment, "Kubernetes::Kustomization", "incoming")).
+			To(Equal(fmt.Sprintf("%s %s", kustomize.ID, bootstrap.ID)))
 
-		template := gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::HelmRelease', 'incoming')[0].id",
-		}
-		gotExpr, err := DefaultContext.RunTemplate(template, templateEnv)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(gotExpr).To(Equal(configItems["helm-release-of-deployment"].ID.String()))
+		Expect(traverseTemplate(deployment, "Kubernetes::Pod", "incoming")).
+			To(BeEmpty())
 
-		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::Kustomization', 'incoming')[0].name",
-		}
-		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(gotExpr).To(Equal(*configItems["kustomize-of-helm-release"].Name))
-
-		template = gomplate.Template{
-			Expression: "catalog.traverse(configID, 'Kubernetes::Pod', 'incoming')[0].name",
-		}
-		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
-		Expect(err).To(HaveOccurred())
-		Expect(gotExpr).To(Equal(""))
-
-		template = gomplate.Template{
-			Expression: "catalog.traverse(configIDKustomize, 'Kubernetes::Deployment', 'outgoing')[0].name",
-		}
-		gotExpr, err = DefaultContext.RunTemplate(template, templateEnv)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(gotExpr).To(Equal(*configItems["deployment"].Name))
+		Expect(traverseTemplate(kustomize, "Kubernetes::Deployment", "outgoing")).
+			To(Equal(deployment.ID.String()))
 
 		// Testing struct templater
-		t := DefaultContext.NewStructTemplater(map[string]any{"id": configItems["deployment"].ID.String()}, "", nil)
+		t := DefaultContext.NewStructTemplater(map[string]any{"id": deployment.ID.String()}, "", nil)
 		inlineStruct := struct {
 			Name string
 			Type string
@@ -133,14 +108,14 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 
 		err = t.Walk(&inlineStruct)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(inlineStruct.Name).To(Equal(fmt.Sprintf("Name is %s", *configItems["kustomize-of-helm-release"].Name)))
-		Expect(inlineStruct.Type).To(Equal(fmt.Sprintf("Type is %s", *configItems["kustomize-of-helm-release"].Type)))
+		Expect(inlineStruct.Name).To(Equal(fmt.Sprintf("Name is %s", *kustomize.Name)))
+		Expect(inlineStruct.Type).To(Equal(fmt.Sprintf("Type is %s", *kustomize.Type)))
 
 		// Cleanup for normal tests to pass
-		err = ctx.DB().Where("config_id in ?", lo.Map(lo.Values(configItems), func(c models.ConfigItem, _ int) string { return c.ID.String() })).Delete(&models.ConfigRelationship{}).Error
+		err = ctx.DB().Where("config_id in ?", lo.Map(all, func(c models.ConfigItem, _ int) string { return c.ID.String() })).Delete(&models.ConfigRelationship{}).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		err = ctx.DB().Delete(lo.Values(configItems)).Error
+		err = ctx.DB().Delete(all).Error
 		Expect(err).ToNot(HaveOccurred())
 	})
 

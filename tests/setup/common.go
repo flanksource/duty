@@ -3,26 +3,51 @@ package setup
 import (
 	"database/sql"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
+	"path"
+	"strconv"
 	"strings"
 
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/job"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/tests/fixtures/dummy"
-	"github.com/flanksource/postq"
+	"github.com/flanksource/commons/properties"
 	"github.com/labstack/echo/v4"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	"github.com/rodaine/table"
+	"github.com/samber/oops"
+	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	//fix indirect go.mod
+	_ "github.com/spf13/cobra"
+
+	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/job"
+	dutyKubernetes "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac"
+	"github.com/flanksource/duty/shutdown"
+	"github.com/flanksource/duty/telemetry"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
+)
+
+const (
+	DUTY_DB_CREATE      = "DUTY_DB_CREATE"
+	DUTY_DB_DISABLE_RLS = "DUTY_DB_DISABLE_RLS"
+)
+
+// Env vars for embedded db
+const (
+	DUTY_DB_DATA_DIR = "DUTY_DB_DATA_DIR"
+	DUTY_DB_URL      = "DUTY_DB_URL"
+	TEST_DB_PORT     = "TEST_DB_PORT"
 )
 
 var DefaultContext context.Context
@@ -32,13 +57,30 @@ var dummyData dummy.DummyData
 
 var PgUrl string
 var postgresDBUrl string
-var dbName = "test"
-var trace bool
-var dbTrace bool
+
+func RestartEmbeddedPG() error {
+	if err := postgresServer.Stop(); err != nil {
+		return err
+	}
+
+	return postgresServer.Start()
+}
 
 func init() {
-	logger.BindGoFlags()
-	duty.BindGoFlags()
+	logger.UseSlog()
+	logger.BindFlags(pflag.CommandLine)
+	duty.BindPFlags(pflag.CommandLine)
+	properties.BindFlags(pflag.CommandLine)
+
+	format.RegisterCustomFormatter(func(value interface{}) (string, bool) {
+		switch v := value.(type) {
+		case error:
+			if err, ok := oops.AsOops(v); ok {
+				return fmt.Sprintf("%+v", err), true
+			}
+		}
+		return "", false
+	})
 }
 
 func execPostgres(connection, query string) error {
@@ -60,69 +102,147 @@ func MustDB() *sql.DB {
 	return db
 }
 
+var WithoutRLS = "rls_disabled"
 var WithoutDummyData = "without_dummy_data"
+var WithExistingDatabase = "with_existing_database"
+
+var (
+	recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
+	disableRLS       = os.Getenv(DUTY_DB_DISABLE_RLS) == "true"
+)
+
+func findFileInPath(filename string, depth int) string {
+	if !path.IsAbs(filename) {
+		cwd, _ := os.Getwd()
+		filename = path.Join(cwd, filename)
+	}
+
+	base := path.Base(filename)
+
+	paths := strings.Split(path.Dir(filename), "/")
+	for i := len(paths); i >= len(paths)-depth; i-- {
+		file := "/" + path.Join(append(paths[:i], base)...)
+		logger.Infof(file)
+		if _, err := os.Stat(file); err == nil {
+			return file
+		}
+	}
+	return filename
+}
 
 func BeforeSuiteFn(args ...interface{}) context.Context {
-	logger.UseZap()
-	var err error
-	importDummyData := true
+	ctx, err := SetupDB("test", args...)
+	if err != nil {
+		shutdown.Shutdown()
+		Expect(err).To(BeNil())
+	}
 
+	DefaultContext = ctx
+	return ctx
+}
+
+func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
+	if err := properties.LoadFile(findFileInPath("test.properties", 2)); err != nil {
+		logger.Errorf("Failed to load test properties: %v", err)
+	}
+
+	defer telemetry.InitTracer()
+
+	importDummyData := true
+	dbOptions := []duty.StartOption{duty.DisablePostgrest, duty.RunMigrations}
 	for _, arg := range args {
 		if arg == WithoutDummyData {
 			importDummyData = false
 		}
+		if arg == WithExistingDatabase {
+			recreateDatabase = false
+		}
+		if arg == WithoutRLS {
+			disableRLS = true
+		}
 	}
 
-	logger.Infof("Initializing test db debug=%v db.trace=%v", trace, dbTrace)
-	if postgresServer != nil {
-		return DefaultContext
+	if !disableRLS {
+		dbOptions = append(dbOptions, duty.EnableRLS)
 	}
 
-	port := FreePort()
+	var port int
+	if val, ok := os.LookupEnv(TEST_DB_PORT); ok {
+		parsed, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return context.Context{}, err
+		}
+
+		port = int(parsed)
+	} else {
+		port = duty.FreePort()
+	}
 
 	PgUrl = fmt.Sprintf("postgres://postgres:postgres@localhost:%d/%s?sslmode=disable", port, dbName)
-	url := os.Getenv("DUTY_DB_URL")
-	if url != "" {
+	url := os.Getenv(DUTY_DB_URL)
+	if url != "" && !recreateDatabase {
+		PgUrl = url
+	} else if url != "" && recreateDatabase {
 		postgresDBUrl = url
 		dbName = fmt.Sprintf("duty_gingko%d", port)
 		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
 		_ = execPostgres(postgresDBUrl, "DROP DATABASE "+dbName)
 		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
-			panic(fmt.Sprintf("Cannot create %s: %v", dbName, err))
+			return context.Context{}, fmt.Errorf("cannot create %s: %v", dbName, err)
 		}
-	} else {
+
+		shutdown.AddHookWithPriority("remote postgres", shutdown.PriorityCritical, func() {
+			if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
+				logger.Errorf("execPostgres: %v", err)
+			}
+		})
+
+	} else if url == "" && postgresServer == nil {
 		config, _ := GetEmbeddedPGConfig(dbName, port)
+
+		// allow data dir override
+		if v, ok := os.LookupEnv(DUTY_DB_DATA_DIR); ok {
+			config = config.DataPath(v)
+		}
+
 		postgresServer = embeddedPG.NewDatabase(config)
-		if err = postgresServer.Start(); err != nil {
-			panic(err.Error())
+		logger.Infof("starting embedded postgres on port %d", port)
+		if err := postgresServer.Start(); err != nil {
+			return context.Context{}, err
 		}
 		logger.Infof("Started postgres on port %d", port)
+		shutdown.AddHookWithPriority("embedded pg", shutdown.PriorityCritical, func() {
+			if err := postgresServer.Stop(); err != nil {
+				logger.Errorf("postgresServer.Stop: %v", err)
+			}
+		})
 	}
 
-	if ctx, err := duty.InitDB(PgUrl, nil); err != nil {
-		panic(err.Error())
-	} else {
-		DefaultContext = *ctx
+	dbOptions = append(dbOptions, duty.WithUrl(PgUrl))
+	ctx, _, err := duty.Start(dbName, dbOptions...)
+	if err != nil {
+		return context.Context{}, err
 	}
 
-	if err := DefaultContext.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
-		panic(err.Error())
+	if err := ctx.DB().Exec("SET TIME ZONE 'UTC'").Error; err != nil {
+		return context.Context{}, err
 	}
 
-	DefaultContext = context.Context{
-		Context: DefaultContext.WithValue("db_name", dbName).WithValue("db_url", PgUrl),
-	}
+	ctx = ctx.WithValue("db_name", dbName).WithValue("db_url", PgUrl)
 
 	if importDummyData {
-		dummyData = dummy.GetStaticDummyData(DefaultContext.DB())
-		err = dummyData.Populate(DefaultContext.DB())
+		dummyData = dummy.GetStaticDummyData(ctx.DB())
+		if err := dummyData.Delete(ctx.DB()); err != nil {
+			logger.Errorf(err.Error())
+		}
+		err = dummyData.Populate(ctx)
 		if err != nil {
-			panic(err.Error())
+			return context.Context{}, err
 		}
 		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
-	DefaultContext := DefaultContext.WithKubernetes(fake.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fake.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",
@@ -137,28 +257,15 @@ func BeforeSuiteFn(args ...interface{}) context.Context {
 		},
 		Data: map[string][]byte{
 			"foo": []byte("secret"),
-		}}))
+		}})
 
-	if dbTrace {
-		DefaultContext = DefaultContext.WithDBLogLevel("trace")
-	}
-	if trace {
-		DefaultContext = DefaultContext.WithTrace()
-	}
-	return DefaultContext
+	ctx = ctx.WithLocalKubernetes(dutyKubernetes.NewKubeClient(logger.GetLogger("k8s"), clientset, nil))
+
+	return ctx, nil
 }
 
 func AfterSuiteFn() {
-	if os.Getenv("DUTY_DB_URL") == "" {
-		logger.Infof("Stopping postgres")
-		if err := postgresServer.Stop(); err != nil {
-			ginkgo.Fail(err.Error())
-		}
-	} else {
-		if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
-			ginkgo.Fail(fmt.Sprintf("Cannot drop %s: %v", dbName, err))
-		}
-	}
+	shutdown.Shutdown()
 }
 
 // NewDB creates a new database from an existing context, and
@@ -172,7 +279,14 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 		return nil, nil, err
 	}
 
-	newCtx, err := duty.InitDB(strings.ReplaceAll(pgUrl, pgDbName, newName), nil)
+	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
+
+	dbConfig := duty.RunMigrations(config)
+	if !disableRLS {
+		dbConfig = duty.EnableRLS(dbConfig)
+	}
+
+	newCtx, err := duty.InitDB(dbConfig)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,7 +303,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 }
 
 func RunEcho(e *echo.Echo) (int, func()) {
-	port := FreePort()
+	port := duty.FreePort()
 
 	listenAddr := fmt.Sprintf(":%d", port)
 	go func() {
@@ -208,29 +322,15 @@ func RunEcho(e *echo.Echo) (int, func()) {
 	}
 }
 
-func FreePort() int {
-	// Bind to port 0 to let the OS choose a free port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		panic(err.Error())
-	}
-
-	defer listener.Close()
-
-	// Get the address of the listener
-	address := listener.Addr().(*net.TCPAddr)
-	return address.Port
-}
-
 func ExpectJobToPass(j *job.Job) {
 	history, err := j.FindHistory()
 	Expect(err).To(BeNil())
 	Expect(len(history)).To(BeNumerically(">=", 1))
-	Expect(history[0].Status).To(BeElementOf(models.StatusFinished, models.StatusSuccess))
+	Expect(history[0].Status).To(BeElementOf(models.StatusSuccess))
 }
 
 func DumpEventQueue(ctx context.Context) {
-	var events []postq.Event
+	var events []models.Event
 	Expect(ctx.DB().Find(&events).Error).To(BeNil())
 
 	table.DefaultHeaderFormatter = func(format string, vals ...interface{}) string {
@@ -244,4 +344,21 @@ func DumpEventQueue(ctx context.Context) {
 	}
 
 	tbl.Print()
+}
+
+// CreateUserWithRole creates a user and assigns the specified roles
+func CreateUserWithRole(ctx context.Context, name, email string, roles ...string) *models.Person {
+	user := &models.Person{
+		Name:  name,
+		Email: email,
+	}
+	err := ctx.DB().Create(user).Error
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, role := range roles {
+		_, err = rbac.Enforcer().AddRoleForUser(user.ID.String(), role)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	return user
 }

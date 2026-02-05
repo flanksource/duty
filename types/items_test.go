@@ -21,7 +21,10 @@ var fixtures = []struct {
 
 var _ = ginkgo.Describe("Items", func() {
 	for _, f := range fixtures {
-		items := Items(f.Items)
-		Expect(items.Contains(f.Item)).To(Equal(f.Matches))
+		f := f // capture range variable
+		ginkgo.It("should match item "+f.Item, func() {
+			items := Items(f.Items)
+			Expect(items.Contains(f.Item)).To(Equal(f.Matches))
+		})
 	}
 })

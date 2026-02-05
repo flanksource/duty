@@ -1,0 +1,86 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  uid: 962f999c-a9bd-40a4-80bf-47c84b1ad750
+  name: sandbox
+  labels:
+    kustomize.toolkit.fluxcd.io/name: sandbox
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  namespace: flux-system
+  finalizers:
+    - finalizers.fluxcd.io
+  annotations:
+    config.kubernetes.io/origin: |
+      path: flux.yaml
+  creationTimestamp: 2023-05-16T08:10:27Z
+spec:
+  ref:
+    branch: main
+  url: ssh://git@github.com/flanksource/sandbox.git
+  timeout: 60s
+  interval: 30s
+  secretRef:
+    name: github
+status:
+  artifact:
+    url: http://source-controller.flux-system.svc.cluster.local./gitrepository/flux-system/aws-sandbox/2b03eadbd84a2427e9513e8edf6688a8c3d33479.tar.gz
+    path: gitrepository/flux-system/aws-sandbox/2b03eadbd84a2427e9513e8edf6688a8c3d33479.tar.gz
+    size: 86115
+    digest: sha256:f550e46853f892f902576eed2cdaf3a8cbb506950c4cd1b14b44808b166ef834
+    revision: main@sha1:2b03eadbd84a2427e9513e8edf6688a8c3d33479
+  conditions:
+    - type: Ready
+      reason: Succeeded
+      status: "True"
+      message: stored artifact for revision
+        'main@sha1:2b03eadbd84a2427e9513e8edf6688a8c3d33479'
+    - type: ArtifactInStorage
+      reason: Succeeded
+      status: "True"
+      message: stored artifact for revision
+        'main@sha1:2b03eadbd84a2427e9513e8edf6688a8c3d33479'
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  uid: 9a87e262-0b5a-4bea-8908-606fc1a1bb5d
+  name: infra
+  labels:
+    kustomize.toolkit.fluxcd.io/name: infra
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  namespace: flux-system
+  finalizers:
+    - finalizers.fluxcd.io
+  annotations:
+    config-db.flanksource.com/parent: 962f999c-a9bd-40a4-80bf-47c84b1ad750
+    config.kubernetes.io/origin: |
+      path: flux.yaml
+  creationTimestamp: 2023-05-16T08:10:28Z
+spec:
+  path: ./aws-demo/spec
+  force: true
+  prune: true
+  interval: 5m0s
+  sourceRef:
+    kind: GitRepository
+    name: aws-sandbox
+  decryption:
+    provider: sops
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  uid: 80c6f9f2-abdb-46a8-9cb8-39540f2582ed
+  name: flux
+  labels:
+    kustomize.toolkit.fluxcd.io/name: aws-demo-infra
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  annotations:
+    config-db.flanksource.com/parent: 9a87e262-0b5a-4bea-8908-606fc1a1bb5d
+    config.kubernetes.io/origin: |
+      path: namespaces/flux/namespace.yaml
+spec:
+  finalizers:
+    - kubernetes
+status:
+  phase: Active

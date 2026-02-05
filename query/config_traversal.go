@@ -16,7 +16,7 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 
 	ids := []string{configID}
 	for _, typ := range strings.Split(relationType, "/") {
-		ids = getRelatedTypeConfigID(ctx, ids, typ, direction)
+		ids = getRelatedTypeConfigID(ctx, ids, typ, direction, true)
 	}
 
 	for _, id := range ids {
@@ -32,23 +32,25 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 }
 
 // Fetch config IDs which match the type and direction upto max depth (5)
-func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string) []string {
+func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string, excludeSelf bool) []string {
 	var allIDs []string
 	for _, id := range ids {
-		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id", "depth", "type").Where("type = ?", relatedType)
-		var rows []struct {
-			ID    string
-			Type  string
-			Depth int
-		}
+		var rows []string
+		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id").Where("type = ?", relatedType)
 		if err := q.Scan(&rows).Error; err != nil {
 			ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
 			return nil
 		}
-		for _, r := range rows {
-			allIDs = append(allIDs, r.ID)
+
+		for _, row := range rows {
+			if excludeSelf && row == id {
+				continue
+			}
+
+			allIDs = append(allIDs, row)
 		}
 	}
+
 	return allIDs
 }
 
@@ -79,7 +81,19 @@ func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
 
 func traverseConfigTemplateFunction() func(ctx context.Context) any {
 	return func(ctx context.Context) any {
-		return func(id, relationType, direction string) []models.ConfigItem {
+		return func(args ...string) []models.ConfigItem {
+			if len(args) < 2 {
+				return nil
+			}
+			var id, relationType, direction string
+
+			id = args[0]
+			relationType = args[1]
+			if len(args) == 3 {
+				direction = args[2]
+			} else {
+				direction = "incoming"
+			}
 			return TraverseConfig(ctx, id, relationType, direction)
 		}
 	}

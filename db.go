@@ -3,27 +3,24 @@ package duty
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/exaring/otelpgx"
 	"github.com/flanksource/commons/logger"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/api"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/drivers"
 	dutyGorm "github.com/flanksource/duty/gorm"
 	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/tracing"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/spf13/pflag"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 var pool *pgxpool.Pool
@@ -45,10 +42,6 @@ type Table interface {
 	TableName() string
 }
 
-func BindFlags(flags *pflag.FlagSet) {
-	flags.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
-}
-
 func BindGoFlags() {
 	flag.StringVar(&LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")
 }
@@ -59,7 +52,7 @@ func DefaultGormConfig() *gorm.Config {
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
-		Logger: dutyGorm.NewGormLogger(LogLevel),
+		Logger: dutyGorm.NewSqlLogger(logger.GetLogger("db")),
 	}
 }
 
@@ -109,11 +102,6 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 
-	pgUrl, err := url.Parse(connection)
-	if err == nil {
-		logger.Infof("Connecting to %s", pgUrl.Redacted())
-	}
-
 	config, err := pgxpool.ParseConfig(connection)
 	if err != nil {
 		return nil, err
@@ -153,18 +141,14 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(connection string, opts *migrate.MigrateOptions) error {
-	db, err := NewDB(connection)
+func Migrate(config api.Config) error {
+	db, err := NewDB(config.ConnectionString)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	migrateOptions := opts
-	if migrateOptions == nil {
-		migrateOptions = &migrate.MigrateOptions{}
-	}
-	if err := migrate.RunMigrations(db, connection, *migrateOptions); err != nil {
+	if err := migrate.RunMigrations(db, config); err != nil {
 		return err
 	}
 
@@ -178,33 +162,41 @@ func Migrate(connection string, opts *migrate.MigrateOptions) error {
 
 // HasMigrationsRun performs a rudimentary check to see if the migrations have
 // run at least once.
-func HasMigrationsRun(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
+func HasMigrationsRun(ctx dutyContext.Context) (bool, error) {
 	var count int
-	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM migration_logs WHERE path = '099_optimize.sql'").Scan(&count); err != nil {
+	if err := ctx.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM migration_logs WHERE path = '099_optimize.sql'").Scan(&count); err != nil {
 		return false, err
 	}
 
 	return count > 0, nil
 }
 
-func InitDB(connection string, migrateOpts *migrate.MigrateOptions) (*dutyContext.Context, error) {
-	db, pool, err := SetupDB(connection, migrateOpts)
+func InitDB(config api.Config) (*dutyContext.Context, error) {
+	db, pool, err := SetupDB(config)
 	if err != nil {
 		return nil, err
 	}
 
-	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool)
+	dutyctx := dutyContext.NewContext(context.Background()).WithDB(db, pool).WithConnectionString(config.ConnectionString)
 
-	statementTimeout := dutyctx.Properties().String("connection.statement_timeout", "60min")
-	postgrestStatmentTimeout := dutyctx.Properties().String("connection.postgrest.statement_timeout", "60s")
-	setStatementTimeouts(dutyctx, dutyctx.Pool(), connection, statementTimeout, postgrestStatmentTimeout)
+	setStatementTimeouts(dutyctx, config)
+
+	migrationsRan, err := HasMigrationsRun(dutyctx)
+	if err != nil {
+		return nil, fmt.Errorf("error querying migration logs: %w", err)
+	}
+	if !migrationsRan {
+		return nil, fmt.Errorf("database migrations have not been run")
+	}
 
 	return &dutyctx, nil
 }
 
 // SetupDB runs migrations for the connection and returns a gorm.DB and a pgxpool.Pool
-func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
-	pgxpool, err = NewPgxPool(connection)
+func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err error) {
+	logger.Infof("Connecting to %s", config)
+
+	pgxpool, err = NewPgxPool(config.ConnectionString)
 	if err != nil {
 		return
 	}
@@ -215,45 +207,68 @@ func SetupDB(connection string, migrateOpts *migrate.MigrateOptions) (gormDB *go
 	}
 	defer conn.Release()
 
-	gormDB, err = NewGorm(connection, DefaultGormConfig())
+	if err := conn.Ping(context.Background()); err != nil {
+		return nil, nil, fmt.Errorf("error pinging database: %w", err)
+	}
+
+	cfg := DefaultGormConfig()
+
+	if config.LogName != "" {
+		cfg.Logger = dutyGorm.NewSqlLogger(logger.GetLogger(config.LogName))
+	}
+
+	gormDB, err = NewGorm(config.ConnectionString, cfg)
 	if err != nil {
 		return
 	}
 
-	if err = Migrate(connection, migrateOpts); err != nil {
-		return
+	if config.Migrate() {
+
+		// Some triggers are dependent on kratos tables
+		if config.KratosAuth {
+			if err = verifyKratosMigration(gormDB); err != nil {
+				return nil, nil, err
+			}
+		}
+
+		if err = Migrate(config); err != nil {
+			return
+		}
 	}
 
 	return
 }
 
-func setStatementTimeouts(ctx context.Context, pool *pgxpool.Pool, connection string, connStatementTimeout, postgrestStatementTimeout string) {
-	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_api SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
-		logger.Errorf("failed to set statement timeout for role postgrest_api: %v", err)
-	}
-
-	if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE postgrest_anon SET statement_timeout = '%s'`, postgrestStatementTimeout)); err != nil {
-		logger.Errorf("failed to set statement timeout for role postgrest_anon: %v", err)
-	}
-
-	parsedConn, err := url.Parse(connection)
+func verifyKratosMigration(db *gorm.DB) error {
+	var exists bool
+	err := db.Raw(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'identities')`).Scan(&exists).Error
 	if err != nil {
-		return
+		return fmt.Errorf("error confirming if kratos migration ran: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("kratos created tables[identities] not found")
 	}
 
-	user := parsedConn.User.Username()
-	if user != "" && connStatementTimeout != "" {
-		if _, err := pool.Exec(ctx, fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%s'`, user, connStatementTimeout)); err != nil {
-			logger.Errorf("failed to set statement timeout for role %q: %v", user, err)
-		}
-	}
+	return nil
 }
 
-func IsForeignKeyError(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		return pgErr.Code == pgerrcode.ForeignKeyViolation
+func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
+	postgrestTimeout := ctx.Properties().Duration("db.postgrest.timeout", 1*time.Minute)
+
+	if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, config.Postgrest.DBRole, postgrestTimeout.Seconds())).Error; err != nil {
+		logger.Errorf(err.Error())
 	}
 
-	return false
+	if config.Postgrest.AnonDBRole != "" {
+		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, config.Postgrest.AnonDBRole, postgrestTimeout.Seconds())).Error; err != nil {
+			logger.Errorf(err.Error())
+		}
+	}
+
+	statementTimeout := ctx.Properties().Duration("db.connection.timeout", 1*time.Hour)
+	if username := config.GetUsername(); username != "" {
+		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, username, statementTimeout.Seconds())).Error; err != nil {
+			logger.Errorf(err.Error())
+		}
+	}
 }

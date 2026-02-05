@@ -1,0 +1,44 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: View
+metadata:
+  name: deployments
+  namespace: mc
+spec:
+  columns:
+    - name: application
+      type: string
+      description: The application name.
+      primaryKey: true
+    - name: namespace
+      type: string
+      description: The namespace name.
+    - name: chart
+      type: string
+      description: The chart name.
+    - name: version
+      type: string
+      description: The version of the deployment.
+    - name: status
+      type: status
+      description: The status of the deployment.
+    - name: health
+      type: health
+      description: The health of the deployment.
+    - name: lastUpdated
+      type: datetime
+      description: The last updated time.
+  queries:
+    helm_releases:
+      configs:
+        search: '@order=name'
+        types:
+          - Kubernetes::HelmRelease
+        tagSelector: namespace in (monitoring,media)
+  mapping:
+    application: row.name
+    namespace: row.tags.namespace
+    chart: row.config.status.history[0].chartName
+    version: row.config.status.history[0].chartVersion
+    status: row.status
+    health: row.health
+    lastUpdated: row.updated_at

@@ -2,105 +2,107 @@ package models
 
 import (
 	"context"
-	"testing"
+
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func Test_Connection_AsGoGetterURL(t *testing.T) {
-	testCases := []struct {
-		name          string
-		connection    Connection
-		expectedURL   string
-		expectedError error
-	}{
-		{
-			name: "HTTP Connection",
-			connection: Connection{
-				Type:     ConnectionTypeHTTP,
-				URL:      "http://example.com",
-				Username: "testuser",
-				Password: "testpassword",
+var _ = ginkgo.Describe("Connection", func() {
+	ginkgo.Describe("AsGoGetterURL", func() {
+		testCases := []struct {
+			name          string
+			connection    Connection
+			expectedURL   string
+			expectedError error
+		}{
+			{
+				name: "HTTP Connection",
+				connection: Connection{
+					Type:     ConnectionTypeHTTP,
+					URL:      "http://example.com",
+					Username: "testuser",
+					Password: "testpassword",
+				},
+				expectedURL:   "http://testuser:testpassword@example.com",
+				expectedError: nil,
 			},
-			expectedURL:   "http://testuser:testpassword@example.com",
-			expectedError: nil,
-		},
-		{
-			name: "Git Connection",
-			connection: Connection{
-				Type:        ConnectionTypeGit,
-				URL:         "https://github.com/repo.git",
-				Certificate: "cert123",
-				Properties:  map[string]string{"ref": "main"},
+			{
+				name: "Git Connection",
+				connection: Connection{
+					Type:        ConnectionTypeGit,
+					URL:         "https://github.com/repo.git",
+					Certificate: "cert123",
+					Properties:  map[string]string{"ref": "main"},
+				},
+				expectedURL:   "git::https://github.com/repo.git?ref=main&sshkey=Y2VydDEyMw%3D%3D",
+				expectedError: nil,
 			},
-			expectedURL:   "git::https://github.com/repo.git?ref=main&sshkey=Y2VydDEyMw%3D%3D",
-			expectedError: nil,
-		},
-	}
+		}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			resultURL, err := tc.connection.AsGoGetterURL()
+		for _, tc := range testCases {
+			tc := tc // capture range variable
+			ginkgo.Context(tc.name, func() {
+				ginkgo.It("should return the correct URL and error", func() {
+					resultURL, err := tc.connection.AsGoGetterURL()
+					Expect(resultURL).To(Equal(tc.expectedURL))
+					if tc.expectedError == nil {
+						Expect(err).To(BeNil())
+					}
+				})
+			})
+		}
+	})
 
-			if resultURL != tc.expectedURL {
-				t.Errorf("Expected URL: %s, but got: %s", tc.expectedURL, resultURL)
-			}
-
-			if err != tc.expectedError {
-				t.Errorf("Expected error: %v, but got: %v", tc.expectedError, err)
-			}
-		})
-	}
-}
-
-func Test_Connection_AsEnv(t *testing.T) {
-	testCases := []struct {
-		name                string
-		connection          Connection
-		expectedEnv         []string
-		expectedFileContent string
-	}{
-		{
-			name: "AWS Connection",
-			connection: Connection{
-				Type:       ConnectionTypeAWS,
-				Username:   "awsuser",
-				Password:   "awssecret",
-				Properties: map[string]string{"profile": "awsprofile", "region": "us-east-1"},
+	ginkgo.Describe("AsEnv", func() {
+		testCases := []struct {
+			name                string
+			connection          Connection
+			expectedEnv         []string
+			expectedFileContent string
+		}{
+			{
+				name: "AWS Connection",
+				connection: Connection{
+					Type:       ConnectionTypeAWS,
+					Username:   "awsuser",
+					Password:   "awssecret",
+					Properties: map[string]string{"profile": "awsprofile", "region": "us-east-1"},
+				},
+				expectedEnv: []string{
+					"AWS_ACCESS_KEY_ID=awsuser",
+					"AWS_SECRET_ACCESS_KEY=awssecret",
+					"AWS_DEFAULT_PROFILE=awsprofile",
+					"AWS_DEFAULT_REGION=us-east-1",
+				},
+				expectedFileContent: "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
 			},
-			expectedEnv: []string{
-				"AWS_ACCESS_KEY_ID=awsuser",
-				"AWS_SECRET_ACCESS_KEY=awssecret",
-				"AWS_DEFAULT_PROFILE=awsprofile",
-				"AWS_DEFAULT_REGION=us-east-1",
+			{
+				name: "GCP Connection",
+				connection: Connection{
+					Type:        ConnectionTypeGCP,
+					Username:    "gcpuser",
+					Certificate: `{"account": "gcpuser"}`,
+				},
+				expectedEnv:         []string{},
+				expectedFileContent: `{"account": "gcpuser"}`,
 			},
-			expectedFileContent: "[default]\naws_access_key_id = awsuser\naws_secret_access_key = awssecret\nregion = us-east-1\n",
-		},
-		{
-			name: "GCP Connection",
-			connection: Connection{
-				Type:        ConnectionTypeGCP,
-				Username:    "gcpuser",
-				Certificate: `{"account": "gcpuser"}`,
-			},
-			expectedEnv:         []string{},
-			expectedFileContent: `{"account": "gcpuser"}`,
-		},
-	}
+		}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			envPrep := tc.connection.AsEnv(context.Background())
+		for _, tc := range testCases {
+			tc := tc // capture range variable
+			ginkgo.Context(tc.name, func() {
+				ginkgo.It("should return the correct environment variables and file content", func() {
+					envPrep := tc.connection.AsEnv(context.Background())
 
-			for i, expected := range tc.expectedEnv {
-				if envPrep.Env[i] != expected {
-					t.Errorf("Expected environment variable: %s, but got: %s", expected, envPrep.Env[i])
-				}
-			}
+					for i, expected := range tc.expectedEnv {
+						Expect(envPrep.Env[i]).To(Equal(expected))
+					}
 
-			for _, content := range envPrep.Files {
-				if content.String() != tc.expectedFileContent {
-					t.Errorf("Expected file content: %s, but got: %s", tc.expectedFileContent, content.String())
-				}
-			}
-		})
-	}
-}
+					for _, content := range envPrep.Files {
+						Expect(content.String()).To(Equal(tc.expectedFileContent))
+					}
+				})
+			})
+		}
+	})
+})

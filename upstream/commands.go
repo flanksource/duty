@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	dutil "github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 )
 
 const (
@@ -23,9 +24,13 @@ type PushFKError struct {
 	IDs []string `json:"ids"`
 }
 
+func (t *PushFKError) Empty() bool {
+	return len(t.IDs) == 0
+}
+
 func getAgent(ctx context.Context, name string) (*models.Agent, error) {
 	var t models.Agent
-	tx := ctx.DB().Where("name = ?", name).First(&t)
+	tx := ctx.DB().Where("name = ?", name).Where("deleted_at IS NULL").First(&t)
 	return &t, tx.Error
 }
 
@@ -127,6 +132,26 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.JobHistory) > 0 {
+		if err := db.Delete(req.JobHistory).Error; err != nil {
+			return fmt.Errorf("error deleting job_history: %w", err)
+		}
+	}
+
+	if len(req.ViewPanels) > 0 {
+		if err := db.Delete(req.ViewPanels).Error; err != nil {
+			return fmt.Errorf("error deleting view_panels: %w", err)
+		}
+	}
+
+	if len(req.GeneratedViews) > 0 {
+		for _, viewData := range req.GeneratedViews {
+			if err := deleteViewData(ctx, viewData); err != nil {
+				return fmt.Errorf("error deleting view_data: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -162,9 +187,10 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	// config items are inserted one by one, instead of in a batch, because of the foreign key constraint with itself.
-	if err := saveIndividuallyWithRetries(ctx, req.ConfigItems, saveRetries); err != nil {
-		return fmt.Errorf("error upserting components: %w", err)
+	if len(req.ConfigItems) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ConfigItems, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.ConfigItems, func(i models.ConfigItem, _ int) models.ExtendedDBTable { return i }), err)
+		}
 	}
 
 	if len(req.ConfigRelationships) > 0 {
@@ -203,6 +229,24 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.JobHistory) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.JobHistory, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting job_history: %w", err)
+		}
+	}
+
+	if len(req.ViewPanels) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(req.ViewPanels, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting view_panels: %w", err)
+		}
+	}
+
+	for _, viewData := range req.GeneratedViews {
+		if err := upsertViewData(ctx, viewData); err != nil {
+			return fmt.Errorf("error upserting view_data: %w", err)
+		}
+	}
+
 	if len(req.CheckStatuses) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.CheckStatus{}.PKCols()}).CreateInBatches(req.CheckStatuses, batchSize).Error; err != nil {
 			return handleUpsertError(ctx, lo.Map(req.CheckStatuses, func(i models.CheckStatus, _ int) models.ExtendedDBTable { return i }), err)
@@ -230,15 +274,15 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 }
 
 func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err error) error {
-	if !duty.IsForeignKeyError(err) {
+	if !dutil.IsForeignKeyError(err) {
 		return fmt.Errorf("error upserting: %w", err)
 	}
 
 	// If foreign key error, try inserting one by one and return the ones that fail
 	var conflicted []string
 	for _, item := range items {
-		if err := ctx.DB().Debug().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
-			if duty.IsForeignKeyError(err) {
+		if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true, Columns: item.PKCols()}).Omit("created_by").Create(item.Value()).Error; err != nil {
+			if dutil.IsForeignKeyError(err) {
 				conflicted = append(conflicted, item.PK())
 			} else {
 				return fmt.Errorf("error upserting config change (%s): %w", item.PK(), err)
@@ -246,7 +290,10 @@ func handleUpsertError(ctx context.Context, items []models.ExtendedDBTable, err 
 		}
 	}
 
-	return api.Errorf(api.ECONFLICT, "foreign key error").WithData(PushFKError{IDs: lo.Uniq(conflicted)})
+	conflicted = lo.Uniq(conflicted)
+	return api.Errorf(api.ECONFLICT, ForeignKeyError).
+		WithData(PushFKError{IDs: conflicted}).
+		WithDebugInfo("foreign key error for %d items", len(conflicted))
 }
 
 func UpdateAgentLastSeen(ctx context.Context, id uuid.UUID) error {
@@ -267,7 +314,7 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		var failed []T
 		for _, c := range items {
 			if err := ctx.DB().Clauses(clause.OnConflict{UpdateAll: true}).Omit("created_by").Create(&c).Error; err != nil {
-				if duty.IsForeignKeyError(err) {
+				if dutil.IsForeignKeyError(err) {
 					failed = append(failed, c)
 				} else {
 					return fmt.Errorf("error upserting %s (id=%s) : %w", c.TableName(), c.PK(), err)
@@ -280,7 +327,9 @@ func saveIndividuallyWithRetries[T models.DBTable](ctx context.Context, items []
 		}
 
 		if retries > maxRetries {
-			return fmt.Errorf("failed to save %d items after %d retries", len(failed), maxRetries)
+			return api.Errorf(api.ECONFLICT, ForeignKeyError).
+				WithData(PushFKError{IDs: lo.Map(failed, func(i T, _ int) string { return i.PK() })}).
+				WithDebugInfo("foreign key error for %d items after %d retries", len(failed), retries)
 		}
 
 		items = failed

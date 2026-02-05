@@ -11,12 +11,13 @@ import (
 	"github.com/eko/gocache/lib/v4/store"
 	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/models"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+
+	"github.com/flanksource/duty/models"
 )
 
 var (
@@ -86,13 +87,19 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 		return cacheVal, nil
 	}
 
-	// Must be in one of the correct forms.
-	if _, err := uuid.Parse(connectionString); err != nil && !strings.HasPrefix(connectionString, "connection://") {
+	_, uuidErr := uuid.Parse(connectionString)
+	isConnectionUUID := uuidErr == nil
+
+	if !isConnectionUUID && !strings.HasPrefix(connectionString, "connection://") {
 		if _url, err := url.Parse(connectionString); err == nil {
 			return models.ConnectionFromURL(*_url), nil
 		}
+	}
 
-		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string, uuid or URL", connectionString)
+	_, _, formatOK := extractConnectionNameType(connectionString)
+	if !formatOK && !isConnectionUUID {
+		// Must be in one of the correct forms.
+		return nil, fmt.Errorf("invalid connection string: %q. Expected connection string (connection://<namespace>/<name>), uuid or a URL", connectionString)
 	}
 
 	connection, err := FindConnectionByURL(ctx, connectionString)
@@ -103,7 +110,7 @@ func HydrateConnectionByURL(ctx Context, connectionString string) (*models.Conne
 	if connection == nil {
 		// Setting a smaller cache for connection not found
 		_ = connectionCache.Set(ctx, cacheKey, connection, store.WithExpiration(5*time.Minute))
-		return nil, nil
+		return nil, fmt.Errorf("connection %q not found", connectionString)
 	}
 
 	hydratedConnection, err := HydrateConnection(ctx, connection)
@@ -126,9 +133,15 @@ func IsValidConnectionURL(connectionString string) bool {
 //   - connection://<namespace>/<name> or connection://<name>
 //   - the UUID of the connection.
 func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
+	db := ctx.DB()
+
+	if db == nil {
+		return nil, fmt.Errorf("db is not configured")
+	}
+
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
-		if err := ctx.DB().Where("id = ?", connectionString).First(&connection).Error; err != nil {
+		if err := db.Where("id = ?", connectionString).First(&connection).Error; err != nil {
 			return nil, err
 		}
 		return &connection, nil
@@ -136,7 +149,7 @@ func FindConnectionByURL(ctx Context, connectionString string) (*models.Connecti
 
 	name, namespace, found := extractConnectionNameType(connectionString)
 	if !found {
-		return nil, nil
+		return nil, fmt.Errorf("invalid connection string: %q. Must be in connection://<namespace>/<name> format", connectionString)
 	}
 
 	connection, err := FindConnection(ctx, name, namespace)
@@ -155,7 +168,13 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		namespace = ctx.GetNamespace()
 	}
 
-	if err := ctx.DB().Where("name = ? AND namespace = ?", name, namespace).
+	db := ctx.DB()
+
+	if db == nil {
+		return nil, fmt.Errorf("db is not configured")
+	}
+
+	if err := db.Where("name = ? AND namespace = ? AND deleted_at IS NULL", name, namespace).
 		First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -164,11 +183,14 @@ func FindConnection(ctx Context, name, namespace string) (*models.Connection, er
 		// NOTE: For backward compatibility reason we use the namespace as the connection type
 		// Before: connection://<type>/<name>
 		// Now: connection://<namespace>/<name.
-		if err := ctx.DB().Where("name = ? AND type = ?", name, namespace).
+		if err := ctx.DB().Where("name = ? AND type = ? AND deleted_at IS NULL", name, namespace).
 			First(&connection).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		} else if connection.ID != uuid.Nil {
 			logger.Warnf("connection format connection://<type>/<name> has been deprecated. Use connection://<namespace>/<name> or connection://<name>")
+		} else if errors.Is(err, gorm.ErrRecordNotFound) || connection.ID == uuid.Nil {
+			// The connection does not exist either way
+			return nil, nil
 		}
 	}
 
@@ -197,6 +219,11 @@ func GetConnection(ctx Context, name, namespace string) (*models.Connection, err
 // var connectionCache = cache.New(5*time.Minute, 10*time.Minute)
 func HydrateConnection(ctx Context, connection *models.Connection) (*models.Connection, error) {
 	var err error
+
+	if connection.URL, err = GetEnvStringFromCache(ctx, connection.URL, connection.Namespace); err != nil {
+		return nil, err
+	}
+
 	if connection.Username, err = GetEnvStringFromCache(ctx, connection.Username, connection.Namespace); err != nil {
 		return nil, err
 	}
@@ -217,6 +244,11 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		}
 	}
 
+	// Remove newlines and spaces around username,password & url
+	connection.URL = strings.TrimSpace(connection.URL)
+	connection.Username = strings.TrimSpace(connection.Username)
+	connection.Password = strings.TrimSpace(connection.Password)
+
 	domain := ""
 	parts := strings.Split(connection.Username, "@")
 	if len(parts) == 2 {
@@ -227,8 +259,8 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		"name":       connection.Name,
 		"type":       connection.Type,
 		"namespace":  connection.Namespace,
-		"username":   connection.Username,
-		"password":   connection.Password,
+		"username":   url.QueryEscape(connection.Username),
+		"password":   url.QueryEscape(connection.Password),
 		"domain":     domain,
 		"properties": connection.Properties,
 	}

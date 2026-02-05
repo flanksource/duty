@@ -1,25 +1,35 @@
 package main
 
 import (
+	"os"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty"
+	"github.com/flanksource/duty/api"
+
 	"github.com/spf13/cobra"
+)
+
+var (
+	disableRLS = os.Getenv("DUTY_DB_DISABLE_RLS") == "true"
+	connection string
 )
 
 var migrate = &cobra.Command{
 	Use: "migrate",
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := duty.Migrate(connection, nil); err != nil {
-			logger.Fatalf(err.Error())
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return duty.Migrate(api.Config{
+			ConnectionString: connection,
+			EnableRLS:        !disableRLS,
+			Postgrest:        api.DefaultConfig.Postgrest,
+		})
 	},
 }
-
-var connection string
 
 func main() {
 	migrate.Flags().StringVar(&connection, "db-url", "", "Database URI: scheme://user:pass@host:port/database")
 	if err := migrate.Execute(); err != nil {
-		logger.Fatalf("failed to run migration: %v", err)
+		logger.Errorf("failed to run migration: %v", err)
+		os.Exit(1)
 	}
 }

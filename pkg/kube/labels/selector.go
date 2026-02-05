@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
+// nolint
 package labels
 
 import (
@@ -161,15 +161,15 @@ type Requirement struct {
 func NewRequirement(key string, op selection.Operator, vals []string, opts ...field.PathOption) (*Requirement, error) {
 	var allErrs field.ErrorList
 	path := field.ToPath(opts...)
-	if err := validateLabelKey(key, path.Child("key")); err != nil {
-		allErrs = append(allErrs, err)
-	}
 
 	valuePath := path.Child("values")
 	switch op {
 	case selection.In, selection.NotIn:
 		if len(vals) == 0 {
-			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'in', 'notin' operators, values set can't be empty"))
+			allErrs = append(
+				allErrs,
+				field.Invalid(valuePath, vals, "for 'in', 'notin' operators, values set can't be empty"),
+			)
 		}
 	case selection.Equals, selection.DoubleEquals, selection.NotEquals:
 		if len(vals) != 1 {
@@ -177,15 +177,24 @@ func NewRequirement(key string, op selection.Operator, vals []string, opts ...fi
 		}
 	case selection.Exists, selection.DoesNotExist:
 		if len(vals) != 0 {
-			allErrs = append(allErrs, field.Invalid(valuePath, vals, "values set must be empty for exists and does not exist"))
+			allErrs = append(
+				allErrs,
+				field.Invalid(valuePath, vals, "values set must be empty for exists and does not exist"),
+			)
 		}
 	case selection.GreaterThan, selection.LessThan:
 		if len(vals) != 1 {
-			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'Gt', 'Lt' operators, exactly one value is required"))
+			allErrs = append(
+				allErrs,
+				field.Invalid(valuePath, vals, "for 'Gt', 'Lt' operators, exactly one value is required"),
+			)
 		}
 		for i := range vals {
 			if _, err := strconv.ParseInt(vals[i], 10, 64); err != nil {
-				allErrs = append(allErrs, field.Invalid(valuePath.Index(i), vals[i], "for 'Gt', 'Lt' operators, the value must be an integer"))
+				allErrs = append(
+					allErrs,
+					field.Invalid(valuePath.Index(i), vals[i], "for 'Gt', 'Lt' operators, the value must be an integer"),
+				)
 			}
 		}
 	default:
@@ -243,7 +252,8 @@ func (r *Requirement) Matches(ls Labels) bool {
 
 		// There should be only one strValue in r.strValues, and can be converted to an integer.
 		if len(r.strValues) != 1 {
-			klog.V(10).Infof("Invalid values count %+v of requirement %#v, for 'Gt', 'Lt' operators, exactly one value is required", len(r.strValues), r)
+			klog.V(10).
+				Infof("Invalid values count %+v of requirement %#v, for 'Gt', 'Lt' operators, exactly one value is required", len(r.strValues), r)
 			return false
 		}
 
@@ -251,11 +261,13 @@ func (r *Requirement) Matches(ls Labels) bool {
 		for i := range r.strValues {
 			rValue, err = strconv.ParseInt(r.strValues[i], 10, 64)
 			if err != nil {
-				klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for 'Gt', 'Lt' operators, the value must be an integer", r.strValues[i], r)
+				klog.V(10).
+					Infof("ParseInt failed for value %+v in requirement %#v, for 'Gt', 'Lt' operators, the value must be an integer", r.strValues[i], r)
 				return false
 			}
 		}
-		return (r.operator == selection.GreaterThan && lsValue > rValue) || (r.operator == selection.LessThan && lsValue < rValue)
+		return (r.operator == selection.GreaterThan && lsValue > rValue) ||
+			(r.operator == selection.LessThan && lsValue < rValue)
 	default:
 		return false
 	}
@@ -703,7 +715,6 @@ func (p *Parser) parseRequirement() (*Requirement, error) {
 		return nil, err
 	}
 	return NewRequirement(key, operator, values.List(), field.WithPath(p.path))
-
 }
 
 // parseKeyAndInferOperator parses literals.
@@ -718,9 +729,6 @@ func (p *Parser) parseKeyAndInferOperator() (string, selection.Operator, error) 
 	}
 	if tok != IdentifierToken {
 		err := fmt.Errorf("found '%s', expected: identifier", literal)
-		return "", "", err
-	}
-	if err := validateLabelKey(literal, p.path); err != nil {
 		return "", "", err
 	}
 	if t, _ := p.lookahead(Values); t == EndOfStringToken || t == CommaToken {

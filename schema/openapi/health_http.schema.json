@@ -3,6 +3,24 @@
   "$id": "https://github.com/flanksource/canary-checker/api/v1/http-check",
   "$ref": "#/$defs/HTTPCheck",
   "$defs": {
+    "CheckRelationship": {
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
+          },
+          "type": "array"
+        },
+        "configs": {
+          "items": {
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -17,6 +35,58 @@
       "required": [
         "key"
       ]
+    },
+    "Crawl": {
+      "properties": {
+        "filters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "allowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disallowedDomains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "allowedURLFilters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disallowedURLFilters": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delay": {
+          "$ref": "#/$defs/Duration"
+        },
+        "randomDelay": {
+          "$ref": "#/$defs/Duration"
+        },
+        "parallelism": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Duration": {
+      "type": "string",
+      "description": "Duration e.g. 500ms, 2h, 2m"
     },
     "EnvVar": {
       "properties": {
@@ -77,6 +147,9 @@
           },
           "type": "array"
         },
+        "markFailOnEmpty": {
+          "type": "boolean"
+        },
         "test": {
           "$ref": "#/$defs/Template"
         },
@@ -85,6 +158,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "connection": {
           "type": "string"
@@ -148,6 +224,12 @@
         },
         "oauth2": {
           "$ref": "#/$defs/Oauth2Config"
+        },
+        "tlsConfig": {
+          "$ref": "#/$defs/TLSConfig"
+        },
+        "crawl": {
+          "$ref": "#/$defs/Crawl"
         }
       },
       "additionalProperties": false,
@@ -188,11 +270,24 @@
       ]
     },
     "Labels": {
-      "patternProperties": {
-        ".*": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "type": "object"
     },
     "MetricLabel": {
@@ -249,10 +344,41 @@
           "type": "string"
         },
         "params": {
-          "patternProperties": {
-            ".*": {
-              "type": "string"
-            }
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RelationshipSelectorTemplate": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "external_id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "name": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "type": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "agent": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "scope": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
           },
           "type": "object"
         }
@@ -274,6 +400,27 @@
       "required": [
         "key"
       ]
+    },
+    "TLSConfig": {
+      "properties": {
+        "insecureSkipVerify": {
+          "type": "boolean"
+        },
+        "handshakeTimeout": {
+          "$ref": "#/$defs/Duration"
+        },
+        "ca": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "cert": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "key": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Template": {
       "properties": {

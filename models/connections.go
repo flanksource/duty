@@ -17,20 +17,27 @@ import (
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // List of all connection types
 const (
+	ConnectionTypeAnthropic      = "anthropic"
 	ConnectionTypeAWS            = "aws"
+	ConnectionTypeAWSKMS         = "aws_kms"
 	ConnectionTypeAzure          = "azure"
 	ConnectionTypeAzureDevops    = "azure_devops"
+	ConnectionTypeAzureKeyVault  = "azure_key_vault"
 	ConnectionTypeDiscord        = "discord"
 	ConnectionTypeDynatrace      = "dynatrace"
 	ConnectionTypeElasticSearch  = "elasticsearch"
 	ConnectionTypeEmail          = "email"
 	ConnectionTypeFolder         = "folder"
 	ConnectionTypeGCP            = "google_cloud"
+	ConnectionTypeGCPKMS         = "gcp_kms"
 	ConnectionTypeGCS            = "gcs"
+	ConnectionTypeGemini         = "gemini"
 	ConnectionTypeGenericWebhook = "generic_webhook"
 	ConnectionTypeGit            = "git"
 	ConnectionTypeGithub         = "github"
@@ -41,11 +48,15 @@ const (
 	ConnectionTypeJMeter         = "jmeter"
 	ConnectionTypeKubernetes     = "kubernetes"
 	ConnectionTypeLDAP           = "ldap"
+	ConnectionTypeLoki           = "loki"
 	ConnectionTypeMatrix         = "matrix"
 	ConnectionTypeMattermost     = "mattermost"
 	ConnectionTypeMongo          = "mongo"
 	ConnectionTypeMySQL          = "mysql"
 	ConnectionTypeNtfy           = "ntfy"
+	ConnectionTypeOllama         = "ollama"
+	ConnectionTypeOpenAI         = "openai"
+	ConnectionTypeOpenSearch     = "opensearch"
 	ConnectionTypeOpsGenie       = "opsgenie"
 	ConnectionTypePostgres       = "postgres"
 	ConnectionTypePrometheus     = "prometheus"
@@ -72,6 +83,8 @@ const (
 // until an ending space
 var passwordRegexp = regexp.MustCompile(`password=([^;]*)`)
 
+var _ types.ResourceSelectable = (*Connection)(nil)
+
 type Connection struct {
 	ID          uuid.UUID           `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id" faker:"uuid_hyphenated"  `
 	Name        string              `gorm:"column:name" json:"name" faker:"name"  `
@@ -81,12 +94,60 @@ type Connection struct {
 	URL         string              `gorm:"column:url" json:"url,omitempty" faker:"url" template:"true"`
 	Username    string              `gorm:"column:username" json:"username,omitempty" faker:"username"  `
 	Password    string              `gorm:"column:password" json:"password,omitempty" faker:"password"  `
-	Properties  types.JSONStringMap `gorm:"column:properties" json:"properties,omitempty" faker:"-"  `
+	Properties  types.JSONStringMap `gorm:"column:properties" json:"properties,omitempty" faker:"-" template:"true"`
 	Certificate string              `gorm:"column:certificate" json:"certificate,omitempty" faker:"-"  `
 	InsecureTLS bool                `gorm:"column:insecure_tls;default:false" json:"insecure_tls,omitempty" faker:"-"  `
 	CreatedAt   time.Time           `gorm:"column:created_at;default:now();<-:create" json:"created_at,omitempty" faker:"-"  `
 	UpdatedAt   time.Time           `gorm:"column:updated_at;default:now()" json:"updated_at,omitempty" faker:"-"  `
 	CreatedBy   *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty" faker:"-"  `
+}
+
+func (c *Connection) GetID() string {
+	return c.ID.String()
+}
+
+func (c *Connection) GetName() string {
+	return c.Name
+}
+
+func (c *Connection) GetNamespace() string {
+	return c.Namespace
+}
+
+func (c *Connection) GetType() string {
+	return c.Type
+}
+
+func (c *Connection) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (c *Connection) GetHealth() (string, error) {
+	return "", nil
+}
+
+func (c *Connection) GetLabelsMatcher() labels.Labels {
+	return noopMatcher{}
+}
+
+func (c *Connection) GetFieldsMatcher() fields.Fields {
+	return noopMatcher{}
+}
+
+func (c *Connection) SetProperty(key, value string) {
+	if c.Properties == nil {
+		c.Properties = make(types.JSONStringMap)
+	}
+
+	c.Properties[key] = value
+}
+
+func (c Connection) TableName() string {
+	return "connections"
+}
+
+func (c Connection) PK() string {
+	return c.ID.String()
 }
 
 func ConnectionFromURL(url url.URL) *Connection {

@@ -1,0 +1,53 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: View
+metadata:
+  name: pipelines
+  namespace: mc
+spec:
+  columns:
+    - name: name
+      type: string
+      description: The name of the pipeline.
+      primaryKey: true
+    - name: repository
+      type: string
+      description: The repository of the pipeline.
+      primaryKey: true
+    - name: lastRun
+      type: datetime
+      description: The namespace name.
+    - name: lastRunBy
+      type: string
+      description: The chart name.
+    - name: duration
+      type: duration
+      description: The duration of the pipeline.
+    - name: status
+      type: status
+      description: The status of the pipeline.
+    - name: runNumber
+      type: gauge
+      description: The run number of the pipeline.
+      gauge:
+        thresholds:
+          - percent: 0
+            color: '#8BC34A'
+          - percent: 1300
+            color: '#FF8C42'
+          - percent: 3000
+            color: '#E8589C'
+  queries:
+    workflow_runs:
+      changes:
+        search: change_type=GitHubActionRun* @order=-created_at
+        types:
+          - GitHubAction::Workflow
+  mapping:
+    name: row.name
+    lastRun: row.details.created_at
+    lastRunBy: row.details.triggering_actor.login
+    repository: row.details.repository.full_name
+    status: row.details.conclusion
+    duration: timestamp(row.details.updated_at) - timestamp(row.details.run_started_at)
+    runNumber: |
+      { 'min': 0, 'max': 5000, 'value': row.details.run_number }.toJSON()

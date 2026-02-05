@@ -2,6 +2,7 @@ package query
 
 import (
 	gocontext "context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -9,13 +10,13 @@ import (
 	"time"
 
 	"github.com/flanksource/commons/collections"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
-	"github.com/jackc/pgx/v5"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 func (opt TopologyOptions) String() string {
@@ -33,7 +34,7 @@ func (opt TopologyOptions) selectClause() string {
 	}
 
 	// parents & (incidents, analysis, checks) columns need to fetched to create the topology tree even though they may not be essential to the UI.
-	return "name, namespace, id, is_leaf, status, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
+	return "name, namespace, id, is_leaf, properties, status, status_expr, health, health_expr, status_reason, icon, summary, topology_type, labels, team_names, type, parent_id, parents, incidents, analysis, checks"
 }
 
 func (opt TopologyOptions) componentWhereClause() string {
@@ -90,7 +91,7 @@ func (opt TopologyOptions) componentRelationWhereClause() string {
 	return s
 }
 
-func generateQuery(opts TopologyOptions) (string, map[string]any) {
+func generateQuery(opts TopologyOptions) (string, []any) {
 	selectSubQuery := `
         SELECT id FROM components %s
         UNION
@@ -122,19 +123,19 @@ func generateQuery(opts TopologyOptions) (string, map[string]any) {
             topology_result
         `, opts.selectClause(), subQuery)
 
-	args := make(map[string]any)
+	var args []any
 	if opts.ID != "" {
-		args["id"] = opts.ID
-		args["path"] = strings.ReplaceAll(`%id%`, "id", opts.ID)
+		args = append(args, sql.Named("id", opts.ID))
+		args = append(args, sql.Named("path", strings.ReplaceAll(`%id%`, "id", opts.ID)))
 	}
 	if opts.AgentID != "" {
-		args["agent_id"] = opts.AgentID
+		args = append(args, sql.Named("agent_id", opts.AgentID))
 	}
 	if opts.Owner != "" {
-		args["owner"] = opts.Owner
+		args = append(args, sql.Named("owner", opts.Owner))
 	}
 	if opts.Labels != nil {
-		args["labels"] = opts.Labels
+		args = append(args, sql.Named("labels", opts.Labels))
 	}
 
 	return query, args
@@ -156,6 +157,13 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 
 	if !params.NoCache {
 		cacheKey = params.CacheKey()
+
+		// Note: When accessed via mission-control (i.e. when User is set),
+		// we need to cache per user due to permission differences.
+		if user := ctx.User(); user != nil {
+			cacheKey = fmt.Sprintf("%s-%s", cacheKey, user.ID.String())
+		}
+
 		if cached, ok := topologyCache.Get(cacheKey); ok {
 			ctx.GetSpan().SetAttributes(
 				attribute.Bool("cache.hit", true),
@@ -169,25 +177,30 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 		attribute.Bool("cache.hit", false),
 	)
 	query, args := generateQuery(params)
-	rows, err := ctx.Pool().Query(ctx, query, pgx.NamedArgs(args))
+	rows, err := ctx.DB().Raw(query, args...).Rows()
 	if err != nil {
 		return response, fmt.Errorf("failed to query component & its direct children: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		if rows.RawValues()[0] == nil {
+		var jsonData []byte
+		if err := rows.Scan(&jsonData); err != nil {
+			return response, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		if jsonData == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &response); err != nil {
-			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+		if err := json.Unmarshal(jsonData, &response); err != nil {
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse for %s: %w", jsonData, err)
 		}
 	}
 
 	params.nonDirectChildrenOnly = true
 	query, args = generateQuery(params)
-	rows, err = ctx.Pool().Query(ctx, query, pgx.NamedArgs(args))
+	rows, err = ctx.DB().Raw(query, args...).Rows()
 	if err != nil {
 		return response, fmt.Errorf("failed to query rest of the children: %w", err)
 	}
@@ -195,12 +208,17 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 
 	var nonDirectChildren TopologyResponse
 	for rows.Next() {
-		if rows.RawValues()[0] == nil {
+		var jsonData []byte
+		if err := rows.Scan(&jsonData); err != nil {
+			return response, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		if jsonData == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &nonDirectChildren); err != nil {
-			return response, fmt.Errorf("failed to unmarshal TopologyResponse:%w for %s", err, rows.RawValues()[0])
+		if err := json.Unmarshal(jsonData, &nonDirectChildren); err != nil {
+			return response, fmt.Errorf("failed to unmarshal TopologyResponse for %s: %w", jsonData, err)
 		}
 	}
 
@@ -247,7 +265,10 @@ func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, e
 	response.Components = applyTypeFilter(response.Components, params.Types...)
 
 	if !params.Flatten {
-		response.Components = createComponentTree(params, response.Components)
+		response.Components, err = createComponentTree(params, response.Components)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if params.Depth <= 0 {
@@ -364,7 +385,7 @@ func applyDepthFilter(components []*models.Component, depth int) []*models.Compo
 	return newComponents
 }
 
-func generateTree(components models.Components, compChildrenMap map[string]models.Components) models.Components {
+func generateTree(components models.Components, compChildrenMap map[string]models.Components) (models.Components, error) {
 	var nodes models.Components
 
 	for _, c := range components {
@@ -377,21 +398,37 @@ func generateTree(components models.Components, compChildrenMap map[string]model
 
 		c.NodeProcessed = true
 		if children, exists := compChildrenMap[c.ID.String()]; exists {
-			c.Components = generateTree(children, compChildrenMap)
+			if cc, err := generateTree(children, compChildrenMap); err != nil {
+				return nil, err
+			} else {
+				c.Components = cc
+			}
 		}
 
 		// TODO: Depth is added to prevent cyclic stackoverflow
 		// Summary should be set after applyDepthFilter
 		// which dereferences pointer cycles
 		c.Summary = c.Summarize(10)
-		c.Status = types.ComponentStatus(c.GetStatus())
+
+		if health, err := c.GetHealth(); err != nil {
+			return nil, err
+		} else {
+			c.Health = lo.ToPtr(models.Health(health))
+		}
+
+		if status, err := c.GetStatus(); err != nil {
+			return nil, err
+		} else {
+			c.Status = types.ComponentStatus(status)
+		}
 
 		nodes = append(nodes, c)
 	}
-	return nodes
+
+	return nodes, nil
 }
 
-func createComponentTree(params TopologyOptions, components models.Components) []*models.Component {
+func createComponentTree(params TopologyOptions, components models.Components) ([]*models.Component, error) {
 	// ComponentID with its children
 	compChildrenMap := make(map[string]models.Components)
 	for _, c := range components {
@@ -429,8 +466,7 @@ func createComponentTree(params TopologyOptions, components models.Components) [
 		}
 	}
 
-	tree := generateTree(rootComps, compChildrenMap)
-	return tree
+	return generateTree(rootComps, compChildrenMap)
 }
 
 func applyTypeFilter(components []*models.Component, types ...string) []*models.Component {

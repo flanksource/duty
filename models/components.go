@@ -8,9 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/duty/types"
+	"github.com/flanksource/gomplate/v3"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -19,15 +21,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/flanksource/duty/types"
 )
 
-var AllowedColumnFieldsInComponents = []string{
-	"owner",
-	"topology_type",
-	"topology_id",
-	"parent_id",
-	"type", // Deprecated. Use resource_selector.types instead
-}
+// Ensure interface compliance
+var (
+	_ types.ResourceSelectable = Component{}
+	_ LabelableModel           = Component{}
+)
 
 type Component struct {
 	ID              uuid.UUID               `json:"id,omitempty" gorm:"default:generate_ulid()"` //nolint
@@ -48,7 +50,7 @@ type Component struct {
 	Lifecycle       string                  `json:"lifecycle,omitempty"`
 	LogSelectors    types.LogSelectors      `json:"logs,omitempty" gorm:"column:log_selectors;default:null"`
 	Tooltip         string                  `json:"tooltip,omitempty"`
-	StatusReason    string                  `json:"status_reason"`
+	StatusReason    string                  `json:"status_reason,omitempty" gorm:"default:null"`
 	Schedule        string                  `json:"schedule,omitempty"`
 	Icon            string                  `json:"icon,omitempty"`
 	Type            string                  `json:"type"`
@@ -68,6 +70,18 @@ type Component struct {
 	CreatedAt       time.Time               `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP();<-:create"`
 	UpdatedAt       *time.Time              `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"autoUpdateTime:false"`
 	DeletedAt       *time.Time              `json:"deleted_at,omitempty" time_format:"postgres_timestamp" swaggerignore:"true"`
+
+	// ConfigID is the id of the config from which this component is derived
+	ConfigID *uuid.UUID `json:"config_id,omitempty"`
+
+	// StatusExpr allows defining a cel expression to evaluate the status of a component
+	// based on the summary.
+	StatusExpr string `json:"status_expr,omitempty" gorm:"column:status_expr;default:null"`
+
+	// HealthExpr allows defining a cel expression to evaluate the health of a component
+	// based on the summary.
+	HealthExpr string `json:"health_expr,omitempty" gorm:"column:health_expr;default:null"`
+
 	// Auxiliary fields
 	Checks         map[string]int            `json:"checks,omitempty" gorm:"-"`
 	Incidents      map[string]map[string]int `json:"incidents,omitempty" gorm:"-"`
@@ -84,12 +98,93 @@ type Component struct {
 	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
+func (c Component) Pretty() api.Text {
+	t := clicky.Text("")
+
+	if c.Health != nil {
+		t = t.Add(c.Health.Pretty()).AddText(" ")
+	}
+
+	t = t.AddText(c.Name, "font-bold")
+
+	if c.Type != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.Type, "text-xs text-purple-600 bg-purple-50"))
+	}
+
+	if c.Status != "" {
+		statusText := clicky.Text(string(c.Status), "text-xs text-gray-600")
+		t = t.AddText(" ").Add(statusText.Wrap("(", ")"))
+	}
+
+	if c.Owner != "" {
+		t = t.AddText(" 👤 ", "text-gray-500").AddText(c.Owner, "text-sm text-gray-600")
+	}
+
+	if len(c.Labels) > 0 {
+		t = t.NewLine().AddText("  Labels: ", "text-sm text-gray-500")
+		for key, val := range c.Labels {
+			t = t.Add(clicky.Text(fmt.Sprintf("%s=%s", key, val), "text-xs bg-gray-100 text-gray-700").Wrap("[", "]")).AddText(" ")
+		}
+	}
+
+	return t
+}
+
+func (c Component) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name":   clicky.Text(c.Name, "font-bold"),
+		"type":   clicky.Text(c.Type, "text-purple-600"),
+		"status": clicky.Text(string(c.Status), "text-gray-700"),
+		"health": clicky.Text("", "text-gray-400"),
+	}
+
+	if c.Health != nil {
+		row["health"] = c.Health.Pretty()
+	}
+
+	if c.Namespace != "" {
+		row["namespace"] = clicky.Text(c.Namespace, "text-blue-600")
+	}
+
+	if c.Owner != "" {
+		row["owner"] = clicky.Text(c.Owner, "text-gray-600")
+	}
+
+	if c.CostTotal30d > 0 {
+		row["cost"] = clicky.Text(fmt.Sprintf("$%.2f", c.CostTotal30d), "text-green-700")
+	}
+
+	if c.CreatedAt != (time.Time{}) {
+		row["age"] = api.Human(time.Since(c.CreatedAt), "text-gray-600")
+	}
+
+	return row
+}
+
 func (t Component) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
-	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+	componentWithTopology := lo.Filter(items, func(item DBTable, _ int) bool { return item.(Component).TopologyID != nil })
+	topologyParents := lo.Map(componentWithTopology, func(item DBTable, _ int) string {
 		return item.(Component).TopologyID.String()
 	})
 
-	return db.Model(&Topology{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+	if len(topologyParents) > 0 {
+		if err := db.Model(&Topology{}).Where("id IN ?", topologyParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	// Components can also have another components as parent
+	componentWithComponentParent := lo.Filter(items, func(item DBTable, _ int) bool { return item.(Component).ParentId != nil })
+	componentParents := lo.Map(componentWithComponentParent, func(item DBTable, _ int) string {
+		return item.(Component).ParentId.String()
+	})
+	if len(componentParents) > 0 {
+		if err := db.Model(&Component{}).Where("id IN ?", componentParents).Update("is_pushed", false).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (t Component) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
@@ -106,6 +201,31 @@ func (c Component) TableName() string {
 	return "components"
 }
 
+func (t Component) GetLabels() map[string]string {
+	return t.Labels
+}
+
+func (t Component) GetTrimmedLabels() []Label {
+	return sortedTrimmedLabels(defaultLabelsWhitelist, defaultLabelsOrder, nil, t.Labels)
+}
+
+func DeleteAllComponents(db *gorm.DB, components ...Component) error {
+	ids := lo.Map(components, func(c Component, _ int) string { return c.ID.String() })
+	if err := db.Exec("DELETE from component_relationships WHERE component_id in (?)  or relationship_id in (?)", ids, ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM config_component_relationships WHERE component_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM  check_component_relationships WHERE component_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM components WHERE id in (?)", ids).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      c.Name,
@@ -114,18 +234,54 @@ func (c *Component) ObjectMeta() metav1.ObjectMeta {
 	}
 }
 
-func (c Component) GetStatus() string {
-	if c.Summary.Healthy > 0 && c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusWarning)
-	} else if c.Summary.Unhealthy > 0 {
-		return string(types.ComponentStatusUnhealthy)
-	} else if c.Summary.Warning > 0 {
-		return string(types.ComponentStatusWarning)
-	} else if c.Summary.Healthy > 0 {
-		return string(types.ComponentStatusHealthy)
-	} else {
-		return string(types.ComponentStatusInfo)
+func (c Component) GetStatus() (string, error) {
+	if c.StatusExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+		}
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.StatusExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate status expression %s: %v", c.StatusExpr, err)
+		}
+
+		return out, nil
 	}
+
+	return string(c.Status), nil
+}
+
+func (c Component) GetHealthDescription() string {
+	return c.Description
+}
+
+func (c Component) GetHealth() (string, error) {
+	if c.HealthExpr != "" {
+		env := map[string]any{
+			"summary": c.Summary.AsEnv(),
+			"self":    c.AsMap(),
+		}
+		out, err := gomplate.RunTemplate(env, gomplate.Template{Expression: c.HealthExpr})
+		if err != nil {
+			return "", fmt.Errorf("failed to evaluate health expression %s: %v", c.HealthExpr, err)
+		}
+
+		return out, nil
+	}
+
+	// When HealthExpr is not defined, we take worse of checks, children and the component itself
+	var allHealths []Health
+	if h := lo.FromPtr(c.Health); h != "" {
+		allHealths = append(allHealths, h)
+	}
+
+	for h, count := range c.Checks {
+		if count > 0 {
+			allHealths = append(allHealths, Health(h))
+		}
+	}
+
+	allHealths = append(allHealths, lo.Map(c.Components, func(item *Component, _ int) Health { return lo.FromPtr(item.Health) })...)
+	return string(WorseHealth(allHealths...)), nil
 }
 
 func (c *Component) AsMap(removeFields ...string) map[string]any {
@@ -197,6 +353,9 @@ func (component Component) Clone() Component {
 		Properties:   component.Properties,
 		ExternalId:   component.ExternalId,
 		Schedule:     component.Schedule,
+		Health:       component.Health,
+		StatusExpr:   component.StatusExpr,
+		HealthExpr:   component.HealthExpr,
 	}
 
 	copy(clone.LogSelectors, component.LogSelectors)
@@ -242,12 +401,19 @@ func (c Component) GetType() string {
 	return c.Type
 }
 
+func (c Component) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
 func (c Component) GetLabelsMatcher() labels.Labels {
 	return componentLabelsProvider{c}
 }
 
 func (c Component) GetFieldsMatcher() fields.Fields {
-	return componentFieldsProvider{c}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type componentLabelsProvider struct {
@@ -263,31 +429,9 @@ func (c componentLabelsProvider) Has(key string) bool {
 	return ok
 }
 
-type componentFieldsProvider struct {
-	Component
-}
-
-func (c componentFieldsProvider) Get(key string) string {
-	if lo.Contains(AllowedColumnFieldsInComponents, key) {
-		return fmt.Sprintf("%v", c.AsMap()[key])
-	}
-
-	v := c.Properties.Find(key)
-	if v == nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%v", v.GetValue())
-}
-
-func (c componentFieldsProvider) Has(key string) bool {
-	if lo.Contains(AllowedColumnFieldsInComponents, key) {
-		_, ok := c.AsMap()[key]
-		return ok
-	}
-
-	v := c.Properties.Find(key)
-	return v != nil
+func (c componentLabelsProvider) Lookup(key string) (string, bool) {
+	value, ok := c.Labels[key]
+	return value, ok
 }
 
 var ComponentID = func(c Component) string {
@@ -358,6 +502,61 @@ func (components Components) Find(name string) *Component {
 	return nil
 }
 
+// DeleteComponentsWithID deletes all components with specified ids.
+func DeleteComponentsWithIDs(db *gorm.DB, compIDs []string) error {
+	if err := db.Table("components").Where("id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	if err := db.Table("component_relationships").Where("component_id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	if err := db.Table("check_component_relationships").Where("component_id in (?)", compIDs).UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+	for _, compID := range compIDs {
+		if err := DeleteInlineCanariesForComponent(db, compID); err != nil {
+			logger.Errorf("Error deleting component[%s] relationship: %v", compID, err)
+		}
+
+		if err := DeleteComponentChildren(db, compID); err != nil {
+			logger.Errorf("Error deleting component[%s] children: %v", compID, err)
+		}
+	}
+	return nil
+}
+
+func DeleteComponentChildren(db *gorm.DB, componentID string) error {
+	return db.Table("components").
+		Where("path LIKE ?", "%"+componentID+"%").
+		Update("deleted_at", Now()).
+		Error
+}
+
+func DeleteInlineCanariesForComponent(db *gorm.DB, componentID string) error {
+	var rows []struct {
+		ID string
+	}
+	source := "component/" + componentID
+	if err := db.
+		Model(&rows).
+		Table("canaries").
+		Where("source = ?", source).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}}}).
+		UpdateColumn("deleted_at", Now()).Error; err != nil {
+		return err
+	}
+
+	for _, r := range rows {
+		if _, err := DeleteChecksForCanary(db, r.ID); err != nil {
+			logger.Errorf("Error deleting checks for canary[%s]: %v", r.ID, err)
+		}
+		if err := DeleteCheckComponentRelationshipsForCanary(db, r.ID); err != nil {
+			logger.Errorf("Error deleting check component relationships for canary[%s]: %v", r.ID, err)
+		}
+	}
+	return nil
+}
+
 type Text struct {
 	Tooltip string `json:"tooltip,omitempty"`
 	Icon    string `json:"icon,omitempty"`
@@ -386,6 +585,7 @@ type Property struct {
 	Color    string `json:"color,omitempty"`
 	Order    int    `json:"order,omitempty"`
 	Headline bool   `json:"headline,omitempty"`
+	Hidden   bool   `json:"hidden,omitempty"`
 
 	// Either text or value is required, but not both.
 	Text  string `json:"text,omitempty"`
@@ -532,9 +732,9 @@ func (p Properties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 }
 
 type ComponentRelationship struct {
-	ComponentID      uuid.UUID  `json:"component_id,omitempty"`
-	RelationshipID   uuid.UUID  `json:"relationship_id,omitempty"`
-	SelectorID       string     `json:"selector_id,omitempty"`
+	ComponentID      uuid.UUID  `json:"component_id,omitempty" gorm:"primaryKey"`
+	RelationshipID   uuid.UUID  `json:"relationship_id,omitempty" gorm:"primaryKey"`
+	SelectorID       string     `json:"selector_id,omitempty" gorm:"primaryKey"`
 	RelationshipPath string     `json:"relationship_path,omitempty"`
 	CreatedAt        time.Time  `json:"created_at,omitempty"`
 	UpdatedAt        time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -590,8 +790,8 @@ func (ComponentRelationship) TableName() string {
 }
 
 type ConfigComponentRelationship struct {
-	ComponentID uuid.UUID  `json:"component_id,omitempty"`
-	ConfigID    uuid.UUID  `json:"config_id,omitempty"`
+	ComponentID uuid.UUID  `json:"component_id,omitempty" gorm:"primaryKey"`
+	ConfigID    uuid.UUID  `json:"config_id,omitempty" gorm:"primaryKey"`
 	SelectorID  string     `json:"selector_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`

@@ -9,9 +9,11 @@ import (
 
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+	gocache "github.com/patrickmn/go-cache"
+
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
-	"github.com/google/uuid"
 )
 
 // AgentNameQueryParam is the name of the query param that's used to authenticate an
@@ -19,12 +21,16 @@ import (
 const AgentNameQueryParam = "agent_name"
 
 type UpstreamClient struct {
-	AgentName string
 	*http.Client
+	AgentName string
+
+	// cache upstream records
+	cache *gocache.Cache
 }
 
 func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 	client := UpstreamClient{
+		cache:     gocache.New(5*time.Minute, 10*time.Minute),
 		AgentName: config.AgentName,
 		Client: http.NewClient().
 			Auth(config.Username, config.Password).
@@ -38,7 +44,6 @@ func NewUpstreamClient(config UpstreamConfig) *UpstreamClient {
 		opt(client.Client)
 	}
 	return &client
-
 }
 
 // PushArtifacts uploads the given artifact to the upstream server.
@@ -110,15 +115,47 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 		histogram.Label(StatusLabel, StatusError).Since(start)
 		respBody, _ := io.ReadAll(resp.Body)
 
-		var upstreamError api.Error
-		if json.Unmarshal(respBody, &upstreamError) == nil {
-			return &upstreamError
+		var httpErr api.HTTPError
+		if json.Unmarshal(respBody, &httpErr) == nil {
+			return &httpErr
 		}
-
 		return fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
 	}
 	histogram.Label(StatusLabel, StatusOK).Since(start)
 	return nil
+}
+
+// ListViews returns all views from upstream with namespace,name pairs
+func (t *UpstreamClient) ListViews(ctx context.Context, views []ViewIdentifier) ([]ViewWithColumns, error) {
+	cacheKey := "columns-list"
+
+	if cached, found := t.cache.Get(cacheKey); found {
+		return cached.([]ViewWithColumns), nil
+	}
+
+	req := t.R(ctx).QueryParam(AgentNameQueryParam, t.AgentName)
+	if err := req.Body(views); err != nil {
+		return nil, fmt.Errorf("error setting request body: %w", err)
+	}
+
+	resp, err := req.Do(netHTTP.MethodPost, "list-views")
+	if err != nil {
+		return nil, fmt.Errorf("error listing views on upstream: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if !resp.IsOK() {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("upstream server returned error status[%d]: %s", resp.StatusCode, parseResponse(string(respBody)))
+	}
+
+	var result []ViewWithColumns
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	t.cache.Set(cacheKey, result, ctx.Properties().Duration("upstream.client.cache.view-columns.duration", gocache.DefaultExpiration))
+	return result, nil
 }
 
 func parseResponse(body string) string {

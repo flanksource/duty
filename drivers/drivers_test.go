@@ -1,11 +1,11 @@
 package drivers
 
 import (
-	"reflect"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestParseParams(t *testing.T) {
+var _ = Describe("ParseParams", func() {
 	tests := []struct {
 		input  string
 		output map[string]string
@@ -22,12 +22,10 @@ func TestParseParams(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
+		test := test // capture range variable
+		It("should parse "+test.input, func() {
 			result := parseParams(test.input)
-
-			if !reflect.DeepEqual(result, test.output) {
-				t.Errorf("Expected %v, but got %v", test.output, result)
-			}
+			Expect(result).To(Equal(test.output))
 		})
 	}
-}
+})

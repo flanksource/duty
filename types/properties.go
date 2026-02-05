@@ -41,6 +41,7 @@ type Property struct {
 	Color    string `json:"color,omitempty"`
 	Order    int    `json:"order,omitempty"`
 	Headline bool   `json:"headline,omitempty"`
+	Hidden   bool   `json:"hidden,omitempty"`
 
 	// Either text or value is required, but not both.
 	Text  string `json:"text,omitempty"`

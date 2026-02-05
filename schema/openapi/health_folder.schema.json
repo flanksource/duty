@@ -3,6 +3,24 @@
   "$id": "https://github.com/flanksource/canary-checker/api/v1/folder-check",
   "$ref": "#/$defs/FolderCheck",
   "$defs": {
+    "CheckRelationship": {
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
+          },
+          "type": "array"
+        },
+        "configs": {
+          "items": {
+            "$ref": "#/$defs/RelationshipSelectorTemplate"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -17,6 +35,10 @@
       "required": [
         "key"
       ]
+    },
+    "Duration": {
+      "type": "string",
+      "description": "Duration e.g. 500ms, 2h, 2m"
     },
     "EnvVar": {
       "properties": {
@@ -77,6 +99,9 @@
           },
           "type": "array"
         },
+        "markFailOnEmpty": {
+          "type": "boolean"
+        },
         "test": {
           "$ref": "#/$defs/Template"
         },
@@ -85,6 +110,9 @@
         },
         "transform": {
           "$ref": "#/$defs/Template"
+        },
+        "relationships": {
+          "$ref": "#/$defs/CheckRelationship"
         },
         "path": {
           "type": "string"
@@ -96,10 +124,10 @@
           "$ref": "#/$defs/FolderFilter"
         },
         "minAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "maxAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "minCount": {
           "type": "integer"
@@ -142,10 +170,10 @@
     "FolderFilter": {
       "properties": {
         "minAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "maxAge": {
-          "type": "string"
+          "$ref": "#/$defs/Duration"
         },
         "since": {
           "type": "string"
@@ -174,6 +202,12 @@
         "credentials": {
           "$ref": "#/$defs/EnvVar"
         },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        },
         "bucket": {
           "type": "string"
         }
@@ -197,11 +231,24 @@
       ]
     },
     "Labels": {
-      "patternProperties": {
-        ".*": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
           "type": "string"
         }
       },
+      "additionalProperties": false,
       "type": "object"
     },
     "MetricLabel": {
@@ -246,6 +293,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "RelationshipSelectorTemplate": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "external_id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "name": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "type": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "agent": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "scope": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "S3Connection": {
       "properties": {
         "connection": {
@@ -259,6 +339,9 @@
         },
         "sessionToken": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
         },
         "region": {
           "type": "string"
@@ -301,26 +384,26 @@
         }
       },
       "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "host"
-      ]
+      "type": "object"
     },
     "SMBConnection": {
       "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "port": {
-          "type": "integer"
-        },
         "username": {
           "$ref": "#/$defs/EnvVar"
         },
         "password": {
           "$ref": "#/$defs/EnvVar"
         },
+        "connection": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
         "domain": {
+          "type": "string"
+        },
+        "share": {
           "type": "string"
         }
       },

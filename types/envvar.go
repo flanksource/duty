@@ -14,7 +14,7 @@ const EnvVarType = "env_var"
 // +kubebuilder:object:generate=true
 type EnvVar struct {
 	Name        string        `json:"name,omitempty" yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
+	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value" template:"true"`
 	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
 }
 
@@ -50,7 +50,7 @@ func (e EnvVar) String() string {
 }
 
 func (e EnvVar) IsEmpty() bool {
-	return e.ValueStatic == "" && e.ValueFrom == nil
+	return e.ValueStatic == "" && (e.ValueFrom == nil || e.ValueFrom.IsEmpty())
 }
 
 // +kubebuilder:object:generate=true
@@ -60,6 +60,13 @@ type EnvVarSource struct {
 	HelmRef         *HelmRefKeySelector   `json:"helmRef,omitempty" yaml:"helmRef,omitempty" protobuf:"bytes,2,opt,name=helmRef"`
 	ConfigMapKeyRef *ConfigMapKeySelector `json:"configMapKeyRef,omitempty" yaml:"configMapKeyRef,omitempty" protobuf:"bytes,3,opt,name=configMapKeyRef"`
 	SecretKeyRef    *SecretKeySelector    `json:"secretKeyRef,omitempty" yaml:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
+}
+
+func (e EnvVarSource) IsEmpty() bool {
+	return (e.ServiceAccount == nil || *e.ServiceAccount == "") &&
+		(e.HelmRef == nil || e.HelmRef.IsEmpty()) &&
+		(e.ConfigMapKeyRef == nil || e.ConfigMapKeyRef.IsEmpty()) &&
+		(e.SecretKeyRef == nil || e.SecretKeyRef.IsEmpty())
 }
 
 func (e EnvVarSource) String() string {
@@ -85,6 +92,10 @@ type HelmRefKeySelector struct {
 	Key string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
+func (e HelmRefKeySelector) IsEmpty() bool {
+	return e.Key == ""
+}
+
 func (c HelmRefKeySelector) String() string {
 	return c.Name + "/" + c.Key
 }
@@ -95,6 +106,10 @@ type ConfigMapKeySelector struct {
 	Key                  string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
+func (c ConfigMapKeySelector) IsEmpty() bool {
+	return c.Key == ""
+}
+
 func (c ConfigMapKeySelector) String() string {
 	return c.Name + "/" + c.Key
 }
@@ -103,6 +118,10 @@ func (c ConfigMapKeySelector) String() string {
 type SecretKeySelector struct {
 	LocalObjectReference `json:",inline" yaml:",inline" protobuf:"bytes,1,opt,name=localObjectReference"`
 	Key                  string `json:"key" yaml:"key" protobuf:"bytes,2,opt,name=key"`
+}
+
+func (s SecretKeySelector) IsEmpty() bool {
+	return s.Key == ""
 }
 
 func (s SecretKeySelector) String() string {
@@ -157,7 +176,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -173,7 +193,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -189,7 +210,8 @@ func (e *EnvVar) Scan(value any) error {
 						},
 						Key: strings.Split(v, "/")[3],
 					},
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -201,7 +223,8 @@ func (e *EnvVar) Scan(value any) error {
 			*e = EnvVar{
 				ValueFrom: &EnvVarSource{
 					ServiceAccount: &segments[2],
-				}}
+				},
+			}
 			return nil
 		}
 
@@ -212,4 +235,151 @@ func (e *EnvVar) Scan(value any) error {
 	default:
 		return fmt.Errorf("invalid value type: %T", value)
 	}
+}
+
+// +kubebuilder:object:generate=true
+type ValueExpression struct {
+	Expr CelExpression `yaml:"expr,omitempty" json:"expr,omitempty"`
+
+	// Value is a static value
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
+}
+
+func (t ValueExpression) Empty() bool {
+	return t.Value == "" && t.Expr == ""
+}
+
+func (t ValueExpression) Eval(env map[string]any) (string, error) {
+	if t.Value != "" {
+		return t.Value, nil
+	}
+
+	return t.Expr.Eval(env)
+}
+
+// EnvVarResourceSelector is used to select a resource.
+// At least one of the fields must be specified.
+// +kubebuilder:object:generate=true
+type EnvVarResourceSelector struct {
+	Agent         ValueExpression   `yaml:"agent,omitempty" json:"agent,omitempty"`
+	Scope         string            `yaml:"scope,omitempty" json:"scope,omitempty"`
+	Cache         string            `yaml:"cache,omitempty" json:"cache,omitempty"`
+	ID            ValueExpression   `yaml:"id,omitempty" json:"id,omitempty"`
+	Name          ValueExpression   `yaml:"name,omitempty" json:"name,omitempty"`
+	Namespace     ValueExpression   `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	Types         []ValueExpression `yaml:"types,omitempty" json:"types,omitempty"`
+	Statuses      []ValueExpression `yaml:"statuses,omitempty" json:"statuses,omitempty"`
+	Healths       []ValueExpression `yaml:"healths,omitempty" json:"healths,omitempty"`
+	TagSelector   ValueExpression   `yaml:"tagSelector,omitempty" json:"tagSelector,omitempty"`
+	LabelSelector ValueExpression   `yaml:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+	FieldSelector ValueExpression   `json:"fieldSelector,omitempty" yaml:"fieldSelector,omitempty"`
+}
+
+func (t EnvVarResourceSelector) Empty() bool {
+	return t.Agent.Empty() && t.Scope == "" && t.Cache == "" && t.ID.Empty() &&
+		t.Name.Empty() && t.Namespace.Empty() && len(t.Types) == 0 && len(t.Statuses) == 0 &&
+		len(t.Healths) == 0 && t.TagSelector.Empty() && t.LabelSelector.Empty() && t.FieldSelector.Empty()
+}
+
+func (t EnvVarResourceSelector) Hydrate(env map[string]any) (*ResourceSelector, error) {
+	rs := ResourceSelector{
+		Scope: t.Scope,
+		Cache: t.Cache,
+	}
+
+	if !t.Agent.Empty() {
+		agent, err := t.Agent.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate agent: %v", err)
+		}
+		rs.Agent = agent
+	}
+
+	if !t.ID.Empty() {
+		id, err := t.ID.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate id: %v", err)
+		}
+		rs.ID = id
+	}
+
+	if !t.Name.Empty() {
+		name, err := t.Name.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate name: %v", err)
+		}
+		rs.Name = name
+	}
+
+	if !t.Namespace.Empty() {
+		namespace, err := t.Namespace.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate namespace: %v", err)
+		}
+		rs.Namespace = namespace
+	}
+
+	if len(t.Types) > 0 {
+		rs.Types = make([]string, len(t.Types))
+		for i, typeExpr := range t.Types {
+			if !typeExpr.Empty() {
+				typeStr, err := typeExpr.Eval(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate type at index %d: %v", i, err)
+				}
+				rs.Types[i] = typeStr
+			}
+		}
+	}
+
+	if len(t.Statuses) > 0 {
+		rs.Statuses = make([]string, len(t.Statuses))
+		for i, statusExpr := range t.Statuses {
+			if !statusExpr.Empty() {
+				statusStr, err := statusExpr.Eval(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate status at index %d: %v", i, err)
+				}
+				rs.Statuses[i] = statusStr
+			}
+		}
+	}
+
+	if len(t.Healths) > 0 {
+		for i, expr := range t.Healths {
+			if !expr.Empty() {
+				result, err := expr.Eval(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to evaluate health at index %d: %v", i, err)
+				}
+				rs.Health.Add(result)
+			}
+		}
+	}
+
+	if !t.TagSelector.Empty() {
+		tagSelector, err := t.TagSelector.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate tagSelector: %v", err)
+		}
+		rs.TagSelector = tagSelector
+	}
+
+	if !t.LabelSelector.Empty() {
+		labelSelector, err := t.LabelSelector.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate labelSelector: %v", err)
+		}
+		rs.LabelSelector = labelSelector
+	}
+
+	if !t.FieldSelector.Empty() {
+		fieldSelector, err := t.FieldSelector.Eval(env)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate fieldSelector: %v", err)
+		}
+		rs.FieldSelector = fieldSelector
+	}
+
+	return &rs, nil
 }

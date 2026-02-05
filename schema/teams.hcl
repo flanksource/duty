@@ -94,20 +94,25 @@ table "team_members" {
     null = false
     type = uuid
   }
+  column "source" {
+    type = text
+    null = false
+    default = "UI"
+  }
   primary_key {
     columns = [column.team_id, column.person_id]
   }
   foreign_key "team_members_person_id_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
   foreign_key "team_members_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
-    on_update   = NO_ACTION
-    on_delete   = NO_ACTION
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
 }
 
@@ -155,9 +160,10 @@ table "teams" {
   primary_key {
     columns = [column.id]
   }
-  index "team_name_key" {
+ index "team_name_key" {
     unique  = true
     columns = [column.name]
+    where   = "deleted_at IS NULL"
   }
   foreign_key "teams_created_by_fkey" {
     columns     = [column.created_by]

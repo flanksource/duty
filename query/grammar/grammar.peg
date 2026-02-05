@@ -1,0 +1,157 @@
+{
+  package grammar
+}
+
+Query
+  = aq:AndQuery _ oq:OrQuery* _ {
+    return makeAndQuery(aq,oq)
+  }
+
+OrQuery
+  = _ '|' _ aq:AndQuery _ {
+    return aq, nil
+  }
+
+
+AndQuery
+  = _ fq:FieldQuery _  fqs:FieldQuery* _ {
+    return makeAndQuery(fq, fqs)
+  }
+
+FieldQuery
+  = _ '(' _ q:Query _ ')'_ {
+      return makeFQFromQuery(q)
+    }
+  / _ ef:ExistsField _ {
+      return ef, nil
+    }
+  / _ f:Field _ {
+      return makeFQFromField(f)
+    }
+
+  / _ "-" n:Word _  {
+      if nStr, ok := n.(string); ok && !strings.Contains(nStr, "*") {
+        n = nStr + "*"
+      }
+
+      return &QueryField{Field: "name", Op: "not", Value: n}, nil
+  }
+
+  / _ n:(Word / Identifier) _  {
+      if nStr, ok := n.(string); ok && !strings.Contains(nStr, "*") {
+        n = nStr + "*"
+      }
+
+      return &QueryField{Field: "name", Op: "=", Value: n}, nil
+  }
+
+
+Field
+  = src:Source _ op:Operator _ value:Value {
+      return &QueryField{Field:src.(string), Op: op.(QueryOperator), Value:value}, nil
+  }
+
+ExistsField
+  = "!" _ src:ExistSource _ !Operator {
+      return &QueryField{Field:src.(string), Op: NotExists}, nil
+    }
+  / src:ExistSource _ !Operator {
+      return &QueryField{Field:src.(string), Op: Exists}, nil
+    }
+
+ExistSource
+  = name:ExistPrefix path:("." Identifier)+ {
+      return makeSource(name,path)
+    }
+
+ExistPrefix
+  = ("labels" / "tags" / "properties") {
+      return string(c.text), nil
+    }
+
+Source
+  = name:Identifier path:("." Identifier)* {
+      return makeSource(name,path)
+  }
+
+
+Not = "-"
+
+Operator
+  = op:(
+     "<="
+    / ">="
+    / "="
+    / ":"
+    / "!="
+    / "<"
+    / ">"
+  ){
+    return QueryOperator(c.text), nil
+  }
+
+Value
+  = val:(
+      DateTime
+    / ISODate
+    / Time
+    / Measure
+    / Float
+    / Integer
+    / Identifier
+    / String
+    ){
+    return makeValue(val)
+  }
+
+String
+  = '"' chars:[^"]* '"' {
+    return stringFromChars(chars), nil
+  }
+
+ISODate
+  = [0-9][0-9][0-9][0-9] "-" [0-9][0-9] "-" [0-9][0-9] {
+      return string(c.text), nil
+  }
+
+Time
+  = [0-2][0-9] ":" [0-5][0-9] ":" [0-5][0-9] {
+      return string(c.text), nil
+  }
+
+DateTime
+  = ISODate _ Time {
+      return string(c.text), nil
+  }
+
+Word
+  = String / [-]? [@a-zA-Z0-9_*-]+ {
+      return string(c.text), nil
+  }
+
+Integer
+  // We need to ignore alphanumerics starting with numbers being parsed as Integer
+  = [+-]? [0-9]+ ![a-zA-Z0-9_-] {
+    return strconv.ParseInt(string(c.text), 10, 64)
+  }
+
+Measure
+  = number:(Integer / Float) unit:Identifier {
+    return makeMeasure(number, unit)
+  }
+
+Float
+  = [+-]? ([0-9]* "." [0-9]+ ) {
+      return strconv.ParseFloat(string(c.text), 64)
+    }
+
+Identifier
+  = [@a-zA-Z0-9_*\\,-:\\[\]]+ {
+      return string(c.text), nil
+  }
+
+_
+  = [ \t]*
+
+EOF
+  = !.

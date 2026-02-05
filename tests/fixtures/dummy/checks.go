@@ -16,7 +16,13 @@ var LogisticsAPIHealthHTTPCheck = models.Check{
 	Type:     "http",
 	Status:   "healthy",
 	Labels: map[string]string{
-		"app": "logistics",
+		"app":       "logistics",
+		"cluster":   "production-us",
+		"namespace": "logistics",
+		"env":       "production",
+		"region":    "us-east-1",
+		"pod":       "logistics-api-7b9d4f5c6-x2k4m",
+		"pod_hash":  "7b9d4f5c6",
 	},
 }
 
@@ -27,7 +33,12 @@ var LogisticsAPIHomeHTTPCheck = models.Check{
 	Type:     "http",
 	Status:   "healthy",
 	Labels: map[string]string{
-		"app": "logistics",
+		"app":       "logistics",
+		"cluster":   "production-us",
+		"namespace": "logistics",
+		"env":       "production",
+		"instance":  "i-0abc123def456",
+		"revision":  "12345",
 	},
 }
 
@@ -38,7 +49,11 @@ var LogisticsDBCheck = models.Check{
 	Type:     "postgres",
 	Status:   "unhealthy",
 	Labels: map[string]string{
-		"app": "logistics",
+		"app":       "logistics",
+		"cluster":   "staging-eu",
+		"namespace": "logistics",
+		"env":       "staging",
+		"region":    "eu-west-1",
 	},
 }
 

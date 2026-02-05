@@ -1,135 +1,158 @@
 package types
 
 import (
-	"testing"
-
-	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 )
 
-// test EnvVar implements the sql.Scanner interface correctly
-func TestEnvVarScanStatic(t *testing.T) {
-	var envVar EnvVar
-	if err := envVar.Scan("foo"); err != nil {
-		t.Errorf("failed to scan string: %v", err)
-	}
-	if envVar.ValueStatic != "foo" {
-		t.Errorf("failed to scan string: expected foo, got %s", envVar.ValueStatic)
-	}
-}
+var _ = Describe("EnvVar", func() {
+	Describe("Scan", func() {
+		Context("with static value", func() {
+			It("should scan static value correctly", func() {
+				var envVar EnvVar
+				err := envVar.Scan("foo")
+				Expect(err).To(BeNil())
+				Expect(envVar.ValueStatic).To(Equal("foo"))
+			})
+		})
 
-func TestEnvVarScanConfigMap(t *testing.T) {
-	var envVar EnvVar
-	if err := envVar.Scan("configmap://foo/bar"); err != nil {
-		t.Errorf("failed to scan string: %v", err)
-	}
+		Context("with configmap value", func() {
+			It("should scan configmap value correctly", func() {
+				var envVar EnvVar
+				err := envVar.Scan("configmap://foo/bar")
+				Expect(err).To(BeNil())
+				Expect(envVar.ValueFrom.ConfigMapKeyRef.Name).To(Equal("foo"))
+				Expect(envVar.ValueFrom.ConfigMapKeyRef.Key).To(Equal("bar"))
+			})
+		})
 
-	if envVar.ValueFrom.ConfigMapKeyRef.Name != "foo" {
-		t.Errorf("failed to scan string: expected foo, got %s", envVar.ValueFrom.ConfigMapKeyRef.Name)
-	}
-	if envVar.ValueFrom.ConfigMapKeyRef.Key != "bar" {
-		t.Errorf("failed to scan string: expected bar, got %s", envVar.ValueFrom.ConfigMapKeyRef.Key)
-	}
-}
+		Context("with secret value", func() {
+			It("should scan secret value correctly", func() {
+				var envVar EnvVar
+				err := envVar.Scan("secret://foo/bar")
+				Expect(err).To(BeNil())
+				Expect(envVar.ValueFrom.SecretKeyRef.Name).To(Equal("foo"))
+				Expect(envVar.ValueFrom.SecretKeyRef.Key).To(Equal("bar"))
+			})
+		})
 
-func TestEnvVarScanSecret(t *testing.T) {
-	var envVar EnvVar
-	if err := envVar.Scan("secret://foo/bar"); err != nil {
-		t.Errorf("failed to scan string: %v", err)
-	}
-	if envVar.ValueFrom.SecretKeyRef.Name != "foo" {
-		t.Errorf("failed to scan string: expected foo, got %s", envVar.ValueFrom.SecretKeyRef.Name)
-	}
-	if envVar.ValueFrom.SecretKeyRef.Key != "bar" {
-		t.Errorf("failed to scan string: expected bar, got %s", envVar.ValueFrom.SecretKeyRef.Key)
-	}
-}
+		Context("with service account reference", func() {
+			It("should scan valid service account reference", func() {
+				var envVar EnvVar
+				err := envVar.Scan("serviceaccount://my-service-account")
+				Expect(err).To(BeNil())
+				Expect(envVar.ValueFrom.ServiceAccount).To(Equal(lo.ToPtr("my-service-account")))
+			})
 
-func TestEnvVar_Scan(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		expected      *EnvVar
-		errorExpected bool
-	}{
-		{
-			name:  "valid service account reference",
-			input: "serviceaccount://my-service-account",
-			expected: &EnvVar{
-				ValueFrom: &EnvVarSource{
-					ServiceAccount: lo.ToPtr("my-service-account"),
+			It("should return error for invalid service account reference format", func() {
+				var envVar EnvVar
+				err := envVar.Scan("serviceaccount://")
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should return error for invalid service account reference name", func() {
+				var envVar EnvVar
+				err := envVar.Scan("serviceaccount:///invalid-name")
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should return error for non-service account reference prefix", func() {
+				var envVar EnvVar
+				err := envVar.Scan("configmap://my-configmap")
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("with helm reference", func() {
+			It("should scan valid helm reference", func() {
+				var envVar EnvVar
+				err := envVar.Scan("helm://canary-checker/the-key")
+				Expect(err).To(BeNil())
+				Expect(envVar.ValueFrom.HelmRef.Name).To(Equal("canary-checker"))
+				Expect(envVar.ValueFrom.HelmRef.Key).To(Equal("the-key"))
+			})
+
+			It("should return error for invalid helm reference", func() {
+				var envVar EnvVar
+				err := envVar.Scan("helm:///canary-checker/the-key")
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("with invalid input", func() {
+			It("should return error for non-string type", func() {
+				var envVar EnvVar
+				err := envVar.Scan(123)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("IsEmpty", func() {
+		type fields struct {
+			Name        string
+			ValueStatic string
+			ValueFrom   *EnvVarSource
+		}
+
+		tests := []struct {
+			name   string
+			fields fields
+			want   bool
+		}{
+			{
+				name: "nil",
+				fields: fields{
+					Name:        "",
+					ValueStatic: "",
+					ValueFrom:   nil,
 				},
+				want: true,
 			},
-			errorExpected: false,
-		},
-		{
-			name:          "invalid service account reference format",
-			input:         "serviceaccount://",
-			expected:      nil,
-			errorExpected: true,
-		},
-		{
-			name:          "invalid service account reference name",
-			input:         "serviceaccount:///invalid-name",
-			expected:      nil,
-			errorExpected: true,
-		},
-		{
-			name:          "non-service account reference prefix",
-			input:         "configmap://my-configmap",
-			expected:      nil,
-			errorExpected: true,
-		},
-		{
-			name:  "valid helm reference",
-			input: "helm://canary-checker/the-key",
-			expected: &EnvVar{
-				ValueFrom: &EnvVarSource{
-					HelmRef: &HelmRefKeySelector{
-						LocalObjectReference: LocalObjectReference{
-							Name: "canary-checker",
+			{
+				name: "ValueStatic",
+				fields: fields{
+					Name:        "",
+					ValueStatic: "ValueStatic",
+					ValueFrom:   nil,
+				},
+				want: false,
+			},
+			{
+				name: "non nil ValueFrom",
+				fields: fields{
+					Name:        "",
+					ValueStatic: "",
+					ValueFrom:   &EnvVarSource{},
+				},
+				want: true,
+			},
+			{
+				name: "non nil ValueFrom",
+				fields: fields{
+					Name:        "",
+					ValueStatic: "",
+					ValueFrom: &EnvVarSource{
+						ServiceAccount: lo.ToPtr(""),
+						SecretKeyRef: &SecretKeySelector{
+							Key: "",
 						},
-						Key: "the-key",
 					},
 				},
+				want: true,
 			},
-			errorExpected: false,
-		},
-		{
-			name:          "invalid helm reference",
-			input:         "helm:///canary-checker/the-key",
-			expected:      nil,
-			errorExpected: true,
-		},
-	}
+		}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			var e EnvVar
-			err := e.Scan(tc.input)
-
-			if tc.errorExpected {
-				if err == nil {
-					t.Errorf("Expected error, but got nil")
+		for _, tt := range tests {
+			It(tt.name, func() {
+				e := EnvVar{
+					Name:        tt.fields.Name,
+					ValueStatic: tt.fields.ValueStatic,
+					ValueFrom:   tt.fields.ValueFrom,
 				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
-			}
-
-			if diff := cmp.Diff(&e, tc.expected); diff != "" {
-				t.Errorf("EnvVar mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestEnvVarScanInvalid(t *testing.T) {
-	var envVar EnvVar
-	if err := envVar.Scan(123); err == nil {
-		t.Errorf("expected error when scanning non-string type")
-	}
-}
+				Expect(e.IsEmpty()).To(Equal(tt.want))
+			})
+		}
+	})
+})

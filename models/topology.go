@@ -33,7 +33,7 @@ func (t Topology) OnConflictClause() clause.OnConflict {
 			Exprs: []clause.Expression{
 				clause.And(
 					clause.Eq{Column: "deleted_at"},
-					clause.Eq{Column: "agent_id", Value: uuid.Nil.String()},
+					clause.Expr{SQL: "agent_id = '00000000-0000-0000-0000-000000000000'::uuid", WithoutParentheses: true},
 				),
 			},
 		},
@@ -47,6 +47,13 @@ func (t Topology) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	return lo.Map(items, func(i Topology, _ int) DBTable { return i }), err
 }
 
+func (t Topology) GetAgentID() string {
+	if t.AgentID == uuid.Nil {
+		return ""
+	}
+	return t.AgentID.String()
+}
+
 func (t Topology) PK() string {
 	return t.ID.String()
 }
@@ -57,4 +64,13 @@ func (Topology) TableName() string {
 
 func (t *Topology) AsMap(removeFields ...string) map[string]any {
 	return asMap(t, removeFields...)
+}
+
+func (t *Topology) Save(db *gorm.DB) error {
+	err := db.Clauses(Topology{}.OnConflictClause()).Create(t).Error
+	return err
+}
+
+func (t Topology) GetNamespace() string {
+	return t.Namespace
 }

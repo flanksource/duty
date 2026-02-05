@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  uid: c737b53a-4671-48e7-8bbe-92a6432f08f6
+  name: echo-server
+  namespace: default
+  labels:
+    app.kubernetes.io/controller: main
+    app.kubernetes.io/instance: echo-server
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: echo-server
+    helm.sh/chart: app-template-4.2.0
+    helm.toolkit.fluxcd.io/name: echo-server
+    helm.toolkit.fluxcd.io/namespace: default
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    meta.helm.sh/release-name: echo-server
+    meta.helm.sh/release-namespace: default
+    dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
+  creationTimestamp: "2025-05-30T18:37:01Z"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/controller: main
+      app.kubernetes.io/instance: echo-server
+      app.kubernetes.io/name: echo-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/controller: main
+        app.kubernetes.io/instance: echo-server
+        app.kubernetes.io/name: echo-server
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - name: echo
+        image: ghcr.io/mendhak/http-https-echo:37
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: LOG_IGNORE_PATH
+          value: /healthz
+        - name: LOG_WITHOUT_NEWLINE
+          value: "true"
+        resources:
+          limits:
+            memory: 50M
+          requests:
+            cpu: 5m
+            memory: 30M
+      serviceAccountName: default
+status:
+  availableReplicas: 1
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  uid: 2c563bdb-8108-4383-9f51-647094c8c8f7
+  name: echo-server-685b4476d4
+  namespace: default
+  labels:
+    app.kubernetes.io/controller: main
+    app.kubernetes.io/instance: echo-server
+    app.kubernetes.io/name: echo-server
+    pod-template-hash: 685b4476d4
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    meta.helm.sh/release-name: echo-server
+    meta.helm.sh/release-namespace: default
+    config-db.flanksource.com/parent: c737b53a-4671-48e7-8bbe-92a6432f08f6
+    dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
+  creationTimestamp: "2025-05-30T18:37:01Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: echo-server
+    uid: c737b53a-4671-48e7-8bbe-92a6432f08f6
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/controller: main
+      app.kubernetes.io/instance: echo-server
+      app.kubernetes.io/name: echo-server
+      pod-template-hash: 685b4476d4
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/controller: main
+        app.kubernetes.io/instance: echo-server
+        app.kubernetes.io/name: echo-server
+        pod-template-hash: 685b4476d4
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - name: echo
+        image: ghcr.io/mendhak/http-https-echo:37
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        - name: LOG_IGNORE_PATH
+          value: /healthz
+        - name: LOG_WITHOUT_NEWLINE
+          value: "true"
+        resources:
+          limits:
+            memory: 50M
+          requests:
+            cpu: 5m
+            memory: 30M
+      serviceAccountName: default
+status:
+  availableReplicas: 1
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  uid: 6d7e283b-a918-4734-8eb6-03bc790b3eda
+  name: echo-server-685b4476d4-9lrc6
+  namespace: default
+  labels:
+    app.kubernetes.io/controller: main
+    app.kubernetes.io/instance: echo-server
+    app.kubernetes.io/name: echo-server
+    pod-template-hash: 685b4476d4
+  annotations:
+    config-db.flanksource.com/parent: 2c563bdb-8108-4383-9f51-647094c8c8f7
+    dummy.flanksource.com/agent: ac4b1dc5-b249-471d-89d7-ba0c5de4997b
+    dummy.flanksource.com/scraper-id: 7f9a2c1d-8b3e-4f5a-9c6d-1e2f3a4b5c6d
+  creationTimestamp: "2025-10-07T08:18:52Z"
+  ownerReferences:
+  - apiVersion: apps/v1
+    kind: ReplicaSet
+    name: echo-server-685b4476d4
+    uid: 2c563bdb-8108-4383-9f51-647094c8c8f7
+spec:
+  automountServiceAccountToken: true
+  containers:
+  - name: echo
+    image: ghcr.io/mendhak/http-https-echo:37
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: HTTP_PORT
+      value: "8080"
+    - name: LOG_IGNORE_PATH
+      value: /healthz
+    - name: LOG_WITHOUT_NEWLINE
+      value: "true"
+    resources:
+      limits:
+        memory: 50M
+      requests:
+        cpu: 5m
+        memory: 30M
+  nodeName: raya
+  serviceAccountName: default
+status:
+  phase: Running
+  podIP: 10.42.0.10
+  conditions:
+  - type: Ready
+    status: "True"
+  containerStatuses:
+  - name: echo
+    ready: true
+    restartCount: 0
+    image: ghcr.io/mendhak/http-https-echo:37
+    imageID: ghcr.io/mendhak/http-https-echo@sha256:f55000d9196bd3c853d384af7315f509d21ffb85de315c26e9874033b9f83e15
+    state:
+      running:
+        startedAt: "2025-10-07T08:19:53Z"

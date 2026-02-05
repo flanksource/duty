@@ -3,19 +3,21 @@ package query
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
-	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/flanksource/commons/duration"
-	"github.com/flanksource/duty/api"
-	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/api"
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/query/grammar"
+	"github.com/flanksource/duty/types"
 )
 
 type ConfigSummaryRequestChanges struct {
@@ -23,10 +25,7 @@ type ConfigSummaryRequestChanges struct {
 	sinceParsed time.Duration
 }
 
-type ConfigSummaryRequestAnalysis struct {
-	Since       string `json:"since"`
-	sinceParsed time.Duration
-}
+type ConfigSummaryRequestAnalysis struct{}
 
 type ConfigSummaryRequest struct {
 	Changes  ConfigSummaryRequestChanges  `json:"changes"`
@@ -93,6 +92,21 @@ func (t *ConfigSummaryRequest) changesJoin() string {
 	return output + strings.Join(clauses, " AND ")
 }
 
+func (t *ConfigSummaryRequest) changesAnalysisJoin() string {
+	output := "LEFT JOIN aggregated_analysis ON "
+	var clauses []string
+	for _, g := range t.GroupBy {
+		switch g {
+		case "type":
+			clauses = append(clauses, "aggregated_analysis.type = config_items.type")
+		default:
+			clauses = append(clauses, fmt.Sprintf("aggregated_analysis.%s = config_items.tags->>'%s'", g, g))
+		}
+	}
+
+	return output + strings.Join(clauses, " AND ")
+}
+
 func (t ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []string {
 	output := make([]string, len(t.GroupBy)+len(appendSelect))
 	copy(output, t.GroupBy)
@@ -103,8 +117,8 @@ func (t ConfigSummaryRequest) plainSelectClause(appendSelect ...string) []string
 func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	cols := []string{
 		"aggregated_health_count.health AS health",
-		"MAX(config_items.created_at) as created_at",
-		"MAX(config_items.updated_at) as updated_at",
+		"MAX(config_items.created_at) AS created_at",
+		"MAX(config_items.updated_at) AS updated_at",
 		"COUNT(*) AS count",
 	}
 
@@ -112,11 +126,12 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 		cols = append(cols, fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost))
 	}
 
-	if t.Changes.Since != "" {
-		cols = append(cols, "changes_grouped.count AS changes")
-	}
-
-	if t.Analysis.Since != "" {
+	if slices.Contains([]string{"3d", "7d", "30d"}, t.Changes.Since) {
+		cols = append(cols, fmt.Sprintf("COALESCE(sum(config_item_summary_%s.config_changes_count), 0) AS changes, COALESCE(aggregated_analysis.total_analysis, '{}'::jsonb) AS analysis", t.Changes.Since))
+	} else {
+		if t.Changes.Since != "" {
+			cols = append(cols, "changes_grouped.count AS changes")
+		}
 		cols = append(cols,
 			"aggregated_analysis_count.analysis AS analysis",
 		)
@@ -181,14 +196,6 @@ func (t *ConfigSummaryRequest) Parse() error {
 		}
 	}
 
-	if t.Analysis.Since != "" {
-		if val, err := duration.ParseDuration(t.Analysis.Since); err != nil {
-			return fmt.Errorf("analysis since is invalid: %w", err)
-		} else {
-			t.Analysis.sinceParsed = time.Duration(val)
-		}
-	}
-
 	switch t.Cost {
 	case "1d", "7d", "30d", "":
 		// do nothing
@@ -208,16 +215,49 @@ func (t ConfigSummaryRequest) configDeleteClause() string {
 }
 
 func (t ConfigSummaryRequest) statusClause() []clause.Expression {
-	return parseAndBuildFilteringQuery(t.Status, "config_items.status")
+	clause, _ := parseAndBuildFilteringQuery(t.Status, "config_items.status", false)
+	return clause
 }
 
 func (t ConfigSummaryRequest) healthClause() []clause.Expression {
-	return parseAndBuildFilteringQuery(t.Health, "config_items.health")
+	clause, _ := parseAndBuildFilteringQuery(t.Health, "config_items.health", false)
+	return clause
 }
 
 func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
+	var includeClause *gorm.DB
+	var excludeClause *gorm.DB
+
 	for k, v := range t.Filter {
-		q = q.Where("config_items.labels @> ?", types.JSONStringMap{k: v})
+		query, _ := grammar.ParseFilteringQueryV2(v, true)
+
+		if len(query.Not.In) > 0 {
+			if excludeClause == nil {
+				excludeClause = q
+			}
+
+			for _, excludeValue := range query.Not.In {
+				excludeClause = excludeClause.Where("NOT (config_items.labels @> ?)", types.JSONStringMap{k: excludeValue.(string)})
+			}
+		}
+
+		if len(query.In) > 0 {
+			if includeClause == nil {
+				includeClause = q
+			}
+
+			for _, includeValue := range query.In {
+				includeClause = includeClause.Or("config_items.labels @> ?", types.JSONStringMap{k: includeValue.(string)})
+			}
+		}
+	}
+
+	if includeClause != nil {
+		q = q.Where(includeClause)
+	}
+
+	if excludeClause != nil {
+		q = q.Where(excludeClause)
 	}
 
 	return q
@@ -226,12 +266,11 @@ func (t *ConfigSummaryRequest) filterClause(q *gorm.DB) *gorm.DB {
 func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, error) {
 	req.SetDefaults()
 	if err := req.Parse(); err != nil {
-		return nil, api.Errorf(api.EINVALID, err.Error())
+		return nil, api.Errorf(api.EINVALID, "%s", err)
 	}
 
-	_ = ctx.DB().Use(extraClausePlugin.New())
-
 	groupBy := strings.Join(req.groupBy(), ",")
+	plainGroupBy := strings.Join(req.GroupBy, ",")
 
 	healthGrouped := exclause.NewWith(
 		"health_grouped",
@@ -248,7 +287,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		"aggregated_health_count",
 		ctx.DB().Select(req.plainSelectClause("jsonb_object_agg(health_grouped.health, count)::jsonb AS health")).
 			Table("health_grouped").
-			Group(strings.Join(req.GroupBy, ",")),
+			Group(plainGroupBy),
 	)
 
 	// Keep track of all the ctes in this query (in order)
@@ -266,23 +305,50 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
 
-	if req.Changes.Since != "" {
-		changesGrouped := exclause.NewWith(
-			"changes_grouped",
-			ctx.DB().Select(req.baseSelectClause("COUNT(*) AS count")).
-				Model(&models.ConfigChange{}).
-				Joins("LEFT JOIN config_items ON config_changes.config_id = config_items.id").
+	if slices.Contains([]string{"3d", "7d", "30d"}, req.Changes.Since) {
+		tableName := fmt.Sprintf("config_item_summary_%s", req.Changes.Since)
+		changesAnalysisGrouped := exclause.NewWith(
+			"changes_analysis_grouped",
+			ctx.DB().Select(req.baseSelectClause(fmt.Sprintf("SUM(%s.config_changes_count) AS total_changes, COALESCE(kv_pair.key, '') AS key, SUM((kv_pair.value::int)) AS value_sum", tableName))).
+				Table(tableName).
+				Joins(fmt.Sprintf("LEFT JOIN config_items ON %s.config_id = config_items.id", tableName)).
+				Joins(fmt.Sprintf("LEFT JOIN jsonb_each_text(%s.config_analysis_type_counts) AS kv_pair(key, value) ON %s.config_analysis_type_counts IS NOT NULL", tableName, tableName)).
 				Where(req.configDeleteClause()).
+				Where("kv_pair.key IS NOT NULL AND kv_pair.key <> ''").
 				Where(req.filterClause(ctx.DB())).
-				Where("NOW() - config_changes.created_at <= ?", req.Changes.sinceParsed).
-				Group(groupBy),
+				Group(groupBy).Group("kv_pair.key"),
 		)
 
-		summaryQuery = summaryQuery.Joins(req.changesJoin()).Group("changes_grouped.count")
-		withClauses = append(withClauses, changesGrouped)
-	}
+		aggregatedAnalysis := exclause.NewWith(
+			"aggregated_analysis",
+			ctx.DB().Select(req.plainSelectClause("COALESCE(jsonb_object_agg(key, value_sum), '{}'::jsonb) AS total_analysis")).
+				Table("changes_analysis_grouped").
+				Group(plainGroupBy),
+		)
 
-	if req.Analysis.Since != "" {
+		withClauses = append(withClauses, changesAnalysisGrouped, aggregatedAnalysis)
+		summaryQuery = summaryQuery.
+			Joins(req.changesAnalysisJoin()).
+			Joins(fmt.Sprintf("LEFT JOIN %s ON %s.config_id = config_items.id", tableName, tableName)).
+			Group("aggregated_analysis.total_analysis")
+
+	} else {
+		if req.Changes.Since != "" {
+			changesGrouped := exclause.NewWith(
+				"changes_grouped",
+				ctx.DB().Select(req.baseSelectClause("COUNT(*) AS count")).
+					Model(&models.ConfigChange{}).
+					Joins("LEFT JOIN config_items ON config_changes.config_id = config_items.id").
+					Where(req.configDeleteClause()).
+					Where(req.filterClause(ctx.DB())).
+					Where("NOW() - config_changes.created_at <= ?", req.Changes.sinceParsed).
+					Group(groupBy),
+			)
+
+			summaryQuery = summaryQuery.Joins(req.changesJoin()).Group("changes_grouped.count")
+			withClauses = append(withClauses, changesGrouped)
+		}
+
 		analysisGrouped := exclause.NewWith(
 			"analysis_grouped",
 			ctx.DB().Select(req.baseSelectClause("config_analysis.analysis_type", "COUNT(*) AS count")).
@@ -290,7 +356,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 				Joins("LEFT JOIN config_items ON config_analysis.config_id = config_items.id").
 				Where(req.configDeleteClause()).
 				Where(req.filterClause(ctx.DB())).
-				Where("NOW() - config_analysis.last_observed <= ?", req.Analysis.sinceParsed).
+				Where("config_analysis.status = ?", models.AnalysisStatusOpen).
 				Group(groupBy).Group("config_analysis.analysis_type"),
 		)
 
@@ -298,7 +364,7 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 			"aggregated_analysis_count",
 			ctx.DB().Select(req.plainSelectClause("json_object_agg(analysis_type, count)::jsonb AS analysis")).
 				Table("analysis_grouped").
-				Group(strings.Join(req.GroupBy, ",")),
+				Group(plainGroupBy),
 		)
 
 		summaryQuery = summaryQuery.Joins(req.analysisJoin()).Group("aggregated_analysis_count.analysis")
@@ -333,8 +399,22 @@ func GetConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem,
 	return configs, nil
 }
 
+func GetConfigItemSummaryByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItemSummary, error) {
+	var configs []models.ConfigItemSummary
+	for i := range ids {
+		config, err := ConfigItemSummaryFromCache(ctx, ids[i].String())
+		if err != nil {
+			return nil, err
+		}
+
+		configs = append(configs, config)
+	}
+
+	return configs, nil
+}
+
 func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigItem, error) {
-	res, err := FindConfigsByResourceSelector(ctx, query.ToResourceSelector())
+	res, err := FindConfigsByResourceSelector(ctx, -1, query.ToResourceSelector())
 	if err != nil {
 		return nil, err
 	}
@@ -346,16 +426,16 @@ func FindConfig(ctx context.Context, query types.ConfigQuery) (*models.ConfigIte
 	return &res[0], nil
 }
 
-func FindConfigs(ctx context.Context, config types.ConfigQuery) ([]models.ConfigItem, error) {
-	return FindConfigsByResourceSelector(ctx, config.ToResourceSelector())
+func FindConfigs(ctx context.Context, limit int, config types.ConfigQuery) ([]models.ConfigItem, error) {
+	return FindConfigsByResourceSelector(ctx, limit, config.ToResourceSelector())
 }
 
-func FindConfigIDs(ctx context.Context, config types.ConfigQuery) ([]uuid.UUID, error) {
-	return FindConfigIDsByResourceSelector(ctx, config.ToResourceSelector())
+func FindConfigIDs(ctx context.Context, limit int, config types.ConfigQuery) ([]uuid.UUID, error) {
+	return FindConfigIDsByResourceSelector(ctx, limit, config.ToResourceSelector())
 }
 
-func FindConfigsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItem, error) {
-	items, err := FindConfigIDsByResourceSelector(ctx, resourceSelectors...)
+func FindConfigsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItem, error) {
+	items, err := FindConfigIDsByResourceSelector(ctx, limit, resourceSelectors...)
 	if err != nil {
 		return nil, err
 	}
@@ -363,19 +443,21 @@ func FindConfigsByResourceSelector(ctx context.Context, resourceSelectors ...typ
 	return GetConfigsByIDs(ctx, items)
 }
 
-func FindConfigIDsByResourceSelector(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	var allConfigs []uuid.UUID
-
-	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "config_items", models.AllowedColumnFieldsInConfigs)
-		if err != nil {
-			return nil, err
-		}
-
-		allConfigs = append(allConfigs, items...)
+func FindConfigItemSummaryByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.ConfigItemSummary, error) {
+	items, err := FindConfigIDsByResourceSelector(ctx, limit, resourceSelectors...)
+	if err != nil {
+		return nil, err
 	}
 
-	return allConfigs, nil
+	return GetConfigItemSummaryByIDs(ctx, items)
+}
+
+func FindConfigItemSummaryIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, models.ConfigItemSummary{}.TableName(), limit, resourceSelectors...)
+}
+
+func FindConfigIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, "config_items", limit, resourceSelectors...)
 }
 
 func FindConfigForComponent(ctx context.Context, componentID, configType string) ([]models.ConfigItem, error) {
@@ -390,4 +472,46 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	var dbConfigObjects []models.ConfigItem
 	err := query.Find(&dbConfigObjects).Error
 	return dbConfigObjects, err
+}
+
+func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+	var children []uuid.UUID
+	if err := ctx.DB().Raw(`SELECT id FROM get_children_id_by_location(?, ?)`, configID, prefix).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+func FindConfigParentIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
+	var parents []uuid.UUID
+	if err := ctx.DB().Raw(`SELECT id FROM get_parent_ids_by_location(?, ?)`, configID, prefix).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
+}
+
+type ConfigMinimal struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Type string    `json:"type"`
+}
+
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var children []ConfigMinimal
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+func FindConfigParentsByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
+	var parents []ConfigMinimal
+	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_parents_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&parents).Error; err != nil {
+		return nil, err
+	}
+
+	return parents, nil
 }

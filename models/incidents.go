@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type IncidentType string
@@ -47,7 +49,48 @@ type Incident struct {
 	CommunicatorID *uuid.UUID     `json:"communicator_id,omitempty"`
 }
 
+func (i Incident) TableName() string {
+	return "incidents"
+}
+
+func (i Incident) PK() string {
+	return i.ID.String()
+}
+
+func DeleteAllIncidents(db *gorm.DB, incidents ...Incident) error {
+	ids := lo.Map(incidents, func(i Incident, _ int) string {
+		return i.ID.String()
+	})
+
+	if err := db.Exec(`DELETE FROM incident_histories where incident_id in (?)`, ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM evidences where hypothesis_id in (select id from hypotheses where incident_id in (?) )", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM hypotheses where incident_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM comments where incident_id in (?)", ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM incident_relationships where incident_id in (?) or related_id in (?)", ids, ids).Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM comment_responders where responder_id in (select id from responders where incident_id in (?))", ids).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec("DELETE FROM responders where incident_id in (?)", ids).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec("DELETE FROM incidents where id in (?)", ids).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (i Incident) AsMap(removeFields ...string) map[string]any {
 	return asMap(i, removeFields...)
-
 }

@@ -3,6 +3,8 @@ package models
 import (
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/google/uuid"
 )
 
@@ -13,6 +15,21 @@ const (
 	IntegrationTypeLoggingBackends IntegrationType = "logging_backends"
 	IntegrationTypeTopology        IntegrationType = "topology"
 )
+
+func (i IntegrationType) Pretty() api.Text {
+	var icon, style string
+	switch i {
+	case IntegrationTypeScraper:
+		icon, style = "🔄", "text-blue-700"
+	case IntegrationTypeLoggingBackends:
+		icon, style = "📝", "text-purple-700"
+	case IntegrationTypeTopology:
+		icon, style = "🗺️", "text-green-700"
+	default:
+		icon, style = "🔗", "text-gray-600"
+	}
+	return clicky.Text(icon+" ", style).Append(string(i), "capitalize "+style)
+}
 
 type Integration struct {
 	ID           uuid.UUID       `json:"id"`
@@ -36,6 +53,10 @@ type Integration struct {
 	JobTimeStart time.Time       `json:"job_time_start"`
 	JobTimeEnd   time.Time       `json:"job_time_end"`
 	JobCreatedAt time.Time       `json:"job_created_at"`
+}
+
+func (i Integration) PK() string {
+	return i.ID.String()
 }
 
 func (t *Integration) TableName() string {

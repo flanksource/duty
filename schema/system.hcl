@@ -17,9 +17,18 @@ table "access_tokens" {
     null = false
     type = text
   }
+  column "auto_renew" {
+    null = false
+    type = boolean
+    default = true
+  }
   column "created_at" {
     null = false
     type = timestamptz
+  }
+  column "created_by" {
+    null = true
+    type = uuid
   }
   column "expires_at" {
     null = true # We can have never expiring tokens
@@ -32,11 +41,20 @@ table "access_tokens" {
     unique  = true
     columns = [column.person_id, column.name]
   }
+  index "access_tokens_value_idx" {
+    columns = [column.value]
+  }
   foreign_key "access_tokens_person_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "access_tokens_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }
 
@@ -58,6 +76,11 @@ table "event_queue" {
   column "error" {
     null = true
     type = text
+  }
+  column "delay" {
+    null    = true
+    type    = bigint
+    comment = "wait for this duration (nanoseconds) before consuming"
   }
   column "created_at" {
     null    = false
@@ -90,7 +113,7 @@ table "event_queue" {
     columns = [column.properties]
   }
   index "event_queue_pop" {
-    columns = [column.name, column.attempts, column.last_attempt, column.priority, column.created_at]
+    columns = [column.name, column.delay, column.attempts, column.last_attempt, column.priority, column.created_at]
   }
 }
 
@@ -144,10 +167,17 @@ table "integrations" {
 
 table "job_history" {
   schema = schema.public
+  unlogged = true
+
   column "id" {
     null    = false
     type    = uuid
     default = sql("generate_ulid()")
+  }
+  column "agent_id" {
+    null    = false
+    default = var.uuid_nil
+    type    = uuid
   }
   column "name" {
     null = true
@@ -198,7 +228,22 @@ table "job_history" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+  }
   primary_key {
     columns = [column.id]
+  }
+  index "job_history_is_pushed_idx" {
+    columns = [column.is_pushed]
+    where   = "is_pushed IS FALSE AND status in ('FAILED', 'WARNING')"
+  }
+  index "job_history_resource_id_idx" {
+    columns = [column.resource_id]
+  }
+  index "job_history_status_idx" {
+    columns = [column.status]
   }
 }

@@ -38,8 +38,9 @@ table "config_analysis" {
     type = text
   }
   column "status" {
-    null = true
-    type = text
+    null    = true
+    type    = text
+    default = "open"
   }
   column "message" {
     null = true
@@ -82,6 +83,21 @@ table "config_analysis" {
   index "config_analysis_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+
+  index "config_analysis_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "config_analysis_config_id_status_open_idx" {
+    columns = [column.config_id]
+    where   = "status = 'open'"
+  }
+  index "config_analysis_last_observed_idx" {
+    type    = BRIN
+    columns = [column.last_observed]
+  }
+  index "config_analysis_scraper_id_idx" {
+    columns = [column.scraper_id]
   }
 }
 
@@ -141,12 +157,36 @@ table "config_changes" {
     type    = timestamptz
     default = sql("now()")
   }
+
+  column "count" {
+    null    = false
+    default = 1
+    type    = int
+  }
+
+  column "fingerprint" {
+    null = true
+    type = text
+  }
+
+  column "first_observed" {
+    null    = false
+    default = sql("now()")
+    type    = timestamptz
+  }
+
   column "is_pushed" {
     null    = false
     default = false
     type    = bool
     comment = "is_pushed when set to true indicates that the config changes has been pushed to upstream."
   }
+  column "inserted_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
   primary_key {
     columns = [column.id]
   }
@@ -156,6 +196,7 @@ table "config_changes" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+
   index "config_changes_created_at_brin_idx" {
     type    = BRIN
     columns = [column.created_at]
@@ -163,6 +204,18 @@ table "config_changes" {
   index "config_changes_config_id_external_change_id_key" {
     unique  = true
     columns = [column.config_id, column.external_change_id]
+  }
+  index "config_changes_change_type_idx" {
+    columns = [column.change_type]
+  }
+  index "config_changes_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "config_changes_config_id_change_type_idx" {
+    columns = [column.config_id, column.change_type]
+  }
+  index "config_changes_fingerprint_created_at_idx" {
+    columns = [column.fingerprint, column.created_at]
   }
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]
@@ -211,7 +264,7 @@ table "config_items" {
     type = sql("text[]")
   }
   column "type" {
-    null = true
+    null = false
     type = text
   }
   column "cost_per_minute" {
@@ -255,6 +308,18 @@ table "config_items" {
     type    = jsonb
     comment = "contains a list of tags"
   }
+  column "tags_values" {
+    null    = true
+    type    = jsonb
+    comment = "derived from the tags column to enhance search performance for unkeyed tag values"
+    as {
+      # without the ::jsonpath type casting
+      # we get this error from Atlas: failed to compute diff: failed to diff realms:
+      # changing the generation expression for a column "tags_values" is not supported
+      expr = "(jsonb_path_query_array(tags, '$[*].*'::jsonpath))"
+      type = STORED
+    }
+  }
   column "properties" {
     null = true
     type = jsonb
@@ -276,10 +341,6 @@ table "config_items" {
     null = true
     type = uuid
   }
-  column "last_scraped_time" {
-    null = true
-    type = timestamptz
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -297,6 +358,11 @@ table "config_items" {
   column "delete_reason" {
     null = true
     type = text
+  }
+  column "inserted_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
   }
   primary_key {
     columns = [column.id]
@@ -321,12 +387,15 @@ table "config_items" {
   }
   index "config_items_path_is_pushed_idx" {
     on {
-       expr = "length(path)"
+      expr = "length(path)"
     }
-    where   = "is_pushed IS FALSE"
+    where = "is_pushed IS FALSE"
   }
   index "idx_config_items_scraper_id" {
     columns = [column.scraper_id]
+  }
+  index "idx_config_items_parent_id" {
+    columns = [column.parent_id]
   }
   index "idx_config_items_external_id" {
     columns = [column.external_id]
@@ -339,9 +408,64 @@ table "config_items" {
     columns = [column.tags]
     type    = GIN
   }
+  index "idx_config_items_tags_values" {
+    columns = [column.tags_values]
+    type    = GIN
+  }
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
+  index "idx_config_items_scraper_id_deleted_at_null" {
+    columns = [column.scraper_id]
+    where   = "deleted_at IS NULL"
+  }
+  index "idx_config_items_path" {
+    columns = [column.path]
+  }
+  check "config_item_name_type_not_empty" {
+    expr = "LENGTH(name) > 0 AND LENGTH(type) > 0"
+  }
+}
+
+table "config_items_last_scraped_time" {
+  schema = schema.public
+  unlogged = true
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "last_scraped_time" {
+    null = false
+    type = timestamptz
+    default = sql("now()")
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  primary_key {
+    columns = [column.config_id]
+  }
+  foreign_key "config_items_last_scraped_at_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+
 }
 
 table "config_relationships" {
@@ -485,6 +609,10 @@ table "config_scrapers" {
   column "name" {
     type = text
   }
+  column "namespace" {
+    null = true
+    type = text
+  }
   column "spec" {
     null = false
     type = jsonb
@@ -492,6 +620,11 @@ table "config_scrapers" {
   column "source" {
     null = false
     type = enum.source
+  }
+  column "application_id" {
+    null    = true
+    type    = uuid
+    comment = "application that generated this scraper"
   }
   column "created_by" {
     null = true
@@ -523,6 +656,12 @@ table "config_scrapers" {
   primary_key {
     columns = [column.id]
   }
+  foreign_key "config_scrapers_application_id_fkey" {
+    columns     = [column.application_id]
+    ref_columns = [table.applications.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
+  }
   foreign_key "config_scrapers_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
@@ -538,5 +677,56 @@ table "config_scrapers" {
   index "config_scrapers_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+}
+
+table "scrape_plugins" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "name" {
+    type = text
+  }
+  column "namespace" {
+    null = true
+    type = text
+  }
+  column "spec" {
+    null = false
+    type = jsonb
+  }
+  column "source" {
+    null = false
+    type = enum.source
+  }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = true
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "config_scraper_plugins_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 }

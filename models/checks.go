@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/flanksource/duty/types"
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/flanksource/duty/types"
 )
 
 type CheckHealthStatus string
@@ -20,10 +23,27 @@ const (
 	CheckStatusUnhealthy = "unhealthy"
 )
 
+func (c CheckHealthStatus) Pretty() api.Text {
+	switch c {
+	case CheckStatusHealthy:
+		return clicky.Text("✓ ", "text-green-600").Append(string(c), "capitalize text-green-600")
+	case CheckStatusUnhealthy:
+		return clicky.Text("✗ ", "text-red-600").Append(string(c), "capitalize text-red-600")
+	default:
+		return clicky.Text(string(c), "text-gray-500")
+	}
+}
+
 var CheckHealthStatuses = []CheckHealthStatus{
 	CheckStatusHealthy,
 	CheckStatusUnhealthy,
 }
+
+// Ensure interface compliance
+var (
+	_ types.ResourceSelectable = Check{}
+	_ LabelableModel           = Check{}
+)
 
 type Check struct {
 	ID                 uuid.UUID           `json:"id" gorm:"default:generate_ulid()"`
@@ -40,8 +60,6 @@ type Check struct {
 	Severity           Severity            `json:"severity,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Transformed        bool                `json:"transformed,omitempty"`
-	LastRuntime        *time.Time          `json:"last_runtime,omitempty"`
-	NextRuntime        *time.Time          `json:"next_runtime,omitempty"`
 	LastTransitionTime *time.Time          `json:"last_transition_time,omitempty"`
 	CreatedAt          *time.Time          `json:"created_at,omitempty" gorm:"<-:create"`
 	UpdatedAt          *time.Time          `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -60,6 +78,56 @@ type Check struct {
 	EarliestRuntime *time.Time `json:"earliestRuntime,omitempty" gorm:"-"`
 	LatestRuntime   *time.Time `json:"latestRuntime,omitempty" gorm:"-"`
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
+}
+
+func (c Check) Pretty() api.Text {
+	t := c.Status.Pretty().AddText(" ")
+	t = t.AddText(c.Name, "font-bold")
+
+	if c.Type != "" {
+		t = t.AddText(" ").Add(clicky.Text(c.Type, "text-xs text-cyan-600 bg-cyan-50"))
+	}
+
+	if c.Severity != "" {
+		t = t.AddText(" ")
+		t = t.Add(c.Severity.Pretty())
+	}
+
+	if c.Namespace != "" {
+		t = t.AddText(" 📦 ", "text-gray-500").AddText(c.Namespace, "text-sm text-gray-600")
+	}
+
+	if c.Description != "" {
+		t = t.NewLine().AddText("  "+c.Description, "text-sm text-gray-600")
+	}
+
+	return t
+}
+
+func (c Check) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"name":   clicky.Text(c.Name, "font-bold"),
+		"type":   clicky.Text(c.Type, "text-cyan-600"),
+		"status": c.Status.Pretty(),
+	}
+
+	if c.Severity != "" {
+		row["severity"] = c.Severity.Pretty()
+	}
+
+	if c.Namespace != "" {
+		row["namespace"] = clicky.Text(c.Namespace, "text-blue-600")
+	}
+
+	// if c.LastRuntime != nil {
+	// 	row["last_run"] = api.Human(time.Since(*c.LastRuntime), "text-gray-600")
+	// }
+
+	if c.CreatedAt != nil {
+		row["age"] = api.Human(time.Since(*c.CreatedAt), "text-gray-600")
+	}
+
+	return row
 }
 
 func (t Check) Value() any {
@@ -92,6 +160,14 @@ func (c Check) TableName() string {
 	return "checks"
 }
 
+func (t Check) GetLabels() map[string]string {
+	return t.Labels
+}
+
+func (t Check) GetTrimmedLabels() []Label {
+	return sortedTrimmedLabels(defaultLabelsWhitelist, defaultLabelsOrder, nil, t.Labels)
+}
+
 func (c Check) ToString() string {
 	return fmt.Sprintf("%s-%s-%s", c.Name, c.Type, c.Description)
 }
@@ -120,8 +196,27 @@ func (c Check) GetType() string {
 	return c.Type
 }
 
-func (c Check) GetStatus() string {
-	return string(c.Status)
+func (c Check) GetAgentID() string {
+	if c.AgentID == uuid.Nil {
+		return ""
+	}
+	return c.AgentID.String()
+}
+
+func (c Check) GetStatus() (string, error) {
+	return string(c.Status), nil
+}
+
+func (c Check) GetHealthDescription() string {
+	return c.Description
+}
+
+func (c Check) GetHealth() (string, error) {
+	if c.Status == CheckStatusHealthy {
+		return string(HealthHealthy), nil
+	}
+
+	return string(HealthUnhealthy), nil
 }
 
 func (c Check) GetLabelsMatcher() labels.Labels {
@@ -129,7 +224,7 @@ func (c Check) GetLabelsMatcher() labels.Labels {
 }
 
 func (c Check) GetFieldsMatcher() fields.Fields {
-	return checkFieldsProvider{c}
+	return types.GenericFieldMatcher{Fields: c.AsMap()}
 }
 
 type checkLabelsProvider struct {
@@ -145,16 +240,9 @@ func (c checkLabelsProvider) Has(key string) bool {
 	return ok
 }
 
-type checkFieldsProvider struct {
-	Check
-}
-
-func (c checkFieldsProvider) Get(key string) string {
-	return ""
-}
-
-func (c checkFieldsProvider) Has(key string) bool {
-	return false // field selector not applicalbe for checks
+func (c checkLabelsProvider) Lookup(key string) (string, bool) {
+	value, ok := c.Labels[key]
+	return value, ok
 }
 
 type Checks []*Check
@@ -180,6 +268,49 @@ func (c Checks) Find(key string) *Check {
 	return nil
 }
 
+type ChecksUnlogged struct {
+	CheckID     uuid.UUID  `json:"check_id" gorm:"primaryKey"`
+	CanaryID    uuid.UUID  `json:"canary_id"`
+	Status      string     `json:"status"`
+	LastRuntime *time.Time `json:"last_runtime,omitempty"`
+	NextRuntime *time.Time `json:"next_runtime,omitempty"`
+}
+
+func (ChecksUnlogged) TableName() string {
+	return "checks_unlogged"
+}
+
+func (ChecksUnlogged) PK() string {
+	return "check_id"
+}
+
+func (ChecksUnlogged) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
+	var items []ChecksUnlogged
+	err := db.Select("checks_unlogged.*").
+		Joins("LEFT JOIN checks ON checks_unlogged.check_id = checks.id").
+		Where("checks.agent_id = ?", uuid.Nil).
+		Where("checks_unlogged.is_pushed IS FALSE").
+		Find(&items).Error
+	return lo.Map(items, func(i ChecksUnlogged, _ int) DBTable { return i }), err
+}
+
+func (ChecksUnlogged) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
+	ids := lo.Map(items, func(a DBTable, _ int) []string {
+		c := any(a).(ChecksUnlogged)
+		return []string{c.CheckID.String()}
+	})
+
+	return db.Model(&ChecksUnlogged{}).Where("check_id IN ?", ids).Update("is_pushed", true).Error
+}
+
+func (ChecksUnlogged) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
+	parentIDs := lo.Map(items, func(item DBTable, _ int) string {
+		return item.(ChecksUnlogged).CheckID.String()
+	})
+
+	return db.Model(&Check{}).Where("id IN ?", parentIDs).Update("is_pushed", false).Error
+}
+
 type CheckStatus struct {
 	CheckID   uuid.UUID `json:"check_id" gorm:"primaryKey"`
 	Status    bool      `json:"status"`
@@ -192,6 +323,72 @@ type CheckStatus struct {
 	CreatedAt time.Time `json:"created_at,omitempty" gorm:"<-:create"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
+}
+
+func (c CheckStatus) Pretty() api.Text {
+	var icon, style string
+	if c.Status {
+		icon, style = "✓", "text-green-600"
+	} else {
+		icon, style = "✗", "text-red-600"
+	}
+
+	t := clicky.Text(icon+" ", style)
+
+	if c.Invalid {
+		t = t.AddText("Invalid", "font-bold text-orange-600")
+	} else if c.Status {
+		t = t.AddText("Passed", "font-bold text-green-600")
+	} else {
+		t = t.AddText("Failed", "font-bold text-red-600")
+	}
+
+	if c.Duration > 0 {
+		duration := time.Duration(c.Duration) * time.Millisecond
+		t = t.AddText(" • ", "text-gray-400")
+		t = t.Add(api.Human(duration, "text-gray-600"))
+	}
+
+	if c.Message != "" {
+		t = t.NewLine().AddText("  "+c.Message, "text-sm text-gray-600")
+	}
+
+	if c.Error != "" {
+		t = t.NewLine().AddText("  "+c.Error, "text-sm text-red-600")
+	}
+
+	return t
+}
+
+func (c CheckStatus) PrettyRow(opts interface{}) map[string]api.Text {
+	row := map[string]api.Text{
+		"time": clicky.Text(c.Time, "font-mono text-xs text-gray-600"),
+	}
+
+	if c.Status {
+		row["status"] = clicky.Text("✓ Passed", "text-green-600")
+	} else {
+		row["status"] = clicky.Text("✗ Failed", "text-red-600")
+	}
+
+	if c.Invalid {
+		row["status"] = clicky.Text("! Invalid", "text-orange-600")
+	}
+
+	if c.Duration > 0 {
+		duration := time.Duration(c.Duration) * time.Millisecond
+		row["duration"] = api.Human(duration, "text-gray-600")
+	}
+
+	if c.Message != "" {
+		row["message"] = clicky.Text(c.Message, "text-gray-700")
+	}
+
+	if c.Error != "" {
+		row["error"] = clicky.Text(c.Error, "text-red-600 text-sm")
+	}
+
+	return row
 }
 
 func (t CheckStatus) Value() any {

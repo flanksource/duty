@@ -17,11 +17,19 @@ var (
 	getterCache = cache.New(time.Second*90, time.Minute*5)
 
 	immutableCache = cache.New(cache.NoExpiration, time.Hour*12)
+
+	scopeCache = cache.New(time.Hour, time.Hour*2)
 )
 
 func FlushGettersCache() {
 	getterCache.Flush()
 	immutableCache.Flush()
+}
+
+// InvalidateCacheByID deletes a single item from the getters cache
+func InvalidateCacheByID[T any](id string) {
+	key := cacheKey[T]("id", id)
+	getterCache.Delete(key)
 }
 
 type GetterOption uint8
@@ -167,6 +175,22 @@ func FindTeam(ctx context.Context, identifier string, opts ...GetterOption) (*mo
 	}
 
 	team, err := findEntityByField[models.Team](ctx, field, identifier, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return team, nil
+}
+
+func FindPlaybook(ctx context.Context, identifier string, opts ...GetterOption) (*models.Playbook, error) {
+	var field string
+	if _, err := uuid.Parse(identifier); err == nil {
+		field = "id"
+	} else {
+		field = "name"
+	}
+
+	team, err := findEntityByField[models.Playbook](ctx, field, identifier, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,11 @@ package dummy
 import (
 	"fmt"
 
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 var Logistics = models.Component{
@@ -18,6 +19,7 @@ var Logistics = models.Component{
 	Owner:      "logistics-team",
 	CreatedAt:  DummyCreatedAt,
 	Status:     types.ComponentStatusHealthy,
+	Health:     lo.ToPtr(models.HealthHealthy),
 }
 
 var LogisticsAPI = models.Component{
@@ -133,10 +135,10 @@ var PodsComponent = models.Component{
 
 var LogisticsAPIPod = models.Component{
 	ID:         uuid.MustParse("018681ff-80ed-d10d-21ef-c74f152b085b"),
-	Name:       "logistics-api-574dc95b5d-mp64w",
+	Name:       "logistics-api-7df4c7f6b7-x9k2m",
 	Icon:       "icon-kubernetes-pod",
 	Tooltip:    "Logistic API Pod",
-	ExternalId: "dummy/logistics-api-574dc95b5d-mp64w",
+	ExternalId: "dummy/logistics-api-7df4c7f6b7-x9k2m",
 	Type:       "KubernetesPod",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
@@ -147,11 +149,11 @@ var LogisticsAPIPod = models.Component{
 
 var LogisticsUIPod = models.Component{
 	ID:         uuid.MustParse("018681ff-b6c1-a14d-2fd4-8c7dac94cddd"),
-	Name:       "logistics-ui-676b85b87c-tjjcp",
+	Name:       "logistics-ui-6c8f9b4d5e-m7n8p",
 	Icon:       "icon-kubernetes-pod",
 	Tooltip:    "Logistic UI Pod",
 	Type:       "KubernetesPod",
-	ExternalId: "dummy/logistics-ui-676b85b87c-tjjcp",
+	ExternalId: "dummy/logistics-ui-6c8f9b4d5e-m7n8p",
 	Status:     types.ComponentStatusHealthy,
 	ParentId:   &PodsComponent.ID,
 	CreatedAt:  DummyCreatedAt,
@@ -188,7 +190,7 @@ var FluxComponent = models.Component{
 	Name:       "flux",
 	ExternalId: "dummy/flux",
 	Type:       "Flux",
-	CreatedAt:  DummyCreatedAt,
+	CreatedAt:  DummyCreatedAtPlus3Years,
 	Labels:     types.JSONStringMap{"fluxcd.io/name": "flux"},
 	Status:     types.ComponentStatusHealthy,
 }

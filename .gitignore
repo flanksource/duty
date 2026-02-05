@@ -2,3 +2,16 @@
 *.out.json
 ginkgo.report
 .vscode
+nohup.out
+*.test
+.aider*
+.creds/
+.cursor/
+.db/
+__debug_bin*
+
+# This is where shell tests clone the checkout repository
+exec-checkout/
+shell-bin-dir
+ginkgo-report-*
+.ginkgo

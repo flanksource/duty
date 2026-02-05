@@ -1,7 +1,116 @@
+-- dependsOn: functions/drop.sql
+
 -- Add cascade drops first to make sure all functions and views are always recreated
 DROP VIEW IF EXISTS configs CASCADE;
 
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS
+  config_item_summary_3d AS
+WITH type_counts AS (
+    SELECT
+        ca.config_id,
+        ca.analysis_type,
+        COUNT(*) AS type_count
+    FROM
+        config_analysis ca
+    WHERE
+        ca.status = 'open'
+    GROUP BY
+        ca.config_id, ca.analysis_type
+)
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM
+    config_items ci
+LEFT JOIN
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '3 days'
+GROUP BY
+    ci.id, ci.name;
+
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_3d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_3d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS  config_item_summary_7d AS
+WITH type_counts AS (
+    SELECT
+        ca.config_id,
+        ca.analysis_type,
+        COUNT(*) AS type_count
+    FROM
+        config_analysis ca
+    WHERE
+        ca.status = 'open'
+    GROUP BY
+        ca.config_id, ca.analysis_type
+)
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM
+    config_items ci
+LEFT JOIN
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '7 days'
+GROUP BY
+    ci.id, ci.name;
+
+
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_7d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_7d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS config_item_summary_30d AS
+WITH type_counts AS (
+    SELECT
+        ca.config_id,
+        ca.analysis_type,
+        COUNT(*) AS type_count
+    FROM
+        config_analysis ca
+    WHERE
+        ca.status = 'open'
+    GROUP BY
+        ca.config_id, ca.analysis_type
+)
+SELECT
+    ci.id AS config_id,
+    COUNT(cc.config_id) AS config_changes_count,
+    COALESCE(
+        (SELECT jsonb_object_agg(tc.analysis_type, tc.type_count)
+         FROM type_counts tc
+         WHERE tc.config_id = ci.id), '{}'::jsonb
+    ) AS config_analysis_type_counts
+FROM
+    config_items ci
+LEFT JOIN
+    config_changes cc ON ci.id = cc.config_id AND cc.created_at >= NOW() - INTERVAL '30 days'
+GROUP BY
+    ci.id, ci.name;
+
+
+
+CREATE OR REPLACE FUNCTION refresh_config_item_summary_30d() RETURNS VOID AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW  config_item_summary_30d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE or REPLACE VIEW configs AS
   SELECT
@@ -16,6 +125,9 @@ CREATE or REPLACE VIEW configs AS
     ci.source,
     ci.labels,
     ci.tags,
+    ci.tags_values,
+    ci.properties,
+    ci.properties_values,
     ci.created_by,
     ci.created_at,
     ci.updated_at,
@@ -28,23 +140,11 @@ CREATE or REPLACE VIEW configs AS
     ci.status,
     ci.health,
     ci.ready,
-    analysis,
-    changes
-  FROM config_items as ci
-    full join (
-      SELECT config_id,
-        json_agg(json_build_object('analyzer',analyzer,'analysis_type',analysis_type,'severity',severity)) as analysis
-      FROM config_analysis
-      WHERE config_analysis.status = 'open'
-      GROUP BY  config_id
-    ) as ca on ca.config_id = ci.id
-    full join (
-      SELECT config_id,
-        json_agg(total) as changes
-      FROM
-      (SELECT config_id,json_build_object('change_type',change_type, 'severity', severity, 'total', count(*)) as total FROM config_changes GROUP BY config_id, change_type, severity) as config_change_types
-      GROUP BY  config_id
-    ) as cc on cc.config_id = ci.id;
+    ci.path,
+    config_item_summary_7d.config_changes_count AS changes,
+    config_item_summary_7d.config_analysis_type_counts AS analysis
+  FROM config_items AS ci
+  LEFT JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id;
 
 
 DROP VIEW IF EXISTS config_names;
@@ -172,13 +272,22 @@ ORDER BY
 DROP VIEW IF EXISTS config_tags;
 CREATE OR REPLACE VIEW config_tags AS
   SELECT d.key, d.value
-  FROM configs JOIN json_each_text(tags::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+  FROM config_items w JOIN json_each_text(tags::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
+
 
 -- config_labels
 DROP VIEW IF EXISTS config_labels;
 CREATE OR REPLACE VIEW config_labels AS
   SELECT d.key, d.value
-  FROM configs JOIN json_each_text(labels::json) d ON true GROUP BY d.key, d.value ORDER BY key, value;
+  FROM config_items w JOIN json_each_text(labels::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
+
+
+-- config_tags_labels_keys
+DROP VIEW IF EXISTS config_tags_labels_keys;
+CREATE OR REPLACE VIEW config_tags_labels_keys AS
+  SELECT DISTINCT 'tag:' || jsonb_object_keys(tags) AS "key" FROM config_items
+  UNION
+  SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM config_items;
 
 -- config_type_summary
 DROP VIEW IF EXISTS config_summary;
@@ -353,9 +462,10 @@ BEGIN
         WHEN TG_OP = 'INSERT' THEN
           event_name := 'config.created';
         WHEN TG_OP = 'UPDATE' THEN
-          event_name := 'config.updated';
           IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
             event_name := 'config.deleted';
+          ELSE
+            RETURN NEW;
           END IF;
         ELSE
           RAISE EXCEPTION 'Unexpected operation in trigger: %', TG_OP;
@@ -377,6 +487,33 @@ AFTER INSERT OR UPDATE ON config_items
 FOR EACH ROW
   EXECUTE FUNCTION insert_config_create_update_delete_in_event_queue();
 
+---
+CREATE OR REPLACE FUNCTION insert_config_changes_updates_in_event_queue()
+RETURNS TRIGGER AS
+$$
+DECLARE
+  event_name TEXT := 'config.changed';
+BEGIN
+  IF NEW.change_type = 'diff' THEN
+    event_name := 'config.updated';
+  END IF;
+
+  INSERT INTO event_queue(name, properties)
+  VALUES (event_name, jsonb_build_object('id', NEW.config_id, 'change_id', NEW.id))
+  ON CONFLICT (name, properties) DO UPDATE
+  SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+
+  RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_change_create_update_trigger
+AFTER INSERT OR UPDATE ON config_changes
+FOR EACH ROW
+  EXECUTE FUNCTION insert_config_changes_updates_in_event_queue();
+---
+
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
     ca.*,
@@ -385,15 +522,7 @@ CREATE OR REPLACE VIEW config_analysis_items AS
   FROM config_analysis as ca
     LEFT JOIN config_items as ci ON ca.config_id = ci.id;
 
-CREATE OR REPLACE VIEW config_changes_items AS
-  SELECT
-    cc.*,
-    ci.type as config_type,
-    ci.config_class
-  FROM config_changes as cc
-    LEFT JOIN config_items as ci ON cc.config_id = ci.id;
-
-
+-- related_config_ids_recursive---
 DROP FUNCTION IF EXISTS related_config_ids_recursive;
 
 CREATE OR REPLACE FUNCTION related_config_ids_recursive (
@@ -402,68 +531,145 @@ CREATE OR REPLACE FUNCTION related_config_ids_recursive (
   max_depth INT DEFAULT 5,
   incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
   outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
-) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
+) RETURNS TABLE (id UUID, direction TEXT, depth INT) AS $$
 BEGIN
 
-IF type_filter NOT IN ('incoming', 'outgoing', 'all') THEN
-  RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
-END IF;
+RETURN query
+  WITH edges as (
+    SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
+  ), all_ids AS (
+    SELECT edges.id, edges.depth, edges.direction FROM edges
+    UNION
+    SELECT edges.related_id as id, edges.depth, edges.direction FROM edges
+  ) SELECT all_ids.id, all_ids.direction, MIN(all_ids.depth) depth FROM all_ids
+    GROUP BY all_ids.id, all_ids.direction
+    ORDER BY depth;
+  END;
+
+$$ LANGUAGE plpgsql;
+
+-- config_relationships_recursive --
+DROP FUNCTION IF EXISTS config_relationships_recursive;
+
+CREATE OR REPLACE FUNCTION config_relationships_recursive (
+  config_id UUID,
+  type_filter TEXT DEFAULT 'outgoing',
+  max_depth INT DEFAULT 5,
+  incoming_relation TEXT DEFAULT 'both', -- hard or both (hard & soft)
+  outgoing_relation TEXT DEFAULT 'both' -- hard or both (hard & soft)
+) RETURNS TABLE (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
+  BEGIN
+
+  IF type_filter NOT IN ('incoming', 'outgoing', 'all', '', null) THEN
+    RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''incoming'', ''outgoing'', ''all''';
+  END IF;
 
 IF type_filter = 'outgoing' THEN
-	RETURN query
-      WITH RECURSIVE cte (config_id, related_id, relation, depth) AS (
-        SELECT parent.related_id, parent.config_id as related_id, 'outgoing', 1::int
+  RETURN query
+      WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
+        SELECT parent.config_id, parent.related_id, parent.relation, 'outgoing', 1::int
         FROM config_relationships parent
-        WHERE parent.config_id = related_config_ids_recursive.config_id
-          AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
+        WHERE parent.config_id = config_relationships_recursive.config_id
+          AND (outgoing_relation = 'both' OR incoming_relation = 'soft'  OR (outgoing_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          child.related_id, parent.config_id as related_id, child.relation, parent.depth +1
-          FROM config_relationships child,  cte parent
-          WHERE child.config_id = parent.config_id
-            AND parent.depth <= max_depth
-            AND (outgoing_relation = 'both' OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
+          parent.related_id as config_id, child.related_id, child.relation, 'outgoing', parent.depth + 1
+          FROM config_relationships child, cte parent
+          WHERE child.config_id = parent.related_id
+            AND parent.depth < max_depth
+            AND (outgoing_relation = 'both' OR incoming_relation = 'soft'  OR (outgoing_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation as "relation_type", type_filter as "direction", cte.depth
+      FROM cte
       ORDER BY cte.depth asc;
 ELSIF type_filter = 'incoming' THEN
-	RETURN query
-      WITH RECURSIVE cte (config_id, related_id,relation, depth) AS (
-        SELECT parent.config_id, parent.related_id as related_id, 'incoming', 1::int
+  RETURN query
+      WITH RECURSIVE cte (config_id, related_id, relation, direction, depth) AS (
+        SELECT parent.config_id, parent.related_id as related_id, parent.relation, 'incoming', 1::int
         FROM config_relationships parent
-        WHERE parent.related_id = related_config_ids_recursive.config_id
-          AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
+        WHERE parent.related_id = config_relationships_recursive.config_id
+          AND (incoming_relation = 'both' OR  incoming_relation = 'soft' OR (incoming_relation = 'hard' AND parent.relation = 'hard'))
           AND deleted_at IS NULL
         UNION ALL
         SELECT
-          child.config_id, child.related_id as related_id, child.relation, parent.depth +1
+          child.config_id, child.related_id as related_id, child.relation, 'incoming', parent.depth + 1
           FROM config_relationships child, cte parent
           WHERE child.related_id = parent.config_id
-            AND parent.depth <= max_depth
-            AND (incoming_relation = 'both' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
+            AND parent.depth < max_depth
+            AND (incoming_relation = 'both' OR incoming_relation = 'soft' OR (incoming_relation = 'hard' AND child.relation = 'hard'))
             AND deleted_at IS NULL
       ) CYCLE config_id SET is_cycle USING path
-      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation, type_filter, cte.depth
-      FROM cte WHERE
-      cte.config_id <> related_config_ids_recursive.config_id
+      SELECT DISTINCT cte.config_id, cte.related_id, cte.relation AS "relation_type", type_filter as "direction", cte.depth
+      FROM cte
       ORDER BY cte.depth asc;
 ELSE
   RETURN query
-   		SELECT * FROM related_config_ids_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
-   		UNION
-   		SELECT * FROM related_config_ids_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
+      SELECT * FROM config_relationships_recursive(config_id, 'incoming', max_depth, incoming_relation, outgoing_relation)
+      UNION
+      SELECT * FROM config_relationships_recursive(config_id, 'outgoing', max_depth, incoming_relation, outgoing_relation);
 END IF;
+
+  END;
+$$ LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS get_recursive_path;
+
+CREATE OR REPLACE FUNCTION get_recursive_path(start uuid)
+RETURNS TABLE  (id UUID, related_id UUID, relation_type TEXT, direction TEXT, depth INT) AS $$
+DECLARE
+    current_id uuid;
+    current_parent uuid;
+    current_depth INT;
+    current_path text[];
+BEGIN
+    -- Initialize the starting point
+    current_id := start;
+    current_parent := NULL;
+    current_depth := 0;
+
+    select string_to_array(config_items.path, '.') into current_path from config_items where config_items.id = start;
+
+    IF array_length(current_path, 1) > 0  THEN
+      FOR i IN 0 .. array_length(current_path, 1) -1 LOOP
+          current_parent := current_id;
+          current_id := current_path[array_length(current_path,1) - i];
+
+      if start != current_id then
+            current_depth := current_depth + 1;
+            RETURN QUERY SELECT current_id,current_parent,'parent','incoming', current_depth;
+          end if;
+      END LOOP;
+    END IF;
 
 END;
 $$ LANGUAGE plpgsql;
 
+
+
+CREATE OR REPLACE FUNCTION drop_config_items(ids text[]) RETURNS void as $$
+  BEGIN
+  ALTER TABLE config_items
+    ALTER CONSTRAINT config_items_parent_id_fkey DEFERRABLE INITIALLY DEFERRED;
+  SET CONSTRAINTS ALL DEFERRED;
+  DELETE FROM config_component_relationships WHERE config_id  = any (ids::uuid[]);
+  DELETE FROM check_config_relationships WHERE config_id  = any  (ids::uuid[]);
+  DELETE FROM config_changes WHERE config_id   = any  (ids::uuid[]);
+  DELETE FROM config_relationships WHERE config_id  = any  (ids::uuid[]) or related_id  = any(ids::uuid[]);
+  DELETE FROM config_analysis WHERE config_id   = any  (ids::uuid[]);
+
+      FOR i IN 1 .. array_length(ids, 1) LOOP
+       DELETE FROM config_items WHERE PATH like '%'||ids[i]||'%';
+      END LOOP;
+
+  DELETE FROM config_items WHERE parent_id  = any (ids::uuid[]);
+  DELETE FROM config_items WHERE id  = any (ids::uuid[]);
+  END;
+$$ LANGUAGE plpgsql;
+
 -- related configs recursively
 DROP FUNCTION IF EXISTS related_configs_recursive;
-
 CREATE FUNCTION related_configs_recursive (
   config_id UUID,
   type_filter TEXT DEFAULT 'outgoing',
@@ -475,60 +681,67 @@ CREATE FUNCTION related_configs_recursive (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
-    related_id uuid,
-    depth INTEGER,
+    related_ids TEXT[],
     tags jsonb,
-    changes json,
-    analysis json,
+    changes BIGINT,
+    analysis jsonb,
     cost_per_minute NUMERIC(16, 4),
     cost_total_1d NUMERIC(16, 4),
     cost_total_7d NUMERIC(16, 4),
     cost_total_30d NUMERIC(16, 4),
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE,
     agent_id uuid,
     health TEXT,
     ready BOOLEAN,
-    status TEXT
+    status TEXT,
+    path TEXT
 ) AS $$
 BEGIN
   RETURN query
-    SELECT
-      configs.id,
-      configs.name,
-      configs.type,
-      r.relation_type,
-      r.direction,
-      r.related_id,
-      r.depth,
-      configs.tags,
-      configs.changes,
-      configs.analysis,
-      configs.cost_per_minute,
-      configs.cost_total_1d,
-      configs.cost_total_7d,
-      configs.cost_total_30d,
-      configs.created_at,
-      configs.updated_at,
-      configs.agent_id,
-      configs.health,
-      configs.ready,
-      configs.status
-   FROM (
-   	SELECT
-   	  r.id::uuid,
-   	  min(r.related_id::text)::uuid as related_id,
-   	  min(r.relation_type) as relation_type,
-      min(r.direction) as direction,
-      min(r.depth) as depth
-    FROM related_config_ids_recursive($1, $2, $4, $5, $6) as r
-    GROUP BY r.id
-   ) r
-    LEFT JOIN configs ON r.id = configs.id
-    WHERE related_configs_recursive.include_deleted_configs OR configs.deleted_at IS NULL
-    ORDER BY depth ASC;
+    WITH edges as (
+      SELECT * FROM config_relationships_recursive(config_id, type_filter, max_depth, incoming_relation, outgoing_relation)
+      UNION
+      SELECT * from get_recursive_path(config_id)
+    ),
+     all_ids AS (
+      SELECT edges.id FROM edges
+      UNION
+      SELECT edges.related_id as id FROM edges WHERE max_depth > 0
+      UNION
+      SELECT related_configs_recursive.config_id as id
+    ), grouped_related_ids AS (
+      SELECT all_ids.id, MIN(edges.depth) depth, array_agg(DISTINCT edges.related_id::TEXT) FILTER (WHERE edges.related_id IS NOT NULL) as related_ids
+      FROM all_ids
+      LEFT JOIN edges ON edges.id = all_ids.id
+      GROUP BY all_ids.id
+    )
+      SELECT
+        configs.id,
+        configs.name,
+        configs.type,
+        grouped_related_ids.related_ids,
+        configs.tags,
+        configs.changes,
+        configs.analysis,
+        configs.cost_per_minute,
+        configs.cost_total_1d,
+        configs.cost_total_7d,
+        configs.cost_total_30d,
+        configs.created_at,
+        configs.updated_at,
+        configs.deleted_at,
+        configs.agent_id,
+        configs.health,
+        configs.ready,
+        configs.status,
+        configs.path
+      FROM configs
+      LEFT JOIN grouped_related_ids ON configs.id = grouped_related_ids.id
+      WHERE configs.id IN (SELECT DISTINCT all_ids.id FROM all_ids)
+      AND (include_deleted_configs OR configs.deleted_at IS NULL)
+      ORDER BY grouped_related_ids.depth;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -544,10 +757,7 @@ CREATE FUNCTION related_configs (
     id uuid,
     name TEXT,
     type TEXT,
-    relation_type TEXT,
-    direction TEXT,
-    related_id uuid,
-    depth INTEGER,
+    related_ids TEXT[],
     tags jsonb,
     changes json,
     analysis json,
@@ -560,7 +770,8 @@ CREATE FUNCTION related_configs (
     agent_id uuid,
     health TEXT,
     ready BOOLEAN,
-    status TEXT
+    status TEXT,
+    path TEXT
 ) AS $$
 BEGIN
   RETURN query
@@ -573,11 +784,13 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
   lookup_id UUID,
   type_filter TEXT DEFAULT 'downstream',  -- 'downstream', 'upstream', 'all', 'none' or ''
   include_deleted_configs BOOLEAN DEFAULT FALSE,
-  max_depth INTEGER DEFAULT 5
+  max_depth INTEGER DEFAULT 5,
+  soft BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (
     id uuid,
     config_id uuid,
     name TEXT,
+    deleted_at TIMESTAMP WITH TIME ZONE,
     type TEXT,
     tags jsonb,
     external_created_by TEXT,
@@ -587,26 +800,67 @@ CREATE OR REPLACE FUNCTION related_changes_recursive (
     source TEXT,
     summary TEXT,
     created_by uuid,
+    count INT ,
+    first_observed TIMESTAMP WITH TIME ZONE,
     agent_id uuid
 ) AS $$
 BEGIN
-  IF type_filter NOT IN ('upstream', 'downstream', 'all', 'none', '') THEN
+  IF type_filter NOT IN ('upstream', 'downstream', 'all', 'none', '',null) THEN
     RAISE EXCEPTION 'Invalid type_filter value. Allowed values are: ''upstream'', ''downstream'', ''all'', ''none'' or ''''';
   END IF;
 
-  IF type_filter IN ('none', '') THEN
+  IF type_filter IN ('none', '',null) THEN
     RETURN query
       SELECT
-          cc.id, cc.config_id, config_items.name, config_items.type, config_items.tags, cc.external_created_by,
-          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, config_items.agent_id
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
       FROM config_changes cc
       LEFT JOIN config_items on config_items.id = cc.config_id
       WHERE cc.config_id = lookup_id;
+
+  ELSIF type_filter IN ('downstream') THEN
+    RETURN query
+      SELECT DISTINCT ON (cc.id)
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items on config_items.id = cc.config_id
+      LEFT JOIN
+          (SELECT config_relationships.config_id, config_relationships.related_id
+           FROM config_relationships
+           WHERE relation != 'hard') AS cr
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
+      WHERE config_items.path LIKE (
+        SELECT CASE
+            WHEN config_items.path = '' THEN config_items.id::text
+            ELSE CONCAT(config_items.path, '.', config_items.id)
+          END
+        FROM config_items WHERE config_items.id = lookup_id
+        ) || '%' OR
+        (cc.config_id = lookup_id) OR
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
+
+  ELSIF type_filter IN ('upstream') THEN
+    RETURN query
+      SELECT DISTINCT ON (cc.id)
+          cc.id, cc.config_id, config_items.name, config_items.deleted_at, config_items.type, config_items.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, config_items.agent_id
+      FROM config_changes cc
+      LEFT JOIN config_items on config_items.id = cc.config_id
+      LEFT JOIN
+          (SELECT config_relationships.config_id, config_relationships.related_id
+           FROM config_relationships
+           WHERE relation != 'hard') AS cr
+           ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
+      WHERE cc.config_id IN (SELECT get_recursive_path.id FROM get_recursive_path(lookup_id)) OR
+        (cc.config_id = lookup_id) OR
+        (soft AND (cr.config_id = lookup_id OR cr.related_id = lookup_id));
+
   ELSE
     RETURN query
       SELECT
-          cc.id, cc.config_id, c.name, c.type, c.tags, cc.external_created_by,
-          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+          cc.id, cc.config_id, c.name, c.deleted_at, c.type, c.tags, cc.external_created_by,
+          cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, cc.count, cc.first_observed, c.agent_id
       FROM config_changes cc
       LEFT JOIN config_items c on c.id = cc.config_id
       WHERE cc.config_id = lookup_id
@@ -616,7 +870,6 @@ BEGIN
             lookup_id,
             CASE
               WHEN type_filter = 'upstream' THEN 'incoming'
-              WHEN type_filter = 'downstream' THEN 'outgoing'
               ELSE type_filter
             END,
             max_depth
@@ -629,23 +882,51 @@ $$ LANGUAGE plpgsql;
 DROP VIEW IF EXISTS catalog_changes;
 
 CREATE OR REPLACE VIEW catalog_changes AS
-  SELECT cc.id, cc.config_id, c.name, c.type, cc.external_created_by, cc.created_at, cc.severity, cc.change_type, cc.source, cc.summary, cc.created_by, c.agent_id
+  SELECT
+    cc.id,
+    cc.config_id,
+    c.name,
+    c.deleted_at,
+    c.type,
+    c.tags,
+    c.config,
+    cc.external_created_by,
+    cc.created_at,
+    cc.severity,
+    cc.change_type,
+    cc.source,
+    cc.summary,
+    cc.details,
+    cc.diff,
+    cc.created_by,
+    cc.count,
+    cc.first_observed,
+    c.agent_id
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;
 
--- config_detail view
 DROP VIEW IF EXISTS config_detail;
 
 CREATE OR REPLACE VIEW config_detail AS
   SELECT
     ci.*,
+    config_items_last_scraped_time.last_scraped_time,
+    agents.name as agent_name,
     json_build_object(
       'relationships',  COALESCE(related.related_count, 0) + COALESCE(reverse_related.related_count, 0),
       'analysis', COALESCE(analysis.analysis_count, 0),
-      'changes', COALESCE(config_changes.changes_count, 0),
-      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0)
-    ) as summary
+      'changes', COALESCE(change_summary.total_changes_count, 0),
+      'playbook_runs', COALESCE(playbook_runs.playbook_runs_count, 0),
+      'checks', COALESCE(config_checks.checks_count, 0)
+    ) as summary,
+    CASE WHEN config_scrapers.id IS NOT NULL THEN json_build_object(
+      'id', config_scrapers.id,
+      'name', config_scrapers.name
+    ) ELSE NULL END as scraper
   FROM config_items as ci
+    LEFT JOIN agents ON agents.id = ci.agent_id
+    LEFT JOIN config_items_last_scraped_time ON config_items_last_scraped_time.config_id = ci.id
+    LEFT JOIN config_scrapers ON config_scrapers.id = ci.scraper_id
     LEFT JOIN
       (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
       ON ci.id = related.config_id
@@ -653,22 +934,56 @@ CREATE OR REPLACE VIEW config_detail AS
       (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
       ON ci.id = reverse_related.related_id
     LEFT JOIN
-      (SELECT config_id, count(*) as analysis_count FROM config_analysis
-        WHERE first_observed > NOW() - interval '2 days'
+      (SELECT config_id, SUM(value::INT) as analysis_count FROM config_item_summary_7d
+       CROSS JOIN LATERAL jsonb_each_text(config_analysis_type_counts)
         GROUP BY config_id) as analysis
       ON ci.id = analysis.config_id
     LEFT JOIN
-      (SELECT config_items.id as config_id, count(rcr.id) as changes_count
-        FROM config_items
-        LEFT JOIN LATERAL related_changes_recursive(config_items.id) rcr ON true
-        WHERE config_items.deleted_at IS NOT NULL AND rcr.created_at > NOW() - interval '2 days'
-        GROUP BY config_items.id) as config_changes
-      ON ci.id = config_changes.config_id
+      (SELECT ci.id AS config_id, SUM(cs.config_changes_count) AS total_changes_count
+        FROM config_items ci
+        LEFT JOIN config_item_summary_7d cs ON ci.path LIKE '%' || cs.config_id || '%'
+        GROUP BY ci.id) AS change_summary
+      ON ci.id = change_summary.config_id
     LEFT JOIN
       (SELECT config_id, count(*) as playbook_runs_count FROM playbook_runs
-        WHERE start_time > NOW() - interval '30 days' 
+        WHERE start_time > NOW() - interval '30 days'
         GROUP BY config_id) as playbook_runs
-      ON ci.id = playbook_runs.config_id;
+      ON ci.id = playbook_runs.config_id
+    LEFT JOIN
+      (SELECT config_id, count(*) as checks_count from check_config_relationships
+        WHERE deleted_at IS NULL
+        GROUP BY config_id) as config_checks
+      ON ci.id = config_checks.config_id
+    LEFT JOIN
+      (SELECT
+          config_id, json_agg(components) as components
+        FROM
+          (SELECT
+              ccr.config_id as config_id, components
+            FROM config_component_relationships as ccr
+            LEFT JOIN components ON components.id = ccr.component_id
+          ) as config_components
+        GROUP BY config_id) as gcc
+        ON ci.id = gcc.config_id;
+
+--- config_path is a function that given a config id returns its path by walking the tree recursively up using the parent id and then joining the ids with a `.`
+CREATE OR REPLACE FUNCTION config_path(UUID)
+RETURNS TEXT AS $$
+DECLARE
+    child_id UUID;
+    parent_id UUID;
+    parent_path TEXT;
+BEGIN
+    SELECT config_items.id, config_items.parent_id INTO child_id, parent_id FROM config_items WHERE config_items.id = $1;
+
+    IF parent_id IS NULL THEN
+        RETURN child_id;
+    ELSE
+        SELECT config_path(parent_id) INTO parent_path;
+        RETURN parent_path || '.' || child_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 -- config parent to config_relationship trigger
 CREATE OR REPLACE FUNCTION insert_parent_to_config_relationship()
@@ -707,3 +1022,119 @@ EXECUTE PROCEDURE insert_parent_to_config_relationship();
 DROP VIEW IF EXISTS config_statuses;
 CREATE or REPLACE VIEW config_statuses AS
   SELECT DISTINCT status FROM config_items WHERE status IS NOT NULL ORDER BY status;
+
+DROP VIEW IF EXISTS check_summary_by_config;
+DROP VIEW IF EXISTS checks_by_config;
+
+-- checks_by_config
+CREATE
+OR REPLACE VIEW checks_by_config AS
+SELECT
+  check_config_relationships.config_id,
+  checks.id,
+  checks.type,
+  checks.name,
+  checks.severity,
+  checks.status,
+  checks.icon,
+  checks_unlogged.last_runtime
+FROM
+  check_config_relationships
+  INNER JOIN checks ON checks.id = check_config_relationships.check_id
+  LEFT JOIN checks_unlogged ON checks.id = checks_unlogged.check_id
+WHERE
+  check_config_relationships.deleted_at IS NULL;
+
+-- check_summary_by_config
+CREATE OR REPLACE VIEW
+  check_summary_by_config AS
+WITH cte as (
+    SELECT
+        config_id, status, COUNT(*) AS count
+    FROM
+      checks_by_config
+    GROUP BY
+      config_id, status
+)
+SELECT config_id, json_object_agg(status, count) AS checks
+FROM cte GROUP BY config_id;
+
+-- When a new item is inserted, or aliases are updated,
+-- we find the same alias for a different type and link them
+-- Assumes (type, external_id) tuples are unique across the table
+CREATE OR REPLACE FUNCTION create_alias_config_relationships_for_config_item(config_item_id UUID)
+RETURNS VOID AS $$
+DECLARE
+    v_config_item RECORD;
+BEGIN
+    -- Get the config_item record
+    SELECT id, type, external_id
+    INTO v_config_item
+    FROM config_items
+    WHERE id = config_item_id
+    AND deleted_at IS NULL;
+
+    -- Check if record exists
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    -- Only proceed if external_id array is not null and not empty
+    IF v_config_item.external_id IS NOT NULL AND array_length(v_config_item.external_id, 1) > 0 THEN
+        INSERT INTO config_relationships (config_id, related_id, relation)
+        SELECT
+            v_config_item.id as config_id,
+            ci.id as related_id,
+            'Alias' as relation
+        FROM config_items ci,
+             unnest(v_config_item.external_id) as ext_id
+        WHERE
+            -- Find config_items that contain the same external_id and different type
+            ci.external_id @> ARRAY[ext_id]
+            AND ci.type != v_config_item.type
+            AND ci.deleted_at IS NULL
+            AND ci.id != v_config_item.id  -- Don't create relationship with itself
+        ON CONFLICT (related_id, config_id, relation)
+        DO NOTHING;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION create_alias_config_relationships()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM create_alias_config_relationships_for_config_item(NEW.id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER config_items_create_alias_relationships_insert
+    AFTER INSERT ON config_items
+    FOR EACH ROW
+    EXECUTE FUNCTION create_alias_config_relationships();
+
+-- Only fire when external_id or type changes to avoid unnecessary executions
+CREATE OR REPLACE TRIGGER config_items_create_alias_relationships_update
+    AFTER UPDATE OF external_id, type ON config_items
+    FOR EACH ROW
+    WHEN (OLD.external_id IS DISTINCT FROM NEW.external_id OR OLD.type IS DISTINCT FROM NEW.type)
+    EXECUTE FUNCTION create_alias_config_relationships();
+
+-- Function to update config_items_last_scraped_time when config_item is inserted
+CREATE OR REPLACE FUNCTION update_config_items_last_scraped_time()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO config_items_last_scraped_time (config_id, last_scraped_time)
+    VALUES (NEW.id, NOW())
+    ON CONFLICT (config_id)
+    DO UPDATE SET last_scraped_time = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call the function after config_item insert
+CREATE OR REPLACE TRIGGER config_items_update_last_scraped_time
+    AFTER INSERT ON config_items
+    FOR EACH ROW
+    EXECUTE FUNCTION update_config_items_last_scraped_time();

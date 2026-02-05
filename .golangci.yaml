@@ -1,3 +1,32 @@
-issues:
-  exclude-dirs:
-    - pkg/kube/labels
+version: "2"
+linters:
+  settings:
+    govet:
+      disable:
+        - printf
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - pkg/kube/labels
+      - third_party$
+      - builtin$
+      - examples$
+    rules:
+      - linters:
+          - staticcheck
+        text: 'QF1008: could remove embedded field'
+      - linters:
+          - staticcheck
+        text: 'ST1001: should not use dot imports'
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

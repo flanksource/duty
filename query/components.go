@@ -10,7 +10,7 @@ import (
 func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Component, error) {
 	var components []models.Component
 	for i := range ids {
-		c, err := ComponentFromCache(ctx, ids[i].String())
+		c, err := ComponentFromCache(ctx, ids[i].String(), false)
 		if err != nil {
 			return nil, err
 		}
@@ -21,8 +21,8 @@ func GetComponentsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.Componen
 	return components, nil
 }
 
-func FindComponents(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]models.Component, error) {
-	items, err := FindComponentIDs(ctx, resourceSelectors...)
+func FindComponents(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.Component, error) {
+	items, err := FindComponentIDs(ctx, limit, resourceSelectors...)
 	if err != nil {
 		return nil, err
 	}
@@ -30,16 +30,6 @@ func FindComponents(ctx context.Context, resourceSelectors ...types.ResourceSele
 	return GetComponentsByIDs(ctx, items)
 }
 
-func FindComponentIDs(ctx context.Context, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	var allComponents []uuid.UUID
-	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector(ctx, resourceSelector, "components", models.AllowedColumnFieldsInComponents)
-		if err != nil {
-			return nil, err
-		}
-
-		allComponents = append(allComponents, items...)
-	}
-
-	return allComponents, nil
+func FindComponentIDs(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, "components", limit, resourceSelectors...)
 }

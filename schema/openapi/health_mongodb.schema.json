@@ -67,10 +67,8 @@
       ]
     },
     "Labels": {
-      "patternProperties": {
-        ".*": {
-          "type": "string"
-        }
+      "additionalProperties": {
+        "type": "string"
       },
       "type": "object"
     },
@@ -141,6 +139,9 @@
             "$ref": "#/$defs/Metrics"
           },
           "type": "array"
+        },
+        "markFailOnEmpty": {
+          "type": "boolean"
         },
         "connection": {
           "type": "string"

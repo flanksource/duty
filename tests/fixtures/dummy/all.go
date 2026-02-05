@@ -1,16 +1,19 @@
 package dummy
 
 import (
-	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flanksource/commons/logger"
-	"github.com/flanksource/commons/utils"
-	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
+	"github.com/flanksource/duty/view"
 )
 
 var CurrentTime = time.Now()
@@ -19,16 +22,30 @@ type DummyData struct {
 	People []models.Person
 	Agents []models.Agent
 
+	Playbooks    []models.Playbook
+	PlaybookRuns []models.PlaybookRun
+	Connections  []models.Connection
+
 	Topologies             []models.Topology
 	Components             []models.Component
 	ComponentRelationships []models.ComponentRelationship
 
 	Configs                      []models.ConfigItem
+	ConfigLocations              []models.ConfigLocation
 	ConfigRelationships          []models.ConfigRelationship
 	ConfigScrapers               []models.ConfigScraper
 	ConfigChanges                []models.ConfigChange
 	ConfigAnalyses               []models.ConfigAnalysis
 	ConfigComponentRelationships []models.ConfigComponentRelationship
+
+	ExternalUsers      []models.ExternalUser
+	ExternalRoles      []models.ExternalRole
+	ExternalGroups     []models.ExternalGroup
+	ExternalUserGroups []models.ExternalUserGroup
+	ConfigAccesses     []models.ConfigAccess
+	ConfigAccessLogs   []models.ConfigAccessLog
+
+	Notifications []models.Notification
 
 	Teams      []models.Team
 	Incidents  []models.Incident
@@ -37,280 +54,378 @@ type DummyData struct {
 	Evidences  []models.Evidence
 	Comments   []models.Comment
 
+	Views      []models.View
+	ViewPanels []models.ViewPanel
+	ViewTables []ViewGeneratedTable
+
 	Canaries                    []models.Canary
 	Checks                      []models.Check
 	CheckStatuses               []models.CheckStatus
 	CheckComponentRelationships []models.CheckComponentRelationship
 
-	Artifacts []models.Artifact
+	Artifacts    []models.Artifact
+	JobHistories []models.JobHistory
+
+	Permissions []models.Permission
+	Scopes      []models.Scope
 }
 
-func (t *DummyData) Populate(gormDB *gorm.DB) error {
-	var err error
+func (t *DummyData) Populate(ctx context.Context) error {
 	createTime := DummyCreatedAt
-	for _, c := range t.People {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Agents {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Topologies {
-		c.UpdatedAt = &createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Components {
-		c.UpdatedAt = &createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ComponentRelationships {
-		c.UpdatedAt = createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigScrapers {
-		c.CreatedAt = createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Configs {
-		c.CreatedAt = createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigRelationships {
-		c.CreatedAt = createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigChanges {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigAnalyses {
-		c.FirstObserved = &createTime
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigComponentRelationships {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Teams {
-		if err := gormDB.Create(&c).Error; err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Incidents {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Hypotheses {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Evidences {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Canaries {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Checks {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Responders {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return fmt.Errorf("error creating dummy responder: %w", err)
-		}
-	}
-	for _, c := range t.Comments {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return fmt.Errorf("error creating dummy comment: %w", err)
-		}
-	}
-	for _, c := range t.CheckStatuses {
-		// TODO: Figure out why it panics without Table
-		err = gormDB.Table("check_statuses").Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.CheckComponentRelationships {
-		err = gormDB.Create(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, a := range t.Artifacts {
-		err = gormDB.Create(&a).Error
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
-func (t *DummyData) Delete(gormDB *gorm.DB) error {
-	var err error
-	if err = gormDB.Exec(`DELETE FROM incident_histories`).Error; err != nil {
+	gormDB := ctx.DB()
+
+	if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
+		if strings.Contains(err.Error(), "duplicate key value") {
+			if err := t.Delete(gormDB); err != nil {
+				return err
+			}
+			if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	if err := gormDB.CreateInBatches(t.Connections, 100).Error; err != nil {
 		return err
 	}
 
-	for _, c := range t.Evidences {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
+	if err := gormDB.CreateInBatches(t.Agents, 100).Error; err != nil {
+		return err
 	}
-	for _, c := range t.Hypotheses {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
+	for i := range t.Topologies {
+		t.Topologies[i].UpdatedAt = &createTime
 	}
-	for _, c := range t.Comments {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Responders {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Incidents {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, a := range t.Artifacts {
-		err = gormDB.Delete(&a).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.CheckComponentRelationships {
-		err = gormDB.Where("component_id = ?", c.ComponentID).Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigComponentRelationships {
-		err = gormDB.Where("component_id = ?", c.ComponentID).Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigAnalyses {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Teams {
-		if err := gormDB.Delete(&c).Error; err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigChanges {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.Configs {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ConfigScrapers {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
-			return err
-		}
-	}
-	for _, c := range t.ComponentRelationships {
-		err = gormDB.Where("component_id = ?", c.ComponentID).Delete(&c).Error
-		if err != nil {
-			return err
-		}
+	if err := gormDB.CreateInBatches(t.Topologies, 100).Error; err != nil {
+		return err
 	}
 	for i := range t.Components {
-		// We need to delete in reverse order
-		elem := t.Components[len(t.Components)-1-i]
-		err = gormDB.Delete(&elem).Error
-		if err != nil {
+		t.Components[i].UpdatedAt = &createTime
+	}
+	if err := gormDB.CreateInBatches(t.Components, 100).Error; err != nil {
+		return err
+	}
+	for i := range t.ComponentRelationships {
+		t.ComponentRelationships[i].UpdatedAt = createTime
+	}
+	if err := gormDB.CreateInBatches(t.ComponentRelationships, 100).Error; err != nil {
+		return err
+	}
+	for i := range t.ConfigScrapers {
+		t.ConfigScrapers[i].CreatedAt = createTime
+	}
+	if err := gormDB.CreateInBatches(t.ConfigScrapers, 100).Error; err != nil {
+		return err
+	}
+
+	for i := range t.Configs {
+		t.Configs[i].UpdatedAt = &createTime
+	}
+	if err := gormDB.CreateInBatches(t.Configs, 100).Error; err != nil {
+		return err
+	}
+
+	if len(t.ExternalUsers) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalUsers, 100).Error; err != nil {
 			return err
 		}
 	}
-	for _, c := range t.Canaries {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
+
+	if len(t.ExternalGroups) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalGroups, 100).Error; err != nil {
 			return err
 		}
 	}
-	for _, c := range t.Topologies {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
+
+	if len(t.ExternalUserGroups) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalUserGroups, 100).Error; err != nil {
 			return err
 		}
 	}
-	for _, c := range t.People {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
+
+	if len(t.ExternalRoles) > 0 {
+		if err := gormDB.CreateInBatches(t.ExternalRoles, 100).Error; err != nil {
 			return err
 		}
 	}
-	for _, c := range t.Agents {
-		err = gormDB.Delete(&c).Error
-		if err != nil {
+
+	if len(t.ConfigAccesses) > 0 {
+		if err := gormDB.CreateInBatches(t.ConfigAccesses, 100).Error; err != nil {
 			return err
 		}
 	}
+
+	if len(t.ConfigAccessLogs) > 0 {
+		if err := gormDB.CreateInBatches(t.ConfigAccessLogs, 100).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := gormDB.CreateInBatches(t.ConfigLocations, 100).Error; err != nil {
+		return err
+	}
+
+	for i := range t.ConfigRelationships {
+		t.ConfigRelationships[i].UpdatedAt = createTime
+	}
+	if err := gormDB.Model(models.ConfigRelationship{}).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}},
+		DoNothing: true,
+	}).CreateInBatches(t.ConfigRelationships, 100).Error; err != nil {
+		return err
+	}
+	if err := gormDB.CreateInBatches(t.ConfigChanges, 100).Error; err != nil {
+		return err
+	}
+	for i := range t.ConfigAnalyses {
+		t.ConfigAnalyses[i].FirstObserved = &createTime
+	}
+	if err := gormDB.CreateInBatches(t.ConfigAnalyses, 100).Error; err != nil {
+		return err
+	}
+	if err := gormDB.CreateInBatches(t.ConfigComponentRelationships, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Teams, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Incidents, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Hypotheses, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Evidences, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Responders, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Comments, 100).Error; err != nil {
+		return err
+	}
+	if err := gormDB.CreateInBatches(t.Canaries, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Checks, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.CheckStatuses, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.CheckComponentRelationships, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Playbooks, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.PlaybookRuns, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Artifacts, 100).Error; err != nil {
+		return err
+	}
+	if err := gormDB.CreateInBatches(t.JobHistories, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.Exec("UPDATE config_items set path = config_path(id)").Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Notifications, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Scopes, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Permissions, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.Views, 100).Error; err != nil {
+		return err
+	}
+
+	if err := gormDB.CreateInBatches(t.ViewPanels, 100).Error; err != nil {
+		return err
+	}
+
+	for _, viewTable := range t.ViewTables {
+		columnDefs, err := view.GetViewColumnDefs(ctx, viewTable.View.Namespace, viewTable.View.Name)
+		if err != nil {
+			return err
+		}
+
+		if err := view.CreateViewTable(ctx, viewTable.View.GeneratedTableName(), columnDefs); err != nil {
+			return err
+		}
+
+		var viewRows []view.Row
+		for _, row := range viewTable.Rows {
+			viewRow := make(view.Row, len(columnDefs))
+			for i, col := range columnDefs {
+				if val, exists := row[col.Name]; exists {
+					viewRow[i] = val
+				}
+			}
+			viewRows = append(viewRows, viewRow)
+		}
+
+		if err := view.InsertViewRows(ctx, viewTable.View.GeneratedTableName(), columnDefs, viewRows, "dummy-fixture"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DeleteAll[T models.DBTable](gormDB *gorm.DB, items []T) error {
+	ids := lo.Map(items, func(i T, _ int) string { return i.PK() })
+	pk := "id"
+	var zero T
+	switch any(zero).(type) {
+	case models.ViewPanel:
+		pk = "view_id"
+	}
+	return gormDB.Where(pk+" IN (?)", ids).Delete(new(T)).Error
+}
+
+func (t *DummyData) Delete(gormDB *gorm.DB) error {
+
+	if err := models.DeleteAllIncidents(gormDB, t.Incidents...); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Permissions); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Scopes); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Artifacts); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.JobHistories); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.PlaybookRuns); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Playbooks); err != nil {
+		return err
+	}
+
+	if len(t.ConfigAccessLogs) > 0 {
+		for _, accessLog := range t.ConfigAccessLogs {
+			if err := gormDB.Where("config_id = ? AND external_user_id = ? AND scraper_id = ?",
+				accessLog.ConfigID, accessLog.ExternalUserID, accessLog.ScraperID).
+				Delete(&models.ConfigAccessLog{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := DeleteAll(gormDB, t.ConfigAccesses); err != nil {
+		return err
+	}
+
+	if len(t.ExternalUserGroups) > 0 {
+		for _, membership := range t.ExternalUserGroups {
+			if err := gormDB.Where("external_user_id = ? AND external_group_id = ?",
+				membership.ExternalUserID, membership.ExternalGroupID).
+				Delete(&models.ExternalUserGroup{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalGroups); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalRoles); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ExternalUsers); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ConfigScrapers); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Notifications); err != nil {
+		return err
+	}
+
+	if err := models.DeleteAllComponents(gormDB, t.Components...); err != nil {
+		return err
+	}
+
+	if err := models.DeleteAllConfigs(gormDB, t.Configs...); err != nil {
+		return err
+	}
+
+	if err := models.DeleteAllCanaries(gormDB, t.Canaries...); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Topologies); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Connections); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Teams); err != nil {
+		return err
+	}
+	people_ids := lo.Map(t.People, func(p models.Person, _ int) string { return p.ID.String() })
+
+	if err := gormDB.Exec("DELETE from teams WHERE created_by in (?)", people_ids).Error; err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.People); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Agents); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ViewPanels); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Views); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -321,17 +436,29 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 
 	// we're appending here so we do not mutate the original slice.
 	d := DummyData{
+		Playbooks:                    append([]models.Playbook{}, AllDummyPlaybooks...),
+		PlaybookRuns:                 append([]models.PlaybookRun{}, AllDummyPlaybookRuns...),
+		Connections:                  append([]models.Connection{}, AllDummyConnections...),
 		People:                       append([]models.Person{}, AllDummyPeople...),
 		Agents:                       append([]models.Agent{}, AllDummyAgents...),
 		Topologies:                   append([]models.Topology{}, AllDummyTopologies...),
 		Components:                   append([]models.Component{}, AllDummyComponents...),
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
+		ConfigScrapers:               append([]models.ConfigScraper{}, AllConfigScrapers...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
+		ConfigLocations:              append([]models.ConfigLocation{}, AllDummyConfigLocations...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
 		ConfigAnalyses:               append([]models.ConfigAnalysis{}, AllDummyConfigAnalysis()...),
 		ConfigComponentRelationships: append([]models.ConfigComponentRelationship{}, AllDummyConfigComponentRelationships...),
+		ExternalUsers:                append([]models.ExternalUser{}, AllDummyExternalUsers...),
+		ExternalRoles:                append([]models.ExternalRole{}, AllDummyExternalRoles...),
+		ExternalGroups:               append([]models.ExternalGroup{}, AllDummyExternalGroups...),
+		ExternalUserGroups:           append([]models.ExternalUserGroup{}, AllDummyExternalUserGroups...),
+		ConfigAccesses:               append([]models.ConfigAccess{}, AllDummyConfigAccesses...),
+		ConfigAccessLogs:             append([]models.ConfigAccessLog{}, AllDummyConfigAccessLogs...),
 		Teams:                        append([]models.Team{}, AllDummyTeams...),
+		Notifications:                append([]models.Notification{}, AllDummyNotifications...),
 		Incidents:                    append([]models.Incident{}, AllDummyIncidents...),
 		Hypotheses:                   append([]models.Hypothesis{}, AllDummyHypotheses...),
 		Evidences:                    append([]models.Evidence{}, AllDummyEvidences...),
@@ -342,6 +469,12 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		Comments:                     append([]models.Comment{}, AllDummyComments...),
 		CheckComponentRelationships:  append([]models.CheckComponentRelationship{}, AllDummyCheckComponentRelationships...),
 		Artifacts:                    append([]models.Artifact{}, AllDummyArtifacts...),
+		Views:                        append([]models.View{}, AllDummyViews...),
+		ViewPanels:                   append([]models.ViewPanel{}, AllDummyViewPanels...),
+		ViewTables:                   append([]ViewGeneratedTable{}, AllDummyViewTables...),
+		JobHistories:                 append([]models.JobHistory{}, AllDummyJobHistories...),
+		Permissions:                  append([]models.Permission{}, AllDummyPermissions...),
+		Scopes:                       append([]models.Scope{}, AllDummyScopes...),
 	}
 
 	return d
@@ -351,6 +484,17 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 // except that the ids are randomly generated on call.
 func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 
+	var JohnDoeDynamic = models.Person{
+		ID:    uuid.New(),
+		Name:  "John Doe",
+		Email: "john@doe.com",
+	}
+
+	var JohnWickDynamic = models.Person{
+		ID:    uuid.New(),
+		Name:  "John Wick",
+		Email: "john@wick.com",
+	}
 	if err := db.Raw("Select now()").Scan(&CurrentTime).Error; err != nil {
 		logger.Fatalf("Cannot get current time from db: %v", err)
 	}
@@ -360,20 +504,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		DummyYearOldDate = CurrentTime.AddDate(-1, 0, 0)
 	)
 
-	// People
-	var JohnDoe = models.Person{
-		ID:    uuid.New(),
-		Name:  "John Doe",
-		Email: "john@doe.com",
-	}
-
-	var JohnWick = models.Person{
-		ID:    uuid.New(),
-		Name:  "John Wick",
-		Email: "john@wick.com",
-	}
-
-	var people = []models.Person{JohnDoe, JohnWick}
+	var people = []models.Person{JohnDoeDynamic, JohnWickDynamic}
 
 	// Agents
 	var GCPAgent = models.Agent{
@@ -390,7 +521,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:        uuid.New(),
 		Name:      "Backend",
 		Icon:      "backend",
-		CreatedBy: JohnDoe.ID,
+		CreatedBy: JohnDoeDynamic.ID,
 		CreatedAt: CurrentTime,
 		UpdatedAt: CurrentTime,
 	}
@@ -399,7 +530,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:        uuid.New(),
 		Name:      "Frontend",
 		Icon:      "frontend",
-		CreatedBy: JohnDoe.ID,
+		CreatedBy: JohnDoeDynamic.ID,
 		CreatedAt: CurrentTime,
 		UpdatedAt: CurrentTime,
 	}
@@ -883,32 +1014,28 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 	}
 
 	var EKSClusterCreateChange = models.ConfigChange{
-		ID:               uuid.New().String(),
-		ConfigID:         EKSCluster.ID.String(),
-		ChangeType:       "CREATE",
-		ExternalChangeId: utils.RandomString(10),
-		CreatedAt:        &DummyYearOldDate,
+		ID:         uuid.New().String(),
+		ConfigID:   EKSCluster.ID.String(),
+		ChangeType: "CREATE",
+		CreatedAt:  &DummyYearOldDate,
 	}
 
 	var EKSClusterUpdateChange = models.ConfigChange{
-		ID:               uuid.New().String(),
-		ConfigID:         EKSCluster.ID.String(),
-		ChangeType:       "UPDATE",
-		ExternalChangeId: utils.RandomString(10),
+		ID:         uuid.New().String(),
+		ConfigID:   EKSCluster.ID.String(),
+		ChangeType: "UPDATE",
 	}
 
 	var EKSClusterDeleteChange = models.ConfigChange{
-		ID:               uuid.New().String(),
-		ConfigID:         EKSCluster.ID.String(),
-		ChangeType:       "DELETE",
-		ExternalChangeId: utils.RandomString(10),
+		ID:         uuid.New().String(),
+		ConfigID:   EKSCluster.ID.String(),
+		ChangeType: "DELETE",
 	}
 
 	var KubernetesNodeAChange = models.ConfigChange{
-		ID:               uuid.New().String(),
-		ConfigID:         KubernetesNodeA.ID.String(),
-		ChangeType:       "CREATE",
-		ExternalChangeId: utils.RandomString(10),
+		ID:         uuid.New().String(),
+		ConfigID:   KubernetesNodeA.ID.String(),
+		ChangeType: "CREATE",
 	}
 
 	var configChanges = []models.ConfigChange{
@@ -922,21 +1049,21 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 	var LogisticsAPIDownIncident = models.Incident{
 		ID:          uuid.New(),
 		Title:       "Logistics API is down",
-		CreatedBy:   JohnDoe.ID,
+		CreatedBy:   JohnDoeDynamic.ID,
 		Type:        models.IncidentTypeAvailability,
 		Status:      models.IncidentStatusOpen,
 		Severity:    "Blocker",
-		CommanderID: &JohnDoe.ID,
+		CommanderID: &JohnDoeDynamic.ID,
 	}
 
 	var UIDownIncident = models.Incident{
 		ID:          uuid.New(),
 		Title:       "UI is down",
-		CreatedBy:   JohnDoe.ID,
+		CreatedBy:   JohnDoeDynamic.ID,
 		Type:        models.IncidentTypeAvailability,
 		Status:      models.IncidentStatusOpen,
 		Severity:    "Blocker",
-		CommanderID: &JohnWick.ID,
+		CommanderID: &JohnWickDynamic.ID,
 	}
 
 	var incidents = []models.Incident{LogisticsAPIDownIncident, UIDownIncident}
@@ -946,7 +1073,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:         uuid.New(),
 		IncidentID: LogisticsAPIDownIncident.ID,
 		Title:      "Logistics DB database error hypothesis",
-		CreatedBy:  JohnDoe.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		Type:       "solution",
 		Status:     "possible",
 	}
@@ -958,7 +1085,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:           uuid.New(),
 		HypothesisID: LogisticsAPIDownHypothesis.ID,
 		ComponentID:  &LogisticsDB.ID,
-		CreatedBy:    JohnDoe.ID,
+		CreatedBy:    JohnDoeDynamic.ID,
 		Description:  "Logisctics DB attached component",
 		Type:         "component",
 	}
@@ -968,7 +1095,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 	// Comments
 	var FirstComment = models.Comment{
 		ID:         uuid.New(),
-		CreatedBy:  JohnWick.ID,
+		CreatedBy:  JohnWickDynamic.ID,
 		Comment:    "This is a comment",
 		IncidentID: LogisticsAPIDownIncident.ID,
 		CreatedAt:  CurrentTime,
@@ -977,7 +1104,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 
 	var SecondComment = models.Comment{
 		ID:         uuid.New(),
-		CreatedBy:  JohnDoe.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		Comment:    "A comment by John Doe",
 		IncidentID: LogisticsAPIDownIncident.ID,
 		CreatedAt:  CurrentTime,
@@ -986,7 +1113,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 
 	var ThirdComment = models.Comment{
 		ID:         uuid.New(),
-		CreatedBy:  JohnDoe.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		Comment:    "Another comment by John Doe",
 		IncidentID: LogisticsAPIDownIncident.ID,
 		CreatedAt:  CurrentTime,
@@ -1000,8 +1127,8 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:         uuid.New(),
 		IncidentID: LogisticsAPIDownIncident.ID,
 		Type:       "Jira",
-		PersonID:   &JohnWick.ID,
-		CreatedBy:  JohnWick.ID,
+		PersonID:   &JohnWickDynamic.ID,
+		CreatedBy:  JohnWickDynamic.ID,
 		CreatedAt:  CurrentTime,
 		UpdatedAt:  CurrentTime,
 	}
@@ -1010,8 +1137,8 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:         uuid.New(),
 		IncidentID: LogisticsAPIDownIncident.ID,
 		Type:       "GithubIssue",
-		PersonID:   &JohnDoe.ID,
-		CreatedBy:  JohnDoe.ID,
+		PersonID:   &JohnDoeDynamic.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		CreatedAt:  CurrentTime,
 		UpdatedAt:  CurrentTime,
 	}
@@ -1021,7 +1148,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		IncidentID: UIDownIncident.ID,
 		Type:       "Slack",
 		TeamID:     &BackendTeam.ID,
-		CreatedBy:  JohnDoe.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		CreatedAt:  CurrentTime,
 		UpdatedAt:  CurrentTime,
 	}
@@ -1030,8 +1157,8 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:         uuid.New(),
 		IncidentID: UIDownIncident.ID,
 		Type:       "MSPlanner",
-		PersonID:   &JohnWick.ID,
-		CreatedBy:  JohnDoe.ID,
+		PersonID:   &JohnWickDynamic.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		CreatedAt:  CurrentTime,
 		UpdatedAt:  CurrentTime,
 	}
@@ -1040,8 +1167,8 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ID:         uuid.New(),
 		IncidentID: UIDownIncident.ID,
 		Type:       "Telegram",
-		PersonID:   &JohnDoe.ID,
-		CreatedBy:  JohnDoe.ID,
+		PersonID:   &JohnDoeDynamic.ID,
+		CreatedBy:  JohnDoeDynamic.ID,
 		CreatedAt:  CurrentTime,
 		UpdatedAt:  CurrentTime,
 	}
@@ -1137,6 +1264,12 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ConfigChanges:                configChanges,
 		ConfigAnalyses:               configAnalysis,
 		ConfigComponentRelationships: configComponentRelationships,
+		ExternalUsers:                []models.ExternalUser{},
+		ExternalRoles:                []models.ExternalRole{},
+		ExternalGroups:               []models.ExternalGroup{},
+		ExternalUserGroups:           []models.ExternalUserGroup{},
+		ConfigAccesses:               []models.ConfigAccess{},
+		ConfigAccessLogs:             []models.ConfigAccessLog{},
 
 		Teams:      teams,
 		Responders: responders,

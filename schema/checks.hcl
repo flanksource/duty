@@ -81,6 +81,9 @@ table "canaries" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+  index "canaries_source_idx" {
+    columns = [column.source]
+  }
 }
 
 table "check_statuses" {
@@ -106,8 +109,8 @@ table "check_statuses" {
     type = timestamptz
   }
   column "created_at" {
-    null = false
-    type = timestamptz
+    null    = false
+    type    = timestamptz
     default = sql("now()")
   }
   column "invalid" {
@@ -281,6 +284,57 @@ table "checks" {
 
   index "idx_checks_deleted_at" {
     columns = [column.deleted_at]
+  }
+}
+
+table "checks_unlogged" {
+  schema = schema.public
+  unlogged = true
+  column "check_id" {
+    null = false
+    type = uuid
+  }
+  column "canary_id" {
+    null = false
+    type = uuid
+  }
+  column "status" {
+    null = true
+    type = text
+  }
+  column "last_runtime" {
+    null = true
+    type = timestamptz
+  }
+  column "next_runtime" {
+    null = true
+    type = timestamptz
+  }
+  column "is_pushed" {
+    null    = false
+    default = false
+    type    = bool
+    comment = "is_pushed when set to true indicates that the config analysis has been pushed to upstream."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  primary_key {
+    columns = [column.check_id]
+  }
+  foreign_key "checks_unlogged_check_id_fkey" {
+    columns     = [column.check_id]
+    ref_columns = [table.checks.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
   }
 }
 

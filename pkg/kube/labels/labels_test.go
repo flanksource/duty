@@ -17,215 +17,119 @@ limitations under the License.
 package labels
 
 import (
-	"testing"
+	. "github.com/flanksource/duty/tests/matcher"
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func matches(t *testing.T, ls Set, want string) {
-	if ls.String() != want {
-		t.Errorf("Expected '%s', but got '%s'", want, ls.String())
-	}
-}
+var _ = ginkgo.Describe("Labels", func() {
+	ginkgo.Describe("Set", func() {
+		ginkgo.Context("String method", func() {
+			ginkgo.It("should return the correct string representation", func() {
+				Expect(Set{"x": "y"}.String()).To(Equal("x=y"))
+				Expect(Set{"foo": "bar"}.String()).To(Equal("foo=bar"))
+				Expect(Set{"foo": "bar", "baz": "qup"}.String()).To(Equal("baz=qup,foo=bar"))
+			})
+		})
+	})
 
-func TestSetString(t *testing.T) {
-	matches(t, Set{"x": "y"}, "x=y")
-	matches(t, Set{"foo": "bar"}, "foo=bar")
-	matches(t, Set{"foo": "bar", "baz": "qup"}, "baz=qup,foo=bar")
+	ginkgo.Describe("Labels", func() {
+		ginkgo.Context("Has method", func() {
+			ginkgo.It("should correctly determine if a label exists", func() {
+				Expect(Set{"x": "y"}.Has("x")).To(BeTrue())
+				Expect(Set{"x": ""}.Has("x")).To(BeTrue())
+				Expect(Set{"x": "y"}.Has("foo")).To(BeFalse())
+			})
+		})
 
-	// TODO: Make our label representation robust enough to handle labels
-	// with ",=!" characters in their names.
-}
+		ginkgo.Context("Get method", func() {
+			ginkgo.It("should correctly get the value of a label", func() {
+				Expect(Set{"x": "y"}.Get("x")).To(Equal("y"))
+			})
+		})
+	})
 
-func TestLabelHas(t *testing.T) {
-	labelHasTests := []struct {
-		Ls  Labels
-		Key string
-		Has bool
-	}{
-		{Set{"x": "y"}, "x", true},
-		{Set{"x": ""}, "x", true},
-		{Set{"x": "y"}, "foo", false},
-	}
-	for _, lh := range labelHasTests {
-		if has := lh.Ls.Has(lh.Key); has != lh.Has {
-			t.Errorf("%#v.Has(%#v) => %v, expected %v", lh.Ls, lh.Key, has, lh.Has)
-		}
-	}
-}
+	ginkgo.Describe("Conflicts", func() {
+		ginkgo.It("should correctly determine if there is a conflict between two sets of labels", func() {
+			tests := []struct {
+				labels1  map[string]string
+				labels2  map[string]string
+				conflict bool
+			}{
+				{map[string]string{}, map[string]string{}, false},
+				{map[string]string{"env": "test"}, map[string]string{"infra": "true"}, false},
+				{map[string]string{"env": "test"}, map[string]string{"infra": "true", "env": "test"}, false},
+				{map[string]string{"env": "test"}, map[string]string{"env": "dev"}, true},
+				{map[string]string{"env": "test", "infra": "false"}, map[string]string{"infra": "true", "color": "blue"}, true},
+			}
+			for _, test := range tests {
+				Expect(Conflicts(Set(test.labels1), Set(test.labels2))).To(Equal(test.conflict))
+			}
+		})
+	})
 
-func TestLabelGet(t *testing.T) {
-	ls := Set{"x": "y"}
-	if ls.Get("x") != "y" {
-		t.Errorf("Set.Get is broken")
-	}
-}
+	ginkgo.Describe("Merge", func() {
+		ginkgo.It("should correctly merge two sets of labels", func() {
+			tests := []struct {
+				labels1      map[string]string
+				labels2      map[string]string
+				mergedLabels map[string]string
+			}{
+				{map[string]string{}, map[string]string{}, map[string]string{}},
+				{map[string]string{"infra": "true"}, map[string]string{}, map[string]string{"infra": "true"}},
+				{
+					map[string]string{"infra": "true"},
+					map[string]string{"env": "test", "color": "blue"},
+					map[string]string{"infra": "true", "env": "test", "color": "blue"},
+				},
+			}
+			for _, test := range tests {
+				Expect(Merge(Set(test.labels1), Set(test.labels2))).To(MatchMap(test.mergedLabels))
+			}
+		})
+	})
 
-func TestLabelConflict(t *testing.T) {
-	tests := []struct {
-		labels1  map[string]string
-		labels2  map[string]string
-		conflict bool
-	}{
-		{
-			labels1:  map[string]string{},
-			labels2:  map[string]string{},
-			conflict: false,
-		},
-		{
-			labels1:  map[string]string{"env": "test"},
-			labels2:  map[string]string{"infra": "true"},
-			conflict: false,
-		},
-		{
-			labels1:  map[string]string{"env": "test"},
-			labels2:  map[string]string{"infra": "true", "env": "test"},
-			conflict: false,
-		},
-		{
-			labels1:  map[string]string{"env": "test"},
-			labels2:  map[string]string{"env": "dev"},
-			conflict: true,
-		},
-		{
-			labels1:  map[string]string{"env": "test", "infra": "false"},
-			labels2:  map[string]string{"infra": "true", "color": "blue"},
-			conflict: true,
-		},
-	}
-	for _, test := range tests {
-		conflict := Conflicts(Set(test.labels1), Set(test.labels2))
-		if conflict != test.conflict {
-			t.Errorf("expected: %v but got: %v", test.conflict, conflict)
-		}
-	}
-}
-
-func TestLabelMerge(t *testing.T) {
-	tests := []struct {
-		labels1      map[string]string
-		labels2      map[string]string
-		mergedLabels map[string]string
-	}{
-		{
-			labels1:      map[string]string{},
-			labels2:      map[string]string{},
-			mergedLabels: map[string]string{},
-		},
-		{
-			labels1:      map[string]string{"infra": "true"},
-			labels2:      map[string]string{},
-			mergedLabels: map[string]string{"infra": "true"},
-		},
-		{
-			labels1:      map[string]string{"infra": "true"},
-			labels2:      map[string]string{"env": "test", "color": "blue"},
-			mergedLabels: map[string]string{"infra": "true", "env": "test", "color": "blue"},
-		},
-	}
-	for _, test := range tests {
-		mergedLabels := Merge(Set(test.labels1), Set(test.labels2))
-		if !Equals(mergedLabels, test.mergedLabels) {
-			t.Errorf("expected: %v but got: %v", test.mergedLabels, mergedLabels)
-		}
-	}
-}
-
-func TestLabelSelectorParse(t *testing.T) {
-	tests := []struct {
-		selector string
-		labels   map[string]string
-		valid    bool
-	}{
-		{
-			selector: "",
-			labels:   map[string]string{},
-			valid:    true,
-		},
-		{
-			selector: "x=a",
-			labels:   map[string]string{"x": "a"},
-			valid:    true,
-		},
-		{
-			selector: "x=a,y=b,z=c",
-			labels:   map[string]string{"x": "a", "y": "b", "z": "c"},
-			valid:    true,
-		},
-		{
-			selector: " x = a , y = b , z = c ",
-			labels:   map[string]string{"x": "a", "y": "b", "z": "c"},
-			valid:    true,
-		},
-		{
-			selector: "color=green,env=test,service=front",
-			labels:   map[string]string{"color": "green", "env": "test", "service": "front"},
-			valid:    true,
-		},
-		{
-			selector: "color=green, env=test, service=front",
-			labels:   map[string]string{"color": "green", "env": "test", "service": "front"},
-			valid:    true,
-		},
-		{
-			selector: ",",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x,y",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x=$y",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x!=y",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x==y",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x=a||y=b",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x in (y)",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x notin (y)",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-		{
-			selector: "x y",
-			labels:   map[string]string{},
-			valid:    false,
-		},
-	}
-	for _, test := range tests {
-		labels, err := ConvertSelectorToLabelsMap(test.selector)
-		if test.valid && err != nil {
-			t.Errorf("selector: %s, expected no error but got: %s", test.selector, err)
-		} else if !test.valid && err == nil {
-			t.Errorf("selector: %s, expected an error", test.selector)
-		}
-
-		if !Equals(Set(labels), test.labels) {
-			t.Errorf("expected: %s but got: %s", test.labels, labels)
-		}
-	}
-}
+	ginkgo.Describe("ConvertSelectorToLabelsMap", func() {
+		ginkgo.It("should correctly convert a selector string to a labels map", func() {
+			tests := []struct {
+				selector string
+				labels   map[string]string
+				valid    bool
+			}{
+				{"", map[string]string{}, true},
+				{"x=a", map[string]string{"x": "a"}, true},
+				{"x=a,y=b,z=c", map[string]string{"x": "a", "y": "b", "z": "c"}, true},
+				{" x = a , y = b , z = c ", map[string]string{"x": "a", "y": "b", "z": "c"}, true},
+				{
+					"color=green,env=test,service=front",
+					map[string]string{"color": "green", "env": "test", "service": "front"},
+					true,
+				},
+				{
+					"color=green, env=test, service=front",
+					map[string]string{"color": "green", "env": "test", "service": "front"},
+					true,
+				},
+				{",", map[string]string{}, false},
+				{"x", map[string]string{}, false},
+				{"x,y", map[string]string{}, false},
+				{"x=$y", map[string]string{}, false},
+				{"x!=y", map[string]string{}, false},
+				{"x==y", map[string]string{}, false},
+				{"x=a||y=b", map[string]string{}, false},
+				{"x in (y)", map[string]string{}, false},
+				{"x notin (y)", map[string]string{}, false},
+				{"x y", map[string]string{}, false},
+			}
+			for _, test := range tests {
+				labels, err := ConvertSelectorToLabelsMap(test.selector)
+				if test.valid {
+					Expect(err).To(BeNil())
+				} else {
+					Expect(err).ToNot(BeNil())
+				}
+				Expect(labels).To(MatchMap(test.labels))
+			}
+		})
+	})
+})

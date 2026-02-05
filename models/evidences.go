@@ -30,6 +30,14 @@ type Evidence struct {
 	UpdatedAt        time.Time     `json:"updated_at"`
 }
 
+func (e Evidence) TableName() string {
+	return "evidences"
+}
+
+func (e Evidence) PK() string {
+	return e.ID.String()
+}
+
 func (i Evidence) AsMap(removeFields ...string) map[string]any {
 	return asMap(i, removeFields...)
 }

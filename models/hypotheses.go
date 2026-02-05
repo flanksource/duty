@@ -20,6 +20,10 @@ type Hypothesis struct {
 	CreatedBy  uuid.UUID  `json:"created_by,omitempty"`
 }
 
+func (h Hypothesis) PK() string {
+	return h.ID.String()
+}
+
 func (Hypothesis) TableName() string {
 	return "hypotheses"
 }

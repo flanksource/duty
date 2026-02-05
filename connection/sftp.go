@@ -1,8 +1,10 @@
 package connection
 
 import (
+	"fmt"
 	"strconv"
 
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 )
 
@@ -11,34 +13,63 @@ type SFTPConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the connection fields.
 	ConnectionName string `yaml:"connection,omitempty" json:"connection,omitempty"`
 	// Port for the SSH server. Defaults to 22
-	Port           int    `yaml:"port,omitempty" json:"port,omitempty"`
-	Host           string `yaml:"host" json:"host"`
-	Authentication `yaml:",inline" json:",inline"`
+	Port                 int    `yaml:"port,omitempty" json:"port,omitempty"`
+	Host                 string `yaml:"host,omitempty" json:"host,omitempty"`
+	types.Authentication `yaml:",inline" json:",inline"`
 }
 
-func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (found bool, err error) {
-	connection, err := ctx.HydrateConnectionByURL(c.ConnectionName)
-	if err != nil {
-		return false, err
+func (c SFTPConnection) ToModel() models.Connection {
+	return models.Connection{
+		Type:     models.ConnectionTypeSFTP,
+		Username: c.GetUsername(),
+		Password: c.GetPassword(),
+		URL:      c.Host,
+		Properties: types.JSONStringMap{
+			"port": fmt.Sprintf("%d", c.GetPort()),
+		},
 	}
+}
 
-	if connection == nil {
-		return false, nil
-	}
+func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (err error) {
+	if c.ConnectionName != "" {
+		conn, err := ctx.HydrateConnectionByURL(c.ConnectionName)
+		if err != nil {
+			return err
+		}
 
-	c.Host = connection.URL
-	c.Authentication = Authentication{
-		Username: types.EnvVar{ValueStatic: connection.Username},
-		Password: types.EnvVar{ValueStatic: connection.Password},
-	}
+		c.Username = types.EnvVar{ValueStatic: conn.Username}
+		c.Password = types.EnvVar{ValueStatic: conn.Password}
 
-	if portRaw, ok := connection.Properties["port"]; ok {
-		if port, err := strconv.Atoi(portRaw); nil == err {
-			c.Port = port
+		if c.Port == 0 {
+			if port, ok := conn.Properties["port"]; ok {
+				if p, err := strconv.Atoi(port); err == nil {
+					c.Port = p
+				}
+			}
+		}
+
+		if c.Port == 0 {
+			c.Port = 22
+		}
+
+		if conn.URL != "" {
+			c.Host = conn.URL
 		}
 	}
 
-	return true, nil
+	if username, err := ctx.GetEnvValueFromCache(c.Username, ctx.GetNamespace()); err != nil {
+		return fmt.Errorf("could not parse username: %v", err)
+	} else {
+		c.Username.ValueStatic = username
+	}
+
+	if password, err := ctx.GetEnvValueFromCache(c.Password, ctx.GetNamespace()); err != nil {
+		return fmt.Errorf("could not parse password: %w", err)
+	} else {
+		c.Password.ValueStatic = password
+	}
+
+	return nil
 }
 
 func (c SFTPConnection) GetPort() int {

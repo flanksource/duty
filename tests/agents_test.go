@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 )
 
 var _ = ginkgo.Describe("revoke agent access token when agent is deleted", ginkgo.Ordered, func() {
@@ -43,7 +44,7 @@ var _ = ginkgo.Describe("revoke agent access token when agent is deleted", ginkg
 			PersonID:  person.ID,
 			Value:     "dummy",
 			CreatedAt: time.Now(),
-			ExpiresAt: time.Now().Add(365 * 24 * time.Hour),
+			ExpiresAt: lo.ToPtr(time.Now().Add(365 * 24 * time.Hour)),
 		}
 		err = DefaultContext.DB().Create(accessToken).Error
 		Expect(err).ToNot(HaveOccurred())

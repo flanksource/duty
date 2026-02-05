@@ -9,7 +9,7 @@ permissions:
 jobs:
   semantic-release:
     permissions:
-      contents: write  # for codfish/semantic-release-action to create release tags
+      contents: write # for codfish/semantic-release-action to create release tags
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
@@ -20,22 +20,26 @@ jobs:
     outputs:
       release-version: ${{ steps.semantic.outputs.release-version }}
       new-release-published: ${{ steps.semantic.outputs.new-release-published }}
+
   bump-clients:
     runs-on: ubuntu-latest
     needs: [semantic-release]
     if: needs.semantic-release.outputs.new-release-published == 'true'
     strategy:
       matrix:
-        repos: ['mission-control', 'canary-checker', 'config-db', 'apm-hub']
+        repos: ['mission-control', 'canary-checker', 'config-db', 'apm-hub', 'kopper']
     steps:
       - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
         with:
           repository: flanksource/${{ matrix.repos }}
+
           token: ${{ secrets.FLANKBOT }}
       - name: Setup Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: buildjet/setup-go@555ce355a95ff01018ffcf8fbbd9c44654db8374 # v5.0.2
         with:
-          go-version: v1.22.x
+          go-version: v1.24.x
+          cache: false # Dependencies change on every run (new duty version)
+
       - name: Create commits
         run: |
           # Sleep to let index refresh
@@ -54,12 +58,11 @@ jobs:
           commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
           token: ${{ secrets.FLANKBOT }}
-          labels: dependencies
-
+          labels: dependencies,ready
 
       - name: Enable Pull Request Automerge
         if: steps.cpr.outputs.pull-request-operation == 'created'
-        uses: peter-evans/enable-pull-request-automerge@v3
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d # v3.0.0
         with:
           token: ${{ secrets.FLANKBOT }}
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}

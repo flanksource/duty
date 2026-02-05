@@ -13,6 +13,7 @@ import (
 	"github.com/ohler55/ojg/jp"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -25,27 +26,41 @@ var envCache = cache.New(5*time.Minute, 10*time.Minute)
 
 const helmSecretType = "helm.sh/release.v1"
 
-func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (string, error) {
+func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (value string, err error) {
+	if input.IsEmpty() {
+		return "", nil
+	}
+	ctx, cancel := ctx.WithTimeout(ctx.Properties().Duration("envvar.lookup.timeout", 5*time.Second))
+	defer cancel()
 	if namespace == "" {
 		namespace = ctx.GetNamespace()
 	}
+	var source = ""
+
 	if input.ValueFrom == nil {
-		return input.ValueStatic, nil
-	}
-	if input.ValueFrom.SecretKeyRef != nil {
-		return GetSecretFromCache(ctx, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
-	}
-	if input.ValueFrom.ConfigMapKeyRef != nil {
-		return GetConfigMapFromCache(ctx, namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
-	}
-	if input.ValueFrom.HelmRef != nil {
-		return GetHelmValueFromCache(ctx, namespace, input.ValueFrom.HelmRef.Name, input.ValueFrom.HelmRef.Key)
-	}
-	if input.ValueFrom.ServiceAccount != nil {
-		return GetServiceAccountTokenFromCache(ctx, namespace, *input.ValueFrom.ServiceAccount)
+		source = "static"
+		value = input.ValueStatic
+	} else if input.ValueFrom.SecretKeyRef != nil && !input.ValueFrom.SecretKeyRef.IsEmpty() {
+		source = fmt.Sprintf("secret(%s/%s).%s", namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
+		value, err = GetSecretFromCache(ctx, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
+	} else if input.ValueFrom.ConfigMapKeyRef != nil && !input.ValueFrom.ConfigMapKeyRef.IsEmpty() {
+		source = fmt.Sprintf("configmap(%s/%s).%s", namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
+		value, err = GetConfigMapFromCache(ctx, namespace, input.ValueFrom.ConfigMapKeyRef.Name, input.ValueFrom.ConfigMapKeyRef.Key)
+	} else if input.ValueFrom.HelmRef != nil && !input.ValueFrom.HelmRef.IsEmpty() {
+		source = fmt.Sprintf("helm(%s/%s).%s", namespace, input.ValueFrom.HelmRef.Name, input.ValueFrom.HelmRef.Key)
+		value, err = GetHelmValueFromCache(ctx, namespace, input.ValueFrom.HelmRef.Name, input.ValueFrom.HelmRef.Key)
+	} else if !lo.IsEmpty(input.ValueFrom.ServiceAccount) {
+		source = fmt.Sprintf("service-account(%s/%s)", namespace, *input.ValueFrom.ServiceAccount)
+		value, err = GetServiceAccountTokenFromCache(ctx, namespace, *input.ValueFrom.ServiceAccount)
 	}
 
-	return "", nil
+	if err != nil {
+		ctx.Logger.V(3).Infof("lookup[%s] failed %s => %s", input.Name, source, err.Error())
+	} else if ctx.Logger.IsLevelEnabled(5) {
+		ctx.Logger.V(5).Infof("lookup[%s] %s => %s", input.Name, source, logger.PrintableSecret(value))
+	}
+
+	return value, err
 }
 
 func GetEnvStringFromCache(ctx Context, env string, namespace string) (string, error) {
@@ -67,7 +82,12 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
 	}
 
-	secretList, err := ctx.Kubernetes().CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
+	client, err := ctx.LocalKubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+
+	secretList, err := client.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("type=%s", helmSecretType),
 		LabelSelector: fmt.Sprintf("status=deployed,name=%s", releaseName),
 		Limit:         1,
@@ -105,7 +125,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		chartValues = chart["values"]
 	}
 
-	merged, info := jsonmerge.Merge(rawJson["config"], chartValues)
+	merged, info := jsonmerge.Merge(chartValues, rawJson["config"])
 	if len(info.Errors) != 0 {
 		return "", fmt.Errorf("could not merge helm config and values of helm secret %s/%s: %v", namespace, secret.Name, info.Errors)
 	}
@@ -115,13 +135,29 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not find key %s in merged helm secret %s/%s: %w", key, namespace, secret.Name, err)
 	}
 
-	output, err := json.Marshal(results[0])
-	if err != nil {
-		return "", fmt.Errorf("could not marshal merged helm secret %s/%s: %w", namespace, secret.Name, err)
+	val := ""
+	if len(results) == 1 {
+		switch v := results[0].(type) {
+		case string:
+			val = v
+		case []byte:
+			val = string(v)
+		case int, int32, int64:
+			val = fmt.Sprintf("%d", v)
+		case float32, float64:
+			val = fmt.Sprintf("%0f", v)
+		default:
+			b, err := json.Marshal(v)
+			if err != nil {
+				return "", fmt.Errorf("could not marshal merged helm secret %s/%s: %w", namespace, secret.Name, err)
+			}
+			val = string(b)
+
+		}
 	}
 
-	envCache.Set(id, string(output), 5*time.Minute)
-	return string(output), nil
+	envCache.Set(id, val, ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)))
+	return val, nil
 }
 
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
@@ -129,8 +165,12 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
+	client, err := ctx.LocalKubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
 
-	secret, err := ctx.Kubernetes().CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
 	}
@@ -144,7 +184,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if !ok {
 		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
-	envCache.Set(id, string(value), 5*time.Minute)
+	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
 	return string(value), nil
 }
 
@@ -153,7 +193,11 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	configMap, err := ctx.Kubernetes().CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	client, err := ctx.LocalKubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not get configmap %s/%s: %s", namespace, name, err)
 	}
@@ -166,7 +210,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
 			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
-	envCache.Set(id, string(value), 5*time.Minute)
+	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
 	return string(value), nil
 }
 
@@ -175,7 +219,11 @@ func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount stri
 	if value, found := envCache.Get(id); found {
 		return value.(string), nil
 	}
-	tokenRequest, err := ctx.Kubernetes().CoreV1().ServiceAccounts(namespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
+	client, err := ctx.LocalKubernetes()
+	if err != nil {
+		return "", fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+	tokenRequest, err := client.CoreV1().ServiceAccounts(namespace).CreateToken(ctx, serviceAccount, &authenticationv1.TokenRequest{}, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not get token for service account %s/%s: %w", namespace, serviceAccount, err)
 	}

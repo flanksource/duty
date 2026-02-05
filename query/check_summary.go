@@ -1,18 +1,19 @@
 package query
 
 import (
+	gocontext "context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	gocontext "context"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"gorm.io/gorm"
 )
 
 var DefaultQueryTimeout = 30 * time.Second
@@ -80,17 +81,17 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 
 	query := fmt.Sprintf(`SELECT json_agg(%s) FROM check_summary AS result WHERE deleted_at is null`, selectField)
 
-	var args = pgx.NamedArgs{}
+	var args []any
 	if opt.DeleteFrom != nil {
 		query += " OR deleted_at > @from"
-		args["from"] = *opt.DeleteFrom
+		args = append(args, sql.Named("from", *opt.DeleteFrom))
 	}
 	if opt.Labels != nil {
 		query += " AND labels @> @labels"
-		args["labels"] = opt.Labels
+		args = append(args, sql.Named("labels", opt.Labels))
 	}
 
-	rows, err := ctx.Pool().Query(ctx, query, args)
+	rows, err := ctx.DB().Raw(query, args...).Rows()
 	if err != nil {
 		return nil, err
 	}
@@ -98,13 +99,18 @@ func CheckSummary(ctx context.Context, opts ...CheckSummaryOptions) ([]models.Ch
 
 	var results []models.CheckSummary
 	for rows.Next() {
-		var summaries []models.CheckSummary
-		if rows.RawValues()[0] == nil {
+		var jsonData []byte
+		if err := rows.Scan(&jsonData); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		if jsonData == nil {
 			continue
 		}
 
-		if err := json.Unmarshal(rows.RawValues()[0], &summaries); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal components:%v for %s", err, rows.RawValues()[0])
+		var summaries []models.CheckSummary
+		if err := json.Unmarshal(jsonData, &summaries); err != nil {
+			return nil, api.Errorf(api.EINVALID, "failed to unmarshal check summaries: %v", err)
 		}
 
 		results = append(results, summaries...)

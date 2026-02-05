@@ -23,15 +23,13 @@ const (
 	ComponentStatusInfo      ComponentStatus = "info"
 )
 
-var (
-	ComponentStatusOrder = map[ComponentStatus]int{
-		ComponentStatusInfo:      0,
-		ComponentStatusHealthy:   1,
-		ComponentStatusUnhealthy: 2,
-		ComponentStatusWarning:   3,
-		ComponentStatusError:     4,
-	}
-)
+var ComponentStatusOrder = map[ComponentStatus]int{
+	ComponentStatusInfo:      0,
+	ComponentStatusHealthy:   1,
+	ComponentStatusUnhealthy: 2,
+	ComponentStatusWarning:   3,
+	ComponentStatusError:     4,
+}
 
 func (status ComponentStatus) Compare(other ComponentStatus) int {
 	if status == other {
@@ -55,6 +53,18 @@ type Summary struct {
 
 	// processed is used to prevent from being caluclated twice
 	processed bool `json:"-"`
+}
+
+func (t *Summary) AsEnv() map[string]any {
+	return map[string]any{
+		"healthy":   t.Healthy,
+		"unhealthy": t.Unhealthy,
+		"warning":   t.Warning,
+		"info":      t.Info,
+		"incidents": t.Incidents,
+		"insights":  t.Insights,
+		"checks":    t.Checks,
+	}
 }
 
 func (s *Summary) SetProcessed(val bool) {

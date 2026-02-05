@@ -92,6 +92,11 @@ CREATE OR REPLACE VIEW component_labels AS
     key,
     value;
 
+-- component_labels_keys
+DROP VIEW IF EXISTS component_labels_keys;
+CREATE OR REPLACE VIEW component_labels_keys AS
+  SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM components;
+
 DROP VIEW IF EXISTS components_with_logs;
 CREATE OR REPLACE VIEW components_with_logs AS
   SELECT
@@ -130,8 +135,7 @@ BEGIN
 END;
 $$ language plpgsql;
 
-DROP FUNCTION if exists lookup_component_relations;
-
+DROP FUNCTION IF EXISTS lookup_component_relations;
 CREATE OR REPLACE FUNCTION lookup_component_relations (component_id text)
 RETURNS TABLE (id UUID) AS $$
 BEGIN
@@ -145,3 +149,21 @@ $$ language plpgsql;
 CREATE OR REPLACE VIEW component_types AS
   SELECT distinct on (type) type
   FROM components ORDER BY type asc;
+
+DROP FUNCTION IF EXISTS lookup_component_config_id_related_components;
+CREATE OR REPLACE FUNCTION lookup_component_config_id_related_components (
+  component_id TEXT
+)
+RETURNS TABLE (id UUID) AS $$
+BEGIN
+    RETURN QUERY
+        WITH config_id_paths AS (
+            SELECT config_items.id
+            FROM config_items
+            WHERE starts_with(path, (SELECT CONCAT(config_items.path, '.', config_items.id) FROM config_items WHERE config_items.id IN (SELECT config_id FROM components WHERE components.id = $1::UUID)))
+        )
+        SELECT components.id 
+        FROM components 
+        INNER JOIN config_id_paths ON config_id_paths.id = components.config_id;
+END;
+$$ LANGUAGE plpgsql

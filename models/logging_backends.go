@@ -18,3 +18,11 @@ type LoggingBackend struct {
 	UpdatedAt time.Time           `json:"updated_at,omitempty"`
 	DeletedAt *time.Time          `json:"deleted_at,omitempty"`
 }
+
+func (l LoggingBackend) TableName() string {
+	return "logging_backends"
+}
+
+func (l LoggingBackend) PK() string {
+	return l.ID.String()
+}

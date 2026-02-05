@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/flanksource/duty/context"
-	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	gocache "github.com/patrickmn/go-cache"
 
@@ -31,6 +30,13 @@ var configItemCache = cache.New[models.ConfigItem](gocache_store.NewGoCache(goca
 
 func configItemCacheKey(id string) string {
 	return "configID:" + id
+}
+
+// <id> -> models.ConfigItemSummary
+var configItemSummaryCache = cache.New[models.ConfigItemSummary](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
+
+func configItemSummaryCacheKey(id string) string {
+	return "configIDSummary:" + id
 }
 
 // <config_id> -> []related_ids
@@ -109,16 +115,25 @@ func ConfigItemFromCache(ctx context.Context, id string) (models.ConfigItem, err
 	return c, nil
 }
 
-func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
-	return configRelationCache.Get(ctx, configRelationCacheKey(id))
+func ConfigItemSummaryFromCache(ctx context.Context, id string) (models.ConfigItemSummary, error) {
+	c, err := configItemSummaryCache.Get(ctx, configItemSummaryCacheKey(id))
+	if err != nil {
+		var cacheErr *store.NotFound
+		if !errors.As(err, &cacheErr) {
+			return c, err
+		}
+
+		var ci models.ConfigItemSummary
+		if err := ctx.DB().Where("id = ?", id).Where("deleted_at IS NULL").First(&ci).Error; err != nil {
+			return ci, err
+		}
+
+		return ci, configItemSummaryCache.Set(ctx, configItemSummaryCacheKey(id), ci)
+	}
+
+	return c, nil
 }
 
-var SyncConfigCacheJob = &job.Job{
-	Name:       "SyncConfigCache",
-	Schedule:   "@every 5m",
-	JobHistory: true,
-	Retention:  job.RetentionFew,
-	Fn: func(ctx job.JobRuntime) error {
-		return SyncConfigCache(ctx.Context)
-	},
+func ConfigRelationsFromCache(ctx context.Context, id string) ([]string, error) {
+	return configRelationCache.Get(ctx, configRelationCacheKey(id))
 }

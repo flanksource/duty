@@ -19,4 +19,5 @@ func TestDuty(t *testing.T) {
 var _ = ginkgo.BeforeSuite(func() {
 	DefaultContext = setup.BeforeSuiteFn()
 })
+
 var _ = ginkgo.AfterSuite(setup.AfterSuiteFn)

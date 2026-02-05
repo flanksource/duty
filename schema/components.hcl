@@ -173,6 +173,10 @@ table "components" {
     null = true
     type = uuid
   }
+  column "config_id" {
+    null = true
+    type = uuid
+  }
   column "name" {
     null = false
     type = text
@@ -210,6 +214,14 @@ table "components" {
   }
   column "status" {
     null = false
+    type = text
+  }
+  column "status_expr" {
+    null = true
+    type = text
+  }
+  column "health_expr" {
+    null = true
     type = text
   }
   column "health" {
@@ -330,6 +342,12 @@ table "components" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "components_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   foreign_key "components_topology_id_fkey" {
     columns     = [column.topology_id]
     ref_columns = [table.topologies.column.id]
@@ -352,20 +370,24 @@ table "components" {
   }
   index "components_path_is_pushed_idx" {
     on {
-       expr = "length(path)"
+      expr = "length(path)"
     }
-    where   = "is_pushed IS FALSE"
+    where = "is_pushed IS FALSE"
   }
   index "idx_components_deleted_at" {
     columns = [column.deleted_at]
   }
-
   index "idx_components_agent" {
     columns = [column.agent_id]
   }
-
   index "idx_components_parent_id" {
     columns = [column.parent_id]
+  }
+  index "idx_components_config_id" {
+    columns = [column.config_id]
+  }
+  index "idx_components_configs" {
+    columns = [column.configs]
   }
 }
 

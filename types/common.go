@@ -5,8 +5,23 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/flanksource/gomplate/v3"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/labels"
 )
+
+type CelExpression string
+
+func (t CelExpression) Eval(env map[string]any) (string, error) {
+	return gomplate.RunTemplate(env, gomplate.Template{Expression: string(t)})
+}
+
+type GoTemplate string
+
+func (t GoTemplate) Run(env map[string]any) (string, error) {
+	return gomplate.RunTemplate(env, gomplate.Template{Template: string(t)})
+}
 
 // asMap marshals the given struct into a map.
 func asMap(t any, removeFields ...string) map[string]any {
@@ -23,7 +38,7 @@ func asMap(t any, removeFields ...string) map[string]any {
 	return m
 }
 
-type Items []string
+type Items pq.StringArray
 
 func (items Items) String() string {
 	return strings.Join(items, ",")
@@ -56,7 +71,7 @@ func (items Items) Contains(item string) bool {
 		if strings.HasPrefix(i, "!") {
 			continue
 		}
-		if i == "*" || item == i {
+		if i == "*" || strings.EqualFold(item, i) {
 			return true
 		}
 	}
@@ -106,4 +121,24 @@ func (items Items) Where(query *gorm.DB, col string) *gorm.DB {
 	}
 
 	return query
+}
+
+// NoOpResourceSelectable provides default implementations for ResourceSelectable methods
+// that don't apply to access control entities
+type NoOpResourceSelectable struct{}
+
+func (NoOpResourceSelectable) GetLabelsMatcher() labels.Labels {
+	return nil
+}
+
+func (NoOpResourceSelectable) GetNamespace() string {
+	return ""
+}
+
+func (NoOpResourceSelectable) GetStatus() (string, error) {
+	return "", nil
+}
+
+func (NoOpResourceSelectable) GetHealth() (string, error) {
+	return "", nil
 }

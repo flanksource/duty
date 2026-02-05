@@ -7,47 +7,65 @@ import (
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/pkg/kube/labels"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm/clause"
 )
 
+type ChangeRelationDirection string
+
 const (
-	CatalogChangeRecursiveUpstream   = "upstream"
-	CatalogChangeRecursiveDownstream = "downstream"
-	CatalogChangeRecursiveAll        = "all"
+	CatalogChangeRecursiveUpstream   ChangeRelationDirection = "upstream"
+	CatalogChangeRecursiveDownstream ChangeRelationDirection = "downstream"
+	CatalogChangeRecursiveNone       ChangeRelationDirection = "none"
+	CatalogChangeRecursiveAll        ChangeRelationDirection = "all"
 )
 
-var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at"}
+var allRecursiveOptions = []ChangeRelationDirection{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveNone, CatalogChangeRecursiveAll}
+
+var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at", "count"}
 
 type CatalogChangesSearchRequest struct {
-	CatalogID             string `query:"id"`
-	ConfigType            string `query:"config_type"`
-	ChangeType            string `query:"type"`
-	Severity              string `query:"severity"`
-	IncludeDeletedConfigs bool   `query:"include_deleted_configs"`
-	Depth                 int    `query:"depth"`
-	CreatedByRaw          string `query:"created_by"`
-	Summary               string `query:"summary"`
-	Tags                  string `query:"tags"`
+	CatalogID             string `query:"id" json:"id"`
+	ConfigType            string `query:"config_type" json:"config_type"`
+	ChangeType            string `query:"type" json:"type"`
+	Severity              string `query:"severity" json:"severity"`
+	IncludeDeletedConfigs bool   `query:"include_deleted_configs" json:"include_deleted_configs"`
+	Depth                 int    `query:"depth" json:"depth"`
+	CreatedByRaw          string `query:"created_by" json:"created_by"`
+	Summary               string `query:"summary" json:"summary"`
+	Source                string `query:"source" json:"source"`
+	Tags                  string `query:"tags" json:"tags"`
+
+	// To Fetch from a particular agent, provide the agent id.
+	// Use `local` keyword to filter by the local agent.
+	AgentID string `query:"agent_id" json:"agent_id"`
 
 	createdBy         *uuid.UUID
 	externalCreatedBy string
 
 	// From date in datemath format
-	From string `query:"from"`
+	From string `query:"from" json:"from"`
 	// To date in datemath format
-	To string `query:"to"`
+	To string `query:"to" json:"to"`
 
-	PageSize  int    `query:"page_size"`
-	Page      int    `query:"page"`
-	SortBy    string `query:"sort_by"`
+	PageSize  int    `query:"page_size" json:"page_size"`
+	Page      int    `query:"page" json:"page"`
+	SortBy    string `query:"sort_by" json:"sort_by"`
 	sortOrder string
 
 	// upstream | downstream | both
-	Recursive string `query:"recursive"`
+	Recursive ChangeRelationDirection `query:"recursive" json:"recursive"`
+
+	// FIXME: Soft toggle does not work with Recursive=both
+	// In that case, soft relations are always returned
+	// It also returns ALL soft relations throughout the tree
+	// not just soft related to the main config item
+	Soft bool `query:"soft" json:"soft"`
 
 	fromParsed time.Time
 	toParsed   time.Time
@@ -55,10 +73,12 @@ type CatalogChangesSearchRequest struct {
 
 func (t CatalogChangesSearchRequest) String() string {
 	s := ""
+	if t.AgentID != "" {
+		s += fmt.Sprintf("agent: %s", t.AgentID)
+	}
 	if t.CatalogID != "" {
 		s += fmt.Sprintf("id: %s ", t.CatalogID)
 	}
-
 	if t.ConfigType != "" {
 		s += fmt.Sprintf("config_type: %s ", t.ConfigType)
 	}
@@ -67,6 +87,9 @@ func (t CatalogChangesSearchRequest) String() string {
 	}
 	if t.Severity != "" {
 		s += fmt.Sprintf("severity: %s ", t.Severity)
+	}
+	if t.Source != "" {
+		s += fmt.Sprintf("source: %s ", t.Source)
 	}
 	if t.IncludeDeletedConfigs {
 		s += fmt.Sprintf("include_deleted_configs: %t ", t.IncludeDeletedConfigs)
@@ -124,11 +147,15 @@ func (t *CatalogChangesSearchRequest) SetDefaults() {
 	if t.Depth <= 0 {
 		t.Depth = 5
 	}
+
+	if t.AgentID == "local" {
+		t.AgentID = uuid.Nil.String()
+	}
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
-	if !lo.Contains([]string{CatalogChangeRecursiveUpstream, CatalogChangeRecursiveDownstream, CatalogChangeRecursiveAll}, t.Recursive) {
-		return fmt.Errorf("recursive must be one of 'upstream', 'downstream' or 'all'")
+	if !lo.Contains(allRecursiveOptions, t.Recursive) {
+		return fmt.Errorf("'recursive' must be one of %v", allRecursiveOptions)
 	}
 
 	if t.From != "" {
@@ -170,22 +197,33 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		}
 	}
 
+	if t.AgentID != "" {
+		if _, err := uuid.Parse(t.AgentID); err != nil {
+			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `local`", t.AgentID)
+		}
+	}
+
 	return nil
 }
 
 type ConfigChangeRow struct {
-	ExternalChangeId  string     `gorm:"column:external_change_id" json:"external_change_id"`
-	ID                string     `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
-	ConfigID          string     `gorm:"column:config_id;default:''" json:"config_id"`
-	ChangeType        string     `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff"`
-	Severity          string     `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
-	Source            string     `gorm:"column:source" json:"source"`
-	Summary           string     `gorm:"column:summary;default:null" json:"summary,omitempty"`
-	CreatedAt         *time.Time `gorm:"column:created_at" json:"created_at"`
-	ConfigName        string     `gorm:"column:name" json:"name,omitempty"`
-	ConfigType        string     `gorm:"column:type" json:"type,omitempty"`
-	CreatedBy         *uuid.UUID `gorm:"column:created_by" json:"created_by,omitempty"`
-	ExternalCreatedBy string     `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
+	AgentID           string              `gorm:"column:agent_id" json:"agent_id"`
+	ExternalChangeId  string              `gorm:"column:external_change_id" json:"external_change_id"`
+	ID                string              `gorm:"primaryKey;unique_index;not null;column:id" json:"id"`
+	ConfigID          string              `gorm:"column:config_id;default:''" json:"config_id"`
+	DeletedAt         *time.Time          `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
+	ChangeType        string              `gorm:"column:change_type" json:"change_type" faker:"oneof:  RunInstances, diff"`
+	Severity          string              `gorm:"column:severity" json:"severity"  faker:"oneof: critical, high, medium, low, info"`
+	Source            string              `gorm:"column:source" json:"source"`
+	Summary           string              `gorm:"column:summary;default:null" json:"summary,omitempty"`
+	CreatedAt         *time.Time          `gorm:"column:created_at" json:"created_at"`
+	Count             int                 `gorm:"column:count" json:"count"`
+	FirstObserved     *time.Time          `gorm:"column:first_observed" json:"first_observed,omitempty"`
+	ConfigName        string              `gorm:"column:name" json:"name,omitempty"`
+	ConfigType        string              `gorm:"column:type" json:"type,omitempty"`
+	Tags              types.JSONStringMap `gorm:"column:tags" json:"tags,omitempty"`
+	CreatedBy         *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty"`
+	ExternalCreatedBy string              `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
@@ -201,6 +239,31 @@ func (t *CatalogChangesSearchResponse) Summarize() {
 	}
 }
 
+func formSeverityQuery(severity string) string {
+	if strings.HasPrefix(severity, "!") {
+		// For `Not` queries, we don't need to make any changes.
+		return severity
+	}
+
+	severities := []models.Severity{
+		models.SeverityCritical,
+		models.SeverityHigh,
+		models.SeverityMedium,
+		models.SeverityLow,
+		models.SeverityInfo,
+	}
+
+	var applicable []string
+	for _, s := range severities {
+		applicable = append(applicable, string(s))
+		if string(s) == severity {
+			break
+		}
+	}
+
+	return strings.Join(applicable, ",")
+}
+
 func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*CatalogChangesSearchResponse, error) {
 	req.SetDefaults()
 	if err := req.Validate(); err != nil {
@@ -212,30 +275,62 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	query := ctx.DB()
 
+	if req.AgentID != "" {
+		clause, err := parseAndBuildFilteringQuery(req.AgentID, "agent_id", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
+	}
+
 	if req.ConfigType != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.ConfigType, "type")...)
+		clause, err := parseAndBuildFilteringQuery(req.ConfigType, "type", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.ChangeType != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.ChangeType, "change_type")...)
+		clause, err := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Severity != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.Severity, "severity")...)
+		clause, err := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", err)
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Summary != "" {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.Summary, "summary")...)
+		clause, err := parseAndBuildFilteringQuery(req.Summary, "summary", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, "failed to parse summary: %v", err)
+		}
+		clauses = append(clauses, clause...)
+	}
+
+	if req.Source != "" {
+		clause, err := parseAndBuildFilteringQuery(req.Source, "source", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, "failed to parse source: %v", err)
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	if req.Tags != "" {
 		parsedLabelSelector, err := labels.Parse(req.Tags)
 		if err != nil {
-			return nil, api.Errorf(api.EINVALID, fmt.Sprintf("failed to parse label selector: %v", err))
+			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
 		}
 		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
-			query = tagSelectorRequirementsToSQLClause(query, r)
+			query = jsonColumnRequirementsToSQLClause(query, "tags", r)
 		}
 	}
 
@@ -252,14 +347,26 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if req.externalCreatedBy != "" {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "external_created_by"}, Value: req.externalCreatedBy})
+		clause, err := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true)
+		if err != nil {
+			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", err)
+		}
+		clauses = append(clauses, clause...)
+	}
+
+	if !req.IncludeDeletedConfigs {
+		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "deleted_at"}, Value: nil})
 	}
 
 	table := query.Table("catalog_changes")
 	if err := uuid.Validate(req.CatalogID); err == nil {
-		table = query.Table("related_changes_recursive(?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth)
+		table = query.Table("related_changes_recursive(?,?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth, req.Soft)
 	} else {
-		clauses = append(clauses, parseAndBuildFilteringQuery(req.CatalogID, "config_id")...)
+		clause, err := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false)
+		if err != nil {
+			return nil, err
+		}
+		clauses = append(clauses, clause...)
 	}
 
 	var output CatalogChangesSearchResponse
@@ -273,9 +380,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	if req.SortBy != "" {
 		clauses = append(clauses,
-			clause.OrderBy{Columns: []clause.OrderByColumn{{
-				Column: clause.Column{Name: req.SortBy},
-				Desc:   req.sortOrder == "desc"},
+			clause.OrderBy{Columns: []clause.OrderByColumn{
+				{
+					Column: clause.Column{Name: req.SortBy},
+					Desc:   req.sortOrder == "desc",
+				},
 			}})
 	}
 
@@ -289,4 +398,30 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	output.Summarize()
 	return &output, nil
+}
+
+func FindConfigChangesByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]models.CatalogChange, error) {
+	items, err := FindConfigChangeIDsByResourceSelector(ctx, limit, resourceSelectors...)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetCatalogChangesByIDs(ctx, items)
+}
+
+func FindConfigChangeIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
+	return queryTableWithResourceSelectors(ctx, "catalog_changes", limit, resourceSelectors...)
+}
+
+func GetCatalogChangesByIDs(ctx context.Context, ids []uuid.UUID) ([]models.CatalogChange, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var catalogChanges []models.CatalogChange
+	if err := ctx.DB().Table("catalog_changes").Where("id IN ?", ids).Find(&catalogChanges).Error; err != nil {
+		return nil, err
+	}
+
+	return catalogChanges, nil
 }

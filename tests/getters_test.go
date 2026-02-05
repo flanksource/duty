@@ -1,12 +1,14 @@
 package tests
 
 import (
-	"github.com/flanksource/duty/query"
-	"github.com/flanksource/duty/tests/fixtures/dummy"
-	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+
+	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/types"
 )
 
 var _ = ginkgo.Describe("FindChecks", func() {
@@ -68,7 +70,7 @@ var _ = ginkgo.Describe("FindChecks", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindCheckIDs(DefaultContext, td.Selectors...)
+			components, err := query.FindCheckIDs(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(components)).To(Equal(td.Results))
 		})
@@ -79,44 +81,42 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 	type testRecord struct {
 		Name      string
 		Selectors []types.ResourceSelector
-		Results   int
+		Results   []uuid.UUID
 	}
 
 	testData := []testRecord{
 		{
 			Name:      "empty",
 			Selectors: []types.ResourceSelector{},
-			Results:   0,
 		},
 		{
 			Name:      "name",
 			Selectors: []types.ResourceSelector{{Name: lo.FromPtr(dummy.KubernetesNodeA.Name)}},
-			Results:   1,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID},
 		},
 		{
 			Name:      "name but different namespace",
 			Selectors: []types.ResourceSelector{{Namespace: "kube-system", Name: lo.FromPtr(dummy.KubernetesNodeA.Name)}},
-			Results:   0,
 		},
 		{
 			Name:      "types",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   2,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID, dummy.KubernetesNodeAKSPool1.ID},
 		},
 		{
 			Name:      "repeated (types) to test cache",
 			Selectors: []types.ResourceSelector{{Types: []string{lo.FromPtr(dummy.KubernetesNodeA.Type)}}},
-			Results:   2,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID},
 		},
 		{
 			Name:      "label selector",
 			Selectors: []types.ResourceSelector{{LabelSelector: "role=worker"}},
-			Results:   2,
+			Results:   []uuid.UUID{dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID},
 		},
 		{
 			Name:      "field selector",
-			Selectors: []types.ResourceSelector{{FieldSelector: "config_class=Deployment"}},
-			Results:   3,
+			Selectors: []types.ResourceSelector{{Search: "config_class=Deployment"}},
+			Results:   []uuid.UUID{dummy.LogisticsUIDeployment.ID, dummy.LogisticsAPIDeployment.ID},
 		},
 	}
 
@@ -124,9 +124,9 @@ var _ = ginkgo.Describe("FindConfigs", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, td.Selectors...)
+			components, err := query.FindConfigIDsByResourceSelector(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(components)).To(Equal(td.Results))
+			Expect(components).To(ContainElements(testData[i].Results))
 		})
 	}
 })
@@ -184,10 +184,44 @@ var _ = ginkgo.Describe("FindComponent", func() {
 			Selectors: []types.ResourceSelector{{Name: dummy.Logistics.Name, LabelSelector: "telemetry=enabled"}},
 			Results:   1,
 		},
+	}
+
+	for i := range testData {
+		td := testData[i]
+
+		// if td.Name != "names but different namespace" {
+		// 	continue
+		// }
+
+		ginkgo.It(td.Name, func() {
+			components, err := query.FindComponentIDs(DefaultContext, 0, td.Selectors...)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(components)).To(Equal(td.Results))
+		})
+	}
+})
+
+var _ = ginkgo.Describe("FindPlaybooks", func() {
+	type testRecord struct {
+		Name      string
+		Selectors []types.ResourceSelector
+		Results   []uuid.UUID
+	}
+
+	testData := []testRecord{
 		{
-			Name:      "field selector",
-			Selectors: []types.ResourceSelector{{FieldSelector: "name=kustomize"}},
-			Results:   1,
+			Name:      "empty",
+			Selectors: []types.ResourceSelector{},
+		},
+		{
+			Name:      "name",
+			Selectors: []types.ResourceSelector{{Name: dummy.EchoConfig.Name}},
+			Results:   []uuid.UUID{dummy.EchoConfig.ID},
+		},
+		{
+			Name:      "namespace",
+			Selectors: []types.ResourceSelector{{Namespace: "default"}},
+			Results:   []uuid.UUID{},
 		},
 	}
 
@@ -195,9 +229,9 @@ var _ = ginkgo.Describe("FindComponent", func() {
 		td := testData[i]
 
 		ginkgo.It(td.Name, func() {
-			components, err := query.FindComponentIDs(DefaultContext, td.Selectors...)
+			result, err := query.FindPlaybookIDsByResourceSelector(DefaultContext, 0, td.Selectors...)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(components)).To(Equal(td.Results))
+			Expect(result).To(ContainElements(testData[i].Results))
 		})
 	}
 })

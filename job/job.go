@@ -4,16 +4,24 @@ import (
 	"container/ring"
 	gocontext "context"
 	"fmt"
+	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/text"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/echo"
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
+	"gorm.io/gorm"
 )
 
 const (
@@ -24,15 +32,48 @@ const (
 	ResourceTypeUpstream      = "upstream"
 )
 
-var evictedJobs chan uuid.UUID
+const (
+	// iterationJitterPercent sets the maximum percent by which to jitter each subsequent invocation of a periodic job
+	iterationJitterPercent = 10
+
+	maxJitterDuration = time.Minute * 15
+)
+
+var (
+	EvictedJobs       chan uuid.UUID
+	startedJobHistory = false
+
+	// startCronOnSchedule dictates whether to start the cron runner
+	// when a job is scheduled to it.
+	startCronOnSchedule = true
+)
+
+// DisableCronStartOnSchedule disables the default bahevior of
+// starting the cron runner when a job is scheduled via
+// `.AddToSchduler()`
+func DisableCronStartOnSchedule() {
+	startCronOnSchedule = false
+}
+
+func StartJobHistoryEvictor(ctx context.Context) {
+	if !startedJobHistory {
+		if EvictedJobs == nil {
+			EvictedJobs = make(chan uuid.UUID, 1000)
+		}
+		go deleteEvictedJobs(ctx)
+		startedJobHistory = true
+	}
+
+}
 
 // deleteEvictedJobs deletes job_history rows from the DB every job.eviction.period(1m),
 // jobs send rows to be deleted by maintaining a circular buffer by status type
 func deleteEvictedJobs(ctx context.Context) {
 	period := ctx.Properties().Duration("job.eviction.period", time.Minute)
+	ctx = ctx.WithoutTracing().WithName("jobs").WithDBLogger("jobs", logger.Trace1)
 	ctx.Infof("Cleaning up jobs every %v", period)
 	for {
-		items, _, _, _ := lo.BufferWithTimeout(evictedJobs, 32, 5*time.Second)
+		items, _, _, _ := lo.BufferWithTimeout(EvictedJobs, 32, 5*time.Second)
 		if len(items) == 0 {
 			time.Sleep(period)
 			continue
@@ -68,9 +109,16 @@ var RetentionHigh = Retention{
 
 type Job struct {
 	context.Context
+	entryID     *cron.EntryID
+	lock        *sync.Mutex
+	initialized bool
+	unschedule  func()
+	statusRing  StatusRing
+
 	Name                     string
 	Schedule                 string
 	Singleton                bool
+	JitterDisable            bool
 	Debug, Trace             bool
 	Timeout                  time.Duration
 	Fn                       func(ctx JobRuntime) error
@@ -79,14 +127,33 @@ type Job struct {
 	ID                       string
 	ResourceID, ResourceType string
 	IgnoreSuccessHistory     bool
-	entryID                  *cron.EntryID
-	lock                     *sync.Mutex
 	lastHistoryCleanup       time.Time
 	Retention                Retention
 	LastJob                  *models.JobHistory
-	initialized              bool
-	unschedule               func()
-	statusRing               StatusRing
+
+	// Semaphores control concurrent execution of related jobs.
+	// They are acquired sequentially and released in reverse order.
+	// Hence, they should be ordered from most specific to most general
+	// so broader locks are held for the least amount of time.
+	// The job is responsible in providing the semaphores in the correct order.
+	Semaphores []*semaphore.Weighted
+}
+
+func (j *Job) GetContext() map[string]any {
+	return map[string]any{
+		"id":           j.ID,
+		"resourceID":   j.ResourceID,
+		"resourceType": j.ResourceType,
+		"name":         j.Name,
+		"schedule":     j.Schedule,
+	}
+}
+
+func (j *Job) PK() string {
+	return strings.TrimSuffix(
+		strings.TrimSpace(fmt.Sprintf("%s/%s", j.Name, lo.CoalesceOrEmpty(j.ID, j.ResourceID))),
+		"/",
+	)
 }
 
 type StatusRing struct {
@@ -101,10 +168,9 @@ type StatusRing struct {
 // populateFromDB syncs the status ring with the existing job histories in db
 func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string) error {
 	var existingHistories []models.JobHistory
-	if err := ctx.DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
+	if err := ctx.WithoutTracing().WithDBLogger("jobs", logger.Trace1).DB().Where("name = ?", name).Where("resource_id = ?", resourceID).Order("time_start").Find(&existingHistories).Error; err != nil {
 		return err
 	}
-	ctx.Logger.V(4).Infof("found %d histories", len(existingHistories))
 
 	for _, h := range existingHistories {
 		t.Add(&h)
@@ -113,7 +179,7 @@ func (t *StatusRing) populateFromDB(ctx context.Context, name, resourceID string
 	return nil
 }
 
-func newStatusRing(r Retention, singleton bool, evicted chan uuid.UUID) StatusRing {
+func NewStatusRing(r Retention, singleton bool, evicted chan uuid.UUID) StatusRing {
 	return StatusRing{
 		lock:      sync.Mutex{},
 		retention: r,
@@ -147,14 +213,11 @@ func (sr *StatusRing) Add(job *models.JobHistory) {
 }
 
 type Retention struct {
-	// Success is the number of finished/success job history to retain
+	// Success is the number of success job history to retain
 	Success int
 
 	// Failed is the number of unsuccessful job history to retain
 	Failed int
-
-	// Data ...?
-	Data bool
 }
 
 func (r Retention) Count(status string) int {
@@ -162,11 +225,6 @@ func (r Retention) Count(status string) int {
 		return r.Failed
 	}
 	return r.Success
-}
-
-func (r Retention) WithData() Retention {
-	r.Data = true
-	return r
 }
 
 func (r Retention) String() string {
@@ -186,6 +244,14 @@ type JobRuntime struct {
 	runId     string
 }
 
+func New(ctx context.Context) JobRuntime {
+	return JobRuntime{
+		Context: ctx,
+		History: &models.JobHistory{},
+		Job:     &Job{},
+	}
+}
+
 func (j *JobRuntime) ID() string {
 	return fmt.Sprintf("[%s/%s]", j.Job.Name, j.runId)
 }
@@ -202,23 +268,29 @@ func (j *JobRuntime) start() {
 		j.History.ResourceType = j.Job.ResourceType
 	}
 	if j.Job.JobHistory && j.Job.Retention.Success > 0 && !j.Job.IgnoreSuccessHistory {
-		if err := j.History.Persist(j.FastDB()); err != nil {
+		if err := j.History.Persist(j.VerboseDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
 }
 
+func (j *JobRuntime) VerboseDB() *gorm.DB {
+	return j.WithoutTracing().WithDBLogger("jobs", logger.Trace1).DB()
+}
+
 func (j *JobRuntime) end() {
 	j.History.End()
 	if j.Job.JobHistory && (j.Job.Retention.Success > 0 || len(j.History.Errors) > 0) && !j.Job.IgnoreSuccessHistory {
-		if err := j.History.Persist(j.FastDB()); err != nil {
+		if err := j.History.Persist(j.VerboseDB()); err != nil {
 			j.Warnf("failed to persist history: %v", err)
 		}
 	}
 	j.Job.statusRing.Add(j.History)
 
-	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Add(1)
-	j.Context.Histogram("job_duration", context.LatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).Since(j.History.TimeStart)
+	j.Context.Counter("job", "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).
+		Add(1)
+	j.Context.Histogram("job_duration", context.LongLatencyBuckets, "name", j.Job.Name, "id", j.Job.ResourceID, "resource", j.Job.ResourceType, "status", j.History.Status).
+		Since(j.History.TimeStart)
 }
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
@@ -227,6 +299,13 @@ func (j *JobRuntime) Failf(message string, args ...interface{}) {
 	j.Span.SetStatus(codes.Error, err)
 	if j.History != nil {
 		j.History.AddErrorWithSkipReportLevel(err, 1)
+	}
+}
+
+func (j *JobRuntime) Skipped(msg string) {
+	j.Span.SetStatus(codes.Unset, msg)
+	if j.History != nil {
+		j.History.Status = models.StatusSkipped
 	}
 }
 
@@ -250,9 +329,15 @@ func (j *Job) FindHistory(statuses ...string) ([]models.JobHistory, error) {
 	var items []models.JobHistory
 	var err error
 	if len(statuses) == 0 {
-		err = j.DB().Where("name = ?", j.Name).Order("time_start DESC").Find(&items).Error
+		err = j.WithoutTracing().
+			WithDBLogger("jobs", logger.Trace1).
+			DB().
+			Where("name = ?", j.Name).
+			Order("time_start DESC").
+			Find(&items).
+			Error
 	} else {
-		err = j.DB().Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
+		err = j.WithoutTracing().WithDBLogger("jobs", logger.Trace1).DB().Where("name = ? and status in ?", j.Name, statuses).Order("time_start DESC").Find(&items).Error
 	}
 	return items, err
 }
@@ -273,7 +358,28 @@ func (j *Job) SetID(id string) *Job {
 }
 
 func (j *Job) Run() {
+	if !j.Context.Properties().On(false, "job.jitter.disable") && !j.JitterDisable && j.Schedule != "" {
+		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
+		// NOTE: Only works for fixed interval schedules.
+		parsedSchedule, err := cron.ParseStandard(j.Schedule)
+		if err != nil {
+			j.Debugf("failed to parse schedule (%s): %s", j.Schedule, err)
+		} else {
+			interval := time.Until(parsedSchedule.Next(time.Now()))
+			if interval > maxJitterDuration {
+				interval = maxJitterDuration
+			}
+
+			delayPercent := rand.Intn(iterationJitterPercent)
+			jitterDuration := time.Duration((int64(interval) * int64(delayPercent)) / 100)
+			j.Context.Logger.V(4).Infof("jitter %v", jitterDuration)
+
+			time.Sleep(jitterDuration)
+		}
+	}
+
 	ctx, span := j.Context.StartSpan(j.Name)
+	ctx = ctx.WithName("job." + j.PK())
 	defer span.End()
 
 	r := JobRuntime{
@@ -303,10 +409,24 @@ func (j *Job) Run() {
 		if !j.lock.TryLock() {
 			r.History.Status = models.StatusSkipped
 			ctx.Tracef("failed to acquire lock")
-			r.Failf("%s job already running, skipping", r.ID())
+			r.Skipped("job already running, skipping")
 			return
 		}
 		defer j.lock.Unlock()
+	}
+
+	for i, lock := range j.Semaphores {
+		ctx.Logger.V(6).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		if err := lock.Acquire(ctx, 1); err != nil {
+			r.Skipped("too many concurrent jobs, skipping")
+			return
+		}
+		ctx.Logger.V(7).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+
+		defer func(s *semaphore.Weighted, msg string) {
+			s.Release(1)
+			ctx.Logger.V(6).Infof(msg)
+		}(lock, fmt.Sprintf("[%s] released sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores)))
 	}
 
 	if j.Timeout > 0 {
@@ -315,30 +435,52 @@ func (j *Job) Run() {
 		defer cancel()
 	}
 
-	err := j.Fn(r)
-	if err != nil {
-		ctx.Tracef("finished duration=%s, error=%s", time.Since(r.History.TimeStart), err)
+	if err := j.Fn(r); err != nil {
+		ctx.Tracef("finished duration=%s, error=%s", text.HumanizeDuration(time.Since(r.History.TimeStart)), err)
 		r.History.AddErrorWithSkipReportLevel(err.Error(), 1)
 	} else {
-		ctx.Tracef("finished duration=%s", time.Since(r.History.TimeStart))
+		ctx.Tracef("finished duration=%s", text.HumanizeDuration(time.Since(r.History.TimeStart)))
 	}
 }
 
-func getProperty(j *Job, properties map[string]string, property string) (string, bool) {
-	if val, ok := properties[j.Name+"."+property]; ok {
-		return val, ok
+func (j *Job) getPropertyNames(key string) []string {
+	if j.ID == "" {
+		return []string{
+			fmt.Sprintf("jobs.%s.%s", j.Name, key),
+			fmt.Sprintf("jobs.%s", key)}
 	}
-	if val, ok := properties[fmt.Sprintf("%s[%s].%s", j.Name, j.ID, property)]; ok {
-		return val, ok
+	return []string{
+		fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, key),
+		fmt.Sprintf("jobs.%s.%s", j.Name, key),
+		fmt.Sprintf("jobs.%s", key)}
+}
+
+func (j *Job) GetProperty(property string) (string, bool) {
+	if val := j.Context.Properties().String("jobs."+j.Name+"."+property, ""); val != "" {
+		return val, true
+	}
+	if j.ID != "" {
+		if val := j.Context.Properties().String(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), ""); val != "" {
+			return val, true
+		}
 	}
 	return "", false
 }
 
-func (j *Job) init() error {
-	if evictedJobs == nil {
-		evictedJobs = make(chan uuid.UUID, 1000)
-		go deleteEvictedJobs(j.Context)
+func (j *Job) GetPropertyInt(property string, def int) int {
+	if val := j.Context.Properties().Int("jobs."+j.Name+"."+property, def); val != def {
+		return val
 	}
+	if j.ID != "" {
+		if val := j.Context.Properties().Int(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), def); val != def {
+			return val
+		}
+	}
+	return def
+}
+
+func (j *Job) init() error {
+	StartJobHistoryEvictor(j.Context)
 
 	if j.initialized {
 		return nil
@@ -346,12 +488,11 @@ func (j *Job) init() error {
 
 	j.lastHistoryCleanup = time.Now()
 
-	properties := j.Context.Properties()
-	if schedule, ok := getProperty(j, properties, "schedule"); ok {
+	if schedule, ok := j.GetProperty("schedule"); ok {
 		j.Schedule = schedule
 	}
 
-	if timeout, ok := getProperty(j, properties, "timeout"); ok {
+	if timeout, ok := j.GetProperty("timeout"); ok {
 		duration, err := time.ParseDuration(timeout)
 		if err != nil {
 			j.Context.Warnf("invalid timeout %s", timeout)
@@ -359,21 +500,13 @@ func (j *Job) init() error {
 		j.Timeout = duration
 	}
 
-	if history, ok := getProperty(j, properties, "history"); ok {
-		j.JobHistory = !(history != "false")
-	}
+	j.JobHistory = j.Properties().On(true, j.getPropertyNames("history")...)
+	j.Retention.Success = j.GetPropertyInt("retention.success", j.Retention.Success)
+	j.Retention.Failed = j.GetPropertyInt("retention.failed", j.Retention.Failed)
 
-	if trace := properties["jobs.trace"]; trace == "true" {
-		j.Trace = true
-	} else if trace, ok := getProperty(j, properties, "trace"); ok {
-		j.Trace = trace == "true"
-	}
-
-	if debug := properties["jobs.debug"]; debug == "true" {
-		j.Debug = true
-	} else if debug, ok := getProperty(j, properties, "debug"); ok {
-		j.Debug = debug == "true"
-	}
+	j.Trace = j.Properties().On(false, j.getPropertyNames("trace")...)
+	j.Debug = j.Properties().On(false, j.getPropertyNames("debug")...)
+	j.Singleton = j.Properties().On(j.Singleton, j.getPropertyNames("singleton")...)
 
 	// Set default retention if it is unset
 	if j.Retention.Empty() {
@@ -381,12 +514,6 @@ func (j *Job) init() error {
 			Success: 1,
 			Failed:  3,
 		}
-	}
-
-	if j.ID != "" {
-		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ID))
-	} else {
-		j.Context = j.Context.WithoutName().WithName(fmt.Sprintf("%s[%s]", j.Name, j.ResourceID))
 	}
 
 	obj := j.Context.GetObjectMeta()
@@ -408,13 +535,21 @@ func (j *Job) init() error {
 
 	j.Context = j.Context.WithObject(obj)
 
-	if dbLevel, ok := getProperty(j, properties, "db-log-level"); ok {
+	if dbLevel, ok := j.GetProperty("db-log-level"); ok {
 		j.Context = j.Context.WithDBLogLevel(dbLevel)
+	}
+
+	if j.ID != "" {
+		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", strings.ToLower(j.Name), j.ID))
+	} else if j.ResourceID != "" {
+		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", strings.ToLower(j.Name), j.ResourceID))
+	} else {
+		j.Context = j.Context.WithName(strings.ToLower(j.Name))
 	}
 
 	j.Context.Tracef("initalized %v", j.String())
 
-	j.statusRing = newStatusRing(j.Retention, j.Singleton, evictedJobs)
+	j.statusRing = NewStatusRing(j.Retention, j.Singleton, EvictedJobs)
 	if err := j.statusRing.populateFromDB(j.Context, j.Name, j.ResourceID); err != nil {
 		return fmt.Errorf("error populating status ring: %w", err)
 	}
@@ -450,10 +585,20 @@ func (j *Job) GetResourcedName() string {
 }
 
 func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
-	cronRunner.Start()
+	echo.RegisterCron(cronRunner)
+	if startCronOnSchedule {
+		cronRunner.Start()
+	}
+
 	schedule := j.Schedule
-	if override, ok := getProperty(j, j.Context.Properties(), "schedule"); ok {
+	if override, ok := j.GetProperty("schedule"); ok {
 		schedule = override
+	}
+
+	if override, ok := j.GetProperty("runNow"); ok {
+		if parsed, err := strconv.ParseBool(override); err == nil {
+			j.RunNow = parsed
+		}
 	}
 
 	if schedule == "" {
@@ -464,20 +609,23 @@ func (j *Job) AddToScheduler(cronRunner *cron.Cron) error {
 		j.Context.Infof("skipping scheduling")
 		return nil
 	}
-
 	j.Context.Logger.Named(j.GetResourcedName()).V(1).Infof("scheduled %s", schedule)
+
 	entryID, err := cronRunner.AddJob(schedule, j)
 	if err != nil {
 		return fmt.Errorf("[%s] failed to schedule job: %s", j.Label(), err)
 	}
 	j.entryID = &entryID
+
 	if j.RunNow {
 		// Run in a goroutine since AddToScheduler should be non-blocking
 		defer func() { go j.Run() }()
 	}
+
 	j.unschedule = func() {
 		cronRunner.Remove(*j.entryID)
 	}
+
 	return nil
 }
 
@@ -511,4 +659,10 @@ func (j *Job) RemoveFromScheduler(cronRunner *cron.Cron) {
 		return
 	}
 	cronRunner.Remove(*j.entryID)
+}
+
+func init() {
+	if EvictedJobs == nil {
+		EvictedJobs = make(chan uuid.UUID, 1000)
+	}
 }

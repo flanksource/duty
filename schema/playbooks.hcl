@@ -5,9 +5,19 @@ table "playbooks" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "namespace" {
+    null    = false
+    type    = text
+    default = "default"
+  }
   column "name" {
     null = false
     type = text
+  }
+  column "title" {
+    null    = false
+    type    = text
+    default = ""
   }
   column "icon" {
     null = true
@@ -30,8 +40,9 @@ table "playbooks" {
     type = enum.source
   }
   column "category" {
-    null = true
-    type = text
+    null    = false
+    type    = text
+    default = ""
   }
   column "created_at" {
     null    = false
@@ -50,9 +61,9 @@ table "playbooks" {
   primary_key {
     columns = [column.id]
   }
-  index "playbook_name_key" {
+  index "playbook_name_namespace_category_key" {
     unique  = true
-    columns = [column.name]
+    columns = [column.namespace, column.name, column.category]
     where   = "deleted_at IS NULL"
   }
   foreign_key "playbook_created_by_fkey" {
@@ -124,10 +135,15 @@ table "playbook_runs" {
     null = false
     type = uuid
   }
+  column "spec" {
+    null    = false
+    type    = jsonb
+    default = "{}" # temporary default value to make the migration possible. we can remove this later.
+  }
   column "status" {
     null    = false
     type    = text
-    default = "pending"
+    default = "scheduled"
   }
   column "created_at" {
     null    = false
@@ -149,9 +165,20 @@ table "playbook_runs" {
     null = true
     type = timestamptz
   }
+  column "timeout" {
+    null    = false
+    type    = bigint
+    comment = "duration in nanoseconds"
+    default = 1800000000000 # 30 minutes
+  }
   column "created_by" {
     null = true
     type = uuid
+  }
+  column "notification_send_id" {
+    null   = true
+    column = "the notification dispatch that triggered this run"
+    type   = uuid
   }
   column "check_id" {
     null = true
@@ -169,10 +196,19 @@ table "playbook_runs" {
     null = true
     type = jsonb
   }
+  column "request" {
+    null = true
+    type = jsonb
+  }
   column "agent_id" {
     null    = true
     default = var.uuid_nil
     type    = uuid
+  }
+  column "parent_id" {
+    null    = true
+    type    = uuid
+    comment = "references the run that triggered this run"
   }
   column "error" {
     null = true
@@ -181,11 +217,23 @@ table "playbook_runs" {
   primary_key {
     columns = [column.id]
   }
+  foreign_key "playbook_run_parent_id_fkey" {
+    columns     = [column.parent_id]
+    ref_columns = [table.playbook_runs.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   foreign_key "playbook_run_playbook_id_fkey" {
     columns     = [column.playbook_id]
     ref_columns = [table.playbooks.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "playbook_run_notification_send_id_fkey" {
+    columns     = [column.notification_send_id]
+    ref_columns = [table.notification_send_history.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   foreign_key "playbook_run_created_by_fkey" {
     columns     = [column.created_by]
@@ -216,6 +264,9 @@ table "playbook_runs" {
     ref_columns = [table.agents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "idx_playbook_runs_parent_id" {
+    columns = [column.parent_id]
   }
 }
 
@@ -270,6 +321,11 @@ table "playbook_run_actions" {
     type    = text
     default = "running"
   }
+  column "retry_count" {
+    null    = true
+    type    = integer
+    comment = "the nth retry of this action"
+  }
   column "playbook_run_id" {
     null    = true
     type    = uuid
@@ -316,15 +372,17 @@ table "playbook_run_actions" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
-  check "playbook_action_not_null_run_id" {
-    expr    = <<EOF
-    (playbook_run_id IS NULL AND agent_id IS NOT NULL) OR
-    (playbook_run_id IS NOT NULL)
-    EOF
-    comment = "a run id is mandatory except for an agent"
+  foreign_key "playbook_run_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
 
   index "playbook_run_actions_status_time_idx" {
     columns = [column.status, column.scheduled_time]
+  }
+  index "playbook_run_actions_playbook_run_id_idx" {
+    columns = [column.playbook_run_id]
   }
 }

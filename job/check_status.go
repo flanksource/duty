@@ -10,15 +10,15 @@ import (
 )
 
 func RefreshCheckSizeSummary(ctx context.Context) error {
-	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_size_summary").Error
+	return ctx.DB().Exec("SELECT refresh_check_size_summary()").Error
 }
 
 func RefreshCheckStatusSummary(ctx context.Context) error {
-	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_status_summary").Error
+	return ctx.DB().Exec("SELECT refresh_check_status_summary()").Error
 }
 
 func RefreshCheckStatusSummaryAged(ctx context.Context) error {
-	return ctx.DB().Exec("REFRESH MATERIALIZED VIEW check_status_summary_aged").Error
+	return ctx.DB().Exec(" SELECT refresh_check_status_summary_aged()").Error
 }
 
 func DeleteOldCheckStatuses(ctx context.Context, retention int) (int, error) {

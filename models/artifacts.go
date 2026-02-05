@@ -28,12 +28,12 @@ type Artifact struct {
 	ExpiresAt           *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty" time_format:"postgres_timestamp"`
 }
 
-func (t Artifact) TableName() string {
+func (a Artifact) TableName() string {
 	return "artifacts"
 }
 
-func (t Artifact) PK() string {
-	return t.ID.String()
+func (a Artifact) PK() string {
+	return a.ID.String()
 }
 
 func (t Artifact) GetUnpushed(db *gorm.DB) ([]DBTable, error) {

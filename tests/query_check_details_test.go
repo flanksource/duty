@@ -23,10 +23,10 @@ var _ = ginkgo.Describe("CheckDetails", ginkgo.Ordered, func() {
 	}
 
 	testData := []testRecord{
-		{since: "1w", statuses: 2, passed: 56, failed: 14, latency: types.Latency{Percentile99: 670, Percentile97: 0, Percentile95: 0}},
-		{since: "1d", statuses: 6, passed: 56, failed: 14, latency: types.Latency{Percentile99: 1305, Percentile97: 770, Percentile95: 205}},
-		{since: "1h", statuses: 61, passed: 48, failed: 13, latency: types.Latency{Percentile99: 1210, Percentile97: 1170, Percentile95: 1130}},
-		{since: "30m", statuses: 31, passed: 24, failed: 7, latency: types.Latency{Percentile99: 610, Percentile97: 570, Percentile95: 530}},
+		{since: "1w", statuses: 2, passed: 56, failed: 14, latency: types.Latency{Percentile99: 1020, Percentile97: 1020, Percentile95: 1020}},
+		{since: "1d", statuses: 6, passed: 56, failed: 14, latency: types.Latency{Percentile99: 1390, Percentile97: 1390, Percentile95: 1390}},
+		{since: "1h", statuses: 61, passed: 48, failed: 13, latency: types.Latency{Percentile99: 1220, Percentile97: 1200, Percentile95: 1160}},
+		{since: "30m", statuses: 31, passed: 24, failed: 7, latency: types.Latency{Percentile99: 620, Percentile97: 620, Percentile95: 600}},
 	}
 
 	refTime := time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC)

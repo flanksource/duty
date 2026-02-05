@@ -2,11 +2,6 @@
 CREATE OR REPLACE FUNCTION handle_team_updates()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    PERFORM pg_notify('table_activity', TG_TABLE_NAME || ' ' || OLD.id);
-    RETURN NULL;
-  END IF;
-  
   IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN
     DELETE FROM team_components WHERE team_id = OLD.id;
   END IF;
@@ -15,12 +10,10 @@ BEGIN
     UPDATE notifications SET error = NULL WHERE team_id = NEW.id;
   END IF;
 
-  PERFORM pg_notify('table_activity', TG_TABLE_NAME || ' ' || NEW.id);
-  
   RETURN NULL;
 END
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER team_updates
-AFTER UPDATE OR DELETE ON teams
+AFTER UPDATE ON teams
 FOR EACH ROW EXECUTE PROCEDURE handle_team_updates();
