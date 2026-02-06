@@ -122,9 +122,13 @@ func resolveSchemaType(t reflect.Type) reflect.Type {
 // resolvePackageDir returns the filesystem directory for a Go package import path.
 func resolvePackageDir(pkg string) (string, error) {
 	cmd := exec.Command("go", "list", "-f", "{{.Dir}}", pkg)
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("go list failed for package %s: %w (%s)", pkg, err, strings.TrimSpace(string(output)))
+		var stderr string
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		return "", fmt.Errorf("go list failed for package %s: %w (%s)", pkg, err, strings.TrimSpace(stderr))
 	}
 
 	dir := strings.TrimSpace(string(output))
@@ -143,7 +147,7 @@ func WriteSchemaToFile(path string, obj any) error {
 	}
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("unabled to write schema to path[%s]: %w", path, err)
+		return fmt.Errorf("unable to write schema to path[%s]: %w", path, err)
 	}
 
 	return nil
