@@ -10,16 +10,20 @@
     "ResourceSelector": {
       "properties": {
         "agent": {
-          "type": "string"
+          "type": "string",
+          "description": "Agent can be the agent id or the name of the agent.\n Additionally, the special \"self\" value can be used to select resources without an agent."
         },
         "scope": {
-          "type": "string"
+          "type": "string",
+          "description": "Scope is the reference for parent of the resource to select.\nFor config items, the scope is the scraper id\nFor checks, it's canaries and\nFor components, it's topology.\nIt can either be a uuid or namespace/name"
         },
         "cache": {
-          "type": "string"
+          "type": "string",
+          "description": "Cache directives\n 'no-cache' (should not fetch from cache but can be cached)\n 'no-store' (should not cache)\n 'max-age=X' (cache for X duration)"
         },
         "search": {
-          "type": "string"
+          "type": "string",
+          "description": "Search query that applies to the resource name, tag \u0026 labels."
         },
         "limit": {
           "type": "integer"
@@ -46,13 +50,16 @@
           "type": "string"
         },
         "health": {
-          "type": "string"
+          "type": "string",
+          "description": "Health filters resources by the health.\nMultiple healths can be provided separated by comma."
         },
         "types": {
-          "$ref": "#/$defs/Items"
+          "$ref": "#/$defs/Items",
+          "description": "Types filter resources by the type"
         },
         "statuses": {
-          "$ref": "#/$defs/Items"
+          "$ref": "#/$defs/Items",
+          "description": "Statuses filter resources by the status"
         }
       },
       "additionalProperties": false,
