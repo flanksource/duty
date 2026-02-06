@@ -12,11 +12,10 @@ import (
 	"sync"
 	"time"
 
+	cachev4 "github.com/eko/gocache/lib/v4/cache"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/timer"
-	"github.com/flanksource/duty/cache"
-	"github.com/flanksource/duty/types"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
@@ -25,14 +24,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	cachev4 "github.com/eko/gocache/lib/v4/cache"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/flanksource/duty/cache"
+	"github.com/flanksource/duty/types"
 )
 
 type gvkClientResourceCacheValue struct {
@@ -114,34 +114,38 @@ func (c *Client) FetchResources(
 func (c *Client) GetClientByGroupVersionKind(
 	ctx context.Context, group, version, kind string,
 ) (dynamic.NamespaceableResourceInterface, error) {
+	client, _, err := c.GetClientAndMappingByGroupVersionKind(ctx, group, version, kind)
+	return client, err
+}
+
+func (c *Client) GetClientAndMappingByGroupVersionKind(
+	ctx context.Context, group, version, kind string,
+) (dynamic.NamespaceableResourceInterface, *meta.RESTMapping, error) {
 	dynamicClient, err := c.GetDynamicClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	cacheKey := group + version + kind
+	cacheKey := strings.Join([]string{group, version, kind}, "/")
 	if res, err := c.gvkClientResourceCache.Get(ctx, cacheKey); err == nil {
-		return dynamicClient.Resource(res.gvr), nil
+		return dynamicClient.Resource(res.gvr), res.mapping, nil
 	}
 
-	rm, _ := c.GetRestMapper()
-	gvk, err := rm.KindFor(schema.GroupVersionResource{
-		Resource: kind,
-		Group:    group,
-		Version:  version,
-	})
+	rm, err := c.GetRestMapper()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
-	mapping, err := rm.RESTMapping(gk, gvk.Version)
+	mapping, err := rm.RESTMapping(schema.GroupKind{Group: group, Kind: kind}, version)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	_ = c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping})
-	return dynamicClient.Resource(mapping.Resource), nil
+	if err := c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping}); err != nil {
+		c.logger.Errorf("failed to set gvk cache for %s: %s", cacheKey, err)
+	}
+
+	return dynamicClient.Resource(mapping.Resource), mapping, nil
 }
 
 func (c *Client) RestConfig() *rest.Config {
@@ -163,7 +167,11 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 		return dynamicClient.Resource(res.gvr), res.mapping, nil
 	}
 
-	rm, _ := c.GetRestMapper()
+	rm, err := c.GetRestMapper()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get rest mapper: %w", err)
+	}
+
 	gvk, err := rm.KindFor(schema.GroupVersionResource{
 		Resource: kind,
 	})
@@ -182,6 +190,52 @@ func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInte
 	}
 
 	return dynamicClient.Resource(mapping.Resource), mapping, nil
+}
+
+// ParseAPIVersionKind parses an apiVersion/Kind string into a GroupVersionKind.
+// This format allows specifying the exact API group, version, and kind to avoid
+// ambiguity when multiple resources share the same Kind name.
+//
+// Supported formats:
+//   - "version/kind" for core API group (e.g., "v1/Pod", "v1/Service")
+//   - "group/version/kind" for named API groups (e.g., "apps/v1/Deployment")
+//   - "domain.group/version/kind" for domain-based groups (e.g., "serving.knative.dev/v1/Service")
+//
+// Examples:
+//   - "v1/Pod" → {Group: "", Version: "v1", Kind: "Pod"}
+//   - "apps/v1/Deployment" → {Group: "apps", Version: "v1", Kind: "Deployment"}
+//   - "serving.knative.dev/v1/Service" → {Group: "serving.knative.dev", Version: "v1", Kind: "Service"}
+//
+// This is useful when you need to distinguish between resources with the same Kind
+// but different API groups (e.g., v1/Service vs serving.knative.dev/v1/Service).
+func ParseAPIVersionKind(apiVersionKind string) (schema.GroupVersionKind, error) {
+	parts := strings.Split(apiVersionKind, "/")
+
+	var gvk schema.GroupVersionKind
+	switch len(parts) {
+	case 2:
+		// Format: version/kind (e.g., "v1/Pod" for core API group)
+		gvk = schema.GroupVersionKind{
+			Group:   "",
+			Version: parts[0],
+			Kind:    parts[1],
+		}
+	case 3:
+		// Format: group/version/kind (e.g., "apps/v1/Deployment", "serving.knative.dev/v1/Service")
+		gvk = schema.GroupVersionKind{
+			Group:   parts[0],
+			Version: parts[1],
+			Kind:    parts[2],
+		}
+	default:
+		return schema.GroupVersionKind{}, fmt.Errorf("invalid apiVersion/Kind format: %q (expected \"version/Kind\" or \"group/version/Kind\")", apiVersionKind)
+	}
+
+	if gvk.Version == "" || gvk.Kind == "" {
+		return schema.GroupVersionKind{}, fmt.Errorf("invalid apiVersion/Kind format: %q (version and kind must not be empty)", apiVersionKind)
+	}
+
+	return gvk, nil
 }
 
 func (c *Client) DeleteByGVK(ctx context.Context, namespace, name string, gvk schema.GroupVersionKind) (bool, error) {
@@ -478,24 +532,43 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 	timer := timer.NewTimer()
 
 	var resources []unstructured.Unstructured
-	for _, kind := range selector.Types {
-		if strings.ToLower(kind) == "namespace" && selector.IsMetadataOnly() {
+	for _, resourceType := range selector.Types {
+		apiVersionKind := strings.TrimPrefix(resourceType, "Kubernetes::")
+
+		if selector.IsMetadataOnly() && strings.EqualFold(kindFromType(apiVersionKind), "namespace") {
 			if name, ok := selector.ToGetOptions(); ok {
-				return []unstructured.Unstructured{{
+				resources = append(resources, unstructured.Unstructured{
 					Object: map[string]any{
-						"apiVersion:": "v1",
-						"kind":        "Namespace",
+						"apiVersion": "v1",
+						"kind":       "Namespace",
 						"metadata": map[string]any{
 							"name": name,
 						},
 					},
-				}}, nil
+				})
+				continue
 			}
 		}
 
-		client, rm, err := c.GetClientByKind(strings.TrimPrefix(kind, "Kubernetes::"))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get client for %s: %w", kind, err)
+		var client dynamic.NamespaceableResourceInterface
+		var rm *meta.RESTMapping
+		var err error
+
+		if strings.Contains(apiVersionKind, "/") {
+			gvk, parseErr := ParseAPIVersionKind(apiVersionKind)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+
+			client, rm, err = c.GetClientAndMappingByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
+			}
+		} else {
+			client, rm, err = c.GetClientByKind(apiVersionKind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
+			}
 		}
 
 		isClusterScoped := rm.Scope.Name() == meta.RESTScopeNameRoot
@@ -508,7 +581,7 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 			if apiErrors.IsNotFound(err) {
 				continue
 			} else if err != nil {
-				return nil, fmt.Errorf("failed to expand namespaces for %s: %w", kind, err)
+				return nil, fmt.Errorf("failed to expand namespaces for %s: %w", apiVersionKind, err)
 			}
 		}
 
@@ -551,6 +624,16 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 
 	c.logger.Debugf("%s => count=%d duration=%s", selector, len(resources), timer)
 	return resources, nil
+}
+
+// kindFromType extracts the kind from a type string that may be
+// prefixed with "Kubernetes::" or in apiVersion/Kind format.
+func kindFromType(t string) string {
+	t = strings.TrimPrefix(t, "Kubernetes::")
+	if i := strings.LastIndex(t, "/"); i != -1 {
+		return t[i+1:]
+	}
+	return t
 }
 
 func safeString(buf *bytes.Buffer) string {
