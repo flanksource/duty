@@ -3,7 +3,7 @@ module github.com/flanksource/duty
 go 1.25.1
 
 require (
-	ariga.io/atlas v0.38.0
+	ariga.io/atlas v1.1.0
 	cloud.google.com/go/bigquery v1.72.0
 	cloud.google.com/go/cloudsqlconn v1.20.0
 	cloud.google.com/go/logging v1.13.1
