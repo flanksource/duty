@@ -6,6 +6,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
@@ -168,7 +169,8 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
         WHERE relname = ? AND relkind = 'r'
     `, testTableName).Scan(&rlsEnabled).Error
 			Expect(err).ToNot(HaveOccurred())
-			Expect(rlsEnabled).To(BeTrue(), "RLS should be enabled on view table")
+			applyRLS := api.DefaultConfig.EnableRLS && !api.DefaultConfig.DisableRLS
+			Expect(rlsEnabled).To(Equal(applyRLS), "RLS state should match config")
 		})
 
 		ginkgo.It("should create view_grants_policy on view table", func() {
@@ -180,7 +182,8 @@ var _ = ginkgo.Describe("View Tests", ginkgo.Serial, ginkgo.Ordered, func() {
 				)
 			`, testTableName).Scan(&policyExists).Error
 			Expect(err).ToNot(HaveOccurred())
-			Expect(policyExists).To(BeTrue(), "view_grants_policy should exist on view table")
+			applyRLS := api.DefaultConfig.EnableRLS && !api.DefaultConfig.DisableRLS
+			Expect(policyExists).To(Equal(applyRLS), "view_grants_policy should match RLS state")
 		})
 	})
 
