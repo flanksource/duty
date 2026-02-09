@@ -24,6 +24,7 @@ import (
 // List of all connection types
 const (
 	ConnectionTypeAnthropic      = "anthropic"
+	ConnectionTypeArgo           = "argo"
 	ConnectionTypeAWS            = "aws"
 	ConnectionTypeAWSKMS         = "aws_kms"
 	ConnectionTypeAzure          = "azure"
