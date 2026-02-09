@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flanksource/commons/logger"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/lo"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	"github.com/flanksource/commons/logger"
 	dutyKubernetes "github.com/flanksource/duty/kubernetes"
 	"github.com/flanksource/duty/pkg/kube/auth"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/samber/lo"
 )
 
 type KubernetesClient struct {
@@ -50,8 +50,10 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	client.SetExpiry(defaultExpiry)
 
-	connHash := conn.Hash()
-	if rc.ExecProvider == nil && rc.BearerToken != "" {
+	// When BearerTokenFile is set, client-go already performs periodic token reloads from disk.
+	if rc.ExecProvider == nil && rc.AuthProvider == nil && rc.BearerToken != "" && rc.BearerTokenFile == "" {
+		connHash := conn.Hash()
+
 		refreshCallback := func() (*rest.Config, error) {
 			ctx.Counter("kubernetes_auth_plugin_refreshed", "connection", connHash).Add(1)
 			rc, err := client.Refresh(ctx)
