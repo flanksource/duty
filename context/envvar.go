@@ -172,7 +172,10 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not find secret %s/%s: %s", namespace, name, err)
+		if isSecretLookupRateLimitError(err) {
+			return "", newSecretLookupRateLimitedError(namespace, name, key, err)
+		}
+		return "", fmt.Errorf("could not find secret %s/%s: %w", namespace, name, err)
 	}
 
 	if secret == nil {
@@ -199,7 +202,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	}
 	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("could not get configmap %s/%s: %s", namespace, name, err)
+		return "", fmt.Errorf("could not get configmap %s/%s: %w", namespace, name, err)
 	}
 	if configMap == nil {
 		return "", fmt.Errorf("could not get contents of configmap %s/%s: %w", namespace, name, err)
