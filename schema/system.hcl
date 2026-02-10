@@ -66,7 +66,8 @@ table "event_queue" {
     default = sql("generate_ulid()")
   }
   column "event_id" {
-    null = false
+    # temporary during migration rollout; make non-null after backfill + writer updates
+    null = true
     type = uuid
   }
   column "name" {
