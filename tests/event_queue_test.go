@@ -125,7 +125,7 @@ var _ = ginkgo.Describe("Event queue", func() {
 	ginkgo.It("should handle OnConflict using EventQueueUniqueConstraint", func() {
 		event := models.Event{
 			Name:       "test.unique.constraint",
-			Properties: map[string]string{"id": "conflict-test"},
+			Properties: map[string]string{"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
 		}
 
 		// Create the first event
