@@ -283,6 +283,13 @@ table "config_access" {
   column "config_id" {
     type = uuid
   }
+
+  // scraper_id, application_id and source provide ownership and provenance
+  // for config_access entries. Each entry must have at least one set to
+  // identify the producer responsible for creating (and cleaning up) the row.
+  //   - scraper_id:     set when a config scraper discovers access grants (e.g. Azure/AWS IAM)
+  //   - application_id: set when an Application CRD defines role-to-config mappings
+  //   - source:         set when access is derived by an internal process (e.g. "rbac")
   column "scraper_id" {
     type = uuid
     null = true
@@ -290,6 +297,11 @@ table "config_access" {
   column "application_id" {
     null = true
     type = uuid
+  }
+  column "source" {
+    comment = "Identifies the internal process that produced this entry (e.g. 'rbac'). Used when the entry is not tied to a scraper or application."
+    type    = text
+    null    = true
   }
   column "external_user_id" {
     type = uuid
@@ -366,9 +378,9 @@ table "config_access" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  check "config_access_parent" {
-    expr    = "scraper_id IS NOT NULL OR application_id IS NOT NULL"
-    comment = "config access can be created from role mapping in application or from scraper"
+  check "config_access_origin" {
+    expr    = "scraper_id IS NOT NULL OR application_id IS NOT NULL OR source IS NOT NULL"
+    comment = "Every config_access row must be owned by a scraper, an application, or an internal source"
   }
   check "at_least_one_id" {
     expr = "external_user_id IS NOT NULL OR external_group_id IS NOT NULL OR external_role_id IS NOT NULL"
