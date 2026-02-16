@@ -97,6 +97,7 @@ CREATE OR REPLACE VIEW check_summary AS
   SELECT
     checks.id,
     checks.canary_id,
+    checks.agent_id,
     json_build_object(
       'passed', check_status_summary.passed,
       'failed', check_status_summary.failed,

@@ -476,6 +476,7 @@ type CheckSummary struct {
 	CanaryID           uuid.UUID           `json:"canary_id"`
 	CanaryName         string              `json:"canary_name"`
 	CanaryNamespace    string              `json:"canary_namespace"`
+	AgentID            uuid.UUID           `json:"agent_id"`
 	Description        string              `json:"description,omitempty"`
 	Icon               string              `json:"icon,omitempty"`
 	Labels             types.JSONStringMap `json:"labels"`
