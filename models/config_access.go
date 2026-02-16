@@ -164,6 +164,7 @@ type ConfigAccess struct {
 	ID            string     `json:"id" gorm:"not null"`
 	ApplicationID *uuid.UUID `json:"application_id" gorm:"default:null"`
 	ScraperID     *uuid.UUID `json:"scraper_id" gorm:"default:null"`
+	Source        *string    `json:"source" gorm:"default:null"`
 
 	ConfigID        uuid.UUID  `json:"config_id"`
 	ExternalUserID  *uuid.UUID `json:"external_user_id,omitempty"`
