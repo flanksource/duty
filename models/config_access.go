@@ -196,6 +196,7 @@ type ConfigAccessSummary struct {
 	ExternalUserID  uuid.UUID  `json:"external_user_id,omitempty"`
 	Role            string     `json:"role"`
 	User            string     `json:"user"`
+	UserType        string     `json:"user_type"`
 	Email           string     `json:"email"`
 	CreatedAt       time.Time  `json:"created_at"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
