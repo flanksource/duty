@@ -144,6 +144,22 @@ func FindCachedCanary(ctx context.Context, id string) (*models.Canary, error) {
 	return canary, nil
 }
 
+// FindHumanPeople returns all people that represent real users.
+// It excludes agents and access tokens (which have a non-null type) and
+// system users (which have no email).
+func FindHumanPeople(ctx context.Context) ([]models.Person, error) {
+	var people []models.Person
+	if err := ctx.DB().
+		Where("deleted_at IS NULL").
+		Where("type IS NULL").
+		Where("email IS NOT NULL").
+		Find(&people).Error; err != nil {
+		return nil, err
+	}
+
+	return people, nil
+}
+
 // FindPerson looks up a person by the given identifier which can either be
 //   - UUID
 //   - email
