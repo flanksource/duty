@@ -167,6 +167,15 @@ table "notifications" {
     columns = [column.name, column.namespace]
     where   = "deleted_at IS NULL"
   }
+  index "notifications_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "notifications_person_id_idx" {
+    columns = [column.person_id]
+  }
+  index "notifications_team_id_idx" {
+    columns = [column.team_id]
+  }
 }
 
 table "notification_send_history" {
@@ -312,6 +321,18 @@ table "notification_send_history" {
     on_update   = CASCADE
     on_delete   = CASCADE
   }
+  index "notification_send_history_notification_id_idx" {
+    columns = [column.notification_id]
+  }
+  index "notification_send_history_parent_id_idx" {
+    columns = [column.parent_id]
+  }
+  index "notification_send_history_person_id_idx" {
+    columns = [column.person_id]
+  }
+  index "notification_send_history_resource_id_idx" {
+    columns = [column.resource_id]
+  }
 }
 
 table "notification_silences" {
@@ -438,6 +459,21 @@ table "notification_silences" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "notification_silences_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "notification_silences_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "notification_silences_component_id_idx" {
+    columns = [column.component_id]
+  }
+  index "notification_silences_canary_id_idx" {
+    columns = [column.canary_id]
+  }
+  index "notification_silences_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 table "notification_groups" {
@@ -468,6 +504,12 @@ table "notification_groups" {
     ref_columns = [table.notifications.column.id]
     on_update   = CASCADE
     on_delete   = CASCADE
+  }
+  index "notification_groups_notification_id_idx" {
+    columns = [column.notification_id]
+  }
+  index "notification_groups_hash_notification_id_idx" {
+    columns = [column.hash, column.notification_id]
   }
 }
 
@@ -526,5 +568,17 @@ table "notification_group_resources" {
     ref_columns = [table.components.column.id]
     on_update   = CASCADE
     on_delete   = CASCADE
+  }
+  index "notification_group_resources_group_id_idx" {
+    columns = [column.group_id]
+  }
+  index "notification_group_resources_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "notification_group_resources_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "notification_group_resources_component_id_idx" {
+    columns = [column.component_id]
   }
 }

@@ -79,6 +79,9 @@ table "connections" {
     columns = [column.name, column.namespace]
     where   = "deleted_at IS NULL"
   }
+  index "connections_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "connections_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]

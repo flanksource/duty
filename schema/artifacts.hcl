@@ -87,4 +87,10 @@ table "artifacts" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "artifacts_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "artifacts_playbook_run_action_id_idx" {
+    columns = [column.playbook_run_action_id]
+  }
 }

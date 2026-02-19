@@ -56,6 +56,9 @@ table "external_users" {
     columns = [column.aliases]
     where   = "deleted_at IS NULL"
   }
+  index "external_users_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
 }
 
 table "external_groups" {
@@ -108,6 +111,9 @@ table "external_groups" {
     columns = [column.aliases]
     where   = "deleted_at IS NULL"
   }
+  index "external_groups_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
 }
 
 table "external_user_groups" {
@@ -145,6 +151,9 @@ table "external_user_groups" {
     columns     = [column.external_group_id]
     ref_columns = [table.external_groups.column.id]
     on_delete   = NO_ACTION
+  }
+  index "external_user_groups_external_group_id_idx" {
+    columns = [column.external_group_id]
   }
 }
 
@@ -208,10 +217,22 @@ table "external_roles" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "external_roles_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
   index "external_roles_aliases_key" {
     unique  = true
     columns = [column.aliases]
     where   = "deleted_at IS NULL"
+  }
+  index "external_roles_application_id_idx" {
+    columns = [column.application_id]
+  }
+  index "external_roles_scraper_id_idx" {
+    columns = [column.scraper_id]
   }
 }
 
@@ -270,6 +291,18 @@ table "access_reviews" {
     ref_columns = [table.config_scrapers.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "access_reviews_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "access_reviews_external_user_id_idx" {
+    columns = [column.external_user_id]
+  }
+  index "access_reviews_external_role_id_idx" {
+    columns = [column.external_role_id]
+  }
+  index "access_reviews_scraper_id_idx" {
+    columns = [column.scraper_id]
   }
 }
 
@@ -378,6 +411,21 @@ table "config_access" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "config_access_external_user_id_idx" {
+    columns = [column.external_user_id]
+  }
+  index "config_access_external_group_id_idx" {
+    columns = [column.external_group_id]
+  }
+  index "config_access_external_role_id_idx" {
+    columns = [column.external_role_id]
+  }
+  index "config_access_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
+  index "config_access_application_id_idx" {
+    columns = [column.application_id]
+  }
   check "config_access_origin" {
     expr    = "scraper_id IS NOT NULL OR application_id IS NOT NULL OR source IS NOT NULL"
     comment = "Every config_access row must be owned by a scraper, an application, or an internal source"
@@ -430,5 +478,11 @@ table "config_access_logs" {
     ref_columns = [table.config_scrapers.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "config_access_logs_external_user_id_idx" {
+    columns = [column.external_user_id]
+  }
+  index "config_access_logs_scraper_id_idx" {
+    columns = [column.scraper_id]
   }
 }

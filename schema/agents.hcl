@@ -102,6 +102,10 @@ table "agents" {
     columns = [column.name]
   }
 
+  index "agents_created_by_idx" {
+    columns = [column.created_by]
+  }
+
   foreign_key "agents_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]

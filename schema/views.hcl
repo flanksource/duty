@@ -55,6 +55,9 @@ table "views" {
   primary_key {
     columns = [column.id]
   }
+  index "views_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "views_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
@@ -105,6 +108,9 @@ table "view_panels" {
   primary_key {
     columns = [column.view_id, column.request_fingerprint]
     comment = "one record per view per request fingerprint"
+  }
+  index "view_panels_agent_id_idx" {
+    columns = [column.agent_id]
   }
   index "idx_view_panels_request_fingerprint" {
     columns = [column.view_id, column.request_fingerprint]

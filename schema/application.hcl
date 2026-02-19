@@ -49,6 +49,9 @@ table "applications" {
   primary_key {
     columns = [column.id]
   }
+  index "applications_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "applications_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]

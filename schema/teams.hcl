@@ -76,6 +76,9 @@ table "people" {
   index "people_external_id_idx" {
     columns = [column.external_id]
   }
+  index "people_team_id_idx" {
+    columns = [column.team_id]
+  }
   foreign_key "people_team_id_fkey" {
     columns     = [column.team_id]
     ref_columns = [table.teams.column.id]
@@ -113,6 +116,9 @@ table "team_members" {
     ref_columns = [table.teams.column.id]
     on_update   = CASCADE
     on_delete   = CASCADE
+  }
+  index "team_members_person_id_idx" {
+    columns = [column.person_id]
   }
 }
 
@@ -165,6 +171,9 @@ table "teams" {
     columns = [column.name]
     where   = "deleted_at IS NULL"
   }
+  index "teams_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "teams_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
@@ -209,6 +218,9 @@ table "team_components" {
   index "team_components_team_id_component_id_selector_id_key" {
     unique  = true
     columns = [column.team_id, column.component_id, column.selector_id]
+  }
+  index "team_components_component_id_idx" {
+    columns = [column.component_id]
   }
 }
 
