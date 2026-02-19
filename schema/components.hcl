@@ -82,6 +82,12 @@ table "topologies" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+  index "topologies_agent_id_idx" {
+    columns = [column.agent_id]
+  }
+  index "topologies_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 
@@ -146,6 +152,9 @@ table "component_relationships" {
   }
   index "idx_component_relationships_deleted_at" {
     columns = [column.deleted_at]
+  }
+  index "component_relationships_relationship_id_idx" {
+    columns = [column.relationship_id]
   }
 }
 
@@ -389,6 +398,9 @@ table "components" {
   index "idx_components_configs" {
     columns = [column.configs]
   }
+  index "components_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 table "check_component_relationships" {
@@ -457,7 +469,12 @@ table "check_component_relationships" {
   index "idx_check_component_relationships_deleted_at" {
     columns = [column.deleted_at]
   }
-
+  index "check_component_relationships_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "check_component_relationships_canary_id_idx" {
+    columns = [column.canary_id]
+  }
 }
 
 table "config_component_relationships" {
@@ -515,5 +532,8 @@ table "config_component_relationships" {
   index "config_component_relationships_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+  index "config_component_relationships_config_id_idx" {
+    columns = [column.config_id]
   }
 }

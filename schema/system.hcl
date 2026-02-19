@@ -44,6 +44,9 @@ table "access_tokens" {
   index "access_tokens_value_idx" {
     columns = [column.value]
   }
+  index "access_tokens_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "access_tokens_person_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
@@ -156,6 +159,9 @@ table "integrations" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "integrations_created_by_idx" {
+    columns = [column.created_by]
   }
   foreign_key "integrations_created_by_fkey" {
     columns     = [column.created_by]

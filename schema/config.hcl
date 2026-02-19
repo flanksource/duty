@@ -99,6 +99,9 @@ table "config_analysis" {
   index "config_analysis_scraper_id_idx" {
     columns = [column.scraper_id]
   }
+  index "config_analysis_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 table "config_changes" {
@@ -528,6 +531,9 @@ table "config_relationships" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+  index "config_relationships_config_id_idx" {
+    columns = [column.config_id]
+  }
 }
 
 table "check_config_relationships" {
@@ -592,6 +598,12 @@ table "check_config_relationships" {
   index "check_config_relationships_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+  index "check_config_relationships_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "check_config_relationships_canary_id_idx" {
+    columns = [column.canary_id]
   }
 }
 
@@ -678,6 +690,15 @@ table "config_scrapers" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
   }
+  index "config_scrapers_application_id_idx" {
+    columns = [column.application_id]
+  }
+  index "config_scrapers_agent_id_idx" {
+    columns = [column.agent_id]
+  }
+  index "config_scrapers_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 table "scrape_plugins" {
@@ -722,6 +743,9 @@ table "scrape_plugins" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "scrape_plugins_created_by_idx" {
+    columns = [column.created_by]
   }
   foreign_key "config_scraper_plugins_created_by_fkey" {
     columns     = [column.created_by]

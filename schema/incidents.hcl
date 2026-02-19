@@ -129,6 +129,27 @@ table "evidences" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "evidences_hypothesis_id_idx" {
+    columns = [column.hypothesis_id]
+  }
+  index "evidences_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "evidences_component_id_idx" {
+    columns = [column.component_id]
+  }
+  index "evidences_config_analysis_id_idx" {
+    columns = [column.config_analysis_id]
+  }
+  index "evidences_config_change_id_idx" {
+    columns = [column.config_change_id]
+  }
+  index "evidences_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "evidences_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 table "hypotheses" {
   schema = schema.public
@@ -214,6 +235,21 @@ table "hypotheses" {
   }
   check "hypotheses_type_check" {
     expr = "(type = ANY (ARRAY['root'::text, 'factor'::text, 'solution'::text]))"
+  }
+  index "hypotheses_incident_id_idx" {
+    columns = [column.incident_id]
+  }
+  index "hypotheses_parent_id_idx" {
+    columns = [column.parent_id]
+  }
+  index "hypotheses_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "hypotheses_owner_idx" {
+    columns = [column.owner]
+  }
+  index "hypotheses_team_id_idx" {
+    columns = [column.team_id]
   }
 }
 
@@ -305,6 +341,24 @@ table "incident_histories" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "incident_histories_incident_id_idx" {
+    columns = [column.incident_id]
+  }
+  index "incident_histories_comment_id_idx" {
+    columns = [column.comment_id]
+  }
+  index "incident_histories_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "incident_histories_evidence_id_idx" {
+    columns = [column.evidence_id]
+  }
+  index "incident_histories_hypothesis_id_idx" {
+    columns = [column.hypothesis_id]
+  }
+  index "incident_histories_responder_id_idx" {
+    columns = [column.responder_id]
+  }
 }
 
 table "incident_relationships" {
@@ -342,6 +396,12 @@ table "incident_relationships" {
     ref_columns = [table.incidents.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "incident_relationships_incident_id_idx" {
+    columns = [column.incident_id]
+  }
+  index "incident_relationships_related_id_idx" {
+    columns = [column.related_id]
   }
 }
 table "incident_rules" {
@@ -393,6 +453,9 @@ table "incident_rules" {
   index "incident_rules_name_key" {
     unique  = true
     columns = [column.name]
+  }
+  index "incident_rules_created_by_idx" {
+    columns = [column.created_by]
   }
 }
 
@@ -472,6 +535,18 @@ table "incidents" {
   index "incidents_incident_id_key" {
     unique  = true
     columns = [column.incident_id]
+  }
+  index "incidents_commander_id_idx" {
+    columns = [column.commander_id]
+  }
+  index "incidents_communicator_id_idx" {
+    columns = [column.communicator_id]
+  }
+  index "incidents_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "incidents_incident_rule_id_idx" {
+    columns = [column.incident_rule_id]
   }
   foreign_key "incidents_commander_id_fkey" {
     columns     = [column.commander_id]
@@ -591,9 +666,19 @@ table "responders" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  index "responders_incident_id_idx" {
+    columns = [column.incident_id]
+  }
+  index "responders_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "responders_person_id_idx" {
+    columns = [column.person_id]
+  }
+  index "responders_team_id_idx" {
+    columns = [column.team_id]
+  }
 }
-
-
 
 table "comment_responders" {
   schema = schema.public
@@ -638,6 +723,12 @@ table "comment_responders" {
     ref_columns = [table.responders.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "comment_responders_comment_id_idx" {
+    columns = [column.comment_id]
+  }
+  index "comment_responders_responder_id_idx" {
+    columns = [column.responder_id]
   }
 }
 table "comments" {
@@ -715,6 +806,18 @@ table "comments" {
     ref_columns = [table.responders.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "comments_incident_id_idx" {
+    columns = [column.incident_id]
+  }
+  index "comments_hypothesis_id_idx" {
+    columns = [column.hypothesis_id]
+  }
+  index "comments_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "comments_responder_id_idx" {
+    columns = [column.responder_id]
   }
 }
 

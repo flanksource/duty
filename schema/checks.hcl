@@ -84,6 +84,12 @@ table "canaries" {
   index "canaries_source_idx" {
     columns = [column.source]
   }
+  index "canaries_agent_id_idx" {
+    columns = [column.agent_id]
+  }
+  index "canaries_created_by_idx" {
+    columns = [column.created_by]
+  }
 }
 
 table "check_statuses" {

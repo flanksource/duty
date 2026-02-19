@@ -66,6 +66,9 @@ table "playbooks" {
     columns = [column.namespace, column.name, column.category]
     where   = "deleted_at IS NULL"
   }
+  index "playbooks_created_by_idx" {
+    columns = [column.created_by]
+  }
   foreign_key "playbook_created_by_fkey" {
     columns     = [column.created_by]
     ref_columns = [table.people.column.id]
@@ -115,6 +118,15 @@ table "playbook_approvals" {
     ref_columns = [table.teams.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+  index "playbook_approvals_run_id_idx" {
+    columns = [column.run_id]
+  }
+  index "playbook_approvals_person_id_idx" {
+    columns = [column.person_id]
+  }
+  index "playbook_approvals_team_id_idx" {
+    columns = [column.team_id]
   }
   comment = "Keeps track of approvals on a playbook run"
 }
@@ -268,6 +280,30 @@ table "playbook_runs" {
   index "idx_playbook_runs_parent_id" {
     columns = [column.parent_id]
   }
+  index "playbook_runs_playbook_id_idx" {
+    columns = [column.playbook_id]
+  }
+  index "playbook_runs_check_id_idx" {
+    columns = [column.check_id]
+  }
+  index "playbook_runs_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "playbook_runs_component_id_idx" {
+    columns = [column.component_id]
+  }
+  index "playbook_runs_agent_id_idx" {
+    columns = [column.agent_id]
+  }
+  index "playbook_runs_notification_send_id_idx" {
+    columns = [column.notification_send_id]
+  }
+  index "playbook_runs_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "playbook_runs_status_scheduled_time_idx" {
+    columns = [column.status, column.scheduled_time]
+  }
 }
 
 table "playbook_action_agent_data" {
@@ -302,6 +338,10 @@ table "playbook_action_agent_data" {
     ref_columns = [table.playbook_run_actions.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  index "playbook_action_agent_data_action_id_idx" {
+    unique  = true
+    columns = [column.action_id]
   }
 }
 
@@ -384,5 +424,8 @@ table "playbook_run_actions" {
   }
   index "playbook_run_actions_playbook_run_id_idx" {
     columns = [column.playbook_run_id]
+  }
+  index "playbook_run_actions_agent_id_idx" {
+    columns = [column.agent_id]
   }
 }

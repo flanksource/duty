@@ -227,9 +227,29 @@ table "permissions" {
   index "permissions_config_id_idx" {
     columns = [column.config_id]
   }
-
   index "permissions_component_id_idx" {
     columns = [column.component_id]
+  }
+  index "permissions_canary_id_idx" {
+    columns = [column.canary_id]
+  }
+  index "permissions_playbook_id_idx" {
+    columns = [column.playbook_id]
+  }
+  index "permissions_connection_id_idx" {
+    columns = [column.connection_id]
+  }
+  index "permissions_person_id_idx" {
+    columns = [column.person_id]
+  }
+  index "permissions_team_id_idx" {
+    columns = [column.team_id]
+  }
+  index "permissions_notification_id_idx" {
+    columns = [column.notification_id]
+  }
+  index "permissions_created_by_idx" {
+    columns = [column.created_by]
   }
 }
 
@@ -294,6 +314,10 @@ table "permission_groups" {
     unique  = true
     columns = [column.namespace, column.name]
     where   = "deleted_at IS NULL"
+  }
+
+  index "permission_groups_created_by_idx" {
+    columns = [column.created_by]
   }
 
   foreign_key "permissions_created_by_fkey" {
