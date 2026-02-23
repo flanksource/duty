@@ -39,7 +39,8 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "CheckRelationship defines a way to link the check results to components and configs\nusing lookup expressions."
     },
     "ConfigMapKeySelector": {
       "properties": {
@@ -178,31 +179,46 @@
     "Kubernetes": {
       "properties": {
         "description": {
-          "type": "string"
+          "type": "string",
+          "description": "Description for the check"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "Name of the check"
         },
         "namespace": {
-          "type": "string"
+          "type": "string",
+          "description": "Namespace to insert the check into, if different to the namespace the canary is defined, e.g."
         },
         "icon": {
-          "type": "string"
+          "type": "string",
+          "description": "Icon for overwriting default icon on the dashboard"
         },
         "labels": {
-          "$ref": "#/$defs/Labels"
+          "$ref": "#/$defs/Labels",
+          "description": "Labels for the check"
         },
         "transformDeleteStrategy": {
-          "type": "string"
+          "type": "string",
+          "description": "Transformed checks have a delete strategy on deletion they can either be marked healthy, unhealthy or left as is"
         },
         "metrics": {
           "items": {
             "$ref": "#/$defs/Metrics"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Metrics to expose from check.\nhttps://canarychecker.io/concepts/metrics-exporter"
         },
         "markFailOnEmpty": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "If check or transformation returns empty, that should be marked as failed"
+        },
+        "dependsOn": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "DependsOn lists the checks that must complete before this one runs"
         },
         "test": {
           "$ref": "#/$defs/Template"
@@ -214,13 +230,16 @@
           "$ref": "#/$defs/Template"
         },
         "relationships": {
-          "$ref": "#/$defs/CheckRelationship"
+          "$ref": "#/$defs/CheckRelationship",
+          "description": "Relationships defines a way to link the check results to components and configs\nusing lookup expressions."
         },
         "namespaceSelector": {
-          "$ref": "#/$defs/ResourceSelector"
+          "$ref": "#/$defs/ResourceSelector",
+          "description": "Namespace specifies which namespace(s) to search for resources.\nUse empty ResourceSelector to search in canary's namespace."
         },
         "resource": {
-          "$ref": "#/$defs/ResourceSelector"
+          "$ref": "#/$defs/ResourceSelector",
+          "description": "Resource specifies which resources to select by name, labels, or field selectors."
         },
         "connection": {
           "type": "string"
@@ -241,16 +260,24 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Ignore specifies resources to exclude from the fetched results.\nValues can be glob patterns (e.g., \"kube-*\", \"*-system\")."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "Kind is the Kubernetes resource Kind to check (e.g., \"Pod\", \"Deployment\", \"Service\").\nThis is a required field."
+        },
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion is the Kubernetes API version for the resource (e.g., \"v1\", \"apps/v1\", \"serving.knative.dev/v1\").\nUsed to distinguish between resources with the same Kind but different API groups."
         },
         "healthy": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Healthy when true, fails the check if any resources are unhealthy."
         },
         "ready": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Ready when true, fails the check if any resources are not ready."
         }
       },
       "additionalProperties": false,
@@ -258,7 +285,8 @@
       "required": [
         "name",
         "kind"
-      ]
+      ],
+      "description": "[include:k8s/kubernetes_pass.yaml]"
     },
     "Labels": {
       "additionalProperties": {

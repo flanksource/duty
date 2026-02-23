@@ -43,6 +43,15 @@
         },
         "summary": {
           "type": "string"
+        },
+        "config_id": {
+          "type": "string"
+        },
+        "config_type": {
+          "type": "string"
+        },
+        "scraper_id": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -485,6 +494,9 @@
     },
     "OpenSearchConfig": {
       "properties": {
+        "connection": {
+          "type": "string"
+        },
         "address": {
           "type": "string"
         },
@@ -507,7 +519,6 @@
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "address",
         "index",
         "query"
       ]

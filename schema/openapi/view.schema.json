@@ -24,6 +24,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ChangesUIFilters": {
+      "properties": {
+        "configTypes": {
+          "type": "string"
+        },
+        "changeType": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ColorSource": {
       "properties": {
         "auto": {
@@ -148,6 +181,27 @@
         "key"
       ]
     },
+    "ConfigsUIFilters": {
+      "properties": {
+        "search": {
+          "type": "string"
+        },
+        "configType": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DisplayCard": {
       "properties": {
         "columns": {
@@ -249,6 +303,57 @@
         "percent",
         "color"
       ]
+    },
+    "HTTPQuery": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "ntlm": {
+          "type": "boolean"
+        },
+        "ntlmv2": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "boolean"
+        },
+        "url": {
+          "type": "string"
+        },
+        "bearer": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth"
+        },
+        "tls": {
+          "$ref": "#/$defs/TLSConfig"
+        },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "method": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "jsonpath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "HelmRefKeySelector": {
       "properties": {
@@ -477,6 +582,9 @@
         "bargauge": {
           "$ref": "#/$defs/PanelBargaugeConfig"
         },
+        "timeseries": {
+          "$ref": "#/$defs/PanelTimeseriesConfig"
+        },
         "query": {
           "type": "string"
         }
@@ -530,6 +638,36 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "PanelTimeseriesConfig": {
+      "properties": {
+        "timeKey": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "valueKey": {
+          "type": "string"
+        },
+        "legend": {
+          "$ref": "#/$defs/PanelTimeseriesLegendConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PanelTimeseriesLegendConfig": {
+      "properties": {
+        "enable": {
+          "type": "boolean"
+        },
+        "layout": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "PiechartConfig": {
       "properties": {
         "showLabels": {
@@ -577,14 +715,55 @@
         "tls": {
           "$ref": "#/$defs/TLSConfig"
         },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
         "query": {
           "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/PrometheusRange"
+        },
+        "matchLabels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "selectLabels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
         "query"
+      ]
+    },
+    "PrometheusRange": {
+      "properties": {
+        "start": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "step": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "start",
+        "end",
+        "step"
       ]
     },
     "ResourceSelector": {
@@ -706,6 +885,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "UIRef": {
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/ChangesUIFilters"
+        },
+        "configs": {
+          "$ref": "#/$defs/ConfigsUIFilters"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "View": {
       "properties": {
         "kind": {
@@ -809,6 +1000,9 @@
         "sql": {
           "$ref": "#/$defs/SQLQuery"
         },
+        "http": {
+          "$ref": "#/$defs/HTTPQuery"
+        },
         "configs": {
           "$ref": "#/$defs/ResourceSelector"
         },
@@ -854,13 +1048,15 @@
         },
         "viewRef": {
           "$ref": "#/$defs/ViewRef"
+        },
+        "uiRef": {
+          "$ref": "#/$defs/UIRef"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "title",
-        "viewRef"
+        "title"
       ]
     },
     "ViewSelector": {
@@ -999,6 +1195,12 @@
       "properties": {
         "config": {
           "$ref": "#/$defs/ResourceSelector"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
