@@ -217,6 +217,7 @@ type ConfigAccessLog struct {
 	CreatedAt      time.Time     `json:"created_at"`
 	MFA            bool          `json:"mfa,omitempty" gorm:"default:null"`
 	Properties     types.JSONMap `json:"properties,omitempty" gorm:"default:null"`
+	Count          *int          `json:"count,omitempty" gorm:"default:1"`
 }
 
 func (e ConfigAccessLog) TableName() string {
