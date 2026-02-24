@@ -457,6 +457,10 @@ table "config_access_logs" {
     type = jsonb
     null = true
   }
+  column "count" {
+    type    = integer
+    default = 1
+  }
   column "created_at" {
     type = timestamptz
   }
