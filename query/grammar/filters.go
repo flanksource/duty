@@ -12,7 +12,7 @@ import (
 type FieldType int
 
 const (
-	FieldTypeText FieldType = iota
+	FieldTypeUnknown FieldType = iota
 	FieldTypeJsonbArray
 )
 
@@ -29,7 +29,6 @@ func (e expressions) ToExpression(field string, fieldType FieldType) []clause.Ex
 	if fieldType == FieldTypeJsonbArray {
 		return e.jsonbListFieldExpression(field)
 	}
-
 	return e.textFieldExpression(field)
 }
 
@@ -74,33 +73,47 @@ func (e expressions) textFieldExpression(field string) []clause.Expression {
 	var clauses []clause.Expression
 
 	if len(e.In) == 1 {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: field}, Value: e.In[0]})
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) = ?`,
+			Vars: []any{clause.Column{Name: field}, strings.ToLower(fmt.Sprint(e.In[0]))},
+		})
 	} else if len(e.In) > 1 {
-		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: e.In})
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) IN ?`,
+			Vars: []any{clause.Column{Name: field}, lowerAnySlice(e.In)},
+		})
 	}
 
 	for _, p := range e.Prefix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
-			Value:  p + "%",
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{clause.Column{Name: field}, strings.ToLower(p) + "%"},
 		})
 	}
 
 	for _, g := range e.Glob {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Raw: true, Name: field},
-			Value:  "%" + g + "%",
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{clause.Column{Name: field}, "%" + strings.ToLower(g) + "%"},
 		})
 	}
 
 	for _, s := range e.Suffix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
-			Value:  "%" + s,
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{clause.Column{Name: field}, "%" + strings.ToLower(s)},
 		})
 	}
 
 	return clauses
+}
+
+func lowerAnySlice(items []any) []string {
+	lowered := make([]string, 0, len(items))
+	for _, item := range items {
+		lowered = append(lowered, strings.ToLower(fmt.Sprint(item)))
+	}
+	return lowered
 }
 
 // ParseFilteringQuery parses a filtering query string.
