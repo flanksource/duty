@@ -24,9 +24,15 @@ func (g *AzureConnection) HydrateConnection(ctx ConnectionContext) error {
 	}
 
 	if connection != nil {
-		g.ClientID = &types.EnvVar{ValueStatic: connection.Username}
-		g.ClientSecret = &types.EnvVar{ValueStatic: connection.Password}
-		g.TenantID = connection.Properties["tenant"]
+		if g.ClientID == nil || g.ClientID.IsEmpty() {
+			g.ClientID = &types.EnvVar{ValueStatic: connection.Username}
+		}
+		if g.ClientSecret == nil || g.ClientSecret.IsEmpty() {
+			g.ClientSecret = &types.EnvVar{ValueStatic: connection.Password}
+		}
+		if g.TenantID == "" {
+			g.TenantID = connection.Properties["tenant"]
+		}
 	}
 
 	return nil

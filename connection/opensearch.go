@@ -76,9 +76,23 @@ func (c *OpensearchConnection) Hydrate(ctx ConnectionContext) error {
 		if connection == nil {
 			return fmt.Errorf("connection[%s] not found", c.ConnectionName)
 		}
+		existing := *c
 		if err := c.FromModel(*connection); err != nil {
 			return err
 		}
+		if len(existing.URLs) > 0 {
+			c.URLs = existing.URLs
+		}
+		if existing.Index != "" {
+			c.Index = existing.Index
+		}
+		if !existing.Username.IsEmpty() {
+			c.Username = existing.Username
+		}
+		if !existing.Password.IsEmpty() {
+			c.Password = existing.Password
+		}
+		c.InsecureSkipVerify = existing.InsecureSkipVerify
 	}
 
 	ns := ctx.GetNamespace()

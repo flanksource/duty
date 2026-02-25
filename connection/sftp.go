@@ -37,8 +37,12 @@ func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (err error) {
 			return err
 		}
 
-		c.Username = types.EnvVar{ValueStatic: conn.Username}
-		c.Password = types.EnvVar{ValueStatic: conn.Password}
+		if c.Username.IsEmpty() {
+			c.Username = types.EnvVar{ValueStatic: conn.Username}
+		}
+		if c.Password.IsEmpty() {
+			c.Password = types.EnvVar{ValueStatic: conn.Password}
+		}
 
 		if c.Port == 0 {
 			if port, ok := conn.Properties["port"]; ok {
@@ -52,7 +56,7 @@ func (c *SFTPConnection) HydrateConnection(ctx ConnectionContext) (err error) {
 			c.Port = 22
 		}
 
-		if conn.URL != "" {
+		if c.Host == "" && conn.URL != "" {
 			c.Host = conn.URL
 		}
 	}

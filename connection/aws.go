@@ -88,13 +88,19 @@ func (t *AWSConnection) Populate(ctx ConnectionContext) error {
 			return fmt.Errorf("connection[%s] not found", t.ConnectionName)
 		}
 
-		t.AccessKey.ValueStatic = connection.Username
-		t.SecretKey.ValueStatic = connection.Password
+		if t.AccessKey.IsEmpty() {
+			t.AccessKey.ValueStatic = connection.Username
+		}
+		if t.SecretKey.IsEmpty() {
+			t.SecretKey.ValueStatic = connection.Password
+		}
 		if t.Endpoint == "" {
 			t.Endpoint = connection.URL
 		}
 
-		t.SkipTLSVerify = connection.InsecureTLS
+		if !t.SkipTLSVerify {
+			t.SkipTLSVerify = connection.InsecureTLS
+		}
 		if t.Region == "" {
 			if region, ok := connection.Properties["region"]; ok {
 				t.Region = region

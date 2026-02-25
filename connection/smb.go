@@ -47,8 +47,12 @@ func (c *SMBConnection) Populate(ctx ConnectionContext) error {
 			return err
 		}
 
-		c.Username = types.EnvVar{ValueStatic: conn.Username}
-		c.Password = types.EnvVar{ValueStatic: conn.Password}
+		if c.Username.IsEmpty() {
+			c.Username = types.EnvVar{ValueStatic: conn.Username}
+		}
+		if c.Password.IsEmpty() {
+			c.Password = types.EnvVar{ValueStatic: conn.Password}
+		}
 
 		if c.Port == 0 {
 			if port, ok := conn.Properties["port"]; ok {
@@ -58,8 +62,14 @@ func (c *SMBConnection) Populate(ctx ConnectionContext) error {
 			}
 		}
 
-		if domain, ok := conn.Properties["domain"]; ok {
-			c.Domain = domain
+		if c.Domain == "" {
+			if domain, ok := conn.Properties["domain"]; ok {
+				c.Domain = domain
+			}
+		}
+
+		if c.Domain == "" && conn.URL != "" {
+			c.Domain = conn.URL
 		}
 	}
 
