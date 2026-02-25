@@ -76,10 +76,16 @@ func (g *GCSConnection) HydrateConnection(ctx ConnectionContext) error {
 	}
 
 	if connection != nil {
-		g.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
-		g.Endpoint = connection.URL
-		if val, ok := connection.Properties["bucket"]; ok {
-			g.Bucket = val
+		if g.Credentials == nil || g.Credentials.IsEmpty() {
+			g.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
+		}
+		if g.Endpoint == "" {
+			g.Endpoint = connection.URL
+		}
+		if g.Bucket == "" {
+			if val, ok := connection.Properties["bucket"]; ok {
+				g.Bucket = val
+			}
 		}
 	}
 

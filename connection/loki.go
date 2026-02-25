@@ -24,12 +24,16 @@ func (c *Loki) Populate(ctx ConnectionContext) error {
 			return fmt.Errorf("connection[%s] not found", c.ConnectionName)
 		}
 
-		if conn.URL != "" {
+		if c.URL == "" && conn.URL != "" {
 			c.URL = conn.URL
 		}
 
-		c.Username = &types.EnvVar{ValueStatic: conn.Username}
-		c.Password = &types.EnvVar{ValueStatic: conn.Password}
+		if c.Username == nil || c.Username.IsEmpty() {
+			c.Username = &types.EnvVar{ValueStatic: conn.Username}
+		}
+		if c.Password == nil || c.Password.IsEmpty() {
+			c.Password = &types.EnvVar{ValueStatic: conn.Password}
+		}
 	}
 
 	if c.Username != nil && !c.Username.IsEmpty() {

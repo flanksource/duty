@@ -205,13 +205,13 @@ func (c *GitConnection) HydrateConnection(ctx context.Context) error {
 			return err
 		}
 		if conn != nil {
-			if conn.Username != "" {
+			if (c.Username == nil || c.Username.IsEmpty()) && conn.Username != "" {
 				c.Username = &types.EnvVar{ValueStatic: conn.Username}
 			}
-			if conn.Password != "" {
+			if (c.Password == nil || c.Password.IsEmpty()) && conn.Password != "" {
 				c.Password = &types.EnvVar{ValueStatic: conn.Password}
 			}
-			if conn.Certificate != "" {
+			if (c.Certificate == nil || c.Certificate.IsEmpty()) && conn.Certificate != "" {
 				c.Certificate = &types.EnvVar{ValueStatic: conn.Certificate}
 			}
 			if c.URL == "" {

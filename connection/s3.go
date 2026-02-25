@@ -41,17 +41,23 @@ func (t *S3Connection) Populate(ctx ConnectionContext) error {
 			return fmt.Errorf("could not parse EC2 access key: %v", err)
 		}
 
-		if region, ok := connection.Properties["bucket"]; ok {
-			t.Bucket = region
+		if t.Bucket == "" {
+			if bucket, ok := connection.Properties["bucket"]; ok {
+				t.Bucket = bucket
+			}
 		}
 
-		if objectPath, ok := connection.Properties["objectPath"]; ok {
-			t.ObjectPath = objectPath
+		if t.ObjectPath == "" {
+			if objectPath, ok := connection.Properties["objectPath"]; ok {
+				t.ObjectPath = objectPath
+			}
 		}
 
-		if usePathStyle, ok := connection.Properties["usePathStyle"]; ok {
-			if val, err := strconv.ParseBool(usePathStyle); err == nil {
-				t.UsePathStyle = val
+		if !t.UsePathStyle {
+			if usePathStyle, ok := connection.Properties["usePathStyle"]; ok {
+				if val, err := strconv.ParseBool(usePathStyle); err == nil {
+					t.UsePathStyle = val
+				}
 			}
 		}
 

@@ -32,11 +32,12 @@ func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			return nil, nil, fmt.Errorf("connection[%s] not found", t.ConnectionName)
 		}
 
-		if t.Kubeconfig == nil {
-			t.Kubeconfig = &types.EnvVar{}
+		if t.Kubeconfig == nil || t.Kubeconfig.IsEmpty() {
+			if t.Kubeconfig == nil {
+				t.Kubeconfig = &types.EnvVar{}
+			}
+			t.Kubeconfig.ValueStatic = connection.Certificate
 		}
-
-		t.Kubeconfig.ValueStatic = connection.Certificate
 	}
 
 	if t.Kubeconfig != nil && !t.Kubeconfig.IsEmpty() {

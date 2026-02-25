@@ -94,8 +94,21 @@ func (s *SQLConnection) HydrateConnection(ctx context.Context) error {
 		if connection == nil {
 			return fmt.Errorf("connection[%s] not found", s.ConnectionName)
 		}
+		existing := *s
 		if err := s.FromModel(*connection); err != nil {
 			return err
+		}
+		if !existing.URL.IsEmpty() {
+			s.URL = existing.URL
+		}
+		if !existing.Username.IsEmpty() {
+			s.Username = existing.Username
+		}
+		if !existing.Password.IsEmpty() {
+			s.Password = existing.Password
+		}
+		if existing.Type != "" {
+			s.Type = existing.Type
 		}
 	}
 

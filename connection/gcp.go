@@ -93,8 +93,12 @@ func (g *GCPConnection) HydrateConnection(ctx ConnectionContext) error {
 	}
 
 	if connection != nil {
-		g.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
-		g.Endpoint = connection.URL
+		if g.Credentials == nil || g.Credentials.IsEmpty() {
+			g.Credentials = &types.EnvVar{ValueStatic: connection.Certificate}
+		}
+		if g.Endpoint == "" {
+			g.Endpoint = connection.URL
+		}
 	}
 
 	if g.Credentials != nil {
