@@ -15,3 +15,7 @@ exec-checkout/
 shell-bin-dir
 ginkgo-report-*
 .ginkgo
+out.html
+specs/*.md
+generate-openapi
+.todos/
