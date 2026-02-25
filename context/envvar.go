@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/types"
 	"github.com/patrickmn/go-cache"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -56,7 +57,7 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (va
 
 	if err != nil {
 		ctx.Logger.V(3).Infof("lookup[%s] failed %s => %s", input.Name, source, err.Error())
-	} else if ctx.Logger.IsLevelEnabled(5) {
+	} else if ctx.Logger.IsLevelEnabled(2) && properties.On(false, "envvar.lookup.log") {
 		ctx.Logger.V(5).Infof("lookup[%s] %s => %s", input.Name, source, logger.PrintableSecret(value))
 	}
 
