@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	netHTTP "net/http"
+	netURL "net/url"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/http/middlewares"
+	"github.com/flanksource/commons/logger"
 	"github.com/labstack/echo/v4"
 
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 )
@@ -35,14 +42,110 @@ func (t TLSConfig) IsEmpty() bool {
 }
 
 // +kubebuilder:object:generate=true
+type AWSSigV4 struct {
+	AWSConnection `json:",inline" yaml:",inline"`
+	Service       string `json:"service,omitempty" yaml:"service,omitempty"`
+}
+
+// cachedAWSConfig wraps aws.Config with DeepCopy methods so controller-gen
+// can handle it without calling nonexistent methods on aws.Config.
+type cachedAWSConfig struct{ aws.Config }
+
+func (in *cachedAWSConfig) DeepCopyInto(out *cachedAWSConfig) { *out = *in }
+func (in *cachedAWSConfig) DeepCopy() *cachedAWSConfig {
+	if in == nil {
+		return nil
+	}
+	out := new(cachedAWSConfig)
+	*out = *in
+	return out
+}
+
+// +kubebuilder:object:generate=true
 type HTTPConnection struct {
 	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.HTTPBasicAuth `json:",inline"`
-	URL                 string         `json:"url,omitempty" yaml:"url,omitempty"`
-	Bearer              types.EnvVar   `json:"bearer,omitempty" yaml:"bearer,omitempty"`
-	OAuth               types.OAuth    `json:"oauth,omitempty" yaml:"oauth,omitempty"`
-	TLS                 TLSConfig      `json:"tls,omitempty" yaml:"tls,omitempty"`
-	Headers             []types.EnvVar `json:"headers,omitempty" yaml:"headers,omitempty"`
+	URL                 string           `json:"url,omitempty" yaml:"url,omitempty"`
+	Bearer              types.EnvVar     `json:"bearer,omitempty" yaml:"bearer,omitempty"`
+	OAuth               types.OAuth      `json:"oauth,omitempty" yaml:"oauth,omitempty"`
+	TLS                 TLSConfig        `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Headers             []types.EnvVar   `json:"headers,omitempty" yaml:"headers,omitempty"`
+	AWSSigV4            *AWSSigV4        `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty"`
+	awsConfig           *cachedAWSConfig // cached; populated during Hydrate
+}
+
+func (t HTTPConnection) Pretty() api.Text {
+	s := clicky.Text("")
+
+	if t.ConnectionName != "" {
+		s = s.AddText("🔗 ", "text-blue-500").AddText(t.ConnectionName, "font-bold")
+	}
+
+	if t.URL != "" {
+		s = s.NewLine()
+		if parsed, err := netURL.Parse(t.URL); err == nil && parsed.Host != "" {
+			s = s.AddText(parsed.Scheme+"://"+parsed.Host, "font-bold text-blue-600").
+				AddText(parsed.Path, "text-gray-500")
+			for i, key := range sortedQueryKeys(parsed.Query()) {
+				prefix := "?"
+				if i > 0 {
+					prefix = "&"
+				}
+				s = s.NewLine().AddText(fmt.Sprintf("  %s%s=%s", prefix, key, parsed.Query().Get(key)), "text-gray-400")
+			}
+		} else {
+			s = s.AddText(t.URL, "text-blue-600")
+		}
+	}
+
+	if !t.HTTPBasicAuth.IsEmpty() {
+		s = s.NewLine().AddText("🔑 Basic ", "text-yellow-600").AddText(t.GetUsername()+"/****", "text-gray-500")
+	} else if !t.Bearer.IsEmpty() {
+		s = s.NewLine().AddText("🔑 Bearer ****", "text-yellow-600")
+	} else if !t.OAuth.IsEmpty() {
+		s = s.NewLine().AddText("🔑 OAuth", "text-yellow-600")
+		if !t.OAuth.ClientID.IsEmpty() {
+			s = s.AddText(" client-id: ", "text-gray-500").AddText(t.OAuth.ClientID.ValueStatic, "text-gray-400")
+		}
+	}
+
+	if t.AWSSigV4 != nil {
+		s = s.NewLine().AddText("🔑 AWS SigV4", "text-yellow-600")
+		if t.AWSSigV4.Service != "" {
+			s = s.AddText(" "+t.AWSSigV4.Service, "text-gray-500")
+		}
+	}
+
+	if t.TLS.InsecureSkipVerify {
+		s = s.NewLine().AddText("⚠ insecure TLS", "text-red-500")
+	}
+
+	if len(t.Headers) > 0 {
+		var names []string
+		for _, h := range t.Headers {
+			if h.Name != "" {
+				names = append(names, h.Name)
+			}
+		}
+		if len(names) > 0 {
+			s = s.NewLine().AddText("Headers: "+strings.Join(names, ", "), "text-gray-500")
+		}
+	}
+
+	return s
+}
+
+func sortedQueryKeys(values netURL.Values) []string {
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (t HTTPConnection) String() string {
+	return t.Pretty().String()
 }
 
 func (t *HTTPConnection) FromModel(connection models.Connection) error {
@@ -90,6 +193,13 @@ func (t *HTTPConnection) FromModel(connection models.Connection) error {
 		}
 	}
 
+	if awsSigV4 := connection.Properties["awsSigV4"]; awsSigV4 != "" {
+		t.AWSSigV4 = &AWSSigV4{}
+		if err := json.Unmarshal([]byte(awsSigV4), t.AWSSigV4); err != nil {
+			return fmt.Errorf("error unmarshaling awsSigV4: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -98,8 +208,11 @@ func (h HTTPConnection) GetEndpoint() string {
 }
 
 func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTPConnection, error) {
+
+	logger.V(6).Infof("hydrating HTTP connection: %s", h.Pretty().ANSI())
 	var err error
 	if h.ConnectionName != "" {
+		existing := *h
 		connection, err := ctx.HydrateConnectionByURL(h.ConnectionName)
 		if err != nil {
 			return h, fmt.Errorf("could not hydrate connection[%s]: %w", h.ConnectionName, err)
@@ -110,6 +223,39 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		*h, err = NewHTTPConnection(ctx, *connection)
 		if err != nil {
 			return h, fmt.Errorf("error creating connection from model: %w", err)
+		}
+		if existing.URL != "" {
+			h.URL = existing.URL
+		}
+		if !existing.HTTPBasicAuth.IsEmpty() {
+			h.HTTPBasicAuth = existing.HTTPBasicAuth
+		}
+		if !existing.Bearer.IsEmpty() {
+			h.Bearer = existing.Bearer
+		}
+		if !existing.OAuth.ClientID.IsEmpty() {
+			h.OAuth.ClientID = existing.OAuth.ClientID
+		}
+		if !existing.OAuth.ClientSecret.IsEmpty() {
+			h.OAuth.ClientSecret = existing.OAuth.ClientSecret
+		}
+		if existing.OAuth.TokenURL != "" {
+			h.OAuth.TokenURL = existing.OAuth.TokenURL
+		}
+		if len(existing.OAuth.Scopes) > 0 {
+			h.OAuth.Scopes = existing.OAuth.Scopes
+		}
+		if len(existing.OAuth.Params) > 0 {
+			h.OAuth.Params = existing.OAuth.Params
+		}
+		if len(existing.Headers) > 0 {
+			h.Headers = existing.Headers
+		}
+		if !existing.TLS.CA.IsEmpty() || !existing.TLS.Cert.IsEmpty() || !existing.TLS.Key.IsEmpty() || existing.TLS.InsecureSkipVerify || existing.TLS.HandshakeTimeout != 0 {
+			h.TLS = existing.TLS
+		}
+		if existing.AWSSigV4 != nil {
+			h.AWSSigV4 = existing.AWSSigV4
 		}
 	}
 
@@ -167,6 +313,19 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 		}
 	}
 
+	if h.AWSSigV4 != nil {
+		if err := h.AWSSigV4.Populate(ctx); err != nil {
+			return h, fmt.Errorf("error populating aws sigv4 connection: %w", err)
+		}
+		if dutyCtx, ok := ctx.(context.Context); ok {
+			cfg, err := h.AWSSigV4.Client(dutyCtx)
+			if err != nil {
+				return h, fmt.Errorf("error getting aws config for sigv4: %w", err)
+			}
+			h.awsConfig = &cachedAWSConfig{cfg}
+		}
+	}
+
 	return h, nil
 }
 
@@ -208,6 +367,14 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 
 	if !conn.TLS.IsEmpty() {
 		rt.TLS = conn.TLS
+	}
+
+	if conn.AWSSigV4 != nil && conn.awsConfig != nil {
+		rt.Base = middlewares.NewAWSSigv4Transport(middlewares.AWSSigv4Config{
+			Region:              conn.awsConfig.Region,
+			Service:             conn.AWSSigV4.Service,
+			CredentialsProvider: conn.awsConfig.Credentials,
+		}, rt.Base)
 	}
 
 	return rt.Base.RoundTrip(req)
@@ -252,6 +419,17 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client,
 		}
 	}
 
+	if conn.AWSSigV4 != nil && conn.awsConfig != nil {
+		client.AWSAuthSigV4(conn.awsConfig.Config)
+		if conn.AWSSigV4.Service != "" {
+			client.AWSService(conn.AWSSigV4.Service)
+		}
+	}
+
+	// if properties.On(false, "http.log.curl") {
+	// 	client.CurlLog()
+	// }
+
 	return client, nil
 }
 
@@ -263,12 +441,41 @@ func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConne
 			return httpConn, err
 		}
 
-		if _, err := httpConn.Hydrate(ctx, conn.Namespace); err != nil {
-			return httpConn, fmt.Errorf("error hydrating connection: %w", err)
+	case models.ConnectionTypeAWS:
+		httpConn.URL = conn.URL
+		httpConn.TLS.InsecureSkipVerify = conn.InsecureTLS
+		httpConn.AWSSigV4 = &AWSSigV4{}
+		httpConn.AWSSigV4.FromModel(conn)
+
+	case models.ConnectionTypeAzure:
+		if err := httpConn.FromModel(conn); err != nil {
+			return httpConn, err
+		}
+
+		httpConn.HTTPBasicAuth = types.HTTPBasicAuth{} // Azure connections should not use basic auth
+		httpConn.URL = conn.URL
+		httpConn.TLS.InsecureSkipVerify = conn.InsecureTLS
+		var azure AzureConnection
+		azure.FromModel(conn)
+		if httpConn.OAuth.ClientID.IsEmpty() {
+			httpConn.OAuth.ClientID = types.EnvVar{ValueStatic: azure.ClientID.String()}
+		}
+		if httpConn.OAuth.ClientSecret.IsEmpty() {
+			httpConn.OAuth.ClientSecret = types.EnvVar{ValueStatic: azure.ClientSecret.String()}
+		}
+		if httpConn.OAuth.TokenURL == "" {
+			httpConn.OAuth.TokenURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", azure.TenantID)
+		}
+		if httpConn.OAuth.Scopes == nil {
+			httpConn.OAuth.Scopes = []string{"https://graph.microsoft.com/.default"}
 		}
 
 	default:
 		return httpConn, fmt.Errorf("invalid connection type: %s", conn.Type)
+	}
+
+	if _, err := httpConn.Hydrate(ctx, conn.Namespace); err != nil {
+		return httpConn, fmt.Errorf("error hydrating connection: %w", err)
 	}
 
 	return httpConn, nil
