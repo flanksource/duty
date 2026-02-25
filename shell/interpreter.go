@@ -14,18 +14,18 @@ import (
 	"github.com/flanksource/duty/context"
 )
 
-var DefaultInterpreter string
-var DefaultInterpreterArgs []string
+var defaultInterpreter string
+var defaultInterpreterArgs []string
 
 func init() {
-	DefaultInterpreter, DefaultInterpreterArgs = DetectDefaultInterpreter()
+	defaultInterpreter, defaultInterpreterArgs = detectDefaultInterpreter()
 }
 
-// CreateCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
-func CreateCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string) (*exec.Cmd, error) {
-	shebangInterpreter, _ := DetectInterpreterFromShebang(script)
+// createCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
+func createCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string) (*exec.Cmd, error) {
+	shebangInterpreter, _ := detectInterpreterFromShebang(script)
 	interpreter, args := remapInterpreter(script, setup)
-	script = TrimLine(script, "#!")
+	script = trimLine(script, "#!")
 	if script == "" {
 		return nil, ctx.Oops().Errorf("empty script")
 	}
@@ -60,7 +60,7 @@ func CreateCommandFromScript(ctx context.Context, script string, envs []string, 
 	return cmd, nil
 }
 
-func TrimLine(lines string, prefix string) string {
+func trimLine(lines string, prefix string) string {
 	s := []string{}
 	for _, line := range strings.Split(lines, "\n") {
 		if !strings.HasPrefix(line, prefix) {
@@ -70,8 +70,8 @@ func TrimLine(lines string, prefix string) string {
 	return strings.Join(s, "\n")
 }
 
-// DetectInterpreterFromShebang reads the first line of the script to detect the interpreter from the shebang line.
-func DetectInterpreterFromShebang(script string) (string, []string) {
+// detectInterpreterFromShebang reads the first line of the script to detect the interpreter from the shebang line.
+func detectInterpreterFromShebang(script string) (string, []string) {
 	reader := strings.NewReader(script)
 	scanner := bufio.NewScanner(reader)
 	if scanner.Scan() {
@@ -109,7 +109,7 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 					args = append(args, "-e")
 				}
 			case "pwsh", "powershell":
-				// PowerShell uses -File for script files, handled separately in CreateCommandFromScript
+				// PowerShell uses -File for script files, handled separately in createCommandFromScript
 			default:
 				if len(args) == 0 {
 					// No args, just interpreter and assume it supports the -c flag
@@ -120,11 +120,11 @@ func DetectInterpreterFromShebang(script string) (string, []string) {
 			return interpreter, args
 		}
 	}
-	return DefaultInterpreter, DefaultInterpreterArgs
+	return defaultInterpreter, defaultInterpreterArgs
 }
 
 func remapInterpreter(script string, setup *ExecSetup) (string, []string) {
-	interpreter, args := DetectInterpreterFromShebang(script)
+	interpreter, args := detectInterpreterFromShebang(script)
 	if !isPythonBase(interpreter) {
 		return interpreter, args
 	}
@@ -154,8 +154,8 @@ func isPowershellBase(interpreter string) bool {
 	return base == "pwsh" || base == "powershell"
 }
 
-// DetectDefaultInterpreter detects the default interpreter based on the OS.
-func DetectDefaultInterpreter() (string, []string) {
+// detectDefaultInterpreter detects the default interpreter based on the OS.
+func detectDefaultInterpreter() (string, []string) {
 	switch runtime.GOOS {
 	case "windows":
 		// Check for PowerShell on Windows

@@ -18,7 +18,6 @@ import (
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/commons/utils"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/samber/oops"
 
 	"github.com/flanksource/duty/connection"
@@ -120,7 +119,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		}
 	} else {
 		// if setup isn't specified explicity, infer it from the shebang
-		shebangInterpreter, _ := DetectInterpreterFromShebang(exec.Script)
+		shebangInterpreter, _ := detectInterpreterFromShebang(exec.Script)
 		var inferredSetup ExecSetup
 		if strings.Contains(shebangInterpreter, "python") {
 			inferredSetup.Python = &RuntimeSetup{Version: "any"}
@@ -140,28 +139,9 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		}
 	}
 
-	cmd, err := CreateCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
+	cmd, err := createCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrapf(err, "failed to create command from script")
-	}
-
-	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)
-}
-
-func RunCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd) (*ExecDetails, error) {
-	ctx.Logger.V(3).Infof("running: %s %s", cmd.Path, lo.Map(cmd.Args, func(arg string, _ int) string { return strings.TrimSpace(arg) }))
-	cmdCtx, err := prepareEnvironment(ctx, exec)
-	if err != nil {
-		return nil, ctx.Oops().Wrap(err)
-	}
-
-	envs := getEnvVar(cmdCtx.envs)
-
-	if exec.Setup != nil {
-		envs, err = applySetupRuntimeEnv(ctx, *exec.Setup, envs)
-		if err != nil {
-			return nil, ctx.Oops().Wrap(err)
-		}
 	}
 
 	return runPreparedCmd(ctx, exec, cmd, cmdCtx, envs)

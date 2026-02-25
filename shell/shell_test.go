@@ -234,10 +234,38 @@ var _ = ginkgo.Describe("PrepareEnvironment", ginkgo.Label("slow"), func() {
 	})
 })
 
-var _ = ginkgo.Describe("DetectInterpreterFromShebang", func() {
+var _ = ginkgo.Describe("JQ", func() {
+	ctx := context.New()
+	dataPath := filepath.Join("testdata", "data.json")
+
+	ginkgo.It("should extract a top-level field", func() {
+		result, err := JQ(ctx, dataPath, ".name")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(`"mission-control"`))
+	})
+
+	ginkgo.It("should extract a nested field", func() {
+		result, err := JQ(ctx, dataPath, ".metadata.region")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(`"us-east-1"`))
+	})
+
+	ginkgo.It("should filter array elements", func() {
+		result, err := JQ(ctx, dataPath, `[.components[] | select(.status == "healthy") | .id]`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(MatchJSON(`["db"]`))
+	})
+
+	ginkgo.It("should return error for invalid expression", func() {
+		_, err := JQ(ctx, dataPath, ".invalid[")
+		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = ginkgo.Describe("detectInterpreterFromShebang", func() {
 	ginkgo.DescribeTable("interpreter detection",
 		func(script, expectedInterpreter string, expectedArgs []string) {
-			interpreter, args := DetectInterpreterFromShebang(script)
+			interpreter, args := detectInterpreterFromShebang(script)
 			Expect(interpreter).To(Equal(expectedInterpreter))
 			Expect(args).To(Equal(expectedArgs))
 		},

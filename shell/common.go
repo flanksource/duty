@@ -15,9 +15,10 @@ func JQ(ctx context.Context, path string, script string) (string, error) {
 	defer cancel()
 
 	cmd := osExec.CommandContext(_ctx, "jq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
+	cmd.Env = getEnvVar(nil)
+	result, err := runCmd(ctx, &commandContext{
+		cmd: cmd,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -29,9 +30,10 @@ func YQ(ctx context.Context, path string, script string) (string, error) {
 	defer cancel()
 
 	cmd := osExec.CommandContext(_ctx, "yq", script, path)
-	result, err := RunCmd(ctx, Exec{
-		Chroot: path,
-	}, cmd)
+	cmd.Env = getEnvVar(nil)
+	result, err := runCmd(ctx, &commandContext{
+		cmd: cmd,
+	})
 	if err != nil {
 		return "", err
 	}
