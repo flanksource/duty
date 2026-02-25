@@ -97,6 +97,61 @@ var _ = Describe("HTTP Connection", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	})
 
+	It("should sign requests with AWS SigV4", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+
+			authHeader := r.Header.Get("Authorization")
+			Expect(authHeader).ToNot(BeEmpty(), "Authorization header should be set")
+			Expect(authHeader).To(HavePrefix("AWS4-HMAC-SHA256"),
+				"Authorization header should start with AWS4-HMAC-SHA256")
+
+			Expect(r.Header.Get("X-Amz-Date")).ToNot(BeEmpty(), "X-Amz-Date header should be set")
+
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		sigV4JSON, err := json.Marshal(connection.AWSSigV4{
+			AWSConnection: connection.AWSConnection{
+				AccessKey: types.EnvVar{ValueStatic: "AKIAIOSFODNN7EXAMPLE"},
+				SecretKey: types.EnvVar{ValueStatic: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"},
+				Region:    "us-east-1",
+			},
+			Service: "execute-api",
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		conn := models.Connection{
+			Name:      "http-test-sigv4",
+			Namespace: "default",
+			Type:      models.ConnectionTypeHTTP,
+			URL:       server.URL,
+			Source:    models.SourceUI,
+			Properties: map[string]string{
+				"awsSigV4": string(sigV4JSON),
+			},
+		}
+
+		Expect(DefaultContext.DB().Create(&conn).Error).ToNot(HaveOccurred())
+		defer DefaultContext.DB().Delete(&conn)
+
+		storedConn, err := DefaultContext.GetConnection("http-test-sigv4", "default")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(storedConn).ToNot(BeNil())
+
+		httpConn, err := connection.NewHTTPConnection(DefaultContext, *storedConn)
+		Expect(err).ToNot(HaveOccurred())
+
+		client, err := connection.CreateHTTPClient(DefaultContext, httpConn)
+		Expect(err).ToNot(HaveOccurred())
+
+		resp, err := client.R(gocontext.Background()).Get(httpConn.URL)
+		Expect(err).ToNot(HaveOccurred())
+		defer resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+	})
+
 	It("should work without headers", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
