@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/sandbox-runtime/sandbox"
 )
 
 var defaultInterpreter string
@@ -22,7 +23,8 @@ func init() {
 }
 
 // createCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
-func createCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string) (*exec.Cmd, error) {
+// If a sandbox is provided, the command is created inside the sandbox.
+func createCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string, sb *sandbox.Sandbox) (*exec.Cmd, error) {
 	shebangInterpreter, _ := detectInterpreterFromShebang(script)
 	interpreter, args := remapInterpreter(script, setup)
 	script = trimLine(script, "#!")
@@ -53,6 +55,15 @@ func createCommandFromScript(ctx context.Context, script string, envs []string, 
 	resolved, err := resolveInterpreterPath(interpreter, envs)
 	if err != nil {
 		return nil, ctx.Oops().Wrapf(err, "failed to resolve interpreter path (%s)", interpreter)
+	}
+
+	if sb != nil {
+		cmd, err := sb.Command(ctx, resolved, args...)
+		if err != nil {
+			return nil, ctx.Oops().Wrapf(err, "failed to create sandboxed command")
+		}
+		cmd.Env = envs
+		return cmd, nil
 	}
 
 	cmd := exec.CommandContext(ctx, resolved, args...)
