@@ -23,6 +23,7 @@ import (
 	"github.com/flanksource/duty/connection"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
+	"github.com/flanksource/sandbox-runtime/sandbox"
 )
 
 // List of env var keys that we pass on to the exec command
@@ -70,6 +71,10 @@ type Exec struct {
 	EnvVars     []types.EnvVar
 	Chroot      string
 	Setup       *ExecSetup
+
+	// Sandbox, if set, runs the command inside this sandbox.
+	// The caller is responsible for creating and closing the sandbox.
+	Sandbox *sandbox.Sandbox
 }
 
 // +kubebuilder:object:generate=true
@@ -139,7 +144,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 		}
 	}
 
-	cmd, err := createCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID)
+	cmd, err := createCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID, exec.Sandbox)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrapf(err, "failed to create command from script")
 	}
