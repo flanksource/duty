@@ -2,19 +2,28 @@ package postgrest
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
-	"github.com/flanksource/commons/deps"
+	"github.com/flanksource/commons/exec"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/deps"
 	"github.com/flanksource/duty/api"
 )
 
 func GoOffline() error {
-	return getBinary(api.DefaultConfig)("--help")
+	return runBinary(api.DefaultConfig, "--help")
 }
 
-func getBinary(config api.Config) deps.BinaryFunc {
-	opts := map[string]string{
+func runBinary(config api.Config, msg string, args ...any) error {
+	result, err := deps.Install("postgREST", config.Postgrest.Version, deps.WithBinDir(".bin"))
+	if err != nil {
+		return fmt.Errorf("failed to install postgREST: %w", err)
+	}
+
+	bin := filepath.Join(result.BinDir, "postgrest")
+
+	env := map[string]string{
 		"PGRST_SERVER_PORT":              strconv.Itoa(config.Postgrest.Port),
 		"PGRST_DB_URI":                   config.ConnectionString,
 		"PGRST_DB_SCHEMA":                config.Schema,
@@ -24,12 +33,13 @@ func getBinary(config api.Config) deps.BinaryFunc {
 		"PGRST_DB_MAX_ROWS":              strconv.Itoa(config.Postgrest.MaxRows),
 		"PGRST_JWT_SECRET":               config.Postgrest.JWTSecret,
 	}
-	return deps.BinaryWithEnv("postgREST", config.Postgrest.Version, ".bin", opts)
+
+	return exec.ExecfWithEnv(bin+" "+msg, env, args...)
 }
 
 func Start(config api.Config) {
 	logger.Infof("Starting postgrest %s", config.Postgrest)
-	if err := getBinary(config)(""); err != nil {
+	if err := runBinary(config, ""); err != nil {
 		logger.Errorf("Failed to start postgREST: %v", err)
 	}
 }
