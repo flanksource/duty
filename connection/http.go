@@ -71,7 +71,7 @@ type HTTPConnection struct {
 	TLS                 TLSConfig        `json:"tls,omitempty" yaml:"tls,omitempty"`
 	Headers             []types.EnvVar   `json:"headers,omitempty" yaml:"headers,omitempty"`
 	AWSSigV4            *AWSSigV4        `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty"`
-	awsConfig           *cachedAWSConfig // cached; populated during Hydrate
+	awsConfig           *cachedAWSConfig `json:"-"` // cached; populated during Hydrate
 }
 
 func (t HTTPConnection) Pretty() api.Text {
