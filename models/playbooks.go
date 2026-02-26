@@ -582,7 +582,7 @@ func (p PlaybookRun) Fail(db *gorm.DB, err error) error {
 }
 
 func (p PlaybookRun) GetActions(db *gorm.DB) (actions []PlaybookRunAction, err error) {
-	err = db.Model(actions).Where("playbook_run_id = ?", p.ID).Find(&actions).Error
+	err = db.Model(actions).Where("playbook_run_id = ?", p.ID).Order("scheduled_time ASC").Find(&actions).Error
 	if err != nil {
 		return nil, oops.Tags("db").Wrap(err)
 	}
