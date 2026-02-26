@@ -144,6 +144,22 @@ func sortedQueryKeys(values netURL.Values) []string {
 	return keys
 }
 
+// mergeHeaders merges connection-level and inline (action-level) headers.
+// Inline headers override connection headers with the same name.
+func mergeHeaders(conn, inline []types.EnvVar) []types.EnvVar {
+	overridden := make(map[string]struct{}, len(inline))
+	for _, h := range inline {
+		overridden[h.Name] = struct{}{}
+	}
+	merged := make([]types.EnvVar, 0, len(conn)+len(inline))
+	for _, h := range conn {
+		if _, ok := overridden[h.Name]; !ok {
+			merged = append(merged, h)
+		}
+	}
+	return append(merged, inline...)
+}
+
 func (t HTTPConnection) String() string {
 	return t.Pretty().String()
 }
@@ -249,7 +265,7 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 			h.OAuth.Params = existing.OAuth.Params
 		}
 		if len(existing.Headers) > 0 {
-			h.Headers = existing.Headers
+			h.Headers = mergeHeaders(h.Headers, existing.Headers)
 		}
 		if !existing.TLS.CA.IsEmpty() || !existing.TLS.Cert.IsEmpty() || !existing.TLS.Key.IsEmpty() || existing.TLS.InsecureSkipVerify || existing.TLS.HandshakeTimeout != 0 {
 			h.TLS = existing.TLS

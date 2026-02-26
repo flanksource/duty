@@ -47,6 +47,40 @@ func TestHTTPConnectionInlineOverridesConnection(t *testing.T) {
 	g.Expect(result.TLS.InsecureSkipVerify).To(gomega.BeTrue())
 }
 
+func TestHTTPConnectionHeadersMerge(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	httpConn := &models.Connection{
+		Type: models.ConnectionTypeHTTP,
+		URL:  "https://conn.example.com",
+		Properties: types.JSONStringMap{
+			"headers": `[{"name":"Authorization","value":"conn-token"},{"name":"X-Conn-Only","value":"keep"}]`,
+		},
+	}
+	ctx := mockConnectionContext{Context: gocontext.Background(), connection: httpConn}
+
+	conn := HTTPConnection{
+		ConnectionName: "connection://http",
+		Headers: []types.EnvVar{
+			{Name: "Authorization", ValueStatic: "inline-token"},
+			{Name: "X-Inline-Only", ValueStatic: "new"},
+		},
+	}
+
+	result, err := conn.Hydrate(ctx, "default")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	headerMap := make(map[string]string, len(result.Headers))
+	for _, h := range result.Headers {
+		headerMap[h.Name] = h.ValueStatic
+	}
+	g.Expect(headerMap).To(gomega.Equal(map[string]string{
+		"Authorization": "inline-token",
+		"X-Conn-Only":   "keep",
+		"X-Inline-Only": "new",
+	}))
+}
+
 func TestHTTPConnectionFallsBackToConnection(t *testing.T) {
 	g := gomega.NewWithT(t)
 
