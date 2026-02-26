@@ -452,7 +452,7 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client,
 func NewHTTPConnection(ctx ConnectionContext, conn models.Connection) (HTTPConnection, error) {
 	var httpConn HTTPConnection
 	switch conn.Type {
-	case models.ConnectionTypeHTTP, models.ConnectionTypePrometheus:
+	case models.ConnectionTypeHTTP, models.ConnectionTypePrometheus, "":
 		if err := httpConn.FromModel(conn); err != nil {
 			return httpConn, err
 		}
