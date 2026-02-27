@@ -108,7 +108,8 @@ func (r *NotificationSendHistorySummaryRequest) summarySelectColumns() []string 
 		"MAX(CASE WHEN rn = 1 THEN body END) AS last_message",
 		"COUNT(CASE WHEN status = 'sent' THEN 1 END) AS sent",
 		"COUNT(CASE WHEN status = 'error' THEN 1 END) AS error",
-		"COUNT(CASE WHEN status != 'error' AND status != 'sent' THEN 1 END) AS suppressed",
+		"COUNT(CASE WHEN status IN ('silenced', 'inhibited', 'repeat-interval', 'skipped') THEN 1 END) AS suppressed",
+		"COUNT(CASE WHEN status IN ('pending', 'pending_playbook_run', 'pending_playbook_completion', 'evaluating-waitfor', 'attempting_fallback') THEN 1 END) AS in_progress",
 	}
 }
 
