@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -392,6 +393,48 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Checks:   []models.Check{dummy.LogisticsAPIHealthHTTPCheck},
 			Configs:  []models.ConfigItem{dummy.EKSCluster},
 		},
+		{
+			description: "case insensitive | config by id",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{ID: strings.ToUpper(dummy.EKSCluster.ID.String())}},
+			},
+			Configs: []models.ConfigItem{dummy.EKSCluster},
+		},
+		{
+			description: "case insensitive | config by name",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Name: "NODE-B"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "case insensitive | config by type",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Types: []string{"kubernetes::node"}}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB, dummy.KubernetesNodeAKSPool1},
+		},
+		{
+			description: "case insensitive | config by name and type",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Name: "NODE-B", Types: []string{"kubernetes::node"}}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeB},
+		},
+		{
+			description: "case insensitive | change by change_type",
+			query: query.SearchResourcesRequest{
+				ConfigChanges: []types.ResourceSelector{{Search: "change_type=create"}},
+			},
+			ConfigChanges: []models.CatalogChange{eksClusterCatalogChange, kubernetesNodeACatalogChange},
+		},
+		{
+			description: "case insensitive | config by health",
+			query: query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{Health: "HEALTHY"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeAKSPool1, dummy.KubernetesNodeA, dummy.KubernetesNodeB},
+		},
 	}
 
 	ginkgo.Describe("search", ginkgo.Ordered, func() {
@@ -702,6 +745,12 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config item direct query case-insensitive",
+			query:       `NODE-B`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
 			description: "config item direct query no match",
 			query:       `unknown-name-config`,
 			expectedIDs: []uuid.UUID{},
@@ -716,6 +765,12 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 		{
 			description: "config item query with :: in string",
 			query:       `name=node-b type=Kubernetes::Node`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
+			resource:    "config",
+		},
+		{
+			description: "config item query case-insensitive",
+			query:       `name=NODE-B type=kubernetes::node`,
 			expectedIDs: []uuid.UUID{dummy.KubernetesNodeB.ID},
 			resource:    "config",
 		},
