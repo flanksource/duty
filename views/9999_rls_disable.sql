@@ -48,6 +48,24 @@ BEGIN
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'view_panels') THEN
         EXECUTE 'ALTER TABLE view_panels DISABLE ROW LEVEL SECURITY;';
     END IF;
+
+END $$;
+
+-- Disable RLS on dynamically generated view tables
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT c.relname, c.relrowsecurity
+        FROM pg_class c
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'view\_%' ESCAPE '\'
+    LOOP
+        IF r.relrowsecurity THEN
+            EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY;', r.relname);
+        END IF;
+    END LOOP;
 END $$;
 
 -- POLICIES
@@ -74,3 +92,18 @@ DROP POLICY IF EXISTS checks_auth ON checks;
 DROP POLICY IF EXISTS views_auth ON views;
 
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;
+
+DO $$
+DECLARE
+    r record;
+BEGIN
+    -- Drop policies on dynamically generated view tables
+    FOR r IN
+        SELECT c.relname
+        FROM pg_class c
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'view\_%' ESCAPE '\'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS view_grants_policy ON %I;', r.relname);
+    END LOOP;
+END $$;
