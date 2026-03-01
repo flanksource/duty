@@ -694,6 +694,12 @@ type ConfigChange struct {
 	// IsPushed indicates whether the change has been pushed to upstream.
 	// When set to true, it means the status has been synchronized.
 	IsPushed bool `json:"is_pushed,omitempty"`
+
+	// CreatedBy is the UUID of the local user who created this change.
+	CreatedBy *uuid.UUID `gorm:"column:created_by" json:"created_by,omitempty"`
+
+	// ExternalCreatedBy is the name/email from the external system that created this change.
+	ExternalCreatedBy *string `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
 }
 
 func (c ConfigChange) Pretty() api.Text {
@@ -734,6 +740,38 @@ func (c ConfigChange) PrettyRow(opts interface{}) map[string]api.Text {
 	}
 
 	return row
+}
+
+func (c ConfigChange) Columns() []api.ColumnDef {
+	return []api.ColumnDef{
+		clicky.Column("ChangeType").Build(),
+		clicky.Column("Summary").Build(),
+		clicky.Column("Source").Build(),
+		clicky.Column("CreatedBy").Build(),
+		clicky.Column("Severity").Build(),
+		clicky.Column("CreatedAt").Build(),
+	}
+}
+
+func (c ConfigChange) Row() map[string]any {
+	createdAt := ""
+	if c.CreatedAt != nil {
+		createdAt = c.CreatedAt.Format(time.RFC3339)
+	}
+	createdBy := ""
+	if c.ExternalCreatedBy != nil {
+		createdBy = *c.ExternalCreatedBy
+	} else if c.CreatedBy != nil {
+		createdBy = c.CreatedBy.String()
+	}
+	return map[string]any{
+		"ChangeType": clicky.Text(c.ChangeType),
+		"Summary":    clicky.Text(c.Summary),
+		"Source":     clicky.Text(c.Source),
+		"Severity":   clicky.Text(string(c.Severity)),
+		"CreatedAt":  clicky.Text(createdAt),
+		"CreatedBy":  clicky.Text(createdBy),
+	}
 }
 
 func (t ConfigChange) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
@@ -833,6 +871,10 @@ func (c ConfigAnalysis) Pretty() api.Text {
 			statusStyle = "text-gray-500"
 		}
 		t = t.AddText(" ").Add(clicky.Text(c.Status, statusStyle).Wrap("[", "]"))
+	}
+
+	if url, ok := c.Analysis["url"].(string); ok && url != "" {
+		t = t.AddText(" ").AddText(url, "text-xs text-blue-400 underline")
 	}
 
 	return t
