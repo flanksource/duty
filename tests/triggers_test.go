@@ -25,17 +25,17 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 	})
 
 	ginkgo.AfterAll(func() {
-		DefaultContext.DB().Where("properties->>'id' = ?", ci.ID.String()).Delete(&models.Event{})
+		DefaultContext.DB().Where("event_id = ?", ci.ID.String()).Delete(&models.Event{})
 		DefaultContext.DB().Delete(ci)
 	})
 
 	ginkgo.BeforeEach(func() {
-		DefaultContext.DB().Where("properties->>'id' = ?", ci.ID.String()).Delete(&models.Event{})
+		DefaultContext.DB().Where("event_id = ?", ci.ID.String()).Delete(&models.Event{})
 	})
 
 	ginkgo.It("should NOT trigger events when inserting as healthy", func() {
 		var events []models.Event
-		err := DefaultContext.DB().Where("properties->>'id' = ?", ci.ID.String()).Find(&events).Error
+		err := DefaultContext.DB().Where("event_id = ?", ci.ID.String()).Find(&events).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(events).To(BeEmpty())
 	})
@@ -50,7 +50,7 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		var events []models.Event
-		err = DefaultContext.DB().Where("properties->>'id' = ? AND name = ?", ci.ID.String(), "config.degraded").Find(&events).Error
+		err = DefaultContext.DB().Where("event_id = ? AND name = ?", ci.ID.String(), "config.degraded").Find(&events).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(events).To(HaveLen(1))
 	})
@@ -65,7 +65,7 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		var events []models.Event
-		err = DefaultContext.DB().Where("properties->>'id' = ? AND name = ?", ci.ID.String(), "config.warning").Find(&events).Error
+		err = DefaultContext.DB().Where("event_id = ? AND name = ?", ci.ID.String(), "config.warning").Find(&events).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(events).To(HaveLen(1))
 	})

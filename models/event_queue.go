@@ -4,15 +4,18 @@ import (
 	"context"
 	"time"
 
-	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/flanksource/duty/types"
 )
 
 // Event represents the event queue table.
 
 type Event struct {
 	ID          uuid.UUID           `gorm:"default:generate_ulid()"`
+	EventID     uuid.UUID           `json:"event_id"`
 	Name        string              `json:"name"`
 	CreatedAt   time.Time           `json:"created_at"`
 	Properties  types.JSONStringMap `json:"properties"`
@@ -46,6 +49,7 @@ func (events Events) Recreate(ctx context.Context, tx *gorm.DB) error {
 	var batch Events
 	for _, event := range events {
 		batch = append(batch, Event{
+			EventID:     event.EventID,
 			Name:        event.Name,
 			Properties:  event.Properties,
 			Error:       event.Error,
@@ -63,6 +67,7 @@ func (e Event) PK() string {
 }
 
 type EventQueueSummary struct {
+	EventID       uuid.UUID  `json:"event_id"`
 	Name          string     `json:"name"`
 	Pending       int64      `json:"pending"`
 	Failed        int64      `json:"failed"`
@@ -74,4 +79,11 @@ type EventQueueSummary struct {
 
 func (t *EventQueueSummary) TableName() string {
 	return "event_queue_summary"
+}
+
+func EventQueueUniqueConstraint() []clause.Column {
+	return []clause.Column{
+		{Name: "name"},
+		{Name: "event_id"},
+	}
 }

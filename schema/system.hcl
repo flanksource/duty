@@ -68,6 +68,11 @@ table "event_queue" {
     type    = uuid
     default = sql("generate_ulid()")
   }
+  column "event_id" {
+    # temporary during migration rollout; make non-null after backfill + writer updates
+    null = true
+    type = uuid
+  }
   column "name" {
     null = false
     type = text
@@ -107,9 +112,8 @@ table "event_queue" {
   primary_key {
     columns = [column.id]
   }
-  index "event_queue_name_properties" {
-    unique  = true
-    columns = [column.name, column.properties]
+  unique "event_queue_name_event_id" {
+    columns = [column.name, column.event_id]
   }
   index "event_queue_properties" {
     type    = GIN
