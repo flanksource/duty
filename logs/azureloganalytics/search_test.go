@@ -1,5 +1,4 @@
 // ABOUTME: Manual integration test for Azure Log Analytics searcher.
-// ABOUTME: Requires valid Azure credentials and workspace ID to run.
 package azureloganalytics
 
 import (
@@ -19,15 +18,15 @@ func TestSearch_Manual(t *testing.T) {
 	ctx := context.Background()
 
 	conn := connection.AzureConnection{
-		ClientID:     &types.EnvVar{ValueStatic: "your-client-id"},
-		ClientSecret: &types.EnvVar{ValueStatic: "your-client-secret"},
-		TenantID:     "your-tenant-id",
+		ClientID:     &types.EnvVar{ValueStatic: ""},
+		ClientSecret: &types.EnvVar{ValueStatic: ""},
+		TenantID:     "",
 	}
 
 	searcher := New(conn, nil)
 
 	request := Request{
-		WorkspaceID: "your-workspace-id",
+		WorkspaceID: "",
 		Query:       "AzureActivity | top 5 by TimeGenerated",
 	}
 
