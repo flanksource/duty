@@ -33,7 +33,7 @@ require (
 	github.com/flanksource/clicky v1.17.0
 	github.com/flanksource/commons v1.47.0
 	github.com/flanksource/deps v1.0.24
-	github.com/flanksource/gomplate/v3 v3.24.68
+	github.com/flanksource/gomplate/v3 v3.24.69
 	github.com/flanksource/is-healthy v1.0.82
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
