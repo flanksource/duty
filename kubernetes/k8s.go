@@ -25,7 +25,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-var Nil = fake.NewSimpleClientset()
+var Nil = fake.NewClientset()
 
 var sensitiveUrls = []*regexp.Regexp{
 	regexp.MustCompile("/api/v1/namespaces/.*/secrets"),

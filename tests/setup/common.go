@@ -242,7 +242,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		logger.Infof("Created dummy data %v", len(dummyData.Checks))
 	}
 
-	clientset := fake.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fake.NewClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cm",
 			Namespace: "default",
