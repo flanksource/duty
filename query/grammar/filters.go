@@ -72,36 +72,44 @@ func (e expressions) jsonbListFieldExpression(field string) []clause.Expression 
 func (e expressions) textFieldExpression(field string) []clause.Expression {
 	var clauses []clause.Expression
 
+	col := clause.Column{Name: field}
+	// JSON accessor expressions (e.g. resource->>'name') must not be quoted
+	// as a single identifier, otherwise GORM produces invalid SQL like "resource->>'name'"
+	// which causes: ERROR: column "resource->>'name'" does not exist (SQLSTATE 42703)
+	if strings.Contains(field, "->") {
+		col.Raw = true
+	}
+
 	if len(e.In) == 1 {
 		clauses = append(clauses, clause.Expr{
 			SQL:  `LOWER(CAST(? AS TEXT)) = ?`,
-			Vars: []any{clause.Column{Name: field}, strings.ToLower(fmt.Sprint(e.In[0]))},
+			Vars: []any{col, strings.ToLower(fmt.Sprint(e.In[0]))},
 		})
 	} else if len(e.In) > 1 {
 		clauses = append(clauses, clause.Expr{
 			SQL:  `LOWER(CAST(? AS TEXT)) IN ?`,
-			Vars: []any{clause.Column{Name: field}, lowerAnySlice(e.In)},
+			Vars: []any{col, lowerAnySlice(e.In)},
 		})
 	}
 
 	for _, p := range e.Prefix {
 		clauses = append(clauses, clause.Expr{
 			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
-			Vars: []any{clause.Column{Name: field}, strings.ToLower(p) + "%"},
+			Vars: []any{col, strings.ToLower(p) + "%"},
 		})
 	}
 
 	for _, g := range e.Glob {
 		clauses = append(clauses, clause.Expr{
 			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
-			Vars: []any{clause.Column{Name: field}, "%" + strings.ToLower(g) + "%"},
+			Vars: []any{col, "%" + strings.ToLower(g) + "%"},
 		})
 	}
 
 	for _, s := range e.Suffix {
 		clauses = append(clauses, clause.Expr{
 			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
-			Vars: []any{clause.Column{Name: field}, "%" + strings.ToLower(s)},
+			Vars: []any{col, "%" + strings.ToLower(s)},
 		})
 	}
 
