@@ -1,7 +1,6 @@
 package dummy
 
 import (
-	"strings"
 	"time"
 
 	"github.com/flanksource/commons/logger"
@@ -75,15 +74,11 @@ func (t *DummyData) Populate(ctx context.Context) error {
 
 	gormDB := ctx.DB()
 
-	if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key value") {
-			if err := t.Delete(gormDB); err != nil {
-				return err
-			}
-			if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
-				return err
-			}
-		} else {
+	if len(t.People) > 0 {
+		if err := t.Delete(gormDB); err != nil {
+			return err
+		}
+		if err := gormDB.CreateInBatches(t.People, 100).Error; err != nil {
 			return err
 		}
 	}
@@ -373,10 +368,6 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
-	if err := DeleteAll(gormDB, t.ConfigScrapers); err != nil {
-		return err
-	}
-
 	if err := DeleteAll(gormDB, t.Notifications); err != nil {
 		return err
 	}
@@ -386,6 +377,10 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 	}
 
 	if err := models.DeleteAllConfigs(gormDB, t.Configs...); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.ConfigScrapers); err != nil {
 		return err
 	}
 
@@ -410,19 +405,29 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
-	if err := DeleteAll(gormDB, t.People); err != nil {
-		return err
-	}
-
-	if err := DeleteAll(gormDB, t.Agents); err != nil {
-		return err
-	}
-
 	if err := DeleteAll(gormDB, t.ViewPanels); err != nil {
 		return err
 	}
 
 	if err := DeleteAll(gormDB, t.Views); err != nil {
+		return err
+	}
+
+	if len(t.People) > 0 {
+		peopleIDs := lo.Map(t.People, func(p models.Person, _ int) string { return p.ID.String() })
+		if err := gormDB.Exec("DELETE FROM view_panels WHERE view_id IN (SELECT id FROM views WHERE created_by IN (?))", peopleIDs).Error; err != nil {
+			return err
+		}
+		if err := gormDB.Exec("DELETE FROM views WHERE created_by IN (?)", peopleIDs).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := DeleteAll(gormDB, t.People); err != nil {
+		return err
+	}
+
+	if err := DeleteAll(gormDB, t.Agents); err != nil {
 		return err
 	}
 
