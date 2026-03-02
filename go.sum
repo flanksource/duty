@@ -369,8 +369,8 @@ github.com/flanksource/artifacts v1.0.21 h1:/niJx4R3QY+GhBOJx0qolh0vq/u1ScPAEeVG
 github.com/flanksource/artifacts v1.0.21/go.mod h1:NK64zX1gxYcl7uwcysFtljT1uKIkhH9Kxf7Yco2FNrY=
 github.com/flanksource/clicky v1.17.0 h1:YLJphM1hD12n5z37ylc4Uvy0LOGqWpOxza0oW4G/W1M=
 github.com/flanksource/clicky v1.17.0/go.mod h1:GewCkvzGzydyzb7MpC/U/yx2atczwUK11ZZ6Q0XMzGg=
-github.com/flanksource/commons v1.47.0 h1:6YqWf+S1WErdPbUqiLUA1lEEXl9yGQ4JMojLHyLB7c4=
-github.com/flanksource/commons v1.47.0/go.mod h1:JYWo44MENt6r/2aiVpBxyX86PMoOeuixKoxe4Vm8aLs=
+github.com/flanksource/commons v1.47.1 h1:KKdWt091xwEx39lfyA0FSae0yVaSx/nuN7dlnSRDfbk=
+github.com/flanksource/commons v1.47.1/go.mod h1:iVgWAxir6fI3vTLuokyIdXxMzYlEFFsb1M6Lbvpc/gE=
 github.com/flanksource/deps v1.0.24 h1:X23SZb2nxCDsS1wRiuqyvUYpA3KQxcQR9YfB8H/oTgo=
 github.com/flanksource/deps v1.0.24/go.mod h1:emsZRgkplqo9xe2wTAPyFm6XWk8CS6H9cxjp6eYR1Vg=
 github.com/flanksource/gomplate/v3 v3.24.69 h1:G00XvQOKc1dT8tohOMo+x5LI1qcRvxBzIASRQfoJl0E=
