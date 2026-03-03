@@ -36,7 +36,7 @@ func (s *Searcher) Search(ctx context.Context, request Request) (*logs.LogResult
 	}
 
 	if request.WorkspaceID == "" {
-		return nil, fmt.Errorf("workspaceId is required")
+		return nil, fmt.Errorf("workspaceID is required")
 	}
 
 	credential, err := s.conn.TokenCredential()
