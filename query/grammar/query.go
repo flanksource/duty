@@ -62,7 +62,15 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 	case Eq:
 		clauses = append(clauses, filters.ToExpression(q.Field, q.FieldType)...)
 	case Neq:
-		clauses = append(clauses, clause.Not(filters.ToExpression(q.Field, q.FieldType)...))
+		expressions := filters.ToExpression(q.Field, q.FieldType)
+		switch len(expressions) {
+		case 0:
+			return clauses, nil
+		case 1:
+			clauses = append(clauses, clause.Not(expressions[0]))
+		default:
+			clauses = append(clauses, clause.Not(clause.Or(expressions...)))
+		}
 	case Lt:
 		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
 	case Gt:
