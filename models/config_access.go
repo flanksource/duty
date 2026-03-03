@@ -9,20 +9,23 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 )
 
+// ExternalUser represents a user from an external identity provider.
 type ExternalUser struct {
 	types.NoOpResourceSelectable
 
-	ID        uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
-	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
-	Name      string         `json:"name"`
-	AccountID string         `json:"account_id"`
-	UserType  string         `json:"user_type"`
-	Email     *string        `json:"email" gorm:"default:null"`
-	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
-	CreatedAt time.Time      `json:"created_at" gorm:"not null"`
-	UpdatedAt *time.Time     `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt *time.Time     `json:"deleted_at,omitempty"`
-	CreatedBy *string        `json:"created_by,omitempty" gorm:"default:null"`
+	// ID is the stable unique identifier (e.g. Azure object UUID, deterministic hash of aliases).
+	ID      uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
+	Aliases pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
+	Name    string         `json:"name"`
+	// Tenant identifies the parent account (Azure Tenant ID, AWS Account ID, GCP Project, K8s cluster name).
+	Tenant    string     `json:"account_id,omitempty" gorm:"column:account_id" `
+	UserType  string     `json:"user_type"`
+	Email     *string    `json:"email,omitempty" gorm:"default:null"`
+	ScraperID uuid.UUID  `json:"scraper_id" gorm:"not null"`
+	CreatedAt time.Time  `json:"created_at" gorm:"not null"`
+	UpdatedAt *time.Time `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	CreatedBy *string    `json:"created_by,omitempty" gorm:"default:null"`
 }
 
 func (e ExternalUser) PK() string {
@@ -39,7 +42,7 @@ func (e ExternalUser) GetFieldsMatcher() fields.Fields {
 	return types.GenericFieldMatcher{Fields: map[string]any{
 		"id":         e.ID.String(),
 		"name":       e.Name,
-		"account_id": e.AccountID,
+		"account_id": e.Tenant,
 		"user_type":  e.UserType,
 		"email":      e.Email,
 		"scraper_id": e.ScraperID.String(),
@@ -58,12 +61,13 @@ func (e ExternalUser) GetType() string {
 	return e.UserType
 }
 
+// ExternalGroup represents a group from an external identity provider.
 type ExternalGroup struct {
 	types.NoOpResourceSelectable
 
 	ID        uuid.UUID      `json:"id"`
 	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
-	AccountID string         `json:"account_id"`
+	Tenant    string         `json:"account_id" gorm:"column:account_id"`
 	Aliases   pq.StringArray `json:"aliases,omitempty" gorm:"type:[]text"`
 	Name      string         `json:"name"`
 	CreatedAt time.Time      `json:"created_at" gorm:"not null"`
@@ -86,7 +90,7 @@ func (e ExternalGroup) GetFieldsMatcher() fields.Fields {
 	return types.GenericFieldMatcher{Fields: map[string]any{
 		"id":         e.ID.String(),
 		"name":       e.Name,
-		"account_id": e.AccountID,
+		"account_id": e.Tenant,
 		"group_type": e.GroupType,
 		"scraper_id": e.ScraperID.String(),
 	}}
@@ -104,6 +108,7 @@ func (e ExternalGroup) GetType() string {
 	return e.GroupType
 }
 
+// ExternalUserGroup links an external user to an external group (many-to-many).
 type ExternalUserGroup struct {
 	ExternalUserID  uuid.UUID  `json:"external_user_id" gorm:"primaryKey"`
 	ExternalGroupID uuid.UUID  `json:"external_group_id" gorm:"primaryKey"`
@@ -117,9 +122,11 @@ func (e ExternalUserGroup) TableName() string {
 	return "external_user_groups"
 }
 
+// ExternalRole represents a role from an external identity provider.
 type ExternalRole struct {
-	ID            uuid.UUID      `json:"id"`
-	AccountID     string         `json:"account_id"`
+	ID     uuid.UUID `json:"id"`
+	Tenant string    `json:"account_id" gorm:"column:account_id"`
+	// ApplicationID links the role to a specific application (e.g. Azure AD App Registration).
 	ApplicationID *uuid.UUID     `json:"application_id" gorm:"default:null"`
 	ScraperID     *uuid.UUID     `json:"scraper_id" gorm:"default:null"`
 	Aliases       pq.StringArray `json:"aliases" gorm:"type:[]text"`

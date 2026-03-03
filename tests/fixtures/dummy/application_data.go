@@ -154,7 +154,7 @@ var ApplicationConfigAnalyses = []models.ConfigAnalysis{
 var AliceDBUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "Alice",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &appAliceEmail,
 	ScraperID: AWSScrapeConfig.ID,
@@ -164,7 +164,7 @@ var AliceDBUser = models.ExternalUser{
 var BobDBUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "Bob",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &appBobEmail,
 	ScraperID: AWSScrapeConfig.ID,
@@ -173,7 +173,7 @@ var BobDBUser = models.ExternalUser{
 
 var DBAdminRole = models.ExternalRole{
 	ID:        uuid.New(),
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	ScraperID: &AWSScrapeConfig.ID,
 	RoleType:  "IAMRole",
 	Name:      "db-admin",
@@ -409,7 +409,7 @@ var mssqlReadEmail = "readonly@corp.local"
 var MSSQLSAUser = models.ExternalUser{
 	ID:        uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000020"),
 	Name:      "sa",
-	AccountID: "mssql",
+	Tenant: "mssql",
 	UserType:  "SqlLogin",
 	Email:     &mssqlSAEmail,
 	ScraperID: MSSQLScrapeConfig.ID,
@@ -419,7 +419,7 @@ var MSSQLSAUser = models.ExternalUser{
 var MSSQLReadUser = models.ExternalUser{
 	ID:        uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000021"),
 	Name:      "app_readonly",
-	AccountID: "mssql",
+	Tenant: "mssql",
 	UserType:  "SqlLogin",
 	Email:     &mssqlReadEmail,
 	ScraperID: MSSQLScrapeConfig.ID,
@@ -428,7 +428,7 @@ var MSSQLReadUser = models.ExternalUser{
 
 var MSSQLSysAdminRole = models.ExternalRole{
 	ID:        uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000030"),
-	AccountID: "mssql",
+	Tenant: "mssql",
 	ScraperID: &MSSQLScrapeConfig.ID,
 	RoleType:  "Fixed",
 	Name:      "sysadmin",
@@ -437,7 +437,7 @@ var MSSQLSysAdminRole = models.ExternalRole{
 
 var MSSQLDbReaderRole = models.ExternalRole{
 	ID:        uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000031"),
-	AccountID: "mssql",
+	Tenant: "mssql",
 	ScraperID: &MSSQLScrapeConfig.ID,
 	RoleType:  "Fixed",
 	Name:      "db_datareader",

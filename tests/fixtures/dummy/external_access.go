@@ -18,7 +18,7 @@ var missionControlAccessReviewedAt = DummyCreatedAt.Add(24 * time.Hour)
 var JohnDoeExternalUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "John Doe",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &johnDoeExternalUserEmail,
 	ScraperID: KubeScrapeConfig.ID,
@@ -28,7 +28,7 @@ var JohnDoeExternalUser = models.ExternalUser{
 var AliceExternalUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "Alice",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &aliceExternalUserEmail,
 	ScraperID: KubeScrapeConfig.ID,
@@ -38,7 +38,7 @@ var AliceExternalUser = models.ExternalUser{
 var BobExternalUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "Bob",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &bobExternalUserEmail,
 	ScraperID: KubeScrapeConfig.ID,
@@ -48,7 +48,7 @@ var BobExternalUser = models.ExternalUser{
 var CharlieExternalUser = models.ExternalUser{
 	ID:        uuid.New(),
 	Name:      "Charlie",
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	UserType:  "user",
 	Email:     &charlieExternalUserEmail,
 	ScraperID: KubeScrapeConfig.ID,
@@ -57,7 +57,7 @@ var CharlieExternalUser = models.ExternalUser{
 
 var MissionControlNamespaceViewerRole = models.ExternalRole{
 	ID:        uuid.New(),
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	ScraperID: &KubeScrapeConfig.ID,
 	RoleType:  "ClusterRole",
 	Name:      "namespace-viewer",
@@ -67,7 +67,7 @@ var MissionControlNamespaceViewerRole = models.ExternalRole{
 var MissionControlAdminsGroup = models.ExternalGroup{
 	ID:        uuid.New(),
 	ScraperID: KubeScrapeConfig.ID,
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	Name:      "mission-control-admins",
 	GroupType: "group",
 	CreatedAt: DummyCreatedAt,
@@ -76,7 +76,7 @@ var MissionControlAdminsGroup = models.ExternalGroup{
 var MissionControlReadersGroup = models.ExternalGroup{
 	ID:        uuid.New(),
 	ScraperID: KubeScrapeConfig.ID,
-	AccountID: "flanksource",
+	Tenant: "flanksource",
 	Name:      "mission-control-readers",
 	GroupType: "group",
 	CreatedAt: DummyCreatedAt,
