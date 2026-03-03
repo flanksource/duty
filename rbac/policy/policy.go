@@ -298,3 +298,39 @@ var AllObjects = []string{
 	ObjectNotification,
 	ObjectViews,
 }
+
+// ABACObjectSelector returns the ABAC object selector JSON for a given
+// global RBAC object and action combination. This is used to generate
+// companion ABAC wildcard rules so that both default policies and
+// Permission-derived policies work with HasPermission() ABAC checks.
+// Returns nil if no ABAC companion rule is needed for the given object/action.
+func ABACObjectSelector(object, action string) []byte {
+	switch object {
+	case ObjectPlaybooks:
+		if lo.Contains([]string{ActionPlaybookRun, ActionPlaybookApprove}, action) {
+			return []byte(`{"playbooks": [{"name":"*"}]}`)
+		}
+
+	case ObjectCatalog:
+		if ActionRead == action {
+			return []byte(`{"configs": [{"name":"*"}]}`)
+		}
+
+	case ObjectTopology:
+		if ActionRead == action {
+			return []byte(`{"components": [{"name":"*"}]}`)
+		}
+
+	case ObjectConnection:
+		if ActionRead == action {
+			return []byte(`{"connections": [{"name":"*"}]}`)
+		}
+
+	case ObjectViews:
+		if ActionRead == action {
+			return []byte(`{"views": [{"name":"*"}]}`)
+		}
+	}
+
+	return nil
+}
