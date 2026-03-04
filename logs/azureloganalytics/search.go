@@ -3,7 +3,6 @@
 package azureloganalytics
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/logs"
 )
 
@@ -37,6 +37,10 @@ func (s *Searcher) Search(ctx context.Context, request Request) (*logs.LogResult
 
 	if request.WorkspaceID == "" {
 		return nil, fmt.Errorf("workspaceID is required")
+	}
+
+	if err := s.conn.HydrateConnection(ctx); err != nil {
+		return nil, fmt.Errorf("failed to hydrate connection: %w", err)
 	}
 
 	credential, err := s.conn.TokenCredential()
