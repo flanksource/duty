@@ -370,10 +370,8 @@ var ConfigChangeQueryModel = QueryModel{
 }
 
 var ViewQueryModel = QueryModel{
-	Table: models.View{}.TableName(),
-	Columns: []string{
-		"name", "namespace",
-	},
+	Table:          models.View{}.TableName(),
+	Columns:        []string{"name", "namespace"},
 	JSONMapColumns: []string{"labels"},
 	HasLabels:      true,
 }

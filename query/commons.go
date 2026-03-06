@@ -35,39 +35,7 @@ func parseAndBuildFilteringQuery(query, field string, decodeURL bool) ([]clause.
 		return nil, err
 	}
 
-	var clauses []clause.Expression
-	if len(fq.In) > 0 {
-		clauses = append(clauses, clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: fq.In})
-	}
-
-	if len(fq.Not.In) > 0 {
-		clauses = append(clauses, clause.NotConditions{
-			Exprs: []clause.Expression{clause.IN{Column: clause.Column{Raw: true, Name: field}, Values: fq.Not.In}},
-		})
-	}
-
-	for _, g := range fq.Glob {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Raw: true, Name: field},
-			Value:  "%" + g + "%",
-		})
-	}
-
-	for _, p := range fq.Prefix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Raw: true, Name: field},
-			Value:  p + "%",
-		})
-	}
-
-	for _, s := range fq.Suffix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Raw: true, Name: field},
-			Value:  "%" + s,
-		})
-	}
-
-	return clauses, nil
+	return fq.ToExpression(field, grammar.FieldTypeUnknown), nil
 }
 
 func OrQueries(db *gorm.DB, queries ...*gorm.DB) *gorm.DB {
