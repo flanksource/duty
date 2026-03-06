@@ -33,11 +33,11 @@ var lowerBenchTypes = []string{
 }
 
 type queryDef struct {
-	label       string
-	sqlNoLower  string
-	argsNoLower []any
-	sqlLower    string
-	argsLower   []any
+	label     string
+	sql       string // plain query
+	sqlLower  string // LOWER() wrapped query
+	argsExact []any  // original case args
+	argsLower []any  // lowercase args
 }
 
 type queryPlan struct {
@@ -130,38 +130,112 @@ func collectPlan(label, sql string, args ...any) queryPlan {
 	return qp
 }
 
-func printReport(t testing.TB, title string, withoutLower, withLower []queryPlan) {
+func printReport(t testing.TB, title, col1Label string, col1Plans []queryPlan, col2Label string, col2Plans []queryPlan) {
 	var buf strings.Builder
 	w := tabwriter.NewWriter(&buf, 0, 4, 3, ' ', 0)
 	fmt.Fprintf(w, "\n%s\n\n", title)
-	fmt.Fprintf(w, "Query\tScan (no LOWER)\tIndex\tTime\tScan (LOWER)\tIndex\tTime\n")
-	fmt.Fprintf(w, "-----\t---------------\t-----\t----\t------------\t-----\t----\n")
-	for i := range withoutLower {
-		wo := withoutLower[i]
-		wi := withLower[i]
-		idx := wo.indexName
-		if idx == "" {
-			idx = "-"
+	fmt.Fprintf(w, "Query\tScan (%s)\tIndex\tTime\tScan (%s)\tIndex\tTime\n", col1Label, col2Label)
+	fmt.Fprintf(w, "-----\t%s\t-----\t----\t%s\t-----\t----\n",
+		strings.Repeat("-", len("Scan (")+len(col1Label)+1),
+		strings.Repeat("-", len("Scan (")+len(col2Label)+1))
+	for i := range col1Plans {
+		p1 := col1Plans[i]
+		p2 := col2Plans[i]
+		idx1, idx2 := p1.indexName, p2.indexName
+		if idx1 == "" {
+			idx1 = "-"
 		}
-		idxL := wi.indexName
-		if idxL == "" {
-			idxL = "-"
+		if idx2 == "" {
+			idx2 = "-"
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			wo.label, wo.scanType, idx, wo.execTime,
-			wi.scanType, idxL, wi.execTime)
+			p1.label, p1.scanType, idx1, p1.execTime,
+			p2.scanType, idx2, p2.execTime)
 	}
 	w.Flush()
 	t.Log(buf.String())
 }
 
-func collectReports(b *testing.B, queries []queryDef, title string) {
-	var withoutPlans, withPlans []queryPlan
-	for _, q := range queries {
-		withoutPlans = append(withoutPlans, collectPlan(q.label, q.sqlNoLower, q.argsNoLower...))
-		withPlans = append(withPlans, collectPlan(q.label, q.sqlLower, q.argsLower...))
+func buildQueries(sampleName string) []queryDef {
+	sampleNameLower := strings.ToLower(sampleName)
+	return []queryDef{
+		{
+			label:     "exact_name",
+			sql:       "SELECT id FROM config_items WHERE name = $1",
+			sqlLower:  "SELECT id FROM config_items WHERE LOWER(name) = $1",
+			argsExact: []any{sampleName},
+			argsLower: []any{sampleNameLower},
+		},
+		{
+			label:     "exact_type",
+			sql:       "SELECT id FROM config_items WHERE type = $1",
+			sqlLower:  "SELECT id FROM config_items WHERE LOWER(type) = $1",
+			argsExact: []any{"Kubernetes::Pod"},
+			argsLower: []any{"kubernetes::pod"},
+		},
+		{
+			label:     "name_and_type",
+			sql:       "SELECT id FROM config_items WHERE name = $1 AND type = $2",
+			sqlLower:  "SELECT id FROM config_items WHERE LOWER(name) = $1 AND LOWER(type) = $2",
+			argsExact: []any{sampleName, "Kubernetes::Pod"},
+			argsLower: []any{sampleNameLower, "kubernetes::pod"},
+		},
+		{
+			label:     "type_prefix",
+			sql:       "SELECT id FROM config_items WHERE type LIKE $1",
+			sqlLower:  "SELECT id FROM config_items WHERE LOWER(type) LIKE $1",
+			argsExact: []any{"Kubernetes%"},
+			argsLower: []any{"kubernetes%"},
+		},
 	}
-	printReport(b, title, withoutPlans, withPlans)
+}
+
+func createLowerIndexes(b *testing.B) {
+	indexes := []string{
+		"CREATE INDEX idx_config_items_lower_name ON config_items (lower(name))",
+		"CREATE INDEX idx_config_items_lower_type ON config_items (lower(type))",
+	}
+	for _, ddl := range indexes {
+		if err := testCtx.DB().Exec(ddl).Error; err != nil {
+			b.Fatalf("failed to create index: %v", err)
+		}
+	}
+	if err := testCtx.DB().Exec("ANALYZE config_items").Error; err != nil {
+		b.Fatalf("failed to analyze after index creation: %v", err)
+	}
+}
+
+func dropLowerIndexes(b *testing.B) {
+	for _, idx := range []string{"idx_config_items_lower_name", "idx_config_items_lower_type"} {
+		testCtx.DB().Exec(fmt.Sprintf("DROP INDEX IF EXISTS %s", idx))
+	}
+}
+
+func runPhase(b *testing.B, queries []queryDef, title string) {
+	var exactPlans, lowerPlans []queryPlan
+	for _, q := range queries {
+		exactPlans = append(exactPlans, collectPlan(q.label, q.sql, q.argsExact...))
+		lowerPlans = append(lowerPlans, collectPlan(q.label, q.sqlLower, q.argsLower...))
+	}
+	printReport(b, title, "Exact", exactPlans, "LOWER()", lowerPlans)
+
+	for _, q := range queries {
+		q := q
+		b.Run(q.label, func(b *testing.B) {
+			b.Run("Exact_Match", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					var results []string
+					testCtx.DB().Raw(q.sql, q.argsExact...).Pluck("id", &results)
+				}
+			})
+			b.Run("Case_Insensitive", func(b *testing.B) {
+				for i := 0; i < b.N; i++ {
+					var results []string
+					testCtx.DB().Raw(q.sqlLower, q.argsLower...).Pluck("id", &results)
+				}
+			})
+		})
+	}
 }
 
 func BenchmarkLowerCase(b *testing.B) {
@@ -177,57 +251,17 @@ func BenchmarkLowerCase(b *testing.B) {
 
 	var sampleName string
 	testCtx.DB().Raw("SELECT name FROM config_items WHERE name LIKE 'bench-%' LIMIT 1").Scan(&sampleName)
-	sampleNameLower := strings.ToLower(sampleName)
 
-	queries := []queryDef{
-		{
-			label:       "exact_name",
-			sqlNoLower:  "SELECT id FROM config_items WHERE name = $1",
-			argsNoLower: []any{sampleName},
-			sqlLower:    "SELECT id FROM config_items WHERE LOWER(CAST(name AS TEXT)) = $1",
-			argsLower:   []any{sampleNameLower},
-		},
-		{
-			label:       "exact_type",
-			sqlNoLower:  "SELECT id FROM config_items WHERE type = $1",
-			argsNoLower: []any{"Kubernetes::Pod"},
-			sqlLower:    "SELECT id FROM config_items WHERE LOWER(CAST(type AS TEXT)) = $1",
-			argsLower:   []any{"kubernetes::pod"},
-		},
-		{
-			label:       "name_and_type",
-			sqlNoLower:  "SELECT id FROM config_items WHERE name = $1 AND type = $2",
-			argsNoLower: []any{sampleName, "Kubernetes::Pod"},
-			sqlLower:    "SELECT id FROM config_items WHERE LOWER(CAST(name AS TEXT)) = $1 AND LOWER(CAST(type AS TEXT)) = $2",
-			argsLower:   []any{sampleNameLower, "kubernetes::pod"},
-		},
-		{
-			label:       "type_prefix",
-			sqlNoLower:  "SELECT id FROM config_items WHERE type LIKE $1",
-			argsNoLower: []any{"Kubernetes%"},
-			sqlLower:    "SELECT id FROM config_items WHERE LOWER(CAST(type AS TEXT)) LIKE $1",
-			argsLower:   []any{"kubernetes%"},
-		},
-	}
+	queries := buildQueries(sampleName)
 
-	reportTitle := fmt.Sprintf("=== INDEX USAGE REPORT (%dk config_items) ===", count/1000)
-	collectReports(b, queries, reportTitle)
+	b.Run("Without_LOWER_Index", func(b *testing.B) {
+		dropLowerIndexes(b)
+		runPhase(b, queries, fmt.Sprintf("=== WITHOUT LOWER INDEX (%dk rows) ===", count/1000))
+	})
 
-	for _, q := range queries {
-		q := q
-		b.Run(q.label, func(b *testing.B) {
-			b.Run("Without_LOWER", func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var results []string
-					testCtx.DB().Raw(q.sqlNoLower, q.argsNoLower...).Pluck("id", &results)
-				}
-			})
-			b.Run("With_LOWER", func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var results []string
-					testCtx.DB().Raw(q.sqlLower, q.argsLower...).Pluck("id", &results)
-				}
-			})
-		})
-	}
+	b.Run("With_LOWER_Index", func(b *testing.B) {
+		createLowerIndexes(b)
+		defer dropLowerIndexes(b)
+		runPhase(b, queries, fmt.Sprintf("=== WITH LOWER INDEX (%dk rows) ===", count/1000))
+	})
 }
