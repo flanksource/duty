@@ -112,7 +112,7 @@ var KubernetesNodeA = models.ConfigItem{
 	ConfigClass: models.ConfigClassNode,
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-a"}}`),
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "node://kubernetes/demo/node-a", "kubernetes/nodes"},
+	ExternalID:  pq.StringArray{"aws/us-east-1/clusters", "node://kubernetes/demo/node-a", "kubernetes/nodes/node-a"},
 	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{
@@ -140,7 +140,7 @@ var KubernetesNodeB = models.ConfigItem{
 	Config:      lo.ToPtr(`{"apiVersion":"v1", "kind":"Node", "metadata": {"name": "node-b"}}`),
 	ConfigClass: models.ConfigClassNode,
 	Type:        lo.ToPtr("Kubernetes::Node"),
-	ExternalID:  pq.StringArray{"aws/us-west-2/clusters", "node://kubernetes/node-b", "kubernetes/nodes"},
+	ExternalID:  pq.StringArray{"aws/us-west-2/clusters", "node://kubernetes/node-b", "kubernetes/nodes/node-b"},
 	CreatedAt:   DummyCreatedAt.Add(time.Hour * 24 * 2),
 	Status:      lo.ToPtr("healthy"),
 	Tags: types.JSONStringMap{

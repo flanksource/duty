@@ -51,9 +51,9 @@ table "external_users" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "external_users_aliases_key" {
-    unique  = true
+  index "external_users_aliases_idx" {
     columns = [column.aliases]
+    type    = GIN
     where   = "deleted_at IS NULL"
   }
   index "external_users_scraper_id_idx" {
@@ -106,9 +106,9 @@ table "external_groups" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "external_groups_aliases_key" {
-    unique  = true
+  index "external_groups_aliases_idx" {
     columns = [column.aliases]
+    type    = GIN
     where   = "deleted_at IS NULL"
   }
   index "external_groups_scraper_id_idx" {
@@ -223,9 +223,9 @@ table "external_roles" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
-  index "external_roles_aliases_key" {
-    unique  = true
+  index "external_roles_aliases_idx" {
     columns = [column.aliases]
+    type    = GIN
     where   = "deleted_at IS NULL"
   }
   index "external_roles_application_id_idx" {
