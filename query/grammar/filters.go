@@ -136,8 +136,13 @@ func (fq *FilteringQuery) ToExpression(field string, fieldType FieldType) []clau
 	if len(fq.expressions.ToExpression(field, fieldType)) > 0 {
 		clauses = append(clauses, fq.expressions.ToExpression(field, fieldType)...)
 	}
-	if len(fq.Not.ToExpression(field, fieldType)) > 0 {
-		clauses = append(clauses, clause.Not(fq.Not.ToExpression(field, fieldType)...))
+	for _, expr := range fq.Not.ToExpression(field, fieldType) {
+		if e, ok := expr.(clause.Expr); ok {
+			e.SQL = "NOT (" + e.SQL + ")"
+			clauses = append(clauses, e)
+		} else {
+			clauses = append(clauses, clause.Not(expr))
+		}
 	}
 	return clauses
 }
