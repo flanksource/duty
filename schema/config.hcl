@@ -403,6 +403,7 @@ table "config_items" {
   index "idx_config_items_external_id" {
     columns = [column.external_id]
     type    = GIN
+    where   = "deleted_at IS NULL"
   }
   index "idx_config_items_deleted_at" {
     columns = [column.deleted_at]

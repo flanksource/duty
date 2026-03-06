@@ -146,6 +146,28 @@ var _ = Describe("External Users Aliases", Ordered, func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("should enforce element-level uniqueness across aliases", func() {
+		sharedAlias := "user-overlap-" + uuid.NewString()
+
+		user1 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Overlap User 1",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "user-unique-" + uuid.NewString()},
+		}
+		err := DefaultContext.DB().Create(&user1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		user2 := models.ExternalUser{
+			ID:        uuid.New(),
+			Name:      "Test Overlap User 2",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "user-unique-" + uuid.NewString()},
+		}
+		err = DefaultContext.DB().Create(&user2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("should enforce unique constraint case-insensitively", func() {
 		user1 := models.ExternalUser{
 			ID:        uuid.New(),
@@ -258,6 +280,28 @@ var _ = Describe("External Roles Aliases", Ordered, func() {
 			Name:      "Test Role Unique 2",
 			ScraperID: &scraperID,
 			Aliases:   aliases,
+		}
+		err = DefaultContext.DB().Create(&role2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should enforce element-level uniqueness across aliases", func() {
+		sharedAlias := "role-overlap-" + uuid.NewString()
+
+		role1 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Overlap 1",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "role-unique-" + uuid.NewString()},
+		}
+		err := DefaultContext.DB().Create(&role1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		role2 := models.ExternalRole{
+			ID:        uuid.New(),
+			Name:      "Test Role Overlap 2",
+			ScraperID: &scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "role-unique-" + uuid.NewString()},
 		}
 		err = DefaultContext.DB().Create(&role2).Error
 		Expect(err).To(HaveOccurred())
@@ -380,6 +424,28 @@ var _ = Describe("External Groups Aliases", Ordered, func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("should enforce element-level uniqueness across aliases", func() {
+		sharedAlias := "group-overlap-" + uuid.NewString()
+
+		group1 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Overlap 1",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "group-unique-" + uuid.NewString()},
+		}
+		err := DefaultContext.DB().Create(&group1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		group2 := models.ExternalGroup{
+			ID:        uuid.New(),
+			Name:      "Test Group Overlap 2",
+			ScraperID: scraperID,
+			Aliases:   pq.StringArray{sharedAlias, "group-unique-" + uuid.NewString()},
+		}
+		err = DefaultContext.DB().Create(&group2).Error
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("should enforce unique constraint case-insensitively", func() {
 		group1 := models.ExternalGroup{
 			ID:        uuid.New(),
@@ -397,6 +463,40 @@ var _ = Describe("External Groups Aliases", Ordered, func() {
 			Aliases:   pq.StringArray{"groupcasetest1", "GROUPCASETEST2"},
 		}
 		err = DefaultContext.DB().Create(&group2).Error
+		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("Config Items External IDs", Ordered, func() {
+	It("should enforce element-level uniqueness across external_id", func() {
+		sharedExternalID := "config-overlap-" + uuid.NewString()
+		typeA := "Config::ExternalID::A"
+		typeB := "Config::ExternalID::B"
+
+		item1 := models.ConfigItem{
+			ID:          uuid.New(),
+			ConfigClass: models.ConfigClassNode,
+			Type:        &typeA,
+			ExternalID:  pq.StringArray{sharedExternalID, "config-unique-" + uuid.NewString()},
+		}
+
+		item2 := models.ConfigItem{
+			ID:          uuid.New(),
+			ConfigClass: models.ConfigClassNode,
+			Type:        &typeB,
+			ExternalID:  pq.StringArray{sharedExternalID, "config-unique-" + uuid.NewString()},
+		}
+
+		cleanupIDs := []uuid.UUID{item1.ID, item2.ID}
+		defer func() {
+			err := DefaultContext.DB().Unscoped().Where("id IN ?", cleanupIDs).Delete(&models.ConfigItem{}).Error
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		err := DefaultContext.DB().Create(&item1).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = DefaultContext.DB().Create(&item2).Error
 		Expect(err).To(HaveOccurred())
 	})
 })
