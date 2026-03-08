@@ -12,7 +12,11 @@ ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
 test: ginkgo
-	ginkgo -r -v --skip-package=tests/e2e
+	ginkgo -r -v --skip-package=tests/e2e --skip-package=bench --label-filter "!e2e"
+
+test-concurrent: ginkgo
+	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
+
 
 .PHONY: test-e2e
 test-e2e: ginkgo
