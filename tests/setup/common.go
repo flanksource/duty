@@ -191,7 +191,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 			return context.Context{}, fmt.Errorf("cannot create %s: %v", dbName, err)
 		}
 
-		shutdown.AddHookWithPriority("remote postgres", shutdown.PriorityCritical, func() {
+		shutdown.AddHookWithPriority("remove postgres db", shutdown.PriorityCritical, func() {
 			if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
 				logger.Errorf("execPostgres: %v", err)
 			}
