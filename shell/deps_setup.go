@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/deps"
 	"github.com/flanksource/duty/context"
 )
@@ -24,8 +23,8 @@ type RuntimeSetup struct {
 }
 
 // applySetupRuntimeEnv installs the dependencies and updates the PATH env var
-func applySetupRuntimeEnv(ctx context.Context, setup ExecSetup, envs []string) ([]string, error) {
-	setupResult, err := installSetupRuntimes(ctx, setup)
+func applySetupRuntimeEnv(ctx context.Context, exec *Exec, envs []string) ([]string, error) {
+	setupResult, err := installSetupRuntimes(ctx, exec)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +47,14 @@ type runtimePaths struct {
 	appDir     string
 }
 
-func installSetupRuntimes(ctx context.Context, setup ExecSetup) (setupRuntimeResult, error) {
+func installSetupRuntimes(ctx context.Context, exec *Exec) (setupRuntimeResult, error) {
 	result := setupRuntimeResult{}
-	baseDir, err := resolveSetupBaseDir()
+	baseDir := exec.BaseDir
+	setup := exec.Setup
+	if baseDir == "" {
+		baseDir = ".shell"
+	}
+	baseDir, err := filepath.Abs(baseDir)
 	if err != nil || baseDir == "" {
 		return result, err
 	}
@@ -115,14 +119,6 @@ func installRuntime(ctx context.Context, name string, version string, baseDir st
 		binDir:     binDir,
 		appDir:     appDir,
 	}, nil
-}
-
-func resolveSetupBaseDir() (string, error) {
-	baseDir := properties.String("shell-bin-dir", "shell.bin.dir")
-	if baseDir == "" {
-		return "", nil
-	}
-	return filepath.Abs(baseDir)
 }
 
 func pluckPathEnv(envs []string) string {
