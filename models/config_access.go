@@ -11,7 +11,7 @@ import (
 
 // ExternalUser represents a user from an external identity provider.
 type ExternalUser struct {
-	types.NoOpResourceSelectable
+	types.NoOpResourceSelectable `json:"-"`
 
 	// ID is the stable unique identifier (e.g. Azure object UUID, deterministic hash of aliases).
 	ID      uuid.UUID      `json:"id" gorm:"default:generate_ulid()"`
@@ -61,9 +61,17 @@ func (e ExternalUser) GetType() string {
 	return e.UserType
 }
 
+func (e ExternalUser) GetAliases() []string {
+	return e.Aliases
+}
+
+func (e *ExternalUser) SetAliases(aliases []string) {
+	e.Aliases = aliases
+}
+
 // ExternalGroup represents a group from an external identity provider.
 type ExternalGroup struct {
-	types.NoOpResourceSelectable
+	types.NoOpResourceSelectable `json:"-"`
 
 	ID        uuid.UUID      `json:"id"`
 	ScraperID uuid.UUID      `json:"scraper_id" gorm:"not null"`
@@ -108,6 +116,14 @@ func (e ExternalGroup) GetType() string {
 	return e.GroupType
 }
 
+func (e ExternalGroup) GetAliases() []string {
+	return e.Aliases
+}
+
+func (e *ExternalGroup) SetAliases(aliases []string) {
+	e.Aliases = aliases
+}
+
 // ExternalUserGroup links an external user to an external group (many-to-many).
 type ExternalUserGroup struct {
 	ExternalUserID  uuid.UUID  `json:"external_user_id" gorm:"primaryKey"`
@@ -144,6 +160,14 @@ func (e ExternalRole) PK() string {
 
 func (e ExternalRole) TableName() string {
 	return "external_roles"
+}
+
+func (e ExternalRole) GetAliases() []string {
+	return e.Aliases
+}
+
+func (e *ExternalRole) SetAliases(aliases []string) {
+	e.Aliases = aliases
 }
 
 type AccessReview struct {
