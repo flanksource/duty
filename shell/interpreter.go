@@ -24,26 +24,34 @@ func init() {
 
 // createCommandFromScript creates an os/exec.Cmd from the script, using the interpreter specified in the shebang line if present.
 // If a sandbox is provided, the command is created inside the sandbox.
-func createCommandFromScript(ctx context.Context, script string, envs []string, setup *ExecSetup, runID string, sb *sandbox.Sandbox) (*exec.Cmd, error) {
+func createCommandFromScript(ctx context.Context, script string, envs []string, e *Exec, runID string, sb *sandbox.Sandbox) (*exec.Cmd, error) {
 	shebangInterpreter, _ := detectInterpreterFromShebang(script)
-	interpreter, args := remapInterpreter(script, setup)
+	interpreter, args := remapInterpreter(script, e.Setup)
 	script = trimLine(script, "#!")
 	if script == "" {
 		return nil, ctx.Oops().Errorf("empty script")
 	}
 
+	scriptDir := filepath.Join(e.BaseDir, "scripts", runID)
+
 	if isPythonBase(shebangInterpreter) {
 		// The uv run command can only auto-install dependencies with when the script is coming from a file and not inlined.
 		// That's why, we write the script to a file.
-		scriptPath, err := writeScriptToFile(runID, "script.py", script)
-		if err != nil {
+		scriptPath := filepath.Join(scriptDir, "script.py")
+		if err := os.MkdirAll(scriptDir, 0755); err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
 		args = append(args, scriptPath)
 	} else if isPowershellBase(shebangInterpreter) {
 		// PowerShell uses -File for script files (requires .ps1 extension)
-		scriptPath, err := writeScriptToFile(runID, "script.ps1", script)
-		if err != nil {
+		scriptPath := filepath.Join(scriptDir, "script.ps1")
+		if err := os.MkdirAll(scriptDir, 0755); err != nil {
+			return nil, ctx.Oops().Wrap(err)
+		}
+		if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
 		interpreter = "pwsh"

@@ -75,6 +75,9 @@ type Exec struct {
 	// Sandbox, if set, runs the command inside this sandbox.
 	// The caller is responsible for creating and closing the sandbox.
 	Sandbox *sandbox.Sandbox
+
+	// Base directory for any files created by the shell, e.g. script files, git checkouts, etc. If not set, defaults to ".shell"
+	BaseDir string
 }
 
 // +kubebuilder:object:generate=true
@@ -118,7 +121,7 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 
 	// PATH must be finalized before resolving the interpreter so /usr/bin/env uses the venv/runtime PATH.
 	if exec.Setup != nil {
-		envs, err = applySetupRuntimeEnv(ctx, *exec.Setup, envs)
+		envs, err = applySetupRuntimeEnv(ctx, &exec, envs)
 		if err != nil {
 			return nil, ctx.Oops().Wrap(err)
 		}
@@ -138,13 +141,13 @@ func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
 			inferredSetup.Powershell = &RuntimeSetup{Version: "any"}
 		}
 
-		envs, err = applySetupRuntimeEnv(ctx, inferredSetup, envs)
+		envs, err = applySetupRuntimeEnv(ctx, &Exec{Setup: &inferredSetup, BaseDir: exec.BaseDir}, envs)
 		if err != nil {
 			return nil, ctx.Oops().Wrapf(err, "failed to install inferred runtime")
 		}
 	}
 
-	cmd, err := createCommandFromScript(ctx, exec.Script, envs, exec.Setup, runID, exec.Sandbox)
+	cmd, err := createCommandFromScript(ctx, exec.Script, envs, &exec, runID, exec.Sandbox)
 	if err != nil {
 		return nil, oops.Hint(exec.Script).Wrapf(err, "failed to create command from script")
 	}
@@ -268,6 +271,9 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 }
 
 func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error) {
+	if exec.BaseDir == "" {
+		exec.BaseDir = ".shell"
+	}
 	result := commandContext{
 		extra: make(map[string]any),
 	}
@@ -291,7 +297,7 @@ func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error)
 			return nil, fmt.Errorf("error hydrating connection: %w", err)
 		}
 
-		result.mountPoint = filepath.Join("exec-checkout", hash.Sha256Hex(checkout.URL))
+		result.mountPoint = filepath.Join(exec.BaseDir, "checkout", hash.Sha256Hex(checkout.URL))
 
 		// We allow multiple checks to use the same checkout location, for disk space and performance reasons
 		// however git does not allow multiple operations to be performed, so we need to lock it
@@ -334,26 +340,4 @@ func getEnvVar(userSuppliedEnvs []string) []string {
 	}
 
 	return env
-}
-
-func writeScriptToFile(runID string, fileName string, script string) (string, error) {
-	baseDir, err := resolveSetupBaseDir()
-	if err != nil {
-		return "", err
-	}
-	if baseDir == "" {
-		return "", fmt.Errorf("shell-bin-dir is required for script file execution")
-	}
-
-	scriptDir := filepath.Join(baseDir, "runs", runID)
-	if err := os.MkdirAll(scriptDir, 0755); err != nil {
-		return "", err
-	}
-
-	scriptPath := filepath.Join(scriptDir, fileName)
-	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
-		return "", err
-	}
-
-	return scriptPath, nil
 }

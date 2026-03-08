@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/onsi/ginkgo/v2"
@@ -15,15 +16,22 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-var _ = ginkgo.Describe("Shell Run", ginkgo.Label("slow"), func() {
-	ginkgo.AfterEach(func() {
-		os.RemoveAll("./shell-tmp/")
+func tempDir() string {
+	dir := filepath.Join(os.TempDir(), "shell-test-"+time.Now().Format("20060102150405.000000000"))
+	_ = os.MkdirAll(dir, 0755)
+	ginkgo.DeferCleanup(func() {
+		_ = os.RemoveAll(dir)
 	})
+	return dir
+}
+
+var _ = ginkgo.Describe("Shell Run", ginkgo.Label("slow"), func() {
 
 	ctx := context.New()
 
 	ginkgo.It("should run bun scripts", func() {
 		exec := Exec{
+			BaseDir: tempDir(),
 			Setup: &ExecSetup{
 				Bun: &RuntimeSetup{
 					Version: "any",
@@ -43,6 +51,7 @@ var _ = ginkgo.Describe("Shell Run", ginkgo.Label("slow"), func() {
 
 	ginkgo.It("should run python with checkout", func() {
 		exec := Exec{
+			BaseDir: tempDir(),
 			Checkout: &connection.GitConnection{
 				URL: "https://github.com/flanksource/artifacts",
 			},
@@ -78,6 +87,7 @@ print(title)`,
 
 	ginkgo.It("should run python3", func() {
 		exec := Exec{
+			BaseDir: tempDir(),
 			Setup: &ExecSetup{
 				Python: &RuntimeSetup{
 					Version: "3.10.2",
@@ -98,6 +108,7 @@ print(platform.python_version())
 
 	ginkgo.It("should run python3 with packages", func() {
 		exec := Exec{
+			BaseDir: tempDir(),
 			Setup: &ExecSetup{
 				Python: &RuntimeSetup{
 					Version: "3.10.2",
@@ -123,15 +134,13 @@ print(is_even(2))
 })
 
 var _ = ginkgo.Describe("Environment Variables", func() {
-	ginkgo.AfterEach(func() {
-		os.RemoveAll("./shell-tmp/")
-	})
 
 	ctx := context.New()
 
 	ginkgo.It("should access custom env vars", func() {
 		exec := Exec{
-			Script: "env",
+			BaseDir: tempDir(),
+			Script:  "env",
 			EnvVars: []types.EnvVar{
 				{Name: "mc_test_secret", ValueStatic: "abcdef"},
 			},
@@ -150,7 +159,8 @@ var _ = ginkgo.Describe("Environment Variables", func() {
 
 	ginkgo.It("should access multiple custom env vars", func() {
 		exec := Exec{
-			Script: "env",
+			BaseDir: tempDir(),
+			Script:  "env",
 			EnvVars: []types.EnvVar{
 				{Name: "mc_test_secret_key", ValueStatic: "abc"},
 				{Name: "mc_test_secret_id", ValueStatic: "xyz"},
@@ -170,7 +180,8 @@ var _ = ginkgo.Describe("Environment Variables", func() {
 
 	ginkgo.It("should not access process env", func() {
 		exec := Exec{
-			Script: "env",
+			BaseDir: tempDir(),
+			Script:  "env",
 		}
 
 		result, err := Run(ctx, exec)
@@ -201,6 +212,7 @@ var _ = ginkgo.Describe("PrepareEnvironment", ginkgo.Label("slow"), func() {
 
 	ginkgo.It("should setup git checkout correctly", func() {
 		exec := Exec{
+			BaseDir: tempDir(),
 			Checkout: &connection.GitConnection{
 				URL:    "https://github.com/flanksource/artifacts",
 				Branch: "main",
@@ -211,7 +223,7 @@ var _ = ginkgo.Describe("PrepareEnvironment", ginkgo.Label("slow"), func() {
 		Expect(err).ToNot(HaveOccurred(), "prepareEnvironment failed")
 
 		Expect(cmdCtx.mountPoint).ToNot(BeEmpty(), "expected mountPoint to be set")
-		Expect(cmdCtx.mountPoint).To(HavePrefix("exec-checkout/"), "expected mountPoint to be in 'exec-checkout/' directory")
+		Expect(cmdCtx.mountPoint).To(HavePrefix(os.TempDir()), "expected mountPoint to be in the temp  directory")
 
 		_, err = os.Stat(cmdCtx.mountPoint)
 		Expect(err).ToNot(HaveOccurred(), "mount point directory does not exist: %s", cmdCtx.mountPoint)
