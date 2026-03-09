@@ -211,7 +211,7 @@ var _ = ginkgo.Describe("PrepareEnvironment", ginkgo.Label("slow"), func() {
 	ctx := context.New()
 
 	ginkgo.It("should setup git checkout correctly", func() {
-		exec := Exec{
+		exec := &Exec{
 			BaseDir: tempDir(),
 			Checkout: &connection.GitConnection{
 				URL:    "https://github.com/flanksource/artifacts",

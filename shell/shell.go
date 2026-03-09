@@ -111,7 +111,7 @@ func (e *ExecDetails) GetArtifacts() []artifacts.Artifact {
 }
 
 func Run(ctx context.Context, exec Exec) (*ExecDetails, error) {
-	cmdCtx, err := prepareEnvironment(ctx, exec)
+	cmdCtx, err := prepareEnvironment(ctx, &exec)
 	if err != nil {
 		return nil, ctx.Oops().Wrap(err)
 	}
@@ -270,9 +270,14 @@ func runCmd(ctx context.Context, cmd *commandContext) (*ExecDetails, error) {
 	return &result, nil
 }
 
-func prepareEnvironment(ctx context.Context, exec Exec) (*commandContext, error) {
+func prepareEnvironment(ctx context.Context, exec *Exec) (*commandContext, error) {
 	if exec.BaseDir == "" {
 		exec.BaseDir = ".shell"
+	}
+	var err error
+	exec.BaseDir, err = filepath.Abs(exec.BaseDir)
+	if err != nil {
+		return nil, fmt.Errorf("error getting absolute path for base directory: %w", err)
 	}
 	result := commandContext{
 		extra: make(map[string]any),
