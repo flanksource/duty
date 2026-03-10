@@ -9,8 +9,27 @@ permissions:
   pull-requests: write
 
 jobs:
-  bench:
+  changes:
     if: ${{ !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    outputs:
+      rls: ${{ steps.check.outputs.rls }}
+    steps:
+      - uses: actions/checkout@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.3
+        with:
+          fetch-depth: 0
+      - id: check
+        run: |
+          changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          if echo "$changed" | grep -qE '^views/999[89]_rls_(enable|disable)\.sql$'; then
+            echo "rls=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rls=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  bench:
+    needs: changes
+    if: ${{ !github.event.pull_request.head.repo.fork && (matrix.label != 'rls' || needs.changes.outputs.rls == 'true') }}
     name: Benchmark (${{ matrix.title }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
