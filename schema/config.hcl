@@ -418,12 +418,10 @@ table "config_items" {
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
-  index "idx_config_items_lower_name" {
+  index "idx_config_items_lower_name_type" {
     on {
       expr = "lower(name)"
     }
-  }
-  index "idx_config_items_lower_type" {
     on {
       expr = "lower(type)"
     }
