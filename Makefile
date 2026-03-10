@@ -32,11 +32,11 @@ e2e-services: ## Run e2e test services in foreground with automatic cleanup on e
 
 .PHONY: bench
 bench:
-	go test -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
+	go test -run ^$$ -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
 
 .PHONY: bench-alias
 bench-alias:
-	go test -bench=^BenchmarkInsertionForRowsWithAliases$$ -benchtime=10s -test.fullpath=true -timeout 30m github.com/flanksource/duty/bench -count=1 -v
+	go test -run ^$$ -bench=^BenchmarkInsertionForRowsWithAliases$$ -benchtime=10s -test.fullpath=true -timeout 30m github.com/flanksource/duty/bench -count=1 -v
 
 fmt:
 	go fmt ./...
