@@ -11,11 +11,11 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-const resourceSelectorBenchSize = 100_000
+const resourceSelectorBenchSize = 200_000
 
 func BenchmarkResourceSelectorConfigs(b *testing.B) {
 	resetPG(b, false)
-	if _, err := setupConfigsForSize(testCtx, resourceSelectorBenchSize); err != nil {
+	if err := seedResourceSelectorConfigItems(testCtx, resourceSelectorBenchSize); err != nil {
 		b.Fatalf("failed to setup configs: %v", err)
 	}
 
