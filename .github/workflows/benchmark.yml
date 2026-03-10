@@ -75,22 +75,29 @@ jobs:
           # Override the base's bench package with HEAD's so both runs execute
           # the same benchmark suite — only the implementation under test differs.
           rm -rf .bench/base/bench && cp -r bench/ .bench/base/bench/
-      - name: Build benchmark (base)
+      - name: Benchmark base
         run: |
           cd .bench/base
-          # benchstat recommends at least 10 runs to gather a statistically significant sample. That's why -count=10
+          
+          # benchstat recommends at least 10 runs to gather a statistically significant sample.
+          # We use -count=6 because -count=10 is extremely slow on github actions.
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -count=10 -timeout 20m \
+            go test -bench=. -count=6 -timeout 20m \
             github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
       - name: Benchmark head
         run: |
-          # benchstat recommends at least 10 runs to gather a statistically significant sample. That's why -count=10
+          # benchstat recommends at least 10 runs to gather a statistically significant sample.
+          # We use -count=6 because -count=10 is extremely slow on github actions.
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -count=10 -timeout 20m \
+            go test -bench=. -count=6 -timeout 20m \
             github.com/flanksource/duty/bench | tee bench-head.txt
       - name: Compare
         run: |
           benchstat bench-base.txt bench-head.txt > benchstat.txt
+
+          # Generate the summary (ignore exit code here; we check it in the next step)
+          python3 .github/scripts/benchstat-summary.py benchstat.txt > bench-summary.md || true
+
           {
             echo "<!-- benchstat-report -->"
             echo "## Benchstat"
@@ -98,9 +105,16 @@ jobs:
             echo "Base: \`${{ github.event.pull_request.base.sha }}\`"
             echo "Head: \`${{ github.event.pull_request.head.sha }}\`"
             echo ""
+            cat bench-summary.md
+            echo ""
+            echo '<details>'
+            echo '<summary>Full benchstat output</summary>'
+            echo ""
             echo '```text'
             cat benchstat.txt
             echo '```'
+            echo ""
+            echo '</details>'
           } > bench-report.md
       - name: Upload artifacts
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
@@ -144,3 +158,5 @@ jobs:
                 body: body
               });
             }
+      - name: Check for regressions
+        run: python3 .github/scripts/benchstat-summary.py --threshold 5 benchstat.txt > /dev/null
