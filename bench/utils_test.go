@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -28,17 +30,32 @@ var sampleTags = []map[string]string{
 	{"region": "us-east-2"},
 }
 
+func logf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
 func generateConfigItems(ctx context.Context, count int) error {
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Fprintf(os.Stderr, "::group::Seeding %d config items\n", count)
+		defer fmt.Fprintf(os.Stderr, "::endgroup::\n")
+	}
+
+	start := time.Now()
 	var iter int
 	for {
-		var totalConfigs int64
-		if err := ctx.DB().Table("config_items").Count(&totalConfigs).Error; err != nil {
+		var current int64
+		if err := ctx.DB().Table("config_items").Count(&current).Error; err != nil {
 			return err
 		}
 
-		if totalConfigs > int64(count) {
+		if current > int64(count) {
+			logf("seeding done: %d/%d items in %s", current, count, time.Since(start).Round(time.Millisecond))
 			break
 		}
+
+		logf("batch %d: %d/%d items (%.0f%%) elapsed=%s",
+			iter+1, current, count, float64(current)/float64(count)*100, time.Since(start).Round(time.Millisecond))
+		batchStart := time.Now()
 
 		generator := pkgGenerator.ConfigGenerator{
 			Nodes: pkgGenerator.ConfigTypeRequirements{
@@ -66,6 +83,8 @@ func generateConfigItems(ctx context.Context, count int) error {
 		if err := generator.Save(ctx.DB()); err != nil {
 			return err
 		}
+
+		logf("batch %d done in %s", iter+1, time.Since(batchStart).Round(time.Millisecond))
 		iter++
 	}
 
@@ -114,14 +133,18 @@ func verifyRLSPayload(ctx context.Context) error {
 }
 
 func setupConfigsForSize(ctx context.Context, size int) ([]uuid.UUID, error) {
+	seedStart := time.Now()
 	if err := generateConfigItems(ctx, size); err != nil {
 		return nil, fmt.Errorf("failed to generate configs: %w", err)
 	}
+	logf("seeded %d configs in %s", size, time.Since(seedStart).Round(time.Millisecond))
 
+	fetchStart := time.Now()
 	var configIDs []uuid.UUID
 	if err := ctx.DB().Select("id").Model(&models.ConfigItem{}).Find(&configIDs).Error; err != nil {
 		return nil, err
 	}
+	logf("fetched %d config IDs in %s", len(configIDs), time.Since(fetchStart).Round(time.Millisecond))
 
 	if len(configIDs) < size {
 		return nil, fmt.Errorf("seeding incomplete: expected at least %d config items but got %d", size, len(configIDs))
