@@ -40,7 +40,9 @@ func generateConfigItems(ctx context.Context, count int) error {
 		defer fmt.Fprintf(os.Stderr, "::endgroup::\n")
 	}
 
+	logf("seeding %d config items ...", count)
 	start := time.Now()
+	lastLoggedPct := -1
 	var iter int
 	for {
 		var current int64
@@ -53,9 +55,10 @@ func generateConfigItems(ctx context.Context, count int) error {
 			break
 		}
 
-		logf("batch %d: %d/%d items (%.0f%%) elapsed=%s",
-			iter+1, current, count, float64(current)/float64(count)*100, time.Since(start).Round(time.Millisecond))
-		batchStart := time.Now()
+		if pct := int(float64(current) / float64(count) * 100); pct/10 > lastLoggedPct/10 {
+			logf("%d/%d items (%d%%) elapsed=%s", current, count, pct, time.Since(start).Round(time.Millisecond))
+			lastLoggedPct = pct
+		}
 
 		generator := pkgGenerator.ConfigGenerator{
 			Nodes: pkgGenerator.ConfigTypeRequirements{
@@ -83,8 +86,6 @@ func generateConfigItems(ctx context.Context, count int) error {
 		if err := generator.Save(ctx.DB()); err != nil {
 			return err
 		}
-
-		logf("batch %d done in %s", iter+1, time.Since(batchStart).Round(time.Millisecond))
 		iter++
 	}
 

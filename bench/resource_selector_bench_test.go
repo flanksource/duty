@@ -11,7 +11,7 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
-const resourceSelectorBenchSize = 500_000
+const resourceSelectorBenchSize = 100_000
 
 func BenchmarkResourceSelectorConfigs(b *testing.B) {
 	resetPG(b, false)
