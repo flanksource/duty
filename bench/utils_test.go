@@ -123,6 +123,10 @@ func setupConfigsForSize(ctx context.Context, size int) ([]uuid.UUID, error) {
 		return nil, err
 	}
 
+	if len(configIDs) < size {
+		return nil, fmt.Errorf("seeding incomplete: expected at least %d config items but got %d", size, len(configIDs))
+	}
+
 	return configIDs, nil
 }
 
