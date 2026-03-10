@@ -1,6 +1,7 @@
 package postgrest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -16,7 +17,7 @@ func GoOffline() error {
 }
 
 func runBinary(config api.Config, msg string, args ...any) error {
-	result, err := deps.Install("postgREST", config.Postgrest.Version, deps.WithBinDir(".bin"))
+	result, err := deps.InstallWithContext(context.Background(), "postgrest", config.Postgrest.Version, deps.WithBinDir(".bin"))
 	if err != nil {
 		return fmt.Errorf("failed to install postgREST: %w", err)
 	}
