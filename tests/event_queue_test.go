@@ -3,12 +3,16 @@ package tests
 import (
 	"fmt"
 
+	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
+	"github.com/google/uuid"
+	ginkgo "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gorm.io/gorm/clause"
+
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/postq"
-	ginkgo "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = ginkgo.Describe("Event queue", func() {
@@ -18,6 +22,60 @@ var _ = ginkgo.Describe("Event queue", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		logger.Infof("eventQueueSummary (%d)", len(summaries))
+	})
+
+	ginkgo.It("should populate event_id on EventQueueSummary", func() {
+		const eventName = "test.summary.event_id"
+		eventID1 := uuid.New()
+		eventID2 := uuid.New()
+		eventID3 := uuid.New()
+
+		// 3 events with valid event_ids
+		for _, eid := range []uuid.UUID{eventID1, eventID2, eventID3} {
+			err := DefaultContext.DB().Create(&models.Event{
+				Name:    eventName,
+				EventID: eid,
+			}).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// 2 events with NULL event_ids (testing backward compability, there could be rows with null event_id)
+		for i := range 2 {
+			err := DefaultContext.DB().Exec(
+				`INSERT INTO event_queue (name, properties) VALUES (?, ?)`,
+				eventName,
+				fmt.Sprintf(`{"i": "%d"}`, i),
+			).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		var summaries []models.EventQueueSummary
+		err := DefaultContext.DB().Where("name = ?", eventName).Find(&summaries).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// 3 valid event_ids + 1 group for NULL = 4 summary rows
+		Expect(summaries).To(HaveLen(4))
+
+		foundEventIDs := make(map[uuid.UUID]bool)
+		var nullGroupCount int
+		for _, s := range summaries {
+			if s.EventID == uuid.Nil {
+				nullGroupCount++
+				Expect(s.Pending).To(Equal(int64(2)))
+			} else {
+				foundEventIDs[s.EventID] = true
+				Expect(s.Pending).To(Equal(int64(1)))
+			}
+		}
+
+		Expect(nullGroupCount).To(Equal(1))
+		Expect(foundEventIDs).To(HaveKey(eventID1))
+		Expect(foundEventIDs).To(HaveKey(eventID2))
+		Expect(foundEventIDs).To(HaveKey(eventID3))
+
+		// Cleanup
+		err = DefaultContext.DB().Where("name = ?", eventName).Delete(&models.Event{}).Error
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	ginkgo.It("should process event queue one at a time", func() {
@@ -39,8 +97,12 @@ var _ = ginkgo.Describe("Event queue", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		for i := range iterations {
+			uuuid, err := hash.DeterministicUUID(fmt.Sprintf("%s-%d", eventName, i))
+			Expect(err).ToNot(HaveOccurred())
+
 			DefaultContext.DB().Create(&models.Event{
-				Name: eventName,
+				Name:    eventName,
+				EventID: uuuid,
 				Properties: map[string]string{
 					"id": fmt.Sprintf("%d", i),
 				},
@@ -49,5 +111,151 @@ var _ = ginkgo.Describe("Event queue", func() {
 
 		consumer.ConsumeUntilEmpty(DefaultContext)
 		Expect(handlerInvocationCount).To(Equal(iterations))
+	})
+
+	ginkgo.DescribeTable("should enforce uniqueness constraint on name and event_id",
+		func(events []models.Event, shouldFail bool) {
+			for i, event := range events {
+				err := DefaultContext.DB().Create(&event).Error
+				if i == 0 {
+					// First event should always succeed
+					Expect(err).To(BeNil())
+				} else {
+					if shouldFail {
+						Expect(err).To(HaveOccurred(), "Expected duplicate event to fail unique constraint")
+					} else {
+						Expect(err).ToNot(HaveOccurred(), "Expected event creation to succeed")
+					}
+				}
+			}
+		},
+		ginkgo.Entry("duplicate events with same name and properties id should fail",
+			[]models.Event{
+				{
+					Name:       "test.unique.duplicate",
+					EventID:    uuid.MustParse("4c185f4e-aaf8-4039-ae2f-84bbb7094f66"),
+					Properties: map[string]string{"id": "12345"},
+				},
+				{
+					Name:       "test.unique.duplicate",
+					EventID:    uuid.MustParse("4c185f4e-aaf8-4039-ae2f-84bbb7094f66"),
+					Properties: map[string]string{"id": "123"},
+				},
+			},
+			true,
+		),
+		ginkgo.Entry("events with same name but different properties id should succeed",
+			[]models.Event{
+				{
+					Name:       "test.unique.different-id",
+					EventID:    uuid.New(),
+					Properties: map[string]string{"id": "456"},
+				},
+				{
+					Name:       "test.unique.different-id",
+					EventID:    uuid.New(),
+					Properties: map[string]string{"id": "456"},
+				},
+			},
+			false,
+		),
+		ginkgo.Entry("events with different names but same properties id should succeed",
+			[]models.Event{
+				{
+					Name:       "test.unique.different-name-1",
+					EventID:    uuid.MustParse("9c82da24-4896-4341-9df2-07d7a4437a94"),
+					Properties: map[string]string{"id": "999"},
+				},
+				{
+					Name:       "test.unique.different-name-2",
+					EventID:    uuid.MustParse("9c82da24-4896-4341-9df2-07d7a4437a94"),
+					Properties: map[string]string{"id": "999"},
+				},
+			},
+			false,
+		),
+	)
+
+	ginkgo.It("should allow multiple NULL event_id rows with the same name", func() {
+		for i := range 3 {
+			err := DefaultContext.DB().Exec(`
+				INSERT INTO event_queue (name, properties)
+				VALUES (?, ?)`,
+				"config.updated",
+				fmt.Sprintf(`{"id": "null-test-%d"}`, i),
+			).Error
+			Expect(err).ToNot(HaveOccurred(), "inserting NULL event_id row %d should not violate unique constraint", i)
+		}
+
+		var count int64
+		err := DefaultContext.DB().Raw(`
+			SELECT COUNT(*) FROM event_queue
+			WHERE name = 'config.updated' AND event_id IS NULL`).Scan(&count).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(BeNumerically(">=", int64(3)))
+	})
+
+	ginkgo.It("should update properties on upsert conflict", func() {
+		eventID := uuid.MustParse("d4e5f6a7-b8c9-0123-4567-89abcdef0123")
+		const eventName = "test.upsert.properties"
+
+		// Insert initial event
+		err := DefaultContext.DB().Exec(`
+			INSERT INTO event_queue (name, event_id, properties)
+			VALUES (?, ?, jsonb_build_object('status', 'unhealthy', 'description', 'disk full'))
+			ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
+				created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties`,
+			eventName, eventID,
+		).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// Upsert with updated properties
+		err = DefaultContext.DB().Exec(`
+			INSERT INTO event_queue (name, event_id, properties)
+			VALUES (?, ?, jsonb_build_object('status', 'healthy', 'description', 'disk recovered'))
+			ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
+				created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties`,
+			eventName, eventID,
+		).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var event models.Event
+		err = DefaultContext.DB().Where("name = ? AND event_id = ?", eventName, eventID).First(&event).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(event.Properties["status"]).To(Equal("healthy"))
+		Expect(event.Properties["description"]).To(Equal("disk recovered"))
+
+		// Cleanup
+		err = DefaultContext.DB().Where("name = ?", eventName).Delete(&models.Event{}).Error
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	ginkgo.It("should handle OnConflict using EventQueueUniqueConstraint", func() {
+		event := models.Event{
+			Name:       "test.unique.constraint",
+			Properties: map[string]string{"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
+		}
+
+		// Create the first event
+		err := DefaultContext.DB().Create(&event).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// Try to create the same event again with OnConflict DoNothing
+		duplicateEvent := models.Event{
+			Name:    "test.unique.constraint",
+			EventID: event.EventID,
+		}
+
+		err = DefaultContext.DB().Clauses(clause.OnConflict{
+			Columns:   models.EventQueueUniqueConstraint(),
+			DoNothing: true,
+		}).Create(&duplicateEvent).Error
+		Expect(err).ToNot(HaveOccurred(), "OnConflict DoNothing should handle duplicate gracefully")
+
+		// Count the number of events in the event queue
+		var count int64
+		err = DefaultContext.DB().Model(&models.Event{}).Where("name = ?", "test.unique.constraint").Count(&count).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(int64(1)))
 	})
 })
