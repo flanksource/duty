@@ -122,6 +122,25 @@ var _ = ginkgo.Describe("Event queue", func() {
 		),
 	)
 
+	ginkgo.It("should allow multiple NULL event_id rows with the same name", func() {
+		for i := range 3 {
+			err := DefaultContext.DB().Exec(`
+				INSERT INTO event_queue (name, properties)
+				VALUES (?, ?)`,
+				"config.updated",
+				fmt.Sprintf(`{"id": "null-test-%d"}`, i),
+			).Error
+			Expect(err).ToNot(HaveOccurred(), "inserting NULL event_id row %d should not violate unique constraint", i)
+		}
+
+		var count int64
+		err := DefaultContext.DB().Raw(`
+			SELECT COUNT(*) FROM event_queue
+			WHERE name = 'config.updated' AND event_id IS NULL`).Scan(&count).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(BeNumerically(">=", int64(3)))
+	})
+
 	ginkgo.It("should handle OnConflict using EventQueueUniqueConstraint", func() {
 		event := models.Event{
 			Name:       "test.unique.constraint",
