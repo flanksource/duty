@@ -901,7 +901,8 @@ CREATE OR REPLACE VIEW catalog_changes AS
     cc.created_by,
     cc.count,
     cc.first_observed,
-    c.agent_id
+    c.agent_id,
+    c.path
   FROM config_changes cc
   LEFT JOIN config_items c on c.id = cc.config_id;
 
