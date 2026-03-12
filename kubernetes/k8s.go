@@ -12,6 +12,7 @@ import (
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
+	"github.com/flanksource/commons/har"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
@@ -56,7 +57,7 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 	return Nil, nil, nil
 }
 
-func NewClientWithConfig(log logger.Logger, kubeConfig []byte) (kubernetes.Interface, *rest.Config, error) {
+func NewClientWithConfig(log logger.Logger, kubeConfig []byte, collector ...*har.Collector) (kubernetes.Interface, *rest.Config, error) {
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
 	if err != nil {
 		return nil, nil, err
@@ -72,7 +73,17 @@ func NewClientWithConfig(log logger.Logger, kubeConfig []byte) (kubernetes.Inter
 	if config, err := clientConfig.ClientConfig(); err != nil {
 		return nil, nil, err
 	} else {
-		client, err := kubernetes.NewForConfig(trace(logger.GetLogger("k8s."+name), config))
+		config = trace(logger.GetLogger("k8s."+name), config)
+		if len(collector) > 0 && collector[0] != nil {
+			existing := config.WrapTransport
+			config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+				if existing != nil {
+					rt = existing(rt)
+				}
+				return collector[0].Middleware()(rt)
+			}
+		}
+		client, err := kubernetes.NewForConfig(config)
 		return client, config, err
 	}
 }
@@ -80,17 +91,22 @@ func NewClientWithConfig(log logger.Logger, kubeConfig []byte) (kubernetes.Inter
 func NewClientFromPathOrConfig(
 	logger logger.Logger,
 	kubeconfigOrPath string,
+	collector ...*har.Collector,
 ) (kubernetes.Interface, *rest.Config, error) {
 	var client kubernetes.Interface
 	var rest *rest.Config
 	var err error
 
 	if _, pathErr := os.Stat(kubeconfigOrPath); pathErr == nil {
-		if client, rest, err = NewClient(logger, kubeconfigOrPath); err != nil {
+		configBytes, err := os.ReadFile(kubeconfigOrPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		if client, rest, err = NewClientWithConfig(logger, configBytes, collector...); err != nil {
 			return nil, nil, err
 		}
 	} else {
-		if client, rest, err = NewClientWithConfig(logger, []byte(kubeconfigOrPath)); err != nil {
+		if client, rest, err = NewClientWithConfig(logger, []byte(kubeconfigOrPath), collector...); err != nil {
 			return nil, nil, err
 		}
 	}

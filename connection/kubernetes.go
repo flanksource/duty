@@ -23,7 +23,9 @@ type KubeconfigConnection struct {
 	Kubeconfig     *types.EnvVar `json:"kubeconfig,omitempty"`
 }
 
-func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interface, *rest.Config, error) {
+func (t *KubeconfigConnection) Populate(ctx context.Context, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
+	o := types.NewClientOptions(opts...)
+
 	if t.ConnectionName != "" {
 		connection, err := ctx.HydrateConnectionByURL(t.ConnectionName)
 		if err != nil {
@@ -47,7 +49,7 @@ func (t *KubeconfigConnection) Populate(ctx context.Context) (kubernetes.Interfa
 			t.Kubeconfig.ValueStatic = v
 		}
 
-		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic)
+		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic, o.HARCollector)
 	}
 
 	return dutyKubernetes.NewClient(ctx.Logger)
@@ -160,10 +162,10 @@ func (t KubernetesConnection) ToModel() models.Connection {
 	}
 }
 
-func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
+func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
 	ctx.Counter("kubernetes_connection_populated", "connection", t.Hash()).Add(1)
 
-	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx); err != nil {
+	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx, opts...); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)
 	} else if clientset != nil {
 		return clientset, restConfig, nil

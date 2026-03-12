@@ -137,10 +137,16 @@ func (t *AWSConnection) Populate(ctx ConnectionContext) error {
 
 // Client returns a new aws config.
 // Call this on a hydrated connection.
-func (t *AWSConnection) Client(ctx context.Context) (aws.Config, error) {
+func (t *AWSConnection) Client(ctx context.Context, opts ...types.ClientOption) (aws.Config, error) {
+	o := types.NewClientOptions(opts...)
+
 	var tr http.RoundTripper
 	tr = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: t.SkipTLSVerify},
+	}
+
+	if o.HARCollector != nil {
+		tr = o.HARCollector.Middleware()(tr)
 	}
 
 	if ctx.IsTrace() {
