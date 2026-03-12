@@ -1,4 +1,6 @@
-DROP TRIGGER if exists check_statuses_change_to_event_queue on check_statuses;
+DROP TRIGGER IF EXISTS check_statuses_change_to_event_queue ON check_statuses;
+DROP TRIGGER IF EXISTS notification_update_enqueue ON notifications;
+DROP FUNCTION IF EXISTS notifications_trigger_function();
 
 CREATE OR REPLACE FUNCTION drop_push_queue_triggers () returns void as $$
 DECLARE
