@@ -418,6 +418,19 @@ table "config_items" {
   index "idx_config_items_name" {
     columns = [column.agent_id, column.name, column.type, column.config_class]
   }
+  index "idx_config_items_lower_name_type" {
+    # agent_id is always injected into resource selector queries,
+    # so it must lead the index to avoid post-filter overhead.
+    on {
+      column = column.agent_id
+    }
+    on {
+      expr = "lower(name)"
+    }
+    on {
+      expr = "lower(type)"
+    }
+  }
   index "idx_config_items_scraper_id_deleted_at_null" {
     columns = [column.scraper_id]
     where   = "deleted_at IS NULL"

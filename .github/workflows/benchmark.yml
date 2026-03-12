@@ -11,8 +11,19 @@ permissions:
 jobs:
   bench:
     if: ${{ !github.event.pull_request.head.repo.fork }}
+    name: Benchmark (${{ matrix.title }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: rls
+            title: RLS
+            bench_args: "-bench=BenchmarkRLS"
+          - label: other
+            title: Other
+            bench_args: "-bench=. -skip=BenchmarkRLS"
     env:
       BENCH_SIZES: 15000
     steps:
@@ -29,10 +40,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const marker = '<!-- benchstat-report -->';
+            const marker = '<!-- benchstat-${{ matrix.label }}-report -->';
             const body = [
               marker,
-              'Benchmark running.',
+              'Benchmark (${{ matrix.title }}) running.',
               '',
               `Base: \`${{ github.event.pull_request.base.sha }}\``,
               `Head: \`${{ github.event.pull_request.head.sha }}\``,
@@ -72,36 +83,54 @@ jobs:
         run: |
           mkdir -p .bench
           git worktree add .bench/base "${{ github.event.pull_request.base.sha }}"
-          cp bench/bench_test.go .bench/base/bench/bench_test.go
-      - name: Build benchmark (base)
+          # Override the base's bench package with HEAD's so both runs execute
+          # the same benchmark suite — only the implementation under test differs.
+          rm -rf .bench/base/bench && cp -r bench/ .bench/base/bench/
+      - name: Benchmark base
         run: |
           cd .bench/base
+
+          # benchstat recommends at least 10 runs to gather a statistically significant sample.
+          # We use -count=6 because -count=10 is extremely slow on github actions.
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -count=6 -timeout 15m \
+            go test ${{ matrix.bench_args }} -count=6 -timeout 20m \
             github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
       - name: Benchmark head
         run: |
+          # benchstat recommends at least 10 runs to gather a statistically significant sample.
+          # We use -count=6 because -count=10 is extremely slow on github actions.
           DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test -bench=. -count=6 -timeout 15m \
+            go test ${{ matrix.bench_args }} -count=6 -timeout 20m \
             github.com/flanksource/duty/bench | tee bench-head.txt
       - name: Compare
         run: |
           benchstat bench-base.txt bench-head.txt > benchstat.txt
+
+          # Generate the summary (ignore exit code here; we check it in the next step)
+          python3 .github/scripts/benchstat-summary.py benchstat.txt > bench-summary.md || true
+
           {
-            echo "<!-- benchstat-report -->"
-            echo "## Benchstat"
+            echo "<!-- benchstat-${{ matrix.label }}-report -->"
+            echo "## Benchstat (${{ matrix.title }})"
             echo ""
             echo "Base: \`${{ github.event.pull_request.base.sha }}\`"
             echo "Head: \`${{ github.event.pull_request.head.sha }}\`"
             echo ""
+            cat bench-summary.md
+            echo ""
+            echo '<details>'
+            echo '<summary>Full benchstat output</summary>'
+            echo ""
             echo '```text'
             cat benchstat.txt
             echo '```'
+            echo ""
+            echo '</details>'
           } > bench-report.md
       - name: Upload artifacts
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: benchmark-results
+          name: benchmark-results-${{ matrix.label }}
           path: |
             bench-base.txt
             bench-head.txt
@@ -114,7 +143,7 @@ jobs:
           script: |
             const fs = require('fs');
             const body = fs.readFileSync('bench-report.md', 'utf8');
-            const marker = '<!-- benchstat-report -->';
+            const marker = '<!-- benchstat-${{ matrix.label }}-report -->';
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
@@ -140,3 +169,5 @@ jobs:
                 body: body
               });
             }
+      - name: Check for regressions
+        run: python3 .github/scripts/benchstat-summary.py --threshold 5 benchstat.txt > /dev/null

@@ -1,12 +1,18 @@
 package bench_test
 
 import (
+	stdcontext "context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/api"
@@ -28,16 +34,34 @@ var sampleTags = []map[string]string{
 	{"region": "us-east-2"},
 }
 
+func logf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
 func generateConfigItems(ctx context.Context, count int) error {
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Fprintf(os.Stderr, "::group::Seeding %d config items\n", count)
+		defer fmt.Fprintf(os.Stderr, "::endgroup::\n")
+	}
+
+	logf("seeding %d config items ...", count)
+	start := time.Now()
+	lastLoggedPct := -1
 	var iter int
 	for {
-		var totalConfigs int64
-		if err := ctx.DB().Table("config_items").Count(&totalConfigs).Error; err != nil {
+		var current int64
+		if err := ctx.DB().Table("config_items").Count(&current).Error; err != nil {
 			return err
 		}
 
-		if totalConfigs > int64(count) {
+		if current > int64(count) {
+			logf("seeding done: %d/%d items in %s", current, count, time.Since(start).Round(time.Millisecond))
 			break
+		}
+
+		if pct := int(float64(current) / float64(count) * 100); pct/10 > lastLoggedPct/10 {
+			logf("%d/%d items (%d%%) elapsed=%s", current, count, pct, time.Since(start).Round(time.Millisecond))
+			lastLoggedPct = pct
 		}
 
 		generator := pkgGenerator.ConfigGenerator{
@@ -67,6 +91,77 @@ func generateConfigItems(ctx context.Context, count int) error {
 			return err
 		}
 		iter++
+	}
+
+	return nil
+}
+
+func seedResourceSelectorConfigItems(ctx context.Context, size int) error {
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Fprintf(os.Stderr, "::group::Seeding %d config_items (resource selector COPY)\n", size)
+		defer fmt.Fprintf(os.Stderr, "::endgroup::\n")
+	}
+
+	logf("seeding %d config_items for resource selector benchmark using COPY ...", size)
+	start := time.Now()
+
+	var current int64
+	if err := ctx.DB().Table("config_items").Count(&current).Error; err != nil {
+		return err
+	}
+
+	if current >= int64(size) {
+		logf("seeding done: %d/%d items in %s", current, size, time.Since(start).Round(time.Millisecond))
+		return nil
+	}
+
+	pool := ctx.Pool()
+	if pool == nil {
+		return errors.New("pgx pool is nil")
+	}
+
+	remaining := size - int(current)
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	types := make([]string, 50)
+	for i := range types {
+		types[i] = fmt.Sprintf("Bench::Type-%08x", rng.Uint32())
+	}
+
+	tagPayloads := make([][]byte, len(sampleTags))
+	for i := range sampleTags {
+		encoded, err := json.Marshal(sampleTags[i])
+		if err != nil {
+			return err
+		}
+		tagPayloads[i] = encoded
+	}
+
+	source := pgx.CopyFromSlice(remaining, func(i int) ([]any, error) {
+		return []any{
+			uuid.Nil.String(),
+			string(models.ConfigClassNode),
+			types[rng.Intn(len(types))],
+			fmt.Sprintf("cfg-%016x", rng.Uint64()),
+			tagPayloads[rng.Intn(len(tagPayloads))],
+		}, nil
+	})
+
+	inserted, err := pool.CopyFrom(stdcontext.Background(), pgx.Identifier{"config_items"}, []string{"agent_id", "config_class", "type", "name", "tags"}, source)
+	if err != nil {
+		return err
+	}
+
+	logf("copy inserted %d rows in %s", inserted, time.Since(start).Round(time.Millisecond))
+
+	var finalCount int64
+	if err := ctx.DB().Table("config_items").Count(&finalCount).Error; err != nil {
+		return err
+	}
+	logf("seeding done: %d/%d items in %s", finalCount, size, time.Since(start).Round(time.Millisecond))
+
+	if finalCount < int64(size) {
+		return fmt.Errorf("seeding incomplete: expected at least %d config items but got %d", size, finalCount)
 	}
 
 	return nil
@@ -114,13 +209,21 @@ func verifyRLSPayload(ctx context.Context) error {
 }
 
 func setupConfigsForSize(ctx context.Context, size int) ([]uuid.UUID, error) {
+	seedStart := time.Now()
 	if err := generateConfigItems(ctx, size); err != nil {
 		return nil, fmt.Errorf("failed to generate configs: %w", err)
 	}
+	logf("seeded %d configs in %s", size, time.Since(seedStart).Round(time.Millisecond))
 
+	fetchStart := time.Now()
 	var configIDs []uuid.UUID
 	if err := ctx.DB().Select("id").Model(&models.ConfigItem{}).Find(&configIDs).Error; err != nil {
 		return nil, err
+	}
+	logf("fetched %d config IDs in %s", len(configIDs), time.Since(fetchStart).Round(time.Millisecond))
+
+	if len(configIDs) < size {
+		return nil, fmt.Errorf("seeding incomplete: expected at least %d config items but got %d", size, len(configIDs))
 	}
 
 	return configIDs, nil
