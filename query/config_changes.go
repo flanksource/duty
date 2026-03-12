@@ -224,6 +224,7 @@ type ConfigChangeRow struct {
 	Tags              types.JSONStringMap `gorm:"column:tags" json:"tags,omitempty"`
 	CreatedBy         *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty"`
 	ExternalCreatedBy string              `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
+	Path              string              `gorm:"column:path" json:"path,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
