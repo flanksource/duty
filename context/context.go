@@ -252,7 +252,7 @@ func (k Context) WithDebug() Context {
 }
 
 type KubernetesConnection interface {
-	Populate(Context, bool) (kubernetes.Interface, *rest.Config, error)
+	Populate(Context, bool, ...types.ClientOption) (kubernetes.Interface, *rest.Config, error)
 	Hash() string
 	CanExpire() bool
 	String() string

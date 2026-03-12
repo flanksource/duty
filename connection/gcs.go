@@ -25,8 +25,9 @@ func (g *GCSConnection) Validate() *GCSConnection {
 	return g
 }
 
-func (g *GCSConnection) Client(ctx context.Context) (*gcs.Client, error) {
+func (g *GCSConnection) Client(ctx context.Context, opts ...types.ClientOption) (*gcs.Client, error) {
 	g = g.Validate()
+	o := types.NewClientOptions(opts...)
 	var client *gcs.Client
 	var err error
 
@@ -36,7 +37,14 @@ func (g *GCSConnection) Client(ctx context.Context) (*gcs.Client, error) {
 		clientOpts = append(clientOpts, option.WithEndpoint(g.Endpoint))
 	}
 
-	if g.SkipTLSVerify {
+	if o.HARCollector != nil {
+		base := http.RoundTripper(http.DefaultTransport)
+		if g.SkipTLSVerify {
+			base = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		}
+		tr := o.HARCollector.Middleware()(base)
+		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{Transport: tr}))
+	} else if g.SkipTLSVerify {
 		insecureHTTPClient := &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
