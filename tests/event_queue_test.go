@@ -195,6 +195,41 @@ var _ = ginkgo.Describe("Event queue", func() {
 		Expect(count).To(BeNumerically(">=", int64(3)))
 	})
 
+	ginkgo.It("should update properties on upsert conflict", func() {
+		eventID := uuid.MustParse("d4e5f6a7-b8c9-0123-4567-89abcdef0123")
+		const eventName = "test.upsert.properties"
+
+		// Insert initial event
+		err := DefaultContext.DB().Exec(`
+			INSERT INTO event_queue (name, event_id, properties)
+			VALUES (?, ?, jsonb_build_object('status', 'unhealthy', 'description', 'disk full'))
+			ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
+				created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties`,
+			eventName, eventID,
+		).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// Upsert with updated properties
+		err = DefaultContext.DB().Exec(`
+			INSERT INTO event_queue (name, event_id, properties)
+			VALUES (?, ?, jsonb_build_object('status', 'healthy', 'description', 'disk recovered'))
+			ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
+				created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties`,
+			eventName, eventID,
+		).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var event models.Event
+		err = DefaultContext.DB().Where("name = ? AND event_id = ?", eventName, eventID).First(&event).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(event.Properties["status"]).To(Equal("healthy"))
+		Expect(event.Properties["description"]).To(Equal("disk recovered"))
+
+		// Cleanup
+		err = DefaultContext.DB().Where("name = ?", eventName).Delete(&models.Event{}).Error
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	ginkgo.It("should handle OnConflict using EventQueueUniqueConstraint", func() {
 		event := models.Event{
 			Name:       "test.unique.constraint",

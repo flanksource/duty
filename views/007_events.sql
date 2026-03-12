@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION insert_new_playbook_approvals_to_event_queue()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO event_queue(name, event_id, properties) VALUES ('playbook.approval.inserted', NEW.id, jsonb_build_object('run_id', NEW.run_id))
-  ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+  ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -150,10 +150,10 @@ BEGIN
 
     IF NEW.status = 'healthy' THEN
         INSERT INTO event_queue(name, event_id, properties) VALUES ('check.passed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
-        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     ELSEIF NEW.status = 'unhealthy' THEN
         INSERT INTO event_queue(name, event_id, properties) VALUES ('check.failed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
-        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+        ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     END IF;
 
     RETURN NULL;
@@ -193,7 +193,8 @@ BEGIN
     ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
         created_at = NOW(),
         last_attempt = NULL,
-        attempts = 0;
+        attempts = 0,
+        properties = EXCLUDED.properties;
 
     RETURN NULL;
 END
@@ -220,7 +221,7 @@ BEGIN
 
     event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
     INSERT INTO event_queue (name, event_id, properties) VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description))
-    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0;
+    ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
 
     RETURN NULL;
 END
