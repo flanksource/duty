@@ -24,6 +24,60 @@ var _ = ginkgo.Describe("Event queue", func() {
 		logger.Infof("eventQueueSummary (%d)", len(summaries))
 	})
 
+	ginkgo.It("should populate event_id on EventQueueSummary", func() {
+		const eventName = "test.summary.event_id"
+		eventID1 := uuid.New()
+		eventID2 := uuid.New()
+		eventID3 := uuid.New()
+
+		// 3 events with valid event_ids
+		for _, eid := range []uuid.UUID{eventID1, eventID2, eventID3} {
+			err := DefaultContext.DB().Create(&models.Event{
+				Name:    eventName,
+				EventID: eid,
+			}).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// 2 events with NULL event_ids (testing backward compability, there could be rows with null event_id)
+		for i := range 2 {
+			err := DefaultContext.DB().Exec(
+				`INSERT INTO event_queue (name, properties) VALUES (?, ?)`,
+				eventName,
+				fmt.Sprintf(`{"i": "%d"}`, i),
+			).Error
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		var summaries []models.EventQueueSummary
+		err := DefaultContext.DB().Where("name = ?", eventName).Find(&summaries).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		// 3 valid event_ids + 1 group for NULL = 4 summary rows
+		Expect(summaries).To(HaveLen(4))
+
+		foundEventIDs := make(map[uuid.UUID]bool)
+		var nullGroupCount int
+		for _, s := range summaries {
+			if s.EventID == uuid.Nil {
+				nullGroupCount++
+				Expect(s.Pending).To(Equal(int64(2)))
+			} else {
+				foundEventIDs[s.EventID] = true
+				Expect(s.Pending).To(Equal(int64(1)))
+			}
+		}
+
+		Expect(nullGroupCount).To(Equal(1))
+		Expect(foundEventIDs).To(HaveKey(eventID1))
+		Expect(foundEventIDs).To(HaveKey(eventID2))
+		Expect(foundEventIDs).To(HaveKey(eventID3))
+
+		// Cleanup
+		err = DefaultContext.DB().Where("name = ?", eventName).Delete(&models.Event{}).Error
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	ginkgo.It("should process event queue one at a time", func() {
 		const iterations = 10
 		const eventName = "test.one-at-a-time"

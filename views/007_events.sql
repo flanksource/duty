@@ -254,6 +254,7 @@ SELECT 'topologies' AS table, (SELECT COUNT(*) FROM topologies WHERE is_pushed =
 CREATE OR REPLACE VIEW event_queue_summary AS
 SELECT
   name,
+  event_id,
   COUNT(id) AS pending,
   COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS failed,
   ROUND(AVG(attempts)::numeric, 2) AS average_attempts,
@@ -263,7 +264,7 @@ SELECT
 FROM
   event_queue
 GROUP BY
-  name;
+  name, event_id;
 
 CREATE OR REPLACE VIEW failed_events AS
 SELECT
