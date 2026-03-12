@@ -78,6 +78,24 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 		}
 	}
 
+	if len(req.CheckConfigRelationships) > 0 {
+		if err := db.Delete(req.CheckConfigRelationships).Error; err != nil {
+			return fmt.Errorf("error deleting check_config_relationships: %w", err)
+		}
+	}
+
+	if len(req.ConfigItemsLastScrapedTime) > 0 {
+		if err := db.Delete(req.ConfigItemsLastScrapedTime).Error; err != nil {
+			return fmt.Errorf("error deleting config_items_last_scraped_time: %w", err)
+		}
+	}
+
+	if len(req.ChecksUnlogged) > 0 {
+		if err := db.Delete(req.ChecksUnlogged).Error; err != nil {
+			return fmt.Errorf("error deleting checks_unlogged: %w", err)
+		}
+	}
+
 	if len(req.ConfigChanges) > 0 {
 		if err := db.Delete(req.ConfigChanges).Error; err != nil {
 			return fmt.Errorf("error deleting config changes: %w", err)
@@ -202,6 +220,24 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 	if len(req.ConfigComponentRelationships) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.ConfigComponentRelationship{}.PKCols()}).CreateInBatches(req.ConfigComponentRelationships, batchSize).Error; err != nil {
 			return handleUpsertError(ctx, lo.Map(req.ConfigComponentRelationships, func(i models.ConfigComponentRelationship, _ int) models.ExtendedDBTable { return i }), err)
+		}
+	}
+
+	if len(req.CheckConfigRelationships) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: models.CheckConfigRelationship{}.PKCols()}).CreateInBatches(req.CheckConfigRelationships, batchSize).Error; err != nil {
+			return handleUpsertError(ctx, lo.Map(req.CheckConfigRelationships, func(i models.CheckConfigRelationship, _ int) models.ExtendedDBTable { return i }), err)
+		}
+	}
+
+	if len(req.ConfigItemsLastScrapedTime) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: []clause.Column{{Name: "config_id"}}}).CreateInBatches(req.ConfigItemsLastScrapedTime, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting config_items_last_scraped_time: %w", err)
+		}
+	}
+
+	if len(req.ChecksUnlogged) > 0 {
+		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: []clause.Column{{Name: "check_id"}}}).CreateInBatches(req.ChecksUnlogged, batchSize).Error; err != nil {
+			return fmt.Errorf("error upserting checks_unlogged: %w", err)
 		}
 	}
 

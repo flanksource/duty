@@ -174,6 +174,7 @@ func (ConfigItemLastScrapedTime) PK() string {
 	return "config_id"
 }
 
+
 func (ConfigItemLastScrapedTime) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigItemLastScrapedTime
 	err := db.Select("config_items_last_scraped_time.*").

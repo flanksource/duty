@@ -514,6 +514,14 @@ type CheckConfigRelationship struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
+func (c CheckConfigRelationship) PKCols() []clause.Column {
+	return []clause.Column{{Name: "config_id"}, {Name: "check_id"}, {Name: "canary_id"}, {Name: "selector_id"}}
+}
+
+func (c CheckConfigRelationship) Value() any {
+	return &c
+}
+
 func (s CheckConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	ids := lo.Map(items, func(a DBTable, _ int) []string {
 		c := any(a).(CheckConfigRelationship)

@@ -90,6 +90,9 @@ type PushData struct {
 	ConfigRelationships          []models.ConfigRelationship            `json:"config_relationships,omitempty"`
 	ComponentRelationships       []models.ComponentRelationship         `json:"component_relationships,omitempty"`
 	ConfigComponentRelationships []models.ConfigComponentRelationship   `json:"config_component_relationships,omitempty"`
+	CheckConfigRelationships     []models.CheckConfigRelationship       `json:"check_config_relationships,omitempty"`
+	ConfigItemsLastScrapedTime   []models.ConfigItemLastScrapedTime     `json:"config_items_last_scraped_time,omitempty"`
+	ChecksUnlogged               []models.ChecksUnlogged                `json:"checks_unlogged,omitempty"`
 	Topologies                   []models.Topology                      `json:"topologies,omitempty"`
 	PlaybookActions              []models.PlaybookRunAction             `json:"playbook_actions,omitempty"`
 	Artifacts                    []models.Artifact                      `json:"artifacts,omitempty"`
@@ -130,6 +133,12 @@ func NewPushData[T models.DBTable](records []T) *PushData {
 			p.ComponentRelationships = append(p.ComponentRelationships, t)
 		case models.ConfigComponentRelationship:
 			p.ConfigComponentRelationships = append(p.ConfigComponentRelationships, t)
+		case models.CheckConfigRelationship:
+			p.CheckConfigRelationships = append(p.CheckConfigRelationships, t)
+		case models.ConfigItemLastScrapedTime:
+			p.ConfigItemsLastScrapedTime = append(p.ConfigItemsLastScrapedTime, t)
+		case models.ChecksUnlogged:
+			p.ChecksUnlogged = append(p.ChecksUnlogged, t)
 		case models.Topology:
 			p.Topologies = append(p.Topologies, t)
 		case models.PlaybookRunAction:
@@ -158,7 +167,10 @@ func (p *PushData) AddMetrics(counter context.Counter) {
 	counter.Label("table", "config_analysis").Add(len(p.ConfigAnalysis))
 	counter.Label("table", "config_changes").Add(len(p.ConfigChanges))
 	counter.Label("table", "config_component_relationships").Add(len(p.ConfigComponentRelationships))
+	counter.Label("table", "check_config_relationships").Add(len(p.CheckConfigRelationships))
 	counter.Label("table", "config_items").Add(len(p.ConfigItems))
+	counter.Label("table", "config_items_last_scraped_time").Add(len(p.ConfigItemsLastScrapedTime))
+	counter.Label("table", "checks_unlogged").Add(len(p.ChecksUnlogged))
 	counter.Label("table", "config_relationships").Add(len(p.ConfigRelationships))
 	counter.Label("table", "config_scrapers").Add(len(p.ConfigScrapers))
 	counter.Label("table", "playbook_actions").Add(len(p.PlaybookActions))
@@ -218,6 +230,15 @@ func (p *PushData) Attributes() map[string]any {
 	if len(p.ConfigComponentRelationships) > 0 {
 		attrs["ConfigComponentRelationships"] = len(p.ConfigComponentRelationships)
 	}
+	if len(p.CheckConfigRelationships) > 0 {
+		attrs["CheckConfigRelationships"] = len(p.CheckConfigRelationships)
+	}
+	if len(p.ConfigItemsLastScrapedTime) > 0 {
+		attrs["ConfigItemsLastScrapedTime"] = len(p.ConfigItemsLastScrapedTime)
+	}
+	if len(p.ChecksUnlogged) > 0 {
+		attrs["ChecksUnlogged"] = len(p.ChecksUnlogged)
+	}
 	if len(p.Artifacts) > 0 {
 		attrs["Artifacts"] = len(p.Artifacts)
 	}
@@ -248,6 +269,8 @@ func (t *PushData) Count() int {
 	return len(t.Canaries) + len(t.Checks) + len(t.Components) + len(t.ConfigScrapers) +
 		len(t.ConfigAnalysis) + len(t.ConfigChanges) + len(t.ConfigItems) + len(t.CheckStatuses) +
 		len(t.ConfigRelationships) + len(t.ComponentRelationships) + len(t.ConfigComponentRelationships) +
+		len(t.CheckConfigRelationships) +
+		len(t.ConfigItemsLastScrapedTime) + len(t.ChecksUnlogged) +
 		len(t.Topologies) + len(t.PlaybookActions) + len(t.Artifacts) + len(t.JobHistory) +
 		len(t.ViewPanels) + len(t.GeneratedViews)
 }
