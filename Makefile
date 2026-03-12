@@ -32,11 +32,11 @@ e2e-services: ## Run e2e test services in foreground with automatic cleanup on e
 
 .PHONY: bench
 bench:
-	go test -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
+	go test -run ^$$ -bench=. -benchtime=10s -timeout 30m github.com/flanksource/duty/bench
 
 .PHONY: bench-alias
 bench-alias:
-	go test -bench=^BenchmarkInsertionForRowsWithAliases$$ -benchtime=10s -test.fullpath=true -timeout 30m github.com/flanksource/duty/bench -count=1 -v
+	go test -run ^$$ -bench=^BenchmarkInsertionForRowsWithAliases$$ -benchtime=10s -test.fullpath=true -timeout 30m github.com/flanksource/duty/bench -count=1 -v
 
 fmt:
 	go fmt ./...
@@ -150,3 +150,6 @@ tidy:
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $(LOCALBIN)/golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
+
+clear_test_repos:
+	rm -rf tests/e2e/exec-checkout tests/e2e/shell-bin-dir

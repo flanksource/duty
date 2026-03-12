@@ -12,7 +12,7 @@ import (
 type FieldType int
 
 const (
-	FieldTypeText FieldType = iota
+	FieldTypeUnknown FieldType = iota
 	FieldTypeJsonbArray
 )
 
@@ -29,7 +29,6 @@ func (e expressions) ToExpression(field string, fieldType FieldType) []clause.Ex
 	if fieldType == FieldTypeJsonbArray {
 		return e.jsonbListFieldExpression(field)
 	}
-
 	return e.textFieldExpression(field)
 }
 
@@ -73,34 +72,56 @@ func (e expressions) jsonbListFieldExpression(field string) []clause.Expression 
 func (e expressions) textFieldExpression(field string) []clause.Expression {
 	var clauses []clause.Expression
 
+	col := clause.Column{Name: field}
+	// JSON accessor expressions (e.g. resource->>'name') must not be quoted
+	// as a single identifier, otherwise GORM produces invalid SQL like "resource->>'name'"
+	// which causes: ERROR: column "resource->>'name'" does not exist (SQLSTATE 42703)
+	if strings.Contains(field, "->") {
+		col.Raw = true
+	}
+
 	if len(e.In) == 1 {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: field}, Value: e.In[0]})
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) = ?`,
+			Vars: []any{col, strings.ToLower(fmt.Sprint(e.In[0]))},
+		})
 	} else if len(e.In) > 1 {
-		clauses = append(clauses, clause.IN{Column: clause.Column{Name: field}, Values: e.In})
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) IN ?`,
+			Vars: []any{col, lowerAnySlice(e.In)},
+		})
 	}
 
 	for _, p := range e.Prefix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
-			Value:  p + "%",
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{col, strings.ToLower(p) + "%"},
 		})
 	}
 
 	for _, g := range e.Glob {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Raw: true, Name: field},
-			Value:  "%" + g + "%",
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{col, "%" + strings.ToLower(g) + "%"},
 		})
 	}
 
 	for _, s := range e.Suffix {
-		clauses = append(clauses, clause.Like{
-			Column: clause.Column{Name: field},
-			Value:  "%" + s,
+		clauses = append(clauses, clause.Expr{
+			SQL:  `LOWER(CAST(? AS TEXT)) LIKE ?`,
+			Vars: []any{col, "%" + strings.ToLower(s)},
 		})
 	}
 
 	return clauses
+}
+
+func lowerAnySlice(items []any) []string {
+	lowered := make([]string, 0, len(items))
+	for _, item := range items {
+		lowered = append(lowered, strings.ToLower(fmt.Sprint(item)))
+	}
+	return lowered
 }
 
 // ParseFilteringQuery parses a filtering query string.
@@ -115,8 +136,13 @@ func (fq *FilteringQuery) ToExpression(field string, fieldType FieldType) []clau
 	if len(fq.expressions.ToExpression(field, fieldType)) > 0 {
 		clauses = append(clauses, fq.expressions.ToExpression(field, fieldType)...)
 	}
-	if len(fq.Not.ToExpression(field, fieldType)) > 0 {
-		clauses = append(clauses, clause.Not(fq.Not.ToExpression(field, fieldType)...))
+	for _, expr := range fq.Not.ToExpression(field, fieldType) {
+		if e, ok := expr.(clause.Expr); ok {
+			e.SQL = "NOT (" + e.SQL + ")"
+			clauses = append(clauses, e)
+		} else {
+			clauses = append(clauses, clause.Not(expr))
+		}
 	}
 	return clauses
 }

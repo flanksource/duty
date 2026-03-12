@@ -21,7 +21,6 @@ func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 		cleanupExternalUserBenchRows(b)
 		scraperID := ensureBenchScraper(b)
 
-		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			alias := fmt.Sprintf("bench-user-alias-%d", i)
@@ -45,7 +44,6 @@ func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 		cleanupConfigItemBenchRows(b)
 		configType := benchAliasConfigType
 
-		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			externalID := fmt.Sprintf("bench-config-external-id-%d", i)
