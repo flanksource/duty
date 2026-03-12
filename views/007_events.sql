@@ -252,7 +252,8 @@ SELECT 'config_scrapers' AS table, (SELECT COUNT(*) FROM config_scrapers WHERE i
 SELECT 'playbook_run_actions' AS table, (SELECT COUNT(*) FROM playbook_run_actions WHERE is_pushed = false) AS count UNION
 SELECT 'topologies' AS table, (SELECT COUNT(*) FROM topologies WHERE is_pushed = false) AS count;
 
-CREATE OR REPLACE VIEW event_queue_summary AS
+DROP VIEW IF EXISTS event_queue_summary;
+CREATE VIEW event_queue_summary AS
 SELECT
   name,
   event_id,
