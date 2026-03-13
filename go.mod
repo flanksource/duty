@@ -34,7 +34,7 @@ require (
 	github.com/flanksource/clicky v1.19.0
 	github.com/flanksource/commons v1.48.0
 	github.com/flanksource/deps v1.0.24
-	github.com/flanksource/gomplate/v3 v3.24.71
+	github.com/flanksource/gomplate/v3 v3.24.73
 	github.com/flanksource/is-healthy v1.0.84
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
@@ -111,7 +111,6 @@ require (
 )
 
 require (
-	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
