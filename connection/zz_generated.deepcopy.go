@@ -250,8 +250,8 @@ func (in *HTTPConnection) DeepCopyInto(out *HTTPConnection) {
 		*out = new(AWSSigV4)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.awsConfig != nil {
-		in, out := &in.awsConfig, &out.awsConfig
+	if in.AwsConfig != nil {
+		in, out := &in.AwsConfig, &out.AwsConfig
 		*out = (*in).DeepCopy()
 	}
 }
