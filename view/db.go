@@ -124,31 +124,80 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 		}
 	}
 
-	// Apply RLS policy to enforce grants
-	// (Re)apply RLS and Policy on first table creation or on schema changes
-	if len(changes) > 0 {
-		if err := ensureViewRLSPolicy(ctx, tableName); err != nil {
-			return fmt.Errorf("failed to apply RLS policy: %w", err)
-		}
+	if err := ensureViewRLSPolicy(ctx, tableName); err != nil {
+		return fmt.Errorf("failed to reconcile RLS policy: %w", err)
 	}
 
 	return nil
 }
 
+// ensureViewRLSPolicy reconciles the RLS state of a dynamically generated view table
+// to match the current configuration (api.DefaultConfig.DisableRLS).
+//
+// RLS for these tables is managed here in application code rather than in the SQL
+// migration scripts (9998_rls_enable.sql / 9999_rls_disable.sql) because the set of
+// generated view tables is dynamic — they are created at runtime by CreateViewTable
+// and are not known at migration time.
+//
+// This function is called on every view sync cycle (roughly every 5 minutes), so it
+// first checks the current RLS state via pg_class and pg_policies to avoid running
+// unnecessary DDL statements on every invocation. DDL is only executed when the
+// actual state diverges from the desired state.
 func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
-	// Enable RLS on table
-	if err := ctx.DB().Exec("ALTER TABLE " + pq.QuoteIdentifier(tableName) + " ENABLE ROW LEVEL SECURITY").Error; err != nil {
-		return fmt.Errorf("failed to enable RLS: %w", err)
+	quotedTable := pq.QuoteIdentifier(tableName)
+	wantRLS := !api.DefaultConfig.DisableRLS
+
+	var hasRLS bool
+	if err := ctx.DB().Raw(`
+		SELECT c.relrowsecurity
+		FROM pg_class c
+		JOIN pg_namespace n ON n.oid = c.relnamespace
+		WHERE n.nspname = 'public' AND c.relname = ? AND c.relkind = 'r'
+	`, tableName).Scan(&hasRLS).Error; err != nil {
+		return fmt.Errorf("failed to check RLS state: %w", err)
 	}
 
-	// Drop existing policy if present
-	if err := ctx.DB().
-		Exec("DROP POLICY IF EXISTS view_grants_policy ON " + pq.QuoteIdentifier(tableName)).
-		Error; err != nil {
+	var hasPolicy bool
+	if err := ctx.DB().Raw(`
+		SELECT EXISTS (
+			SELECT 1 FROM pg_policies
+			WHERE schemaname = 'public' AND tablename = ? AND policyname = 'view_grants_policy'
+		)
+	`, tableName).Scan(&hasPolicy).Error; err != nil {
+		return fmt.Errorf("failed to check RLS policy: %w", err)
+	}
+
+	if hasRLS == wantRLS && hasPolicy == wantRLS {
+		return nil
+	}
+
+	if !wantRLS {
+		if hasPolicy {
+			if err := ctx.DB().Exec("DROP POLICY IF EXISTS view_grants_policy ON " + quotedTable).Error; err != nil {
+				return fmt.Errorf("failed to drop RLS policy: %w", err)
+			}
+		}
+
+		if hasRLS {
+			if err := ctx.DB().Exec("ALTER TABLE " + quotedTable + " DISABLE ROW LEVEL SECURITY").Error; err != nil {
+				return fmt.Errorf("failed to disable RLS: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	if !hasRLS {
+		if err := ctx.DB().Exec("ALTER TABLE " + quotedTable + " ENABLE ROW LEVEL SECURITY").Error; err != nil {
+			return fmt.Errorf("failed to enable RLS: %w", err)
+		}
+	}
+
+	// Always recreate the policy to ensure it matches the expected definition
+	if err := ctx.DB().Exec("DROP POLICY IF EXISTS view_grants_policy ON " + quotedTable).Error; err != nil {
 		return fmt.Errorf("failed to drop existing RLS policy: %w", err)
 	}
 
-	// Create the grants policy
 	policy := fmt.Sprintf(`
 		CREATE POLICY view_grants_policy ON %s
 			FOR ALL TO postgrest_api, postgrest_anon
@@ -157,7 +206,7 @@ func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 				ELSE check_view_grants(__grants)
 				END
 			)
-	`, pq.QuoteIdentifier(tableName))
+	`, quotedTable)
 
 	if err := ctx.DB().Exec(policy).Error; err != nil {
 		return fmt.Errorf("failed to create RLS policy: %w", err)
