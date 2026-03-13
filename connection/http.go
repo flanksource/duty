@@ -65,26 +65,16 @@ func (in *cachedAWSConfig) DeepCopy() *cachedAWSConfig {
 type HTTPConnection struct {
 	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
 	types.HTTPBasicAuth `json:",inline"`
-	URL                 string           `json:"url,omitempty" yaml:"url,omitempty"`
-	Bearer              types.EnvVar     `json:"bearer,omitempty" yaml:"bearer,omitempty"`
-	OAuth               types.OAuth      `json:"oauth,omitempty" yaml:"oauth,omitempty"`
-	TLS                 TLSConfig        `json:"tls,omitempty" yaml:"tls,omitempty"`
-	Headers             []types.EnvVar   `json:"headers,omitempty" yaml:"headers,omitempty"`
-	AWSSigV4            *AWSSigV4        `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty"`
-	awsConfig           *cachedAWSConfig `json:"-"` // cached; populated during Hydrate
-}
+	URL                 string         `json:"url,omitempty" yaml:"url,omitempty"`
+	Bearer              types.EnvVar   `json:"bearer,omitempty" yaml:"bearer,omitempty"`
+	OAuth               types.OAuth    `json:"oauth,omitempty" yaml:"oauth,omitempty"`
+	TLS                 TLSConfig      `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Headers             []types.EnvVar `json:"headers,omitempty" yaml:"headers,omitempty"`
+	AWSSigV4            *AWSSigV4      `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty"`
 
-// MarshalJSON and UnmarshalJSON are implemented so that HTTPConnection
-// is recognized as handling its own serialization. This prevents CRD
-// validation from flagging the unexported `awsConfig` cache field.
-func (h HTTPConnection) MarshalJSON() ([]byte, error) {
-	type Alias HTTPConnection
-	return json.Marshal(Alias(h))
-}
-
-func (h *HTTPConnection) UnmarshalJSON(data []byte) error {
-	type Alias HTTPConnection
-	return json.Unmarshal(data, (*Alias)(h))
+	// Exported to avoid being flagged by CRD unexported-field validation.
+	// The underlying type is unexported, so external code cannot construct values.
+	AwsConfig *cachedAWSConfig `json:"-" yaml:"-"` // cached; populated during Hydrate
 }
 
 func (t HTTPConnection) Pretty() api.Text {
@@ -351,7 +341,7 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 			if err != nil {
 				return h, fmt.Errorf("error getting aws config for sigv4: %w", err)
 			}
-			h.awsConfig = &cachedAWSConfig{cfg}
+			h.AwsConfig = &cachedAWSConfig{cfg}
 		}
 	}
 
@@ -398,11 +388,11 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 		rt.TLS = conn.TLS
 	}
 
-	if conn.AWSSigV4 != nil && conn.awsConfig != nil {
+	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
 		rt.Base = middlewares.NewAWSSigv4Transport(middlewares.AWSSigv4Config{
-			Region:              conn.awsConfig.Region,
+			Region:              conn.AwsConfig.Region,
 			Service:             conn.AWSSigV4.Service,
-			CredentialsProvider: conn.awsConfig.Credentials,
+			CredentialsProvider: conn.AwsConfig.Credentials,
 		}, rt.Base)
 	}
 
@@ -448,8 +438,8 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client,
 		}
 	}
 
-	if conn.AWSSigV4 != nil && conn.awsConfig != nil {
-		client.AWSAuthSigV4(conn.awsConfig.Config)
+	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
+		client.AWSAuthSigV4(conn.AwsConfig.Config)
 		if conn.AWSSigV4.Service != "" {
 			client.AWSService(conn.AWSSigV4.Service)
 		}
