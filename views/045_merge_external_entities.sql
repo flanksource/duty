@@ -3,9 +3,10 @@
 -- Returns (loser_id, winner_id) pairs for caller cache eviction.
 CREATE OR REPLACE FUNCTION merge_and_upsert_external_users(p_temp_table TEXT)
 RETURNS TABLE(loser_id UUID, winner_id UUID) AS $$
-DECLARE
-  changed BOOLEAN;
 BEGIN
+  LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
+    external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+
   -- Step 1: Build undirected edge list from alias overlaps
   EXECUTE format('
     CREATE TEMP TABLE _eu_edges ON COMMIT DROP AS
@@ -54,20 +55,82 @@ BEGIN
     EXIT WHEN NOT FOUND;
   END LOOP;
 
-  -- Step 3: Build merge pairs (every non-leader → leader)
+  -- Step 3: Build merge pairs (every non-leader -> leader)
   CREATE TEMP TABLE _eu_merges (loser_id UUID PRIMARY KEY, winner_id UUID) ON COMMIT DROP;
   INSERT INTO _eu_merges (loser_id, winner_id)
     SELECT node, leader FROM _eu_comp WHERE node != leader;
 
-  -- Step 4: Remap FKs in bulk
-  UPDATE config_access SET external_user_id = mp.winner_id
-  FROM _eu_merges mp WHERE config_access.external_user_id = mp.loser_id;
+  -- Step 3b: Pre-insert winners from temp table so FK remaps don't violate constraints
+  EXECUTE format('
+    INSERT INTO external_users (id, aliases, name, account_id, user_type, email, scraper_id, created_at, updated_at, created_by)
+    SELECT id, aliases, name, account_id, user_type, email, scraper_id, created_at, updated_at, created_by
+    FROM %I WHERE id IN (SELECT DISTINCT winner_id FROM _eu_merges)
+    ON CONFLICT (id) DO NOTHING
+  ', p_temp_table);
+
+  -- Step 4: Remap FKs in bulk without violating unique constraints
+  CREATE TEMP TABLE _eu_ca_dups (id TEXT PRIMARY KEY) ON COMMIT DROP;
+  INSERT INTO _eu_ca_dups (id)
+  SELECT candidate.id
+  FROM (
+    SELECT ca.id,
+           EXISTS (
+             SELECT 1
+             FROM config_access existing
+             WHERE existing.deleted_at IS NULL
+               AND existing.id <> ca.id
+               AND existing.config_id = ca.config_id
+               AND existing.external_user_id = mp.winner_id
+               AND existing.external_group_id IS NOT DISTINCT FROM ca.external_group_id
+               AND existing.external_role_id IS NOT DISTINCT FROM ca.external_role_id
+           ) AS collides_with_live,
+           ROW_NUMBER() OVER (
+             PARTITION BY ca.config_id, mp.winner_id, ca.external_group_id, ca.external_role_id
+             ORDER BY ca.created_at, ca.id
+           ) AS target_rank
+    FROM config_access ca
+    JOIN _eu_merges mp ON ca.external_user_id = mp.loser_id
+    WHERE ca.deleted_at IS NULL
+  ) candidate
+  WHERE candidate.collides_with_live OR candidate.target_rank > 1;
+
+  UPDATE config_access
+  SET deleted_at = NOW()
+  WHERE deleted_at IS NULL
+    AND id IN (SELECT id FROM _eu_ca_dups);
+
+  UPDATE config_access
+  SET external_user_id = mp.winner_id
+  FROM _eu_merges mp
+  WHERE config_access.external_user_id = mp.loser_id
+    AND NOT EXISTS (SELECT 1 FROM _eu_ca_dups d WHERE d.id = config_access.id);
 
   UPDATE access_reviews SET external_user_id = mp.winner_id
   FROM _eu_merges mp WHERE access_reviews.external_user_id = mp.loser_id;
 
-  UPDATE config_access_logs SET external_user_id = mp.winner_id
-  FROM _eu_merges mp WHERE config_access_logs.external_user_id = mp.loser_id;
+  CREATE TEMP TABLE _eu_log_agg ON COMMIT DROP AS
+  SELECT cal.config_id,
+         mp.winner_id AS external_user_id,
+         cal.scraper_id,
+         MAX(cal.created_at) AS created_at,
+         COALESCE(SUM(COALESCE(cal.count, 1)), 0)::integer AS count,
+         (ARRAY_AGG(cal.mfa ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS mfa,
+         (ARRAY_AGG(cal.properties ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS properties
+  FROM config_access_logs cal
+  JOIN _eu_merges mp ON cal.external_user_id = mp.loser_id
+  GROUP BY cal.config_id, mp.winner_id, cal.scraper_id;
+
+  INSERT INTO config_access_logs (config_id, external_user_id, scraper_id, created_at, mfa, properties, count)
+  SELECT config_id, external_user_id, scraper_id, created_at, mfa, properties, count
+  FROM _eu_log_agg
+  ON CONFLICT (config_id, external_user_id, scraper_id) DO UPDATE SET
+    count = COALESCE(config_access_logs.count, 0) + COALESCE(EXCLUDED.count, 0),
+    created_at = GREATEST(config_access_logs.created_at, EXCLUDED.created_at),
+    mfa = CASE WHEN EXCLUDED.created_at >= config_access_logs.created_at THEN EXCLUDED.mfa ELSE config_access_logs.mfa END,
+    properties = CASE WHEN EXCLUDED.created_at >= config_access_logs.created_at THEN EXCLUDED.properties ELSE config_access_logs.properties END;
+
+  DELETE FROM config_access_logs USING _eu_merges mp
+  WHERE config_access_logs.external_user_id = mp.loser_id;
 
   INSERT INTO external_user_groups (external_user_id, external_group_id, created_at)
   SELECT mp.winner_id, eug.external_group_id, eug.created_at
@@ -93,7 +156,7 @@ BEGIN
   UPDATE external_users SET deleted_at = NOW()
   FROM _eu_merges mp WHERE external_users.id = mp.loser_id;
 
-  -- Step 7: Consolidate temp table (merge aliases from all losers — both temp and live — into temp winners)
+  -- Step 7: Consolidate temp table (merge aliases from all losers - both temp and live - into temp winners)
   EXECUTE format('
     UPDATE %1$I t SET
       aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(t.aliases || agg.all_aliases) ORDER BY 1), ''{}''::text[])
@@ -128,6 +191,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION merge_and_upsert_external_groups(p_temp_table TEXT)
 RETURNS TABLE(loser_id UUID, winner_id UUID) AS $$
 BEGIN
+  LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
+    external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+
   EXECUTE format('
     CREATE TEMP TABLE _eg_edges ON COMMIT DROP AS
     SELECT DISTINCT a.id AS id1, b.id AS id2
@@ -174,8 +240,48 @@ BEGIN
   CREATE TEMP TABLE _eg_merges (loser_id UUID PRIMARY KEY, winner_id UUID) ON COMMIT DROP;
   INSERT INTO _eg_merges SELECT node, leader FROM _eg_comp WHERE node != leader;
 
-  UPDATE config_access SET external_group_id = mp.winner_id
-  FROM _eg_merges mp WHERE config_access.external_group_id = mp.loser_id;
+  EXECUTE format('
+    INSERT INTO external_groups (id, aliases, name, account_id, scraper_id, group_type, created_at, updated_at)
+    SELECT id, aliases, name, account_id, scraper_id, group_type, created_at, updated_at
+    FROM %I WHERE id IN (SELECT DISTINCT winner_id FROM _eg_merges)
+    ON CONFLICT (id) DO NOTHING
+  ', p_temp_table);
+
+  CREATE TEMP TABLE _eg_ca_dups (id TEXT PRIMARY KEY) ON COMMIT DROP;
+  INSERT INTO _eg_ca_dups (id)
+  SELECT candidate.id
+  FROM (
+    SELECT ca.id,
+           EXISTS (
+             SELECT 1
+             FROM config_access existing
+             WHERE existing.deleted_at IS NULL
+               AND existing.id <> ca.id
+               AND existing.config_id = ca.config_id
+               AND existing.external_user_id IS NOT DISTINCT FROM ca.external_user_id
+               AND existing.external_group_id = mp.winner_id
+               AND existing.external_role_id IS NOT DISTINCT FROM ca.external_role_id
+           ) AS collides_with_live,
+           ROW_NUMBER() OVER (
+             PARTITION BY ca.config_id, ca.external_user_id, mp.winner_id, ca.external_role_id
+             ORDER BY ca.created_at, ca.id
+           ) AS target_rank
+    FROM config_access ca
+    JOIN _eg_merges mp ON ca.external_group_id = mp.loser_id
+    WHERE ca.deleted_at IS NULL
+  ) candidate
+  WHERE candidate.collides_with_live OR candidate.target_rank > 1;
+
+  UPDATE config_access
+  SET deleted_at = NOW()
+  WHERE deleted_at IS NULL
+    AND id IN (SELECT id FROM _eg_ca_dups);
+
+  UPDATE config_access
+  SET external_group_id = mp.winner_id
+  FROM _eg_merges mp
+  WHERE config_access.external_group_id = mp.loser_id
+    AND NOT EXISTS (SELECT 1 FROM _eg_ca_dups d WHERE d.id = config_access.id);
 
   INSERT INTO external_user_groups (external_user_id, external_group_id, created_at)
   SELECT eug.external_user_id, mp.winner_id, eug.created_at
@@ -230,6 +336,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION merge_and_upsert_external_roles(p_temp_table TEXT)
 RETURNS TABLE(loser_id UUID, winner_id UUID) AS $$
 BEGIN
+  LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
+    external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+
   EXECUTE format('
     CREATE TEMP TABLE _er_edges ON COMMIT DROP AS
     SELECT DISTINCT a.id AS id1, b.id AS id2
@@ -277,8 +386,48 @@ BEGIN
   CREATE TEMP TABLE _er_merges (loser_id UUID PRIMARY KEY, winner_id UUID) ON COMMIT DROP;
   INSERT INTO _er_merges SELECT node, leader FROM _er_comp WHERE node != leader;
 
-  UPDATE config_access SET external_role_id = mp.winner_id
-  FROM _er_merges mp WHERE config_access.external_role_id = mp.loser_id;
+  EXECUTE format('
+    INSERT INTO external_roles (id, aliases, name, account_id, role_type, description, scraper_id, application_id, created_at, updated_at)
+    SELECT id, aliases, name, account_id, role_type, description, scraper_id, application_id, created_at, updated_at
+    FROM %I WHERE id IN (SELECT DISTINCT winner_id FROM _er_merges)
+    ON CONFLICT (id) DO NOTHING
+  ', p_temp_table);
+
+  CREATE TEMP TABLE _er_ca_dups (id TEXT PRIMARY KEY) ON COMMIT DROP;
+  INSERT INTO _er_ca_dups (id)
+  SELECT candidate.id
+  FROM (
+    SELECT ca.id,
+           EXISTS (
+             SELECT 1
+             FROM config_access existing
+             WHERE existing.deleted_at IS NULL
+               AND existing.id <> ca.id
+               AND existing.config_id = ca.config_id
+               AND existing.external_user_id IS NOT DISTINCT FROM ca.external_user_id
+               AND existing.external_group_id IS NOT DISTINCT FROM ca.external_group_id
+               AND existing.external_role_id = mp.winner_id
+           ) AS collides_with_live,
+           ROW_NUMBER() OVER (
+             PARTITION BY ca.config_id, ca.external_user_id, ca.external_group_id, mp.winner_id
+             ORDER BY ca.created_at, ca.id
+           ) AS target_rank
+    FROM config_access ca
+    JOIN _er_merges mp ON ca.external_role_id = mp.loser_id
+    WHERE ca.deleted_at IS NULL
+  ) candidate
+  WHERE candidate.collides_with_live OR candidate.target_rank > 1;
+
+  UPDATE config_access
+  SET deleted_at = NOW()
+  WHERE deleted_at IS NULL
+    AND id IN (SELECT id FROM _er_ca_dups);
+
+  UPDATE config_access
+  SET external_role_id = mp.winner_id
+  FROM _er_merges mp
+  WHERE config_access.external_role_id = mp.loser_id
+    AND NOT EXISTS (SELECT 1 FROM _er_ca_dups d WHERE d.id = config_access.id);
 
   UPDATE access_reviews SET external_role_id = mp.winner_id
   FROM _er_merges mp WHERE access_reviews.external_role_id = mp.loser_id;
