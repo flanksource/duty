@@ -144,15 +144,15 @@ BEGIN
       RETURN NULL;
     END IF;
 
-    IF NEW.status != 'healthy' OR NEW.status != 'unhealthy' THEN
+    IF NEW.status != 'healthy' AND NEW.status != 'unhealthy' THEN
         RETURN NULL;
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.passed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.passed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime))
         ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.failed', NEW.id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.failed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime))
         ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     END IF;
 
@@ -164,6 +164,7 @@ CREATE OR REPLACE TRIGGER check_enqueue
 AFTER UPDATE ON checks_unlogged
 FOR EACH ROW
 EXECUTE PROCEDURE insert_check_updates_in_event_queue ();
+
 
 -- Insert config health updates in event_queue
 CREATE OR REPLACE FUNCTION insert_config_health_updates_in_event_queue ()
