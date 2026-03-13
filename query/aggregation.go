@@ -175,9 +175,9 @@ func BuildJSONFieldSelector(field string) (selector, alias string) {
 		jsonPath.WriteString(column)
 		for i, part := range pathParts {
 			if i == len(pathParts)-1 {
-				jsonPath.WriteString(fmt.Sprintf(`->>'%s'`, part))
+				fmt.Fprintf(&jsonPath, `->>'%s'`, part)
 			} else {
-				jsonPath.WriteString(fmt.Sprintf(`->'%s'`, part))
+				fmt.Fprintf(&jsonPath, `->'%s'`, part)
 			}
 		}
 		selector = jsonPath.String()
