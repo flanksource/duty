@@ -324,8 +324,8 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 
 		var credentialFile bytes.Buffer
 		credentialFile.WriteString("[default]\n")
-		credentialFile.WriteString(fmt.Sprintf("aws_access_key_id = %s\n", c.Username))
-		credentialFile.WriteString(fmt.Sprintf("aws_secret_access_key = %s\n", c.Password))
+		fmt.Fprintf(&credentialFile, "aws_access_key_id = %s\n", c.Username)
+		fmt.Fprintf(&credentialFile, "aws_secret_access_key = %s\n", c.Password)
 
 		if v, ok := c.Properties["profile"]; ok && v != "" {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_PROFILE=%s", v))
@@ -334,7 +334,7 @@ func (c Connection) AsEnv(ctx context.Context) EnvPrep {
 		if v, ok := c.Properties["region"]; ok && v != "" {
 			envPrep.Env = append(envPrep.Env, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
 
-			credentialFile.WriteString(fmt.Sprintf("region = %s\n", v))
+			fmt.Fprintf(&credentialFile, "region = %s\n", v)
 
 			envPrep.CmdEnvs = append(envPrep.CmdEnvs, fmt.Sprintf("AWS_DEFAULT_REGION=%s", v))
 		}
