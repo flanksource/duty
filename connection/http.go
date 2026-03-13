@@ -74,6 +74,19 @@ type HTTPConnection struct {
 	awsConfig           *cachedAWSConfig `json:"-"` // cached; populated during Hydrate
 }
 
+// MarshalJSON and UnmarshalJSON are implemented so that HTTPConnection
+// is recognized as handling its own serialization. This prevents CRD
+// validation from flagging the unexported `awsConfig` cache field.
+func (h HTTPConnection) MarshalJSON() ([]byte, error) {
+	type Alias HTTPConnection
+	return json.Marshal(Alias(h))
+}
+
+func (h *HTTPConnection) UnmarshalJSON(data []byte) error {
+	type Alias HTTPConnection
+	return json.Unmarshal(data, (*Alias)(h))
+}
+
 func (t HTTPConnection) Pretty() api.Text {
 	s := clicky.Text("")
 
