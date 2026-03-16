@@ -32,10 +32,10 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.33.0
 	github.com/flanksource/artifacts v1.0.21
 	github.com/flanksource/clicky v1.19.0
-	github.com/flanksource/commons v1.48.0
+	github.com/flanksource/commons v1.48.1
 	github.com/flanksource/deps v1.0.24
 	github.com/flanksource/gomplate/v3 v3.24.73
-	github.com/flanksource/is-healthy v1.0.84
+	github.com/flanksource/is-healthy v1.0.85
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-git/v5 v5.16.5
