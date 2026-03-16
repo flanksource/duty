@@ -16,8 +16,14 @@ func TestDuty(t *testing.T) {
 	ginkgo.RunSpecs(t, "Duty Suite")
 }
 
-var _ = ginkgo.BeforeSuite(func() {
-	DefaultContext = setup.BeforeSuiteFn()
-})
+var setupOpts = setup.SetupOpts{DummyData: true}
 
-var _ = ginkgo.AfterSuite(setup.AfterSuiteFn)
+var _ = ginkgo.SynchronizedBeforeSuite(
+	func() []byte { return setup.SetupTemplate(setupOpts) },
+	func(data []byte) { DefaultContext = setup.SetupNode(data, setupOpts) },
+)
+
+var _ = ginkgo.SynchronizedAfterSuite(
+	setup.SynchronizedAfterSuiteAllNodes,
+	setup.SynchronizedAfterSuiteNode1,
+)
