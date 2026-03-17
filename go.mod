@@ -32,9 +32,9 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.33.0
 	github.com/flanksource/artifacts v1.0.21
 	github.com/flanksource/clicky v1.19.0
-	github.com/flanksource/commons v1.48.1
+	github.com/flanksource/commons v1.48.2
 	github.com/flanksource/deps v1.0.24
-	github.com/flanksource/gomplate/v3 v3.24.73
+	github.com/flanksource/gomplate/v3 v3.24.74
 	github.com/flanksource/is-healthy v1.0.85
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
@@ -141,7 +141,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
-	github.com/Snawoot/go-http-digest-auth-client v1.1.3 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
