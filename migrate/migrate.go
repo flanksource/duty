@@ -13,12 +13,14 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/gomplate/v3"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/functions"
+	premigrate "github.com/flanksource/duty/schema/pre-migrate"
 	"github.com/flanksource/duty/schema"
 	"github.com/flanksource/duty/views"
 )
@@ -63,7 +65,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to create migration log table: %w", err)
 	}
 
-	allFunctions, allViews, err := GetExecutableScripts(pool, config.MustRun, config.SkipMigrationFiles)
+	allFunctions, allPremigrations, allViews, err := GetExecutableScripts(pool, config.MustRun, config.SkipMigrationFiles)
 	if err != nil {
 		return fmt.Errorf("failed to get executable scripts: %w", err)
 	}
@@ -79,6 +81,11 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return oops.Wrapf(err, "failed to grant postgrest roles")
 	}
 
+	l.V(3).Infof("Running %d scripts (pre-migrate)", len(allPremigrations))
+	if err := runScripts(pool, allPremigrations); err != nil {
+		return fmt.Errorf("failed to run premigration scripts: %w", err)
+	}
+
 	l.V(3).Infof("Applying schema migrations")
 	if err := schema.Apply(context.TODO(), config.ConnectionString); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
@@ -92,44 +99,53 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	return nil
 }
 
-// GetExecutableScripts returns functions & views that must be applied.
+// GetExecutableScripts returns functions, pre-migrate scripts & views that must be applied.
 // It takes dependencies into account & excludes any unchanged scripts.
-func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]string, map[string]string, error) {
+func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]string, map[string]string, map[string]string, error) {
 	l := logger.GetLogger("migrate")
 
 	var (
-		allFunctions = map[string]string{}
-		allViews     = map[string]string{}
+		allFunctions      = map[string]string{}
+		allPremigrations  = map[string]string{}
+		allViews          = map[string]string{}
 	)
 
 	l.V(3).Infof("Getting functions")
 	funcs, err := functions.GetFunctions()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get functions: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get functions: %w", err)
+	}
+
+	l.V(3).Infof("Getting pre-migrate scripts")
+	premigs, err := premigrate.GetPremigrations()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get premigrations: %w", err)
 	}
 
 	l.V(3).Infof("Getting views")
 	views, err := views.GetViews()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get views: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get views: %w", err)
 	}
 
 	depGraph, err := getDependencyTree()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to for dependency map: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to for dependency map: %w", err)
 	}
 
 	currentMigrationHashes, err := readMigrationLogs(pool)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	env := buildMigrationEnv(pool)
 
 	for path, content := range funcs {
 		if lo.Contains(mustRun, path) {
 			// proceeed. do not check hash
 		} else if lo.Contains(skip, path) {
 			continue
-		} else if hasMatchingHash(path, content, currentMigrationHashes) {
+		} else if hasMatchingHash(path, content, currentMigrationHashes, env) {
 			continue
 		}
 
@@ -142,6 +158,36 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 			switch baseDir {
 			case "functions":
 				allFunctions[filename] = funcs[filename]
+			case "pre-migrate":
+				allPremigrations[filename] = premigs[filename]
+			case "views":
+				allViews[filename] = views[filename]
+			default:
+				panic(fmt.Sprintf("unhandled base directory: %s", baseDir))
+			}
+		}
+	}
+
+	for path, content := range premigs {
+		if lo.Contains(mustRun, path) {
+			// proceeed. do not check hash
+		} else if lo.Contains(skip, path) {
+			continue
+		} else if hasMatchingHash(path, content, currentMigrationHashes, env) {
+			continue
+		}
+
+		allPremigrations[path] = content
+
+		for _, dependent := range depGraph[filepath.Join("pre-migrate", path)] {
+			baseDir := filepath.Dir(dependent)
+			filename := filepath.Base(dependent)
+
+			switch baseDir {
+			case "functions":
+				allFunctions[filename] = funcs[filename]
+			case "pre-migrate":
+				allPremigrations[filename] = premigs[filename]
 			case "views":
 				allViews[filename] = views[filename]
 			default:
@@ -156,7 +202,7 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 			// proceeed. do not check hash
 		} else if lo.Contains(skip, path) {
 			continue
-		} else if hasMatchingHash(path, content, currentMigrationHashes) {
+		} else if hasMatchingHash(path, content, currentMigrationHashes, env) {
 			continue
 		}
 
@@ -168,6 +214,8 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 			switch baseDir {
 			case "functions":
 				allFunctions[filename] = funcs[filename]
+			case "pre-migrate":
+				allPremigrations[filename] = premigs[filename]
 			case "views":
 				allViews[filename] = views[filename]
 			default:
@@ -176,30 +224,45 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 		}
 	}
 
-	return allFunctions, allViews, err
+	return allFunctions, allPremigrations, allViews, err
 }
 
-func isMarkedForAlwaysRun(content string) bool {
+// parseHeader extracts SQL comment directives from the top of a script.
+// It returns a map of directive key → value (e.g. "runs" → "always", "if" → "'table' in tables").
+func parseHeader(content string) map[string]string {
+	directives := make(map[string]string)
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
-		if line == "-- runs: always" {
-			return true
-		}
 		if !strings.HasPrefix(line, "--") {
-			// If we hit a non-comment line, assume we're past the header section
-			// stop looking for the directive.
 			break
 		}
+		line = strings.TrimPrefix(line, "--")
+		if k, v, ok := strings.Cut(strings.TrimSpace(line), ":"); ok {
+			directives[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
 	}
+	return directives
+}
 
-	return false
+func isMarkedForAlwaysRun(content string) bool {
+	return parseHeader(content)["runs"] == "always"
+}
+
+func migrationLogsTableExists(pool *sql.DB) bool {
+	var exists bool
+	err := pool.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'migration_logs')").Scan(&exists)
+	return err == nil && exists
 }
 
 func readMigrationLogs(pool *sql.DB) (map[string]string, error) {
+	if !migrationLogsTableExists(pool) {
+		return make(map[string]string), nil
+	}
+
 	rows, err := pool.Query("SELECT path, hash FROM migration_logs")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migration logs: %w", err)
@@ -300,6 +363,30 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 	return true, nil
 }
 
+func queryTableNames(pool *sql.DB) []string {
+	rows, err := pool.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err == nil {
+			tables = append(tables, name)
+		}
+	}
+	return tables
+}
+
+func buildMigrationEnv(pool *sql.DB) map[string]any {
+	return map[string]any{
+		"tables":     queryTableNames(pool),
+		"properties": properties.Global.GetAll(),
+	}
+}
+
 func runScripts(pool *sql.DB, scripts map[string]string) error {
 	l := logger.GetLogger("migrate")
 
@@ -309,13 +396,31 @@ func runScripts(pool *sql.DB, scripts map[string]string) error {
 	}
 	sort.Strings(filenames)
 
+	env := buildMigrationEnv(pool)
+
 	for _, file := range filenames {
 		content, ok := scripts[file]
 		if !ok {
 			continue
 		}
 
-		hash := sha1.Sum([]byte(content))
+		header := parseHeader(content)
+		hash := computeHash(content, env)
+
+		if expr := header["if"]; expr != "" {
+			ok, err := gomplate.RunTemplateBool(env, gomplate.Template{Expression: expr})
+			if err != nil {
+				return fmt.Errorf("failed to evaluate if expression for %s: %w", file, err)
+			}
+			if !ok {
+				l.V(3).Infof("skipping %s: condition not met: %s", file, expr)
+				if _, err := pool.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
+					return fmt.Errorf("failed to save migration log %s: %w", file, err)
+				}
+				continue
+			}
+		}
+
 		l.Tracef("running script %s", file)
 		if _, err := pool.Exec(scripts[file]); err != nil {
 			return fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
@@ -340,8 +445,21 @@ func createMigrationLogTable(pool *sql.DB) error {
 	return err
 }
 
-func hasMatchingHash(path, content string, currentHashes map[string]string) bool {
-	hash := sha1.Sum([]byte(content))
+// computeHash returns a SHA1 hash of the script content plus resolved directive values.
+// Including directive state in the hash ensures that when a CEL condition
+// changes, the hash mismatches and the script is re-evaluated.
+func computeHash(content string, env map[string]any) [20]byte {
+	header := parseHeader(content)
+	extra := ""
+	if expr := header["if"]; expr != "" {
+		result, _ := gomplate.RunTemplateBool(env, gomplate.Template{Expression: expr})
+		extra += fmt.Sprintf("\n--if:%s=%v", expr, result)
+	}
+	return sha1.Sum([]byte(content + extra))
+}
+
+func hasMatchingHash(path, content string, currentHashes map[string]string, env map[string]any) bool {
+	hash := computeHash(content, env)
 	currentHash, exists := currentHashes[path]
 	return exists && currentHash == string(hash[:])
 }

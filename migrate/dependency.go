@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/flanksource/duty/functions"
+	premigrate "github.com/flanksource/duty/schema/pre-migrate"
 	"github.com/flanksource/duty/views"
 	"github.com/samber/lo"
 )
@@ -51,16 +52,19 @@ func getDependencyTree() (DependencyMap, error) {
 		return nil, err
 	}
 
+	premigs, err := premigrate.GetPremigrations()
+	if err != nil {
+		return nil, err
+	}
+
 	views, err := views.GetViews()
 	if err != nil {
 		return nil, err
 	}
 
-	for i, dir := range []map[string]string{funcs, views} {
-		dirName := "functions"
-		if i == 1 {
-			dirName = "views"
-		}
+	dirNames := []string{"functions", "pre-migrate", "views"}
+	for i, dir := range []map[string]string{funcs, premigs, views} {
+		dirName := dirNames[i]
 
 		for entry, content := range dir {
 			path := filepath.Join(dirName, entry)

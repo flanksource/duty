@@ -19,7 +19,7 @@ import (
 	"github.com/flanksource/duty/logs/loki"
 )
 
-var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, ginkgo.Label("e2e"), func() {
+var _ = ginkgo.Describe("Loki Integration", ginkgo.Ordered, ginkgo.Label("e2e"), ginkgo.Label("external"), func() {
 	var (
 		lokiURL string
 		ctx     context.Context

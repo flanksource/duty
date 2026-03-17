@@ -5,18 +5,24 @@
 package schema
 
 import (
+	"bufio"
 	"context"
+	"database/sql"
 	"embed"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"ariga.io/atlas/sql/migrate"
 	_ "ariga.io/atlas/sql/postgres"
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlclient"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/commons/properties"
+	"github.com/flanksource/gomplate/v3"
 	"github.com/hashicorp/hcl/v2/hclparse"
+	_ "github.com/lib/pq"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -71,7 +77,13 @@ func Apply(ctx context.Context, connection string) error {
 		return errors.New("--url must be a database connection")
 	}
 
-	to, err := hclStateReader(ctx, client, schemas)
+	pool, err := sql.Open("postgres", connection)
+	if err != nil {
+		return fmt.Errorf("failed to open DB for migration env: %w", err)
+	}
+	defer pool.Close()
+
+	to, err := hclStateReader(ctx, client, schemas, pool)
 	if err != nil {
 		return fmt.Errorf("failed to initiate HCL state reader: %w", err)
 	}
@@ -138,7 +150,7 @@ func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateR
 }
 
 // hclStateReadr returns a StateReader that reads the state from the given HCL paths urls.
-func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) (*stateReadCloser, error) {
+func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS, pool *sql.DB) (*stateReadCloser, error) {
 	scripts, err := schemas.ReadDir(".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read scripts: %w", err)
@@ -146,10 +158,33 @@ func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) 
 
 	p := hclparse.NewParser()
 
+	log := logger.GetLogger("migrate")
+
+	var migrationEnv map[string]any
+	getMigrationEnv := func() map[string]any {
+		if migrationEnv == nil {
+			migrationEnv = buildHCLMigrationEnv(pool)
+		}
+		return migrationEnv
+	}
+
 	for _, file := range scripts {
 		script, err := schemas.ReadFile(file.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to read script %s: %w", file.Name(), err)
+		}
+
+		header := parseHCLHeader(script)
+
+		if expr := header["if"]; expr != "" {
+			ok, err := gomplate.RunTemplateBool(getMigrationEnv(), gomplate.Template{Expression: expr})
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate if expression for %s: %w", file.Name(), err)
+			}
+			if !ok {
+				log.V(3).Infof("skipping HCL %s: condition not met: %s", file.Name(), expr)
+				continue
+			}
 		}
 
 		_, diag := p.ParseHCL(script, file.Name())
@@ -186,4 +221,46 @@ func (sr *stateReadCloser) Close() {
 	if sr.Closer != nil {
 		sr.Closer.Close()
 	}
+}
+
+func buildHCLMigrationEnv(pool *sql.DB) map[string]any {
+	rows, err := pool.Query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+	if err != nil {
+		return map[string]any{"tables": []string{}, "properties": properties.Global.GetAll()}
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err == nil {
+			tables = append(tables, name)
+		}
+	}
+
+	return map[string]any{
+		"tables":     tables,
+		"properties": properties.Global.GetAll(),
+	}
+}
+
+// parseHCLHeader extracts comment directives from the top of an HCL file.
+// It looks for lines starting with "//" and extracts key:value pairs.
+func parseHCLHeader(content []byte) map[string]string {
+	directives := make(map[string]string)
+	scanner := bufio.NewScanner(strings.NewReader(string(content)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "//") {
+			break
+		}
+		line = strings.TrimPrefix(line, "//")
+		if k, v, ok := strings.Cut(strings.TrimSpace(line), ":"); ok {
+			directives[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	return directives
 }

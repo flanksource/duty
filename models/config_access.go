@@ -220,21 +220,24 @@ func (e ConfigAccess) PK() string {
 }
 
 type ConfigAccessSummary struct {
-	ConfigID        uuid.UUID  `json:"config_id"`
-	ConfigName      string     `json:"config_name"`
-	ConfigType      string     `json:"config_type"`
-	ExternalGroupID *uuid.UUID `json:"external_group_id,omitempty"`
-	ExternalUserID  uuid.UUID  `json:"external_user_id,omitempty"`
-	Role            string     `json:"role"`
-	User            string     `json:"user"`
-	UserType        string     `json:"user_type"`
-	Email           string     `json:"email"`
-	CreatedAt       time.Time  `json:"created_at"`
-	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
-	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
-	LastSignedInAt  *time.Time `json:"last_signed_in_at,omitempty"`
-	LastReviewedAt  *time.Time `json:"last_reviewed_at,omitempty"`
-	LastReviewedBy  *uuid.UUID `json:"last_reviewed_by,omitempty"`
+	ConfigID             uuid.UUID  `json:"config_id"`
+	ConfigName           string     `json:"config_name"`
+	ConfigType           string     `json:"config_type"`
+	ExternalGroupID      *uuid.UUID `json:"external_group_id,omitempty"`
+	ExternalUserID       uuid.UUID  `json:"external_user_id,omitempty"`
+	Role                 string     `json:"role"`
+	User                 string     `json:"user"`
+	UserType             string     `json:"user_type"`
+	Email                string     `json:"email"`
+	CreatedAt            time.Time  `json:"created_at"`
+	DeletedAt            *time.Time `json:"deleted_at,omitempty"`
+	CreatedBy            *uuid.UUID `json:"created_by,omitempty"`
+	LastSignedInAt       *time.Time `json:"last_signed_in_at,omitempty"`
+	LastAccessAttemptAt  *time.Time `json:"last_access_attempt_at,omitempty"`
+	AllowedCount         *int       `json:"allowed_count,omitempty"`
+	DeniedCount          *int       `json:"denied_count,omitempty"`
+	LastReviewedAt       *time.Time `json:"last_reviewed_at,omitempty"`
+	LastReviewedBy       *uuid.UUID `json:"last_reviewed_by,omitempty"`
 }
 
 func (e ConfigAccessSummary) TableName() string {
@@ -242,13 +245,22 @@ func (e ConfigAccessSummary) TableName() string {
 }
 
 type ConfigAccessLog struct {
-	ConfigID       uuid.UUID     `json:"config_id" gorm:"primaryKey"`
-	ExternalUserID uuid.UUID     `json:"external_user_id" gorm:"primaryKey"`
-	ScraperID      uuid.UUID     `json:"scraper_id" gorm:"primaryKey"`
-	CreatedAt      time.Time     `json:"created_at"`
-	MFA            bool          `json:"mfa,omitempty" gorm:"default:null"`
+	ID             string        `json:"id" gorm:"primaryKey;default:generate_ulid()"`
+	ConfigID       uuid.UUID     `json:"config_id"`
+	ScraperID      uuid.UUID     `json:"scraper_id"`
+	ExternalUserID uuid.UUID     `json:"external_user_id"`
+	ExternalRoleID uuid.UUID     `json:"external_role_id" gorm:"default:'00000000-0000-0000-0000-000000000000'"`
+	ClientIP       string        `json:"client_ip,omitempty" gorm:"default:''"`
+	Verb           string        `json:"verb,omitempty"`
+	Outcome        string        `json:"outcome,omitempty" gorm:"default:'allowed'"`
+	MFA            bool          `json:"mfa" gorm:"default:false"`
 	Properties     types.JSONMap `json:"properties,omitempty" gorm:"default:null"`
 	Count          *int          `json:"count,omitempty" gorm:"default:1"`
+	Fingerprint    string        `json:"fingerprint,omitempty"`
+	FirstObserved  time.Time     `json:"first_observed"`
+	CreatedAt      time.Time     `json:"created_at"`
+	InsertedAt     *time.Time    `json:"inserted_at,omitempty" gorm:"default:now()"`
+	BucketStart    time.Time     `json:"bucket_start" gorm:"default:date_trunc('day'::text, now())"`
 }
 
 func (e ConfigAccessLog) TableName() string {

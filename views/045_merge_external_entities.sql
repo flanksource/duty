@@ -112,20 +112,30 @@ BEGIN
   SELECT cal.config_id,
          mp.winner_id AS external_user_id,
          cal.scraper_id,
+         cal.client_ip,
+         cal.external_role_id,
+         cal.outcome,
+         cal.bucket_start,
          MAX(cal.created_at) AS created_at,
+         MIN(cal.first_observed) AS first_observed,
          COALESCE(SUM(COALESCE(cal.count, 1)), 0)::integer AS count,
          (ARRAY_AGG(cal.mfa ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS mfa,
-         (ARRAY_AGG(cal.properties ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS properties
+         (ARRAY_AGG(cal.properties ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS properties,
+         (ARRAY_AGG(cal.verb ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS verb,
+         (ARRAY_AGG(cal.fingerprint ORDER BY cal.created_at DESC, cal.external_user_id::text))[1] AS fingerprint
   FROM config_access_logs cal
   JOIN _eu_merges mp ON cal.external_user_id = mp.loser_id
-  GROUP BY cal.config_id, mp.winner_id, cal.scraper_id;
+  GROUP BY cal.config_id, mp.winner_id, cal.scraper_id, cal.client_ip, cal.external_role_id, cal.outcome, cal.bucket_start;
 
-  INSERT INTO config_access_logs (config_id, external_user_id, scraper_id, created_at, mfa, properties, count)
-  SELECT config_id, external_user_id, scraper_id, created_at, mfa, properties, count
+  INSERT INTO config_access_logs (config_id, external_user_id, scraper_id, client_ip, external_role_id, outcome, bucket_start,
+    created_at, first_observed, count, mfa, properties, verb, fingerprint)
+  SELECT config_id, external_user_id, scraper_id, client_ip, external_role_id, outcome, bucket_start,
+    created_at, first_observed, count, mfa, properties, verb, fingerprint
   FROM _eu_log_agg
-  ON CONFLICT (config_id, external_user_id, scraper_id) DO UPDATE SET
+  ON CONFLICT (config_id, scraper_id, client_ip, external_role_id, external_user_id, outcome, mfa, bucket_start) DO UPDATE SET
     count = COALESCE(config_access_logs.count, 0) + COALESCE(EXCLUDED.count, 0),
     created_at = GREATEST(config_access_logs.created_at, EXCLUDED.created_at),
+    first_observed = LEAST(config_access_logs.first_observed, EXCLUDED.first_observed),
     mfa = CASE WHEN EXCLUDED.created_at >= config_access_logs.created_at THEN EXCLUDED.mfa ELSE config_access_logs.mfa END,
     properties = CASE WHEN EXCLUDED.created_at >= config_access_logs.created_at THEN EXCLUDED.properties ELSE config_access_logs.properties END;
 
