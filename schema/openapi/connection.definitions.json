@@ -1,5 +1,36 @@
 {
   "$defs": {
+    "Condition": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "observedGeneration": {
+          "type": "integer"
+        },
+        "lastTransitionTime": {
+          "$ref": "#/$defs/Time"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "status",
+        "lastTransitionTime",
+        "reason",
+        "message"
+      ]
+    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -34,12 +65,14 @@
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "Connection is the Schema for the connections API"
     },
     "ConnectionAWS": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS Endpoint"
         },
         "region": {
           "type": "string"
@@ -55,6 +88,12 @@
         },
         "secretKey": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -63,7 +102,8 @@
     "ConnectionAWSKMS": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS Endpoint"
         },
         "region": {
           "type": "string"
@@ -80,8 +120,15 @@
         "secretKey": {
           "$ref": "#/$defs/EnvVar"
         },
-        "keyID": {
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
           "type": "string"
+        },
+        "keyID": {
+          "type": "string",
+          "description": "keyID can be an alias (eg: alias/ExampleAlias?region=us-east-1) or the ARN"
         }
       },
       "additionalProperties": false,
@@ -93,7 +140,8 @@
     "ConnectionAWSS3": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS Endpoint"
         },
         "region": {
           "type": "string"
@@ -110,11 +158,18 @@
         "secretKey": {
           "$ref": "#/$defs/EnvVar"
         },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
         "bucket": {
           "type": "string"
         },
         "usePathStyle": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Use path style path: http://s3.amazonaws.com/BUCKET/KEY instead of http://BUCKET.s3.amazonaws.com/KEY"
         }
       },
       "additionalProperties": false,
@@ -122,6 +177,40 @@
       "required": [
         "bucket"
       ]
+    },
+    "ConnectionAWSSigV4": {
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS Endpoint"
+        },
+        "region": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "insecureTLS": {
+          "type": "boolean"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ConnectionAnthropic": {
       "properties": {
@@ -191,7 +280,8 @@
           "$ref": "#/$defs/EnvVar"
         },
         "keyID": {
-          "type": "string"
+          "type": "string",
+          "description": "keyID is a URL to the key in the format\n\thttps://<vault-name>.vault.azure.net/keys/<key-name>"
         }
       },
       "additionalProperties": false,
@@ -218,6 +308,45 @@
         "webhookID"
       ]
     },
+    "ConnectionElasticsearch": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "insecureTLS": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
+    "ConnectionFacet": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "token": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "timestampUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ]
+    },
     "ConnectionFolder": {
       "properties": {
         "path": {
@@ -237,6 +366,9 @@
         },
         "certificate": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "project": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -250,8 +382,12 @@
         "certificate": {
           "$ref": "#/$defs/EnvVar"
         },
-        "keyID": {
+        "project": {
           "type": "string"
+        },
+        "keyID": {
+          "type": "string",
+          "description": "keyID points to the key in the format\nprojects/MYPROJECT/locations/MYLOCATION/keyRings/MYKEYRING/cryptoKeys/MYKEY"
         }
       },
       "additionalProperties": false,
@@ -267,6 +403,9 @@
         },
         "certificate": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "project": {
+          "type": "string"
         },
         "bucket": {
           "type": "string"
@@ -361,6 +500,24 @@
         },
         "password": {
           "$ref": "#/$defs/EnvVar"
+        },
+        "bearer": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth"
+        },
+        "tls": {
+          "$ref": "#/$defs/TLSConfig"
+        },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array"
+        },
+        "awsSigV4": {
+          "$ref": "#/$defs/ConnectionAWSSigV4"
         }
       },
       "additionalProperties": false,
@@ -402,10 +559,12 @@
     "ConnectionMSSQL": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "URL is the connection url."
         },
         "host": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "<host:port>"
         },
         "username": {
           "$ref": "#/$defs/EnvVar"
@@ -426,10 +585,12 @@
     "ConnectionMongo": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "URL is the connection url."
         },
         "host": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "<host:port>"
         },
         "username": {
           "$ref": "#/$defs/EnvVar"
@@ -453,10 +614,12 @@
     "ConnectionMySQL": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "URL is the connection url."
         },
         "host": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "<host:port>"
         },
         "username": {
           "$ref": "#/$defs/EnvVar"
@@ -534,10 +697,12 @@
     "ConnectionPostgres": {
       "properties": {
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "URL is the connection url."
         },
         "host": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "<host:port>"
         },
         "username": {
           "$ref": "#/$defs/EnvVar"
@@ -604,7 +769,8 @@
           "$ref": "#/$defs/EnvVar"
         },
         "user": {
-          "type": "string"
+          "type": "string",
+          "description": "User key"
         }
       },
       "additionalProperties": false,
@@ -612,6 +778,24 @@
       "required": [
         "token",
         "user"
+      ]
+    },
+    "ConnectionRedis": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
       ]
     },
     "ConnectionSFTP": {
@@ -626,7 +810,8 @@
           "$ref": "#/$defs/EnvVar"
         },
         "port": {
-          "type": "integer"
+          "type": "integer",
+          "description": "SMTP server port\n\tDefault: 22"
         },
         "path": {
           "type": "string"
@@ -653,7 +838,8 @@
           "$ref": "#/$defs/EnvVar"
         },
         "port": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "SMB server port\n\tDefault: 445"
         },
         "share": {
           "type": "string"
@@ -680,37 +866,46 @@
           "$ref": "#/$defs/EnvVar"
         },
         "insecureTLS": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Default: false"
         },
         "encryption": {
-          "type": "string"
+          "type": "string",
+          "description": "Encryption Method\n\tDefault: auto\n\tPossible values: None, ExplicitTLS, ImplicitTLS, Auto"
         },
         "port": {
-          "type": "integer"
+          "type": "integer",
+          "description": "SMTP server port\n\tDefault: 587"
         },
         "fromAddress": {
-          "type": "string"
+          "type": "string",
+          "description": "Email address that the mail are sent from"
         },
         "fromName": {
-          "type": "string"
+          "type": "string",
+          "description": "Name that the mail are sent from"
         },
         "toAddresses": {
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "List of recipient e-mails"
         },
         "subject": {
-          "type": "string"
+          "type": "string",
+          "description": "The subject of the sent mail"
         },
         "auth": {
-          "type": "string"
+          "type": "string",
+          "description": "Auth - SMTP authentication method\nPossible values: none, plain, oauth2"
         },
         "headers": {
           "additionalProperties": {
             "type": "string"
           },
-          "type": "object"
+          "type": "object",
+          "description": "Headers for SMTP Server"
         }
       },
       "additionalProperties": false,
@@ -727,22 +922,27 @@
           "$ref": "#/$defs/EnvVar"
         },
         "channel": {
-          "type": "string"
+          "type": "string",
+          "description": "Channel to send messages to in Cxxxxxxxxxx format"
         },
         "botName": {
           "type": "string"
         },
         "color": {
-          "type": "string"
+          "type": "string",
+          "description": "good, warning, danger, or any URL encoded hex color code"
         },
         "icon": {
-          "type": "string"
+          "type": "string",
+          "description": "emoji or URL"
         },
         "thread_ts": {
-          "type": "string"
+          "type": "string",
+          "description": "ts value of the parent message (to send message as reply in thread)"
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Prepended text above the message"
         }
       },
       "additionalProperties": false,
@@ -792,6 +992,12 @@
         "gemini": {
           "$ref": "#/$defs/ConnectionGemini"
         },
+        "elasticsearch": {
+          "$ref": "#/$defs/ConnectionElasticsearch"
+        },
+        "facet": {
+          "$ref": "#/$defs/ConnectionFacet"
+        },
         "folder": {
           "$ref": "#/$defs/ConnectionFolder"
         },
@@ -831,6 +1037,9 @@
         "prometheus": {
           "$ref": "#/$defs/ConnectionPrometheus"
         },
+        "redis": {
+          "$ref": "#/$defs/ConnectionRedis"
+        },
         "sftp": {
           "$ref": "#/$defs/ConnectionSFTP"
         },
@@ -859,41 +1068,60 @@
           "$ref": "#/$defs/ConnectionTelegram"
         },
         "url": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "DEPRECATED"
         },
         "port": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "DEPRECATED"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "description": "DEPRECATED"
         },
         "username": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "DEPRECATED"
         },
         "password": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "DEPRECATED"
         },
         "certificate": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "DEPRECATED"
         },
         "insecure_tls": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "DEPRECATED"
         }
       },
       "additionalProperties": false,
-      "type": "object"
+      "type": "object",
+      "description": "ConnectionSpec defines the desired state of Connection"
     },
     "ConnectionStatus": {
       "properties": {
+        "observedGeneration": {
+          "type": "integer"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "type": "array"
+        },
         "ref": {
-          "type": "string"
+          "type": "string",
+          "description": "Ref is the connection string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
         "ref"
-      ]
+      ],
+      "description": "ConnectionStatus defines the observed state of Connection"
     },
     "ConnectionTelegram": {
       "properties": {
@@ -901,7 +1129,8 @@
           "$ref": "#/$defs/EnvVar"
         },
         "chats": {
-          "$ref": "#/$defs/EnvVar"
+          "$ref": "#/$defs/EnvVar",
+          "description": "Chat ID or Channel name (using @channel-name)"
         }
       },
       "additionalProperties": false,
