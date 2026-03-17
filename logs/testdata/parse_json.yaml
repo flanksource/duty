@@ -1,0 +1,31 @@
+cases:
+  - name: "standard json log"
+    input: '{"level":"error","msg":"connection refused","host":"db-01","duration":"1.5s"}'
+    expectations:
+      - message: "connection refused"
+        severity: error
+        host: "db-01"
+        labels:
+          duration: "1.5s"
+
+  - name: "json with message key"
+    input: '{"severity":"warning","message":"disk usage high","path":"/var/log"}'
+    expectations:
+      - message: "disk usage high"
+        severity: warning
+        labels:
+          path: "/var/log"
+
+  - name: "json with caller as source"
+    input: '{"level":"info","msg":"started","caller":"main.go:42"}'
+    expectations:
+      - message: "started"
+        severity: info
+        source: "main.go:42"
+
+  - name: "non-json unchanged"
+    input: "plain text log"
+    expectations:
+      - message: "plain text log"
+        severity: ""
+        source: ""

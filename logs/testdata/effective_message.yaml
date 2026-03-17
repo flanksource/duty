@@ -1,0 +1,32 @@
+cases:
+  - name: "message set directly"
+    input: "hello"
+    expectations:
+      - effectiveMessage: "hello"
+
+  - name: "fallback to msg label"
+    input: ""
+    labels:
+      msg: "from label"
+    expectations:
+      - effectiveMessage: "from label"
+
+  - name: "fallback to message label"
+    input: ""
+    labels:
+      message: "from message label"
+    expectations:
+      - effectiveMessage: "from message label"
+
+  - name: "empty everywhere"
+    input: ""
+    expectations:
+      - effectiveMessage: ""
+
+  - name: "custom message field via mapping"
+    input: ""
+    labels:
+      log_message: "from custom field"
+    messageFields: ["log_message"]
+    expectations:
+      - effectiveMessage: "from custom field"

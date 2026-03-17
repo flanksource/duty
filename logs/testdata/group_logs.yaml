@@ -1,0 +1,235 @@
+cases:
+  - name: "empty groupBy is no-op"
+    config: {}
+    input:
+      logs:
+        - message: "hello"
+          labels:
+            app: web
+    expected:
+      logs:
+        - message: "hello"
+          labels:
+            app: web
+
+  - name: "group by single label"
+    config:
+      groupBy: ["app"]
+    input:
+      logs:
+        - message: "log1"
+          labels:
+            app: web
+            env: prod
+        - message: "log2"
+          labels:
+            app: web
+            env: staging
+        - message: "log3"
+          labels:
+            app: api
+            env: prod
+    expected:
+      groups:
+        - labels:
+            app: web
+          logs:
+            - message: "log1"
+              labels:
+                env: prod
+            - message: "log2"
+              labels:
+                env: staging
+        - labels:
+            app: api
+            env: prod
+          logs:
+            - message: "log3"
+
+  - name: "group by multiple labels"
+    config:
+      groupBy: ["app", "env"]
+    input:
+      logs:
+        - message: "log1"
+          labels:
+            app: web
+            env: prod
+        - message: "log2"
+          labels:
+            app: web
+            env: prod
+        - message: "log3"
+          labels:
+            app: web
+            env: staging
+    expected:
+      groups:
+        - labels:
+            app: web
+            env: prod
+          logs:
+            - message: "log1"
+            - message: "log2"
+        - labels:
+            app: web
+            env: staging
+          logs:
+            - message: "log3"
+
+  - name: "all labels common moves all to group level"
+    config:
+      groupBy: ["app"]
+    input:
+      logs:
+        - message: "log1"
+          labels:
+            app: web
+            env: prod
+        - message: "log2"
+          labels:
+            app: web
+            env: prod
+    expected:
+      groups:
+        - labels:
+            app: web
+            env: prod
+          logs:
+            - message: "log1"
+            - message: "log2"
+
+  - name: "differing labels stay on lines"
+    config:
+      groupBy: ["app"]
+    input:
+      logs:
+        - message: "log1"
+          labels:
+            app: web
+            host: host-1
+        - message: "log2"
+          labels:
+            app: web
+            host: host-2
+    expected:
+      groups:
+        - labels:
+            app: web
+          logs:
+            - message: "log1"
+              labels:
+                host: host-1
+            - message: "log2"
+              labels:
+                host: host-2
+
+  - name: "group by severity field"
+    config:
+      groupBy: ["severity"]
+    input:
+      logs:
+        - message: "err1"
+          severity: error
+          labels:
+            app: web
+        - message: "err2"
+          severity: error
+          labels:
+            app: api
+        - message: "info1"
+          severity: info
+          labels:
+            app: web
+    expected:
+      groups:
+        - logs:
+            - message: "err1"
+              severity: error
+              labels:
+                app: web
+            - message: "err2"
+              severity: error
+              labels:
+                app: api
+        - labels:
+            app: web
+          logs:
+            - message: "info1"
+              severity: info
+
+  - name: "dedup by hash without grouping"
+    config:
+      dedupBy: ["hash"]
+    input:
+      logs:
+        - message: "connection refused"
+          count: 1
+        - message: "connection refused"
+          count: 1
+        - message: "timeout exceeded"
+          count: 1
+    expected:
+      logs:
+        - message: "connection refused"
+          count: 2
+        - message: "timeout exceeded"
+          count: 1
+
+  - name: "dedup by message without grouping"
+    config:
+      dedupBy: ["message"]
+    input:
+      logs:
+        - message: "connection refused"
+          severity: error
+          count: 1
+        - message: "connection refused"
+          severity: warn
+          count: 1
+        - message: "timeout exceeded"
+          count: 1
+    expected:
+      logs:
+        - message: "connection refused"
+          severity: error
+          count: 2
+        - message: "timeout exceeded"
+          count: 1
+
+  - name: "group then dedup inside groups"
+    config:
+      groupBy: ["app"]
+      dedupBy: ["hash"]
+    input:
+      logs:
+        - message: "connection refused"
+          count: 1
+          labels:
+            app: web
+        - message: "connection refused"
+          count: 1
+          labels:
+            app: web
+        - message: "timeout exceeded"
+          count: 1
+          labels:
+            app: web
+        - message: "connection refused"
+          count: 1
+          labels:
+            app: api
+    expected:
+      groups:
+        - labels:
+            app: web
+          logs:
+            - message: "connection refused"
+              count: 2
+            - message: "timeout exceeded"
+              count: 1
+        - labels:
+            app: api
+          logs:
+            - message: "connection refused"
+              count: 1

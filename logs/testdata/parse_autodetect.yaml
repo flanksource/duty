@@ -1,0 +1,41 @@
+cases:
+  - name: "detects json"
+    input: '{"level":"error","msg":"connection refused","duration":"1.5s"}'
+    expectations:
+      - message: "connection refused"
+        severity: error
+        labels:
+          duration: "1.5s"
+
+  - name: "detects klogfmt"
+    input: 'I0313 09:02:52.532517       1 request.go:752] "Waited before sending request" delay="3.39s"'
+    expectations:
+      - message: "Waited before sending request"
+        severity: info
+        source: "request.go:752"
+        labels:
+          delay: "3.39s"
+
+  - name: "detects syslog"
+    input: "<13>Mar 15 10:30:45 web-01 nginx[1234]: GET /api/health 200"
+    expectations:
+      - message: "GET /api/health 200"
+        severity: "notice"
+        host: "web-01"
+        source: "nginx"
+
+  - name: "detects logfmt"
+    input: 'level=error msg="failed to process" duration=1.5s'
+    expectations:
+      - message: "failed to process"
+        severity: error
+        labels:
+          duration: "1.5s"
+
+  - name: "plain text unchanged"
+    input: "just a regular log message"
+    expectations:
+      - message: "just a regular log message"
+        severity: ""
+        source: ""
+        host: ""

@@ -1,0 +1,46 @@
+cases:
+  - name: "syslog with priority"
+    input: "<13>Mar 15 10:30:45 web-01 nginx[1234]: GET /api/health 200"
+    expectations:
+      - message: "GET /api/health 200"
+        severity: "notice"
+        host: "web-01"
+        source: "nginx"
+        labels:
+          pid: "1234"
+
+  - name: "syslog error priority"
+    input: "<11>Mar 15 10:30:45 db-01 postgres[5678]: FATAL: role does not exist"
+    expectations:
+      - message: "FATAL: role does not exist"
+        severity: "error"
+        host: "db-01"
+        source: "postgres"
+        labels:
+          pid: "5678"
+
+  - name: "syslog without priority"
+    input: "Mar 15 10:30:45 app-01 myapp[999]: request processed"
+    expectations:
+      - message: "request processed"
+        severity: ""
+        host: "app-01"
+        source: "myapp"
+        labels:
+          pid: "999"
+
+  - name: "syslog without pid"
+    input: "Mar 15 10:30:45 app-01 cron: job completed"
+    expectations:
+      - message: "job completed"
+        severity: ""
+        host: "app-01"
+        source: "cron"
+
+  - name: "non-syslog unchanged"
+    input: "just a regular message"
+    expectations:
+      - message: "just a regular message"
+        severity: ""
+        source: ""
+        host: ""

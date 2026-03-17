@@ -56,6 +56,7 @@ func (t *Response) ToLogResult(mappingConfig logs.FieldMappingConfig) logs.LogRe
 		}
 	}
 
+	logs.GroupLogs(&output, mappingConfig)
 	return output
 }
 

@@ -188,6 +188,7 @@ func (gcp *cloudLogging) Search(ctx context.Context, request Request) (*logs.Log
 		}
 	}
 
+	logs.GroupLogs(result, mappingConfig)
 	return result, nil
 }
 
