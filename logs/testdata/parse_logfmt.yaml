@@ -1,0 +1,16 @@
+cases:
+  - name: "standard logfmt"
+    input: 'level=error msg="failed to process" duration=1.5s'
+    expectations:
+      - message: "failed to process"
+        severity: error
+        labels:
+          duration: "1.5s"
+
+  - name: "logfmt with message key"
+    input: 'level=info message="request handled" status=200'
+    expectations:
+      - message: "request handled"
+        severity: info
+        labels:
+          status: "200"

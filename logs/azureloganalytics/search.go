@@ -141,6 +141,7 @@ func (s *Searcher) Search(ctx context.Context, request Request) (*logs.LogResult
 		}
 	}
 
+	logs.GroupLogs(result, mappingConfig)
 	return result, nil
 }
 

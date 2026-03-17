@@ -189,7 +189,13 @@ func fetchContainerLogs(ctx context.Context, client kubernetes.Interface, pod co
 	}
 	defer podLogs.Close()
 
-	var output logs.LogResult
+	output := logs.LogResult{
+		Metadata: map[string]any{
+			"pod":       pod.Name,
+			"namespace": pod.Namespace,
+			"container": containerName,
+		},
+	}
 	scanner := bufio.NewScanner(podLogs)
 	for scanner.Scan() {
 		parts := strings.SplitN(scanner.Text(), " ", 2)

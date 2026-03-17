@@ -13,6 +13,8 @@ type FieldMappingConfig struct {
 	Severity  []string `json:"severity,omitempty" yaml:"severity,omitempty"`
 	Source    []string `json:"source,omitempty" yaml:"source,omitempty"`
 	Ignore    []string `json:"ignore,omitempty" yaml:"ignore,omitempty"`
+	GroupBy   []string `json:"groupBy,omitempty" yaml:"groupBy,omitempty"`
+	DedupBy  []string `json:"dedupBy,omitempty" yaml:"dedupBy,omitempty"`
 }
 
 func (c FieldMappingConfig) WithDefaults(defaultMap FieldMappingConfig) FieldMappingConfig {
@@ -37,9 +39,15 @@ func (c FieldMappingConfig) WithDefaults(defaultMap FieldMappingConfig) FieldMap
 	if len(c.Host) == 0 {
 		c.Host = defaultMap.Host
 	}
+	if len(c.GroupBy) == 0 {
+		c.GroupBy = defaultMap.GroupBy
+	}
+	if len(c.DedupBy) == 0 {
+		c.DedupBy = defaultMap.DedupBy
+	}
 	return c
 }
 
 func (c FieldMappingConfig) Empty() bool {
-	return len(c.ID) == 0 && len(c.Message) == 0 && len(c.Timestamp) == 0 && len(c.Severity) == 0 && len(c.Source) == 0 && len(c.Ignore) == 0 && len(c.Host) == 0
+	return len(c.ID) == 0 && len(c.Message) == 0 && len(c.Timestamp) == 0 && len(c.Severity) == 0 && len(c.Source) == 0 && len(c.Ignore) == 0 && len(c.Host) == 0 && len(c.GroupBy) == 0 && len(c.DedupBy) == 0
 }

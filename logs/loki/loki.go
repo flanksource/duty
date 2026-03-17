@@ -76,6 +76,11 @@ func (t *lokiSearcher) Search(ctx context.Context, request Request) (*logs.LogRe
 
 	result := lokiResp.ToLogResult(mappingConfig)
 
+	if result.Metadata == nil {
+		result.Metadata = map[string]any{}
+	}
+	result.Metadata["query"] = request.Query
+
 	return &result, nil
 }
 
@@ -189,6 +194,7 @@ func (t *lokiSearcher) Stream(ctx context.Context, request StreamRequest) (<-cha
 }
 
 var DefaultFieldMappingConfig = logs.FieldMappingConfig{
-	Severity: []string{"detected_level"},
+	Message:  []string{"msg", "message"},
+	Severity: []string{"detected_level", "level"},
 	Host:     []string{"pod"},
 }

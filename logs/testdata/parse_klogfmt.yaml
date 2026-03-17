@@ -1,0 +1,34 @@
+cases:
+  - name: "info with quoted message and kv pairs"
+    input: 'I0313 09:02:52.532517       1 request.go:752] "Waited before sending request" delay="3.394565852s"'
+    expectations:
+      - message: "Waited before sending request"
+        severity: info
+        source: "request.go:752"
+        labels:
+          delay: "3.394565852s"
+
+  - name: "error level"
+    input: 'E0313 09:06:00.000000       1 handler.go:100] "Failed to process" err="timeout"'
+    expectations:
+      - message: "Failed to process"
+        severity: error
+        source: "handler.go:100"
+        labels:
+          err: "timeout"
+
+  - name: "warning level"
+    input: 'W0313 10:00:00.000000       1 cache.go:50] "Cache miss" key=user:123'
+    expectations:
+      - message: "Cache miss"
+        severity: warning
+        source: "cache.go:50"
+        labels:
+          key: "user:123"
+
+  - name: "non-klog message unchanged"
+    input: "just a regular log message"
+    expectations:
+      - message: "just a regular log message"
+        severity: ""
+        source: ""

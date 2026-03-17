@@ -104,7 +104,9 @@ func (t *searcher) Search(ctx context.Context, q Request) (*logs.LogResult, erro
 		return nil, ctx.Oops().Wrapf(err, "error parsing the response body")
 	}
 
-	var logResult = logs.LogResult{}
+	var logResult = logs.LogResult{
+		Metadata: map[string]any{"query": q.Query, "index": q.Index},
+	}
 	logResult.Logs = make([]*logs.LogLine, 0, len(r.Hits.Hits))
 
 	mappingConfig := DefaultFieldMappingConfig
@@ -129,6 +131,7 @@ func (t *searcher) Search(ctx context.Context, q Request) (*logs.LogResult, erro
 		logResult.Logs = append(logResult.Logs, line)
 	}
 
+	logs.GroupLogs(&logResult, mappingConfig)
 	return &logResult, nil
 }
 

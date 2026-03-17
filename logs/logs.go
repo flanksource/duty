@@ -26,23 +26,43 @@ func (t *LogLine) SetHash() {
 	t.Hash = tokenizer.Tokenize(t.Message)
 }
 
-func (t LogLine) GetDedupKey(fields ...string) string {
+func (t LogLine) GetFieldKey(fields []string, messageFields ...string) string {
 	if len(fields) == 0 {
 		return ""
 	}
 
 	values := make([]string, len(fields))
 	for i, field := range fields {
-		values[i] = t.GetDedupField(field)
+		values[i] = t.GetFieldValue(field, messageFields...)
 	}
 
 	return strings.Join(values, "\u0000")
 }
 
-func (t LogLine) GetDedupField(field string) string {
+var DefaultMessageFields = []string{"msg", "message"}
+
+func (t LogLine) EffectiveMessage(messageFields ...string) string {
+	if t.Message != "" {
+		return t.Message
+	}
+	if t.Labels == nil {
+		return ""
+	}
+	if len(messageFields) == 0 {
+		messageFields = DefaultMessageFields
+	}
+	for _, field := range messageFields {
+		if msg := t.Labels[field]; msg != "" {
+			return msg
+		}
+	}
+	return ""
+}
+
+func (t LogLine) GetFieldValue(field string, messageFields ...string) string {
 	switch field {
 	case "message":
-		return fmt.Sprintf("msg::%s", t.Message)
+		return fmt.Sprintf("msg::%s", t.EffectiveMessage(messageFields...))
 	case "hash":
 		return fmt.Sprintf("hash::%s", t.Hash)
 	case "severity":
@@ -63,25 +83,26 @@ func (t LogLine) GetDedupField(field string) string {
 	case "id":
 		return fmt.Sprintf("id::%s", t.ID)
 	default:
-		if t.Labels == nil {
-			return fmt.Sprintf("label.%s=unknown", field)
-		}
-
+		labelKey := field
 		if strings.HasPrefix(field, "label.") {
-			return fmt.Sprintf("label.%s=%s", strings.TrimPrefix(field, "label."), t.Labels[strings.TrimPrefix(field, "label.")])
+			labelKey = strings.TrimPrefix(field, "label.")
 		}
 
-		return ""
+		if t.Labels == nil {
+			return fmt.Sprintf("label.%s=unknown", labelKey)
+		}
+
+		return fmt.Sprintf("label.%s=%s", labelKey, t.Labels[labelKey])
 	}
 }
 
-func (t *LogLine) TemplateContext() map[string]any {
+func (t *LogLine) TemplateContext(messageFields ...string) map[string]any {
 	return map[string]any{
 		"id":            t.ID,
 		"firstObserved": t.FirstObserved,
 		"lastObserved":  t.LastObserved,
 		"count":         t.Count,
-		"message":       t.Message,
+		"message":       t.EffectiveMessage(messageFields...),
 		"hash":          t.Hash,
 		"severity":      t.Severity,
 		"source":        t.Source,
@@ -93,6 +114,110 @@ func (t *LogLine) TemplateContext() map[string]any {
 type LogResult struct {
 	Metadata map[string]any `json:"metadata,omitempty"`
 	Logs     []*LogLine     `json:"logs,omitempty"`
+	Groups   []*LogGroup    `json:"groups,omitempty"`
+}
+
+type LogGroup struct {
+	Name   string            `json:"name,omitempty"`
+	ID     string            `json:"id,omitempty"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Logs   []*LogLine        `json:"logs,omitempty"`
+}
+
+func GroupLogs(result *LogResult, config FieldMappingConfig) {
+	if len(result.Logs) == 0 {
+		return
+	}
+
+	if len(config.GroupBy) == 0 {
+		result.Logs = dedupLogs(result.Logs, config.DedupBy)
+		return
+	}
+
+	groups := make(map[string][]*LogLine)
+	var order []string
+	for _, line := range result.Logs {
+		key := line.GetFieldKey(config.GroupBy)
+		if _, exists := groups[key]; !exists {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], line)
+	}
+
+	result.Groups = make([]*LogGroup, 0, len(groups))
+	for _, key := range order {
+		lines := groups[key]
+		commonLabels := findCommonLabels(lines)
+
+		for _, line := range lines {
+			for k := range commonLabels {
+				delete(line.Labels, k)
+			}
+		}
+
+		result.Groups = append(result.Groups, &LogGroup{
+			Labels: commonLabels,
+			Logs:   dedupLogs(lines, config.DedupBy),
+		})
+	}
+
+	result.Logs = nil
+}
+
+func dedupLogs(lines []*LogLine, dedupBy []string) []*LogLine {
+	if len(dedupBy) == 0 || len(lines) == 0 {
+		return lines
+	}
+
+	seen := make(map[string]*LogLine)
+	var order []string
+	for _, line := range lines {
+		key := line.GetFieldKey(dedupBy)
+		if existing, ok := seen[key]; ok {
+			existing.Count += line.Count
+			if line.FirstObserved.Before(existing.FirstObserved) {
+				existing.FirstObserved = line.FirstObserved
+			}
+			if line.LastObserved != nil {
+				if existing.LastObserved == nil || line.LastObserved.After(*existing.LastObserved) {
+					existing.LastObserved = line.LastObserved
+				}
+			}
+		} else {
+			seen[key] = line
+			order = append(order, key)
+		}
+	}
+
+	result := make([]*LogLine, 0, len(order))
+	for _, key := range order {
+		result = append(result, seen[key])
+	}
+	return result
+}
+
+func findCommonLabels(lines []*LogLine) map[string]string {
+	if len(lines) == 0 {
+		return nil
+	}
+
+	common := make(map[string]string)
+	for k, v := range lines[0].Labels {
+		common[k] = v
+	}
+
+	for _, line := range lines[1:] {
+		for k, v := range common {
+			if lineVal, ok := line.Labels[k]; !ok || lineVal != v {
+				delete(common, k)
+			}
+		}
+		if len(common) == 0 {
+			break
+		}
+	}
+
+	return common
 }
 
 type LogsRequestBase struct {

@@ -103,6 +103,7 @@ func (r *Response) ToLogResult(mappingConfig logs.FieldMappingConfig) (logs.LogR
 		output.Logs = append(output.Logs, line)
 	}
 
+	logs.GroupLogs(&output, mappingConfig)
 	return output, nil
 }
 

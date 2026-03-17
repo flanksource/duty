@@ -64,6 +64,8 @@ func (t *Searcher) Search(ctx context.Context, request Request) (*logs.LogResult
 			"total":          int(queryResult.Statistics.RecordsMatched),
 			"statistics":     queryResult.Statistics,
 			"resultMetadata": queryResult.ResultMetadata,
+			"query":          request.Query,
+			"logGroup":       request.LogGroup,
 		},
 		Logs: make([]*logs.LogLine, 0, len(queryResult.Results)),
 	}
@@ -91,6 +93,7 @@ func (t *Searcher) Search(ctx context.Context, request Request) (*logs.LogResult
 		logResult.Logs = append(logResult.Logs, line)
 	}
 
+	logs.GroupLogs(&logResult, mappingConfig)
 	return &logResult, nil
 }
 
