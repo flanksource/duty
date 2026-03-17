@@ -15,6 +15,8 @@ var dbResourceObjMap = map[string]string{
 	"applications":                              policy.ObjectApplication,
 	"config_access_unwrapped":                   policy.ObjectApplication,
 	"config_access_summary":                     policy.ObjectApplication,
+	"config_access_summary_by_config":           policy.ObjectApplication,
+	"config_access_summary_by_user":             policy.ObjectApplication,
 	"analysis_by_component":                     policy.ObjectCatalog,
 	"analysis_by_config":                        policy.ObjectCatalog,
 	"analysis_summary_by_component":             policy.ObjectCatalog,

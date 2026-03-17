@@ -42,6 +42,8 @@ SELECT
   WHERE external_group_id IS NULL;
 
 -- config_access_summary
+DROP VIEW IF EXISTS config_access_summary_by_user;
+DROP VIEW IF EXISTS config_access_summary_by_config;
 DROP VIEW IF EXISTS config_access_summary;
 
 CREATE VIEW config_access_summary AS
@@ -69,3 +71,30 @@ LEFT JOIN config_access_logs
   ON config_access_unwrapped.config_id = config_access_logs.config_id AND
   config_access_unwrapped.external_user_id = config_access_logs.external_user_id
 WHERE config_access_unwrapped.deleted_at IS NULL;
+
+-- config_access_summary_by_user
+CREATE VIEW config_access_summary_by_user AS
+SELECT
+  config_access_summary."user" as "user",
+  config_access_summary.email as email,
+  COUNT(*) as access_count,
+  COUNT(DISTINCT config_access_summary."role") as distinct_roles,
+  COUNT(DISTINCT config_access_summary.config_id) as distinct_configs,
+  MAX(config_access_summary.last_signed_in_at) as last_signed_in_at,
+  MAX(config_access_summary.created_at) as latest_grant
+FROM config_access_summary
+GROUP BY config_access_summary."user", config_access_summary.email;
+
+-- config_access_summary_by_config
+CREATE VIEW config_access_summary_by_config AS
+SELECT
+  config_access_summary.config_id as config_id,
+  config_access_summary.config_name as config_name,
+  config_access_summary.config_type as config_type,
+  COUNT(*) as access_count,
+  COUNT(DISTINCT (config_access_summary."user", config_access_summary.email)) as distinct_users,
+  COUNT(DISTINCT config_access_summary."role") as distinct_roles,
+  MAX(config_access_summary.last_signed_in_at) as last_signed_in_at,
+  MAX(config_access_summary.created_at) as latest_grant
+FROM config_access_summary
+GROUP BY config_access_summary.config_id, config_access_summary.config_name, config_access_summary.config_type;
