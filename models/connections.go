@@ -33,6 +33,7 @@ const (
 	ConnectionTypeDynatrace      = "dynatrace"
 	ConnectionTypeElasticSearch  = "elasticsearch"
 	ConnectionTypeEmail          = "email"
+	ConnectionTypeFacet          = "facet"
 	ConnectionTypeFolder         = "folder"
 	ConnectionTypeGCP            = "google_cloud"
 	ConnectionTypeGCPKMS         = "gcp_kms"
