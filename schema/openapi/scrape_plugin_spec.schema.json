@@ -6,28 +6,44 @@
     "ChangeMapping": {
       "properties": {
         "filter": {
-          "type": "string"
+          "type": "string",
+          "description": "Filter selects what change to apply the mapping to"
         },
         "severity": {
-          "type": "string"
+          "type": "string",
+          "description": "Severity is the severity to be set on the change"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "description": "Type is the type to be set on the change"
         },
         "action": {
-          "type": "string"
+          "type": "string",
+          "description": "Action allows performing actions on the corresponding config item\nbased on this change.\nAllowed actions: \"delete\", \"ignore\", \"move-up\", \"copy-up\", \"copy\", \"move\""
         },
         "summary": {
-          "type": "string"
+          "type": "string",
+          "description": "Summary replaces the existing change summary."
         },
         "config_id": {
-          "type": "string"
+          "type": "string",
+          "description": "ConfigID is a CEL expression that returns the target config's external ID\nfor redirecting changes to a different config item."
         },
         "config_type": {
-          "type": "string"
+          "type": "string",
+          "description": "ConfigType is the target config type for redirecting changes."
         },
         "scraper_id": {
-          "type": "string"
+          "type": "string",
+          "description": "ScraperID is the scraper ID for the target config. Use \"all\" for cross-scraper lookups."
+        },
+        "ancestor_type": {
+          "type": "string",
+          "description": "AncestorType specifies the config type of the ancestor to target\nwhen using \"move-up\" or \"copy-up\" actions. The engine walks the parent_id\nchain and selects the first ancestor matching this type.\nIf omitted, the immediate parent is used."
+        },
+        "target": {
+          "$ref": "#/$defs/RelationshipSelectorTemplate",
+          "description": "Target specifies a config item selector for \"copy\" and \"move\" actions.\nThe selector is evaluated to find target config items to redirect or\nduplicate changes to. Mutually exclusive with move-up/copy-up/ancestor_type."
         }
       },
       "additionalProperties": false,
@@ -138,10 +154,12 @@
     "LocationOrAlias": {
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "description": "Types on which this plugin should run.\nSupports match expression\nExample: AWS::*, Kubernetes::Namespace"
         },
         "filter": {
-          "type": "string"
+          "type": "string",
+          "description": "A Cel expression, when provided, must return true for this filter to apply.\n\nReceives the config item as the cel env variable."
         },
         "values": {
           "items": {
@@ -150,7 +168,8 @@
           "type": "array"
         },
         "withParent": {
-          "type": "string"
+          "type": "string",
+          "description": "The type of the parent to be used"
         }
       },
       "additionalProperties": false,
@@ -204,13 +223,49 @@
           "type": "object"
         },
         "expr": {
-          "type": "string"
+          "type": "string",
+          "description": "Alternately, a single cel-expression can be used\nthat returns a list of relationship selector."
         },
         "filter": {
-          "type": "string"
+          "type": "string",
+          "description": "Filter is a CEL expression that selects on what config items\nthe relationship needs to be applied"
         },
         "parent": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Parent sets all the configs found by the selector\nas the parent of the configs passed by the filter"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RelationshipSelectorTemplate": {
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "external_id": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "name": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "namespace": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "type": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "agent": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "scope": {
+          "$ref": "#/$defs/Lookup"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
         }
       },
       "additionalProperties": false,
@@ -243,19 +298,22 @@
           "$ref": "#/$defs/TransformChange"
         },
         "retention": {
-          "$ref": "#/$defs/RetentionSpec"
+          "$ref": "#/$defs/RetentionSpec",
+          "description": "Retention config for changes, types, and stale items."
         },
         "relationship": {
           "items": {
             "$ref": "#/$defs/RelationshipConfig"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Relationship allows you to form relationships between config items using selectors."
         },
         "properties": {
           "items": {
             "$ref": "#/$defs/ConfigProperties"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Properties are custom templatable properties for the scraped config items\ngrouped by the config type."
         },
         "locations": {
           "items": {
@@ -279,13 +337,15 @@
           "items": {
             "$ref": "#/$defs/ChangeMapping"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Mapping is a list of CEL expressions that maps a change to the specified type"
         },
         "exclude": {
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "description": "Exclude is a list of CEL expressions that excludes a given change"
         }
       },
       "additionalProperties": false,
