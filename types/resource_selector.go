@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/flanksource/commons/logger"
@@ -426,6 +428,62 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 
 func (rs ResourceSelector) String() string {
 	return strings.Trim(rs.ToPeg(true), " ")
+}
+
+func (rs ResourceSelector) Pretty() api.Text {
+	t := api.Text{}
+	addField := func(key, value string) {
+		if !t.IsEmpty() {
+			t = t.AddText(" ", "text-gray-400")
+		}
+		t = t.AddText(key, "text-cyan-600").
+			AddText("=", "text-gray-400").
+			AddText(`"`+value+`"`, "text-green-600")
+	}
+
+	if rs.Search != "" {
+		t = t.Add(clicky.Text(rs.Search, "text-yellow-600"))
+	}
+	if rs.ID != "" {
+		addField("id", rs.ID)
+	}
+	if rs.Name != "" {
+		addField("name", rs.Name)
+	}
+	if rs.Namespace != "" {
+		addField("namespace", rs.Namespace)
+	}
+	if len(rs.Health) > 0 {
+		addField("health", string(rs.Health))
+	}
+	if len(rs.Types) > 0 {
+		addField("type", strings.Join(rs.Types, ","))
+	}
+	if len(rs.Statuses) > 0 {
+		addField("status", strings.Join(rs.Statuses, ","))
+	}
+	if rs.Agent != "" {
+		addField("agent", rs.Agent)
+	}
+	for _, cond := range selectorToPegCondition("labels.", rs.LabelSelector) {
+		if !t.IsEmpty() {
+			t = t.AddText(" ", "text-gray-400")
+		}
+		t = t.AddText(cond, "text-cyan-600")
+	}
+	for _, cond := range selectorToPegCondition("tags.", rs.TagSelector) {
+		if !t.IsEmpty() {
+			t = t.AddText(" ", "text-gray-400")
+		}
+		t = t.AddText(cond, "text-cyan-600")
+	}
+	for _, cond := range selectorToPegCondition("", rs.FieldSelector) {
+		if !t.IsEmpty() {
+			t = t.AddText(" ", "text-gray-400")
+		}
+		t = t.AddText(cond, "text-cyan-600")
+	}
+	return t
 }
 
 type ResourceSelectors []ResourceSelector
