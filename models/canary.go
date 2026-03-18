@@ -29,6 +29,10 @@ type Canary struct {
 	DeletedAt   *time.Time          `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
 }
 
+func (c Canary) QueryLogSummary() string {
+	return c.Namespace + "/" + c.Name + " (" + c.ID.String()[:10] + ")"
+}
+
 func (t Canary) ConflictClause() clause.OnConflict {
 	return clause.OnConflict{
 		Columns: []clause.Column{{Name: "agent_id"}, {Name: "name"}, {Name: "namespace"}, {Name: "source"}},
