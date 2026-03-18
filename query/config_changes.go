@@ -53,6 +53,11 @@ type CatalogChangesSearchRequest struct {
 	// To date in datemath format
 	To string `query:"to" json:"to"`
 
+	// FromInsertedAt in datemath format
+	FromInsertedAt string `query:"from_inserted_at" json:"from_inserted_at"`
+	// ToInsertedAt in datemath format
+	ToInsertedAt string `query:"to_inserted_at" json:"to_inserted_at"`
+
 	PageSize  int    `query:"page_size" json:"page_size"`
 	Page      int    `query:"page" json:"page"`
 	SortBy    string `query:"sort_by" json:"sort_by"`
@@ -67,8 +72,10 @@ type CatalogChangesSearchRequest struct {
 	// not just soft related to the main config item
 	Soft bool `query:"soft" json:"soft"`
 
-	fromParsed time.Time
-	toParsed   time.Time
+	fromParsed           time.Time
+	toParsed             time.Time
+	fromInsertedAtParsed time.Time
+	toInsertedAtParsed   time.Time
 }
 
 func (t CatalogChangesSearchRequest) String() string {
@@ -111,6 +118,12 @@ func (t CatalogChangesSearchRequest) String() string {
 	}
 	if t.To != "" {
 		s += fmt.Sprintf("to: %s ", t.To)
+	}
+	if t.FromInsertedAt != "" {
+		s += fmt.Sprintf("from_inserted_at: %s ", t.FromInsertedAt)
+	}
+	if t.ToInsertedAt != "" {
+		s += fmt.Sprintf("to_inserted_at: %s ", t.ToInsertedAt)
 	}
 	if t.PageSize != 0 {
 		s += fmt.Sprintf("page_size: %d ", t.PageSize)
@@ -178,6 +191,26 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		return fmt.Errorf("'from' must be before 'to'")
 	}
 
+	if t.FromInsertedAt != "" {
+		if expr, err := datemath.Parse(t.FromInsertedAt); err != nil {
+			return fmt.Errorf("invalid 'from_inserted_at' param: %w", err)
+		} else {
+			t.fromInsertedAtParsed = expr.Time()
+		}
+	}
+
+	if t.ToInsertedAt != "" {
+		if expr, err := datemath.Parse(t.ToInsertedAt); err != nil {
+			return fmt.Errorf("invalid 'to_inserted_at' param: %w", err)
+		} else {
+			t.toInsertedAtParsed = expr.Time()
+		}
+	}
+
+	if !t.fromInsertedAtParsed.IsZero() && !t.toInsertedAtParsed.IsZero() && !t.fromInsertedAtParsed.Before(t.toInsertedAtParsed) {
+		return fmt.Errorf("'from_inserted_at' must be before 'to_inserted_at'")
+	}
+
 	if t.SortBy != "" {
 		if strings.HasPrefix(t.SortBy, "-") {
 			t.sortOrder = "desc"
@@ -225,6 +258,7 @@ type ConfigChangeRow struct {
 	CreatedBy         *uuid.UUID          `gorm:"column:created_by" json:"created_by,omitempty"`
 	ExternalCreatedBy string              `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
 	Path              string              `gorm:"column:path" json:"path,omitempty"`
+	InsertedAt        *time.Time          `gorm:"column:inserted_at" json:"inserted_at,omitempty"`
 }
 
 type CatalogChangesSearchResponse struct {
@@ -341,6 +375,14 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 
 	if !req.toParsed.IsZero() {
 		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "created_at"}, Value: req.toParsed})
+	}
+
+	if !req.fromInsertedAtParsed.IsZero() {
+		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "inserted_at"}, Value: req.fromInsertedAtParsed})
+	}
+
+	if !req.toInsertedAtParsed.IsZero() {
+		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "inserted_at"}, Value: req.toInsertedAtParsed})
 	}
 
 	if req.createdBy != nil {
