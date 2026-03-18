@@ -56,6 +56,9 @@ func New(opts ...commons.ContextOptions) Context {
 }
 
 func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Context {
+	if baseCtx == nil {
+		baseCtx = gocontext.Background()
+	}
 	baseOpts := []commons.ContextOptions{
 		commons.WithDebugFn(func(ctx commons.Context) *bool {
 			for _, o := range Objects(ctx) {
