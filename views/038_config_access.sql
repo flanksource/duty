@@ -85,6 +85,76 @@ SELECT
 FROM config_access_summary
 GROUP BY config_access_summary."user", config_access_summary.email;
 
+-- config_access_filter_options
+-- Returns distinct values for all filter dropdowns in a single call.
+-- Each facet excludes its own filter parameter so that selecting a value
+-- in one dropdown does not remove it from its own option list (faceted search).
+DROP FUNCTION IF EXISTS config_access_filter_options;
+
+CREATE OR REPLACE FUNCTION config_access_filter_options(
+  p_config_id uuid DEFAULT NULL,
+  p_config_type text DEFAULT NULL,
+  p_user text DEFAULT NULL,
+  p_role text DEFAULT NULL,
+  p_user_type text DEFAULT NULL
+) RETURNS jsonb AS $$
+SELECT jsonb_build_object(
+  'catalogs', COALESCE((
+    SELECT jsonb_agg(to_jsonb(sub))
+    FROM (
+      SELECT DISTINCT config_id, config_name, config_type
+      FROM config_access_summary
+      WHERE (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_user IS NULL OR "user" = p_user)
+        AND (p_role IS NULL OR "role" = p_role)
+        AND (p_user_type IS NULL OR user_type = p_user_type)
+      ORDER BY config_name
+    ) sub
+  ), '[]'::jsonb),
+
+  'users', COALESCE((
+    SELECT jsonb_agg(to_jsonb(sub))
+    FROM (
+      SELECT DISTINCT "user", email
+      FROM config_access_summary
+      WHERE (p_config_id IS NULL OR config_id = p_config_id)
+        AND (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_role IS NULL OR "role" = p_role)
+        AND (p_user_type IS NULL OR user_type = p_user_type)
+      ORDER BY "user"
+    ) sub
+  ), '[]'::jsonb),
+
+  'roles', COALESCE((
+    SELECT jsonb_agg(to_jsonb(sub))
+    FROM (
+      SELECT DISTINCT "role"
+      FROM config_access_summary
+      WHERE role IS NOT NULL
+        AND (p_config_id IS NULL OR config_id = p_config_id)
+        AND (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_user IS NULL OR "user" = p_user)
+        AND (p_user_type IS NULL OR user_type = p_user_type)
+      ORDER BY "role"
+    ) sub
+  ), '[]'::jsonb),
+
+  'user_types', COALESCE((
+    SELECT jsonb_agg(to_jsonb(sub))
+    FROM (
+      SELECT DISTINCT user_type
+      FROM config_access_summary
+      WHERE user_type IS NOT NULL
+        AND (p_config_id IS NULL OR config_id = p_config_id)
+        AND (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_user IS NULL OR "user" = p_user)
+        AND (p_role IS NULL OR "role" = p_role)
+      ORDER BY user_type
+    ) sub
+  ), '[]'::jsonb)
+);
+$$ LANGUAGE sql STABLE;
+
 -- config_access_summary_by_config
 CREATE VIEW config_access_summary_by_config AS
 SELECT
