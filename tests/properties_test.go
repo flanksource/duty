@@ -19,10 +19,10 @@ var _ = Describe("Properties", Ordered, func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 
-		retrieved := DefaultContext.Properties()
-		Expect(retrieved).To(HaveKeyWithValue("john", "doe"))
-		Expect(retrieved).To(HaveKeyWithValue("hello", "world"))
-		Expect(retrieved).ToNot(HaveKey("hello1"))
+		props := DefaultContext.Properties()
+		Expect(props.String("john", "")).To(Equal("doe"))
+		Expect(props.String("hello", "")).To(Equal("world"))
+		Expect(props.String("hello1", "")).To(BeEmpty())
 	})
 
 	It("Should default int values", func() {

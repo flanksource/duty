@@ -55,7 +55,18 @@ func newProp(prop PropertyType) {
 		}
 	}
 }
-func (p Properties) SupportedProperties() map[string]PropertyType {
+
+// Properties is a flat map of global properties (DB + CLI/env).
+type Properties map[string]string
+
+// HierarchicalProperties provides layered property lookup: CLI/env → local object annotations → parent → global DB.
+type HierarchicalProperties struct {
+	local  map[string]string
+	parent *HierarchicalProperties
+	global Properties
+}
+
+func (h HierarchicalProperties) SupportedProperties() map[string]PropertyType {
 	m := make(map[string]PropertyType)
 	for k, v := range supportedProperties.Items() {
 		m[k] = v
@@ -63,10 +74,8 @@ func (p Properties) SupportedProperties() map[string]PropertyType {
 	return m
 }
 
-type Properties map[string]string
-
-// Returns true if the property is true|enabled|on, if there is no property it defaults to true
-func (p Properties) On(def bool, keys ...string) bool {
+// On returns true if the property is "true", "enabled", or "on"; defaults to def if not found.
+func (h HierarchicalProperties) On(def bool, keys ...string) bool {
 	var v *bool
 	for _, key := range keys {
 		prop := PropertyType{
@@ -75,7 +84,7 @@ func (p Properties) On(def bool, keys ...string) bool {
 			Default: def,
 		}
 		if v == nil {
-			k, ok := p.getProperty(key)
+			k, ok := h.getProperty(key)
 			if ok {
 				v = lo.ToPtr(k == "true" || k == "enabled" || k == "on")
 				prop.Value = v
@@ -89,8 +98,8 @@ func (p Properties) On(def bool, keys ...string) bool {
 	return def
 }
 
-func (p Properties) Duration(key string, def time.Duration) time.Duration {
-	if d, ok := p.getProperty(key); !ok {
+func (h HierarchicalProperties) Duration(key string, def time.Duration) time.Duration {
+	if d, ok := h.getProperty(key); !ok {
 		newProp(PropertyType{
 			Type:    "duration",
 			Key:     key,
@@ -117,14 +126,14 @@ func (p Properties) Duration(key string, def time.Duration) time.Duration {
 	}
 }
 
-func (p Properties) Int(key string, def int) int {
+func (h HierarchicalProperties) Int(key string, def int) int {
 	prop := PropertyType{
 		Type:    "int",
 		Key:     key,
 		Default: def,
 	}
 
-	if v, ok := p.getProperty(key); ok {
+	if v, ok := h.getProperty(key); ok {
 		prop.Value = v
 		if i, err := strconv.Atoi(v); err != nil {
 			logger.Warnf("property[%s] invalid int %s", key, v)
@@ -136,16 +145,15 @@ func (p Properties) Int(key string, def int) int {
 	}
 	newProp(prop)
 	return def
-
 }
 
-func (p Properties) String(key string, def string) string {
+func (h HierarchicalProperties) String(key string, def string) string {
 	prop := PropertyType{
 		Type:    "string",
 		Key:     key,
 		Default: def,
 	}
-	if d, ok := p.getProperty(key); ok {
+	if d, ok := h.getProperty(key); ok {
 		prop.Value = d
 		newProp(prop)
 		return d
@@ -154,14 +162,14 @@ func (p Properties) String(key string, def string) string {
 	return def
 }
 
-// Returns true if the property is false|disabled|off, if there is no property it defaults to true
-func (p Properties) Off(key string, def bool) bool {
+// Off returns true if the property is "false", "disabled", or "off".
+func (h HierarchicalProperties) Off(key string, def bool) bool {
 	prop := PropertyType{
 		Type:    "bool",
 		Key:     key,
 		Default: def,
 	}
-	k, ok := p.getProperty(key)
+	k, ok := h.getProperty(key)
 	if !ok {
 		newProp(prop)
 		return def
@@ -172,21 +180,22 @@ func (p Properties) Off(key string, def bool) bool {
 	return v
 }
 
-func (p Properties) getProperty(key string) (string, bool) {
-	// Global property takes precdence
-	v := properties.Get(key)
-	if v != "" {
+// getProperty resolves a key with precedence: CLI/env → local → parent chain → global DB.
+func (h HierarchicalProperties) getProperty(key string) (string, bool) {
+	if v := properties.Get(key); v != "" {
 		return v, true
 	}
-
-	// Look in context properties
-	v, ok := p[key]
+	if v, ok := h.local[key]; ok {
+		return v, true
+	}
+	if h.parent != nil {
+		return h.parent.getProperty(key)
+	}
+	v, ok := h.global[key]
 	return v, ok
 }
 
-// Properties returns a cached map of properties
-func (k Context) Properties() Properties {
-	// properties are currently global, but in future we might have context specific properties as well
+func (k Context) globalProperties() Properties {
 	if val, ok := propertyCache.Get("global"); ok {
 		return val.(map[string]string)
 	}
@@ -209,6 +218,49 @@ func (k Context) Properties() Properties {
 
 	propertyCache.Set("global", props, 0)
 	return props
+}
+
+func extractMissionControlAnnotations(annotations map[string]string) map[string]string {
+	var out map[string]string
+	for key, val := range annotations {
+		if after, ok := strings.CutPrefix(key, "mission-control/"); ok {
+			if out == nil {
+				out = make(map[string]string)
+			}
+			out[after] = val
+		}
+	}
+	return out
+}
+
+// Properties returns a HierarchicalProperties that resolves keys by traversing
+// the object chain (parent → child) before falling back to global DB properties.
+func (k Context) Properties() HierarchicalProperties {
+	global := k.globalProperties()
+	root := &HierarchicalProperties{global: global}
+
+	var cacheKeyParts []string
+	current := root
+	for _, o := range k.Objects() {
+		meta := getObjectMeta(o)
+		local := extractMissionControlAnnotations(meta.Annotations)
+		if len(local) == 0 {
+			continue
+		}
+		cacheKeyParts = append(cacheKeyParts, meta.Namespace+"/"+meta.Name)
+		current = &HierarchicalProperties{local: local, parent: current}
+	}
+
+	if len(cacheKeyParts) == 0 {
+		return *root
+	}
+
+	cacheKey := "properties/" + strings.Join(cacheKeyParts, ",")
+	if val, ok := propertyCache.Get(cacheKey); ok {
+		return val.(HierarchicalProperties)
+	}
+	propertyCache.Set(cacheKey, *current, 0)
+	return *current
 }
 
 func UpdateProperty(ctx Context, key, value string) error {
