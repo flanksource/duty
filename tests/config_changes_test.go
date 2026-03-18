@@ -411,6 +411,20 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(response.Total).To(BeNumerically(">=", 1))
 		})
 
+		ginkgo.It("should filter by inserted_at", func() {
+			response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+				CatalogID:      U.ID.String(),
+				Recursive:      query.CatalogChangeRecursiveDownstream,
+				FromInsertedAt: "now-1h",
+			})
+			Expect(err).To(BeNil())
+			Expect(response.Total).To(BeNumerically(">=", 1))
+
+			for _, c := range response.Changes {
+				Expect(c.InsertedAt).NotTo(BeNil())
+			}
+		})
+
 		ginkgo.Context("Sorting", func() {
 			ginkgo.It("Descending", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
