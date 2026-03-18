@@ -1,0 +1,43 @@
+cases:
+  - name: "query by type returns matching items"
+    expression: "catalog.query('type=Kubernetes::Node')"
+    assertions:
+      - size(result) >= 1
+
+  - name: "query by type and name returns exact match"
+    expression: "catalog.query('type=Kubernetes::Node name=node-a')"
+    assertions:
+      - size(result) == 1
+      - result[0].name == 'node-a'
+
+  - name: "query with no match returns empty list"
+    expression: "catalog.query('type=Kubernetes::Node name=nonexistent-node')"
+    assertions:
+      - size(result) == 0
+
+  - name: "query_one returns first match"
+    expression: "catalog.query_one('type=Kubernetes::Node name=node-a')"
+    assertions:
+      - result != null
+      - result.name == 'node-a'
+
+  - name: "query_one returns null for no match"
+    expression: "catalog.query_one('type=Kubernetes::Node name=nonexistent-node')"
+    assertions:
+      - result == null
+
+  - name: "query with sprintf args"
+    args:
+      nodeName: "node-a"
+    expression: "catalog.query('type=Kubernetes::Node name=%s', [nodeName])"
+    assertions:
+      - size(result) == 1
+      - result[0].name == 'node-a'
+
+  - name: "query_one with sprintf args"
+    args:
+      nodeName: "node-a"
+    expression: "catalog.query_one('type=Kubernetes::Node name=%s', [nodeName])"
+    assertions:
+      - result != null
+      - result.name == 'node-a'

@@ -1,10 +1,15 @@
 package logs
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/flanksource/artifacts"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/tokenizer"
 	"github.com/timberio/go-datemath"
 )
@@ -115,6 +120,22 @@ type LogResult struct {
 	Metadata map[string]any `json:"metadata,omitempty"`
 	Logs     []*LogLine     `json:"logs,omitempty"`
 	Groups   []*LogGroup    `json:"groups,omitempty"`
+}
+
+func (r *LogResult) GetArtifacts() []artifacts.Artifact {
+	var b bytes.Buffer
+	if err := json.NewEncoder(&b).Encode(r.Logs); err != nil {
+		logger.Errorf("failed to json marshal logs: %v", err)
+		return nil
+	}
+
+	return []artifacts.Artifact{
+		{
+			ContentType: "application/log+json",
+			Content:     io.NopCloser(&b),
+			Path:        "logs.json",
+		},
+	}
 }
 
 type LogGroup struct {

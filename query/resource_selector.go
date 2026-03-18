@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/selection"
 
+	clickyapi "github.com/flanksource/clicky/api"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/pkg/kube/labels"
@@ -352,6 +353,11 @@ func queryResourceSelector[T any](
 		return nil, nil
 	}
 
+	queryLogger := ctx.Logger.V(3)
+	if ctx.Properties().On(false, "query.log") {
+		queryLogger = ctx.Logger.V(0)
+	}
+
 	resourceSelector = resourceSelector.Canonical()
 
 	// must create a deep copy to avoid mutating the original order of the select columns
@@ -374,6 +380,14 @@ func queryResourceSelector[T any](
 
 	if resourceSelector.Cache != "no-cache" {
 		if val, ok := cacheToUse.Get(cacheKey); ok {
+			if queryLogger.Enabled() {
+				results := val.([]T)
+				items := make([]any, len(results))
+				for i, r := range results {
+					items[i] = r
+				}
+				queryLogger.Infof("%s", querySelectorLog(resourceSelector, true, items, 0).ANSI())
+			}
 			return val.([]T), nil
 		}
 	}
@@ -392,6 +406,9 @@ func queryResourceSelector[T any](
 
 	query, err := SetResourceSelectorClause(ctx, resourceSelector, query, table)
 	if err != nil {
+		if queryLogger.Enabled() {
+			queryLogger.Infof("%s (error: %v)", resourceSelector.Pretty().ANSI(), err)
+		}
 		return nil, err
 	}
 
@@ -401,8 +418,12 @@ func queryResourceSelector[T any](
 		}))
 	}
 
+	start := time.Now()
 	var output []T
 	if err := query.Find(&output).Error; err != nil {
+		if queryLogger.Enabled() {
+			queryLogger.Infof("%s (error: %v)", resourceSelector.Pretty().ANSI(), err)
+		}
 		return nil, err
 	}
 
@@ -423,8 +444,86 @@ func queryResourceSelector[T any](
 
 		cacheToUse.Set(cacheKey, output, cacheDuration)
 	}
+	if queryLogger.Enabled() {
+		items := make([]any, len(output))
+		for i, r := range output {
+			items[i] = r
+		}
+		enriched := enrichItemsFromCache(ctx, items)
+		queryLogger.Infof("%s", querySelectorLog(resourceSelector, false, enriched, time.Since(start)).ANSI())
+	}
 
 	return output, nil
+}
+
+// QueryLogSummary returns a short human-readable label for a query result item.
+type QueryLogSummary interface {
+	QueryLogSummary() string
+}
+
+func itemLogSummary(v any) string {
+	if s, ok := v.(QueryLogSummary); ok {
+		return s.QueryLogSummary()
+	}
+	if id, ok := v.(fmt.Stringer); ok {
+		s := id.String()
+		if len(s) > 10 {
+			return s[:10]
+		}
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func enrichItemsFromCache(ctx context.Context, items []any) []any {
+	enriched := make([]any, len(items))
+	for i, item := range items {
+		if id, ok := item.(uuid.UUID); ok {
+			if ci, err := ConfigItemFromCache(ctx, id.String()); err == nil {
+				enriched[i] = ci
+				continue
+			}
+		}
+		enriched[i] = item
+	}
+	return enriched
+}
+
+func querySelectorLog(rs types.ResourceSelector, fromCache bool, items []any, elapsed time.Duration) clickyapi.Text {
+	count := len(items)
+	countStyle := "text-green-600"
+	if count == 0 {
+		countStyle = "text-red-600"
+	}
+
+	t := rs.Pretty()
+	if fromCache {
+		t = t.AddText(" (cache)", "text-gray-400")
+	}
+	t = t.AddText(" => ", "text-gray-400").
+		AddText(fmt.Sprintf("%d", count), countStyle)
+
+	const maxInline = 2
+	if count > 0 {
+		shown := items
+		if len(shown) > maxInline {
+			shown = shown[:maxInline]
+		}
+		var parts []string
+		for _, item := range shown {
+			parts = append(parts, itemLogSummary(item))
+		}
+		summary := strings.Join(parts, ", ")
+		if count > maxInline {
+			summary += fmt.Sprintf(", ...%d more", count-maxInline)
+		}
+		t = t.AddText(" ["+summary+"]", "text-gray-400")
+	}
+
+	if elapsed > 0 {
+		t = t.AddText(fmt.Sprintf(" in %dms", elapsed.Milliseconds()), "text-gray-400")
+	}
+	return t
 }
 
 // jsonColumnRequirementsToGormClause converts a selector requirement into gorm clause expressions for a JSON column

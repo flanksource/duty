@@ -174,7 +174,6 @@ func (ConfigItemLastScrapedTime) PK() string {
 	return "config_id"
 }
 
-
 func (ConfigItemLastScrapedTime) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 	var items []ConfigItemLastScrapedTime
 	err := db.Select("config_items_last_scraped_time.*").
@@ -203,6 +202,15 @@ func (ConfigItemLastScrapedTime) UpdateParentsIsPushed(db *gorm.DB, items []DBTa
 }
 
 // This should only be used for tests and its fixtures
+
+func (c ConfigItem) QueryLogSummary() string {
+	name := lo.FromPtrOr(c.Name, c.ID.String()[:10])
+	t := lo.FromPtrOr(c.Type, "")
+	if t != "" {
+		return t + "/" + name + " (" + c.ID.String()[:10] + ")"
+	}
+	return name + " (" + c.ID.String()[:10] + ")"
+}
 
 func (c ConfigItem) Pretty() api.Text {
 	t := clicky.Text("")
@@ -773,6 +781,29 @@ func (c ConfigChange) Row() map[string]any {
 		"CreatedAt":  clicky.Text(createdAt),
 		"CreatedBy":  clicky.Text(createdBy),
 	}
+}
+
+func (c ConfigChange) RowDetail() api.Textable {
+	t := clicky.Text("")
+	if c.ExternalChangeID != nil && *c.ExternalChangeID != "" {
+		t = t.Append("ExternalChangeID: ", "text-gray-500 font-medium").Append(*c.ExternalChangeID)
+	}
+	if c.Fingerprint != "" {
+		t = t.NewLine().Append("Fingerprint: ", "text-gray-500 font-medium").Append(c.Fingerprint)
+	}
+	if len(c.Details) > 0 {
+		data, _ := json.MarshalIndent(c.Details, "", "  ")
+		t = t.NewLine().Append(clicky.CodeBlock("json", string(data)))
+	}
+	if c.Diff != "" {
+		t = t.NewLine().Append("Diff: ", "text-gray-500 font-medium")
+		t = t.NewLine().Append(clicky.CodeBlock("diff", c.Diff))
+	}
+	if c.Patches != "" {
+		t = t.NewLine().Append("Patches: ", "text-gray-500 font-medium")
+		t = t.NewLine().Append(clicky.CodeBlock("json", c.Patches))
+	}
+	return t
 }
 
 func (t ConfigChange) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {

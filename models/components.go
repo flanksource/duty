@@ -98,6 +98,13 @@ type Component struct {
 	NodeProcessed bool `json:"-" gorm:"-"`
 }
 
+func (c Component) QueryLogSummary() string {
+	if c.TopologyType != "" {
+		return c.TopologyType + "/" + c.Name + " (" + c.ID.String()[:10] + ")"
+	}
+	return c.Name + " (" + c.ID.String()[:10] + ")"
+}
+
 func (c Component) Pretty() api.Text {
 	t := clicky.Text("")
 

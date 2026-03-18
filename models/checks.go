@@ -80,6 +80,13 @@ type Check struct {
 	TotalRuns       int        `json:"totalRuns,omitempty" gorm:"-"`
 }
 
+func (c Check) QueryLogSummary() string {
+	if c.Type != "" {
+		return c.Type + "/" + c.Name + " (" + c.ID.String()[:10] + ")"
+	}
+	return c.Name + " (" + c.ID.String()[:10] + ")"
+}
+
 func (c Check) Pretty() api.Text {
 	t := c.Status.Pretty().AddText(" ")
 	t = t.AddText(c.Name, "font-bold")

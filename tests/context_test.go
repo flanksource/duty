@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,7 +41,8 @@ var _ = Describe("Context", func() {
 
 		Expect(c.GetObjectMeta().Name).To(Equal("test"))
 		Expect(c.IsDebug()).To(BeTrue())
-		Expect(c.IsTrace()).To(BeFalse())
+
+		Expect(c.IsTrace()).To(Equal(logger.IsTraceEnabled()))
 
 		Expect(c.GetName()).To(Equal("test"))
 		Expect(c.GetNamespace()).To(Equal("default"))
