@@ -266,6 +266,15 @@ table "config_items" {
     null = true
     type = sql("text[]")
   }
+  column "external_id_v2" {
+    null    = true
+    type    = text
+    comment = "temporary canonical external ID column; will be renamed to external_id in a later step because external_id currently exists as text[] and immediate rename would cause a type conflict"
+  }
+  column "aliases" {
+    null = true
+    type = sql("text[]")
+  }
   column "type" {
     null = false
     type = text
@@ -403,6 +412,13 @@ table "config_items" {
   index "idx_config_items_external_id" {
     columns = [column.external_id]
     type    = GIN
+  }
+  index "idx_config_items_external_id_v2_key" {
+    unique = true
+    on {
+      expr = "lower(external_id_v2)"
+    }
+    where = "deleted_at IS NULL AND external_id_v2 IS NOT NULL"
   }
   index "idx_config_items_deleted_at" {
     columns = [column.deleted_at]
