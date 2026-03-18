@@ -34,8 +34,8 @@ require (
 	github.com/flanksource/clicky v1.19.0
 	github.com/flanksource/commons v1.48.2
 	github.com/flanksource/deps v1.0.24
-	github.com/flanksource/gomplate/v3 v3.24.74
-	github.com/flanksource/is-healthy v1.0.85
+	github.com/flanksource/gomplate/v3 v3.24.75
+	github.com/flanksource/is-healthy v1.0.86
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-git/v5 v5.16.5
