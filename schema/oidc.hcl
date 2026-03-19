@@ -102,7 +102,6 @@ table "oidc_auth_requests" {
     columns = [column.id]
   }
   index "oidc_auth_requests_code_idx" {
-    unique  = true
     columns = [column.code]
     where   = "code IS NOT NULL"
   }
