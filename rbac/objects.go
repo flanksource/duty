@@ -201,6 +201,11 @@ var dbResourceObjMap = map[string]string{
 	"topologies":                                        policy.ObjectTopology,
 	"topology":                                          policy.ObjectTopology,
 
+	// OIDC tables
+	"oidc_auth_requests":  policy.ObjectAuthConfidential,
+	"oidc_public_keys":    policy.ObjectAuthConfidential,
+	"oidc_refresh_tokens": policy.ObjectAuthConfidential,
+
 	// views
 	"views":         policy.ObjectViews,
 	"view_panels":   policy.ObjectViews,
