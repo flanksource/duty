@@ -10,7 +10,7 @@ import (
 
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
-		Version:    "v10.0.0",
+		Version:    "v14.6",
 		DBRole:     "postgrest_api",
 		AnonDBRole: "",
 		Port:       3000,
