@@ -220,14 +220,19 @@ func (k Context) globalProperties() Properties {
 	return props
 }
 
-func extractMissionControlAnnotations(annotations map[string]string) map[string]string {
+func extractAnnotations(annotations map[string]string) map[string]string {
 	var out map[string]string
 	for key, val := range annotations {
-		if after, ok := strings.CutPrefix(key, "mission-control/"); ok {
-			if out == nil {
-				out = make(map[string]string)
+		for _, prefix := range annotationPrefixes {
+			if prefix == "" {
+				continue
 			}
-			out[after] = val
+			if after, ok := strings.CutPrefix(key, prefix); ok {
+				if out == nil {
+					out = make(map[string]string)
+				}
+				out[after] = val
+			}
 		}
 	}
 	return out
@@ -243,7 +248,7 @@ func (k Context) Properties() HierarchicalProperties {
 	current := root
 	for _, o := range k.Objects() {
 		meta := getObjectMeta(o)
-		local := extractMissionControlAnnotations(meta.Annotations)
+		local := extractAnnotations(meta.Annotations)
 		if len(local) == 0 {
 			continue
 		}
