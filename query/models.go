@@ -517,7 +517,7 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 
 		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
 			if !slices.Contains(qm.Columns, q.Field) {
-				return nil, nil, fmt.Errorf("%w: query for column:%s in table:%s not supported", ErrColumnNotSupported, q.Field, qm.Table)
+				return nil, nil, fmt.Errorf("query for column:%s in table:%s not supported: %w", q.Field, qm.Table, ErrColumnNotSupported)
 			}
 
 			if q.Field == "type" {
