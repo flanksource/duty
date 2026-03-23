@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/flanksource/commons/logger"
 )
@@ -21,8 +22,10 @@ var DefaultConfig = Config{
 }
 
 func init() {
-	if DefaultConfig.Postgrest.Version == "v14.6" && runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-		logger.Warnf("PostgREST v14.6 does not have a darwin/arm64 binary, defaulting to v14.1 for darwin/arm64")
+	v := DefaultConfig.Postgrest.Version
+	if strings.HasPrefix(v, "v14") && v != "v14.1" && v != "v14.0" &&
+		runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		logger.Warnf("PostgREST v14.2+ does not have a darwin/arm64 binary, defaulting to v14.1 for darwin/amd64")
 		DefaultConfig.Postgrest.Version = "v14.1"
 	}
 }
