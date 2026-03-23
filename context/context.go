@@ -162,8 +162,48 @@ func (k Context) WithObject(object ...any) Context {
 	ctx = ctx.WithValue("object", object)
 	if len(logNames) > 0 {
 		ctx.Logger = logger.GetLogger(strings.Join(logNames, "."))
+		ctx.configureLoggerFromAnnotations()
 	}
 	return ctx
+}
+
+var annotationPrefixes = []string{"", "mission-control/", "canary-checker/"}
+
+func annotationValue(annotations map[string]string, key string) string {
+	for _, prefix := range annotationPrefixes {
+		if v, ok := annotations[prefix+key]; ok {
+			return v
+		}
+	}
+	return ""
+}
+
+func (k *Context) configureLoggerFromAnnotations() {
+	if k.Logger == nil {
+		return
+	}
+	for _, o := range k.Objects() {
+		annotations := getObjectMeta(o).Annotations
+		if len(annotations) == 0 {
+			continue
+		}
+		if v := annotationValue(annotations, "log.level"); v != "" {
+			k.Logger.SetLogLevel(v)
+			return
+		}
+		if annotationValue(annotations, "trace") == "true" {
+			if !k.Logger.IsLevelEnabled(logger.Trace) {
+				k.Logger.SetLogLevel(logger.Trace)
+			}
+			return
+		}
+		if annotationValue(annotations, "debug") == "true" {
+			if !k.Logger.IsLevelEnabled(logger.Debug) {
+				k.Logger.SetLogLevel(logger.Debug)
+			}
+			return
+		}
+	}
 }
 
 func (k Context) Verbose() logger.Logger {
@@ -217,6 +257,7 @@ func (k Context) WithoutName() Context {
 
 func (k Context) WithName(name string) Context {
 	k.Logger = k.Logger.Named(name)
+	k.configureLoggerFromAnnotations()
 	return k
 }
 

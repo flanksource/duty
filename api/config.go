@@ -1,22 +1,30 @@
 package api
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
+	"runtime"
+
+	"github.com/flanksource/commons/logger"
 )
 
 var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
-		Version:    "v10.0.0",
+		Version:    "v14.6",
 		DBRole:     "postgrest_api",
 		AnonDBRole: "",
 		Port:       3000,
 		AdminPort:  3001,
 		MaxRows:    2000,
 	},
+}
+
+func init() {
+	if DefaultConfig.Postgrest.Version == "v14.6" && runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		logger.Warnf("PostgREST v14.6 does not have a darwin/arm64 binary, defaulting to v14.1 for darwin/arm64")
+		DefaultConfig.Postgrest.Version = "v14.1"
+	}
 }
 
 func NewConfig(connection string) Config {
@@ -69,21 +77,6 @@ func (t *Config) Migrate() bool {
 	default:
 		return t.RunMigrations
 	}
-}
-
-func PrintableSecret(secret string) string {
-	if len(secret) == 0 {
-		return "<nil>"
-	} else if len(secret) > 30 {
-		sum := md5.Sum([]byte(secret))
-		hash := hex.EncodeToString(sum[:])
-		return fmt.Sprintf("md5(%s),length=%d", hash[0:8], len(secret))
-	} else if len(secret) > 16 {
-		return fmt.Sprintf("%s****%s", secret[0:1], secret[len(secret)-2:])
-	} else if len(secret) > 10 {
-		return fmt.Sprintf("****%s", secret[len(secret)-1:])
-	}
-	return "****"
 }
 
 func readEnv(val string) string {
@@ -146,6 +139,10 @@ func (p PostgrestConfig) ReadEnv() PostgrestConfig {
 		clone.JWTSecret = ""
 	}
 	clone.LogLevel = readEnv(clone.LogLevel)
+
+	if v := os.Getenv("PGRST_VERSION"); v != "" {
+		clone.Version = v
+	}
 	return clone
 }
 
@@ -154,5 +151,5 @@ func (p PostgrestConfig) String() string {
 		p.Version,
 		p.Port,
 		p.LogLevel,
-		PrintableSecret(p.JWTSecret))
+		logger.PrintableSecret(p.JWTSecret))
 }
