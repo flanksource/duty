@@ -394,6 +394,16 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Configs:  []models.ConfigItem{dummy.EKSCluster},
 		},
 		{
+			// #canary #config type=pod — canaries don't have a "type" column so the canary query
+			// should be silently skipped (no results, no error) while configs still return results.
+			description: "ignore unsupported type filter for canaries when configs support it",
+			query: query.SearchResourcesRequest{
+				Canaries: []types.ResourceSelector{{Search: "type=Kubernetes::Node"}},
+				Configs:  []types.ResourceSelector{{Search: "type=Kubernetes::Node"}},
+			},
+			Configs: []models.ConfigItem{dummy.KubernetesNodeA, dummy.KubernetesNodeB, dummy.KubernetesNodeAKSPool1},
+		},
+		{
 			description: "case insensitive | config by id",
 			query: query.SearchResourcesRequest{
 				Configs: []types.ResourceSelector{{ID: strings.ToUpper(dummy.EKSCluster.ID.String())}},
