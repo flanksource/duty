@@ -875,7 +875,7 @@ type ConfigAnalysis struct {
 	AnalysisType  AnalysisType  `gorm:"column:analysis_type" json:"analysis_type" faker:"oneof: availability, compliance, cost, security, performance"`
 	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
-	FirstObserved *time.Time    `gorm:"column:first_observed;<-:create" json:"first_observed"`
+	FirstObserved *time.Time    `gorm:"column:first_observed;default:now();<-:create" json:"first_observed"`
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
