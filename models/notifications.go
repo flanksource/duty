@@ -140,7 +140,7 @@ type NotificationSendHistory struct {
 
 	// Notifications that were silenced or blocked by repeat intervals
 	// use this as the first observed timestamp.
-	FirstObserved time.Time `json:"first_observed" gorm:"<-:false"`
+	FirstObserved time.Time `json:"first_observed" gorm:"<-:create"`
 
 	// Name of the original event that caused this notification
 	SourceEvent string `json:"source_event"`
