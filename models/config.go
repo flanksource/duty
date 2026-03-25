@@ -876,7 +876,10 @@ type ConfigAnalysis struct {
 	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
 	FirstObserved *time.Time    `gorm:"column:first_observed;default:now();<-:create" json:"first_observed"`
-	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
+
+	// LastObserved is the most recent timestamp when this analysis was observed.
+	LastObserved *time.Time `gorm:"column:last_observed;default:now();<-:false" json:"last_observed"`
+
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
 }

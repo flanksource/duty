@@ -48,3 +48,20 @@ BEGIN
         WHERE category IS NULL;
     END IF;
 END $$;
+
+DO $$
+BEGIN
+    -- Check if the column "last_observed" exists in the "config_analysis" table
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'config_analysis'
+        AND column_name = 'last_observed'
+    ) THEN
+        -- Update existing NULL values in the "last_observed" column
+        UPDATE config_analysis
+        SET last_observed = now()
+        WHERE last_observed IS NULL;
+    END IF;
+END $$;

@@ -56,8 +56,9 @@ table "config_analysis" {
     default = sql("now()")
   }
   column "last_observed" {
-    null = true
-    type = timestamptz
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
   }
   column "is_pushed" {
     null    = false
