@@ -31,13 +31,14 @@ type Link struct {
 }
 
 // +kubebuilder:object:generate=true
-// Property is a realized v1.Property without the lookup definition
+// Property is a key-value metadata field that holds either a text or a numeric value.
 type Property struct {
+	// Type controls how the UI renders the property value: url, badge, currency, text, age, hidden.
+	Type     string `json:"type,omitempty"`
 	Label    string `json:"label,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Tooltip  string `json:"tooltip,omitempty"`
 	Icon     string `json:"icon,omitempty"`
-	Type     string `json:"type,omitempty"`
 	Color    string `json:"color,omitempty"`
 	Order    int    `json:"order,omitempty"`
 	Headline bool   `json:"headline,omitempty"`
