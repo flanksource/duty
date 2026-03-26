@@ -908,10 +908,8 @@ func (c ConfigAnalysis) Pretty() api.Text {
 
 	if c.Properties != nil {
 		for _, p := range *c.Properties {
-			for _, link := range p.Links {
-				if link.URL != "" {
-					t = t.AddText(" ").AddText(link.URL, "text-xs text-blue-400 underline")
-				}
+			if pretty := p.Pretty(); !pretty.IsEmpty() {
+				t = t.AddText(" ").Add(pretty)
 			}
 		}
 	}
