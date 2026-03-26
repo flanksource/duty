@@ -50,6 +50,10 @@ table "config_analysis" {
     null = true
     type = jsonb
   }
+  column "properties" {
+    null = true
+    type = jsonb
+  }
   column "first_observed" {
     null    = false
     type    = timestamptz

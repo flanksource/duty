@@ -873,7 +873,8 @@ type ConfigAnalysis struct {
 	Status        string        `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
 	Severity      Severity      `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
 	AnalysisType  AnalysisType  `gorm:"column:analysis_type" json:"analysis_type" faker:"oneof: availability, compliance, cost, security, performance"`
-	Analysis      types.JSONMap `gorm:"column:analysis" json:"analysis,omitempty"`
+	Analysis      types.JSONMap  `gorm:"column:analysis" json:"analysis,omitempty"`
+	Properties    *types.Properties `gorm:"column:properties;default:null" json:"properties,omitempty"`
 	Source        string        `gorm:"column:source" json:"source,omitempty"`
 	FirstObserved *time.Time    `gorm:"column:first_observed;default:now();<-:create" json:"first_observed"`
 	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
@@ -905,8 +906,12 @@ func (c ConfigAnalysis) Pretty() api.Text {
 		t = t.AddText(" ").Add(clicky.Text(c.Status, statusStyle).Wrap("[", "]"))
 	}
 
-	if url, ok := c.Analysis["url"].(string); ok && url != "" {
-		t = t.AddText(" ").AddText(url, "text-xs text-blue-400 underline")
+	if c.Properties != nil {
+		for _, p := range *c.Properties {
+			if pretty := p.Pretty(); !pretty.IsEmpty() {
+				t = t.AddText(" ").Add(pretty)
+			}
+		}
 	}
 
 	return t

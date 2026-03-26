@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/logger"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -31,13 +33,14 @@ type Link struct {
 }
 
 // +kubebuilder:object:generate=true
-// Property is a realized v1.Property without the lookup definition
+// Property is a key-value metadata field that holds either a text or a numeric value.
 type Property struct {
+	// Type controls how the UI renders the property value: url, badge, currency, text, age, hidden.
+	Type     string `json:"type,omitempty"`
 	Label    string `json:"label,omitempty"`
 	Name     string `json:"name,omitempty"`
 	Tooltip  string `json:"tooltip,omitempty"`
 	Icon     string `json:"icon,omitempty"`
-	Type     string `json:"type,omitempty"`
 	Color    string `json:"color,omitempty"`
 	Order    int    `json:"order,omitempty"`
 	Headline bool   `json:"headline,omitempty"`
@@ -59,6 +62,53 @@ type Property struct {
 
 func (p Property) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
+}
+
+// Pretty renders the property as a styled TUI text fragment.
+// URL-type properties show their link URL in blue; badge/other types show
+// their value (colored via p.Color when set).
+func (p *Property) Pretty() api.Text {
+	if p == nil {
+		return api.Text{}
+	}
+
+	// Build the display value string.
+	var valueStr string
+	if p.Value != nil && p.Max != nil {
+		// Normalise to a /10 scale (works for CVSS 75/100 and OpenSSF 7/10).
+		scaled := float64(*p.Value) / float64(*p.Max) * 10
+		if float64(int64(scaled)) == scaled {
+			valueStr = fmt.Sprintf("%d/10", int64(scaled))
+		} else {
+			valueStr = fmt.Sprintf("%.1f/10", scaled)
+		}
+	} else if p.Value != nil {
+		valueStr = fmt.Sprintf("%d", *p.Value)
+	} else {
+		valueStr = p.Text
+	}
+
+	if p.Name == "" && valueStr == "" {
+		return api.Text{}
+	}
+
+	t := clicky.Text(p.Name+": ", "text-xs text-gray-500")
+
+	if p.Type == "url" {
+		// Show the resolved link URL as clickable-looking text.
+		href := valueStr
+		if len(p.Links) > 0 && p.Links[0].URL != "" {
+			href = p.Links[0].URL
+		}
+		return t.AddText(href, "text-xs text-blue-400 underline")
+	}
+
+	// Badge / other types: apply Color if set (clicky picks up the text-* class).
+	valueStyle := "text-xs"
+	if p.Color != "" {
+		valueStyle += " " + p.Color
+	}
+	return t.AddText(valueStr, valueStyle)
 }
 
 type Properties []*Property
