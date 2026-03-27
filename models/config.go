@@ -862,22 +862,25 @@ func (c *ConfigChange) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigAnalysis struct {
-	ID            uuid.UUID     `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
-	ExternalID    string        `gorm:"-"`
-	ConfigType    string        `gorm:"-"`
-	ConfigID      uuid.UUID     `gorm:"column:config_id;default:''" json:"config_id"`
-	ScraperID     *uuid.UUID    `gorm:"column:scraper_id;default:null" json:"scraper_id"`
-	Analyzer      string        `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
-	Message       string        `gorm:"column:message" json:"message"`
-	Summary       string        `gorm:"column:summary;default:null" json:"summary,omitempty"`
-	Status        string        `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
-	Severity      Severity      `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
-	AnalysisType  AnalysisType  `gorm:"column:analysis_type" json:"analysis_type" faker:"oneof: availability, compliance, cost, security, performance"`
-	Analysis      types.JSONMap  `gorm:"column:analysis" json:"analysis,omitempty"`
+	ID            uuid.UUID         `gorm:"primaryKey;unique_index;not null;column:id;default:generate_ulid()" json:"id"`
+	ExternalID    string            `gorm:"-"`
+	ConfigType    string            `gorm:"-"`
+	ConfigID      uuid.UUID         `gorm:"column:config_id;default:''" json:"config_id"`
+	ScraperID     *uuid.UUID        `gorm:"column:scraper_id;default:null" json:"scraper_id"`
+	Analyzer      string            `gorm:"column:analyzer" json:"analyzer" faker:"oneof: ec2-instance-no-public-ip, eks-endpoint-no-public-access"`
+	Message       string            `gorm:"column:message" json:"message"`
+	Summary       string            `gorm:"column:summary;default:null" json:"summary,omitempty"`
+	Status        string            `gorm:"column:status;default:null" json:"status,omitempty" faker:"oneof: open, resolved, silenced"`
+	Severity      Severity          `gorm:"column:severity" json:"severity" faker:"oneof: critical, high, medium, low, info"`
+	AnalysisType  AnalysisType      `gorm:"column:analysis_type" json:"analysis_type" faker:"oneof: availability, compliance, cost, security, performance"`
+	Analysis      types.JSONMap     `gorm:"column:analysis" json:"analysis,omitempty"`
 	Properties    *types.Properties `gorm:"column:properties;default:null" json:"properties,omitempty"`
-	Source        string        `gorm:"column:source" json:"source,omitempty"`
-	FirstObserved *time.Time    `gorm:"column:first_observed;default:now();<-:create" json:"first_observed"`
-	LastObserved  *time.Time    `gorm:"column:last_observed" json:"last_observed"`
+	Source        string            `gorm:"column:source" json:"source,omitempty"`
+	FirstObserved *time.Time        `gorm:"column:first_observed;default:now();<-:create" json:"first_observed"`
+
+	// LastObserved is the timestamp the sraper last observed this analysis
+	LastObserved *time.Time `gorm:"column:last_observed;default:no()" json:"last_observed"`
+
 	// IsPushed when set to true indicates that the check status has been pushed to upstream.
 	IsPushed bool `json:"is_pushed,omitempty"`
 }
