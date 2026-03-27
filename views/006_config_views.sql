@@ -433,6 +433,77 @@ DROP VIEW IF EXISTS config_analysis_analyzers;
 CREATE OR REPLACE VIEW config_analysis_analyzers AS
   SELECT DISTINCT(analyzer) FROM config_analysis WHERE status = 'open';
 
+-- config_analysis_filter_options
+-- Returns all distinct dynamic filter values for the insights table in a
+-- single RPC call. When p_config_id is provided, every facet is scoped to
+-- that config's analysis rows.
+DROP FUNCTION IF EXISTS config_analysis_filter_options;
+
+CREATE OR REPLACE FUNCTION config_analysis_filter_options(
+  p_config_id UUID DEFAULT NULL
+) RETURNS jsonb AS $$
+SELECT jsonb_build_object(
+  'types', COALESCE(
+    (SELECT jsonb_agg(analysis_type ORDER BY analysis_type)
+     FROM (
+       SELECT DISTINCT analysis_type
+       FROM config_analysis
+       WHERE analysis_type IS NOT NULL AND analysis_type != ''
+         AND (p_config_id IS NULL OR config_id = p_config_id)
+     ) t),
+    '[]'::jsonb
+  ),
+
+  'analyzers', COALESCE(
+    (SELECT jsonb_agg(analyzer ORDER BY analyzer)
+     FROM (
+       SELECT DISTINCT analyzer
+       FROM config_analysis
+       WHERE analyzer IS NOT NULL AND analyzer != ''
+         AND (p_config_id IS NULL OR config_id = p_config_id)
+     ) t),
+    '[]'::jsonb
+  ),
+
+  'sources', COALESCE(
+    (SELECT jsonb_agg(source ORDER BY source)
+     FROM (
+       SELECT DISTINCT source
+       FROM config_analysis
+       WHERE source IS NOT NULL AND source != ''
+         AND (p_config_id IS NULL OR config_id = p_config_id)
+     ) t),
+    '[]'::jsonb
+  ),
+
+  'config_types', COALESCE(
+    (SELECT jsonb_agg(type ORDER BY type)
+     FROM (
+       SELECT DISTINCT ci.type
+       FROM config_analysis ca
+       INNER JOIN config_items ci ON ci.id = ca.config_id
+       WHERE ci.type IS NOT NULL AND ci.type != ''
+         AND (p_config_id IS NULL OR ca.config_id = p_config_id)
+     ) t),
+    '[]'::jsonb
+  ),
+
+  'catalogs', COALESCE(
+    (SELECT jsonb_agg(
+       jsonb_build_object('id', id, 'name', name, 'type', type, 'config_class', config_class)
+       ORDER BY name
+     )
+     FROM (
+       SELECT DISTINCT ci.id, ci.name, ci.type, ci.config_class
+       FROM config_analysis ca
+       INNER JOIN config_items ci ON ci.id = ca.config_id
+       WHERE (p_config_id IS NULL OR ca.config_id = p_config_id)
+     ) t),
+    '[]'::jsonb
+  )
+);
+$$ LANGUAGE sql STABLE;
+
 DROP VIEW IF EXISTS config_changes_by_types;
 CREATE OR REPLACE VIEW config_changes_by_types AS
   SELECT config_items.type, COUNT(config_changes.id) as change_count
@@ -514,9 +585,12 @@ FOR EACH ROW
   EXECUTE FUNCTION insert_config_changes_updates_in_event_queue();
 ---
 
+DROP VIEW IF EXISTS config_analysis_items;
+
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
     ca.*,
+    ci.name as config_name,
     ci.type as config_type,
     ci.config_class
   FROM config_analysis as ca
