@@ -60,8 +60,10 @@ table "config_analysis" {
     default = sql("now()")
   }
   column "last_observed" {
-    null = true
-    type = timestamptz
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+    comment = "the last timestamp the scrape saw this analysis"
   }
   column "is_pushed" {
     null    = false
@@ -448,15 +450,15 @@ table "config_items" {
 }
 
 table "config_items_last_scraped_time" {
-  schema = schema.public
+  schema   = schema.public
   unlogged = true
   column "config_id" {
     null = false
     type = uuid
   }
   column "last_scraped_time" {
-    null = false
-    type = timestamptz
+    null    = false
+    type    = timestamptz
     default = sql("now()")
   }
   column "is_pushed" {
