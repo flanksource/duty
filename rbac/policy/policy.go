@@ -242,6 +242,9 @@ const (
 	ObjectPeople           = "people"
 	ObjectNotification     = "notification"
 	ObjectViews            = "views"
+
+	// ObjectMCP represents our MCP server endpoint.
+	ObjectMCP = "mcp"
 )
 
 // Actions
@@ -253,6 +256,11 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 
+	// ActionMCPUse grants a user permission to use/connect to the MCP endpoint
+	ActionMCPUse = "mcp:use"
+
+	// ActionMCPRun grants MCP-triggered playbook run operations.
+	// Intended for playbook-scoped permissions.
 	ActionMCPRun = "mcp:run"
 
 	// Playbooks
@@ -269,6 +277,7 @@ var AllActions = []string{
 	ActionPlaybookApprove,
 	ActionPlaybookRun,
 	ActionMCPRun,
+	ActionMCPUse,
 }
 
 var AllObjects = []string{
@@ -297,6 +306,7 @@ var AllObjects = []string{
 	ObjectPeople,
 	ObjectNotification,
 	ObjectViews,
+	ObjectMCP,
 }
 
 // ABACObjectSelector returns the ABAC object selector JSON for a given
