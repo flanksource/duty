@@ -3,6 +3,7 @@ package shell
 import (
 	"fmt"
 	"os"
+	osExec "os/exec"
 	"path/filepath"
 	"strings"
 
@@ -15,6 +16,7 @@ type ExecSetup struct {
 	Bun        *RuntimeSetup `json:"bun,omitempty" yaml:"bun,omitempty"`
 	Python     *RuntimeSetup `json:"python,omitempty" yaml:"python,omitempty"`
 	Powershell *RuntimeSetup `json:"powershell,omitempty" yaml:"powershell,omitempty"`
+	Playwright *RuntimeSetup `json:"playwright,omitempty" yaml:"playwright,omitempty"`
 }
 
 // +kubebuilder:object:generate=true
@@ -33,12 +35,15 @@ func applySetupRuntimeEnv(ctx context.Context, exec *Exec, envs []string) ([]str
 		envs = pathEnvWithBinDirs(envs, setupResult.binDirs)
 	}
 
+	envs = append(envs, setupResult.extraEnv...)
+
 	return envs, nil
 }
 
 type setupRuntimeResult struct {
-	binDirs []string
-	baseDir string
+	binDirs  []string
+	baseDir  string
+	extraEnv []string
 }
 
 type runtimePaths struct {
@@ -89,7 +94,96 @@ func installSetupRuntimes(ctx context.Context, exec *Exec) (setupRuntimeResult, 
 		result.binDirs = append(result.binDirs, paths.binDir)
 	}
 
+	if setup.Playwright != nil {
+		pwResult, err := installPlaywrightRuntime(ctx, setup.Playwright, baseDir)
+		if err != nil {
+			return result, fmt.Errorf("failed to install playwright runtime: %w", err)
+		}
+		result.binDirs = append(result.binDirs, pwResult.binDirs...)
+		result.extraEnv = append(result.extraEnv, pwResult.extraEnv...)
+	}
+
 	return result, nil
+}
+
+func installPlaywrightRuntime(ctx context.Context, setup *RuntimeSetup, baseDir string) (setupRuntimeResult, error) {
+	var nodeBinDir string
+
+	nodePaths, err := installRuntime(ctx, "node", "any", baseDir)
+	if err != nil {
+		return setupRuntimeResult{}, fmt.Errorf("failed to install node for playwright: %w", err)
+	}
+
+	// deps may detect node as already installed on PATH.
+	// Check if npm exists in the installed binDir; if not, find it on PATH.
+	npmBin := filepath.Join(nodePaths.binDir, "npm")
+	if _, err := os.Stat(npmBin); err != nil {
+		if systemNpm, lookErr := osExec.LookPath("npm"); lookErr == nil {
+			npmBin = systemNpm
+			nodeBinDir = filepath.Dir(systemNpm)
+		} else {
+			return setupRuntimeResult{}, fmt.Errorf("npm not found in %s or on PATH", nodePaths.binDir)
+		}
+	} else {
+		nodeBinDir = nodePaths.binDir
+	}
+
+	npxBin := filepath.Join(nodeBinDir, "npx")
+	if _, err := os.Stat(npxBin); err != nil {
+		if systemNpx, lookErr := osExec.LookPath("npx"); lookErr == nil {
+			npxBin = systemNpx
+		} else {
+			return setupRuntimeResult{}, fmt.Errorf("npx not found in %s or on PATH", nodeBinDir)
+		}
+	}
+
+	version := strings.TrimSpace(setup.Version)
+	if version == "" {
+		version = "latest"
+	}
+
+	playwrightDir := filepath.Join(baseDir, "playwright", version)
+	browsersDir := filepath.Join(playwrightDir, "browsers")
+	for _, dir := range []string{playwrightDir, browsersDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return setupRuntimeResult{}, fmt.Errorf("failed to create playwright directory %s: %w", dir, err)
+		}
+	}
+
+	envWithPath := append(os.Environ(),
+		fmt.Sprintf("PATH=%s%c%s", nodeBinDir, os.PathListSeparator, os.Getenv("PATH")),
+		fmt.Sprintf("PLAYWRIGHT_BROWSERS_PATH=%s", browsersDir),
+	)
+
+	initCmd := osExec.CommandContext(ctx, npmBin, "init", "-y")
+	initCmd.Dir = playwrightDir
+	initCmd.Env = envWithPath
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		return setupRuntimeResult{}, fmt.Errorf("npm init failed: %s: %w", string(out), err)
+	}
+
+	installCmd := osExec.CommandContext(ctx, npmBin, "install", "playwright@"+version)
+	installCmd.Dir = playwrightDir
+	installCmd.Env = envWithPath
+	if out, err := installCmd.CombinedOutput(); err != nil {
+		return setupRuntimeResult{}, fmt.Errorf("npm install playwright@%s failed: %s: %w", version, string(out), err)
+	}
+
+	browserCmd := osExec.CommandContext(ctx, npxBin, "playwright", "install", "chromium")
+	browserCmd.Dir = playwrightDir
+	browserCmd.Env = envWithPath
+	if out, err := browserCmd.CombinedOutput(); err != nil {
+		return setupRuntimeResult{}, fmt.Errorf("playwright install chromium failed: %s: %w", string(out), err)
+	}
+
+	nodeModules := filepath.Join(playwrightDir, "node_modules")
+	return setupRuntimeResult{
+		binDirs: []string{nodeBinDir, filepath.Join(nodeModules, ".bin")},
+		extraEnv: []string{
+			fmt.Sprintf("NODE_PATH=%s", nodeModules),
+			fmt.Sprintf("PLAYWRIGHT_BROWSERS_PATH=%s", browsersDir),
+		},
+	}, nil
 }
 
 func installRuntime(ctx context.Context, name string, version string, baseDir string) (runtimePaths, error) {

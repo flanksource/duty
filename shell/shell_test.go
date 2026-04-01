@@ -133,6 +133,34 @@ print(is_even(2))
 	})
 })
 
+var _ = ginkgo.Describe("Shell Run Playwright", ginkgo.Label("slow"), func() {
+	ctx := context.New()
+
+	ginkgo.It("should run playwright scripts", func() {
+		exec := Exec{
+			BaseDir: tempDir(),
+			Setup: &ExecSetup{
+				Playwright: &RuntimeSetup{},
+			},
+			Script: `#!/usr/bin/env node
+const { chromium } = require('playwright');
+(async () => {
+	const browser = await chromium.launch();
+	const page = await browser.newPage();
+	await page.goto('data:text/html,<h1>Hello</h1>');
+	const title = await page.evaluate(() => document.querySelector('h1').textContent);
+	await browser.close();
+	console.log(JSON.stringify({ title }));
+})();`,
+		}
+
+		result, err := Run(ctx, exec)
+		Expect(err).ToNot(HaveOccurred(), "failed to run playwright script")
+		Expect(result.ExitCode).To(Equal(0), "unexpected non-zero exit code: %s", result.Stderr)
+		Expect(result.Stdout).To(MatchJSON(`{"title":"Hello"}`))
+	})
+})
+
 var _ = ginkgo.Describe("Environment Variables", func() {
 
 	ctx := context.New()
