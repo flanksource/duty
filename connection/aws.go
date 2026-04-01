@@ -145,8 +145,12 @@ func (t *AWSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: t.SkipTLSVerify},
 	}
 
-	if o.HARCollector != nil {
-		tr = o.HARCollector.Middleware()(tr)
+	harCollector := o.HARCollector
+	if harCollector == nil {
+		harCollector = ctx.HARCollector()
+	}
+	if harCollector != nil {
+		tr = harCollector.Middleware()(tr)
 	}
 
 	if ctx.IsTrace() {
