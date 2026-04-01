@@ -118,7 +118,8 @@ func (c *OpensearchConnection) Hydrate(ctx ConnectionContext) error {
 
 // Client creates and returns an OpenSearch client.
 // NOTE: Must be run on a hydrated OpensearchConnection.
-func (c *OpensearchConnection) Client() (*opensearch.Client, error) {
+func (c *OpensearchConnection) Client(ctx context.Context, opts ...types.ClientOption) (*opensearch.Client, error) {
+	o := types.NewClientOptions(opts...)
 	if len(c.URLs) == 0 {
 		return nil, fmt.Errorf("opensearch connection urls cannot be empty")
 	}
@@ -132,12 +133,26 @@ func (c *OpensearchConnection) Client() (*opensearch.Client, error) {
 		cfg.Password = c.GetPassword()
 	}
 
+	var tr http.RoundTripper
 	if c.InsecureSkipVerify {
-		cfg.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
+		tr = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
+	}
+
+	harCollector := o.HARCollector
+	if harCollector == nil {
+		harCollector = ctx.HARCollector()
+	}
+	if harCollector != nil {
+		if tr == nil {
+			tr = http.DefaultTransport
+		}
+		tr = harCollector.Middleware()(tr)
+	}
+
+	if tr != nil {
+		cfg.Transport = tr
 	}
 
 	client, err := opensearch.NewClient(cfg)
@@ -148,7 +163,7 @@ func (c *OpensearchConnection) Client() (*opensearch.Client, error) {
 	return client, nil
 }
 
-func NewOpenSearchClient(ctx context.Context, connection models.Connection) (*opensearch.Client, error) {
+func NewOpenSearchClient(ctx context.Context, connection models.Connection, opts ...types.ClientOption) (*opensearch.Client, error) {
 	var conn OpensearchConnection
 	if err := conn.FromModel(connection); err != nil {
 		return nil, fmt.Errorf("error creating opensearch connection from model: %w", err)
@@ -158,5 +173,5 @@ func NewOpenSearchClient(ctx context.Context, connection models.Connection) (*op
 		return nil, fmt.Errorf("error hydrating opensearch connection: %w", err)
 	}
 
-	return conn.Client()
+	return conn.Client(ctx, opts...)
 }

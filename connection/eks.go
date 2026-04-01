@@ -11,6 +11,7 @@ import (
 	signerv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -32,8 +33,8 @@ func (t *EKSConnection) Populate(ctx ConnectionContext) error {
 	return t.AWSConnection.Populate(ctx)
 }
 
-func (t *EKSConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
-	awsConfig, err := t.AWSConnection.Client(ctx)
+func (t *EKSConnection) KubernetesClient(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
+	awsConfig, err := t.AWSConnection.Client(ctx, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

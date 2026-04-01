@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/types"
 	"golang.org/x/oauth2/google"
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
@@ -35,8 +36,9 @@ func (t *GKEConnection) Validate() *GKEConnection {
 	return t
 }
 
-func (t *GKEConnection) Client(ctx context.Context) (*container.Service, error) {
+func (t *GKEConnection) Client(ctx context.Context, opts ...types.ClientOption) (*container.Service, error) {
 	t = t.Validate()
+	o := types.NewClientOptions(opts...)
 
 	var clientOpts []option.ClientOption
 
@@ -44,14 +46,23 @@ func (t *GKEConnection) Client(ctx context.Context) (*container.Service, error) 
 		clientOpts = append(clientOpts, option.WithEndpoint(t.Endpoint))
 	}
 
-	if t.SkipTLSVerify {
-		insecureHTTPClient := &http.Client{
+	harCollector := o.HARCollector
+	if harCollector == nil {
+		harCollector = ctx.HARCollector()
+	}
+	if harCollector != nil {
+		base := http.RoundTripper(http.DefaultTransport)
+		if t.SkipTLSVerify {
+			base = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		}
+		tr := harCollector.Middleware()(base)
+		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{Transport: tr}))
+	} else if t.SkipTLSVerify {
+		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
-		}
-
-		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
+		}))
 	}
 
 	if t.Credentials != nil && !t.Credentials.IsEmpty() {
@@ -76,8 +87,8 @@ func (t *GKEConnection) Client(ctx context.Context) (*container.Service, error) 
 	return svc, nil
 }
 
-func (t *GKEConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
-	containerService, err := t.Client(ctx)
+func (t *GKEConnection) KubernetesClient(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
+	containerService, err := t.Client(ctx, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -42,7 +42,7 @@ func New(ctx context.Context, backend Backend, mappingConfig *logs.FieldMappingC
 		return nil, ctx.Oops().Wrapf(err, "error hydrating opensearch connection")
 	}
 
-	client, err := conn.Client()
+	client, err := conn.Client(ctx)
 	if err != nil {
 		return nil, ctx.Oops().Wrapf(err, "error creating the openSearch client")
 	}

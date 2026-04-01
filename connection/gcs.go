@@ -37,12 +37,16 @@ func (g *GCSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		clientOpts = append(clientOpts, option.WithEndpoint(g.Endpoint))
 	}
 
-	if o.HARCollector != nil {
+	harCollector := o.HARCollector
+	if harCollector == nil {
+		harCollector = ctx.HARCollector()
+	}
+	if harCollector != nil {
 		base := http.RoundTripper(http.DefaultTransport)
 		if g.SkipTLSVerify {
 			base = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		}
-		tr := o.HARCollector.Middleware()(base)
+		tr := harCollector.Middleware()(base)
 		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{Transport: tr}))
 	} else if g.SkipTLSVerify {
 		insecureHTTPClient := &http.Client{

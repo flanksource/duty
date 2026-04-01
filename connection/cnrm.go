@@ -6,6 +6,7 @@ import (
 
 	"github.com/flanksource/duty/context"
 	dutyKube "github.com/flanksource/duty/kubernetes"
+	"github.com/flanksource/duty/types"
 	container "google.golang.org/api/container/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,8 +26,8 @@ func (t *CNRMConnection) Populate(ctx ConnectionContext) error {
 	return t.GKE.Populate(ctx)
 }
 
-func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool) (kubernetes.Interface, *rest.Config, error) {
-	cnrmCluster, restConfig, err := t.GKE.KubernetesClient(ctx, freshToken)
+func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
+	cnrmCluster, restConfig, err := t.GKE.KubernetesClient(ctx, freshToken, opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create Kubernetes client for GKE: %w", err)
 	}
