@@ -178,6 +178,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/merge_and_upsert_external_users":               policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_groups":              policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_roles":               policy.ObjectDatabaseSystem,
+	"rpc/permissions_for_obj_selector":                  policy.ObjectDatabaseSystem,
 	"rpc/soft_delete_canary":                            policy.ObjectCanary,
 	"rpc/soft_delete_check":                             policy.ObjectCanary,
 	"rpc/uuid_to_ulid":                                  policy.ObjectDatabasePublic,
