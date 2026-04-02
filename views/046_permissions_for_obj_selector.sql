@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION permissions_for_obj_selector(
   p_field TEXT,
-  p_namespace TEXT DEFAULT NULL,
-  p_name TEXT
+  p_name TEXT,
+  p_namespace TEXT DEFAULT NULL
 )
 RETURNS SETOF permissions_summary
 LANGUAGE plpgsql
