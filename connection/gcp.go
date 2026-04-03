@@ -45,7 +45,7 @@ func (t *GCPConnection) FromModel(connection models.Connection) {
 }
 
 func (g *GCPConnection) TokenSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
-	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...)
+	creds, err := google.CredentialsFromJSON(ctx, []byte(g.Credentials.ValueStatic), scopes...) //nolint:staticcheck
 	if err != nil {
 		return nil, err
 	}

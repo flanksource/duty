@@ -153,7 +153,7 @@ func (t *AWSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		tr = harCollector.Middleware()(tr)
 	}
 
-	if ctx.IsTrace() {
+	if ctx.IsTrace() && harCollector == nil {
 		httplogger := &httpretty.Logger{
 			Time:           true,
 			TLS:            ctx.Logger.IsLevelEnabled(7),

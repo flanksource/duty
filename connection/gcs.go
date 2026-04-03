@@ -62,7 +62,7 @@ func (g *GCSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		if err != nil {
 			return nil, err
 		}
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), gcs.ScopeReadWrite)
+		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), gcs.ScopeReadWrite) //nolint:staticcheck
 		if err != nil {
 			return nil, err
 		}
