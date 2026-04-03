@@ -8,6 +8,7 @@ import (
 	"time"
 
 	commons "github.com/flanksource/commons/context"
+	"github.com/flanksource/commons/har"
 	"github.com/flanksource/commons/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -311,6 +312,17 @@ func (k Context) WithKubernetes(conn KubernetesConnection) Context {
 
 func (k Context) WithNamespace(namespace string) Context {
 	return k.WithValue("namespace", namespace)
+}
+
+func (k Context) WithHARCollector(collector *har.Collector) Context {
+	return k.WithValue("har-collector", collector)
+}
+
+func (k Context) HARCollector() *har.Collector {
+	if v, ok := k.Value("har-collector").(*har.Collector); ok {
+		return v
+	}
+	return nil
 }
 
 func (k Context) WithDB(db *gorm.DB, pool *pgxpool.Pool) Context {

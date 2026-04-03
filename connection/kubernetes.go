@@ -176,7 +176,7 @@ func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool, opt
 			return nil, nil, err
 		}
 
-		return t.GKE.KubernetesClient(ctx, freshToken)
+		return t.GKE.KubernetesClient(ctx, freshToken, opts...)
 	}
 
 	if t.EKS != nil {
@@ -184,7 +184,7 @@ func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool, opt
 			return nil, nil, err
 		}
 
-		return t.EKS.KubernetesClient(ctx, freshToken)
+		return t.EKS.KubernetesClient(ctx, freshToken, opts...)
 	}
 
 	if t.CNRM != nil {
@@ -192,7 +192,7 @@ func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool, opt
 			return nil, nil, err
 		}
 
-		return t.CNRM.KubernetesClient(ctx, freshToken)
+		return t.CNRM.KubernetesClient(ctx, freshToken, opts...)
 	}
 
 	return nil, nil, nil

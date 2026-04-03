@@ -8,6 +8,7 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 // +kubebuilder:object:generate=true
@@ -34,10 +35,10 @@ func (p *PrometheusConnection) Populate(ctx ConnectionContext) error {
 	return nil
 }
 
-func (p *PrometheusConnection) NewClient(ctx context.Context) (v1.API, error) {
+func (p *PrometheusConnection) NewClient(ctx context.Context, opts ...types.ClientOption) (v1.API, error) {
 	cfg := api.Config{
 		Address:      p.HTTPConnection.URL,
-		RoundTripper: p.HTTPConnection.Transport(),
+		RoundTripper: p.HTTPConnection.Transport(opts...),
 	}
 
 	client, err := api.NewClient(cfg)

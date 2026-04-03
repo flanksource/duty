@@ -348,10 +348,15 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 	return h, nil
 }
 
-func (h HTTPConnection) Transport() netHTTP.RoundTripper {
+func (h HTTPConnection) Transport(opts ...types.ClientOption) netHTTP.RoundTripper {
+	o := types.NewClientOptions(opts...)
+	var base netHTTP.RoundTripper = &netHTTP.Transport{}
+	if o.HARCollector != nil {
+		base = o.HARCollector.Middleware()(base)
+	}
 	rt := &httpConnectionRoundTripper{
 		HTTPConnection: h,
-		Base:           &netHTTP.Transport{},
+		Base:           base,
 	}
 	return rt
 }
@@ -400,8 +405,12 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 }
 
 // CreateHTTPClient requires a hydrated connection
-func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection) (*http.Client, error) {
+func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.ClientOption) (*http.Client, error) {
+	o := types.NewClientOptions(opts...)
 	client := http.NewClient()
+	if o.HARCollector != nil {
+		client.HARCollector(o.HARCollector)
+	}
 	if !conn.HTTPBasicAuth.IsEmpty() {
 		client.Auth(conn.GetUsername(), conn.GetPassword())
 		client.Digest(conn.Digest)
