@@ -12,7 +12,7 @@ ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
 test: ginkgo
-	ginkgo -r   --succinct --skip-package=tests/e2e,bench --label-filter "!e2e"
+	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
 
 test-concurrent: ginkgo
 	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
@@ -29,6 +29,10 @@ e2e-services: ## Run e2e test services in foreground with automatic cleanup on e
 	cd tests/e2e && \
 	trap 'docker-compose down -v && docker-compose rm -f' EXIT INT TERM && \
 	docker-compose up --remove-orphans
+
+.PHONY: test-e2e-blobs
+test-e2e-blobs: ginkgo
+	ginkgo -v --label-filter="e2e" ./tests/e2e-blobs/
 
 .PHONY: bench
 bench:

@@ -42,7 +42,7 @@ func New(ctx context.Context, conn connection.GCPConnection, mappingConfig *logs
 	}
 
 	if conn.Credentials != nil && !conn.Credentials.IsEmpty() {
-		c, err := google.CredentialsFromJSON(ctx, []byte(conn.Credentials.ValueStatic))
+		c, err := google.CredentialsFromJSON(ctx, []byte(conn.Credentials.ValueStatic)) //nolint:staticcheck
 		if err != nil {
 			return nil, fmt.Errorf("%w", err)
 		}

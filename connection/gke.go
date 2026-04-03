@@ -70,7 +70,7 @@ func (t *GKEConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		if err != nil {
 			return nil, err
 		}
-		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), container.CloudPlatformScope)
+		creds, err := google.CredentialsFromJSON(ctx, []byte(credential), container.CloudPlatformScope) //nolint:staticcheck
 		if err != nil {
 			return nil, err
 		}

@@ -42,6 +42,16 @@ table "artifacts" {
     null = false
     type = text
   }
+  column "content" {
+    null    = true
+    type    = bytea
+    comment = "inline blob storage for artifact data when no external connection is configured"
+  }
+  column "compression_type" {
+    null    = true
+    type    = text
+    comment = "compression algorithm applied to content: gzip, zstd, or none"
+  }
   column "is_pushed" {
     null    = false
     default = false
