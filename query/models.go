@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -9,7 +10,7 @@ import (
 
 	"github.com/flanksource/commons/collections"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/timberio/go-datemath"
 	"gorm.io/gorm"
@@ -19,6 +20,10 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query/grammar"
 )
+
+// ErrColumnNotSupported is returned when a query references a column that does not exist on the target table.
+// Callers can detect this sentinel and skip the resource type rather than propagating the error.
+var ErrColumnNotSupported = errors.New("column not supported")
 
 // Maintained by a job
 var allTypesCache atomic.Value
@@ -469,14 +474,14 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		if mapper, ok := CommonFields[q.Field]; ok {
 			tx, err = mapper(ctx, tx, val)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "Invalid value for %s", q.Field)
+				return nil, nil, pkgerrors.Wrapf(err, "Invalid value for %s", q.Field)
 			}
 		}
 
 		if mapper, ok := qm.Custom[q.Field]; ok {
 			tx, err = mapper(ctx, tx, val)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "Invalid value for %s", q.Field)
+				return nil, nil, pkgerrors.Wrapf(err, "Invalid value for %s", q.Field)
 			}
 		}
 
@@ -512,7 +517,7 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 
 		if !slices.Contains(ignoreFieldsForClauses, q.Field) {
 			if !slices.Contains(qm.Columns, q.Field) {
-				return nil, nil, fmt.Errorf("query for column:%s in table:%s not supported", q.Field, qm.Table)
+				return nil, nil, fmt.Errorf("query for column:%s in table:%s not supported: %w", q.Field, qm.Table, ErrColumnNotSupported)
 			}
 
 			if q.Field == "type" {
