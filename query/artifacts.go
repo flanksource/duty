@@ -19,3 +19,9 @@ func ArtifactsByPlaybookRun(ctx context.Context, runID uuid.UUID) ([]models.Arti
 	err := ctx.DB().Where("playbook_run_id = ?", runID).Find(&artifacts).Error
 	return artifacts, err
 }
+
+func ArtifactsByConfigChange(ctx context.Context, changeID uuid.UUID) ([]models.Artifact, error) {
+	var artifacts []models.Artifact
+	err := ctx.DB().Where("config_change_id = ?", changeID).Find(&artifacts).Error
+	return artifacts, err
+}

@@ -709,6 +709,9 @@ type ConfigChange struct {
 
 	// ExternalCreatedBy is the name/email from the external system that created this change.
 	ExternalCreatedBy *string `gorm:"column:external_created_by" json:"external_created_by,omitempty"`
+
+	// Artifacts associated with this change (screenshots, HAR files, etc.)
+	Artifacts []Artifact `gorm:"foreignKey:ConfigChangeID" json:"artifacts,omitempty"`
 }
 
 func (c ConfigChange) Pretty() api.Text {
