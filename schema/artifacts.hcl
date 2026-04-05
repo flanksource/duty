@@ -17,6 +17,10 @@ table "artifacts" {
     null = true
     type = uuid
   }
+  column "config_change_id" {
+    null = true
+    type = uuid
+  }
   column "connection_id" {
     null    = true
     type    = uuid
@@ -97,10 +101,19 @@ table "artifacts" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+  foreign_key "artifacts_config_change_fkey" {
+    columns     = [column.config_change_id]
+    ref_columns = [table.config_changes.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
   index "artifacts_check_id_idx" {
     columns = [column.check_id]
   }
   index "artifacts_playbook_run_action_id_idx" {
     columns = [column.playbook_run_action_id]
+  }
+  index "artifacts_config_change_id_idx" {
+    columns = [column.config_change_id]
   }
 }

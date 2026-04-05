@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -164,6 +165,7 @@ func (t *AWSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 			Colors:         true,
 			Formatters:     []httpretty.Formatter{&httpretty.JSONFormatter{}},
 		}
+		httplogger.SetOutput(os.Stderr)
 
 		tr = httplogger.RoundTripper(tr)
 	}

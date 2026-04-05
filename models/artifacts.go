@@ -22,6 +22,7 @@ type Artifact struct {
 	CheckID             *uuid.UUID `json:"check_id,omitempty"`
 	CheckTime           *time.Time `json:"check_time,omitempty" time_format:"postgres_timestamp"`
 	PlaybookRunActionID *uuid.UUID `json:"playbook_run_action_id,omitempty"`
+	ConfigChangeID      *uuid.UUID `json:"config_change_id,omitempty"`
 	ConnectionID        uuid.UUID  `json:"connection_id,omitempty"`
 	Path                string     `json:"path"`
 	IsPushed            bool       `json:"is_pushed"`
