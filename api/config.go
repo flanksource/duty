@@ -14,6 +14,7 @@ var DefaultConfig = Config{
 	Postgrest: PostgrestConfig{
 		Version:    "v14.6",
 		DBRole:     "postgrest_api",
+		Arch:       runtime.GOARCH,
 		AnonDBRole: "",
 		Port:       3000,
 		AdminPort:  3001,
@@ -22,7 +23,9 @@ var DefaultConfig = Config{
 }
 
 func init() {
+	DefaultConfig.Postgrest = DefaultConfig.Postgrest.ReadEnv()
 	v := DefaultConfig.Postgrest.Version
+
 	if strings.HasPrefix(v, "v14") && v != "v14.1" && v != "v14.0" &&
 		runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
 		logger.Warnf("PostgREST v14.2+ does not have a darwin/arm64 binary, defaulting to v14.1 for darwin/amd64")
@@ -124,6 +127,7 @@ type PostgrestConfig struct {
 	LogLevel   string
 	URL        string
 	Version    string
+	Arch       string
 	JWTSecret  string
 	DBRole     string
 	AnonDBRole string
@@ -145,6 +149,9 @@ func (p PostgrestConfig) ReadEnv() PostgrestConfig {
 
 	if v := os.Getenv("PGRST_VERSION"); v != "" {
 		clone.Version = v
+	}
+	if v := os.Getenv("PGRST_ARCH"); v != "" {
+		clone.Arch = v
 	}
 	return clone
 }
