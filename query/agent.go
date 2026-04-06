@@ -11,17 +11,21 @@ import (
 	"gorm.io/gorm"
 )
 
-func FindAgent(ctx context.Context, name string) (*models.Agent, error) {
+func FindAgent(ctx context.Context, name string) (result *models.Agent, err error) {
+	timer := NewQueryLogger(ctx).Start("Agent").Arg("name", name)
+	defer timer.End(&err)
+
 	var agent models.Agent
-	err := ctx.DB().Where("name = ?", name).First(&agent).Error
+	err = ctx.DB().Where("name = ?", name).First(&agent).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = nil
+			timer.Results([]models.Agent{})
 			return nil, nil
 		}
-
 		return nil, err
 	}
-
+	timer.Results([]models.Agent{agent})
 	return &agent, nil
 }
 

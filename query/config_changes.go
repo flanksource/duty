@@ -8,7 +8,6 @@ import (
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -30,165 +29,60 @@ var allRecursiveOptions = []ChangeRelationDirection{CatalogChangeRecursiveUpstre
 var allowedConfigChangesSortColumns = []string{"name", "change_type", "summary", "source", "created_at", "count"}
 
 type CatalogChangesSearchRequest struct {
-	CatalogID             string `query:"id" json:"id"`
-	ConfigType            string `query:"config_type" json:"config_type"`
-	ChangeType            string `query:"type" json:"type"`
-	Severity              string `query:"severity" json:"severity"`
-	IncludeDeletedConfigs bool   `query:"include_deleted_configs" json:"include_deleted_configs"`
-	Depth                 int    `query:"depth" json:"depth"`
-	CreatedByRaw          string `query:"created_by" json:"created_by"`
-	Summary               string `query:"summary" json:"summary"`
-	Source                string `query:"source" json:"source"`
-	Tags                  string `query:"tags" json:"tags"`
+	BaseCatalogSearch `json:",inline"`
 
-	// To Fetch from a particular agent, provide the agent id.
-	// Use `local` keyword to filter by the local agent.
-	AgentID string `query:"agent_id" json:"agent_id"`
+	ChangeType   string `query:"type" json:"type"`
+	Severity     string `query:"severity" json:"severity"`
+	CreatedByRaw string `query:"created_by" json:"created_by"`
+	Summary      string `query:"summary" json:"summary"`
+	Source       string `query:"source" json:"source"`
 
 	createdBy         *uuid.UUID
 	externalCreatedBy string
-
-	// From date in datemath format
-	From string `query:"from" json:"from"`
-	// To date in datemath format
-	To string `query:"to" json:"to"`
 
 	// FromInsertedAt in datemath format
 	FromInsertedAt string `query:"from_inserted_at" json:"from_inserted_at"`
 	// ToInsertedAt in datemath format
 	ToInsertedAt string `query:"to_inserted_at" json:"to_inserted_at"`
 
-	PageSize  int    `query:"page_size" json:"page_size"`
-	Page      int    `query:"page" json:"page"`
-	SortBy    string `query:"sort_by" json:"sort_by"`
-	sortOrder string
-
-	// upstream | downstream | both
-	Recursive ChangeRelationDirection `query:"recursive" json:"recursive"`
-
-	// FIXME: Soft toggle does not work with Recursive=both
-	// In that case, soft relations are always returned
-	// It also returns ALL soft relations throughout the tree
-	// not just soft related to the main config item
-	Soft bool `query:"soft" json:"soft"`
-
-	fromParsed           time.Time
-	toParsed             time.Time
 	fromInsertedAtParsed time.Time
 	toInsertedAtParsed   time.Time
 }
 
 func (t CatalogChangesSearchRequest) String() string {
-	s := ""
-	if t.AgentID != "" {
-		s += fmt.Sprintf("agent: %s", t.AgentID)
-	}
-	if t.CatalogID != "" {
-		s += fmt.Sprintf("id: %s ", t.CatalogID)
-	}
-	if t.ConfigType != "" {
-		s += fmt.Sprintf("config_type: %s ", t.ConfigType)
-	}
+	s := t.BaseCatalogSearch.String()
 	if t.ChangeType != "" {
-		s += fmt.Sprintf("type: %s ", t.ChangeType)
+		s += fmt.Sprintf(" type=%s", t.ChangeType)
 	}
 	if t.Severity != "" {
-		s += fmt.Sprintf("severity: %s ", t.Severity)
+		s += fmt.Sprintf(" severity=%s", t.Severity)
 	}
 	if t.Source != "" {
-		s += fmt.Sprintf("source: %s ", t.Source)
-	}
-	if t.IncludeDeletedConfigs {
-		s += fmt.Sprintf("include_deleted_configs: %t ", t.IncludeDeletedConfigs)
-	}
-	if t.Depth != 0 {
-		s += fmt.Sprintf("depth: %d ", t.Depth)
+		s += fmt.Sprintf(" source=%s", t.Source)
 	}
 	if t.CreatedByRaw != "" {
-		s += fmt.Sprintf("created_by: %s ", t.CreatedByRaw)
+		s += fmt.Sprintf(" created_by=%s", t.CreatedByRaw)
 	}
 	if t.Summary != "" {
-		s += fmt.Sprintf("summary: %s ", t.Summary)
-	}
-	if t.Tags != "" {
-		s += fmt.Sprintf("tags: %s ", t.Tags)
-	}
-	if t.From != "" {
-		s += fmt.Sprintf("from: %s ", t.From)
-	}
-	if t.To != "" {
-		s += fmt.Sprintf("to: %s ", t.To)
-	}
-	if t.FromInsertedAt != "" {
-		s += fmt.Sprintf("from_inserted_at: %s ", t.FromInsertedAt)
-	}
-	if t.ToInsertedAt != "" {
-		s += fmt.Sprintf("to_inserted_at: %s ", t.ToInsertedAt)
-	}
-	if t.PageSize != 0 {
-		s += fmt.Sprintf("page_size: %d ", t.PageSize)
-	}
-	if t.Page != 0 {
-		s += fmt.Sprintf("page: %d ", t.Page)
-	}
-	if t.SortBy != "" {
-		s += fmt.Sprintf("sort_by: %s %s ", t.SortBy, t.sortOrder)
-	}
-	if t.Recursive != "" {
-		s += fmt.Sprintf("recursive: %s ", t.Recursive)
+		s += fmt.Sprintf(" summary=%s", t.Summary)
 	}
 	return s
 }
 
 func (t *CatalogChangesSearchRequest) SetDefaults() {
-	if t.PageSize <= 0 {
-		t.PageSize = 50
-	}
-
-	if t.Page <= 0 {
-		t.Page = 1
-	}
-
 	if t.From == "" && t.To == "" {
 		t.From = "now-2d"
 	}
-
-	if t.Recursive == "" {
-		t.Recursive = CatalogChangeRecursiveDownstream
-	}
-
-	if t.Depth <= 0 {
-		t.Depth = 5
-	}
-
-	if t.AgentID == "local" {
-		t.AgentID = uuid.Nil.String()
-	}
+	t.BaseCatalogSearch.SetDefaults()
 }
 
 func (t *CatalogChangesSearchRequest) Validate() error {
+	if err := t.BaseCatalogSearch.Validate(); err != nil {
+		return err
+	}
+
 	if !lo.Contains(allRecursiveOptions, t.Recursive) {
 		return fmt.Errorf("'recursive' must be one of %v", allRecursiveOptions)
-	}
-
-	if t.From != "" {
-		if expr, err := datemath.Parse(t.From); err != nil {
-			return fmt.Errorf("invalid 'from' param: %w", err)
-		} else {
-			t.fromParsed = expr.Time()
-		}
-	}
-
-	if t.To != "" {
-		if expr, err := datemath.Parse(t.To); err != nil {
-			return fmt.Errorf("invalid 'to' param: %w", err)
-		} else {
-			t.toParsed = expr.Time()
-		}
-	}
-
-	if !t.fromParsed.IsZero() && !t.toParsed.IsZero() && !t.fromParsed.Before(t.toParsed) {
-		return fmt.Errorf("'from' must be before 'to'")
 	}
 
 	if t.FromInsertedAt != "" {
@@ -227,12 +121,6 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 			t.createdBy = &u
 		} else {
 			t.externalCreatedBy = t.CreatedByRaw
-		}
-	}
-
-	if t.AgentID != "" {
-		if _, err := uuid.Parse(t.AgentID); err != nil {
-			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `local`", t.AgentID)
 		}
 	}
 
@@ -299,82 +187,59 @@ func formSeverityQuery(severity string) string {
 	return strings.Join(applicable, ",")
 }
 
-func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*CatalogChangesSearchResponse, error) {
+func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (result *CatalogChangesSearchResponse, err error) {
 	req.SetDefaults()
 	if err := req.Validate(); err != nil {
 		return nil, api.Errorf(api.EINVALID, "bad request: %v", err)
 	}
-	ctx.Tracef("query changes: %s", req)
 
-	var clauses []clause.Expression
+	timer := NewQueryLogger(ctx).Start("CatalogChanges").Arg("query", req.String())
+	defer timer.End(&err)
 
-	query := ctx.DB()
-
-	if req.AgentID != "" {
-		clause, err := parseAndBuildFilteringQuery(req.AgentID, "agent_id", false)
-		if err != nil {
-			return nil, err
-		}
-		clauses = append(clauses, clause...)
+	configIDs, err := req.ResolveConfigIDs(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	if req.ConfigType != "" {
-		clause, err := parseAndBuildFilteringQuery(req.ConfigType, "type", false)
-		if err != nil {
-			return nil, err
-		}
-		clauses = append(clauses, clause...)
+	baseClauses, tagsFn := req.ApplyClauses()
+	var clauses []clause.Expression
+	clauses = append(clauses, baseClauses...)
+
+	dbQuery := ctx.DB()
+	if tagsFn != nil {
+		dbQuery = tagsFn(dbQuery)
 	}
 
 	if req.ChangeType != "" {
-		clause, err := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false)
-		if err != nil {
-			return nil, err
+		if c, parseErr := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, parseErr
 		}
-		clauses = append(clauses, clause...)
 	}
 
 	if req.Severity != "" {
-		clause, err := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false)
-		if err != nil {
-			return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", err)
+		if c, parseErr := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", parseErr)
 		}
-		clauses = append(clauses, clause...)
 	}
 
 	if req.Summary != "" {
-		clause, err := parseAndBuildFilteringQuery(req.Summary, "summary", true)
-		if err != nil {
-			return nil, api.Errorf(api.EINVALID, "failed to parse summary: %v", err)
+		if c, parseErr := parseAndBuildFilteringQuery(req.Summary, "summary", true); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, api.Errorf(api.EINVALID, "failed to parse summary: %v", parseErr)
 		}
-		clauses = append(clauses, clause...)
 	}
 
 	if req.Source != "" {
-		clause, err := parseAndBuildFilteringQuery(req.Source, "source", true)
-		if err != nil {
-			return nil, api.Errorf(api.EINVALID, "failed to parse source: %v", err)
+		if c, parseErr := parseAndBuildFilteringQuery(req.Source, "source", true); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, api.Errorf(api.EINVALID, "failed to parse source: %v", parseErr)
 		}
-		clauses = append(clauses, clause...)
-	}
-
-	if req.Tags != "" {
-		parsedLabelSelector, err := labels.Parse(req.Tags)
-		if err != nil {
-			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
-		}
-		requirements, _ := parsedLabelSelector.Requirements()
-		for _, r := range requirements {
-			query = jsonColumnRequirementsToSQLClause(query, "tags", r)
-		}
-	}
-
-	if !req.fromParsed.IsZero() {
-		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: req.fromParsed})
-	}
-
-	if !req.toParsed.IsZero() {
-		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "created_at"}, Value: req.toParsed})
 	}
 
 	if !req.fromInsertedAtParsed.IsZero() {
@@ -390,26 +255,26 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if req.externalCreatedBy != "" {
-		clause, err := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true)
-		if err != nil {
-			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", err)
+		if c, parseErr := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", parseErr)
 		}
-		clauses = append(clauses, clause...)
 	}
 
-	if !req.IncludeDeletedConfigs {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "deleted_at"}, Value: nil})
-	}
-
-	table := query.Table("catalog_changes")
-	if err := uuid.Validate(req.CatalogID); err == nil {
-		table = query.Table("related_changes_recursive(?,?,?,?,?)", req.CatalogID, req.Recursive, req.IncludeDeletedConfigs, req.Depth, req.Soft)
-	} else {
-		clause, err := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false)
-		if err != nil {
-			return nil, err
+	// Determine table: single UUID uses related_changes_recursive, multi-ID or query uses IN clause
+	table := dbQuery.Table("catalog_changes")
+	if len(configIDs) == 1 {
+		table = dbQuery.Table("related_changes_recursive(?,?,?,?,?)", configIDs[0], req.Recursive, req.IncludeDeletedConfigs, req.Depth, req.Soft)
+	} else if len(configIDs) > 1 {
+		table = table.Where("config_id IN ?", configIDs)
+	} else if req.CatalogID != "" {
+		// Fallback: treat as filtering expression on config_id
+		if c, parseErr := parseAndBuildFilteringQuery(req.CatalogID, "config_id", false); parseErr == nil {
+			clauses = append(clauses, c...)
+		} else {
+			return nil, parseErr
 		}
-		clauses = append(clauses, clause...)
 	}
 
 	var output CatalogChangesSearchResponse
@@ -418,6 +283,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	if output.Total == 0 {
+		timer.Results(output.Changes)
 		return &output, nil
 	}
 
@@ -440,6 +306,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (*
 	}
 
 	output.Summarize()
+	timer.Results(output.Changes)
 	return &output, nil
 }
 
