@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -45,12 +46,30 @@ func (t *GCPConnection) FromModel(connection models.Connection) {
 }
 
 func (g *GCPConnection) TokenSource(ctx context.Context, scopes ...string) (oauth2.TokenSource, error) {
-	creds, err := google.CredentialsFromJSONWithParams(ctx, []byte(g.Credentials.ValueStatic), google.CredentialsParams{Scopes: scopes})
+	credType, err := detectCredentialType([]byte(g.Credentials.ValueStatic))
+	if err != nil {
+		return nil, fmt.Errorf("detecting credential type: %w", err)
+	}
+
+	creds, err := google.CredentialsFromJSONWithType(ctx, []byte(g.Credentials.ValueStatic), credType, scopes...)
 	if err != nil {
 		return nil, err
 	}
 
 	return creds.TokenSource, nil
+}
+
+func detectCredentialType(jsonData []byte) (google.CredentialsType, error) {
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(jsonData, &f); err != nil {
+		return "", fmt.Errorf("parsing credentials JSON: %w", err)
+	}
+	if f.Type == "" {
+		return google.ServiceAccount, nil
+	}
+	return google.CredentialsType(f.Type), nil
 }
 
 func (g *GCPConnection) Validate() *GCPConnection {
