@@ -36,10 +36,17 @@ func FindCatalogAccess(ctx context.Context, req CatalogAccessSearchRequest) (res
 		q = q.Where("config_id IN ?", configIDs)
 	}
 
-	if err := q.Find(&output.Access).Error; err != nil {
+	if err := q.Count(&output.Total).Error; err != nil {
 		return nil, err
 	}
-	output.Total = int64(len(output.Access))
+	if output.Total == 0 {
+		timer.Results(output.Access)
+		return &output, nil
+	}
+
+	if err := q.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize).Find(&output.Access).Error; err != nil {
+		return nil, err
+	}
 	timer.Results(output.Access)
 	return &output, nil
 }
