@@ -216,6 +216,7 @@ var dbResourceObjMap = map[string]string{
 	// permission
 	"permissions":               policy.ObjectDatabaseSystem,
 	"permission_groups":         policy.ObjectDatabaseSystem,
+	"permission_subjects":       policy.ObjectDatabaseSystem,
 	"permissions_summary":       policy.ObjectDatabaseSystem,
 	"permissions_group_summary": policy.ObjectDatabaseSystem,
 	"scopes":                    policy.ObjectDatabaseSystem,
