@@ -24,6 +24,7 @@ var dbResourceObjMap = map[string]string{
 	"analysis_types":                            policy.ObjectDatabasePublic,
 	"analyzer_types":                            policy.ObjectDatabasePublic,
 	"artifacts":                                 policy.ObjectArtifact,
+	"artifact_summary":                          policy.ObjectArtifact,
 	"canaries_with_status":                      policy.ObjectCanary,
 	"canaries":                                  policy.ObjectCanary,
 	"casbin_rule":                               policy.ObjectAuth,
