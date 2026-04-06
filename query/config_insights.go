@@ -40,35 +40,54 @@ func FindCatalogInsights(ctx context.Context, req CatalogInsightsSearchRequest) 
 	if err != nil {
 		return nil, err
 	}
+	if len(configIDs) == 0 && req.CatalogID != "" {
+		return &CatalogInsightsSearchResponse{}, nil
+	}
 
+	// config_analysis table doesn't have deleted_at, agent_id, type, or tags columns
+	baseClauses, tagsFn, err := req.ApplyClauses("deleted_at", "agent_id", "type", "tags")
+	if err != nil {
+		return nil, api.Errorf(api.EINVALID, "bad request: %v", err)
+	}
 	var clauses []clause.Expression
-	baseClauses, tagsFn := req.ApplyClauses()
 	clauses = append(clauses, baseClauses...)
 
 	q := ctx.DB().Table("config_analysis")
 
 	if len(configIDs) > 0 {
-		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "config_id"}, Value: nil})
 		q = q.Where("config_id IN ?", configIDs)
 	}
 
 	if req.Status != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.Status, "status", false); parseErr == nil {
+		if c, parseErr := parseAndBuildFilteringQuery(req.Status, "status", false); parseErr != nil && !req.Lenient {
+			return nil, api.Errorf(api.EINVALID, "failed to parse status: %v", parseErr)
+		} else if parseErr == nil {
 			clauses = append(clauses, c...)
 		}
 	}
 	if req.Severity != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false); parseErr == nil {
-			clauses = append(clauses, c...)
+		severityQuery, err := formSeverityQuery(req.Severity)
+		if err != nil && !req.Lenient {
+			return nil, api.Errorf(api.EINVALID, "invalid severity: %v", err)
+		} else if err == nil {
+			if c, parseErr := parseAndBuildFilteringQuery(severityQuery, "severity", false); parseErr != nil && !req.Lenient {
+				return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", parseErr)
+			} else if parseErr == nil {
+				clauses = append(clauses, c...)
+			}
 		}
 	}
 	if req.Analyzer != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.Analyzer, "analyzer", true); parseErr == nil {
+		if c, parseErr := parseAndBuildFilteringQuery(req.Analyzer, "analyzer", true); parseErr != nil && !req.Lenient {
+			return nil, api.Errorf(api.EINVALID, "failed to parse analyzer: %v", parseErr)
+		} else if parseErr == nil {
 			clauses = append(clauses, c...)
 		}
 	}
 	if req.AnalysisType != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.AnalysisType, "analysis_type", false); parseErr == nil {
+		if c, parseErr := parseAndBuildFilteringQuery(req.AnalysisType, "analysis_type", false); parseErr != nil && !req.Lenient {
+			return nil, api.Errorf(api.EINVALID, "failed to parse analysis_type: %v", parseErr)
+		} else if parseErr == nil {
 			clauses = append(clauses, c...)
 		}
 	}
@@ -78,19 +97,7 @@ func FindCatalogInsights(ctx context.Context, req CatalogInsightsSearchRequest) 
 	}
 
 	var output CatalogInsightsSearchResponse
-	// Remove the dummy deleted_at clause for config_analysis (it doesn't have deleted_at)
-	filteredClauses := make([]clause.Expression, 0, len(clauses))
-	for _, c := range clauses {
-		if eq, ok := c.(clause.Eq); ok && eq.Column.(clause.Column).Name == "deleted_at" {
-			continue
-		}
-		if eq, ok := c.(clause.Eq); ok && eq.Column.(clause.Column).Name == "config_id" && eq.Value == nil {
-			continue
-		}
-		filteredClauses = append(filteredClauses, c)
-	}
-
-	if err := q.Clauses(filteredClauses...).Count(&output.Total).Error; err != nil {
+	if err := q.Clauses(clauses...).Count(&output.Total).Error; err != nil {
 		return nil, err
 	}
 	if output.Total == 0 {
@@ -98,11 +105,11 @@ func FindCatalogInsights(ctx context.Context, req CatalogInsightsSearchRequest) 
 		return &output, nil
 	}
 
-	filteredClauses = append(filteredClauses,
+	clauses = append(clauses,
 		clause.Limit{Limit: &req.PageSize, Offset: (req.Page - 1) * req.PageSize},
 	)
 
-	if err := q.Clauses(filteredClauses...).Find(&output.Insights).Error; err != nil {
+	if err := q.Clauses(clauses...).Find(&output.Insights).Error; err != nil {
 		return nil, err
 	}
 	timer.Results(output.Insights)
