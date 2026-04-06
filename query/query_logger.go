@@ -40,8 +40,12 @@ func (q QueryLogger) Start(entity string) *QueryTimer {
 }
 
 func (t *QueryTimer) Arg(key string, value any) *QueryTimer {
+	s := fmt.Sprintf("%v", value)
+	if len(s) > 80 {
+		s = s[:77] + "..."
+	}
 	t.label = t.label.AddText(fmt.Sprintf(" %s=", key), "text-gray-500").
-		AddText(fmt.Sprintf("%v", value))
+		AddText(s)
 	return t
 }
 
@@ -101,6 +105,11 @@ func summaryText(v any, count int) string {
 		return ""
 	}
 
+	// Try grouped summary first (e.g. "CodeDeployment: 5, BackupCompleted: 3")
+	if grouped := groupedSummary(rv); grouped != "" {
+		return " [" + grouped + "]"
+	}
+
 	const maxInline = 2
 	shown := count
 	if shown > maxInline {
@@ -116,4 +125,28 @@ func summaryText(v any, count int) string {
 		summary += fmt.Sprintf(", ...%d more", count-maxInline)
 	}
 	return " [" + summary + "]"
+}
+
+func groupedSummary(rv reflect.Value) string {
+	if rv.Len() == 0 {
+		return ""
+	}
+	first := rv.Index(0).Interface()
+	if _, ok := first.(QueryLogSummary); !ok {
+		return ""
+	}
+	counts := make(map[string]int)
+	var order []string
+	for i := 0; i < rv.Len(); i++ {
+		s := rv.Index(i).Interface().(QueryLogSummary).QueryLogSummary()
+		if counts[s] == 0 {
+			order = append(order, s)
+		}
+		counts[s]++
+	}
+	var parts []string
+	for _, key := range order {
+		parts = append(parts, fmt.Sprintf("%s: %d", key, counts[key]))
+	}
+	return strings.Join(parts, ", ")
 }

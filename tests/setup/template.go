@@ -234,6 +234,11 @@ func ensurePostgres(port int) (string, error) {
 		if err := postgresServer.Start(); err != nil {
 			return "", err
 		}
+		shutdown.AddHookWithPriority("stop embedded postgres", shutdown.PriorityCritical, func() {
+			if err := postgresServer.Stop(); err != nil {
+				logger.Errorf("failed to stop embedded postgres: %v", err)
+			}
+		})
 		logger.Infof("Started postgres on port %d", port)
 	}
 

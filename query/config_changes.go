@@ -149,6 +149,10 @@ type ConfigChangeRow struct {
 	InsertedAt        *time.Time          `gorm:"column:inserted_at" json:"inserted_at,omitempty"`
 }
 
+func (r ConfigChangeRow) QueryLogSummary() string {
+	return r.ChangeType
+}
+
 type CatalogChangesSearchResponse struct {
 	Summary map[string]int    `json:"summary,omitempty"`
 	Total   int64             `json:"total,omitempty"`
@@ -164,7 +168,6 @@ func (t *CatalogChangesSearchResponse) Summarize() {
 
 func formSeverityQuery(severity string) string {
 	if strings.HasPrefix(severity, "!") {
-		// For `Not` queries, we don't need to make any changes.
 		return severity
 	}
 
@@ -177,11 +180,17 @@ func formSeverityQuery(severity string) string {
 	}
 
 	var applicable []string
+	found := false
 	for _, s := range severities {
 		applicable = append(applicable, string(s))
 		if string(s) == severity {
+			found = true
 			break
 		}
+	}
+
+	if !found {
+		return "__invalid__"
 	}
 
 	return strings.Join(applicable, ",")
