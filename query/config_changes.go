@@ -82,12 +82,18 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 	}
 
 	if !lo.Contains(allRecursiveOptions, t.Recursive) {
-		return fmt.Errorf("'recursive' must be one of %v", allRecursiveOptions)
+		if !t.Lenient {
+			return fmt.Errorf("'recursive' must be one of %v", allRecursiveOptions)
+		}
+		t.Recursive = CatalogChangeRecursiveDownstream
 	}
 
 	if t.FromInsertedAt != "" {
 		if expr, err := datemath.Parse(t.FromInsertedAt); err != nil {
-			return fmt.Errorf("invalid 'from_inserted_at' param: %w", err)
+			if !t.Lenient {
+				return fmt.Errorf("invalid 'from_inserted_at' param: %w", err)
+			}
+			t.FromInsertedAt = ""
 		} else {
 			t.fromInsertedAtParsed = expr.Time()
 		}
@@ -95,14 +101,20 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 
 	if t.ToInsertedAt != "" {
 		if expr, err := datemath.Parse(t.ToInsertedAt); err != nil {
-			return fmt.Errorf("invalid 'to_inserted_at' param: %w", err)
+			if !t.Lenient {
+				return fmt.Errorf("invalid 'to_inserted_at' param: %w", err)
+			}
+			t.ToInsertedAt = ""
 		} else {
 			t.toInsertedAtParsed = expr.Time()
 		}
 	}
 
 	if !t.fromInsertedAtParsed.IsZero() && !t.toInsertedAtParsed.IsZero() && !t.fromInsertedAtParsed.Before(t.toInsertedAtParsed) {
-		return fmt.Errorf("'from_inserted_at' must be before 'to_inserted_at'")
+		if !t.Lenient {
+			return fmt.Errorf("'from_inserted_at' must be before 'to_inserted_at'")
+		}
+		t.toInsertedAtParsed = time.Time{}
 	}
 
 	if t.SortBy != "" {
@@ -112,7 +124,10 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 		}
 
 		if !lo.Contains(allowedConfigChangesSortColumns, t.SortBy) {
-			return fmt.Errorf("invalid 'sort_by' param: %s. allowed sort fields are: %s", t.SortBy, strings.Join(allowedConfigChangesSortColumns, ", "))
+			if !t.Lenient {
+				return fmt.Errorf("invalid 'sort_by' param: %s. allowed sort fields are: %s", t.SortBy, strings.Join(allowedConfigChangesSortColumns, ", "))
+			}
+			t.SortBy = ""
 		}
 	}
 
@@ -166,9 +181,9 @@ func (t *CatalogChangesSearchResponse) Summarize() {
 	}
 }
 
-func formSeverityQuery(severity string) string {
+func formSeverityQuery(severity string) (string, error) {
 	if strings.HasPrefix(severity, "!") {
-		return severity
+		return severity, nil
 	}
 
 	severities := []models.Severity{
@@ -180,20 +195,14 @@ func formSeverityQuery(severity string) string {
 	}
 
 	var applicable []string
-	found := false
 	for _, s := range severities {
 		applicable = append(applicable, string(s))
 		if string(s) == severity {
-			found = true
-			break
+			return strings.Join(applicable, ","), nil
 		}
 	}
 
-	if !found {
-		return "__invalid__"
-	}
-
-	return strings.Join(applicable, ",")
+	return "", fmt.Errorf("unknown severity %q", severity)
 }
 
 func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (result *CatalogChangesSearchResponse, err error) {
@@ -209,8 +218,14 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 	if err != nil {
 		return nil, err
 	}
+	if len(configIDs) == 0 && req.CatalogID != "" {
+		return &CatalogChangesSearchResponse{}, nil
+	}
 
-	baseClauses, tagsFn := req.ApplyClauses()
+	baseClauses, tagsFn, err := req.ApplyClauses()
+	if err != nil {
+		return nil, api.Errorf(api.EINVALID, "bad request: %v", err)
+	}
 	var clauses []clause.Expression
 	clauses = append(clauses, baseClauses...)
 
@@ -220,34 +235,39 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 	}
 
 	if req.ChangeType != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false); parseErr == nil {
-			clauses = append(clauses, c...)
-		} else {
+		if c, parseErr := parseAndBuildFilteringQuery(req.ChangeType, "change_type", false); parseErr != nil && !req.Lenient {
 			return nil, parseErr
+		} else if parseErr == nil {
+			clauses = append(clauses, c...)
 		}
 	}
 
 	if req.Severity != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(formSeverityQuery(req.Severity), "severity", false); parseErr == nil {
-			clauses = append(clauses, c...)
-		} else {
-			return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", parseErr)
+		severityQuery, err := formSeverityQuery(req.Severity)
+		if err != nil && !req.Lenient {
+			return nil, api.Errorf(api.EINVALID, "invalid severity: %v", err)
+		} else if err == nil {
+			if c, parseErr := parseAndBuildFilteringQuery(severityQuery, "severity", false); parseErr != nil && !req.Lenient {
+				return nil, api.Errorf(api.EINVALID, "failed to parse severity: %v", parseErr)
+			} else if parseErr == nil {
+				clauses = append(clauses, c...)
+			}
 		}
 	}
 
 	if req.Summary != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.Summary, "summary", true); parseErr == nil {
-			clauses = append(clauses, c...)
-		} else {
+		if c, parseErr := parseAndBuildFilteringQuery(req.Summary, "summary", true); parseErr != nil && !req.Lenient {
 			return nil, api.Errorf(api.EINVALID, "failed to parse summary: %v", parseErr)
+		} else if parseErr == nil {
+			clauses = append(clauses, c...)
 		}
 	}
 
 	if req.Source != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.Source, "source", true); parseErr == nil {
-			clauses = append(clauses, c...)
-		} else {
+		if c, parseErr := parseAndBuildFilteringQuery(req.Source, "source", true); parseErr != nil && !req.Lenient {
 			return nil, api.Errorf(api.EINVALID, "failed to parse source: %v", parseErr)
+		} else if parseErr == nil {
+			clauses = append(clauses, c...)
 		}
 	}
 
@@ -264,10 +284,10 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 	}
 
 	if req.externalCreatedBy != "" {
-		if c, parseErr := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true); parseErr == nil {
-			clauses = append(clauses, c...)
-		} else {
+		if c, parseErr := parseAndBuildFilteringQuery(req.externalCreatedBy, "external_created_by", true); parseErr != nil && !req.Lenient {
 			return nil, api.Errorf(api.EINVALID, "failed to parse external createdby: %v", parseErr)
+		} else if parseErr == nil {
+			clauses = append(clauses, c...)
 		}
 	}
 

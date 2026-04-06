@@ -29,6 +29,9 @@ func FindCatalogAccess(ctx context.Context, req CatalogAccessSearchRequest) (res
 	if err != nil {
 		return nil, err
 	}
+	if len(configIDs) == 0 && req.CatalogID != "" {
+		return &CatalogAccessSearchResponse{}, nil
+	}
 
 	var output CatalogAccessSearchResponse
 	q := ctx.DB().Table("config_access_summary")
@@ -53,7 +56,7 @@ func FindCatalogAccess(ctx context.Context, req CatalogAccessSearchRequest) (res
 
 func FindConfigAccessByConfigIDs(ctx context.Context, configIDs []uuid.UUID) ([]models.ConfigAccessSummary, error) {
 	resp, err := FindCatalogAccess(ctx, CatalogAccessSearchRequest{
-		BaseCatalogSearch: BaseCatalogSearch{configIDs: configIDs},
+		BaseCatalogSearch: BaseCatalogSearch{configIDs: configIDs, PageSize: 10000},
 	})
 	if err != nil {
 		return nil, err

@@ -212,11 +212,14 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 		node := nodes[rc.ID]
 		if rc.Path != "" {
 			segments := strings.Split(rc.Path, ".")
-			if parentStr := segments[len(segments)-1]; parentStr != "" {
-				if pid, err := uuid.Parse(parentStr); err == nil {
-					if parent, ok := nodes[pid]; ok && parent != node && !parentIDs[pid] {
-						parent.children = append(parent.children, node)
-						continue
+			// Last segment is the node's own ID (SetParent appends ci.ID), so use penultimate
+			if len(segments) >= 2 {
+				if parentStr := segments[len(segments)-2]; parentStr != "" {
+					if pid, err := uuid.Parse(parentStr); err == nil {
+						if parent, ok := nodes[pid]; ok && parent != node && !parentIDs[pid] {
+							parent.children = append(parent.children, node)
+							continue
+						}
 					}
 				}
 			}

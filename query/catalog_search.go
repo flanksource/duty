@@ -29,6 +29,11 @@ type BaseCatalogSearch struct {
 	Recursive             ChangeRelationDirection `query:"recursive" json:"recursive"`
 	Soft                  bool   `query:"soft" json:"soft"`
 
+	// Lenient silently ignores invalid filters, inapplicable columns,
+	// and validation errors instead of returning errors.
+	// Useful for global search where the same filters are applied across different table types.
+	Lenient bool `query:"lenient" json:"lenient"`
+
 	sortOrder string
 	configIDs []uuid.UUID
 	FromTime  *time.Time `query:"-" json:"-"`
@@ -57,25 +62,39 @@ func (b *BaseCatalogSearch) Validate() error {
 	if b.From != "" && b.FromTime == nil {
 		expr, err := datemath.Parse(b.From)
 		if err != nil {
-			return fmt.Errorf("invalid 'from' param: %w", err)
+			if !b.Lenient {
+				return fmt.Errorf("invalid 'from' param: %w", err)
+			}
+			b.From = ""
+		} else {
+			t := expr.Time()
+			b.FromTime = &t
 		}
-		t := expr.Time()
-		b.FromTime = &t
 	}
 	if b.To != "" && b.ToTime == nil {
 		expr, err := datemath.Parse(b.To)
 		if err != nil {
-			return fmt.Errorf("invalid 'to' param: %w", err)
+			if !b.Lenient {
+				return fmt.Errorf("invalid 'to' param: %w", err)
+			}
+			b.To = ""
+		} else {
+			t := expr.Time()
+			b.ToTime = &t
 		}
-		t := expr.Time()
-		b.ToTime = &t
 	}
 	if b.FromTime != nil && b.ToTime != nil && !b.FromTime.Before(*b.ToTime) {
-		return fmt.Errorf("'from' must be before 'to'")
+		if !b.Lenient {
+			return fmt.Errorf("'from' must be before 'to'")
+		}
+		b.ToTime = nil
 	}
 	if b.AgentID != "" {
 		if _, err := uuid.Parse(b.AgentID); err != nil {
-			return fmt.Errorf("agent_id(%s) must either be a valid uuid or `local`", b.AgentID)
+			if !b.Lenient {
+				return fmt.Errorf("agent_id(%s) must either be a valid uuid or `local`", b.AgentID)
+			}
+			b.AgentID = ""
 		}
 	}
 	return nil
@@ -121,31 +140,45 @@ func (b *BaseCatalogSearch) ConfigIDs() []uuid.UUID {
 	return b.configIDs
 }
 
-func (b *BaseCatalogSearch) ApplyClauses() ([]clause.Expression, func(*gorm.DB) *gorm.DB) {
+func (b *BaseCatalogSearch) ApplyClauses(excludeColumns ...string) ([]clause.Expression, func(*gorm.DB) *gorm.DB, error) {
+	excluded := make(map[string]bool, len(excludeColumns))
+	for _, c := range excludeColumns {
+		excluded[c] = true
+	}
+
 	var clauses []clause.Expression
 	var tagsFn func(*gorm.DB) *gorm.DB
 
-	if b.AgentID != "" {
-		if c, err := parseAndBuildFilteringQuery(b.AgentID, "agent_id", false); err == nil {
+	if b.AgentID != "" && !excluded["agent_id"] {
+		c, err := parseAndBuildFilteringQuery(b.AgentID, "agent_id", false)
+		if err != nil && !b.Lenient {
+			return nil, nil, fmt.Errorf("invalid agent_id filter: %w", err)
+		} else if err == nil {
 			clauses = append(clauses, c...)
 		}
 	}
-	if b.ConfigType != "" {
-		if c, err := parseAndBuildFilteringQuery(b.ConfigType, "type", false); err == nil {
+	if b.ConfigType != "" && !excluded["type"] {
+		c, err := parseAndBuildFilteringQuery(b.ConfigType, "type", false)
+		if err != nil && !b.Lenient {
+			return nil, nil, fmt.Errorf("invalid config_type filter: %w", err)
+		} else if err == nil {
 			clauses = append(clauses, c...)
 		}
 	}
-	if b.FromTime != nil {
+	if b.FromTime != nil && !excluded["created_at"] {
 		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: *b.FromTime})
 	}
-	if b.ToTime != nil {
+	if b.ToTime != nil && !excluded["created_at"] {
 		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "created_at"}, Value: *b.ToTime})
 	}
-	if !b.IncludeDeletedConfigs {
+	if !b.IncludeDeletedConfigs && !excluded["deleted_at"] {
 		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "deleted_at"}, Value: nil})
 	}
-	if b.Tags != "" {
-		if parsedLabelSelector, err := labels.Parse(b.Tags); err == nil {
+	if b.Tags != "" && !excluded["tags"] {
+		parsedLabelSelector, err := labels.Parse(b.Tags)
+		if err != nil && !b.Lenient {
+			return nil, nil, fmt.Errorf("invalid tags filter: %w", err)
+		} else if err == nil {
 			requirements, _ := parsedLabelSelector.Requirements()
 			tagsFn = func(db *gorm.DB) *gorm.DB {
 				for _, r := range requirements {
@@ -155,7 +188,7 @@ func (b *BaseCatalogSearch) ApplyClauses() ([]clause.Expression, func(*gorm.DB) 
 			}
 		}
 	}
-	return clauses, tagsFn
+	return clauses, tagsFn, nil
 }
 
 func (b *BaseCatalogSearch) String() string {
