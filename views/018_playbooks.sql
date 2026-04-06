@@ -83,6 +83,7 @@ CREATE OR REPLACE VIEW playbook_names AS
     id,
     title,
     name,
+    namespace,
     spec ->> 'description' AS description,
     spec ->> 'category' AS category,
     spec ->> 'icon' AS icon
