@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 
 	"github.com/flanksource/commons/exec"
@@ -17,7 +18,10 @@ func GoOffline() error {
 }
 
 func runBinary(config api.Config, msg string, args ...any) error {
-	result, err := deps.InstallWithContext(context.Background(), "postgrest", config.Postgrest.Version, deps.WithBinDir(".bin"))
+	result, err := deps.InstallWithContext(context.Background(), "postgrest",
+		config.Postgrest.Version,
+		deps.WithBinDir(".bin"),
+		deps.WithOS(runtime.GOOS, config.Postgrest.Arch))
 	if err != nil {
 		return fmt.Errorf("failed to install postgREST: %w", err)
 	}
