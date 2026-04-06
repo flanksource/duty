@@ -12,7 +12,7 @@ import (
 )
 
 func (r RelatedConfig) QueryLogSummary() string {
-	return r.Type + "/" + r.Name
+	return r.Type
 }
 
 type RelatedConfig struct {

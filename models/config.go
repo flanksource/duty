@@ -974,6 +974,10 @@ func (a ConfigAnalysis) PK() string {
 	return a.ID.String()
 }
 
+func (a ConfigAnalysis) QueryLogSummary() string {
+	return string(a.AnalysisType) + "/" + a.Analyzer
+}
+
 func (a ConfigAnalysis) TableName() string {
 	return "config_analysis"
 }

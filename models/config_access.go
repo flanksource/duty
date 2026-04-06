@@ -237,6 +237,10 @@ type ConfigAccessSummary struct {
 	LastReviewedBy  *uuid.UUID `json:"last_reviewed_by,omitempty"`
 }
 
+func (e ConfigAccessSummary) QueryLogSummary() string {
+	return e.ConfigType
+}
+
 func (e ConfigAccessSummary) TableName() string {
 	return "config_access_summary"
 }

@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/flanksource/duty/context"
@@ -22,6 +23,25 @@ type ConfigTreeOptions struct {
 	Outgoing  RelationType
 }
 
+func (n *ConfigTreeNode) OutgoingIDs() []uuid.UUID {
+	var ids []uuid.UUID
+	n.collectOutgoing(&ids, make(map[uuid.UUID]bool))
+	return ids
+}
+
+func (n *ConfigTreeNode) collectOutgoing(ids *[]uuid.UUID, seen map[uuid.UUID]bool) {
+	if seen[n.ID] {
+		return
+	}
+	seen[n.ID] = true
+	if n.EdgeType != "parent" {
+		*ids = append(*ids, n.ID)
+	}
+	for _, c := range n.Children {
+		c.collectOutgoing(ids, seen)
+	}
+}
+
 func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions) (*ConfigTreeNode, error) {
 	config, err := GetCachedConfig(ctx, configID.String())
 	if err != nil {
@@ -31,7 +51,10 @@ func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions)
 		return nil, nil
 	}
 
-	parents := resolveParentsFromPath(ctx, config)
+	parents, err := resolveParentsFromPath(ctx, config)
+	if err != nil {
+		return nil, err
+	}
 
 	childIDs, err := ExpandConfigChildren(ctx, []uuid.UUID{config.ID})
 	if err != nil {
@@ -54,7 +77,7 @@ func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions)
 	if opts.Incoming != "" {
 		relType = opts.Incoming
 	}
-	outType := Hard
+	outType := Both
 	if opts.Outgoing != "" {
 		outType = opts.Outgoing
 	}
@@ -72,9 +95,9 @@ func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions)
 	return buildConfigTree(config, parents, children, related), nil
 }
 
-func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) []models.ConfigItem {
+func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) ([]models.ConfigItem, error) {
 	if config.Path == "" {
-		return nil
+		return nil, nil
 	}
 	segments := strings.Split(config.Path, ".")
 	var parentIDs []uuid.UUID
@@ -86,11 +109,14 @@ func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) []mo
 		parentIDs = append(parentIDs, id)
 	}
 	if len(parentIDs) == 0 {
-		return nil
+		return nil, nil
 	}
 	items, err := GetConfigsByIDs(ctx, parentIDs)
-	if err != nil || len(items) == 0 {
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("resolving parents from path: %w", err)
+	}
+	if len(items) == 0 {
+		return nil, nil
 	}
 	byID := make(map[uuid.UUID]models.ConfigItem, len(items))
 	for _, ci := range items {
@@ -102,7 +128,7 @@ func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) []mo
 			parents = append(parents, ci)
 		}
 	}
-	return parents
+	return parents, nil
 }
 
 func ExpandConfigChildren(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {

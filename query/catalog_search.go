@@ -174,9 +174,13 @@ func (b *BaseCatalogSearch) String() string {
 	}
 	if b.From != "" {
 		s += fmt.Sprintf("from=%s ", b.From)
+	} else if b.FromTime != nil {
+		s += fmt.Sprintf("from=%s ", b.FromTime.Format("2006-01-02"))
 	}
 	if b.To != "" {
 		s += fmt.Sprintf("to=%s ", b.To)
+	} else if b.ToTime != nil {
+		s += fmt.Sprintf("to=%s ", b.ToTime.Format("2006-01-02"))
 	}
 	if b.Recursive != "" {
 		s += fmt.Sprintf("recursive=%s ", b.Recursive)
