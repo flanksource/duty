@@ -460,7 +460,10 @@ func FindConfigIDsByResourceSelector(ctx context.Context, limit int, resourceSel
 	return queryTableWithResourceSelectors(ctx, "config_items", limit, resourceSelectors...)
 }
 
-func FindConfigForComponent(ctx context.Context, componentID, configType string) ([]models.ConfigItem, error) {
+func FindConfigForComponent(ctx context.Context, componentID, configType string) (results []models.ConfigItem, err error) {
+	timer := NewQueryLogger(ctx).Start("ConfigForComponent").Arg("componentID", componentID).Arg("configType", configType)
+	defer timer.End(&err)
+
 	db := ctx.DB()
 	relationshipQuery := db.Table("config_component_relationships").
 		Select("config_id").
@@ -469,27 +472,31 @@ func FindConfigForComponent(ctx context.Context, componentID, configType string)
 	if configType != "" {
 		query = query.Where("type = @config_type OR config_class = @config_type", sql.Named("config_type", configType))
 	}
-	var dbConfigObjects []models.ConfigItem
-	err := query.Find(&dbConfigObjects).Error
-	return dbConfigObjects, err
+	err = query.Find(&results).Error
+	timer.Results(results)
+	return results, err
 }
 
-func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
-	var children []uuid.UUID
-	if err := ctx.DB().Raw(`SELECT id FROM get_children_id_by_location(?, ?)`, configID, prefix).Scan(&children).Error; err != nil {
+func FindConfigChildrenIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) (results []uuid.UUID, err error) {
+	timer := NewQueryLogger(ctx).Start("ConfigChildrenIDs").Arg("configID", configID).Arg("prefix", prefix)
+	defer timer.End(&err)
+
+	if err = ctx.DB().Raw(`SELECT id FROM get_children_id_by_location(?, ?)`, configID, prefix).Scan(&results).Error; err != nil {
 		return nil, err
 	}
-
-	return children, nil
+	timer.Results(results)
+	return results, nil
 }
 
-func FindConfigParentIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) ([]uuid.UUID, error) {
-	var parents []uuid.UUID
-	if err := ctx.DB().Raw(`SELECT id FROM get_parent_ids_by_location(?, ?)`, configID, prefix).Scan(&parents).Error; err != nil {
+func FindConfigParentIDsByLocation(ctx context.Context, configID uuid.UUID, prefix string) (results []uuid.UUID, err error) {
+	timer := NewQueryLogger(ctx).Start("ConfigParentIDs").Arg("configID", configID).Arg("prefix", prefix)
+	defer timer.End(&err)
+
+	if err = ctx.DB().Raw(`SELECT id FROM get_parent_ids_by_location(?, ?)`, configID, prefix).Scan(&results).Error; err != nil {
 		return nil, err
 	}
-
-	return parents, nil
+	timer.Results(results)
+	return results, nil
 }
 
 type ConfigMinimal struct {
@@ -498,20 +505,24 @@ type ConfigMinimal struct {
 	Type string    `json:"type"`
 }
 
-func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
-	var children []ConfigMinimal
-	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&children).Error; err != nil {
+func FindConfigChildrenByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) (results []ConfigMinimal, err error) {
+	timer := NewQueryLogger(ctx).Start("ConfigChildren").Arg("configID", configID).Arg("prefix", prefix)
+	defer timer.End(&err)
+
+	if err = ctx.DB().Raw(`SELECT id, name, type FROM get_children_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&results).Error; err != nil {
 		return nil, err
 	}
-
-	return children, nil
+	timer.Results(results)
+	return results, nil
 }
 
-func FindConfigParentsByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) ([]ConfigMinimal, error) {
-	var parents []ConfigMinimal
-	if err := ctx.DB().Raw(`SELECT id, name, type FROM get_parents_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&parents).Error; err != nil {
+func FindConfigParentsByLocation(ctx context.Context, configID uuid.UUID, prefix string, includeDeleted bool) (results []ConfigMinimal, err error) {
+	timer := NewQueryLogger(ctx).Start("ConfigParents").Arg("configID", configID).Arg("prefix", prefix)
+	defer timer.End(&err)
+
+	if err = ctx.DB().Raw(`SELECT id, name, type FROM get_parents_by_location(?, ?, ?)`, configID, prefix, includeDeleted).Scan(&results).Error; err != nil {
 		return nil, err
 	}
-
-	return parents, nil
+	timer.Results(results)
+	return results, nil
 }

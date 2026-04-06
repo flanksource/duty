@@ -11,6 +11,10 @@ import (
 	"github.com/samber/lo"
 )
 
+func (r RelatedConfig) QueryLogSummary() string {
+	return r.Type + "/" + r.Name
+}
+
 type RelatedConfig struct {
 	Relation      string              `json:"relation"`
 	RelatedIDs    pq.StringArray      `json:"related_ids" gorm:"type:[]text"`
@@ -72,8 +76,12 @@ const (
 	Soft RelationType = "soft"
 )
 
-func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfig, error) {
-	var relatedConfigs []RelatedConfig
+func GetRelatedConfigs(ctx context.Context, query RelationQuery) (results []RelatedConfig, err error) {
+	timer := NewQueryLogger(ctx).Start("RelatedConfigs").
+		Arg("id", query.ID).Arg("direction", query.Relation).
+		Arg("incoming", query.Incoming).Arg("outgoing", query.Outgoing)
+	defer timer.End(&err)
+
 	if query.MaxDepth == nil {
 		query.MaxDepth = lo.ToPtr(5)
 	}
@@ -86,15 +94,15 @@ func GetRelatedConfigs(ctx context.Context, query RelationQuery) ([]RelatedConfi
 
 	// FIXME: Self config is returned here for creating graph in UI. We need to update UI to
 	//        add the node itself. Issue: github.com/flanksource/duty/issues/1722
-	err := ctx.DB().Raw("SELECT * FROM related_configs_recursive(?, ?, ?, ?, ?, ?)",
+	err = ctx.DB().Raw("SELECT * FROM related_configs_recursive(?, ?, ?, ?, ?, ?)",
 		query.ID,
 		query.Relation,
 		query.IncludeDeleted,
 		*query.MaxDepth,
 		query.Incoming,
-		query.Outgoing).Find(&relatedConfigs).Error
+		query.Outgoing).Find(&results).Error
 
-	relatedConfigs = lo.Filter(relatedConfigs, func(c RelatedConfig, _ int) bool { return c.ID != query.ID })
-
-	return relatedConfigs, err
+	results = lo.Filter(results, func(c RelatedConfig, _ int) bool { return c.ID != query.ID })
+	timer.Results(results)
+	return results, err
 }
