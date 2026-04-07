@@ -20,6 +20,7 @@ type QueryLogEntry struct {
 	Duration int64  `json:"duration"`
 	Error    string `json:"error,omitempty"`
 	Summary  string `json:"summary,omitempty"`
+	Pretty   string `json:"pretty"`
 }
 
 type QueryLog struct {
@@ -148,6 +149,7 @@ func (t *QueryTimer) End(err *error) {
 	label = label.AddText(fmt.Sprintf(" in %dms", elapsed.Milliseconds()), "text-gray-400")
 
 	if t.queryLog != nil {
+		entry.Pretty = label.String()
 		t.queryLog.Append(entry)
 	}
 

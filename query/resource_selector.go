@@ -691,14 +691,16 @@ func queryTableWithResourceSelectors(
 	var output []uuid.UUID
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector[uuid.UUID](ctx, limit, []string{"id"}, resourceSelector, table)
-		if err != nil {
-			return nil, err
-		}
+		for _, expanded := range resourceSelector.Expand() {
+			items, err := queryResourceSelector[uuid.UUID](ctx, limit, []string{"id"}, expanded, table)
+			if err != nil {
+				return nil, err
+			}
 
-		output = append(output, items...)
-		if limit > 0 && len(output) >= limit {
-			return output[:limit], nil
+			output = append(output, items...)
+			if limit > 0 && len(output) >= limit {
+				return output[:limit], nil
+			}
 		}
 	}
 
@@ -716,14 +718,16 @@ func QueryTableColumnsWithResourceSelectors[T any](
 	var output []T
 
 	for _, resourceSelector := range resourceSelectors {
-		items, err := queryResourceSelector[T](ctx, limit, selectColumns, resourceSelector, table, clauses...)
-		if err != nil {
-			return nil, err
-		}
+		for _, expanded := range resourceSelector.Expand() {
+			items, err := queryResourceSelector[T](ctx, limit, selectColumns, expanded, table, clauses...)
+			if err != nil {
+				return nil, err
+			}
 
-		output = append(output, items...)
-		if limit > 0 && len(output) >= limit {
-			return output[:limit], nil
+			output = append(output, items...)
+			if limit > 0 && len(output) >= limit {
+				return output[:limit], nil
+			}
 		}
 	}
 
