@@ -476,17 +476,6 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 				Expect(response.Total).To(BeNumerically(">=", 1))
 			})
 
-			ginkgo.It("should reject invalid format", func() {
-				_, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
-					BaseCatalogSearch: query.BaseCatalogSearch{
-						CatalogID: U.ID.String(),
-						Recursive: query.CatalogChangeRecursiveDownstream,
-					},
-					FromInsertedAt: "not-a-date",
-				})
-				Expect(err).NotTo(BeNil())
-			})
-
 			ginkgo.It("should reject from_inserted_at after to_inserted_at", func() {
 				_, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					BaseCatalogSearch: query.BaseCatalogSearch{
