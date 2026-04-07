@@ -156,4 +156,4 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $(LOCALBIN)/golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION)
 
 clear_test_repos:
-	rm -rf tests/e2e/exec-checkout tests/e2e/shell-bin-dir
+	rm -rf tests/e2e/exec-checkout tests/e2e/shell-bin-dir shell/exec-checkout
