@@ -1021,26 +1021,26 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 	var EKSClusterCreateChange = models.ConfigChange{
 		ID:         uuid.New().String(),
 		ConfigID:   EKSCluster.ID.String(),
-		ChangeType: "CREATE",
+		ChangeType: types.ChangeTypeCreate,
 		CreatedAt:  &DummyYearOldDate,
 	}
 
 	var EKSClusterUpdateChange = models.ConfigChange{
 		ID:         uuid.New().String(),
 		ConfigID:   EKSCluster.ID.String(),
-		ChangeType: "UPDATE",
+		ChangeType: types.ChangeTypeUpdate,
 	}
 
 	var EKSClusterDeleteChange = models.ConfigChange{
 		ID:         uuid.New().String(),
 		ConfigID:   EKSCluster.ID.String(),
-		ChangeType: "DELETE",
+		ChangeType: types.ChangeTypeDelete,
 	}
 
 	var KubernetesNodeAChange = models.ConfigChange{
 		ID:         uuid.New().String(),
 		ConfigID:   KubernetesNodeA.ID.String(),
-		ChangeType: "CREATE",
+		ChangeType: types.ChangeTypeCreate,
 	}
 
 	var configChanges = []models.ConfigChange{

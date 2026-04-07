@@ -80,7 +80,7 @@ var RDSBackupChanges = []models.ConfigChange{
 	{
 		ID:         uuid.New().String(),
 		ConfigID:   RDSInstance.ID.String(),
-		ChangeType: "BackupCompleted",
+		ChangeType: types.ChangeTypeBackupCompleted,
 		Source:     "AWS",
 		Details:    types.JSON(`{"status":"success","size":"4.2GB"}`),
 		CreatedAt:  &appT48h,
@@ -88,7 +88,7 @@ var RDSBackupChanges = []models.ConfigChange{
 	{
 		ID:         uuid.New().String(),
 		ConfigID:   RDSInstance.ID.String(),
-		ChangeType: "BackupCompleted",
+		ChangeType: types.ChangeTypeBackupCompleted,
 		Source:     "AWS",
 		Details:    types.JSON(`{"status":"success","size":"4.3GB"}`),
 		CreatedAt:  &appT24h,
@@ -96,7 +96,7 @@ var RDSBackupChanges = []models.ConfigChange{
 	{
 		ID:         uuid.New().String(),
 		ConfigID:   RDSInstance.ID.String(),
-		ChangeType: "BackupRestored",
+		ChangeType: types.ChangeTypeBackupRestored,
 		Source:     "AWS",
 		Details:    types.JSON(`{"status":"success"}`),
 		CreatedAt:  &appT12h,
@@ -107,7 +107,7 @@ var DeploymentDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.New().String(),
 		ConfigID:   IncidentCommanderDeployment.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "kubernetes",
 		Severity:   "low",
 		Summary:    "image updated: v1.2.3 -> v1.2.4",
@@ -116,7 +116,7 @@ var DeploymentDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.New().String(),
 		ConfigID:   IncidentCommanderDeployment.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "kubernetes",
 		Severity:   "info",
 		Summary:    "replicas scaled: 2 -> 3",
@@ -274,7 +274,7 @@ var KubernetesAppDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-000000000010").String(),
 		ConfigID:   KubernetesAppDeployment.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "kubernetes",
 		Severity:   "low",
 		Summary:    "image updated: v2.0.9 -> v2.1.0",
@@ -283,7 +283,7 @@ var KubernetesAppDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-000000000011").String(),
 		ConfigID:   KubernetesAppDeployment.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "kubernetes",
 		Severity:   "info",
 		Summary:    "replicas scaled: 2 -> 3",
@@ -292,7 +292,7 @@ var KubernetesAppDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-000000000012").String(),
 		ConfigID:   KubernetesAppIngress.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "kubernetes",
 		Severity:   "medium",
 		Summary:    "TLS certificate renewed",
@@ -367,7 +367,7 @@ var MSSQLBackupChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000010").String(),
 		ConfigID:   MSSQLProdDatabase.ID.String(),
-		ChangeType: "BackupCompleted",
+		ChangeType: types.ChangeTypeBackupCompleted,
 		Source:     "mssql",
 		Details:    types.JSON(`{"status":"success","size":"12.4GB","type":"FULL"}`),
 		CreatedAt:  &appT48h,
@@ -375,7 +375,7 @@ var MSSQLBackupChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000011").String(),
 		ConfigID:   MSSQLProdDatabase.ID.String(),
-		ChangeType: "BackupCompleted",
+		ChangeType: types.ChangeTypeBackupCompleted,
 		Source:     "mssql",
 		Details:    types.JSON(`{"status":"success","size":"12.7GB","type":"FULL"}`),
 		CreatedAt:  &appT24h,
@@ -386,7 +386,7 @@ var MSSQLDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000012").String(),
 		ConfigID:   MSSQLProdDatabase.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "mssql",
 		Severity:   "medium",
 		Summary:    "schema migration: added column orders.fulfilled_at",
@@ -395,7 +395,7 @@ var MSSQLDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("b2c3d4e5-f6a7-8901-bcde-000000000013").String(),
 		ConfigID:   MSSQLServer.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "mssql",
 		Severity:   "low",
 		Summary:    "server collation updated",
@@ -530,7 +530,7 @@ var PopAPIRepoDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("c3d4e5f6-a7b8-9012-cdef-000000000010").String(),
 		ConfigID:   PopAPIRepo.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "github",
 		Severity:   "info",
 		Summary:    "PR #124 merged: add connection pooling",
@@ -539,7 +539,7 @@ var PopAPIRepoDiffChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("c3d4e5f6-a7b8-9012-cdef-000000000011").String(),
 		ConfigID:   PopAPIRepo.ID.String(),
-		ChangeType: "diff",
+		ChangeType: types.ChangeTypeDiff,
 		Source:     "github",
 		Severity:   "low",
 		Summary:    "tag pushed: v0.9.3",
@@ -551,7 +551,7 @@ var PopAPIDBChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("c3d4e5f6-a7b8-9012-cdef-000000000012").String(),
 		ConfigID:   PopAPIDatabase.ID.String(),
-		ChangeType: "BackupCompleted",
+		ChangeType: types.ChangeTypeBackupCompleted,
 		Source:     "postgresql",
 		Details:    types.JSON(`{"status":"success","size":"512MB"}`),
 		CreatedAt:  &appT24h,
@@ -612,7 +612,7 @@ var AzDOPipelineChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("d4e5f6a7-b8c9-0123-defa-000000000010").String(),
 		ConfigID:   AzDOBuildPipeline.ID.String(),
-		ChangeType: "PipelineRunStarted",
+		ChangeType: types.ChangeTypePipelineRunStarted,
 		Source:     "azuredevops",
 		Severity:   "info",
 		Summary:    "build #88 started on main",
@@ -621,7 +621,7 @@ var AzDOPipelineChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("d4e5f6a7-b8c9-0123-defa-000000000011").String(),
 		ConfigID:   AzDOBuildPipeline.ID.String(),
-		ChangeType: "PipelineRunCompleted",
+		ChangeType: types.ChangeTypePipelineRunCompleted,
 		Source:     "azuredevops",
 		Severity:   "info",
 		Summary:    "build #88 succeeded in 4m32s",
@@ -630,7 +630,7 @@ var AzDOPipelineChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("d4e5f6a7-b8c9-0123-defa-000000000012").String(),
 		ConfigID:   AzDOBuildPipeline.ID.String(),
-		ChangeType: "PipelineRunFailed",
+		ChangeType: types.ChangeTypePipelineRunFailed,
 		Source:     "azuredevops",
 		Severity:   "high",
 		Summary:    "build #87 failed: test stage timed out",
@@ -639,7 +639,7 @@ var AzDOPipelineChanges = []models.ConfigChange{
 	{
 		ID:         uuid.MustParse("d4e5f6a7-b8c9-0123-defa-000000000013").String(),
 		ConfigID:   AzDOReleasePipeline.ID.String(),
-		ChangeType: "PipelineRunCompleted",
+		ChangeType: types.ChangeTypePipelineRunCompleted,
 		Source:     "azuredevops",
 		Severity:   "info",
 		Summary:    "release #12 deployed to production",
