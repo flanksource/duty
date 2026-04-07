@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/flanksource/duty/types/config-change-details-schema",
+  "$ref": "#/$defs/ConfigChangeDetailsSchema",
+  "$defs": {
+    "ApprovalDetails": {
+      "properties": {
+        "playbook_id": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "approved_by": {
+          "type": "string"
+        },
+        "rejected_by": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BackupDetails": {
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "backup_type": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "snapshot_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CertificateDetails": {
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "not_before": {
+          "type": "string"
+        },
+        "not_after": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "dns_names": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ConfigChangeDetailsSchema": {
+      "properties": {
+        "UserChange/v1": {
+          "$ref": "#/$defs/UserChangeDetails"
+        },
+        "Screenshot/v1": {
+          "$ref": "#/$defs/ScreenshotDetails"
+        },
+        "PermissionChange/v1": {
+          "$ref": "#/$defs/PermissionChangeDetails"
+        },
+        "Deployment/v1": {
+          "$ref": "#/$defs/DeploymentDetails"
+        },
+        "Promotion/v1": {
+          "$ref": "#/$defs/PromotionDetails"
+        },
+        "Approval/v1": {
+          "$ref": "#/$defs/ApprovalDetails"
+        },
+        "Rollback/v1": {
+          "$ref": "#/$defs/RollbackDetails"
+        },
+        "Backup/v1": {
+          "$ref": "#/$defs/BackupDetails"
+        },
+        "PlaybookExecution/v1": {
+          "$ref": "#/$defs/PlaybookExecutionDetails"
+        },
+        "Scaling/v1": {
+          "$ref": "#/$defs/ScalingDetails"
+        },
+        "Certificate/v1": {
+          "$ref": "#/$defs/CertificateDetails"
+        },
+        "CostChange/v1": {
+          "$ref": "#/$defs/CostChangeDetails"
+        },
+        "PipelineRun/v1": {
+          "$ref": "#/$defs/PipelineRunDetails"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ConfigChangeDetailsSchema is a union type used for JSON schema generation.\nIt is never instantiated at runtime."
+    },
+    "CostChangeDetails": {
+      "properties": {
+        "previous_cost": {
+          "type": "number"
+        },
+        "new_cost": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DeploymentDetails": {
+      "properties": {
+        "previous_image": {
+          "type": "string"
+        },
+        "new_image": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "strategy": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PermissionChangeDetails": {
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "user_name": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "role_id": {
+          "type": "string"
+        },
+        "role_name": {
+          "type": "string"
+        },
+        "role_type": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PipelineRunDetails": {
+      "properties": {
+        "pipeline_id": {
+          "type": "string"
+        },
+        "pipeline_name": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "run_number": {
+          "type": "integer"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PlaybookExecutionDetails": {
+      "properties": {
+        "playbook_id": {
+          "type": "string"
+        },
+        "playbook_name": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PromotionDetails": {
+      "properties": {
+        "from_environment": {
+          "type": "string"
+        },
+        "to_environment": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "artifact": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RollbackDetails": {
+      "properties": {
+        "from_version": {
+          "type": "string"
+        },
+        "to_version": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "trigger": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ScalingDetails": {
+      "properties": {
+        "from_replicas": {
+          "type": "integer"
+        },
+        "to_replicas": {
+          "type": "integer"
+        },
+        "resource_type": {
+          "type": "string"
+        },
+        "trigger": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ScreenshotDetails": {
+      "properties": {
+        "artifact_id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "UserChangeDetails": {
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "user_name": {
+          "type": "string"
+        },
+        "user_email": {
+          "type": "string"
+        },
+        "user_type": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "tenant": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  }
+}

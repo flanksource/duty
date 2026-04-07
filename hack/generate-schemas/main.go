@@ -13,6 +13,7 @@ import (
 var schemas = map[string]any{
 	"resource_selector":  &types.ResourceSelector{},
 	"resource_selectors": &[]types.ResourceSelector{},
+	"change-types":       &types.ConfigChangeDetailsSchema{},
 }
 
 var generateSchema = &cobra.Command{
