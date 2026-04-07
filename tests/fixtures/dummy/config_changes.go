@@ -7,12 +7,13 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 )
 
 var EKSClusterCreateChange = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      EKSCluster.ID.String(),
-	ChangeType:    "CREATE",
+	ChangeType:    types.ChangeTypeCreate,
 	CreatedAt:     &DummyYearOldDate,
 	Severity:      models.SeverityMedium,
 	Source:        "CloudTrail",
@@ -24,7 +25,7 @@ var EKSClusterCreateChange = models.ConfigChange{
 var EKSClusterUpdateChange = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      EKSCluster.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 24)),
 	Severity:      models.SeverityLow,
 	Source:        "CloudTrail",
@@ -36,7 +37,7 @@ var EKSClusterUpdateChange = models.ConfigChange{
 var EKSClusterDeleteChange = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      EKSCluster.ID.String(),
-	ChangeType:    "DELETE",
+	ChangeType:    types.ChangeTypeDelete,
 	CreatedAt:     &DummyNow,
 	Severity:      models.SeverityHigh,
 	Source:        "CloudTrail",
@@ -48,7 +49,7 @@ var EKSClusterDeleteChange = models.ConfigChange{
 var KubernetesNodeAChange = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      KubernetesNodeA.ID.String(),
-	ChangeType:    "CREATE",
+	ChangeType:    types.ChangeTypeCreate,
 	CreatedAt:     &DummyYearOldDate,
 	Severity:      models.SeverityInfo,
 	Source:        "Kubernetes",
@@ -61,7 +62,7 @@ var KubernetesNodeAChange = models.ConfigChange{
 var NginxHelmReleaseUpgradeV1 = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      NginxHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 72)), // 3 days ago
 	Severity:      models.SeverityInfo,
 	Source:        "Flux",
@@ -73,7 +74,7 @@ var NginxHelmReleaseUpgradeV1 = models.ConfigChange{
 var NginxHelmReleaseUpgradeV2 = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      NginxHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 48)), // 2 days ago
 	Severity:      models.SeverityInfo,
 	Source:        "Flux",
@@ -85,7 +86,7 @@ var NginxHelmReleaseUpgradeV2 = models.ConfigChange{
 var NginxHelmReleaseUpgradeV3 = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      NginxHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 24)), // 1 day ago
 	Severity:      models.SeverityInfo,
 	Source:        "Flux",
@@ -98,7 +99,7 @@ var NginxHelmReleaseUpgradeV3 = models.ConfigChange{
 var RedisHelmReleaseUpgradeV1 = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      RedisHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 96)), // 4 days ago
 	Severity:      models.SeverityInfo,
 	Source:        "Flux",
@@ -110,7 +111,7 @@ var RedisHelmReleaseUpgradeV1 = models.ConfigChange{
 var RedisHelmReleaseUpgradeV2 = models.ConfigChange{
 	ID:            uuid.New().String(),
 	ConfigID:      RedisHelmRelease.ID.String(),
-	ChangeType:    "UPDATE",
+	ChangeType:    types.ChangeTypeUpdate,
 	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 60)), // 2.5 days ago
 	Severity:      models.SeverityInfo,
 	Source:        "Flux",
@@ -122,7 +123,7 @@ var RedisHelmReleaseUpgradeV2 = models.ConfigChange{
 var RedisHelmReleaseUpgradeV3 = models.ConfigChange{
 	ID:         uuid.New().String(),
 	ConfigID:   RedisHelmRelease.ID.String(),
-	ChangeType: "UPDATE",
+	ChangeType: types.ChangeTypeUpdate,
 	CreatedAt:  lo.ToPtr(DummyNow.Add(-time.Hour * 36)), // 1.5 days ago
 	Severity:   models.SeverityInfo,
 	Source:     "Flux",
