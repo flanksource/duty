@@ -231,7 +231,7 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 
 	if len(req.ConfigItemsLastScrapedTime) > 0 {
 		if err := db.Clauses(clause.OnConflict{UpdateAll: true, Columns: []clause.Column{{Name: "config_id"}}}).CreateInBatches(req.ConfigItemsLastScrapedTime, batchSize).Error; err != nil {
-			return fmt.Errorf("error upserting config_items_last_scraped_time: %w", err)
+			return handleUpsertError(ctx, lo.Map(req.ConfigItemsLastScrapedTime, func(i models.ConfigItemLastScrapedTime, _ int) models.ExtendedDBTable { return i }), err)
 		}
 	}
 
