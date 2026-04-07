@@ -311,11 +311,77 @@ var NginxIngressPod = models.ConfigItem{
       }
     }`),
 	Labels: lo.ToPtr(types.JSONStringMap{
-		"app":                           "ingress-nginx",
-		"app.kubernetes.io/component":   "controller",
-		"app.kubernetes.io/instance":    "nginx-ingress",
-		"app.kubernetes.io/name":        "ingress-nginx",
-		"helm.sh/chart":                "ingress-nginx-4.8.0",
+		"app":                         "ingress-nginx",
+		"app.kubernetes.io/component": "controller",
+		"app.kubernetes.io/instance":  "nginx-ingress",
+		"app.kubernetes.io/name":      "ingress-nginx",
+		"helm.sh/chart":               "ingress-nginx-4.8.0",
+	}),
+	Tags: map[string]string{
+		"namespace": "ingress-nginx",
+		"pod":       "nginx-ingress-controller",
+		"release":   "nginx-ingress",
+	},
+}
+
+var NginxIngressPodDeleted = models.ConfigItem{
+	ID:          uuid.New(),
+	Name:        lo.ToPtr("nginx-ingress-controller-7d9b8f6c4-abcdef"),
+	ConfigClass: "Pod",
+	Health:      lo.ToPtr(models.HealthHealthy),
+	Type:        lo.ToPtr("Kubernetes::Pod"),
+	Status:      lo.ToPtr("Running"),
+	CreatedAt:   time.Date(2021, 1, 1, 1, 1, 0, 0, time.UTC),
+	DeletedAt:   lo.ToPtr(time.Date(2021, 1, 1, 2, 1, 0, 0, time.UTC)),
+	ParentID:    lo.ToPtr(NginxHelmRelease.ID),
+	ExternalID:  pq.StringArray{"kubernetes/ingress-nginx/pods"},
+	Config: lo.ToPtr(`{
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "name": "nginx-ingress-controller-7d9b8f6c4-abcdef",
+        "namespace": "ingress-nginx",
+        "labels": {
+          "app.kubernetes.io/component": "controller",
+          "app.kubernetes.io/instance": "nginx-ingress",
+          "app.kubernetes.io/name": "ingress-nginx",
+          "helm.sh/chart": "ingress-nginx-4.8.0"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "controller",
+            "image": "registry.k8s.io/ingress-nginx/controller:v1.8.1",
+            "ports": [
+              {
+                "containerPort": 80,
+                "name": "http"
+              },
+              {
+                "containerPort": 443,
+                "name": "https"
+              }
+            ]
+          }
+        ]
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True"
+          }
+        ]
+      }
+    }`),
+	Labels: lo.ToPtr(types.JSONStringMap{
+		"app":                         "ingress-nginx",
+		"app.kubernetes.io/component": "controller",
+		"app.kubernetes.io/instance":  "nginx-ingress",
+		"app.kubernetes.io/name":      "ingress-nginx",
+		"helm.sh/chart":               "ingress-nginx-4.8.0",
 	}),
 	Tags: map[string]string{
 		"namespace": "ingress-nginx",
@@ -394,6 +460,7 @@ var AllDummyConfigs = []models.ConfigItem{
 	LogisticsDBRDS,
 	NginxHelmRelease,
 	NginxIngressPod,
+	NginxIngressPodDeleted,
 	RedisHelmRelease,
 }
 
