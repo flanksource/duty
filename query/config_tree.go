@@ -180,9 +180,22 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 		parentID := lo.FromPtr(c.ParentID)
 		if parent, ok := nodes[parentID]; ok {
 			parent.children = append(parent.children, nodes[c.ID])
-		} else {
-			targetNode.children = append(targetNode.children, nodes[c.ID])
+			continue
 		}
+		if c.Path != "" {
+			segments := strings.Split(c.Path, ".")
+			if len(segments) >= 2 {
+				if parentStr := segments[len(segments)-2]; parentStr != "" {
+					if pid, err := uuid.Parse(parentStr); err == nil {
+						if parent, ok := nodes[pid]; ok {
+							parent.children = append(parent.children, nodes[c.ID])
+							continue
+						}
+					}
+				}
+			}
+		}
+		targetNode.children = append(targetNode.children, nodes[c.ID])
 	}
 
 	parentIDs := make(map[uuid.UUID]bool, len(parents))
