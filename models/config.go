@@ -170,8 +170,16 @@ func (ConfigItemLastScrapedTime) TableName() string {
 	return "config_items_last_scraped_time"
 }
 
-func (ConfigItemLastScrapedTime) PK() string {
-	return "config_id"
+func (c ConfigItemLastScrapedTime) PK() string {
+	return c.ConfigID.String()
+}
+
+func (c ConfigItemLastScrapedTime) Value() any {
+	return &c
+}
+
+func (ConfigItemLastScrapedTime) PKCols() []clause.Column {
+	return []clause.Column{{Name: "config_id"}}
 }
 
 func (ConfigItemLastScrapedTime) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
