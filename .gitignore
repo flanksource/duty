@@ -20,3 +20,4 @@ out.html
 specs/*.md
 generate-openapi
 .todos/
+ginkgo*.json
