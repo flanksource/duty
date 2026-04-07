@@ -183,16 +183,9 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 			continue
 		}
 		if c.Path != "" {
-			segments := strings.Split(c.Path, ".")
-			if len(segments) >= 2 {
-				if parentStr := segments[len(segments)-2]; parentStr != "" {
-					if pid, err := uuid.Parse(parentStr); err == nil {
-						if parent, ok := nodes[pid]; ok {
-							parent.children = append(parent.children, nodes[c.ID])
-							continue
-						}
-					}
-				}
+			if parent := findNearestAncestor(c.Path, nodes); parent != nil {
+				parent.children = append(parent.children, nodes[c.ID])
+				continue
 			}
 		}
 		targetNode.children = append(targetNode.children, nodes[c.ID])
@@ -224,17 +217,9 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 		wired[rc.ID] = true
 		node := nodes[rc.ID]
 		if rc.Path != "" {
-			segments := strings.Split(rc.Path, ".")
-			// Last segment is the node's own ID (SetParent appends ci.ID), so use penultimate
-			if len(segments) >= 2 {
-				if parentStr := segments[len(segments)-2]; parentStr != "" {
-					if pid, err := uuid.Parse(parentStr); err == nil {
-						if parent, ok := nodes[pid]; ok && parent != node && !parentIDs[pid] {
-							parent.children = append(parent.children, node)
-							continue
-						}
-					}
-				}
+			if parent := findNearestAncestor(rc.Path, nodes); parent != nil && parent != node && !parentIDs[parent.ID] {
+				parent.children = append(parent.children, node)
+				continue
 			}
 		}
 		targetNode.children = append(targetNode.children, node)
@@ -248,6 +233,18 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 	}
 
 	return toConfigTreeNode(root, make(map[*ptrNode]bool))
+}
+
+func findNearestAncestor(path string, nodes map[uuid.UUID]*ptrNode) *ptrNode {
+	segments := strings.Split(path, ".")
+	for i := len(segments) - 1; i >= 0; i-- {
+		if pid, err := uuid.Parse(segments[i]); err == nil {
+			if parent, ok := nodes[pid]; ok {
+				return parent
+			}
+		}
+	}
+	return nil
 }
 
 func toConfigTreeNode(n *ptrNode, visited map[*ptrNode]bool) *ConfigTreeNode {

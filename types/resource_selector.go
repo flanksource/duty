@@ -86,6 +86,29 @@ type ResourceSelector struct {
 	Statuses Items `yaml:"statuses,omitempty" json:"statuses,omitempty"`
 }
 
+// Expand splits a semicolon-delimited Search into multiple ResourceSelectors,
+// each representing an independent query whose results are unioned.
+func (rs ResourceSelector) Expand() []ResourceSelector {
+	if !strings.Contains(rs.Search, ";") {
+		return []ResourceSelector{rs}
+	}
+	segments := strings.Split(rs.Search, ";")
+	var result []ResourceSelector
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		expanded := rs
+		expanded.Search = seg
+		result = append(result, expanded)
+	}
+	if len(result) == 0 {
+		return []ResourceSelector{rs}
+	}
+	return result
+}
+
 // ParseFilteringQuery parses a filtering query string.
 // It returns four slices: 'in', 'notIN', 'prefix', and 'suffix'.
 func ParseFilteringQuery(query string, decodeURL bool) (in []interface{}, notIN []interface{}, prefix, suffix []string, err error) {
