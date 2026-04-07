@@ -89,9 +89,11 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 	}
 
 	if t.FromInsertedAt != "" {
-		if expr, err := datemath.Parse(t.FromInsertedAt); err != nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, t.FromInsertedAt); err == nil {
+			t.fromInsertedAtParsed = parsed
+		} else if expr, err := datemath.Parse(t.FromInsertedAt); err != nil {
 			if !t.Lenient {
-				return fmt.Errorf("invalid 'from_inserted_at' param: %w", err)
+				return fmt.Errorf("invalid 'from_inserted_at' param: expected RFC3339 or datemath format: %w", err)
 			}
 			t.FromInsertedAt = ""
 		} else {
@@ -100,9 +102,11 @@ func (t *CatalogChangesSearchRequest) Validate() error {
 	}
 
 	if t.ToInsertedAt != "" {
-		if expr, err := datemath.Parse(t.ToInsertedAt); err != nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, t.ToInsertedAt); err == nil {
+			t.toInsertedAtParsed = parsed
+		} else if expr, err := datemath.Parse(t.ToInsertedAt); err != nil {
 			if !t.Lenient {
-				return fmt.Errorf("invalid 'to_inserted_at' param: %w", err)
+				return fmt.Errorf("invalid 'to_inserted_at' param: expected RFC3339 or datemath format: %w", err)
 			}
 			t.ToInsertedAt = ""
 		} else {
