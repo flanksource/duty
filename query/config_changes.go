@@ -276,11 +276,11 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 	}
 
 	if !req.fromInsertedAtParsed.IsZero() {
-		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "inserted_at"}, Value: req.fromInsertedAtParsed})
+		clauses = append(clauses, clause.Gt{Column: clause.Column{Name: "inserted_at"}, Value: req.fromInsertedAtParsed})
 	}
 
 	if !req.toInsertedAtParsed.IsZero() {
-		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "inserted_at"}, Value: req.toInsertedAtParsed})
+		clauses = append(clauses, clause.Lt{Column: clause.Column{Name: "inserted_at"}, Value: req.toInsertedAtParsed})
 	}
 
 	if req.createdBy != nil {
