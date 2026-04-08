@@ -227,6 +227,7 @@ func SetResourceSelectorClause(
 	table string,
 ) (*gorm.DB, error) {
 	searchSetAgent := false
+	searchSetDeleted := false
 
 	qm, err := GetModelFromTable(table)
 	if err != nil {
@@ -240,9 +241,21 @@ func SetResourceSelectorClause(
 		}
 
 		flatFields := grammar.FlatFields(qf)
-		if slices.ContainsFunc(flatFields, func(s string) bool { return s == "agent" || s == "agent_id" }) {
-			searchSetAgent = true
-		}
+		searchSetAgent = slices.ContainsFunc(flatFields, func(s string) bool {
+			field := strings.ToLower(s)
+			if alias, ok := qm.Aliases[field]; ok {
+				field = alias
+			}
+			return field == "agent_id"
+		})
+
+		searchSetDeleted = slices.ContainsFunc(flatFields, func(s string) bool {
+			field := strings.ToLower(s)
+			if alias, ok := qm.Aliases[field]; ok {
+				field = alias
+			}
+			return field == "deleted_at"
+		})
 
 		var clauses []clause.Expression
 		query, clauses, err = qm.Apply(ctx, *qf, query)
@@ -253,7 +266,7 @@ func SetResourceSelectorClause(
 		query = query.Clauses(clauses...)
 	}
 
-	if !resourceSelector.IncludeDeleted {
+	if !resourceSelector.IncludeDeleted && !searchSetDeleted {
 		query = query.Where("deleted_at IS NULL")
 	}
 

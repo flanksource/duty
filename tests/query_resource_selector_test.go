@@ -1160,6 +1160,14 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			err:         true,
 			errMsg:      "invalid type",
 		},
+		{
+			description: "deleted config",
+			query:       `deleted>2000-01-01`,
+			resource:    "config",
+			expectedIDs: []uuid.UUID{
+				dummy.NginxIngressPodDeleted.ID,
+			},
+		},
 	}
 
 	fmap := map[string]func(context.Context, int, ...types.ResourceSelector) ([]uuid.UUID, error){
