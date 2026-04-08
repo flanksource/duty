@@ -6,8 +6,11 @@ import (
 	"net/http"
 
 	"github.com/flanksource/commons/logger"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/oops"
+	"gorm.io/gorm"
 )
 
 type HTTPError struct {
@@ -45,6 +48,10 @@ func WriteSuccess(c echo.Context, payload any) error {
 func WriteError(c echo.Context, err error) error {
 	var oopsErr oops.OopsError
 	if errors.As(err, &oopsErr) {
+		if code, ok := DomainCodeFromDBError(err); ok {
+			return c.JSON(ErrorStatusCode(code), oopsErr)
+		}
+
 		code, _ := oopsErr.Code().(string)
 		return c.JSON(ErrorStatusCode(code), oopsErr)
 	}
@@ -76,4 +83,34 @@ func ErrorStatusCode(code string) int {
 	}
 
 	return http.StatusInternalServerError
+}
+
+func DomainCodeFromPGCode(code string) (string, bool) {
+	switch code {
+	case pgerrcode.UniqueViolation:
+		return ECONFLICT, true
+	case pgerrcode.ForeignKeyViolation:
+		return ECONFLICT, true
+	case pgerrcode.NotNullViolation, pgerrcode.CheckViolation:
+		return EINVALID, true
+	default:
+		return "", false
+	}
+}
+
+func DomainCodeFromDBError(err error) (string, bool) {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return ECONFLICT, true
+	}
+
+	if errors.Is(err, gorm.ErrForeignKeyViolated) {
+		return ECONFLICT, true
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return DomainCodeFromPGCode(pgErr.Code)
+	}
+
+	return "", false
 }
