@@ -271,10 +271,11 @@ const (
 
 var AllActions = []string{
 	ActionCreate,
-	ActionDelete,
 	ActionRead,
 	ActionUpdate,
+	ActionDelete,
 	ActionPlaybookApprove,
+	ActionPlaybookCancel,
 	ActionPlaybookRun,
 	ActionMCPRun,
 	ActionMCPUse,
