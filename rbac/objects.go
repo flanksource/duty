@@ -29,6 +29,8 @@ var dbResourceObjMap = map[string]string{
 	"canaries":                                  policy.ObjectCanary,
 	"casbin_rule":                               policy.ObjectAuth,
 	"catalog_changes":                           policy.ObjectCatalog,
+	"change_groups":                             policy.ObjectCatalog,
+	"change_groups_summary":                     policy.ObjectCatalog,
 	"change_types":                              policy.ObjectDatabasePublic,
 	"changes_by_component":                      policy.ObjectCatalog,
 	"check_component_relationships":             policy.ObjectCanary,

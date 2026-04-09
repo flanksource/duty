@@ -31,6 +31,7 @@ type CatalogChange struct {
 	AgentID           *uuid.UUID          `gorm:"column:agent_id" json:"agent_id"`
 	Path              string              `gorm:"column:path" json:"path"`
 	InsertedAt        *time.Time          `gorm:"column:inserted_at" json:"inserted_at,omitempty"`
+	GroupID           *uuid.UUID          `gorm:"column:group_id" json:"group_id,omitempty"`
 }
 
 func (c CatalogChange) GetID() string {
