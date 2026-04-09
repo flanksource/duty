@@ -271,10 +271,11 @@ const (
 
 var AllActions = []string{
 	ActionCreate,
-	ActionDelete,
 	ActionRead,
 	ActionUpdate,
+	ActionDelete,
 	ActionPlaybookApprove,
+	ActionPlaybookCancel,
 	ActionPlaybookRun,
 	ActionMCPRun,
 	ActionMCPUse,
@@ -317,7 +318,7 @@ var AllObjects = []string{
 func ABACObjectSelector(object, action string) []byte {
 	switch object {
 	case ObjectPlaybooks:
-		if lo.Contains([]string{ActionPlaybookRun, ActionPlaybookApprove}, action) {
+		if lo.Contains([]string{ActionPlaybookRun, ActionPlaybookApprove, ActionMCPRun, ActionMCPUse, ActionPlaybookCancel, ActionRead}, action) {
 			return []byte(`{"playbooks": [{"name":"*"}]}`)
 		}
 
@@ -337,7 +338,7 @@ func ABACObjectSelector(object, action string) []byte {
 		}
 
 	case ObjectViews:
-		if ActionRead == action {
+		if lo.Contains([]string{ActionMCPRun, ActionMCPUse, ActionRead}, action) {
 			return []byte(`{"views": [{"name":"*"}]}`)
 		}
 	}
