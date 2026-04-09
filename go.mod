@@ -33,9 +33,9 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.33.0
 	github.com/flanksource/artifacts v1.0.21
 	github.com/flanksource/clicky v1.21.1
-	github.com/flanksource/commons v1.50.1
+	github.com/flanksource/commons v1.50.2
 	github.com/flanksource/deps v1.0.24
-	github.com/flanksource/gomplate/v3 v3.24.74
+	github.com/flanksource/gomplate/v3 v3.24.76
 	github.com/flanksource/is-healthy v1.0.86
 	github.com/flanksource/sandbox-runtime v1.0.1
 	github.com/glebarez/sqlite v1.11.0
@@ -114,6 +114,8 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/antchfx/xmlquery v1.5.1 // indirect
+	github.com/antchfx/xpath v1.3.6 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
