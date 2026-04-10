@@ -354,6 +354,13 @@ func (t *PushData) AddAgentConfig(agent models.Agent) {
 		}
 	}
 
+	// Update agent's last scraped times with correct config ID
+	for i, ci := range t.ConfigItemsLastScrapedTime {
+		if ci.ConfigID == uuid.Nil {
+			t.ConfigItemsLastScrapedTime[i].ConfigID = agent.ID
+		}
+	}
+
 	// Filter out system scraper if present
 	t.ConfigScrapers = lo.Filter(t.ConfigScrapers, func(cs models.ConfigScraper, _ int) bool { return cs.ID != uuid.Nil })
 }
