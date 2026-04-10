@@ -331,8 +331,8 @@ var NginxIngressPodDeleted = models.ConfigItem{
 	Health:      lo.ToPtr(models.HealthHealthy),
 	Type:        lo.ToPtr("Kubernetes::Pod"),
 	Status:      lo.ToPtr("Running"),
-	CreatedAt:   time.Date(2021, 1, 1, 1, 1, 0, 0, time.UTC),
-	DeletedAt:   lo.ToPtr(time.Date(2021, 1, 1, 2, 1, 0, 0, time.UTC)),
+	CreatedAt:   CurrentTime.Add(-2 * time.Hour),
+	DeletedAt:   lo.ToPtr(CurrentTime.Add(-time.Hour)),
 	ParentID:    lo.ToPtr(NginxHelmRelease.ID),
 	ExternalID:  pq.StringArray{"kubernetes/ingress-nginx/pods"},
 	Config: lo.ToPtr(`{
