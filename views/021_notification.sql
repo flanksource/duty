@@ -290,7 +290,8 @@ BEGIN
     -- Only config item notifications need to be inserted
     IF NEW.source_event LIKE 'config.%' AND ((TG_OP = 'INSERT') OR (TG_OP = 'UPDATE' AND OLD.status != NEW.status)) AND NEW.status != '' THEN
         INSERT INTO config_changes (config_id, change_type, source, details, external_change_id, severity)
-        VALUES (NEW.resource_id, CONCAT('Notification', INITCAP(NEW.status)), 'notification', NEW.payload, CONCAT(NEW.id, '-', NEW.status, '-', CURRENT_TIMESTAMP), severity);
+        SELECT NEW.resource_id, CONCAT('Notification', INITCAP(NEW.status)), 'notification', NEW.payload, CONCAT(NEW.id, '-', NEW.status, '-', CURRENT_TIMESTAMP), severity
+        FROM config_items WHERE id = NEW.resource_id AND deleted_at IS NULL;
     END IF;
 
     RETURN NEW;
