@@ -447,21 +447,17 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(response.Total).To(BeNumerically(">=", 1))
 		})
 
-		ginkgo.Context("inserted_at filter", func() {
+		ginkgo.Context("created_at cursor filter", func() {
 			ginkgo.It("should accept RFC3339 with fractional seconds", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					BaseCatalogSearch: query.BaseCatalogSearch{
 						CatalogID: U.ID.String(),
 						Recursive: query.CatalogChangeRecursiveDownstream,
+						From:      "2020-01-01T00:00:00.123456Z",
 					},
-					FromInsertedAt: "2026-03-09T09:02:00.76939Z",
 				})
 				Expect(err).To(BeNil())
 				Expect(response.Total).To(BeNumerically(">=", 1))
-
-				for _, c := range response.Changes {
-					Expect(c.InsertedAt).NotTo(BeNil())
-				}
 			})
 
 			ginkgo.It("should accept datemath format", func() {
@@ -469,21 +465,37 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 					BaseCatalogSearch: query.BaseCatalogSearch{
 						CatalogID: U.ID.String(),
 						Recursive: query.CatalogChangeRecursiveDownstream,
+						From:      "now-30m",
 					},
-					FromInsertedAt: "now-1h",
 				})
 				Expect(err).To(BeNil())
-				Expect(response.Total).To(BeNumerically(">=", 1))
+				// Only UChange (created at ~now) is within 30m; VChange is at now-1h
+				Expect(response.Total).To(BeNumerically("==", 1))
 			})
 
-			ginkgo.It("should reject from_inserted_at after to_inserted_at", func() {
+			ginkgo.It("should use exclusive comparison so the cursor item is not re-returned", func() {
+				cursor := UChange.CreatedAt.Format(time.RFC3339Nano)
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					BaseCatalogSearch: query.BaseCatalogSearch{
+						CatalogID: U.ID.String(),
+						Recursive: query.CatalogChangeRecursiveDownstream,
+						From:      cursor,
+					},
+				})
+				Expect(err).To(BeNil())
+				for _, c := range response.Changes {
+					Expect(c.ID).NotTo(Equal(UChange.ID))
+				}
+			})
+
+			ginkgo.It("should reject from after to", func() {
 				_, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
 					BaseCatalogSearch: query.BaseCatalogSearch{
 						CatalogID: U.ID.String(),
 						Recursive: query.CatalogChangeRecursiveDownstream,
+						From:      "2026-03-10T09:00:00Z",
+						To:        "2026-03-09T09:00:00Z",
 					},
-					FromInsertedAt: "2026-03-10T09:00:00Z",
-					ToInsertedAt:   "2026-03-09T09:00:00Z",
 				})
 				Expect(err).NotTo(BeNil())
 			})
