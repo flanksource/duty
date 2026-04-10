@@ -447,6 +447,48 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			Expect(response.Total).To(BeNumerically(">=", 1))
 		})
 
+		ginkgo.Context("inserted_at filter", func() {
+			ginkgo.It("should accept RFC3339 with fractional seconds", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					BaseCatalogSearch: query.BaseCatalogSearch{
+						CatalogID: U.ID.String(),
+						Recursive: query.CatalogChangeRecursiveDownstream,
+					},
+					FromInsertedAt: "2026-03-09T09:02:00.76939Z",
+				})
+				Expect(err).To(BeNil())
+				Expect(response.Total).To(BeNumerically(">=", 1))
+
+				for _, c := range response.Changes {
+					Expect(c.InsertedAt).NotTo(BeNil())
+				}
+			})
+
+			ginkgo.It("should accept datemath format", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					BaseCatalogSearch: query.BaseCatalogSearch{
+						CatalogID: U.ID.String(),
+						Recursive: query.CatalogChangeRecursiveDownstream,
+					},
+					FromInsertedAt: "now-1h",
+				})
+				Expect(err).To(BeNil())
+				Expect(response.Total).To(BeNumerically(">=", 1))
+			})
+
+			ginkgo.It("should reject from_inserted_at after to_inserted_at", func() {
+				_, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					BaseCatalogSearch: query.BaseCatalogSearch{
+						CatalogID: U.ID.String(),
+						Recursive: query.CatalogChangeRecursiveDownstream,
+					},
+					FromInsertedAt: "2026-03-10T09:00:00Z",
+					ToInsertedAt:   "2026-03-09T09:00:00Z",
+				})
+				Expect(err).NotTo(BeNil())
+			})
+		})
+
 		ginkgo.Context("created_at cursor filter", func() {
 			ginkgo.It("should accept RFC3339 with fractional seconds", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
