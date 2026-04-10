@@ -60,10 +60,11 @@ func (b *BaseCatalogSearch) SetDefaults() {
 
 func (b *BaseCatalogSearch) Validate() error {
 	if b.From != "" && b.FromTime == nil {
-		expr, err := datemath.Parse(b.From)
-		if err != nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, b.From); err == nil {
+			b.FromTime = &parsed
+		} else if expr, err := datemath.Parse(b.From); err != nil {
 			if !b.Lenient {
-				return fmt.Errorf("invalid 'from' param: %w", err)
+				return fmt.Errorf("invalid 'from' param: expected RFC3339 or datemath format: %w", err)
 			}
 			b.From = ""
 		} else {
@@ -72,10 +73,11 @@ func (b *BaseCatalogSearch) Validate() error {
 		}
 	}
 	if b.To != "" && b.ToTime == nil {
-		expr, err := datemath.Parse(b.To)
-		if err != nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, b.To); err == nil {
+			b.ToTime = &parsed
+		} else if expr, err := datemath.Parse(b.To); err != nil {
 			if !b.Lenient {
-				return fmt.Errorf("invalid 'to' param: %w", err)
+				return fmt.Errorf("invalid 'to' param: expected RFC3339 or datemath format: %w", err)
 			}
 			b.To = ""
 		} else {
@@ -166,7 +168,7 @@ func (b *BaseCatalogSearch) ApplyClauses(excludeColumns ...string) ([]clause.Exp
 		}
 	}
 	if b.FromTime != nil && !excluded["created_at"] {
-		clauses = append(clauses, clause.Gte{Column: clause.Column{Name: "created_at"}, Value: *b.FromTime})
+		clauses = append(clauses, clause.Gt{Column: clause.Column{Name: "created_at"}, Value: *b.FromTime})
 	}
 	if b.ToTime != nil && !excluded["created_at"] {
 		clauses = append(clauses, clause.Lte{Column: clause.Column{Name: "created_at"}, Value: *b.ToTime})
