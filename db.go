@@ -113,8 +113,8 @@ func NewGormFromPool(pool *pgxpool.Pool, config *gorm.Config) (*gorm.DB, error) 
 
 // SessionPropertyPrefix is the property-name prefix used to route values
 // into Postgres session/transaction-local settings. A property
-// "postgres.session.eu_debug.enabled=on" translates to
-// `SET LOCAL eu_debug.enabled = 'on'` inside the provided transaction.
+// "postgres.session.debug_log.enabled=on" translates to
+// `SET LOCAL debug_log.enabled = 'on'` inside the provided transaction.
 const SessionPropertyPrefix = "postgres.session."
 
 // ApplySessionProperties runs `SET LOCAL <key> = '<value>'` inside the
