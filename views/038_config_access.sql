@@ -11,7 +11,7 @@ SELECT
   config_access.config_id,
   external_user_groups.external_user_id,
   config_access.external_group_id AS external_group_id,
-  NULL AS external_role_id,
+  config_access.external_role_id,
   config_access.created_at,
   config_access.deleted_at,
   config_access.deleted_by,
