@@ -720,6 +720,14 @@ type ConfigChange struct {
 
 	// Artifacts associated with this change (screenshots, HAR files, etc.)
 	Artifacts []Artifact `gorm:"foreignKey:ConfigChangeID" json:"artifacts,omitempty"`
+
+	// Action is the resolved change mapping action (move-up, copy-up, copy, move, delete, ignore).
+	// Not stored in the database — populated by the scrape pipeline for diagnostics.
+	Action string `gorm:"-" json:"action,omitempty"`
+
+	// GroupID is the optional logical grouping this change belongs to.
+	// Set explicitly by producers or by the grouping engine.
+	GroupID *uuid.UUID `gorm:"column:group_id" json:"group_id,omitempty"`
 }
 
 func (c ConfigChange) Pretty() api.Text {
