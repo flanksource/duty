@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/exaring/otelpgx"
 	"github.com/flanksource/commons/logger"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	gormpostgres "gorm.io/driver/postgres"
@@ -78,6 +81,84 @@ func NewGorm(connection string, config *gorm.Config) (*gorm.DB, error) {
 	return Gorm, nil
 }
 
+// NewGormFromPool creates a Gorm DB that reuses an existing *pgxpool.Pool.
+// This is the preferred path for the main application: it shares the same
+// connection pool (and therefore the ConnConfig.OnNotice handler, pgx
+// Tracer, and MaxConns) with any direct pgxpool users on the same context.
+//
+// In particular, without sharing the pool, RAISE NOTICE / RAISE WARNING
+// messages emitted by server-side functions are invisible to Go callers
+// using ctx.DB() (GORM) because the stdlib driver creates its own pgx
+// config with no notice handler.
+//
+// stdlib.OpenDBFromPool automatically sets db.SetMaxIdleConns(0), so GORM
+// will not hoard connections from the pool.
+func NewGormFromPool(pool *pgxpool.Pool, config *gorm.Config) (*gorm.DB, error) {
+	db := stdlib.OpenDBFromPool(pool)
+
+	gormDB, err := gorm.Open(
+		gormpostgres.New(gormpostgres.Config{Conn: db}),
+		config,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := gormDB.Use(tracing.NewPlugin()); err != nil {
+		return nil, fmt.Errorf("error setting up tracing: %w", err)
+	}
+
+	return gormDB, nil
+}
+
+// SessionPropertyPrefix is the property-name prefix used to route values
+// into Postgres session/transaction-local settings. A property
+// "postgres.session.debug_log.enabled=on" translates to
+// `SET LOCAL debug_log.enabled = 'on'` inside the provided transaction.
+const SessionPropertyPrefix = "postgres.session."
+
+// ApplySessionProperties runs `SET LOCAL <key> = '<value>'` inside the
+// supplied GORM transaction for every property in `ctx.Properties()` whose
+// key starts with SessionPropertyPrefix. The prefix is stripped before the
+// SET is issued. Values are passed as text; Postgres will coerce them as
+// needed by the GUC's type.
+//
+// The transaction MUST be an open tx (returned by `db.Begin()` or
+// `db.WithContext(...).Begin()`); `SET LOCAL` outside a tx has no effect.
+//
+// Typical usage:
+//
+//	tx := ctx.DB().Begin()
+//	if err := duty.ApplySessionProperties(ctx, tx); err != nil { ... }
+//	defer tx.Rollback() // or commit
+//	...
+func ApplySessionProperties(ctx dutyContext.Context, tx *gorm.DB) error {
+	if tx == nil {
+		return fmt.Errorf("ApplySessionProperties: nil transaction")
+	}
+	settings := ctx.Properties().WithPrefix(SessionPropertyPrefix)
+	if len(settings) == 0 {
+		return nil
+	}
+	// Sort keys for deterministic apply order (helps tests and log output).
+	keys := make([]string, 0, len(settings))
+	for k := range settings {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := settings[k]
+		// set_config(setting, new_value, is_local) is the parameterizable
+		// equivalent of `SET LOCAL <key> = <value>` — it accepts the GUC
+		// name as a text parameter, avoiding any need to escape/quote the
+		// identifier ourselves.
+		if err := tx.Exec("SELECT set_config(?, ?, true)", k, v).Error; err != nil {
+			return fmt.Errorf("failed to set session property %q=%q: %w", k, v, err)
+		}
+	}
+	return nil
+}
+
 func getConnection(connection string) (string, error) {
 	pgxConfig, err := drivers.ParseURL(connection)
 	if err != nil {
@@ -120,6 +201,28 @@ func NewPgxPool(connection string) (*pgxpool.Pool, error) {
 			return stmt[:maxL]
 		}),
 	)
+
+	// Route Postgres NOTICE / WARNING messages (emitted via `RAISE NOTICE`
+	// or `RAISE WARNING` from server-side functions) to the application
+	// logger so server-side debug output is visible without needing to
+	// attach psql. Severity → log level mapping mirrors Postgres semantics.
+	config.ConnConfig.OnNotice = func(_ *pgconn.PgConn, n *pgconn.Notice) {
+		if n == nil {
+			return
+		}
+		switch strings.ToUpper(n.Severity) {
+		case "ERROR", "FATAL", "PANIC":
+			logger.Errorf("pg %s: %s", n.Severity, n.Message)
+		case "WARNING":
+			logger.Warnf("pg %s: %s", n.Severity, n.Message)
+		case "NOTICE", "INFO":
+			logger.Infof("pg %s: %s", n.Severity, n.Message)
+		case "LOG", "DEBUG":
+			logger.Debugf("pg %s: %s", n.Severity, n.Message)
+		default:
+			logger.Infof("pg %s: %s", n.Severity, n.Message)
+		}
+	}
 
 	// prevent deadlocks from concurrent queries
 	if config.MaxConns < 20 {
@@ -217,7 +320,10 @@ func SetupDB(config api.Config) (gormDB *gorm.DB, pgxpool *pgxpool.Pool, err err
 		cfg.Logger = dutyGorm.NewSqlLogger(logger.GetLogger(config.LogName))
 	}
 
-	gormDB, err = NewGorm(config.ConnectionString, cfg)
+	// Share the pgxpool with GORM so Notice/Warning messages emitted by
+	// server-side functions (RAISE NOTICE / RAISE WARNING) flow into the
+	// pool's ConnConfig.OnNotice handler installed by NewPgxPool.
+	gormDB, err = NewGormFromPool(pgxpool, cfg)
 	if err != nil {
 		return
 	}

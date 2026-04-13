@@ -195,6 +195,46 @@ func (h HierarchicalProperties) getProperty(key string) (string, bool) {
 	return v, ok
 }
 
+// WithPrefix returns all properties whose key begins with prefix, resolved
+// with the normal precedence (CLI/env → local → parent chain → global DB).
+// The returned keys have the prefix STRIPPED. Later sources in the chain
+// override earlier ones, matching getProperty's semantics.
+func (h HierarchicalProperties) WithPrefix(prefix string) map[string]string {
+	out := make(map[string]string)
+
+	// Walk global first (lowest precedence).
+	for k, v := range h.global {
+		if after, ok := strings.CutPrefix(k, prefix); ok {
+			out[after] = v
+		}
+	}
+
+	// Then walk the parent chain from root to this node (so this node
+	// overrides its ancestors).
+	var chain []HierarchicalProperties
+	cur := &h
+	for cur != nil {
+		chain = append(chain, *cur)
+		cur = cur.parent
+	}
+	for i := len(chain) - 1; i >= 0; i-- {
+		for k, v := range chain[i].local {
+			if after, ok := strings.CutPrefix(k, prefix); ok {
+				out[after] = v
+			}
+		}
+	}
+
+	// Finally, CLI/env takes highest precedence.
+	for k, v := range properties.Global.GetAll() {
+		if after, ok := strings.CutPrefix(k, prefix); ok {
+			out[after] = v
+		}
+	}
+
+	return out
+}
+
 func (k Context) globalProperties() Properties {
 	if val, ok := propertyCache.Get("global"); ok {
 		return val.(map[string]string)

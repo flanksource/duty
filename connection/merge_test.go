@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/onsi/gomega"
@@ -522,6 +524,58 @@ func TestAzureConnectionFallsBackToConnection(t *testing.T) {
 	g.Expect(conn.ClientID.ValueStatic).To(gomega.Equal("conn-client-id"))
 	g.Expect(conn.ClientSecret.ValueStatic).To(gomega.Equal("conn-client-secret"))
 	g.Expect(conn.TenantID).To(gomega.Equal("conn-tenant"))
+}
+
+func TestAzureConnectionUsesBearerWhenClientSecretAbsent(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	azConn := &models.Connection{
+		Type: models.ConnectionTypeAzure,
+		Properties: types.JSONStringMap{
+			"bearer": "test-bearer-token",
+		},
+	}
+	ctx := mockConnectionContext{Context: gocontext.Background(), connection: azConn}
+
+	conn := AzureConnection{ConnectionName: "connection://azure"}
+	err := conn.HydrateConnection(ctx)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(conn.ClientID.ValueStatic).To(gomega.BeEmpty())
+	g.Expect(conn.ClientSecret.ValueStatic).To(gomega.BeEmpty())
+
+	cred, err := conn.TokenCredential()
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	token, err := cred.GetToken(gocontext.Background(), policy.TokenRequestOptions{})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(token.Token).To(gomega.Equal("test-bearer-token"))
+}
+
+func TestAzureConnectionPrefersClientSecretOverBearer(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	azConn := &models.Connection{
+		Type:     models.ConnectionTypeAzure,
+		Username: "conn-client-id",
+		Password: "conn-client-secret",
+		Properties: types.JSONStringMap{
+			"tenant": "conn-tenant",
+			"bearer": "should-be-ignored",
+		},
+	}
+	ctx := mockConnectionContext{Context: gocontext.Background(), connection: azConn}
+
+	conn := AzureConnection{ConnectionName: "connection://azure"}
+	err := conn.HydrateConnection(ctx)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(conn.ClientID.ValueStatic).To(gomega.Equal("conn-client-id"))
+	g.Expect(conn.ClientSecret.ValueStatic).To(gomega.Equal("conn-client-secret"))
+
+	cred, err := conn.TokenCredential()
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	_, isStatic := cred.(staticTokenCredential)
+	g.Expect(isStatic).To(gomega.BeFalse(), "should return ClientSecretCredential, not bearer")
+	_, isClientSecret := cred.(*azidentity.ClientSecretCredential)
+	g.Expect(isClientSecret).To(gomega.BeTrue())
 }
 
 func TestOpensearchConnectionInlineOverridesConnection(t *testing.T) {

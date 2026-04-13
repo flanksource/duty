@@ -1,0 +1,1578 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/flanksource/duty/types/config-change-details-schema",
+  "$ref": "#/$defs/ConfigChangeDetailsSchema",
+  "$defs": {
+    "ConfigChangeDetailsSchema": {
+      "description": "Kind-discriminated schema for config change payloads supported by UnmarshalChangeDetails.",
+      "oneOf": [
+        { "$ref": "#/$defs/UserChangeDetails" },
+        { "$ref": "#/$defs/ScreenshotDetails" },
+        { "$ref": "#/$defs/PermissionChangeDetails" },
+        { "$ref": "#/$defs/GroupMembership" },
+        { "$ref": "#/$defs/Identity" },
+        { "$ref": "#/$defs/Approval" },
+        { "$ref": "#/$defs/GitSource" },
+        { "$ref": "#/$defs/HelmSource" },
+        { "$ref": "#/$defs/ImageSource" },
+        { "$ref": "#/$defs/DatabaseSource" },
+        { "$ref": "#/$defs/Source" },
+        { "$ref": "#/$defs/Environment" },
+        { "$ref": "#/$defs/Event" },
+        { "$ref": "#/$defs/Test" },
+        { "$ref": "#/$defs/Promotion" },
+        { "$ref": "#/$defs/PipelineRun" },
+        { "$ref": "#/$defs/Change" },
+        { "$ref": "#/$defs/ConfigChange" },
+        { "$ref": "#/$defs/Restore" },
+        { "$ref": "#/$defs/Backup" },
+        { "$ref": "#/$defs/Dimension" },
+        { "$ref": "#/$defs/Scale" }
+      ],
+      "examples": [
+        {
+          "kind": "UserChange/v1",
+          "user_id": "user-123",
+          "user_name": "alice@example.com",
+          "user_email": "alice@example.com",
+          "user_type": "human",
+          "group_id": "group-platform",
+          "group_name": "platform-admins",
+          "tenant": "acme"
+        },
+        {
+          "kind": "PermissionChange/v1",
+          "user_id": "user-123",
+          "user_name": "alice@example.com",
+          "role_id": "role-admin",
+          "role_name": "cluster-admin",
+          "role_type": "kubernetes",
+          "scope": "prod-cluster"
+        },
+        {
+          "kind": "Promotion/v1",
+          "id": "evt-promo-1",
+          "timestamp": "2026-04-10T12:00:00Z",
+          "from": {
+            "kind": "Environment/v1",
+            "name": "staging",
+            "stage": "Staging"
+          },
+          "to": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "stage": "Production"
+          },
+          "source": {
+            "kind": "Source/v1",
+            "git": {
+              "kind": "GitSource/v1",
+              "url": "https://github.com/flanksource/duty.git",
+              "branch": "main",
+              "commit_sha": "abc123def456"
+            },
+            "path": "deploy/production"
+          },
+          "version": "v1.2.3",
+          "approvals": [
+            {
+              "kind": "Approval/v1",
+              "id": "approval-1",
+              "submitted_by": {
+                "kind": "Identity/v1",
+                "id": "user-123",
+                "type": "User",
+                "name": "alice@example.com"
+              },
+              "approver": {
+                "kind": "Identity/v1",
+                "id": "user-456",
+                "type": "User",
+                "name": "bob@example.com"
+              },
+              "stage": "Manual",
+              "status": "Approved"
+            }
+          ],
+          "artifact": "api"
+        },
+        {
+          "kind": "Backup/v1",
+          "id": "backup-42",
+          "timestamp": "2026-04-10T11:30:00Z",
+          "end": "2026-04-10T11:36:12Z",
+          "backup_type": "Snapshot",
+          "created_by": {
+            "kind": "Identity/v1",
+            "type": "System:Auto",
+            "name": "nightly-backup"
+          },
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "type": "Kubernetes",
+            "stage": "Production"
+          },
+          "status": "Completed",
+          "size": "4.2GB",
+          "delta": "275MB"
+        },
+        {
+          "kind": "ConfigChange/v1",
+          "id": "evt-config-1",
+          "timestamp": "2026-04-10T12:05:00Z",
+          "author": {
+            "kind": "Identity/v1",
+            "id": "user-123",
+            "type": "User",
+            "name": "alice@example.com"
+          },
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "type": "Kubernetes",
+            "stage": "Production",
+            "identifier": "prod-cluster-1"
+          },
+          "source": {
+            "kind": "Source/v1",
+            "image": {
+              "kind": "ImageSource/v1",
+              "registry": "ghcr.io",
+              "image": "flanksource/duty",
+              "version": "v1.2.3",
+              "sha": "sha256:1234abcd"
+            }
+          },
+          "changes": [
+            {
+              "kind": "Change/v1",
+              "path": ".spec.template.spec.containers[0].image",
+              "from": {
+                "image": "ghcr.io/flanksource/duty:v1.2.2"
+              },
+              "to": {
+                "image": "ghcr.io/flanksource/duty:v1.2.3"
+              },
+              "type": "update"
+            },
+            {
+              "kind": "Change/v1",
+              "path": ".spec.replicas",
+              "from": {
+                "desired": "2"
+              },
+              "to": {
+                "desired": "3"
+              },
+              "type": "update"
+            }
+          ]
+        }
+      ]
+    },
+    "StringMap": {
+      "type": "object",
+      "description": "String key-value metadata map.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "AnyMap": {
+      "type": "object",
+      "description": "Object with arbitrary JSON values.",
+      "additionalProperties": true
+    },
+    "IdentityType": {
+      "type": "string",
+      "enum": [
+        "User",
+        "Group",
+        "Role",
+        "System:CI",
+        "System:Auto",
+        "System:Scan",
+        "System:Test",
+        "System:Canary"
+      ]
+    },
+    "ApprovalStage": {
+      "type": "string",
+      "enum": [
+        "PreDeployment",
+        "PostDeployment",
+        "PrePromotion",
+        "PostPromotion",
+        "Manual",
+        "Automated"
+      ]
+    },
+    "ApprovalStatus": {
+      "type": "string",
+      "enum": [
+        "Approved",
+        "Rejected",
+        "Pending",
+        "Expired"
+      ]
+    },
+    "EnvironmentType": {
+      "type": "string",
+      "enum": [
+        "Kubernetes",
+        "Cloud",
+        "On-Premises",
+        "Other"
+      ]
+    },
+    "EnvironmentStage": {
+      "type": "string",
+      "enum": [
+        "Development",
+        "Staging",
+        "Production",
+        "UAT",
+        "QA"
+      ]
+    },
+    "TestingType": {
+      "type": "string",
+      "enum": [
+        "Unit",
+        "Integration",
+        "End-to-End",
+        "Performance",
+        "Security"
+      ]
+    },
+    "TestingStatus": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Running",
+        "Passed",
+        "Failed",
+        "Skipped",
+        "Error"
+      ]
+    },
+    "TestingResult": {
+      "type": "string",
+      "enum": [
+        "Flaky",
+        "Failed",
+        "Passed"
+      ]
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "Pending",
+        "Running",
+        "Timeout",
+        "Completed",
+        "Failed",
+        "Approved",
+        "Rejected"
+      ]
+    },
+    "BackupType": {
+      "type": "string",
+      "enum": [
+        "Dump",
+        "Snapshot",
+        "StorageBackup",
+        "Offsite",
+        "OffAccount",
+        "OffRegion"
+      ]
+    },
+    "ScalingDimension": {
+      "type": "string",
+      "enum": [
+        "CPU",
+        "Memory",
+        "Replicas",
+        "Custom"
+      ]
+    },
+    "Identity": {
+      "type": "object",
+      "description": "Versioned identity payload for people, groups, roles, or system actors.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Identity/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/IdentityType"
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional human-readable name for the identity, e.g. user name or group name."
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional comment about the identity, e.g. reason for approval or details about the change."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Identity/v1",
+          "id": "user-123",
+          "type": "User",
+          "name": "alice@example.com"
+        },
+        {
+          "kind": "Identity/v1",
+          "id": "system-ci",
+          "type": "System:CI",
+          "name": "github-actions",
+          "comment": "Triggered by merge to main"
+        }
+      ]
+    },
+    "GitSource": {
+      "type": "object",
+      "description": "Git-backed source metadata.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "GitSource/v1"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "commit_sha": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "GitSource/v1",
+          "url": "https://github.com/flanksource/duty.git",
+          "branch": "main",
+          "commit_sha": "abc123def456",
+          "version": "v1.2.3",
+          "tags": "release,v1.2.3"
+        },
+        {
+          "kind": "GitSource/v1",
+          "url": "ssh://git@github.com/flanksource/duty.git",
+          "branch": "release-1.2",
+          "commit_sha": "fedcba654321"
+        }
+      ]
+    },
+    "HelmSource": {
+      "type": "object",
+      "description": "Helm chart source metadata.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "HelmSource/v1"
+        },
+        "chart_name": {
+          "type": "string"
+        },
+        "chart_version": {
+          "type": "string"
+        },
+        "repo_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "HelmSource/v1",
+          "chart_name": "ingress-nginx",
+          "chart_version": "4.10.0",
+          "repo_url": "https://kubernetes.github.io/ingress-nginx"
+        },
+        {
+          "kind": "HelmSource/v1",
+          "chart_name": "duty",
+          "chart_version": "1.2.3",
+          "repo_url": "https://charts.example.com/platform"
+        }
+      ]
+    },
+    "ImageSource": {
+      "type": "object",
+      "description": "Container image source metadata.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "ImageSource/v1"
+        },
+        "registry": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "sha": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "ImageSource/v1",
+          "registry": "ghcr.io",
+          "image": "flanksource/duty",
+          "version": "v1.2.3",
+          "sha": "sha256:1234abcd"
+        },
+        {
+          "kind": "ImageSource/v1",
+          "registry": "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+          "image": "payments/api",
+          "version": "2026.04.10-1"
+        }
+      ]
+    },
+    "DatabaseSource": {
+      "type": "object",
+      "description": "Database source metadata.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "DatabaseSource/v1"
+        },
+        "type": {
+          "type": "string",
+          "description": "Database type, e.g. PostgreSQL, MySQL, MongoDB."
+        },
+        "name": {
+          "type": "string",
+          "description": "Database name."
+        },
+        "schema": {
+          "type": "string",
+          "description": "Schema name, e.g. public."
+        },
+        "version": {
+          "type": "string",
+          "description": "Database version."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Server or cluster endpoint."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "DatabaseSource/v1",
+          "type": "PostgreSQL",
+          "name": "appdb",
+          "schema": "public",
+          "version": "16",
+          "endpoint": "appdb.cluster-123.us-east-1.rds.amazonaws.com:5432"
+        },
+        {
+          "kind": "DatabaseSource/v1",
+          "type": "MongoDB",
+          "name": "audit",
+          "version": "7.0",
+          "endpoint": "mongo.example.internal:27017"
+        }
+      ]
+    },
+    "Source": {
+      "type": "object",
+      "description": "Versioned source envelope for Git, Helm, image, or database change provenance.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Source/v1"
+        },
+        "git": {
+          "$ref": "#/$defs/GitSource"
+        },
+        "helm": {
+          "$ref": "#/$defs/HelmSource"
+        },
+        "image": {
+          "$ref": "#/$defs/ImageSource"
+        },
+        "database": {
+          "$ref": "#/$defs/DatabaseSource"
+        },
+        "kustomization": {
+          "$ref": "#/$defs/GitSource"
+        },
+        "argocd": {
+          "$ref": "#/$defs/GitSource"
+        },
+        "other": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "description": "Optional path within the source, e.g. file path in git repo or chart path in a Helm repo."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Source/v1",
+          "git": {
+            "kind": "GitSource/v1",
+            "url": "https://github.com/flanksource/duty.git",
+            "branch": "main"
+          },
+          "path": "deploy/production"
+        },
+        {
+          "kind": "Source/v1",
+          "helm": {
+            "kind": "HelmSource/v1",
+            "chart_name": "duty",
+            "chart_version": "1.2.3",
+            "repo_url": "https://charts.example.com/platform"
+          },
+          "path": "charts/duty"
+        },
+        {
+          "kind": "Source/v1",
+          "argocd": {
+            "kind": "GitSource/v1",
+            "url": "https://github.com/flanksource/platform-config.git",
+            "branch": "main",
+            "commit_sha": "bbccddeeff00"
+          },
+          "path": "clusters/prod/api"
+        }
+      ]
+    },
+    "Environment": {
+      "type": "object",
+      "description": "Versioned environment descriptor for change events.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Environment/v1"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/EnvironmentType",
+          "description": "Optional type of environment, e.g. Kubernetes, Cloud, On-Premises."
+        },
+        "stage": {
+          "$ref": "#/$defs/EnvironmentStage",
+          "description": "Optional stage or lifecycle phase of the environment."
+        },
+        "identifier": {
+          "type": "string"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap",
+          "description": "Optional tags for team, owner, namespace, cost center, or other metadata."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Environment/v1",
+          "name": "production",
+          "type": "Kubernetes",
+          "stage": "Production",
+          "identifier": "prod-cluster-1",
+          "tags": {
+            "cluster": "prod-cluster-1",
+            "namespace": "platform",
+            "owner": "platform-team"
+          }
+        },
+        {
+          "kind": "Environment/v1",
+          "name": "staging",
+          "description": "Pre-production validation environment",
+          "type": "Cloud",
+          "stage": "Staging",
+          "identifier": "staging-account"
+        }
+      ]
+    },
+    "Event": {
+      "type": "object",
+      "description": "Common event metadata shared by versioned change payloads.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Event/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Event/v1",
+          "id": "evt-123",
+          "url": "https://github.com/flanksource/duty/actions/runs/123456789",
+          "tags": {
+            "service": "api",
+            "team": "platform"
+          },
+          "properties": {
+            "cluster": "prod-cluster-1",
+            "namespace": "platform"
+          },
+          "timestamp": "2026-04-10T12:00:00Z"
+        }
+      ]
+    },
+    "Approval": {
+      "type": "object",
+      "description": "Approval event with optional submitter and approver identities.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Approval/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "submitted_by": {
+          "$ref": "#/$defs/Identity",
+          "description": "Optional identity of the person or system that submitted the approval request."
+        },
+        "approver": {
+          "$ref": "#/$defs/Identity",
+          "description": "Optional identity of the person or system that approved or rejected the change."
+        },
+        "stage": {
+          "$ref": "#/$defs/ApprovalStage"
+        },
+        "status": {
+          "$ref": "#/$defs/ApprovalStatus"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Approval/v1",
+          "id": "evt-approval-1",
+          "timestamp": "2026-04-10T11:58:00Z",
+          "submitted_by": {
+            "kind": "Identity/v1",
+            "id": "user-123",
+            "type": "User",
+            "name": "alice@example.com"
+          },
+          "approver": {
+            "kind": "Identity/v1",
+            "id": "user-456",
+            "type": "User",
+            "name": "bob@example.com"
+          },
+          "stage": "Manual",
+          "status": "Approved"
+        },
+        {
+          "kind": "Approval/v1",
+          "id": "evt-approval-2",
+          "submitted_by": {
+            "kind": "Identity/v1",
+            "type": "System:CI",
+            "name": "github-actions"
+          },
+          "stage": "Automated",
+          "status": "Pending"
+        }
+      ]
+    },
+    "Test": {
+      "type": "object",
+      "description": "Versioned test execution event.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Test/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/TestingType"
+        },
+        "status": {
+          "$ref": "#/$defs/TestingStatus"
+        },
+        "result": {
+          "$ref": "#/$defs/TestingResult"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Test/v1",
+          "id": "evt-test-1",
+          "timestamp": "2026-04-10T11:50:00Z",
+          "name": "smoke",
+          "description": "Validates the production-ready deployment path",
+          "type": "End-to-End",
+          "status": "Passed",
+          "result": "Passed"
+        },
+        {
+          "kind": "Test/v1",
+          "id": "evt-test-2",
+          "name": "container-scan",
+          "type": "Security",
+          "status": "Failed",
+          "result": "Failed"
+        }
+      ]
+    },
+    "Promotion": {
+      "type": "object",
+      "description": "Promotion event between environments.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Promotion/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/Environment",
+          "description": "Optional source environment for the promotion."
+        },
+        "to": {
+          "$ref": "#/$defs/Environment",
+          "description": "Optional target environment for the promotion."
+        },
+        "source": {
+          "$ref": "#/$defs/Source",
+          "description": "Optional source for the promotion, e.g. Git repo, Helm chart, image, or database metadata."
+        },
+        "version": {
+          "type": "string",
+          "description": "Optional version or identifier for the promoted artifact."
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Approval"
+          },
+          "description": "Optional list of approvals attached to the promotion."
+        },
+        "artifact": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Promotion/v1",
+          "id": "evt-promo-1",
+          "timestamp": "2026-04-10T12:00:00Z",
+          "from": {
+            "kind": "Environment/v1",
+            "name": "staging",
+            "stage": "Staging"
+          },
+          "to": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "stage": "Production"
+          },
+          "source": {
+            "kind": "Source/v1",
+            "git": {
+              "kind": "GitSource/v1",
+              "url": "https://github.com/flanksource/duty.git",
+              "branch": "main",
+              "commit_sha": "abc123def456"
+            },
+            "path": "deploy/production"
+          },
+          "version": "v1.2.3",
+          "approvals": [
+            {
+              "kind": "Approval/v1",
+              "id": "approval-1",
+              "submitted_by": {
+                "kind": "Identity/v1",
+                "type": "User",
+                "name": "alice@example.com"
+              },
+              "approver": {
+                "kind": "Identity/v1",
+                "type": "User",
+                "name": "bob@example.com"
+              },
+              "stage": "Manual",
+              "status": "Approved"
+            }
+          ],
+          "artifact": "api"
+        }
+      ]
+    },
+    "PipelineRun": {
+      "type": "object",
+      "description": "Pipeline run event scoped to an environment.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "PipelineRun/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "PipelineRun/v1",
+          "id": "evt-pipeline-1",
+          "url": "https://github.com/flanksource/duty/actions/runs/123456789",
+          "timestamp": "2026-04-10T11:45:00Z",
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "stage": "Production"
+          },
+          "status": "Running"
+        },
+        {
+          "kind": "PipelineRun/v1",
+          "id": "evt-pipeline-2",
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "staging",
+            "stage": "Staging"
+          },
+          "status": "Completed"
+        }
+      ]
+    },
+    "Change": {
+      "type": "object",
+      "description": "Single field-level change within a larger config change payload.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Change/v1"
+        },
+        "path": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/AnyMap"
+        },
+        "to": {
+          "$ref": "#/$defs/AnyMap"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Change/v1",
+          "path": ".spec.replicas",
+          "from": {
+            "desired": "2"
+          },
+          "to": {
+            "desired": "3"
+          },
+          "type": "update"
+        },
+        {
+          "kind": "Change/v1",
+          "path": ".metadata.annotations.release",
+          "to": {
+            "release": "2026.04.10"
+          },
+          "type": "create"
+        }
+      ]
+    },
+    "ConfigChange": {
+      "type": "object",
+      "description": "Top-level config change payload with author, environment, source, and individual changes.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "ConfigChange/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "author": {
+          "$ref": "#/$defs/Identity"
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Change"
+          }
+        },
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "ConfigChange/v1",
+          "id": "evt-config-1",
+          "url": "https://github.com/flanksource/duty/pull/123",
+          "timestamp": "2026-04-10T12:05:00Z",
+          "author": {
+            "kind": "Identity/v1",
+            "id": "user-123",
+            "type": "User",
+            "name": "alice@example.com"
+          },
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "type": "Kubernetes",
+            "stage": "Production",
+            "identifier": "prod-cluster-1"
+          },
+          "source": {
+            "kind": "Source/v1",
+            "git": {
+              "kind": "GitSource/v1",
+              "url": "https://github.com/flanksource/duty.git",
+              "branch": "main",
+              "commit_sha": "abc123def456"
+            },
+            "path": "deploy/production"
+          },
+          "changes": [
+            {
+              "kind": "Change/v1",
+              "path": ".spec.template.spec.containers[0].image",
+              "from": {
+                "image": "ghcr.io/flanksource/duty:v1.2.2"
+              },
+              "to": {
+                "image": "ghcr.io/flanksource/duty:v1.2.3"
+              },
+              "type": "update"
+            },
+            {
+              "kind": "Change/v1",
+              "path": ".spec.replicas",
+              "from": {
+                "desired": "2"
+              },
+              "to": {
+                "desired": "3"
+              },
+              "type": "update"
+            }
+          ]
+        }
+      ]
+    },
+    "Restore": {
+      "type": "object",
+      "description": "Restore event between environments.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Restore/v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/Environment",
+          "description": "Optional source environment for the restore."
+        },
+        "to": {
+          "$ref": "#/$defs/Environment",
+          "description": "Optional target environment for the restore."
+        },
+        "source": {
+          "$ref": "#/$defs/Source",
+          "description": "Optional source metadata for the restore."
+        },
+        "status": {
+          "$ref": "#/$defs/Status",
+          "description": "Optional status of the restore."
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Restore/v1",
+          "id": "evt-restore-1",
+          "timestamp": "2026-04-10T13:10:00Z",
+          "from": {
+            "kind": "Environment/v1",
+            "name": "backup-storage",
+            "type": "Cloud",
+            "stage": "Production"
+          },
+          "to": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "type": "Kubernetes",
+            "stage": "Production"
+          },
+          "source": {
+            "kind": "Source/v1",
+            "database": {
+              "kind": "DatabaseSource/v1",
+              "type": "PostgreSQL",
+              "name": "appdb",
+              "schema": "public",
+              "version": "16"
+            }
+          },
+          "status": "Completed"
+        }
+      ]
+    },
+    "Backup": {
+      "type": "object",
+      "description": "Backup event with actor, environment, event metadata, and backup result fields.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Backup/v1"
+        },
+        "backup_type": {
+          "$ref": "#/$defs/BackupType"
+        },
+        "created_by": {
+          "$ref": "#/$defs/Identity"
+        },
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "tags": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "properties": {
+          "$ref": "#/$defs/StringMap"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "end": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "size": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Backup/v1",
+          "id": "backup-42",
+          "backup_type": "Snapshot",
+          "created_by": {
+            "kind": "Identity/v1",
+            "type": "System:Auto",
+            "name": "nightly-backup"
+          },
+          "environment": {
+            "kind": "Environment/v1",
+            "name": "production",
+            "type": "Kubernetes",
+            "stage": "Production"
+          },
+          "timestamp": "2026-04-10T11:30:00Z",
+          "end": "2026-04-10T11:36:12Z",
+          "status": "Completed",
+          "size": "4.2GB",
+          "delta": "275MB"
+        }
+      ]
+    },
+    "Dimension": {
+      "type": "object",
+      "description": "Dimension values used by scale events.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Dimension/v1"
+        },
+        "min": {
+          "type": "string"
+        },
+        "max": {
+          "type": "string"
+        },
+        "desired": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Dimension/v1",
+          "min": "2",
+          "max": "10",
+          "desired": "3"
+        }
+      ]
+    },
+    "Scale": {
+      "type": "object",
+      "description": "Scale event payload with before and after dimension values.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Scale/v1"
+        },
+        "dimension": {
+          "$ref": "#/$defs/ScalingDimension"
+        },
+        "previous_value": {
+          "$ref": "#/$defs/Dimension"
+        },
+        "value": {
+          "$ref": "#/$defs/Dimension"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Scale/v1",
+          "dimension": "Replicas",
+          "previous_value": {
+            "kind": "Dimension/v1",
+            "min": "2",
+            "max": "10",
+            "desired": "2"
+          },
+          "value": {
+            "kind": "Dimension/v1",
+            "min": "2",
+            "max": "10",
+            "desired": "5"
+          }
+        },
+        {
+          "kind": "Scale/v1",
+          "dimension": "CPU",
+          "previous_value": {
+            "kind": "Dimension/v1",
+            "desired": "500m"
+          },
+          "value": {
+            "kind": "Dimension/v1",
+            "desired": "1500m"
+          }
+        }
+      ]
+    },
+    "UserChangeDetails": {
+      "type": "object",
+      "description": "User change payload.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "UserChange/v1"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "user_name": {
+          "type": "string"
+        },
+        "user_email": {
+          "type": "string"
+        },
+        "user_type": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "tenant": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "UserChange/v1",
+          "user_id": "user-123",
+          "user_name": "alice@example.com",
+          "user_email": "alice@example.com",
+          "user_type": "human",
+          "group_id": "group-platform",
+          "group_name": "platform-admins"
+        },
+        {
+          "kind": "UserChange/v1",
+          "user_id": "svc-789",
+          "user_name": "deploy-bot",
+          "user_type": "service-account",
+          "tenant": "acme"
+        }
+      ]
+    },
+    "ScreenshotDetails": {
+      "type": "object",
+      "description": "Screenshot artifact metadata.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "Screenshot/v1"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "Screenshot/v1",
+          "artifact_id": "artifact-123",
+          "url": "https://example.com/screenshot.png",
+          "content_type": "image/png",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "kind": "Screenshot/v1",
+          "artifact_id": "artifact-456",
+          "url": "https://example.com/error-state.jpg",
+          "content_type": "image/jpeg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    "PermissionChangeDetails": {
+      "type": "object",
+      "description": "Permission or role assignment change payload.",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "PermissionChange/v1"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "user_name": {
+          "type": "string"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "role_id": {
+          "type": "string"
+        },
+        "role_name": {
+          "type": "string"
+        },
+        "role_type": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "PermissionChange/v1",
+          "user_id": "user-123",
+          "user_name": "alice@example.com",
+          "group_id": "group-platform",
+          "group_name": "platform-admins",
+          "role_id": "role-admin",
+          "role_name": "admin",
+          "role_type": "kubernetes",
+          "scope": "cluster-1"
+        },
+        {
+          "kind": "PermissionChange/v1",
+          "group_id": "group-observability",
+          "group_name": "observability-team",
+          "role_id": "role-viewer",
+          "role_name": "viewer",
+          "role_type": "rbac",
+          "scope": "grafana-prod"
+        }
+      ]
+    },
+    "GroupMembership": {
+      "type": "object",
+      "description": "Group membership change payload (member added to or removed from a group).",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "GroupMembership/v1"
+        },
+        "group": {
+          "$ref": "#/$defs/Identity"
+        },
+        "member": {
+          "$ref": "#/$defs/Identity"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["Added", "Removed"]
+        },
+        "tenant": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {
+          "kind": "GroupMembership/v1",
+          "group": {
+            "kind": "Identity/v1",
+            "id": "group-platform",
+            "name": "platform-admins",
+            "type": "Group"
+          },
+          "member": {
+            "kind": "Identity/v1",
+            "id": "user-123",
+            "name": "alice@example.com",
+            "type": "User"
+          },
+          "action": "Added",
+          "tenant": "acme"
+        },
+        {
+          "kind": "GroupMembership/v1",
+          "group": {
+            "kind": "Identity/v1",
+            "id": "group-observability",
+            "name": "observability-team",
+            "type": "Group"
+          },
+          "member": {
+            "kind": "Identity/v1",
+            "id": "svc-789",
+            "name": "deploy-bot",
+            "type": "User"
+          },
+          "action": "Removed"
+        }
+      ]
+    }
+  }
+}

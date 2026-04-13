@@ -1,7 +1,11 @@
 package connection
 
 import (
+	"context"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -13,6 +17,11 @@ type AzureConnection struct {
 	ClientID       *types.EnvVar `yaml:"clientID,omitempty" json:"clientID,omitempty"`
 	ClientSecret   *types.EnvVar `yaml:"clientSecret,omitempty" json:"clientSecret,omitempty"`
 	TenantID       string        `yaml:"tenantID,omitempty" json:"tenantID,omitempty"`
+
+	// bearerToken is populated from the referenced connection's
+	// Properties["bearer"] when the connection has no Username/Password set.
+	// It is an unexported fallback — not part of the inline YAML surface.
+	bearerToken string `json:"-" yaml:"-"`
 }
 
 // HydrateConnection attempts to find the connection by name
@@ -33,6 +42,10 @@ func (g *AzureConnection) HydrateConnection(ctx ConnectionContext) error {
 		if g.TenantID == "" {
 			g.TenantID = connection.Properties["tenant"]
 		}
+
+		if connection.Username == "" && connection.Password == "" {
+			g.bearerToken = connection.Properties["bearer"]
+		}
 	}
 
 	return nil
@@ -44,6 +57,9 @@ func (g *AzureConnection) FromModel(connection models.Connection) {
 	g.ClientSecret = &types.EnvVar{ValueStatic: connection.Password}
 	if tenantID, ok := connection.Properties["tenant"]; ok {
 		g.TenantID = tenantID
+	}
+	if connection.Username == "" && connection.Password == "" {
+		g.bearerToken = connection.Properties["bearer"]
 	}
 }
 
@@ -60,5 +76,16 @@ func (g AzureConnection) ToModel() models.Connection {
 }
 
 func (g *AzureConnection) TokenCredential() (azcore.TokenCredential, error) {
+	if (g.ClientID == nil || g.ClientID.IsEmpty()) &&
+		(g.ClientSecret == nil || g.ClientSecret.IsEmpty()) &&
+		g.bearerToken != "" {
+		return staticTokenCredential{token: g.bearerToken}, nil
+	}
 	return azidentity.NewClientSecretCredential(g.TenantID, g.ClientID.String(), g.ClientSecret.String(), nil)
+}
+
+type staticTokenCredential struct{ token string }
+
+func (s staticTokenCredential) GetToken(_ context.Context, _ policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{Token: s.token, ExpiresOn: time.Now().Add(time.Hour)}, nil
 }
