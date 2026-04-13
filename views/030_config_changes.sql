@@ -1,6 +1,6 @@
-CREATE OR REPLACE FUNCTION config_changes_update_trigger() 
+CREATE OR REPLACE FUNCTION config_changes_update_trigger()
 RETURNS TRIGGER AS $$
-DECLARE 
+DECLARE
   count_increment INT;
 BEGIN
   count_increment := NEW.count - OLD.count;
@@ -21,6 +21,7 @@ BEGIN
     details = NEW.details,
     is_pushed = NEW.is_pushed,
     diff = NEW.diff,
+    inserted_at = NOW(),
     external_created_by = NEW.external_created_by,
     external_change_id = NEW.external_change_id,
     patches = NEW.patches,
@@ -29,7 +30,7 @@ BEGIN
     summary = NEW.summary
   WHERE
     id = NEW.id;
-    
+
   -- Prevent the original update by returning NULL
   RETURN NULL;
 EXCEPTION
@@ -49,12 +50,13 @@ EXCEPTION
         created_by = NEW.created_by,
         details = NEW.details,
         diff = NEW.diff,
+        inserted_at = NOW(),
         external_created_by = NEW.external_created_by,
         patches = NEW.patches,
         severity = NEW.severity,
         source = NEW.source,
         summary = NEW.summary
-      WHERE 
+      WHERE
         external_change_id = NEW.external_change_id AND config_id = NEW.config_id;
 
       RETURN NULL;
@@ -72,17 +74,17 @@ ON config_changes FOR EACH ROW
 WHEN (pg_trigger_depth() = 0) EXECUTE FUNCTION config_changes_update_trigger();
 
 ---
-CREATE OR REPLACE FUNCTION config_changes_insert_trigger() 
+CREATE OR REPLACE FUNCTION config_changes_insert_trigger()
 RETURNS TRIGGER AS $$
 DECLARE
   existing_details JSONB;
   existing_created_at TIMESTAMP WITH TIME ZONE;
 BEGIN
   -- run the original insert manually.
-  INSERT INTO config_changes SELECT NEW.* 
-  ON CONFLICT (id) 
-  DO UPDATE 
-  SET 
+  INSERT INTO config_changes SELECT NEW.*
+  ON CONFLICT (id)
+  DO UPDATE
+  SET
     details = excluded.details,
     created_by = excluded.created_by,
     diff = excluded.diff,
@@ -94,13 +96,13 @@ BEGIN
     source = excluded.source,
     created_at = excluded.created_at,
     summary = excluded.summary;
-    
+
   -- Prevent the original insert by returning NULL
   RETURN NULL;
 EXCEPTION
   WHEN unique_violation THEN
     IF sqlerrm LIKE '%config_changes_config_id_external_change_id_key%' THEN
-      SELECT details, created_at FROM config_changes 
+      SELECT details, created_at FROM config_changes
       WHERE external_change_id = NEW.external_change_id AND config_id = NEW.config_id
       INTO existing_details, existing_created_at;
 
@@ -120,7 +122,7 @@ EXCEPTION
         severity = NEW.severity,
         source = NEW.source,
         summary = NEW.summary
-      WHERE 
+      WHERE
         external_change_id = NEW.external_change_id
         AND config_id = NEW.config_id;
 
