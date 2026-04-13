@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -693,6 +694,9 @@ func queryTableWithResourceSelectors(
 	for _, resourceSelector := range resourceSelectors {
 		items, err := queryResourceSelector[uuid.UUID](ctx, limit, []string{"id"}, resourceSelector, table)
 		if err != nil {
+			if errors.Is(err, ErrColumnNotSupported) {
+				continue
+			}
 			return nil, err
 		}
 
@@ -718,6 +722,9 @@ func QueryTableColumnsWithResourceSelectors[T any](
 	for _, resourceSelector := range resourceSelectors {
 		items, err := queryResourceSelector[T](ctx, limit, selectColumns, resourceSelector, table, clauses...)
 		if err != nil {
+			if errors.Is(err, ErrColumnNotSupported) {
+				continue
+			}
 			return nil, err
 		}
 
