@@ -297,22 +297,40 @@ BEGIN
   DELETE FROM external_user_groups USING _eu_merges mp
   WHERE external_user_groups.external_user_id = mp.loser_id;
 
-  -- Step 5: Merge aliases from losers into winners in live table
-  UPDATE external_users SET
-    aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_users.aliases || agg.all_aliases) ORDER BY 1), '{}'::text[])
-  FROM (
-    SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
-    FROM _eu_merges mp JOIN external_users eu ON eu.id = mp.loser_id
-    CROSS JOIN LATERAL unnest(COALESCE(eu.aliases, '{}'::text[])) AS a
-    GROUP BY mp.winner_id
-  ) agg
-  WHERE external_users.id = agg.winner_id;
+  -- Step 5: Merge aliases from losers into winners in the live table.
+  -- We also append `loser.id::text` to the winner's alias union so that
+  -- future lookups by the loser's old id can recover the winner.
+  -- entity.aliases never contains entity.id for live rows; loser ids only
+  -- become aliases here, at the moment they stop being canonical.
+  --
+  -- A loser may live in the temp table (LEFT JOIN tmp), the live table
+  -- (LEFT JOIN external_users) or both — we union all available alias
+  -- sources together with the loser id itself.
+  EXECUTE format('
+    UPDATE external_users SET
+      aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_users.aliases || agg.all_aliases) ORDER BY 1), ''{}''::text[])
+    FROM (
+      SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
+      FROM _eu_merges mp
+      LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
+      LEFT JOIN external_users live_src ON live_src.id = mp.loser_id
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
+      GROUP BY mp.winner_id
+    ) agg
+    WHERE external_users.id = agg.winner_id
+  ', p_temp_table);
 
   -- Step 6: Soft-delete losers
   UPDATE external_users SET deleted_at = NOW()
   FROM _eu_merges mp WHERE external_users.id = mp.loser_id;
 
-  -- Step 7: Consolidate temp table (merge aliases from all losers - both temp and live - into temp winners)
+  -- Step 7: Consolidate temp table (merge aliases from all losers - both
+  -- temp and live - into temp winners). As in Step 5, also append the
+  -- loser id itself so it remains lookupable via aliases after the merge.
   EXECUTE format('
     UPDATE %1$I t SET
       aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(t.aliases || agg.all_aliases) ORDER BY 1), ''{}''::text[])
@@ -321,7 +339,11 @@ BEGIN
       FROM _eu_merges mp
       LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
       LEFT JOIN external_users live_src ON live_src.id = mp.loser_id
-      CROSS JOIN LATERAL unnest(COALESCE(tmp_src.aliases, ''{}''::text[]) || COALESCE(live_src.aliases, ''{}''::text[])) AS a
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
       GROUP BY mp.winner_id
     ) agg WHERE t.id = agg.winner_id
   ', p_temp_table);
@@ -478,14 +500,25 @@ BEGIN
   DELETE FROM external_user_groups USING _eg_merges mp
   WHERE external_user_groups.external_group_id = mp.loser_id;
 
-  UPDATE external_groups SET
-    aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_groups.aliases || agg.all_aliases) ORDER BY 1), '{}'::text[])
-  FROM (
-    SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
-    FROM _eg_merges mp JOIN external_groups eg ON eg.id = mp.loser_id
-    CROSS JOIN LATERAL unnest(COALESCE(eg.aliases, '{}'::text[])) AS a
-    GROUP BY mp.winner_id
-  ) agg WHERE external_groups.id = agg.winner_id;
+  -- Merge loser aliases (and the loser id itself) into the winner. See the
+  -- equivalent step in merge_and_upsert_external_users for the reasoning,
+  -- including why we LEFT JOIN both temp and live as alias sources.
+  EXECUTE format('
+    UPDATE external_groups SET
+      aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_groups.aliases || agg.all_aliases) ORDER BY 1), ''{}''::text[])
+    FROM (
+      SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
+      FROM _eg_merges mp
+      LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
+      LEFT JOIN external_groups live_src ON live_src.id = mp.loser_id
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
+      GROUP BY mp.winner_id
+    ) agg WHERE external_groups.id = agg.winner_id
+  ', p_temp_table);
 
   UPDATE external_groups SET deleted_at = NOW()
   FROM _eg_merges mp WHERE external_groups.id = mp.loser_id;
@@ -498,7 +531,11 @@ BEGIN
       FROM _eg_merges mp
       LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
       LEFT JOIN external_groups live_src ON live_src.id = mp.loser_id
-      CROSS JOIN LATERAL unnest(COALESCE(tmp_src.aliases, ''{}''::text[]) || COALESCE(live_src.aliases, ''{}''::text[])) AS a
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
       GROUP BY mp.winner_id
     ) agg WHERE t.id = agg.winner_id
   ', p_temp_table);
@@ -633,14 +670,25 @@ BEGIN
   UPDATE access_reviews SET external_role_id = mp.winner_id
   FROM _er_merges mp WHERE access_reviews.external_role_id = mp.loser_id;
 
-  UPDATE external_roles SET
-    aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_roles.aliases || agg.all_aliases) ORDER BY 1), '{}'::text[])
-  FROM (
-    SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
-    FROM _er_merges mp JOIN external_roles er ON er.id = mp.loser_id
-    CROSS JOIN LATERAL unnest(COALESCE(er.aliases, '{}'::text[])) AS a
-    GROUP BY mp.winner_id
-  ) agg WHERE external_roles.id = agg.winner_id;
+  -- Merge loser aliases (and the loser id itself) into the winner. See the
+  -- equivalent step in merge_and_upsert_external_users for the reasoning,
+  -- including why we LEFT JOIN both temp and live as alias sources.
+  EXECUTE format('
+    UPDATE external_roles SET
+      aliases = NULLIF(ARRAY(SELECT DISTINCT unnest FROM unnest(external_roles.aliases || agg.all_aliases) ORDER BY 1), ''{}''::text[])
+    FROM (
+      SELECT mp.winner_id, array_agg(DISTINCT a) AS all_aliases
+      FROM _er_merges mp
+      LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
+      LEFT JOIN external_roles live_src ON live_src.id = mp.loser_id
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
+      GROUP BY mp.winner_id
+    ) agg WHERE external_roles.id = agg.winner_id
+  ', p_temp_table);
 
   UPDATE external_roles SET deleted_at = NOW()
   FROM _er_merges mp WHERE external_roles.id = mp.loser_id;
@@ -653,7 +701,11 @@ BEGIN
       FROM _er_merges mp
       LEFT JOIN %1$I tmp_src ON tmp_src.id = mp.loser_id
       LEFT JOIN external_roles live_src ON live_src.id = mp.loser_id
-      CROSS JOIN LATERAL unnest(COALESCE(tmp_src.aliases, ''{}''::text[]) || COALESCE(live_src.aliases, ''{}''::text[])) AS a
+      CROSS JOIN LATERAL unnest(
+        COALESCE(tmp_src.aliases, ''{}''::text[])
+        || COALESCE(live_src.aliases, ''{}''::text[])
+        || ARRAY[mp.loser_id::text]
+      ) AS a
       GROUP BY mp.winner_id
     ) agg WHERE t.id = agg.winner_id
   ', p_temp_table);
