@@ -131,12 +131,118 @@ func (d PermissionChangeDetails) MarshalJSON() ([]byte, error) {
 	return marshalWithKind(d.Kind(), raw(d))
 }
 
+type DeploymentType string
+
+const (
+	ImageUpgrade          DeploymentType = "ImageUpgrade"
+	ImageDowngrade        DeploymentType = "ImageDowngrade"
+	Rollout               DeploymentType = "Rollout"
+	Restart               DeploymentType = "Restart"
+	Rollback              DeploymentType = "Rollback"
+	ConfigurationChange   DeploymentType = "ConfigurationChange"
+	ScaleUp               DeploymentType = "ScaleUp"
+	ScaleDown             DeploymentType = "ScaleDown"
+	ScaleIn               DeploymentType = "ScaleIn"
+	ScaleOut              DeploymentType = "ScaleOut"
+	PolicyChange          DeploymentType = "PolicyChange"
+	SchemaChange          DeploymentType = "SchemaChange"
+	DataMigration         DeploymentType = "DataMigration"
+	DataFix               DeploymentType = "DataFix"
+	OtherDeploymentChange DeploymentType = "Other"
+)
+
+type ApproverType string
+
+const (
+	ApproverTypeUser   ApproverType = "User"
+	ApproverTypeGroup  ApproverType = "Group"
+	ApproverTypeRole   ApproverType = "Role"
+	ApproverTypeCI     ApproverType = "CI"
+	ApproverTypeAuto   ApproverType = "Auto"
+	ApproverTypeScan   ApproverType = "Scan"
+	ApproverTypeTest   ApproverType = "Test"
+	ApproverTypeCanary ApproverType = "Canary"
+)
+
+type ApprovalStage string
+
+const (
+	ApprovalStagePreDeployment  ApprovalStage = "PreDeployment"
+	ApprovalStagePostDeployment ApprovalStage = "PostDeployment"
+	ApprovalStagePrePromotion   ApprovalStage = "PrePromotion"
+	ApprovalStagePostPromotion  ApprovalStage = "PostPromotion"
+	ApprovalStageManual         ApprovalStage = "Manual"
+	ApprovalStageAutomated      ApprovalStage = "Automated"
+)
+
+type ApprovalStatus string
+
+const (
+	ApprovalStatusApproved ApprovalStatus = "Approved"
+	ApprovalStatusRejected ApprovalStatus = "Rejected"
+	ApprovalStatusPending  ApprovalStatus = "Pending"
+	ApprovalStatusExpired  ApprovalStatus = "Expired"
+)
+
+type Identity struct {
+	ID   string `json:"id,omitempty"`
+	Type string `json:"type,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+func (i Identity) IsEmpty() bool {
+	return i.ID == "" && i.Type == "" && i.Name == ""
+}
+
+func (i Identity) Kind() string { return "Identity/v1" }
+func (i Identity) MarshalJSON() ([]byte, error) {
+	type raw Identity
+	return marshalWithKind(i.Kind(), raw(i))
+}
+
+type Approval struct {
+	SubmittedBy  Identity       `json:"submitted_by,omitempty"`
+	Approver     Identity       `json:"approver,omitempty"`
+	ApproverType ApproverType   `json:"approver_type,omitempty"`
+	Stage        ApprovalStage  `json:"stage,omitempty"`
+	Status       ApprovalStatus `json:"status,omitempty"`
+	Message      string         `json:"message,omitempty"`
+}
+
+type SourceType string
+
+const (
+	SourceTypeGit      SourceType = "Git"
+	SourceTypeHelm     SourceType = "Helm"
+	SourceTypeDatabase SourceType = "Database"
+	SourceTypeOther    SourceType = "Other"
+)
+
+type GitSource struct {
+	URL       string `json:"url,omitempty"`
+	Branch    string `json:"branch,omitempty"`
+	CommitSHA string `json:"commit_sha,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Tags      string `json:"tags,omitempty"`
+}
+
+type Source struct {
+	Type SourceType `json:"type,omitempty"`
+	Name string     `json:"name,omitempty"`
+	// For gitsource
+	URL string `json:"url,omitempty"`
+
+	ID string `json:"id,omitempty"`
+}
+
 type DeploymentDetails struct {
-	PreviousImage string `json:"previous_image,omitempty"`
-	NewImage      string `json:"new_image,omitempty"`
-	Container     string `json:"container,omitempty"`
-	Namespace     string `json:"namespace,omitempty"`
-	Strategy      string `json:"strategy,omitempty"`
+	Type          DeploymentType `json:"type,omitempty"`
+	Approvals     []Approval     `json:"approvals,omitempty"`
+	PreviousImage string         `json:"previous_image,omitempty"`
+	NewImage      string         `json:"new_image,omitempty"`
+	Container     string         `json:"container,omitempty"`
+	Namespace     string         `json:"namespace,omitempty"`
+	Strategy      string         `json:"strategy,omitempty"`
 }
 
 func (d DeploymentDetails) Kind() string { return "Deployment/v1" }
