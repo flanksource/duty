@@ -208,7 +208,8 @@ table "notification_send_history" {
     type = timestamptz
   }
   column "retries" {
-    null    = true
+    null    = false
+    default = 0
     type    = integer
     comment = "number of retries of pending notifications"
   }
