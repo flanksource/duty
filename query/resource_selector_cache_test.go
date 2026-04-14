@@ -35,3 +35,28 @@ func TestGetParsedResourceSelectorPEGCachesByPEGValue(t *testing.T) {
 
 	g.Expect(resourceSelectorPEGCache.ItemCount()).To(gomega.Equal(2))
 }
+
+func TestGetSelectorRequirementsUsesCache(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	resourceSelectorLabelRequirementsCache.Flush()
+
+	first, err := getSelectorRequirements("cluster=aws")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	second, err := getSelectorRequirements("cluster=aws")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	g.Expect(second).To(gomega.Equal(first))
+	g.Expect(resourceSelectorLabelRequirementsCache.ItemCount()).To(gomega.Equal(1))
+}
+
+func TestGetSelectorRequirementsReturnsErrorForInvalidSelector(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	resourceSelectorLabelRequirementsCache.Flush()
+
+	_, err := getSelectorRequirements("=aws")
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(resourceSelectorLabelRequirementsCache.ItemCount()).To(gomega.Equal(0))
+}

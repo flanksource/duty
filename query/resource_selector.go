@@ -26,10 +26,15 @@ import (
 )
 
 var resourceSelectorPEGCache = cache.New(time.Hour, 2*time.Hour)
+var resourceSelectorLabelRequirementsCache = cache.New(time.Hour, 2*time.Hour)
 
 type parsedResourceSelectorPEG struct {
 	queryField grammar.QueryField
 	flatFields []string
+}
+
+type parsedSelectorRequirements struct {
+	requirements []labels.Requirement
 }
 
 type SearchResourcesRequest struct {
@@ -311,11 +316,10 @@ func SetResourceSelectorClause(
 		if !qm.HasTags {
 			return nil, api.Errorf(api.EINVALID, "tagSelector is not supported for table=%s", table)
 		} else {
-			parsedTagSelector, err := labels.Parse(resourceSelector.TagSelector)
+			requirements, err := getSelectorRequirements(resourceSelector.TagSelector)
 			if err != nil {
 				return nil, api.Errorf(api.EINVALID, "failed to parse tag selector: %v", err)
 			}
-			requirements, _ := parsedTagSelector.Requirements()
 			for _, r := range requirements {
 				query = jsonColumnRequirementsToSQLClause(query, "tags", r)
 			}
@@ -327,23 +331,21 @@ func SetResourceSelectorClause(
 			return nil, api.Errorf(api.EINVALID, "labelSelector is not supported for table=%s", table)
 		}
 
-		parsedLabelSelector, err := labels.Parse(resourceSelector.LabelSelector)
+		requirements, err := getSelectorRequirements(resourceSelector.LabelSelector)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, "failed to parse label selector: %v", err)
 		}
-		requirements, _ := parsedLabelSelector.Requirements()
 		for _, r := range requirements {
 			query = jsonColumnRequirementsToSQLClause(query, "labels", r)
 		}
 	}
 
 	if len(resourceSelector.FieldSelector) > 0 {
-		parsedFieldSelector, err := labels.Parse(resourceSelector.FieldSelector)
+		requirements, err := getSelectorRequirements(resourceSelector.FieldSelector)
 		if err != nil {
 			return nil, api.Errorf(api.EINVALID, "failed to parse field selector: %v", err)
 		}
 
-		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
 			query = jsonColumnRequirementsToSQLClause(query, "properties", r)
 		}
@@ -379,6 +381,27 @@ func getParsedResourceSelectorPEG(peg string) (parsedResourceSelectorPEG, error)
 	resourceSelectorPEGCache.SetDefault(peg, parsed)
 
 	return parsed, nil
+}
+
+func getSelectorRequirements(selector string) ([]labels.Requirement, error) {
+	if value, ok := resourceSelectorLabelRequirementsCache.Get(selector); ok {
+		if cached, ok := value.(parsedSelectorRequirements); ok {
+			return cached.requirements, nil
+		}
+		resourceSelectorLabelRequirementsCache.Delete(selector)
+	}
+
+	parsedSelector, err := labels.Parse(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	requirements, _ := parsedSelector.Requirements()
+	resourceSelectorLabelRequirementsCache.SetDefault(selector, parsedSelectorRequirements{
+		requirements: requirements,
+	})
+
+	return requirements, nil
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
