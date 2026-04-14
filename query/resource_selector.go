@@ -25,6 +25,13 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+var resourceSelectorPEGCache = cache.New(time.Hour, 2*time.Hour)
+
+type parsedResourceSelectorPEG struct {
+	queryField grammar.QueryField
+	flatFields []string
+}
+
 type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
@@ -235,13 +242,12 @@ func SetResourceSelectorClause(
 	}
 
 	if peg := resourceSelector.ToPeg(false); peg != "" {
-		qf, err := grammar.ParsePEG(peg)
+		parsedPEG, err := getParsedResourceSelectorPEG(peg)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing grammar[%s]: %w", peg, err)
 		}
 
-		flatFields := grammar.FlatFields(qf)
-		searchSetAgent = slices.ContainsFunc(flatFields, func(s string) bool {
+		searchSetAgent = slices.ContainsFunc(parsedPEG.flatFields, func(s string) bool {
 			field := strings.ToLower(s)
 			if alias, ok := qm.Aliases[field]; ok {
 				field = alias
@@ -249,7 +255,7 @@ func SetResourceSelectorClause(
 			return field == "agent_id"
 		})
 
-		searchSetDeleted = slices.ContainsFunc(flatFields, func(s string) bool {
+		searchSetDeleted = slices.ContainsFunc(parsedPEG.flatFields, func(s string) bool {
 			field := strings.ToLower(s)
 			if alias, ok := qm.Aliases[field]; ok {
 				field = alias
@@ -258,7 +264,7 @@ func SetResourceSelectorClause(
 		})
 
 		var clauses []clause.Expression
-		query, clauses, err = qm.Apply(ctx, *qf, query)
+		query, clauses, err = qm.Apply(ctx, parsedPEG.queryField, query)
 		if err != nil {
 			return nil, fmt.Errorf("error applying query model: %w", err)
 		}
@@ -351,6 +357,25 @@ func SetResourceSelectorClause(
 	}
 
 	return query, nil
+}
+
+func getParsedResourceSelectorPEG(peg string) (parsedResourceSelectorPEG, error) {
+	if value, ok := resourceSelectorPEGCache.Get(peg); ok {
+		return value.(parsedResourceSelectorPEG), nil
+	}
+
+	qf, err := grammar.ParsePEG(peg)
+	if err != nil {
+		return parsedResourceSelectorPEG{}, err
+	}
+
+	parsed := parsedResourceSelectorPEG{
+		queryField: *qf,
+		flatFields: grammar.FlatFields(qf),
+	}
+	resourceSelectorPEGCache.SetDefault(peg, parsed)
+
+	return parsed, nil
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids
