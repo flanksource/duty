@@ -361,7 +361,10 @@ func SetResourceSelectorClause(
 
 func getParsedResourceSelectorPEG(peg string) (parsedResourceSelectorPEG, error) {
 	if value, ok := resourceSelectorPEGCache.Get(peg); ok {
-		return value.(parsedResourceSelectorPEG), nil
+		if parsed, ok := value.(parsedResourceSelectorPEG); ok {
+			return parsed, nil
+		}
+		resourceSelectorPEGCache.Delete(peg)
 	}
 
 	qf, err := grammar.ParsePEG(peg)

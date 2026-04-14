@@ -145,14 +145,14 @@ func isWildcardValue(value string) bool {
 }
 
 func resourceSelectorHasWildcard(rs ResourceSelector) bool {
-	if strings.Contains(rs.ID, wildcardValue) ||
-		strings.Contains(rs.Namespace, wildcardValue) ||
-		strings.Contains(rs.Scope, wildcardValue) ||
-		strings.Contains(rs.Agent, wildcardValue) ||
-		strings.Contains(rs.TagSelector, wildcardValue) ||
-		strings.Contains(rs.LabelSelector, wildcardValue) ||
-		strings.Contains(rs.FieldSelector, wildcardValue) ||
-		strings.Contains(string(rs.Health), wildcardValue) {
+	if (rs.ID != "" && strings.Contains(rs.ID, wildcardValue)) ||
+		(rs.Namespace != "" && strings.Contains(rs.Namespace, wildcardValue)) ||
+		(rs.Scope != "" && strings.Contains(rs.Scope, wildcardValue)) ||
+		(rs.Agent != "" && strings.Contains(rs.Agent, wildcardValue)) ||
+		(rs.TagSelector != "" && strings.Contains(rs.TagSelector, wildcardValue)) ||
+		(rs.LabelSelector != "" && strings.Contains(rs.LabelSelector, wildcardValue)) ||
+		(rs.FieldSelector != "" && strings.Contains(rs.FieldSelector, wildcardValue)) ||
+		(rs.Health != "" && strings.Contains(string(rs.Health), wildcardValue)) {
 		return true
 	}
 
