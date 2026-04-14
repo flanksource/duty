@@ -48,3 +48,20 @@ BEGIN
         WHERE category IS NULL;
     END IF;
 END $$;
+
+DO $$
+BEGIN
+    -- Check if the column "retries" exists in the "notification_send_history" table
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'notification_send_history'
+        AND column_name = 'retries'
+    ) THEN
+        -- Update existing NULL values in the "retries" column
+        UPDATE notification_send_history
+        SET retries = 0
+        WHERE retries IS NULL;
+    END IF;
+END $$;
