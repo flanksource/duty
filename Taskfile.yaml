@@ -1,0 +1,107 @@
+version: '3'
+
+tasks:
+  test:migrate:
+    desc: |
+      Mirrors the `migrate` job in .github/workflows/test.yaml using an
+      embedded postgres. Runs the hack/migrate-e2e orchestrator, which
+      spins up embedded postgres, applies base migrations from origin/main
+      (via a git worktree + the hack/migrate binary built from main's
+      code), then re-applies migrations from the current working tree to
+      validate the upgrade path. No external database required.
+    cmds:
+      - go run ./hack/migrate-e2e {{.CLI_ARGS}}
+
+  test:bench:
+    desc: |
+      Mirrors the benchmark workflow in .github/workflows/benchmark.yml.
+      Compares the current working tree against a base revision, runs both
+      `Other` and `RLS` benchmark suites, generates benchstat output +
+      summaries under .bench/results/, and fails if regressions exceed the
+      threshold. Defaults:
+        BASE_REF=$(git merge-base HEAD origin/main)
+        BENCH_SIZES=15000
+        COUNT=6
+        TIMEOUT=20m
+        THRESHOLD=5
+      Extra go test args can be passed with `task test:bench -- ...`.
+    cmds:
+      - |
+        set -eu
+
+        ROOT="$(pwd)"
+        BASE_REF="${BASE_REF:-$(git merge-base HEAD origin/main)}"
+        BENCH_SIZES="${BENCH_SIZES:-15000}"
+        COUNT="${COUNT:-6}"
+        TIMEOUT="${TIMEOUT:-20m}"
+        THRESHOLD="${THRESHOLD:-5}"
+        EXTRA_GO_TEST_ARGS="{{.CLI_ARGS}}"
+
+        BASE_DIR="$ROOT/.bench/base"
+        RESULTS_DIR="$ROOT/.bench/results"
+        BENCHSTAT_BIN="$ROOT/.bin/benchstat"
+        SUMMARY_SCRIPT="$ROOT/.github/scripts/benchstat-summary.py"
+
+        git rev-parse --verify "$BASE_REF^{commit}" >/dev/null
+
+        mkdir -p "$ROOT/.bin" "$RESULTS_DIR"
+        GOBIN="$ROOT/.bin" go install golang.org/x/perf/cmd/benchstat@latest
+
+        cleanup() {
+          git worktree remove --force "$BASE_DIR" >/dev/null 2>&1 || true
+        }
+        trap cleanup EXIT INT TERM
+
+        git worktree remove --force "$BASE_DIR" >/dev/null 2>&1 || true
+        mkdir -p "$ROOT/.bench"
+        git worktree add "$BASE_DIR" "$BASE_REF"
+        rm -rf "$BASE_DIR/bench"
+        cp -r "$ROOT/bench" "$BASE_DIR/bench"
+
+        run_suite() {
+          label="$1"
+          bench_args="$2"
+          suite_dir="$RESULTS_DIR/$label"
+          base_out="$suite_dir/bench-base.txt"
+          head_out="$suite_dir/bench-head.txt"
+          stat_out="$suite_dir/benchstat.txt"
+          summary_out="$suite_dir/bench-summary.md"
+
+          mkdir -p "$suite_dir"
+
+          echo "==> Benchmark ($label)"
+          echo "Base: $BASE_REF"
+          echo "Head: $(git rev-parse HEAD)"
+          echo
+
+          cd "$BASE_DIR"
+          if ! DUTY_BENCH_SIZES="$BENCH_SIZES" \
+            go test $bench_args -count="$COUNT" -timeout "$TIMEOUT" \
+            github.com/flanksource/duty/bench $EXTRA_GO_TEST_ARGS >"$base_out" 2>&1; then
+            cat "$base_out"
+            return 1
+          fi
+          cat "$base_out"
+
+          cd "$ROOT"
+          if ! DUTY_BENCH_SIZES="$BENCH_SIZES" \
+            go test $bench_args -count="$COUNT" -timeout "$TIMEOUT" \
+            github.com/flanksource/duty/bench $EXTRA_GO_TEST_ARGS >"$head_out" 2>&1; then
+            cat "$head_out"
+            return 1
+          fi
+          cat "$head_out"
+
+          "$BENCHSTAT_BIN" "$base_out" "$head_out" >"$stat_out"
+          if ! python3 "$SUMMARY_SCRIPT" "$stat_out" >"$summary_out"; then
+            cat "$summary_out"
+          else
+            cat "$summary_out"
+          fi
+
+          python3 "$SUMMARY_SCRIPT" --threshold "$THRESHOLD" "$stat_out" >/dev/null
+          echo
+        }
+
+        run_suite other "-bench=. -skip=BenchmarkRLS"
+        run_suite rls "-bench=BenchmarkRLS"

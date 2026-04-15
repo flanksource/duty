@@ -13,7 +13,10 @@ type ConfigChangeDetail interface {
 	Kind() string
 }
 
-var configChangeDetailTypes = []ConfigChangeDetail{
+// ConfigChangeDetailTypes lists one zero-value instance of every typed
+// ConfigChangeDetail variant. The JSON schema generator and UnmarshalChangeDetails
+// both iterate this list, so any new detail type must be registered here.
+var ConfigChangeDetailTypes = []ConfigChangeDetail{
 	UserChangeDetails{},
 	ScreenshotDetails{},
 	PermissionChangeDetails{},
@@ -117,7 +120,7 @@ func UnmarshalChangeDetails(data []byte) (ConfigChangeDetail, error) {
 		return nil, fmt.Errorf("decode config change details envelope: %w", err)
 	}
 
-	for _, candidate := range configChangeDetailTypes {
+	for _, candidate := range ConfigChangeDetailTypes {
 		if candidate.Kind() != envelope.Kind {
 			continue
 		}

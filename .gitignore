@@ -21,3 +21,5 @@ specs/*.md
 generate-openapi
 .todos/
 ginkgo*.json
+migrate-e2e
+hack/generate-schemas/generate-schemas

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -17,47 +16,24 @@ var generatedSchemas = map[string]any{
 	"resource_selectors": &[]types.ResourceSelector{},
 }
 
-// change-types is maintained by hand because the reflective schema generator
-// does not model the kind-discriminated union shape correctly.
-var handwrittenSchemas = map[string]string{
-	"change-types": "change-types.handwritten.schema.json",
-}
-
-func writeHandwrittenSchema(dst, src string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("unable to read handwritten schema %s: %w", src, err)
-	}
-
-	if !json.Valid(data) {
-		return fmt.Errorf("handwritten schema %s is not valid json", src)
-	}
-
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return fmt.Errorf("unable to write handwritten schema to %s: %w", dst, err)
-	}
-
-	return nil
-}
+const schemaOutputDir = "../../schema/openapi"
 
 var generateSchema = &cobra.Command{
 	Use: "generate-schema",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		for file, obj := range generatedSchemas {
-			p := path.Join("../../schema/openapi", file+".schema.json")
+			p := path.Join(schemaOutputDir, file+".schema.json")
 			if err := openapi.WriteSchemaToFile(p, obj); err != nil {
 				return fmt.Errorf("unable to save schema %s: %w", p, err)
 			}
 			logger.Infof("Saved OpenAPI schema to %s", p)
 		}
 
-		for file, src := range handwrittenSchemas {
-			dst := path.Join("../../schema/openapi", file+".schema.json")
-			if err := writeHandwrittenSchema(dst, src); err != nil {
-				return fmt.Errorf("unable to save handwritten schema (src: %s, dst: %s): %w", src, dst, err)
-			}
-			logger.Infof("Saved OpenAPI schema to %s", dst)
+		changeTypesPath := path.Join(schemaOutputDir, "change-types.schema.json")
+		if err := generateChangeTypesSchema(changeTypesPath); err != nil {
+			return fmt.Errorf("unable to generate change-types schema: %w", err)
 		}
+		logger.Infof("Saved OpenAPI schema to %s", changeTypesPath)
 
 		return nil
 	},
