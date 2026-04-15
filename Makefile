@@ -64,7 +64,7 @@ gen-schemas:
 	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
 	go mod edit -replace=github.com/flanksource/duty=../../../duty && \
 	go mod tidy && \
-	go run ./main.go
+	go run .
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -133,6 +133,23 @@ hack/migrate/go.mod: tidy
 .PHONY: migrate-test
 migrate-test: hack/migrate/go.mod
 	cd hack/migrate && go run ./main.go
+
+# test-migrate: delegates to the `test:migrate` Task (see Taskfile.yaml),
+# which mirrors the `migrate` job in .github/workflows/test.yaml using an
+# embedded postgres — applies base migrations from origin/main, then
+# re-applies migrations from the current working tree against the same
+# embedded database. No external DB required.
+.PHONY: test-migrate
+test-migrate:
+	task test:migrate
+
+# test-bench: delegates to the `test:bench` Task (see Taskfile.yaml),
+# which mirrors the benchmark workflow in .github/workflows/benchmark.yml.
+# It compares the current working tree against a base revision, runs both
+# `Other` and `RLS` suites, and writes benchstat artifacts under .bench/results/.
+.PHONY: test-bench
+test-bench:
+	task test:bench
 
 cp-mission-control-openapi-schemas:
 	cp ../mission-control/config/schemas/*.json schema/openapi/

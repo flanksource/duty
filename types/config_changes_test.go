@@ -252,8 +252,8 @@ var _ = Describe("ConfigChangeDetails", func() {
 	})
 
 	It("registers all exported structs for kind lookup", func() {
-		kinds := make([]string, 0, len(configChangeDetailTypes))
-		for _, candidate := range configChangeDetailTypes {
+		kinds := make([]string, 0, len(ConfigChangeDetailTypes))
+		for _, candidate := range ConfigChangeDetailTypes {
 			kinds = append(kinds, candidate.Kind())
 		}
 		slices.Sort(kinds)
