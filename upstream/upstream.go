@@ -337,7 +337,7 @@ func (t *PushData) ApplyLabels(labels map[string]string) {
 
 func (t *PushData) AddAgentConfig(agent models.Agent) {
 	// Filter out local agent config if present
-	t.ConfigItems = lo.Filter(t.ConfigItems, func(cs models.ConfigItem, _ int) bool { return cs.ID != uuid.Nil })
+	t.ConfigItems = lo.Filter(t.ConfigItems, func(cs models.ConfigItem, _ int) bool { return cs.ID != models.LocalAgentConfigID })
 
 	for i, ci := range t.ConfigItems {
 		if lo.FromPtr(ci.Type) == "MissionControl::Agent" {
@@ -347,16 +347,16 @@ func (t *PushData) AddAgentConfig(agent models.Agent) {
 		}
 	}
 
-	// Update agent's config changes with correct config ID
+	// Update local agent's config changes with correct config ID
 	for i, ci := range t.ConfigChanges {
-		if ci.ConfigID == uuid.Nil.String() {
+		if ci.ConfigID == models.LocalAgentConfigID.String() {
 			t.ConfigChanges[i].ConfigID = agent.ID.String()
 		}
 	}
 
-	// Update agent's last scraped times with correct config ID
+	// Update local agent's last scraped times with correct config ID
 	for i, ci := range t.ConfigItemsLastScrapedTime {
-		if ci.ConfigID == uuid.Nil {
+		if ci.ConfigID == models.LocalAgentConfigID {
 			t.ConfigItemsLastScrapedTime[i].ConfigID = agent.ID
 		}
 	}

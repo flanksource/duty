@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var LocalAgentConfigID = uuid.Max
+
 type Agent struct {
 	ID          uuid.UUID           `json:"id,omitempty" gorm:"default:generate_ulid()"`
 	Name        string              `json:"name"`
