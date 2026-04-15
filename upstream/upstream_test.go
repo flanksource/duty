@@ -24,7 +24,7 @@ func TestAddAgentConfig(t *testing.T) {
 	pushData := &PushData{
 		ConfigItems: []models.ConfigItem{
 			{
-				ID:   uuid.Nil,
+				ID:   models.LocalAgentConfigID,
 				Type: lo.ToPtr("MissionControl::ShouldBeFiltered"),
 			},
 			{
@@ -33,14 +33,14 @@ func TestAddAgentConfig(t *testing.T) {
 			},
 		},
 		ConfigChanges: []models.ConfigChange{
-			{ConfigID: uuid.Nil.String()},
+			{ConfigID: models.LocalAgentConfigID.String()},
 		},
 		ConfigScrapers: []models.ConfigScraper{
 			{ID: uuid.Nil},
 			{ID: uuid.New()},
 		},
 		ConfigItemsLastScrapedTime: []models.ConfigItemLastScrapedTime{
-			{ConfigID: uuid.Nil, LastScrapedTime: &now},
+			{ConfigID: models.LocalAgentConfigID, LastScrapedTime: &now},
 		},
 	}
 
