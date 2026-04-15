@@ -42,11 +42,11 @@ func writeHandwrittenSchema(dst, src string) error {
 
 var generateSchema = &cobra.Command{
 	Use: "generate-schema",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		for file, obj := range generatedSchemas {
 			p := path.Join("../../schema/openapi", file+".schema.json")
 			if err := openapi.WriteSchemaToFile(p, obj); err != nil {
-				logger.Fatalf("unable to save schema: %v", err)
+				return fmt.Errorf("unable to save schema %s: %w", p, err)
 			}
 			logger.Infof("Saved OpenAPI schema to %s", p)
 		}
@@ -54,10 +54,12 @@ var generateSchema = &cobra.Command{
 		for file, src := range handwrittenSchemas {
 			dst := path.Join("../../schema/openapi", file+".schema.json")
 			if err := writeHandwrittenSchema(dst, src); err != nil {
-				logger.Fatalf("unable to save handwritten schema: %v", err)
+				return fmt.Errorf("unable to save handwritten schema (src: %s, dst: %s): %w", src, dst, err)
 			}
 			logger.Infof("Saved OpenAPI schema to %s", dst)
 		}
+
+		return nil
 	},
 }
 
