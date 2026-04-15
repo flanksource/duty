@@ -18,10 +18,11 @@ type AzureConnection struct {
 	ClientSecret   *types.EnvVar `yaml:"clientSecret,omitempty" json:"clientSecret,omitempty"`
 	TenantID       string        `yaml:"tenantID,omitempty" json:"tenantID,omitempty"`
 
-	// bearerToken is populated from the referenced connection's
+	// BearerToken is populated from the referenced connection's
 	// Properties["bearer"] when the connection has no Username/Password set.
-	// It is an unexported fallback — not part of the inline YAML surface.
-	bearerToken string `json:"-" yaml:"-"`
+	//
+	// NOTE: Exported to avoid being flagged by CRD unexported-field validation.
+	BearerToken string `json:"-" yaml:"-"`
 }
 
 // HydrateConnection attempts to find the connection by name
@@ -44,7 +45,7 @@ func (g *AzureConnection) HydrateConnection(ctx ConnectionContext) error {
 		}
 
 		if connection.Username == "" && connection.Password == "" {
-			g.bearerToken = connection.Properties["bearer"]
+			g.BearerToken = connection.Properties["bearer"]
 		}
 	}
 
@@ -59,7 +60,7 @@ func (g *AzureConnection) FromModel(connection models.Connection) {
 		g.TenantID = tenantID
 	}
 	if connection.Username == "" && connection.Password == "" {
-		g.bearerToken = connection.Properties["bearer"]
+		g.BearerToken = connection.Properties["bearer"]
 	}
 }
 
@@ -78,8 +79,8 @@ func (g AzureConnection) ToModel() models.Connection {
 func (g *AzureConnection) TokenCredential() (azcore.TokenCredential, error) {
 	if (g.ClientID == nil || g.ClientID.IsEmpty()) &&
 		(g.ClientSecret == nil || g.ClientSecret.IsEmpty()) &&
-		g.bearerToken != "" {
-		return staticTokenCredential{token: g.bearerToken}, nil
+		g.BearerToken != "" {
+		return staticTokenCredential{token: g.BearerToken}, nil
 	}
 	return azidentity.NewClientSecretCredential(g.TenantID, g.ClientID.String(), g.ClientSecret.String(), nil)
 }
