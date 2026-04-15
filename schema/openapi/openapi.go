@@ -8,7 +8,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-//go:embed *
+//go:embed *.json
 var Schemas embed.FS
 
 func ValidatePlaybookSpec(schema []byte) (error, error) {

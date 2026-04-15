@@ -13,9 +13,21 @@ import (
 
 // GenerateSchema reflects an object into JSON schema and enriches it with Go comments.
 func GenerateSchema(obj any) ([]byte, error) {
+	return generateSchema(obj, "")
+}
+
+// GenerateSchemaWithCommentsFrom reflects obj into JSON schema but loads Go
+// doc comments from commentsFrom instead of obj's own package. Use this when
+// the reflected object lives in a binary's main package (e.g. a code
+// generator) but the schema should carry comments from a library package.
+func GenerateSchemaWithCommentsFrom(obj any, commentsFrom string) ([]byte, error) {
+	return generateSchema(obj, commentsFrom)
+}
+
+func generateSchema(obj any, commentsFrom string) ([]byte, error) {
 	reflector := &jsonschema.Reflector{}
 
-	importPath, sourceDir, err := getObjectPath(obj)
+	importPath, sourceDir, err := resolveCommentSource(obj, commentsFrom)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving object path: %w", err)
 	}
@@ -28,6 +40,20 @@ func GenerateSchema(obj any) ([]byte, error) {
 	}
 
 	return json.MarshalIndent(reflector.Reflect(obj), "", "  ")
+}
+
+// resolveCommentSource decides which import path + source directory the
+// reflector should load doc comments from. When commentsFrom is set it wins;
+// otherwise we fall back to the reflected object's own package.
+func resolveCommentSource(obj any, commentsFrom string) (string, string, error) {
+	if commentsFrom != "" {
+		sourceDir, err := resolvePackageDir(commentsFrom)
+		if err != nil {
+			return "", "", err
+		}
+		return commentsFrom, sourceDir, nil
+	}
+	return getObjectPath(obj)
 }
 
 // getObjectPath returns the object's import path and local source directory.
