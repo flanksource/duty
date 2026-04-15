@@ -196,6 +196,12 @@ table "config_changes" {
     default = sql("now()")
   }
 
+  column "group_id" {
+    null    = true
+    type    = uuid
+    comment = "optional logical grouping of correlated changes; see change_groups table."
+  }
+
   primary_key {
     columns = [column.id]
   }
@@ -204,6 +210,12 @@ table "config_changes" {
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "config_changes_group_id_fkey" {
+    columns     = [column.group_id]
+    ref_columns = [table.change_groups.column.id]
+    on_update   = NO_ACTION
+    on_delete   = SET_NULL
   }
 
   index "config_changes_created_at_brin_idx" {
@@ -229,6 +241,112 @@ table "config_changes" {
   index "config_changes_is_pushed_idx" {
     columns = [column.is_pushed]
     where   = "is_pushed IS FALSE"
+  }
+  index "config_changes_group_id_idx" {
+    columns = [column.group_id]
+    where   = "group_id IS NOT NULL"
+  }
+  index "config_changes_ungrouped_created_at_idx" {
+    columns = [column.created_at]
+    where   = "group_id IS NULL"
+  }
+}
+
+table "change_groups" {
+  schema  = schema.public
+  comment = "logical grouping of correlated config_changes rows (e.g., pod startup burst, same-commit fan-out, temporary grants)."
+
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "type" {
+    null    = false
+    type    = text
+    comment = "typed group kind, e.g. Deployment/v1, TemporaryPermission/v1."
+  }
+  column "summary" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "correlation_key" {
+    null    = false
+    type    = text
+    comment = "stable key used to find-or-create a group; unique among open groups of the same type."
+  }
+  column "source" {
+    null    = false
+    type    = text
+    default = "rule"
+    comment = "explicit, or rule:<name>."
+  }
+  column "rule_name" {
+    null = true
+    type = text
+  }
+  column "status" {
+    null    = false
+    type    = text
+    default = "open"
+  }
+  column "started_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "ended_at" {
+    null = true
+    type = timestamptz
+  }
+  column "last_member_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "member_count" {
+    null    = false
+    type    = int
+    default = 0
+  }
+  column "details" {
+    null = true
+    type = jsonb
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  primary_key {
+    columns = [column.id]
+  }
+
+  index "change_groups_open_type_correlation_key" {
+    unique  = true
+    columns = [column.type, column.correlation_key]
+    where   = "status = 'open'"
+  }
+  index "change_groups_type_started_at_idx" {
+    columns = [column.type, column.started_at]
+  }
+  index "change_groups_last_member_at_idx" {
+    columns = [column.last_member_at]
+  }
+  index "change_groups_created_at_brin_idx" {
+    type    = BRIN
+    columns = [column.created_at]
+  }
+  index "change_groups_details_gin_idx" {
+    columns = [column.details]
+    type    = GIN
   }
 }
 

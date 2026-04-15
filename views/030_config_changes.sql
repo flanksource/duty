@@ -27,7 +27,8 @@ BEGIN
     patches = NEW.patches,
     severity = NEW.severity,
     source = NEW.source,
-    summary = NEW.summary
+    summary = NEW.summary,
+    group_id = NEW.group_id
   WHERE
     id = NEW.id;
 

@@ -37,6 +37,13 @@ type CatalogChangesSearchRequest struct {
 	Summary      string `query:"summary" json:"summary"`
 	Source       string `query:"source" json:"source"`
 
+	// GroupID restricts results to changes that belong to a specific change_group.
+	GroupID *uuid.UUID `query:"group_id" json:"group_id,omitempty"`
+	// GroupType is a comma-separated list of change_group.type values.
+	GroupType string `query:"group_type" json:"group_type,omitempty"`
+	// Grouped is a tri-state filter: nil = any, true = only grouped, false = only ungrouped.
+	Grouped *bool `query:"grouped" json:"grouped,omitempty"`
+
 	createdBy         *uuid.UUID
 	externalCreatedBy string
 
@@ -293,6 +300,26 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 		} else if parseErr == nil {
 			clauses = append(clauses, c...)
 		}
+	}
+
+	if req.GroupID != nil {
+		clauses = append(clauses, clause.Eq{Column: clause.Column{Name: "group_id"}, Value: *req.GroupID})
+	}
+
+	if req.Grouped != nil {
+		if *req.Grouped {
+			dbQuery = dbQuery.Where("group_id IS NOT NULL")
+		} else {
+			dbQuery = dbQuery.Where("group_id IS NULL")
+		}
+	}
+
+	if req.GroupType != "" {
+		groupTypes := strings.Split(req.GroupType, ",")
+		dbQuery = dbQuery.Where(
+			"group_id IN (SELECT id FROM change_groups WHERE type IN ?)",
+			groupTypes,
+		)
 	}
 
 	// Determine table: single UUID uses related_changes_recursive, multi-ID or query uses IN clause
