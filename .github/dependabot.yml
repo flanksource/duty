@@ -4,13 +4,25 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: daily
+    groups:
+      go-modules:
+        patterns:
+          - "*" # All go.mod dependencies
 
   - package-ecosystem: gomod
     directory: /hack/migrate
     schedule:
       interval: daily
+    groups:
+      go-modules:
+        patterns:
+          - "*" # All go.mod dependencies
