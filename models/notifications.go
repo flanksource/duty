@@ -27,7 +27,7 @@ type Notification struct {
 	RepeatInterval   string              `json:"repeat_interval,omitempty"`
 	GroupBy          pq.StringArray      `json:"group_by" gorm:"type:[]text"`
 	GroupByInterval  time.Duration       `json:"group_by_interval,omitempty"`
-	WatchdogInterval *time.Duration      `json:"watchdog_interval,omitempty"`
+	WatchdogSchedule *string             `json:"watchdog_schedule,omitempty"`
 	CreatedBy        *uuid.UUID          `json:"created_by,omitempty"`
 	UpdatedAt        time.Time           `json:"updated_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	CreatedAt        time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`

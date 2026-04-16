@@ -87,10 +87,10 @@ table "notifications" {
     type    = bigint
     comment = "duration in nanoseconds"
   }
-  column "watchdog_interval" {
+  column "watchdog_schedule" {
     null    = true
-    type    = bigint
-    comment = "duration in nanoseconds"
+    type    = text
+    comment = "cron schedule for watchdog notifications"
   }
   column "custom_services" {
     null    = true
