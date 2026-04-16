@@ -12,8 +12,8 @@ jobs:
       contents: write # for codfish/semantic-release-action to create release tags
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
-      - uses: codfish/semantic-release-action@b0e57c976bf8f74b2454f59a30e4a1b5f11727b4 # v3.3.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: codfish/semantic-release-action@6abd188d2458e2fd6c99073454f6cc49196362e8 # v5.0.0
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,7 +29,7 @@ jobs:
       matrix:
         repos: ['mission-control', 'canary-checker', 'config-db', 'apm-hub', 'kopper']
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: flanksource/${{ matrix.repos }}
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Create Pull Request
         id: cpr
-        uses: peter-evans/create-pull-request@6d6857d36972b65feb161a90e484f2984215f83e # v6.0.5
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           branch: 'bump-duty-auto-pr'
           commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
