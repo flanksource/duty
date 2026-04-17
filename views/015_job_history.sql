@@ -198,6 +198,22 @@ CREATE OR REPLACE VIEW job_history_names AS
   SELECT distinct on (name) name
   FROM job_history;
 
+DROP VIEW IF EXISTS job_history_summary;
+CREATE OR REPLACE VIEW job_history_summary AS
+SELECT
+  name,
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE status = 'RUNNING') AS running,
+  COUNT(*) FILTER (WHERE status = 'SUCCESS') AS success,
+  COUNT(*) FILTER (WHERE status = 'WARNING') AS warning,
+  COUNT(*) FILTER (WHERE status = 'FAILED') AS failed,
+  COUNT(*) FILTER (WHERE status = 'STALE') AS stale,
+  COUNT(*) FILTER (WHERE status = 'SKIPPED') AS skipped,
+  MAX(created_at) AS last_run_at,
+  ROUND(AVG(duration_millis::numeric), 2) AS average_duration
+FROM job_history
+GROUP BY name;
+
 -- Notifications with job history
 DROP VIEW IF EXISTS notifications_summary;
 
