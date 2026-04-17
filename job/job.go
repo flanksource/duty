@@ -398,6 +398,11 @@ func (j *Job) Run() {
 		return
 	}
 
+	if j.Properties().On(false, j.getPropertyNames("disable")...) || j.Properties().On(false, j.getPropertyNames("disabled")...) {
+		ctx.Tracef("job disabled via properties")
+		return
+	}
+
 	r.start()
 	defer r.end()
 	if j.Singleton {
