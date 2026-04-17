@@ -121,6 +121,7 @@ var dbResourceObjMap = map[string]string{
 	"job_histories":                             policy.ObjectMonitor,
 	"job_history_latest_status":                 policy.ObjectMonitor,
 	"job_history_names":                         policy.ObjectMonitor,
+	"job_history_summary":                       policy.ObjectMonitor,
 	"job_history":                               policy.ObjectMonitor,
 	"logging_backends":                          policy.ObjectDatabaseSettings,
 	"migration_logs":                            policy.ObjectDatabaseSystem,
