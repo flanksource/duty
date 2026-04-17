@@ -47,6 +47,31 @@ var _ = Describe("Job", Ordered, func() {
 		Expect(counter.Load()).To(Equal(current + 1))
 	})
 
+	It("Should skip disabled jobs", func() {
+		var counter = atomic.Int32{}
+		disabledJob := &job.Job{
+			Name:       "test-disable",
+			Singleton:  true,
+			JobHistory: true,
+			Context:    DefaultContext,
+			Fn: func(ctx job.JobRuntime) error {
+				counter.Add(1)
+				return nil
+			},
+		}
+
+		before, err := disabledJob.FindHistory()
+		Expect(err).ToNot(HaveOccurred())
+
+		_ = context.UpdateProperty(DefaultContext, "jobs.test-disable.disable", "true")
+		disabledJob.Run()
+		Expect(counter.Load()).To(BeZero())
+
+		after, err := disabledJob.FindHistory()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(after).To(HaveLen(len(before)))
+	})
+
 	It("Should clean up jobs", func() {
 		items, _ := sampleJob.FindHistory()
 
