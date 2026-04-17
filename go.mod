@@ -39,7 +39,7 @@ require (
 	github.com/flanksource/is-healthy v1.0.86
 	github.com/flanksource/sandbox-runtime v1.0.2
 	github.com/glebarez/sqlite v1.11.0
-	github.com/go-git/go-git/v5 v5.17.2
+	github.com/go-git/go-git/v5 v5.18.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang-jwt/jwt/v5 v5.3.1
