@@ -50,9 +50,17 @@ func (t *AsyncEventConsumer) Handle(ctx context.Context) (int, error) {
 	tx := ctx.DB().Begin()
 	defer tx.Rollback() //nolint:errcheck
 
+	if tx.Error != nil {
+		err := fmt.Errorf("error starting transaction: %w", tx.Error)
+		recordPreHandlerError(ctx, "async", t.WatchEvents, err)
+		return 0, err
+	}
+
 	events, err := fetchEvents(ctx, tx, t.WatchEvents, t.BatchSize, t.EventFetcherOption)
 	if err != nil {
-		return 0, fmt.Errorf("error fetching events: %w", err)
+		err = fmt.Errorf("error fetching events: %w", err)
+		recordPreHandlerError(ctx, "async", t.WatchEvents, err)
+		return 0, err
 	}
 
 	if t.eventLog != nil {
