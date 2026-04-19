@@ -76,9 +76,17 @@ func (t *SyncEventConsumer) consumeEvent(ctx context.Context) (*models.Event, er
 	tx := ctx.DB().Begin()
 	defer tx.Rollback()
 
+	if tx.Error != nil {
+		err := fmt.Errorf("error starting transaction: %w", tx.Error)
+		recordPreHandlerError(ctx, "sync", t.WatchEvents, err)
+		return nil, err
+	}
+
 	events, err := fetchEvents(ctx, tx, t.WatchEvents, 1, t.EventFetchOption)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching events: %w", err)
+		err = fmt.Errorf("error fetching events: %w", err)
+		recordPreHandlerError(ctx, "sync", t.WatchEvents, err)
+		return nil, err
 	}
 
 	if len(events) == 0 {
