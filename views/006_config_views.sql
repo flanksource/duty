@@ -565,6 +565,13 @@ $$
 DECLARE
   event_name TEXT := 'config.changed';
 BEGIN
+  -- Health-driven config_changes rows are already announced via the
+  -- config.<health> event enqueued by config_health_event_enqueue, so
+  -- suppress the duplicate config.changed event here.
+  IF NEW.source = 'config-db-health-trigger' THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.change_type = 'diff' THEN
     event_name := 'config.updated';
   END IF;
