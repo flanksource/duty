@@ -82,6 +82,18 @@ var MissionControlReadersGroup = models.ExternalGroup{
 	CreatedAt: DummyCreatedAt,
 }
 
+// MissionControlEmptyGroup has a config_access grant but no members — it exercises
+// the config_access_unwrapped branch that surfaces group grants even when the
+// upstream membership hasn't been scraped yet.
+var MissionControlEmptyGroup = models.ExternalGroup{
+	ID:        uuid.New(),
+	ScraperID: KubeScrapeConfig.ID,
+	Tenant:    "flanksource",
+	Name:      "mission-control-empty",
+	GroupType: "group",
+	CreatedAt: DummyCreatedAt,
+}
+
 var JohnDoeMissionControlAdminsMembership = models.ExternalUserGroup{
 	ExternalUserID:  JohnDoeExternalUser.ID,
 	ExternalGroupID: MissionControlAdminsGroup.ID,
@@ -129,6 +141,14 @@ var MissionControlNamespaceReadersGroupAccess = models.ConfigAccess{
 	ScraperID:       &KubeScrapeConfig.ID,
 	ConfigID:        MissionControlNamespace.ID,
 	ExternalGroupID: &MissionControlReadersGroup.ID,
+	CreatedAt:       DummyCreatedAt,
+}
+
+var MissionControlNamespaceEmptyGroupAccess = models.ConfigAccess{
+	ID:              uuid.NewString(),
+	ScraperID:       &KubeScrapeConfig.ID,
+	ConfigID:        MissionControlNamespace.ID,
+	ExternalGroupID: &MissionControlEmptyGroup.ID,
 	CreatedAt:       DummyCreatedAt,
 }
 
@@ -187,7 +207,7 @@ var AllDummyExternalUsers = []models.ExternalUser{
 	CharlieExternalUser,
 }
 var AllDummyExternalRoles = []models.ExternalRole{MissionControlNamespaceViewerRole}
-var AllDummyExternalGroups = []models.ExternalGroup{MissionControlAdminsGroup, MissionControlReadersGroup}
+var AllDummyExternalGroups = []models.ExternalGroup{MissionControlAdminsGroup, MissionControlReadersGroup, MissionControlEmptyGroup}
 var AllDummyExternalUserGroups = []models.ExternalUserGroup{
 	JohnDoeMissionControlAdminsMembership,
 	AliceMissionControlAdminsMembership,
@@ -198,6 +218,7 @@ var AllDummyConfigAccesses = []models.ConfigAccess{
 	MissionControlNamespaceConfigAccess,
 	MissionControlNamespaceAdminsGroupAccess,
 	MissionControlNamespaceReadersGroupAccess,
+	MissionControlNamespaceEmptyGroupAccess,
 }
 var AllDummyConfigAccessLogs = []models.ConfigAccessLog{
 	MissionControlNamespaceAccessLog,
