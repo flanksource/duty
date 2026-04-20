@@ -1,6 +1,8 @@
 package duty
 
 import (
+	"maps"
+
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
@@ -33,7 +35,7 @@ func GetResourceContext(ctx context.Context, resource types.ResourceSelectable) 
 		}
 		if table, ok := resource.(models.TaggableModel); ok {
 			if tableTags := table.GetTags(); tableTags != nil {
-				tags = tableTags
+				tags = maps.Clone(tableTags)
 			}
 		}
 		if table, ok := resource.(models.LabelableModel); ok {
