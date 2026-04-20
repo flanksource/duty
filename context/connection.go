@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/models"
 )
 
@@ -134,7 +135,6 @@ func IsValidConnectionURL(connectionString string) bool {
 //   - the UUID of the connection.
 func FindConnectionByURL(ctx Context, connectionString string) (*models.Connection, error) {
 	db := ctx.DB()
-
 	if db == nil {
 		return nil, fmt.Errorf("db is not configured")
 	}
@@ -142,8 +142,13 @@ func FindConnectionByURL(ctx Context, connectionString string) (*models.Connecti
 	if _, err := uuid.Parse(connectionString); err == nil {
 		var connection models.Connection
 		if err := db.Where("id = ?", connectionString).First(&connection).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, api.Errorf(api.ENOTFOUND, "connection %s was not found", connectionString)
+			}
+
 			return nil, err
 		}
+
 		return &connection, nil
 	}
 
