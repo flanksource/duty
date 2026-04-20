@@ -65,6 +65,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			{
 				configClass:  models.ConfigClassNode,
 				totalConfigs: 3,
+				changes:      lo.ToPtr(1),
 				cp30d:        lo.ToPtr(2.5),
 			},
 			{
