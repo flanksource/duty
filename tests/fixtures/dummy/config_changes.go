@@ -58,6 +58,18 @@ var KubernetesNodeAChange = models.ConfigChange{
 	FirstObserved: &DummyYearOldDate,
 }
 
+var KubernetesNodeARecentChange = models.ConfigChange{
+	ID:            uuid.New().String(),
+	ConfigID:      KubernetesNodeA.ID.String(),
+	ChangeType:    types.ChangeTypeUpdate,
+	CreatedAt:     lo.ToPtr(DummyNow.Add(-time.Hour * 24)),
+	Severity:      models.SeverityInfo,
+	Source:        "Kubernetes",
+	Summary:       "Kubernetes node labels updated",
+	Count:         1,
+	FirstObserved: lo.ToPtr(DummyNow.Add(-time.Hour * 24)),
+}
+
 // Nginx Helm Release version upgrade changes
 var NginxHelmReleaseUpgradeV1 = models.ConfigChange{
 	ID:            uuid.New().String(),
@@ -141,6 +153,7 @@ var AllDummyConfigChanges = []models.ConfigChange{
 	EKSClusterUpdateChange,
 	EKSClusterDeleteChange,
 	KubernetesNodeAChange,
+	KubernetesNodeARecentChange,
 	NginxHelmReleaseUpgradeV1,
 	NginxHelmReleaseUpgradeV2,
 	NginxHelmReleaseUpgradeV3,
