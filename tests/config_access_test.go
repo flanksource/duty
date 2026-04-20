@@ -17,7 +17,7 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 			Order("last_signed_in_at DESC").
 			Find(&accessSummaries).Error
 		Expect(err).ToNot(HaveOccurred())
-		Expect(accessSummaries).To(HaveLen(5))
+		Expect(accessSummaries).To(HaveLen(6))
 
 		normalized := make([]models.ConfigAccessSummary, 0, len(accessSummaries))
 		for _, summary := range accessSummaries {
@@ -32,21 +32,38 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 				User: dummy.JohnDoeExternalUser.Name,
 				Role: dummy.MissionControlNamespaceViewerRole.Name,
 			},
-			{
-				User: dummy.JohnDoeExternalUser.Name,
-			},
-			{
-				User: dummy.AliceExternalUser.Name,
-			},
-			{
-				User: dummy.BobExternalUser.Name,
-			},
-			{
-				User: dummy.CharlieExternalUser.Name,
-			},
+			{User: dummy.JohnDoeExternalUser.Name},
+			{User: dummy.AliceExternalUser.Name},
+			{User: dummy.BobExternalUser.Name},
+			{User: dummy.CharlieExternalUser.Name},
+			{User: dummy.MissionControlEmptyGroup.Name},
 		}
 
 		Expect(normalized).To(ConsistOf(expected))
+	})
+
+	It("should surface group grants even when the group has no resolved members", func() {
+		var emptyGroupRow models.ConfigAccessSummary
+		err := DefaultContext.DB().
+			Where("config_id = ? AND external_group_id = ?",
+				dummy.MissionControlNamespace.ID, dummy.MissionControlEmptyGroup.ID).
+			First(&emptyGroupRow).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(emptyGroupRow.User).To(Equal(dummy.MissionControlEmptyGroup.Name))
+		Expect(emptyGroupRow.UserType).To(Equal("group"))
+		Expect(emptyGroupRow.ExternalUserID).To(Equal(uuid.Nil))
+	})
+
+	It("should not fan out rows for users with multiple access log entries", func() {
+		// JohnDoe has one access log entry; John's direct grant should still yield a single row.
+		var johnDirectRows []models.ConfigAccessSummary
+		err := DefaultContext.DB().
+			Where("config_id = ? AND external_user_id = ? AND external_group_id IS NULL",
+				dummy.MissionControlNamespace.ID, dummy.JohnDoeExternalUser.ID).
+			Find(&johnDirectRows).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(johnDirectRows).To(HaveLen(1))
+		Expect(johnDirectRows[0].LastSignedInAt).ToNot(BeNil())
 	})
 })
 

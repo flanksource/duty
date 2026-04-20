@@ -666,6 +666,11 @@ type ConfigChange struct {
 	// Note: This field is not stored in the database.
 	ConfigType string `gorm:"-" json:"-"`
 
+	// Action describes the pipeline lifecycle action taken for this change
+	// (e.g. inserted, updated, unchanged, move-up, copy-up, move, copy).
+	// Note: This field is not stored in the database.
+	Action string `gorm:"-" json:"action,omitempty"`
+
 	// ExternalChangeID is the identifier for the change from an external system.
 	ExternalChangeID *string `gorm:"column:external_change_id;default:null" json:"external_change_id"`
 

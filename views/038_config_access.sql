@@ -4,7 +4,13 @@
 DROP VIEW IF EXISTS user_config_access_summary;
 
 -- config_access_unwrapped
--- flattens config access permissions by expanding group memberships
+-- Flattens config access permissions into one row per (config, principal, role).
+-- Three branches:
+--   1. Group grants with at least one resolved member: one row per member.
+--   2. Group grants with no resolved members: one row with NULL external_user_id
+--      so the grant itself remains visible (upstream membership not yet scraped,
+--      or a truly empty group still holds the permission).
+--   3. Direct user grants.
 CREATE OR REPLACE VIEW config_access_unwrapped AS
 SELECT
   generate_ulid()::TEXT as id,
@@ -24,6 +30,27 @@ FROM
   INNER JOIN external_user_groups ON config_access.external_group_id = external_user_groups.external_group_id
   AND config_access.deleted_at IS NULL
   AND config_access.external_group_id IS NOT NULL
+UNION ALL
+SELECT
+  config_access.id,
+  config_access.config_id,
+  NULL AS external_user_id,
+  config_access.external_group_id,
+  config_access.external_role_id,
+  config_access.created_at,
+  config_access.deleted_at,
+  config_access.deleted_by,
+  config_access.last_reviewed_at,
+  config_access.last_reviewed_by,
+  config_access.created_by,
+  config_access.scraper_id
+FROM config_access
+WHERE config_access.external_group_id IS NOT NULL
+  AND config_access.deleted_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM external_user_groups
+    WHERE external_user_groups.external_group_id = config_access.external_group_id
+  )
 UNION ALL
 SELECT
   id,
@@ -54,23 +81,29 @@ SELECT
   config_access_unwrapped.external_group_id as external_group_id,
   config_access_unwrapped.external_user_id as external_user_id,
   external_roles.name as "role",
-  external_users.name as "user",
-  external_users.email as "email",
-  external_users.user_type as user_type,
+  COALESCE(external_users.name, external_groups.name) as "user",
+  COALESCE(external_users.email, '') as "email",
+  COALESCE(external_users.user_type, CASE WHEN external_groups.id IS NOT NULL THEN 'group' END) as user_type,
   config_access_unwrapped.created_at as created_at,
   config_access_unwrapped.deleted_at as deleted_at,
   config_access_unwrapped.created_by as created_by,
-  config_access_logs.created_at as last_signed_in_at,
+  last_access_log.last_signed_in_at as last_signed_in_at,
   config_access_unwrapped.last_reviewed_at as last_reviewed_at,
   config_access_unwrapped.last_reviewed_by as last_reviewed_by
 FROM config_access_unwrapped
 JOIN config_items ON config_access_unwrapped.config_id = config_items.id
-JOIN external_users ON config_access_unwrapped.external_user_id = external_users.id
+LEFT JOIN external_users ON config_access_unwrapped.external_user_id = external_users.id
+LEFT JOIN external_groups ON config_access_unwrapped.external_group_id = external_groups.id
 LEFT JOIN external_roles ON config_access_unwrapped.external_role_id = external_roles.id
-LEFT JOIN config_access_logs
-  ON config_access_unwrapped.config_id = config_access_logs.config_id AND
-  config_access_unwrapped.external_user_id = config_access_logs.external_user_id
-WHERE config_access_unwrapped.deleted_at IS NULL;
+LEFT JOIN (
+  SELECT config_id, external_user_id, MAX(created_at) AS last_signed_in_at
+  FROM config_access_logs
+  GROUP BY config_id, external_user_id
+) last_access_log
+  ON last_access_log.config_id = config_access_unwrapped.config_id
+  AND last_access_log.external_user_id = config_access_unwrapped.external_user_id
+WHERE config_access_unwrapped.deleted_at IS NULL
+  AND (external_users.id IS NOT NULL OR external_groups.id IS NOT NULL);
 
 -- config_access_summary_by_user
 CREATE VIEW config_access_summary_by_user AS
