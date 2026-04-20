@@ -61,7 +61,7 @@ BEGIN
   INSERT INTO config_changes (config_id, change_type, source, count, severity, summary, details) VALUES (
     NEW.id,
     change_type,
-    'config-db',
+    'config-db-health-trigger',
     1,
     severity,
     summary,
