@@ -141,8 +141,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		Expect(err).To(BeNil())
 
 		expectedTypeSummary := []summaryRow{
-			{Type: "Test::type-A", Count: 3, Changes: 7, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(3), "security": float64(2)}},
-			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-A", Count: 3, Changes: 9, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(3), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 8, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
 			{Type: "Test::type-C", Count: 1, Changes: 1, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
 		}
 
@@ -179,8 +179,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		Expect(err).To(BeNil())
 
 		expectedTypeSummary7d := []summaryRow{
-			{Type: "Test::type-A", Count: 3, Changes: 6, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
-			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-A", Count: 3, Changes: 8, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 8, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
 			{Type: "Test::type-C", Count: 1, Changes: 1, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
 		}
 
@@ -206,8 +206,8 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		Expect(err).To(BeNil())
 
 		expectedTypeSummary3d := []summaryRow{
-			{Type: "Test::type-A", Count: 3, Changes: 6, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
-			{Type: "Test::type-B", Count: 2, Changes: 6, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
+			{Type: "Test::type-A", Count: 3, Changes: 8, Health: map[string]any{"healthy": float64(2), "unhealthy": float64(1)}, Analysis: map[string]any{"availability": float64(2), "cost": float64(2), "security": float64(2)}},
+			{Type: "Test::type-B", Count: 2, Changes: 8, Health: map[string]any{"healthy": float64(2)}, Analysis: map[string]any{"availability": float64(1), "cost": float64(1), "security": float64(2)}},
 			{Type: "Test::type-C", Count: 1, Changes: 1, Health: map[string]any{"unhealthy": float64(1)}, Analysis: map[string]any{}},
 		}
 
