@@ -30,7 +30,13 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) OR (OLD IS NULL AND NEW.health = 'unknown') THEN
+  -- On INSERT, only record health transitions that produce an event
+  -- (matches the gate in insert_config_health_updates_in_event_queue).
+  IF TG_OP = 'INSERT' AND NEW.health NOT IN ('warning', 'unhealthy') THEN
+    RETURN NULL;
+  END IF;
+
+  IF OLD.health = NEW.health OR (OLD.health IS NULL AND NEW.health IS NULL) THEN
     RETURN NULL;
   END IF;
 
