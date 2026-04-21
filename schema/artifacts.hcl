@@ -21,6 +21,16 @@ table "artifacts" {
     null = true
     type = uuid
   }
+  column "scraper_id" {
+    null    = true
+    type    = uuid
+    comment = "durable owner for scraper-generated artifacts; references config_scrapers"
+  }
+  column "job_history_id" {
+    null    = true
+    type    = uuid
+    comment = "creator/provenance job run for scraper-generated artifacts; set null when job_history rows are pruned"
+  }
   column "connection_id" {
     null    = true
     type    = uuid
@@ -107,6 +117,18 @@ table "artifacts" {
     on_update   = NO_ACTION
     on_delete   = CASCADE
   }
+  foreign_key "artifacts_scraper_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  foreign_key "artifacts_job_history_fkey" {
+    columns     = [column.job_history_id]
+    ref_columns = [table.job_history.column.id]
+    on_update   = NO_ACTION
+    on_delete   = SET_NULL
+  }
   index "artifacts_check_id_idx" {
     columns = [column.check_id]
   }
@@ -115,5 +137,11 @@ table "artifacts" {
   }
   index "artifacts_config_change_id_idx" {
     columns = [column.config_change_id]
+  }
+  index "artifacts_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
+  index "artifacts_job_history_id_idx" {
+    columns = [column.job_history_id]
   }
 }
