@@ -64,9 +64,11 @@ const (
 	ChangeTypeRejected   = "Rejected"
 	ChangeTypeRollback   = "Rollback"
 
+	ChangeTypeBackupStarted   = "BackupStarted"
 	ChangeTypeBackupCompleted = "BackupCompleted"
 	ChangeTypeBackupRestored  = "BackupRestored"
 	ChangeTypeBackupFailed    = "BackupFailed"
+	ChangeTypeBackupDeleted   = "BackupDeleted"
 
 	ChangeTypePipelineRunStarted   = "PipelineRunStarted"
 	ChangeTypePipelineRunCompleted = "PipelineRunCompleted"
