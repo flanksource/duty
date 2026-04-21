@@ -45,8 +45,8 @@ func randomDurationBetween(minDur, maxDur time.Duration) time.Duration {
 }
 
 func genConfigTraversalCacheExpiry() store.Option {
-	expiryWindowMin := properties.Duration(2*time.Hour, "config_traversal.cache_expiry_min")
-	expiryWindowMax := properties.Duration(4*time.Hour, "config_traversal.cache_expiry_max")
+	expiryWindowMin := properties.Duration(2*time.Hour, "config.traversal.cache_expiry.min")
+	expiryWindowMax := properties.Duration(4*time.Hour, "config.traversal.cache_expiry.max")
 	return store.WithExpiration(randomDurationBetween(expiryWindowMin, expiryWindowMax))
 }
 
