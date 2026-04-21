@@ -100,7 +100,7 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 		gitRepoRelationType = "Kubernetes::GitRepository"
 	}
 
-	gitRepos := TraverseConfig(ctx, id.String(), gitRepoRelationType, string(models.RelatedConfigTypeIncoming))
+	gitRepos := TraverseConfig(ctx, id.String(), gitRepoRelationType, Incoming)
 	if gitRepo := lo.FirstOrEmpty(gitRepos); gitRepo.Config != nil {
 		source.Git.URL = gitRepo.NestedString("spec", "url")
 		// These are in order of precedence for fluxcd.io/GitRepository
@@ -117,7 +117,7 @@ func GetGitOpsSource(ctx context.Context, id uuid.UUID) (GitOpsSource, error) {
 		source.Kustomize.Path = ci.NestedString("spec", "path")
 		source.Kustomize.File = filepath.Join(source.Kustomize.Path, "kustomization.yaml")
 	} else {
-		kustomization := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization", string(models.RelatedConfigTypeIncoming))
+		kustomization := TraverseConfig(ctx, id.String(), "Kubernetes::Kustomization", Incoming)
 		if len(kustomization) > 0 && kustomization[0].Config != nil {
 			source.Kustomize.Path = kustomization[0].NestedString("spec", "path")
 			source.Kustomize.File = filepath.Join(source.Kustomize.Path, "kustomization.yaml")

@@ -11,7 +11,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-func TraverseConfig(ctx context.Context, configID, relationType, direction string) []models.ConfigItem {
+func TraverseConfig(ctx context.Context, configID, relationType string, direction RelationDirection) []models.ConfigItem {
 	var configItems []models.ConfigItem
 
 	ids := []string{configID}
@@ -32,14 +32,23 @@ func TraverseConfig(ctx context.Context, configID, relationType, direction strin
 }
 
 // Fetch config IDs which match the type and direction upto max depth (5)
-func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType, direction string, excludeSelf bool) []string {
+func getRelatedTypeConfigID(ctx context.Context, ids []string, relatedType string, direction RelationDirection, excludeSelf bool) []string {
 	var allIDs []string
 	for _, id := range ids {
-		var rows []string
-		q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id").Where("type = ?", relatedType)
-		if err := q.Scan(&rows).Error; err != nil {
-			ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
-			return nil
+		rows, err := configTraversalCache.Get(ctx, configTraversalCacheKey(id, direction, relatedType))
+		if err != nil {
+			q := ctx.DB().Table("related_configs_recursive(?, ?)", id, direction).Select("id").Where("type = ?", relatedType)
+			if err := q.Scan(&rows).Error; err != nil {
+				ctx.Tracef("error querying database for related_configs[%s]: %v", id, err)
+				return nil
+			}
+
+			// We cache for incoming relations
+			if direction == Incoming {
+				if err := configTraversalCache.Set(ctx, configTraversalCacheKey(id, direction, relatedType), rows, genConfigTraversalCacheExpiry()); err != nil {
+					ctx.Tracef("error setting traversal cache[%s]: %v", id, err)
+				}
+			}
 		}
 
 		for _, row := range rows {
@@ -70,7 +79,7 @@ func traverseConfigCELFunction() func(ctx context.Context) cel.EnvOption {
 					if len(args) == 3 {
 						direction = conv.ToString(args[2])
 					}
-					items := TraverseConfig(ctx, id, typ, direction)
+					items := TraverseConfig(ctx, id, typ, RelationDirection(direction))
 					jsonObj, _ := conv.AnyToListMapStringAny(items)
 					return types.NewDynamicList(types.DefaultTypeAdapter, jsonObj)
 				}),
@@ -94,7 +103,7 @@ func traverseConfigTemplateFunction() func(ctx context.Context) any {
 			} else {
 				direction = "incoming"
 			}
-			return TraverseConfig(ctx, id, relationType, direction)
+			return TraverseConfig(ctx, id, relationType, RelationDirection(direction))
 		}
 	}
 }
