@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func assertTraverseConfig(from models.ConfigItem, relationType string, direction string, to ...models.ConfigItem) {
+func assertTraverseConfig(from models.ConfigItem, relationType string, direction query.RelationDirection, to ...models.ConfigItem) {
 	got := query.TraverseConfig(DefaultContext, from.ID.String(), relationType, direction)
 	Expect(got).To(EqualConfigs(to...))
 }
@@ -58,31 +58,31 @@ var _ = ginkgo.Describe("Config traversal", ginkgo.Ordered, func() {
 		err = query.SyncConfigCache(DefaultContext)
 		Expect(err).ToNot(HaveOccurred())
 
-		assertTraverseConfig(deployment, "Kubernetes::HelmRelease", "incoming", helmRelease)
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease", query.Incoming, helmRelease)
 
-		assertTraverseConfig(helmRelease, "Kubernetes::Kustomization", "incoming", kustomize, bootstrap)
+		assertTraverseConfig(helmRelease, "Kubernetes::Kustomization", query.Incoming, kustomize, bootstrap)
 
-		assertTraverseConfig(deployment, "Kubernetes::Kustomization", "incoming", bootstrap, kustomize)
+		assertTraverseConfig(deployment, "Kubernetes::Kustomization", query.Incoming, bootstrap, kustomize)
 
-		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Kustomization", "incoming", kustomize, bootstrap)
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Kustomization", query.Incoming, kustomize, bootstrap)
 
-		got := query.TraverseConfig(DefaultContext, deployment.ID.String(), "Kubernetes::Kustomization/Kubernetes::Kustomization", "incoming")
+		got := query.TraverseConfig(DefaultContext, deployment.ID.String(), "Kubernetes::Kustomization/Kubernetes::Kustomization", query.Incoming)
 		Expect(got).ToNot(BeNil())
 		// This should only return 1 object since we are
 		// passing explicit path for the boostrap kustomization
 		Expect(len(got)).To(Equal(1))
 		Expect(got[0].ID.String()).To(Equal(bootstrap.ID.String()))
 
-		assertTraverseConfig(deployment, "Kubernetes::Pod", "incoming")
+		assertTraverseConfig(deployment, "Kubernetes::Pod", query.Incoming)
 
-		assertTraverseConfig(deployment, "Kubernetes::Node", "incoming")
-		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Node", "incoming")
+		assertTraverseConfig(deployment, "Kubernetes::Node", query.Incoming)
+		assertTraverseConfig(deployment, "Kubernetes::HelmRelease/Kubernetes::Node", query.Incoming)
 
-		assertTraverseConfig(helmRelease, "Kubernetes::Deployment", "outgoing", deployment)
+		assertTraverseConfig(helmRelease, "Kubernetes::Deployment", query.Outgoing, deployment)
 
-		assertTraverseConfig(kustomize, "Kubernetes::HelmRelease", "outgoing", helmRelease)
+		assertTraverseConfig(kustomize, "Kubernetes::HelmRelease", query.Outgoing, helmRelease)
 
-		assertTraverseConfig(kustomize, "Kubernetes::Deployment", "outgoing", deployment)
+		assertTraverseConfig(kustomize, "Kubernetes::Deployment", query.Outgoing, deployment)
 
 		Expect(traverseTemplate(deployment, "Kubernetes::HelmRelease", "incoming")).
 			To(Equal(helmRelease.ID.String()))
