@@ -3,6 +3,8 @@ package query
 import (
 	"time"
 
+	"github.com/flanksource/clicky"
+	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
@@ -54,6 +56,17 @@ const (
 	Incoming RelationDirection = "incoming"
 	Outgoing RelationDirection = "outgoing"
 )
+
+func (r RelationDirection) Pretty() api.Text {
+	switch r {
+	case Incoming:
+		return clicky.Text("← ", "text-blue-600").Append(string(r), "capitalize text-blue-600")
+	case Outgoing:
+		return clicky.Text("→ ", "text-purple-600").Append(string(r), "capitalize text-purple-600")
+	default:
+		return clicky.Text(string(r), "text-gray-500")
+	}
+}
 
 func (t RelationDirection) ToChangeDirection() ChangeRelationDirection {
 	switch t {

@@ -3,8 +3,10 @@ package query
 import (
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"time"
 
+	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	gocache "github.com/patrickmn/go-cache"
@@ -15,7 +17,10 @@ import (
 )
 
 func FlushConfigCache(ctx context.Context) error {
-	return configItemRelatedTypeCache.Clear(ctx)
+	if err := configItemRelatedTypeCache.Clear(ctx); err != nil {
+		return err
+	}
+	return configTraversalCache.Clear(ctx)
 }
 
 // <id>/<related_type> -> []related_ids
@@ -23,6 +28,26 @@ var configItemRelatedTypeCache = cache.New[[]string](gocache_store.NewGoCache(go
 
 func configItemRelatedTypeCacheKey(id, typ string) string {
 	return "configRelatedType:" + id + typ
+}
+
+// <id>/<direction>/<type> -> []related_ids (recursive traversal result)
+var configTraversalCache = cache.New[[]string](gocache_store.NewGoCache(gocache.New(10*time.Minute, 10*time.Minute)))
+
+func configTraversalCacheKey(id string, direction RelationDirection, typ string) string {
+	return "configTraversal:" + id + ":" + string(direction) + ":" + typ
+}
+
+func randomDurationBetween(minDur, maxDur time.Duration) time.Duration {
+	if maxDur <= minDur {
+		return minDur
+	}
+	return minDur + time.Duration(rand.Int64N(int64(maxDur-minDur)+1))
+}
+
+func genConfigTraversalCacheExpiry() store.Option {
+	expiryWindowMin := properties.Duration(2*time.Hour, "config_traversal.cache_expiry_min")
+	expiryWindowMax := properties.Duration(4*time.Hour, "config_traversal.cache_expiry_max")
+	return store.WithExpiration(randomDurationBetween(expiryWindowMin, expiryWindowMax))
 }
 
 // <id> -> models.ConfigItem
