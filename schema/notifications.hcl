@@ -334,6 +334,10 @@ table "notification_send_history" {
   index "notification_send_history_resource_id_idx" {
     columns = [column.resource_id]
   }
+  index "notification_send_history_pending_evaluating_not_before_idx" {
+    columns = [column.not_before]
+    where   = "status IN ('pending', 'evaluating-waitfor')"
+  }
 }
 
 table "notification_silences" {
