@@ -18,25 +18,35 @@ import (
 
 // Artifact represents the artifacts table
 type Artifact struct {
-	ID                  uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
-	CheckID             *uuid.UUID `json:"check_id,omitempty"`
-	CheckTime           *time.Time `json:"check_time,omitempty" time_format:"postgres_timestamp"`
+	ID             uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	CheckID        *uuid.UUID `json:"check_id,omitempty"`
+	CheckTime      *time.Time `json:"check_time,omitempty" time_format:"postgres_timestamp"`
+	ConfigChangeID *uuid.UUID `json:"config_change_id,omitempty"`
+
+	// Playbook action that created this artifact
 	PlaybookRunActionID *uuid.UUID `json:"playbook_run_action_id,omitempty"`
-	ConfigChangeID      *uuid.UUID `json:"config_change_id,omitempty"`
-	ConnectionID        uuid.UUID  `json:"connection_id,omitempty"`
-	Path                string     `json:"path"`
-	IsPushed            bool       `json:"is_pushed"`
-	IsDataPushed        bool       `json:"is_data_pushed"`
-	Filename            string     `json:"filename"`
-	Size                int64      `json:"size"` // Size in bytes
-	ContentType         string     `json:"content_type,omitempty"`
-	Checksum            string     `json:"checksum"`
-	Content             []byte     `json:"-" gorm:"type:bytea"`
-	CompressionType     string     `json:"compression_type,omitempty"`
-	CreatedAt           time.Time  `json:"created_at" yaml:"created_at" time_format:"postgres_timestamp"`
-	UpdatedAt           time.Time  `json:"updated_at" yaml:"updated_at" time_format:"postgres_timestamp"`
-	DeletedAt           *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
-	ExpiresAt           *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty" time_format:"postgres_timestamp"`
+
+	// ScraperID is the durable owner for scraper-generated artifacts.
+	ScraperID *uuid.UUID `json:"scraper_id,omitempty"`
+
+	// JobHistoryID records the creating job run provenance for scraper-generated artifacts.
+	// It may become nil when job_history retention prunes old rows.
+	JobHistoryID *uuid.UUID `json:"job_history_id,omitempty"`
+
+	ConnectionID    uuid.UUID  `json:"connection_id,omitempty"`
+	Path            string     `json:"path"`
+	IsPushed        bool       `json:"is_pushed"`
+	IsDataPushed    bool       `json:"is_data_pushed"`
+	Filename        string     `json:"filename"`
+	Size            int64      `json:"size"` // Size in bytes
+	ContentType     string     `json:"content_type,omitempty"`
+	Checksum        string     `json:"checksum"`
+	Content         []byte     `json:"-" gorm:"type:bytea"`
+	CompressionType string     `json:"compression_type,omitempty"`
+	CreatedAt       time.Time  `json:"created_at" yaml:"created_at" time_format:"postgres_timestamp"`
+	UpdatedAt       time.Time  `json:"updated_at" yaml:"updated_at" time_format:"postgres_timestamp"`
+	DeletedAt       *time.Time `json:"deleted_at,omitempty" yaml:"deleted_at,omitempty" time_format:"postgres_timestamp"`
+	ExpiresAt       *time.Time `json:"expires_at,omitempty" yaml:"expires_at,omitempty" time_format:"postgres_timestamp"`
 }
 
 func (a Artifact) TableName() string {
