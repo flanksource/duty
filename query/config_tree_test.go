@@ -1,0 +1,317 @@
+package query
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+)
+
+func ptr[T any](v T) *T { return &v }
+
+func makeCI(id, parentID uuid.UUID, name, typ string, ancestors ...uuid.UUID) models.ConfigItem {
+	ci := models.ConfigItem{
+		ID:   id,
+		Name: &name,
+		Type: &typ,
+	}
+	if parentID != uuid.Nil {
+		ci.ParentID = &parentID
+	}
+	segments := make([]string, 0, len(ancestors)+1)
+	for _, a := range ancestors {
+		segments = append(segments, a.String())
+	}
+	segments = append(segments, id.String())
+	ci.Path = strings.Join(segments, ".")
+	return ci
+}
+
+func collectIDs(node *ConfigTreeNode) []uuid.UUID {
+	if node == nil {
+		return nil
+	}
+	out := []uuid.UUID{node.ID}
+	for _, c := range node.Children {
+		out = append(out, collectIDs(c)...)
+	}
+	return out
+}
+
+// TestBuildConfigTreeNestsGrandchildren reproduces the single-depth bug: a
+// grandchild must appear under its real parent, not flattened under the target.
+func TestBuildConfigTreeNestsGrandchildren(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	child := uuid.New()
+	grand := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
+	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
+	grandCI := makeCI(grand, child, "block-10", "OIPA::District", target, child)
+
+	tree := buildConfigTree(&targetCI, nil, []models.ConfigItem{childCI, grandCI}, nil)
+
+	g.Expect(tree).ToNot(gomega.BeNil())
+	g.Expect(tree.ID).To(gomega.Equal(target))
+	g.Expect(tree.Children).To(gomega.HaveLen(1), "target should have exactly one direct child")
+	g.Expect(tree.Children[0].ID).To(gomega.Equal(child))
+	g.Expect(tree.Children[0].Children).To(gomega.HaveLen(1), "child should host the grandchild, not the target")
+	g.Expect(tree.Children[0].Children[0].ID).To(gomega.Equal(grand))
+}
+
+// TestBuildConfigTreeDedupsChildren ensures a child with both a ParentID and a
+// path hit against the target isn't attached twice.
+func TestBuildConfigTreeDedupsChildren(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	child := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
+	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
+
+	tree := buildConfigTree(&targetCI, nil, []models.ConfigItem{childCI}, nil)
+
+	ids := collectIDs(tree)
+	childCount := 0
+	for _, id := range ids {
+		if id == child {
+			childCount++
+		}
+	}
+	g.Expect(childCount).To(gomega.Equal(1), "child must not be attached twice")
+}
+
+// TestBuildConfigTreeSoftDoesNotDuplicateChildren reproduces the --soft bug:
+// related rows that repeat hard child relationships must not render again
+// under the target as "~ related" nodes.
+func TestBuildConfigTreeSoftDoesNotDuplicateChildren(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	child := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
+	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
+
+	// The related slice includes the same child that already appears in the
+	// hard children slice — this is what `--soft` (RelationType=Both) does.
+	related := []RelatedConfig{{
+		ID:       child,
+		Name:     "gaborone",
+		Type:     "OIPA::City",
+		Path:     childCI.Path,
+		Relation: "contains",
+	}}
+
+	tree := buildConfigTree(&targetCI, nil, []models.ConfigItem{childCI}, related)
+
+	g.Expect(tree.Children).To(gomega.HaveLen(1), "child must appear exactly once, not as both child and related")
+	g.Expect(tree.Children[0].ID).To(gomega.Equal(child))
+	g.Expect(tree.Children[0].EdgeType).To(gomega.Equal("child"), "child takes priority over related edge type")
+}
+
+// TestBuildConfigTreeRelatedStillAttachesStandaloneNodes verifies that related
+// configs that are NOT already children still appear in the tree.
+func TestBuildConfigTreeRelatedStillAttachesStandaloneNodes(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	rel := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
+
+	related := []RelatedConfig{{
+		ID:       rel,
+		Name:     "trade-partner",
+		Type:     "OIPA::Country",
+		Relation: "trades-with",
+	}}
+
+	tree := buildConfigTree(&targetCI, nil, nil, related)
+
+	g.Expect(tree.Children).To(gomega.HaveLen(1))
+	g.Expect(tree.Children[0].ID).To(gomega.Equal(rel))
+	g.Expect(tree.Children[0].EdgeType).To(gomega.Equal("related"))
+	g.Expect(tree.Children[0].Relation).To(gomega.Equal("trades-with"))
+}
+
+// TestBuildConfigTreeNestsRelatedViaAdjacency reproduces the Zimbabwe case:
+// a security group related to a DB Instance must nest under the DB Instance,
+// not flat under the target country.
+func TestBuildConfigTreeNestsRelatedViaAdjacency(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	env := uuid.New()
+	db := uuid.New()
+	sg := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "zimbabwe", "OIPA::Country")
+
+	related := []RelatedConfig{
+		// env is a direct child of target; it points at the DB.
+		{
+			ID:         env,
+			Name:       "uat-zim",
+			Type:       "OIPA::Environment",
+			Relation:   "hosts",
+			RelatedIDs: []string{db.String()},
+		},
+		// db points at the security group.
+		{
+			ID:         db,
+			Name:       "shared-db",
+			Type:       "AWS::RDS::DBInstance",
+			Relation:   "runs",
+			RelatedIDs: []string{sg.String()},
+		},
+		// security group — endpoint only, no further adjacency.
+		{
+			ID:       sg,
+			Name:     "RDSAccess",
+			Type:     "AWS::EC2::SecurityGroup",
+			Relation: "RDSSecurityGroup",
+		},
+	}
+
+	tree := buildConfigTree(&targetCI, nil, nil, related)
+
+	g.Expect(tree.Children).To(gomega.HaveLen(1), "env should be the only direct child of target")
+	envNode := tree.Children[0]
+	g.Expect(envNode.ID).To(gomega.Equal(env))
+	g.Expect(envNode.Children).To(gomega.HaveLen(1), "db should nest under env")
+	dbNode := envNode.Children[0]
+	g.Expect(dbNode.ID).To(gomega.Equal(db))
+	g.Expect(dbNode.Children).To(gomega.HaveLen(1), "sg should nest under db")
+	g.Expect(dbNode.Children[0].ID).To(gomega.Equal(sg))
+}
+
+// TestBuildConfigTreeOrphansFallBackToTarget ensures a related node pointed at
+// only by nodes we can't reach ends up under target rather than being lost.
+func TestBuildConfigTreeOrphansFallBackToTarget(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	a := uuid.New()
+	b := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "t", "T")
+
+	// a -> b forms a cycle with only incoming edges — neither is reachable
+	// from target via RelatedIDs, so both must fall through to target.
+	related := []RelatedConfig{
+		{ID: a, Name: "a", Type: "T", RelatedIDs: []string{b.String()}},
+		{ID: b, Name: "b", Type: "T", RelatedIDs: []string{a.String()}},
+	}
+
+	tree := buildConfigTree(&targetCI, nil, nil, related)
+
+	ids := collectIDs(tree)
+	g.Expect(ids).To(gomega.ContainElement(a))
+	g.Expect(ids).To(gomega.ContainElement(b))
+}
+
+// TestBuildConfigTreeSortsChildrenByTypeThenName confirms every level is
+// ordered by (type, name) regardless of input order.
+func TestBuildConfigTreeSortsChildrenByTypeThenName(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	a := uuid.New()
+	b := uuid.New()
+	c := uuid.New()
+	d := uuid.New()
+
+	targetCI := makeCI(target, uuid.Nil, "t", "T")
+
+	// Insertion order intentionally scrambled.
+	related := []RelatedConfig{
+		{ID: c, Name: "zebra", Type: "B"},
+		{ID: a, Name: "alpha", Type: "A"},
+		{ID: d, Name: "alpha", Type: "B"},
+		{ID: b, Name: "beta", Type: "A"},
+	}
+
+	tree := buildConfigTree(&targetCI, nil, nil, related)
+
+	g.Expect(tree.Children).To(gomega.HaveLen(4))
+	g.Expect(tree.Children[0].ID).To(gomega.Equal(a), "A/alpha first")
+	g.Expect(tree.Children[1].ID).To(gomega.Equal(b), "A/beta second")
+	g.Expect(tree.Children[2].ID).To(gomega.Equal(d), "B/alpha third")
+	g.Expect(tree.Children[3].ID).To(gomega.Equal(c), "B/zebra last")
+}
+
+// TestResolveChildParentPrefersParentID confirms ParentID lookup wins over
+// path-walking.
+func TestResolveChildParentPrefersParentID(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	parent := uuid.New()
+	child := uuid.New()
+
+	childCI := makeCI(child, parent, "x", "t", target, parent)
+
+	nodes := map[uuid.UUID]*ptrNode{
+		target: {ConfigItem: makeCI(target, uuid.Nil, "t", "t"), edgeType: "target"},
+		parent: {ConfigItem: makeCI(parent, target, "p", "t", target), edgeType: "child"},
+	}
+
+	got := resolveChildParent(childCI, nodes, target)
+	g.Expect(got).ToNot(gomega.BeNil())
+	g.Expect(got.ID).To(gomega.Equal(parent))
+}
+
+// TestResolveChildParentFallsBackToPathWhenParentMissing verifies path-walk
+// fallback finds the nearest ancestor that is not the target.
+func TestResolveChildParentFallsBackToPathWhenParentMissing(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	missingParent := uuid.New()
+	ancestor := uuid.New()
+	child := uuid.New()
+
+	// child's ParentID points at a node we never loaded; Path contains target
+	// and ancestor.
+	childCI := models.ConfigItem{
+		ID:       child,
+		ParentID: &missingParent,
+		Name:     ptr("c"),
+		Type:     ptr("t"),
+		Path:     target.String() + "." + ancestor.String() + "." + child.String(),
+	}
+
+	nodes := map[uuid.UUID]*ptrNode{
+		target:   {ConfigItem: makeCI(target, uuid.Nil, "t", "t"), edgeType: "target"},
+		ancestor: {ConfigItem: makeCI(ancestor, target, "a", "t", target), edgeType: "child"},
+	}
+
+	got := resolveChildParent(childCI, nodes, target)
+	g.Expect(got).ToNot(gomega.BeNil())
+	g.Expect(got.ID).To(gomega.Equal(ancestor), "nearest non-target ancestor in path wins")
+}
+
+// TestResolveChildParentFallsThroughToTarget confirms target is the last
+// resort when no non-target ancestor is in the map.
+func TestResolveChildParentFallsThroughToTarget(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	target := uuid.New()
+	child := uuid.New()
+
+	childCI := makeCI(child, uuid.Nil, "c", "t", target)
+
+	nodes := map[uuid.UUID]*ptrNode{
+		target: {ConfigItem: makeCI(target, uuid.Nil, "t", "t"), edgeType: "target"},
+	}
+
+	got := resolveChildParent(childCI, nodes, target)
+	g.Expect(got).ToNot(gomega.BeNil())
+	g.Expect(got.ID).To(gomega.Equal(target))
+}
