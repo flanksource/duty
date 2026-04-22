@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/flanksource/duty/context"
@@ -176,54 +177,49 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 	for _, c := range children {
 		nodes[c.ID] = &ptrNode{ConfigItem: c, edgeType: "child"}
 	}
-	for _, c := range children {
-		parentID := lo.FromPtr(c.ParentID)
-		if parent, ok := nodes[parentID]; ok {
-			parent.children = append(parent.children, nodes[c.ID])
-			continue
-		}
-		if c.Path != "" {
-			if parent := findNearestAncestor(c.Path, nodes); parent != nil {
-				parent.children = append(parent.children, nodes[c.ID])
-				continue
-			}
-		}
-		targetNode.children = append(targetNode.children, nodes[c.ID])
-	}
 
 	parentIDs := make(map[uuid.UUID]bool, len(parents))
 	for _, p := range parents {
 		parentIDs[p.ID] = true
 	}
 
+	// wired tracks nodes that have already been attached to a parent so we never
+	// append the same child twice (which would cause duplicate rendering).
+	wired := make(map[uuid.UUID]bool)
+
+	// Attach children by real ParentID first; if that parent isn't in our map,
+	// walk the Path from nearest to furthest ancestor. Fall back to the target
+	// only when no ancestor was selected.
+	for _, c := range children {
+		if wired[c.ID] {
+			continue
+		}
+		if parent := resolveChildParent(c, nodes, config.ID); parent != nil {
+			parent.children = append(parent.children, nodes[c.ID])
+			wired[c.ID] = true
+			continue
+		}
+		targetNode.children = append(targetNode.children, nodes[c.ID])
+		wired[c.ID] = true
+	}
+
 	for _, rc := range related {
 		if parentIDs[rc.ID] || rc.ID == config.ID {
 			continue
 		}
-		if _, exists := nodes[rc.ID]; !exists {
-			nodes[rc.ID] = &ptrNode{
-				ConfigItem: relatedToConfigItem(rc),
-				edgeType:   "related",
-				relation:   rc.Relation,
-			}
+		if _, exists := nodes[rc.ID]; exists {
+			// Already present as a parent/child/target — don't duplicate it as
+			// a related node.
+			continue
+		}
+		nodes[rc.ID] = &ptrNode{
+			ConfigItem: relatedToConfigItem(rc),
+			edgeType:   "related",
+			relation:   rc.Relation,
 		}
 	}
 
-	wired := make(map[uuid.UUID]bool)
-	for _, rc := range related {
-		if parentIDs[rc.ID] || rc.ID == config.ID || wired[rc.ID] {
-			continue
-		}
-		wired[rc.ID] = true
-		node := nodes[rc.ID]
-		if rc.Path != "" {
-			if parent := findNearestAncestor(rc.Path, nodes); parent != nil && parent != node && !parentIDs[parent.ID] {
-				parent.children = append(parent.children, node)
-				continue
-			}
-		}
-		targetNode.children = append(targetNode.children, node)
-	}
+	attachRelatedByAdjacency(targetNode, related, nodes, parentIDs, wired, config.ID)
 
 	var root *ptrNode
 	if len(parents) > 0 {
@@ -235,16 +231,148 @@ func buildConfigTree(config *models.ConfigItem, parents []models.ConfigItem, chi
 	return toConfigTreeNode(root, make(map[*ptrNode]bool))
 }
 
-func findNearestAncestor(path string, nodes map[uuid.UUID]*ptrNode) *ptrNode {
-	segments := strings.Split(path, ".")
-	for i := len(segments) - 1; i >= 0; i-- {
-		if pid, err := uuid.Parse(segments[i]); err == nil {
-			if parent, ok := nodes[pid]; ok {
-				return parent
+// attachRelatedByAdjacency wires related nodes into a hierarchical tree using
+// each RelatedConfig.RelatedIDs (the outgoing-edge set computed by
+// related_configs_recursive). This places e.g. a SecurityGroup under the DB
+// Instance that points at it, instead of flat under the target.
+//
+// Algorithm: build a reverse adjacency (child -> candidate parents), then BFS
+// from the target, attaching each child to the first parent that itself got
+// attached. Nodes never discovered via BFS are orphans and attach to target.
+func attachRelatedByAdjacency(
+	targetNode *ptrNode,
+	related []RelatedConfig,
+	nodes map[uuid.UUID]*ptrNode,
+	parentIDs map[uuid.UUID]bool,
+	wired map[uuid.UUID]bool,
+	targetID uuid.UUID,
+) {
+	// outgoing[src] = dsts discovered via related_ids. src may or may not have
+	// a ptrNode (the target itself has no row in `related`).
+	outgoing := make(map[uuid.UUID][]uuid.UUID, len(related))
+	for _, rc := range related {
+		if len(rc.RelatedIDs) == 0 {
+			continue
+		}
+		for _, s := range rc.RelatedIDs {
+			child, err := uuid.Parse(s)
+			if err != nil || child == rc.ID {
+				continue
+			}
+			outgoing[rc.ID] = append(outgoing[rc.ID], child)
+		}
+	}
+
+	// Reverse-map: for each child, which nodes point at it?
+	incoming := make(map[uuid.UUID][]uuid.UUID)
+	for src, dsts := range outgoing {
+		for _, dst := range dsts {
+			incoming[dst] = append(incoming[dst], src)
+		}
+	}
+
+	// BFS from target, attaching nodes as we discover them. The target's own
+	// RelatedIDs aren't in `related`, so we seed the queue with any related
+	// node whose ID appears in some other node's RelatedIDs pointing out from
+	// target — but since the target row is filtered out upstream, we fall back
+	// to: any related node that has no incoming edge from another related node
+	// is a direct child of target.
+	queue := make([]uuid.UUID, 0, len(related))
+	seeded := make(map[uuid.UUID]bool)
+	for _, rc := range related {
+		if parentIDs[rc.ID] || rc.ID == targetID || wired[rc.ID] {
+			continue
+		}
+		if nodes[rc.ID] == nil || nodes[rc.ID].edgeType != "related" {
+			continue
+		}
+		if len(incoming[rc.ID]) == 0 {
+			queue = append(queue, rc.ID)
+			seeded[rc.ID] = true
+		}
+	}
+
+	attach := func(parent *ptrNode, childID uuid.UUID) bool {
+		if wired[childID] || parentIDs[childID] || childID == targetID {
+			return false
+		}
+		node := nodes[childID]
+		if node == nil || node.edgeType != "related" {
+			return false
+		}
+		parent.children = append(parent.children, node)
+		wired[childID] = true
+		return true
+	}
+
+	for _, id := range queue {
+		attach(targetNode, id)
+	}
+
+	for len(queue) > 0 {
+		parentID := queue[0]
+		queue = queue[1:]
+		parentNode := nodes[parentID]
+		if parentNode == nil {
+			continue
+		}
+		for _, childID := range outgoing[parentID] {
+			if attach(parentNode, childID) {
+				queue = append(queue, childID)
 			}
 		}
 	}
-	return nil
+
+	// Any remaining related node that wasn't reached (cyclic incoming edges,
+	// or pointed at only by nodes we couldn't attach) falls back to target.
+	for _, rc := range related {
+		if parentIDs[rc.ID] || rc.ID == targetID || wired[rc.ID] {
+			continue
+		}
+		node := nodes[rc.ID]
+		if node == nil || node.edgeType != "related" {
+			continue
+		}
+		attach(targetNode, rc.ID)
+	}
+}
+
+// resolveChildParent picks the best parent for a descendant config. Priority:
+//  1. The node matching c.ParentID, if present.
+//  2. The nearest ancestor along c.Path that is itself in the node map and is
+//     not the target (so grandchildren nest under their real parent instead of
+//     collapsing flat under the target).
+//  3. The target node, if the path hits it.
+//
+// Returns nil if no suitable parent was found, in which case the caller
+// attaches to the target as a last resort.
+func resolveChildParent(c models.ConfigItem, nodes map[uuid.UUID]*ptrNode, targetID uuid.UUID) *ptrNode {
+	if parentID := lo.FromPtr(c.ParentID); parentID != uuid.Nil {
+		if parent, ok := nodes[parentID]; ok && parent.ID != c.ID {
+			return parent
+		}
+	}
+	if c.Path == "" {
+		return nil
+	}
+	segments := strings.Split(c.Path, ".")
+	var targetMatch *ptrNode
+	for i := len(segments) - 1; i >= 0; i-- {
+		pid, err := uuid.Parse(segments[i])
+		if err != nil || pid == c.ID {
+			continue
+		}
+		parent, ok := nodes[pid]
+		if !ok {
+			continue
+		}
+		if pid == targetID {
+			targetMatch = parent
+			continue
+		}
+		return parent
+	}
+	return targetMatch
 }
 
 func toConfigTreeNode(n *ptrNode, visited map[*ptrNode]bool) *ConfigTreeNode {
@@ -260,6 +388,14 @@ func toConfigTreeNode(n *ptrNode, visited map[*ptrNode]bool) *ConfigTreeNode {
 	for _, c := range n.children {
 		result.Children = append(result.Children, toConfigTreeNode(c, visited))
 	}
+	sort.SliceStable(result.Children, func(i, j int) bool {
+		a, b := result.Children[i], result.Children[j]
+		at, bt := lo.FromPtr(a.Type), lo.FromPtr(b.Type)
+		if at != bt {
+			return at < bt
+		}
+		return lo.FromPtr(a.Name) < lo.FromPtr(b.Name)
+	})
 	return result
 }
 
