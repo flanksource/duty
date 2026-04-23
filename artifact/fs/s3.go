@@ -1,7 +1,9 @@
 package fs
 
 import (
+	"bytes"
 	gocontext "context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -126,10 +128,16 @@ func (t *s3FS) Read(ctx gocontext.Context, key string) (io.ReadCloser, error) {
 }
 
 func (t *s3FS) Write(ctx gocontext.Context, path string, data io.Reader) (os.FileInfo, error) {
-	_, err := t.Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(t.Bucket),
-		Key:    aws.String(path),
-		Body:   data,
+	content, err := io.ReadAll(data)
+	if err != nil {
+		return nil, fmt.Errorf("reading data for %s: %w", path, err)
+	}
+
+	_, err = t.Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(t.Bucket),
+		Key:           aws.String(path),
+		Body:          bytes.NewReader(content),
+		ContentLength: aws.Int64(int64(len(content))),
 	})
 	if err != nil {
 		return nil, err
