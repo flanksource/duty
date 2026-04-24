@@ -33,7 +33,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.34.0
 	github.com/flanksource/artifacts v1.0.24
 	github.com/flanksource/clicky v1.21.4
-	github.com/flanksource/commons v1.50.2
+	github.com/flanksource/commons v1.50.4
 	github.com/flanksource/deps v1.0.28
 	github.com/flanksource/gomplate/v3 v3.24.77
 	github.com/flanksource/is-healthy v1.0.86
