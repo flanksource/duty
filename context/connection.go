@@ -260,7 +260,7 @@ func HydrateConnection(ctx Context, connection *models.Connection) (*models.Conn
 		domain = parts[1]
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":       connection.Name,
 		"type":       connection.Type,
 		"namespace":  connection.Namespace,

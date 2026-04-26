@@ -55,10 +55,7 @@ type mimeWriter struct {
 
 func (t *mimeWriter) Write(bb []byte) (n int, err error) {
 	if len(t.buffer) < t.Max {
-		rem := t.Max - len(t.buffer)
-		if rem > len(bb) {
-			rem = len(bb)
-		}
+		rem := min(t.Max-len(t.buffer), len(bb))
 		t.buffer = append(t.buffer, bb[:rem]...)
 	}
 	return len(bb), nil
