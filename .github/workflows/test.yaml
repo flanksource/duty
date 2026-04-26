@@ -59,16 +59,23 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Build gavel from feat/gavel-runner-skill
+      - name: Build gavel from feat/action-flag-fix
         run: |
           set -euo pipefail
-          tmp="$(mktemp -d)"
-          git clone --depth=1 --branch feat/gavel-runner-skill https://github.com/flanksource/gavel "$tmp/gavel"
-          (cd "$tmp/gavel" && go build -o "$HOME/.local/bin/gavel" ./cmd/gavel)
           mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
-      - uses: flanksource/gavel@feat/gavel-runner-skill
+      - uses: flanksource/gavel@feat/action-flag-fix
         with:
           version: source
           args: >-
@@ -119,16 +126,23 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Build gavel from feat/gavel-runner-skill
+      - name: Build gavel from feat/action-flag-fix
         run: |
           set -euo pipefail
-          tmp="$(mktemp -d)"
-          git clone --depth=1 --branch feat/gavel-runner-skill https://github.com/flanksource/gavel "$tmp/gavel"
-          (cd "$tmp/gavel" && go build -o "$HOME/.local/bin/gavel" ./cmd/gavel)
           mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
-      - uses: flanksource/gavel@feat/gavel-runner-skill
+      - uses: flanksource/gavel@feat/action-flag-fix
         with:
           version: source
           args: >-
@@ -163,16 +177,23 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Build gavel from feat/gavel-runner-skill
+      - name: Build gavel from feat/action-flag-fix
         run: |
           set -euo pipefail
-          tmp="$(mktemp -d)"
-          git clone --depth=1 --branch feat/gavel-runner-skill https://github.com/flanksource/gavel "$tmp/gavel"
-          (cd "$tmp/gavel" && go build -o "$HOME/.local/bin/gavel" ./cmd/gavel)
           mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
-      - uses: flanksource/gavel@feat/gavel-runner-skill
+      - uses: flanksource/gavel@feat/action-flag-fix
         with:
           version: source
           args: >-
@@ -223,13 +244,20 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Build gavel from feat/gavel-runner-skill
+      - name: Build gavel from feat/action-flag-fix
         run: |
           set -euo pipefail
-          tmp="$(mktemp -d)"
-          git clone --depth=1 --branch feat/gavel-runner-skill https://github.com/flanksource/gavel "$tmp/gavel"
-          (cd "$tmp/gavel" && go build -o "$HOME/.local/bin/gavel" ./cmd/gavel)
           mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
 
@@ -238,7 +266,7 @@ jobs:
         with:
           ref: main
       - name: Apply base migrations
-        uses: flanksource/gavel@feat/gavel-runner-skill
+        uses: flanksource/gavel@feat/action-flag-fix
         with:
           version: source
           args: fixtures .github/fixtures/migrate.fixture.md
@@ -253,7 +281,7 @@ jobs:
       - name: Check out current branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Apply new migrations
-        uses: flanksource/gavel@feat/gavel-runner-skill
+        uses: flanksource/gavel@feat/action-flag-fix
         with:
           version: source
           args: fixtures .github/fixtures/migrate.fixture.md
