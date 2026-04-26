@@ -202,11 +202,11 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-        SELECT cr.related_id AS id FROM config_relationships cr WHERE cr.config_id = $1::UUID
+        SELECT cr.related_id AS id FROM config_relationships cr WHERE cr.config_id = $1::UUID AND cr.deleted_at IS NULL
         UNION
-        SELECT cr.config_id as id FROM config_relationships cr WHERE cr.related_id = $1::UUID;
+        SELECT cr.config_id as id FROM config_relationships cr WHERE cr.related_id = $1::UUID AND cr.deleted_at IS NULL;
 END;
-$$
+$$ 
 language plpgsql;
 
 
@@ -910,7 +910,8 @@ BEGIN
       LEFT JOIN
           (SELECT config_relationships.config_id, config_relationships.related_id
            FROM config_relationships
-           WHERE relation != 'hard') AS cr
+           WHERE relation != 'hard' AND config_relationships.deleted_at IS NULL
+           GROUP BY config_relationships.config_id, config_relationships.related_id) AS cr
            ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE config_items.path LIKE (
         SELECT CASE
@@ -932,7 +933,8 @@ BEGIN
       LEFT JOIN
           (SELECT config_relationships.config_id, config_relationships.related_id
            FROM config_relationships
-           WHERE relation != 'hard') AS cr
+           WHERE relation != 'hard' AND config_relationships.deleted_at IS NULL
+           GROUP BY config_relationships.config_id, config_relationships.related_id) AS cr
            ON (cr.config_id = cc.config_id OR (soft AND cr.related_id = cc.config_id))
       WHERE cc.config_id IN (SELECT get_recursive_path.id FROM get_recursive_path(lookup_id)) OR
         (cc.config_id = lookup_id) OR
@@ -1012,10 +1014,10 @@ CREATE OR REPLACE VIEW config_detail AS
     LEFT JOIN config_items_last_scraped_time ON config_items_last_scraped_time.config_id = ci.id
     LEFT JOIN config_scrapers ON config_scrapers.id = ci.scraper_id
     LEFT JOIN
-      (SELECT config_id, count(*) as related_count FROM config_relationships GROUP BY config_id) as related
+      (SELECT config_id, count(DISTINCT (related_id, relation)) as related_count FROM config_relationships WHERE deleted_at IS NULL GROUP BY config_id) as related
       ON ci.id = related.config_id
     LEFT JOIN
-      (SELECT related_id, count(*) as related_count FROM config_relationships GROUP BY related_id) as reverse_related
+      (SELECT related_id, count(DISTINCT (config_id, relation)) as related_count FROM config_relationships WHERE deleted_at IS NULL GROUP BY related_id) as reverse_related
       ON ci.id = reverse_related.related_id
     LEFT JOIN
       (SELECT config_id, SUM(value::INT) as analysis_count FROM config_item_summary_7d
@@ -1178,8 +1180,7 @@ BEGIN
             AND ci.type != v_config_item.type
             AND ci.deleted_at IS NULL
             AND ci.id != v_config_item.id  -- Don't create relationship with itself
-        ON CONFLICT (related_id, config_id, relation)
-        DO NOTHING;
+        ON CONFLICT DO NOTHING;
     END IF;
 END;
 $$ LANGUAGE plpgsql;

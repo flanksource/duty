@@ -128,6 +128,7 @@ func (e *ExternalGroup) SetAliases(aliases []string) {
 type ExternalUserGroup struct {
 	ExternalUserID  uuid.UUID  `json:"external_user_id" gorm:"primaryKey"`
 	ExternalGroupID uuid.UUID  `json:"external_group_id" gorm:"primaryKey"`
+	ScraperID       uuid.UUID  `json:"scraper_id" gorm:"primaryKey"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy       *uuid.UUID `json:"deleted_by"`
 	CreatedAt       time.Time  `json:"created_at" gorm:"<-:create"`

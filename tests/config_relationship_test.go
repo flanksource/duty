@@ -334,7 +334,7 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 		Expect(len(foundConfigs)).To(Equal(len(configItems)))
 
 		err = DefaultContext.DB().Model(models.ConfigRelationship{}).Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}},
+			Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}, {Name: "scraper_id"}},
 			DoNothing: true,
 		}).Create(&relationships).Error
 		Expect(err).To(BeNil())

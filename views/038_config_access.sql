@@ -12,10 +12,15 @@ DROP VIEW IF EXISTS user_config_access_summary;
 --      or a truly empty group still holds the permission).
 --   3. Direct user grants.
 CREATE OR REPLACE VIEW config_access_unwrapped AS
+WITH active_external_user_groups AS (
+  SELECT DISTINCT external_user_id, external_group_id
+  FROM external_user_groups
+  WHERE deleted_at IS NULL
+)
 SELECT
   generate_ulid()::TEXT as id,
   config_access.config_id,
-  external_user_groups.external_user_id,
+  active_external_user_groups.external_user_id,
   config_access.external_group_id AS external_group_id,
   config_access.external_role_id,
   config_access.created_at,
@@ -27,7 +32,7 @@ SELECT
   config_access.scraper_id
 FROM
   config_access
-  INNER JOIN external_user_groups ON config_access.external_group_id = external_user_groups.external_group_id
+  INNER JOIN active_external_user_groups ON config_access.external_group_id = active_external_user_groups.external_group_id
   AND config_access.deleted_at IS NULL
   AND config_access.external_group_id IS NOT NULL
 UNION ALL
@@ -48,8 +53,8 @@ FROM config_access
 WHERE config_access.external_group_id IS NOT NULL
   AND config_access.deleted_at IS NULL
   AND NOT EXISTS (
-    SELECT 1 FROM external_user_groups
-    WHERE external_user_groups.external_group_id = config_access.external_group_id
+    SELECT 1 FROM active_external_user_groups
+    WHERE active_external_user_groups.external_group_id = config_access.external_group_id
   )
 UNION ALL
 SELECT
