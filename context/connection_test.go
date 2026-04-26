@@ -88,7 +88,6 @@ var _ = ginkgo.Describe("Connection Tests", func() {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // capture range variable
 			ginkgo.Context(tc.name, func() {
 				ginkgo.It("should return the correct name, namespace, and found status", func() {
 					name, namespace, found := extractConnectionNameType(tc.connection)
@@ -145,7 +144,6 @@ var _ = ginkgo.Describe("Connection Tests", func() {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // capture range variable
 			ginkgo.Context(tc.name, func() {
 				ginkgo.It("should return the correct hydrated URL", func() {
 					resp, err := HydrateConnection(dummyContext, &tc.connection)

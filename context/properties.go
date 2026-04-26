@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/flanksource/duty/models"
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/patrickmn/go-cache"
-	"github.com/samber/lo"
 )
 
 var supportedProperties = cmap.New[PropertyType]()
@@ -21,17 +21,17 @@ var supportedProperties = cmap.New[PropertyType]()
 var propertyCache = cache.New(time.Minute*15, time.Minute*15)
 
 type PropertyType struct {
-	Key     string      `json:"-"`
-	Value   interface{} `json:"value,omitempty"`
-	Default interface{} `json:"default,omitempty"`
-	Type    string      `json:"type,omitempty"`
+	Key     string `json:"-"`
+	Value   any    `json:"value,omitempty"`
+	Default any    `json:"default,omitempty"`
+	Type    string `json:"type,omitempty"`
 }
 
 func (k Context) ClearCache() {
 	propertyCache = cache.New(time.Minute*15, time.Minute*15)
 }
 
-func nilSafe(values ...interface{}) string {
+func nilSafe(values ...any) string {
 	for _, v := range values {
 		if v != nil && v != "" {
 			switch t := v.(type) {
@@ -68,9 +68,7 @@ type HierarchicalProperties struct {
 
 func (h HierarchicalProperties) SupportedProperties() map[string]PropertyType {
 	m := make(map[string]PropertyType)
-	for k, v := range supportedProperties.Items() {
-		m[k] = v
-	}
+	maps.Copy(m, supportedProperties.Items())
 	return m
 }
 
@@ -86,7 +84,7 @@ func (h HierarchicalProperties) On(def bool, keys ...string) bool {
 		if v == nil {
 			k, ok := h.getProperty(key)
 			if ok {
-				v = lo.ToPtr(k == "true" || k == "enabled" || k == "on")
+				v = new(k == "true" || k == "enabled" || k == "on")
 				prop.Value = v
 			}
 		}
@@ -252,9 +250,7 @@ func (k Context) globalProperties() Properties {
 		}
 	}
 
-	for k, v := range properties.Global.GetAll() {
-		props[k] = v
-	}
+	maps.Copy(props, properties.Global.GetAll())
 
 	propertyCache.Set("global", props, 0)
 	return props
@@ -317,7 +313,7 @@ func UpdateProperty(ctx Context, key, value string) error {
 
 func UpdateProperties(ctx Context, props map[string]string) error {
 	var values []string
-	var args []interface{}
+	var args []any
 	for key, value := range props {
 		values = append(values, "(?, ?)")
 		args = append(args, key, value)

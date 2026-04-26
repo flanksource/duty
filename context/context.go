@@ -65,7 +65,7 @@ func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Conte
 			for _, o := range Objects(ctx) {
 				annotations := getObjectMeta(o).Annotations
 				if annotations != nil && (annotations["debug"] == "true" || annotations["trace"] == "true") {
-					return lo.ToPtr(true)
+					return new(true)
 				}
 			}
 			return nil
@@ -74,7 +74,7 @@ func NewContext(baseCtx gocontext.Context, opts ...commons.ContextOptions) Conte
 			for _, o := range Objects(ctx) {
 				annotations := getObjectMeta(o).Annotations
 				if annotations != nil && annotations["trace"] == "true" {
-					return lo.ToPtr(true)
+					return new(true)
 				}
 			}
 			return nil
@@ -281,7 +281,7 @@ func (k Context) Agent() *models.Agent {
 	if v == nil {
 		return nil
 	}
-	return lo.ToPtr(v.(models.Agent))
+	return new(v.(models.Agent))
 }
 
 func (k Context) WithTrace() Context {
@@ -576,7 +576,7 @@ func (k Context) GetLoggingContext() map[string]any {
 	}
 
 	if m := k.Value("values"); m != nil {
-		for k, v := range m.(map[string]interface{}) {
+		for k, v := range m.(map[string]any) {
 			if !lo.IsEmpty(v) {
 				args[k] = v
 			}
@@ -586,12 +586,12 @@ func (k Context) GetLoggingContext() map[string]any {
 	return args
 }
 
-func (k Context) WithLoggingValues(args ...interface{}) Context {
-	var m map[string]interface{}
+func (k Context) WithLoggingValues(args ...any) Context {
+	var m map[string]any
 	if v := k.Value("values"); v != nil {
-		m = v.(map[string]interface{})
+		m = v.(map[string]any)
 	} else {
-		m = make(map[string]interface{})
+		m = make(map[string]any)
 	}
 
 	for i := 0; i < len(args)-1; i = i + 2 {
