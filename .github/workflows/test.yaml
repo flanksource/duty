@@ -261,13 +261,18 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
 
-      - name: Stage migrate fixture from PR head
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          path: pr-head
-          sparse-checkout: |
-            .github/fixtures/migrate.fixture.md
-          sparse-checkout-cone-mode: false
+      - name: Stage migrate fixture from PR head into RUNNER_TEMP
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/duty-fixtures"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/.github/fixtures/migrate.fixture.md?ref=${GITHUB_SHA}" \
+            -o "$RUNNER_TEMP/duty-fixtures/migrate.fixture.md"
+          ls -la "$RUNNER_TEMP/duty-fixtures"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Check out main branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -275,7 +280,7 @@ jobs:
       - name: Restore migrate fixture
         run: |
           mkdir -p .github/fixtures
-          cp pr-head/.github/fixtures/migrate.fixture.md .github/fixtures/migrate.fixture.md
+          cp "$RUNNER_TEMP/duty-fixtures/migrate.fixture.md" .github/fixtures/migrate.fixture.md
       - name: Apply base migrations
         uses: flanksource/gavel@feat/action-flag-fix
         with:
