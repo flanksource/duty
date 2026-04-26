@@ -5,6 +5,12 @@ on:
   pull_request:
 
 name: Test
+permissions:
+  contents: read
+  checks: write
+  issues: write
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,7 +18,6 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
           - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
           - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     services:
@@ -23,7 +28,6 @@ jobs:
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test
-        # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -43,7 +47,7 @@ jobs:
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -55,12 +59,24 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Test
-        run: make test
+      - uses: flanksource/gavel@main
+        with:
+          args: >-
+            test --lint --timeout 30m --test-timeout 15m
+            --extra-args=--label-filter=!e2e
+            ./api ./artifact/... ./cache ./canary ./connection ./context ./dataquery
+            ./db ./drivers ./echo ./functions ./gorm ./hack/generate-openapi
+            ./job ./kubernetes ./leader ./logs/... ./migrate ./models
+            ./pkg/... ./postgrest ./postq/... ./pubsub ./query/... ./rbac/...
+            ./rls ./schema/... ./secret ./shell ./shutdown ./telemetry
+            ./tests ./topology ./tracing ./types ./upstream ./view ./views .
+          artifact-name: gavel-test-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-test-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
         env:
           DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
           DUTY_DB_CREATE: "false"
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
+          DUTY_DB_DISABLE_RLS: "false"
 
   e2e:
     runs-on: ubuntu-latest
@@ -79,7 +95,7 @@ jobs:
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -91,10 +107,15 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: E2E Test
-        run: |
-          make ginkgo
-          ginkgo -r tests/e2e/
+      - uses: flanksource/gavel@main
+        with:
+          args: >-
+            test --timeout 30m --test-timeout 15m
+            --extra-args=--label-filter=e2e
+            ./tests/e2e
+          artifact-name: gavel-e2e
+          comment-header: gavel-e2e
+          fail-on-error: "true"
         env:
           DUTY_DB_DISABLE_RLS: "true"
           LOKI_URL: http://localhost:3100
@@ -118,8 +139,15 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: E2E Blob Store Tests
-        run: make test-e2e-blobs
+      - uses: flanksource/gavel@main
+        with:
+          args: >-
+            test --timeout 30m --test-timeout 15m
+            --extra-args=--label-filter=e2e
+            ./tests/e2e-blobs
+          artifact-name: gavel-e2e-blobs
+          comment-header: gavel-e2e-blobs
+          fail-on-error: "true"
         env:
           DUTY_DB_DISABLE_RLS: "true"
 
@@ -129,20 +157,27 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
           - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
           - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
-    env:
-      migrate_command: >
-        make -B tidy hack/migrate/go.mod &&
-        cd hack/migrate &&
-        go build main.go && ./main --db-url 'postgres://postgres:postgres@localhost:5432/test?sslmode=disable'
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Install Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
+          cache: false
       - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
@@ -157,29 +192,24 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
-
       - name: Apply base migrations
-        run: ${{ env.migrate_command }}
+        uses: flanksource/gavel@main
+        with:
+          args: fixtures .github/fixtures/migrate.fixture.md
+          artifact-name: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
         env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
+          DUTY_DB_DISABLE_RLS: "false"
 
       - name: Check out current branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Apply new migrations
-        run: ${{ env.migrate_command }}
+        uses: flanksource/gavel@main
+        with:
+          args: fixtures .github/fixtures/migrate.fixture.md
+          artifact-name: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
         env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
-    services:
-      postgres:
-        image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test
-        # Set health checks to wait until postgres has started
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          DUTY_DB_DISABLE_RLS: "false"
