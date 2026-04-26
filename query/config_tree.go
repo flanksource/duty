@@ -30,6 +30,73 @@ func (n *ConfigTreeNode) OutgoingIDs() []uuid.UUID {
 	return ids
 }
 
+// MergeConfigTrees collapses N independently-built config trees into a forest
+// of shared-ancestor trees. Trees sharing a root (same ID) merge into one;
+// their descendants are unioned recursively by ID. Unrelated trees remain as
+// separate roots.
+//
+// Used by callers that fetch a ConfigTree for each of many matched configs and
+// want to render a single unified forest — e.g. two AWS::RDS::DBInstance
+// matches in the same account produce one tree rooted at the account with
+// both instances under their shared CloudFormation stack, rather than two
+// duplicate ancestor chains.
+//
+// EdgeType="target" is preserved when the same node appears as a target in one
+// input and as a non-target (parent/child/related) in another.
+func MergeConfigTrees(trees []*ConfigTreeNode) []*ConfigTreeNode {
+	byID := make(map[uuid.UUID]*ConfigTreeNode)
+	var roots []*ConfigTreeNode
+	for _, t := range trees {
+		if t == nil {
+			continue
+		}
+		if existing, ok := byID[t.ID]; ok {
+			mergeConfigTreeInto(existing, t, byID)
+		} else {
+			roots = append(roots, cloneConfigTree(t, byID))
+		}
+	}
+	return roots
+}
+
+func cloneConfigTree(n *ConfigTreeNode, byID map[uuid.UUID]*ConfigTreeNode) *ConfigTreeNode {
+	if existing, ok := byID[n.ID]; ok {
+		if n.EdgeType == "target" {
+			existing.EdgeType = "target"
+		}
+		return existing
+	}
+	out := &ConfigTreeNode{
+		ConfigItem: n.ConfigItem,
+		EdgeType:   n.EdgeType,
+		Relation:   n.Relation,
+	}
+	byID[n.ID] = out
+	for _, c := range n.Children {
+		out.Children = append(out.Children, cloneConfigTree(c, byID))
+	}
+	return out
+}
+
+func mergeConfigTreeInto(dst, src *ConfigTreeNode, byID map[uuid.UUID]*ConfigTreeNode) {
+	if src.EdgeType == "target" {
+		dst.EdgeType = "target"
+	}
+	existing := make(map[uuid.UUID]*ConfigTreeNode, len(dst.Children))
+	for _, c := range dst.Children {
+		existing[c.ID] = c
+	}
+	for _, c := range src.Children {
+		if cur, ok := existing[c.ID]; ok {
+			mergeConfigTreeInto(cur, c, byID)
+		} else {
+			cloned := cloneConfigTree(c, byID)
+			dst.Children = append(dst.Children, cloned)
+			existing[c.ID] = cloned
+		}
+	}
+}
+
 func (n *ConfigTreeNode) collectOutgoing(ids *[]uuid.UUID, seen map[uuid.UUID]bool) {
 	if seen[n.ID] {
 		return

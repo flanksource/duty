@@ -68,6 +68,12 @@ type SelectedResource struct {
 	Namespace string            `json:"namespace"`
 	Type      string            `json:"type"`
 	Tags      map[string]string `json:"tags,omitempty"`
+	// Health is populated for resource kinds that carry a health value
+	// (currently: configs). Empty for other kinds.
+	Health string `json:"health,omitempty"`
+	// Status is the resource's free-form operational status (e.g. "Running",
+	// "Pending"). Populated alongside Health for configs.
+	Status string `json:"status,omitempty"`
 }
 
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
@@ -109,6 +115,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
+					Health:    string(lo.FromPtr(items[i].Health)),
+					Status:    lo.FromPtr(items[i].Status),
 				})
 			}
 		}
@@ -129,26 +137,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
-				})
-			}
-		}
-
-		return nil
-	})
-
-	eg.Go(func() error {
-		if items, err := FindComponents(ctx, req.Limit, req.Components...); err != nil {
-			return err
-		} else {
-			for i := range items {
-				output.Components = append(output.Components, SelectedResource{
-					ID:        items[i].GetID(),
-					Agent:     items[i].AgentID.String(),
-					Icon:      items[i].Icon,
-					Tags:      items[i].Labels,
-					Name:      items[i].GetName(),
-					Namespace: items[i].GetNamespace(),
-					Type:      items[i].GetType(),
+					Health:    lo.Ternary(items[i].Status == "passing", "healthy", "unhealthy"),
 				})
 			}
 		}

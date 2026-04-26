@@ -315,3 +315,96 @@ func TestResolveChildParentFallsThroughToTarget(t *testing.T) {
 	g.Expect(got).ToNot(gomega.BeNil())
 	g.Expect(got.ID).To(gomega.Equal(target))
 }
+
+func makeTreeNode(id uuid.UUID, name string, edge string, children ...*ConfigTreeNode) *ConfigTreeNode {
+	n := name
+	return &ConfigTreeNode{
+		ConfigItem: models.ConfigItem{ID: id, Name: &n},
+		EdgeType:   edge,
+		Children:   children,
+	}
+}
+
+// TestMergeConfigTreesSharedAncestor collapses two RDS matches into a single
+// tree when they share an account and stack — the scenario that motivated the
+// merge (two RDS instances under the same CloudFormation stack in one AWS
+// account).
+func TestMergeConfigTreesSharedAncestor(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	account := uuid.New()
+	stack := uuid.New()
+	rds1 := uuid.New()
+	rds2 := uuid.New()
+
+	tree1 := makeTreeNode(account, "acct", "parent",
+		makeTreeNode(stack, "stack", "parent",
+			makeTreeNode(rds1, "db1", "target"),
+		),
+	)
+	tree2 := makeTreeNode(account, "acct", "parent",
+		makeTreeNode(stack, "stack", "parent",
+			makeTreeNode(rds2, "db2", "target"),
+		),
+	)
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{tree1, tree2})
+	g.Expect(roots).To(gomega.HaveLen(1))
+	g.Expect(roots[0].ID).To(gomega.Equal(account))
+	g.Expect(roots[0].Children).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children[0].ID).To(gomega.Equal(stack))
+	g.Expect(roots[0].Children[0].Children).To(gomega.HaveLen(2))
+
+	childIDs := []uuid.UUID{
+		roots[0].Children[0].Children[0].ID,
+		roots[0].Children[0].Children[1].ID,
+	}
+	g.Expect(childIDs).To(gomega.ConsistOf(rds1, rds2))
+}
+
+// TestMergeConfigTreesUnrelatedRootsStaySeparate confirms that two unrelated
+// roots (e.g. two different AWS accounts) remain as sibling root trees.
+func TestMergeConfigTreesUnrelatedRootsStaySeparate(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	acctA := uuid.New()
+	acctB := uuid.New()
+	stackA := uuid.New()
+	stackB := uuid.New()
+	dbA := uuid.New()
+	dbB := uuid.New()
+
+	trees := []*ConfigTreeNode{
+		makeTreeNode(acctA, "A", "parent", makeTreeNode(stackA, "sA", "parent", makeTreeNode(dbA, "dbA", "target"))),
+		makeTreeNode(acctB, "B", "parent", makeTreeNode(stackB, "sB", "parent", makeTreeNode(dbB, "dbB", "target"))),
+	}
+
+	roots := MergeConfigTrees(trees)
+	g.Expect(roots).To(gomega.HaveLen(2))
+	rootIDs := []uuid.UUID{roots[0].ID, roots[1].ID}
+	g.Expect(rootIDs).To(gomega.ConsistOf(acctA, acctB))
+}
+
+// TestMergeConfigTreesPreservesTargetEdge ensures EdgeType="target" wins when
+// the same node appears as both an ancestor (parent edge) in one tree and a
+// target in another.
+func TestMergeConfigTreesPreservesTargetEdge(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	root := uuid.New()
+	target := uuid.New()
+
+	t1 := makeTreeNode(root, "root", "parent", makeTreeNode(target, "t", "parent"))
+	t2 := makeTreeNode(root, "root", "parent", makeTreeNode(target, "t", "target"))
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{t1, t2})
+	g.Expect(roots).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children[0].EdgeType).To(gomega.Equal("target"))
+}
+
+func TestMergeConfigTreesEmpty(t *testing.T) {
+	g := gomega.NewWithT(t)
+	g.Expect(MergeConfigTrees(nil)).To(gomega.BeEmpty())
+	g.Expect(MergeConfigTrees([]*ConfigTreeNode{nil, nil})).To(gomega.BeEmpty())
+}
