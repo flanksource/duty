@@ -59,21 +59,23 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - uses: flanksource/gavel@main
+      - uses: flanksource/gavel@feat/gavel-runner-skill
         with:
           args: >-
             test --lint --timeout 30m --test-timeout 15m
             --extra-args=--label-filter=!e2e
-            ./api ./artifact/... ./cache ./canary ./connection ./context ./dataquery
+            ./api ./artifact ./cache ./canary ./connection ./context ./dataquery
             ./db ./drivers ./echo ./functions ./gorm ./hack/generate-openapi
-            ./job ./kubernetes ./leader ./logs/... ./migrate ./models
-            ./pkg/... ./postgrest ./postq/... ./pubsub ./query/... ./rbac/...
-            ./rls ./schema/... ./secret ./shell ./shutdown ./telemetry
+            ./job ./kubernetes ./leader ./logs ./migrate ./models
+            ./pkg ./postgrest ./postq ./pubsub ./query ./rbac
+            ./rls ./schema ./secret ./shell ./shutdown ./telemetry
             ./tests ./topology ./tracing ./types ./upstream ./view ./views .
           artifact-name: gavel-test-pg${{ matrix.postgres-version.tag }}
           comment-header: gavel-test-pg${{ matrix.postgres-version.tag }}
           fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
           DUTY_DB_CREATE: "false"
           DUTY_DB_DISABLE_RLS: "false"
@@ -107,7 +109,7 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - uses: flanksource/gavel@main
+      - uses: flanksource/gavel@feat/gavel-runner-skill
         with:
           args: >-
             test --timeout 30m --test-timeout 15m
@@ -116,7 +118,9 @@ jobs:
           artifact-name: gavel-e2e
           comment-header: gavel-e2e
           fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_DISABLE_RLS: "true"
           LOKI_URL: http://localhost:3100
 
@@ -139,7 +143,7 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - uses: flanksource/gavel@main
+      - uses: flanksource/gavel@feat/gavel-runner-skill
         with:
           args: >-
             test --timeout 30m --test-timeout 15m
@@ -148,7 +152,9 @@ jobs:
           artifact-name: gavel-e2e-blobs
           comment-header: gavel-e2e-blobs
           fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_DISABLE_RLS: "true"
 
   migrate:
@@ -193,23 +199,27 @@ jobs:
         with:
           ref: main
       - name: Apply base migrations
-        uses: flanksource/gavel@main
+        uses: flanksource/gavel@feat/gavel-runner-skill
         with:
           args: fixtures .github/fixtures/migrate.fixture.md
           artifact-name: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
           comment-header: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
           fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_DISABLE_RLS: "false"
 
       - name: Check out current branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Apply new migrations
-        uses: flanksource/gavel@main
+        uses: flanksource/gavel@feat/gavel-runner-skill
         with:
           args: fixtures .github/fixtures/migrate.fixture.md
           artifact-name: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
           comment-header: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
           fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_DISABLE_RLS: "false"
