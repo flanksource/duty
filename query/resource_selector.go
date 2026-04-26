@@ -125,6 +125,27 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	})
 
 	eg.Go(func() error {
+		if items, err := FindComponents(ctx, req.Limit, req.Components...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				output.Components = append(output.Components, SelectedResource{
+					ID:        items[i].GetID(),
+					Agent:     items[i].AgentID.String(),
+					Tags:      items[i].Labels,
+					Name:      items[i].GetName(),
+					Namespace: items[i].GetNamespace(),
+					Type:      items[i].GetType(),
+					Health:    string(lo.FromPtr(items[i].Health)),
+					Status:    string(items[i].Status),
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
 		if items, err := FindChecks(ctx, req.Limit, req.Checks...); err != nil {
 			return err
 		} else {
@@ -217,6 +238,7 @@ func SetResourceSelectorClause(
 ) (*gorm.DB, error) {
 	searchSetAgent := false
 	searchSetDeleted := false
+	searchSetID := false
 
 	qm, err := GetModelFromTable(table)
 	if err != nil {
@@ -246,6 +268,14 @@ func SetResourceSelectorClause(
 			return field == "deleted_at"
 		})
 
+		searchSetID = slices.ContainsFunc(flatFields, func(s string) bool {
+			field := strings.ToLower(s)
+			if alias, ok := qm.Aliases[field]; ok {
+				field = alias
+			}
+			return field == "id"
+		})
+
 		var clauses []clause.Expression
 		query, clauses, err = qm.Apply(ctx, *qf, query)
 		if err != nil {
@@ -260,7 +290,7 @@ func SetResourceSelectorClause(
 	}
 
 	var agentID *uuid.UUID
-	if !searchSetAgent && qm.HasAgents {
+	if !searchSetAgent && !searchSetID && qm.HasAgents {
 		agentID, err := getAgentID(ctx, resourceSelector.Agent)
 		if err != nil {
 			return nil, err

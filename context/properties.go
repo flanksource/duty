@@ -9,6 +9,7 @@ import (
 
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/duration"
+	"github.com/flanksource/commons/har"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
 	"github.com/flanksource/duty/models"
@@ -326,4 +327,168 @@ func UpdateProperties(ctx Context, props map[string]string) error {
 	query := fmt.Sprintf("INSERT INTO properties (name, value) VALUES %s ON CONFLICT (name) DO UPDATE SET value = excluded.value", strings.Join(values, ","))
 	defer ctx.ClearCache()
 	return ctx.DB().Exec(query, args...).Error
+}
+
+const HARMaxBodySizeDefault = 64 * 1024
+
+func (k Context) EffectiveLogLevel(feature string) (logger.LogLevel, string) {
+	return k.effectiveObservabilityLevel(feature, false)
+}
+
+func (k Context) EffectiveHARLevel(feature string) (logger.LogLevel, string) {
+	return k.effectiveObservabilityLevel(feature, true)
+}
+
+func (k Context) IsHARCaptureEnabled(feature string) bool {
+	level, _ := k.EffectiveHARLevel(feature)
+	return level >= logger.Debug
+}
+
+func (k Context) IsHTTPLoggingEnabled(feature string) bool {
+	level, _ := k.EffectiveLogLevel(feature)
+	return level >= logger.Debug
+}
+
+func (k Context) HTTPLoggingContent(feature string) (headers bool, bodies bool) {
+	level, _ := k.EffectiveLogLevel(feature)
+	return level >= logger.Debug, level >= logger.Trace
+}
+
+func (k Context) HARConfig(feature string) har.HARConfig {
+	cfg := har.DefaultConfig()
+	cfg.MaxBodySize = int64(k.Properties().Int("har.maxBodySize", HARMaxBodySizeDefault))
+	if v := k.Properties().String("har.captureContentTypes", ""); v != "" {
+		cfg.CaptureContentTypes = splitCSV(v)
+	}
+	return cfg
+}
+
+func (k Context) EffectiveHARCollector(feature string, explicit *har.Collector) *har.Collector {
+	if explicit != nil {
+		explicit.Config = k.HARConfig(feature)
+		return explicit
+	}
+	level, _ := k.EffectiveHARLevel(feature)
+	if level < logger.Debug {
+		return nil
+	}
+	collector := k.HARCollector()
+	if collector != nil {
+		collector.Config = k.HARConfig(feature)
+	}
+	return collector
+}
+
+func (k Context) effectiveObservabilityLevel(feature string, harCapture bool) (logger.LogLevel, string) {
+	feature = strings.TrimSpace(strings.ToLower(feature))
+	if feature == "" {
+		feature = "http"
+	}
+
+	level := normalizeFeatureLevel(k.Logger.GetLevel())
+	if std := logger.StandardLogger(); std != nil {
+		level = maxLevel(level, std.GetLevel())
+	}
+	source := "logger"
+	props := k.Properties()
+
+	add := func(candidate logger.LogLevel, candidateSource string) {
+		candidate = normalizeFeatureLevel(candidate)
+		if candidate > level {
+			level = candidate
+			source = candidateSource
+		}
+	}
+	addProperty := func(key string) {
+		if v := props.String(key, ""); v != "" {
+			add(logger.ParseLevel(k.Logger, v), key)
+		}
+	}
+	addAnnotation := func(key string) {
+		for _, o := range k.Objects() {
+			annotations := getObjectMeta(o).Annotations
+			if len(annotations) == 0 {
+				continue
+			}
+			if v := annotationValue(annotations, key); v != "" {
+				add(logger.ParseLevel(k.Logger, v), "annotation:"+key)
+			}
+		}
+	}
+
+	addProperty("log.level")
+	addAnnotation("log.level")
+	for _, o := range k.Objects() {
+		annotations := getObjectMeta(o).Annotations
+		if len(annotations) == 0 {
+			continue
+		}
+		if annotationValue(annotations, "trace") == "true" {
+			add(logger.Trace, "annotation:trace")
+		} else if annotationValue(annotations, "debug") == "true" {
+			add(logger.Debug, "annotation:debug")
+		}
+	}
+
+	if harCapture {
+		addProperty("log.level.http.har")
+		for _, f := range featureLevelKeys(feature) {
+			addProperty("log.level." + f + ".har")
+		}
+		addAnnotation("log.level.http.har")
+		for _, f := range featureLevelKeys(feature) {
+			addAnnotation("log.level." + f + ".har")
+		}
+	} else {
+		addProperty("log.level.http")
+		for _, f := range featureLevelKeys(feature) {
+			addProperty("log.level." + f)
+		}
+		addAnnotation("log.level.http")
+		for _, f := range featureLevelKeys(feature) {
+			addAnnotation("log.level." + f)
+		}
+	}
+
+	return level, source
+}
+
+func normalizeFeatureLevel(level logger.LogLevel) logger.LogLevel {
+	if level == logger.Silent || level < logger.Info {
+		return logger.Info
+	}
+	return level
+}
+
+func maxLevel(a, b logger.LogLevel) logger.LogLevel {
+	a = normalizeFeatureLevel(a)
+	b = normalizeFeatureLevel(b)
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func featureLevelKeys(feature string) []string {
+	if feature == "http" {
+		return nil
+	}
+	switch feature {
+	case "kubernetes":
+		return []string{"kubernetes", "kubectl", "k8s"}
+	default:
+		return []string{feature}
+	}
 }

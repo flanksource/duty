@@ -349,38 +349,43 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 }
 
 func (h HTTPConnection) Transport(opts ...types.ClientOption) netHTTP.RoundTripper {
+	return h.TransportWithContext(nil, opts...)
+}
+
+func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption) netHTTP.RoundTripper {
 	o := types.NewClientOptions(opts...)
-	var base netHTTP.RoundTripper = &netHTTP.Transport{}
-	if o.HARCollector != nil {
-		base = o.HARCollector.Middleware()(base)
-	}
+	base := applyHTTPObservability(ctx, "http", &netHTTP.Transport{}, o.HARCollector)
 	rt := &httpConnectionRoundTripper{
 		HTTPConnection: h,
 		Base:           base,
+		TokenTransport: harTokenTransport(ctx, "http", o.HARCollector),
 	}
 	return rt
 }
 
 type httpConnectionRoundTripper struct {
 	HTTPConnection
-	Base netHTTP.RoundTripper
+	Base           netHTTP.RoundTripper
+	TokenTransport middlewares.Middleware
 }
 
 func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.Response, error) {
 	conn := rt.HTTPConnection
+	base := rt.Base
 	if !conn.HTTPBasicAuth.IsEmpty() {
 		req.SetBasicAuth(conn.HTTPBasicAuth.GetUsername(), conn.HTTPBasicAuth.GetPassword())
 	} else if !conn.Bearer.IsEmpty() {
 		req.Header.Set(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
 	} else if !conn.OAuth.IsEmpty() {
 		oauthTransport := middlewares.NewOauthTransport(middlewares.OauthConfig{
-			ClientID:     conn.OAuth.ClientID.String(),
-			ClientSecret: conn.OAuth.ClientSecret.String(),
-			TokenURL:     conn.OAuth.TokenURL,
-			Params:       conn.OAuth.Params,
-			Scopes:       conn.OAuth.Scopes,
+			ClientID:       conn.OAuth.ClientID.String(),
+			ClientSecret:   conn.OAuth.ClientSecret.String(),
+			TokenURL:       conn.OAuth.TokenURL,
+			Params:         conn.OAuth.Params,
+			Scopes:         conn.OAuth.Scopes,
+			TokenTransport: rt.TokenTransport,
 		})
-		rt.Base = oauthTransport.RoundTripper(rt.Base)
+		base = oauthTransport.RoundTripper(base)
 	}
 
 	for _, header := range conn.Headers {
@@ -394,23 +399,21 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 	}
 
 	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
-		rt.Base = middlewares.NewAWSSigv4Transport(middlewares.AWSSigv4Config{
+		base = middlewares.NewAWSSigv4Transport(middlewares.AWSSigv4Config{
 			Region:              conn.AwsConfig.Region,
 			Service:             conn.AWSSigV4.Service,
 			CredentialsProvider: conn.AwsConfig.Credentials,
-		}, rt.Base)
+		}, base)
 	}
 
-	return rt.Base.RoundTrip(req)
+	return base.RoundTrip(req)
 }
 
 // CreateHTTPClient requires a hydrated connection
 func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.ClientOption) (*http.Client, error) {
 	o := types.NewClientOptions(opts...)
 	client := http.NewClient()
-	if o.HARCollector != nil {
-		client.HARCollector(o.HARCollector)
-	}
+	tokenTransport := applyHTTPClientObservability(ctx, "http", client, o.HARCollector)
 	if !conn.HTTPBasicAuth.IsEmpty() {
 		client.Auth(conn.GetUsername(), conn.GetPassword())
 		client.Digest(conn.Digest)
@@ -420,11 +423,12 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.
 		client.Header(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
 	} else if !conn.OAuth.IsEmpty() {
 		client.OAuth(middlewares.OauthConfig{
-			ClientID:     conn.OAuth.ClientID.ValueStatic,
-			ClientSecret: conn.OAuth.ClientSecret.ValueStatic,
-			TokenURL:     conn.OAuth.TokenURL,
-			Params:       conn.OAuth.Params,
-			Scopes:       conn.OAuth.Scopes,
+			ClientID:       conn.OAuth.ClientID.ValueStatic,
+			ClientSecret:   conn.OAuth.ClientSecret.ValueStatic,
+			TokenURL:       conn.OAuth.TokenURL,
+			Params:         conn.OAuth.Params,
+			Scopes:         conn.OAuth.Scopes,
+			TokenTransport: tokenTransport,
 		})
 	}
 
