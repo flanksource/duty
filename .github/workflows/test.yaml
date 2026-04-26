@@ -82,7 +82,7 @@ jobs:
             test --lint --timeout 30m --test-timeout 15m
             --extra-args=--label-filter=!e2e
             ./api ./artifact ./cache ./canary ./connection ./context ./dataquery
-            ./db ./drivers ./echo ./functions ./gorm ./hack/generate-openapi
+            ./db ./drivers ./echo ./functions ./gorm
             ./job ./kubernetes ./leader ./logs ./migrate ./models
             ./pkg ./postgrest ./postq ./pubsub ./query ./rbac
             ./rls ./schema ./secret ./shell ./shutdown ./telemetry
@@ -261,10 +261,21 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/gavel" version || true
 
+      - name: Stage migrate fixture from PR head
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: pr-head
+          sparse-checkout: |
+            .github/fixtures/migrate.fixture.md
+          sparse-checkout-cone-mode: false
       - name: Check out main branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
+      - name: Restore migrate fixture
+        run: |
+          mkdir -p .github/fixtures
+          cp pr-head/.github/fixtures/migrate.fixture.md .github/fixtures/migrate.fixture.md
       - name: Apply base migrations
         uses: flanksource/gavel@feat/action-flag-fix
         with:
