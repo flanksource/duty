@@ -1,8 +1,7 @@
 ---
-build: make -B tidy hack/migrate/go.mod && cd hack/migrate && go build -o ../../.tmp/duty-migrate main.go
-exec: ./.tmp/duty-migrate
+build: make -B tidy hack/migrate/go.mod && cd hack/migrate && go build -o ../../.github/fixtures/duty-migrate main.go
+exec: ./duty-migrate
 args: ["--db-url", "postgres://postgres:postgres@localhost:5432/test?sslmode=disable"]
-cwd: ../..
 timeout: 10m
 ---
 
