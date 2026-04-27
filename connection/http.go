@@ -412,8 +412,12 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 // CreateHTTPClient requires a hydrated connection
 func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.ClientOption) (*http.Client, error) {
 	o := types.NewClientOptions(opts...)
+	feature := o.Feature
+	if feature == "" {
+		feature = "http"
+	}
 	client := http.NewClient()
-	tokenTransport := applyHTTPClientObservability(ctx, "http", client, o.HARCollector)
+	tokenTransport := applyHTTPClientObservability(ctx, feature, client, o.HARCollector)
 	if !conn.HTTPBasicAuth.IsEmpty() {
 		client.Auth(conn.GetUsername(), conn.GetPassword())
 		client.Digest(conn.Digest)

@@ -3,7 +3,6 @@ package connection
 import (
 	gocontext "context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,30 +50,24 @@ func makeBareRepo(t *testing.T, root string) string {
 	return bare
 }
 
-// captureStderr swaps os.Stderr for a pipe and returns a read/stop pair.
-// Must be called BEFORE any logger that targets stderr is constructed, since
-// slog handlers capture the writer reference at build time.
-func captureStderr(t *testing.T) (read func() string, stop func()) {
+// captureLoggerOutput redirects the commons logger's shared writer to an
+// in-memory buffer and returns a read/stop pair. The commons logger reads its
+// destination from an atomic indirection set via logger.SetOutput, so swapping
+// os.Stderr does not intercept its output — SetOutput is the supported hook.
+func captureLoggerOutput(t *testing.T) (read func() string, stop func()) {
 	t.Helper()
 
-	orig := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stderr = w
+	orig := logger.GetOutput()
 
 	var (
 		mu  sync.Mutex
 		buf strings.Builder
-		wg  sync.WaitGroup
 	)
-	wg.Go(func() {
-		b, _ := io.ReadAll(r)
+	logger.SetOutput(writerFunc(func(p []byte) (int, error) {
 		mu.Lock()
-		buf.Write(b)
-		mu.Unlock()
-	})
+		defer mu.Unlock()
+		return buf.Write(p)
+	}))
 
 	read = func() string {
 		mu.Lock()
@@ -82,13 +75,14 @@ func captureStderr(t *testing.T) (read func() string, stop func()) {
 		return buf.String()
 	}
 	stop = func() {
-		os.Stderr = orig
-		_ = w.Close()
-		wg.Wait()
-		_ = r.Close()
+		logger.SetOutput(orig)
 	}
 	return
 }
+
+type writerFunc func(p []byte) (int, error)
+
+func (f writerFunc) Write(p []byte) (int, error) { return f(p) }
 
 // TestGitCloneTraceLogging verifies that -Plog.level.git=trace causes
 // GitClient.Clone to emit structured command metadata via the "git" named
@@ -100,12 +94,10 @@ func TestGitCloneTraceLogging(t *testing.T) {
 
 	logger.UseSlog()
 
-	readOut, stop := captureStderr(t)
+	readOut, stop := captureLoggerOutput(t)
 	defer stop()
 
-	// log.level.git=trace flips the "git" named logger via the property
-	// listener. Any logger instantiated while os.Stderr is the pipe will
-	// target the pipe for its lifetime.
+	// log.level.git=trace flips the "git" named logger via the property listener.
 	properties.Set("log.level.git", "trace")
 	t.Cleanup(func() { properties.Set("log.level.git", "info") })
 
@@ -150,7 +142,7 @@ func TestGitCloneDefaultLevelIsQuiet(t *testing.T) {
 
 	logger.UseSlog()
 
-	readOut, stop := captureStderr(t)
+	readOut, stop := captureLoggerOutput(t)
 	defer stop()
 
 	properties.Set("log.level.git", "info")
