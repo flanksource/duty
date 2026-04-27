@@ -11,11 +11,30 @@ GOLANGCI_LINT_VERSION ?= v2.11.3
 ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
-test: ginkgo
-	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
+.PHONY: gavel
+gavel:
+	@command -v gavel >/dev/null || go install github.com/flanksource/gavel/cmd/gavel@latest
 
-test-concurrent: ginkgo
-	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
+test: gavel
+	gavel test --timeout 30m --test-timeout 15m \
+		--extra-args=--label-filter=!e2e \
+		--ignore ./bench \
+		--ignore ./hack \
+		--ignore ./specs \
+		--ignore ./tests/e2e \
+		--ignore ./tests/e2e-blobs \
+		./...
+
+test-concurrent: gavel
+	gavel test --timeout 30m --test-timeout 15m \
+		--nodes 4 \
+		--extra-args=--label-filter=!e2e \
+		--ignore ./bench \
+		--ignore ./hack \
+		--ignore ./specs \
+		--ignore ./tests/e2e \
+		--ignore ./tests/e2e-blobs \
+		./...
 
 
 .PHONY: test-e2e
