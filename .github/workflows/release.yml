@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write # for codfish/semantic-release-action to create release tags
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: codfish/semantic-release-action@6abd188d2458e2fd6c99073454f6cc49196362e8 # v5.0.0
@@ -23,6 +24,7 @@ jobs:
 
   bump-clients:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [semantic-release]
     if: needs.semantic-release.outputs.new-release-published == 'true'
     strategy:
