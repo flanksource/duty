@@ -600,9 +600,14 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigRelationship struct {
-	ConfigID   string     `json:"config_id" gorm:"primaryKey"`
-	RelatedID  string     `json:"related_id" gorm:"primaryKey"`
-	Relation   string     `json:"relation" gorm:"primaryKey"`
+	ConfigID  string `json:"config_id" gorm:"primaryKey"`
+	RelatedID string `json:"related_id" gorm:"primaryKey"`
+	Relation  string `json:"relation" gorm:"primaryKey"`
+	// ScraperID identifies the scraper that owns this relationship and is part of the
+	// composite primary key. uuid.Nil represents a legacy / scraper-agnostic relationship
+	// from before scraper-ownership was introduced; new code should populate this from
+	// the active scraper context so multiple scrapers can independently maintain
+	// (related_id, config_id, relation) tuples without colliding.
 	ScraperID  uuid.UUID  `json:"scraper_id" gorm:"primaryKey"`
 	SelectorID string     `json:"selector_id"`
 	CreatedAt  time.Time  `json:"created_at,omitempty"`

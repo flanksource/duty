@@ -408,3 +408,50 @@ func TestMergeConfigTreesEmpty(t *testing.T) {
 	g.Expect(MergeConfigTrees(nil)).To(gomega.BeEmpty())
 	g.Expect(MergeConfigTrees([]*ConfigTreeNode{nil, nil})).To(gomega.BeEmpty())
 }
+
+// TestMergeConfigTreesSharedInternalNode confirms that a node shared between
+// two trees with different roots has its children unioned, not lost. With the
+// previous early-return in cloneConfigTree, the second tree's children under a
+// shared internal node were silently dropped.
+func TestMergeConfigTreesSharedInternalNode(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	a := uuid.New()
+	e := uuid.New()
+	b := uuid.New()
+	d := uuid.New()
+	x := uuid.New()
+
+	tree1 := makeTreeNode(a, "a", "parent",
+		makeTreeNode(b, "b", "parent",
+			makeTreeNode(d, "d", "target"),
+		),
+	)
+	tree2 := makeTreeNode(e, "e", "parent",
+		makeTreeNode(b, "b", "parent",
+			makeTreeNode(x, "x", "target"),
+		),
+	)
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{tree1, tree2})
+	g.Expect(roots).To(gomega.HaveLen(2), "a and e have different roots, so two trees")
+
+	rootByID := map[uuid.UUID]*ConfigTreeNode{}
+	for _, r := range roots {
+		rootByID[r.ID] = r
+	}
+	g.Expect(rootByID).To(gomega.HaveKey(a))
+	g.Expect(rootByID).To(gomega.HaveKey(e))
+
+	bUnderA := rootByID[a].Children[0]
+	bUnderE := rootByID[e].Children[0]
+	g.Expect(bUnderA.ID).To(gomega.Equal(b))
+	g.Expect(bUnderE.ID).To(gomega.Equal(b))
+	g.Expect(bUnderA).To(gomega.BeIdenticalTo(bUnderE), "b should be the same node aliased under both roots")
+
+	childIDs := []uuid.UUID{}
+	for _, c := range bUnderA.Children {
+		childIDs = append(childIDs, c.ID)
+	}
+	g.Expect(childIDs).To(gomega.ConsistOf(d, x), "both d and x must appear under merged b")
+}

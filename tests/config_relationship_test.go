@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/flanksource/duty/job"
@@ -427,6 +428,76 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 				Expect(incomingRelatedIDsMap[relatedConfigs[i].ID.String()]).To(ConsistOf([]string(relatedConfigs[i].RelatedIDs)))
 			}
 		})
+	})
+})
+
+// UpdateIsPushed matches rows by the 4-tuple (related_id, config_id, relation,
+// scraper_id). When ScraperID is uuid.Nil — the legacy / scraper-agnostic case
+// described on ConfigRelationship.ScraperID — the WHERE clause must still match
+// the inserted row. This regression test pushes one Nil-scraper relationship
+// and one real-scraper relationship, JSON round-trips them to simulate cross-
+// process delivery, and asserts both transition to is_pushed=true.
+var _ = ginkgo.Describe("config relationship UpdateIsPushed scraper round-trip", ginkgo.Ordered, func() {
+	var (
+		legacyRel models.ConfigRelationship
+		ownedRel  models.ConfigRelationship
+		scraperID = uuid.New()
+	)
+
+	ginkgo.BeforeAll(func() {
+		legacyRel = models.ConfigRelationship{
+			ConfigID:  dummy.KubernetesCluster.ID.String(),
+			RelatedID: dummy.KubernetesNodeA.ID.String(),
+			Relation:  "scraper-roundtrip-legacy",
+			// ScraperID intentionally left as uuid.Nil
+		}
+		ownedRel = models.ConfigRelationship{
+			ConfigID:  dummy.KubernetesCluster.ID.String(),
+			RelatedID: dummy.KubernetesNodeB.ID.String(),
+			Relation:  "scraper-roundtrip-owned",
+			ScraperID: scraperID,
+		}
+		Expect(DefaultContext.DB().Create(&legacyRel).Error).To(BeNil())
+		Expect(DefaultContext.DB().Create(&ownedRel).Error).To(BeNil())
+	})
+
+	ginkgo.AfterAll(func() {
+		Expect(DefaultContext.DB().
+			Where("relation IN ?", []string{"scraper-roundtrip-legacy", "scraper-roundtrip-owned"}).
+			Delete(&models.ConfigRelationship{}).Error).To(BeNil())
+	})
+
+	ginkgo.It("matches both uuid.Nil and real ScraperID rows after JSON round-trip", func() {
+		// Simulate the upstream push: marshal to JSON, unmarshal on the other
+		// side. This is what UpdateIsPushed receives on the receiver.
+		input := []models.ConfigRelationship{legacyRel, ownedRel}
+		raw, err := json.Marshal(input)
+		Expect(err).To(BeNil())
+
+		var roundtripped []models.ConfigRelationship
+		Expect(json.Unmarshal(raw, &roundtripped)).To(Succeed())
+		Expect(roundtripped).To(HaveLen(2))
+		// The Nil ScraperID must survive marshal/unmarshal as Nil, not get dropped.
+		Expect(roundtripped[0].ScraperID).To(Equal(uuid.Nil))
+		Expect(roundtripped[1].ScraperID).To(Equal(scraperID))
+
+		items := lo.Map(roundtripped, func(r models.ConfigRelationship, _ int) models.DBTable { return r })
+		Expect(models.ConfigRelationship{}.UpdateIsPushed(DefaultContext.DB(), items)).To(Succeed())
+
+		// is_pushed isn't exposed on the Go struct, so query the column directly.
+		type pushedRow struct {
+			Relation string
+			IsPushed bool
+		}
+		var after []pushedRow
+		Expect(DefaultContext.DB().Raw(
+			"SELECT relation, is_pushed FROM config_relationships WHERE relation IN ?",
+			[]string{"scraper-roundtrip-legacy", "scraper-roundtrip-owned"},
+		).Scan(&after).Error).To(BeNil())
+		Expect(after).To(HaveLen(2))
+		for _, r := range after {
+			Expect(r.IsPushed).To(BeTrue(), "row %s should be pushed", r.Relation)
+		}
 	})
 })
 

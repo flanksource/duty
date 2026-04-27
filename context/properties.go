@@ -363,9 +363,15 @@ func (k Context) HARConfig(feature string) har.HARConfig {
 	return cfg
 }
 
+// EffectiveHARCollector resolves which HAR collector should be used for the
+// given feature. When the caller passes an explicit collector, it is returned
+// as-is — its Config is the caller's concern, not this package's, since the
+// same *har.Collector may be reused across features and goroutines and a
+// last-writer-wins mutation here would race. When no explicit collector is
+// supplied, the context-owned shared collector (k.HARCollector) is configured
+// per-feature and returned only if the feature's effective level is >= Debug.
 func (k Context) EffectiveHARCollector(feature string, explicit *har.Collector) *har.Collector {
 	if explicit != nil {
-		explicit.Config = k.HARConfig(feature)
 		return explicit
 	}
 	level, _ := k.EffectiveHARLevel(feature)
@@ -385,7 +391,13 @@ func (k Context) effectiveObservabilityLevel(feature string, harCapture bool) (l
 		feature = "http"
 	}
 
-	level := normalizeFeatureLevel(k.Logger.GetLevel())
+	// Floor the feature level on the context's logger and the global standard
+	// logger: a global -Plog.level=trace SHOULD reveal HTTP/HAR detail when
+	// debugging. Per-feature overrides below can only raise the level further.
+	var level logger.LogLevel
+	if k.Logger != nil {
+		level = normalizeFeatureLevel(k.Logger.GetLevel())
+	}
 	if std := logger.StandardLogger(); std != nil {
 		level = maxLevel(level, std.GetLevel())
 	}

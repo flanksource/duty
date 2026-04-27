@@ -209,6 +209,17 @@ func metadataHARMiddleware(collector *har.Collector) middlewares.Middleware {
 					HeadersSize: -1,
 					BodySize:    -1,
 				}
+			} else {
+				// Transport error: no response object. Use -1 sentinels (HAR spec
+				// for "size unknown") so consumers don't read Status=0 as a
+				// successful empty response.
+				entry.Response = har.Response{
+					Cookies:     []har.Cookie{},
+					Headers:     []har.Header{},
+					Content:     har.Content{Size: -1},
+					HeadersSize: -1,
+					BodySize:    -1,
+				}
 			}
 
 			collector.Add(entry)

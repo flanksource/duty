@@ -20,6 +20,7 @@ import (
 	clickyapi "github.com/flanksource/clicky/api"
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/pkg/kube/labels"
 	"github.com/flanksource/duty/query/grammar"
 	"github.com/flanksource/duty/types"
@@ -69,10 +70,10 @@ type SelectedResource struct {
 	Type      string            `json:"type"`
 	Tags      map[string]string `json:"tags,omitempty"`
 	// Health is populated for resource kinds that carry a health value
-	// (currently: configs). Empty for other kinds.
+	// (configs, components, checks). Empty for other kinds.
 	Health string `json:"health,omitempty"`
 	// Status is the resource's free-form operational status (e.g. "Running",
-	// "Pending"). Populated alongside Health for configs.
+	// "Pending"). Populated for configs and components.
 	Status string `json:"status,omitempty"`
 }
 
@@ -158,7 +159,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
-					Health:    lo.Ternary(items[i].Status == "passing", "healthy", "unhealthy"),
+					Health:    lo.Ternary(items[i].Status == models.CheckStatusHealthy, "healthy", "unhealthy"),
 				})
 			}
 		}

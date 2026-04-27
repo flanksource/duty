@@ -56,7 +56,7 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 				return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
 			}
 			if t.Template == val && l.V(4).Enabled() {
-				l.V(4).Infof("%s = <no change ", t.String())
+				l.V(4).Infof("%s = <no change>", t.String())
 			} else if t.Template != val {
 				if l.V(2).Enabled() {
 					l.V(2).Infof("%s = %s", t.String(), val)

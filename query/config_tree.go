@@ -61,9 +61,7 @@ func MergeConfigTrees(trees []*ConfigTreeNode) []*ConfigTreeNode {
 
 func cloneConfigTree(n *ConfigTreeNode, byID map[uuid.UUID]*ConfigTreeNode) *ConfigTreeNode {
 	if existing, ok := byID[n.ID]; ok {
-		if n.EdgeType == "target" {
-			existing.EdgeType = "target"
-		}
+		mergeConfigTreeInto(existing, n, byID)
 		return existing
 	}
 	out := &ConfigTreeNode{

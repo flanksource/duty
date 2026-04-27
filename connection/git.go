@@ -41,6 +41,16 @@ type GitClient struct {
 	AzureDevops         bool
 }
 
+// RedactedURL returns the URL with userinfo elided, falling back to the raw
+// URL when it doesn't parse — useful for log lines where a literal "redacted"
+// placeholder would be less informative than the original string.
+func (gitClient GitClient) RedactedURL() string {
+	if uri, err := url.Parse(gitClient.URL); err == nil {
+		return uri.Redacted()
+	}
+	return gitClient.URL
+}
+
 func (gitClient GitClient) GetContext() map[string]any {
 	if uri, err := url.Parse(gitClient.URL); err == nil {
 		return map[string]any{
@@ -94,10 +104,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 	restoreGitTransport := configureGitHTTPTransport(ctx, gitClient.URL)
 	defer restoreGitTransport()
 
-	redactedURL := gitClient.URL
-	if uri, err := url.Parse(gitClient.URL); err == nil {
-		redactedURL = uri.Redacted()
-	}
+	redactedURL := gitClient.RedactedURL()
 	gitLog.V(1).Infof("clone url=%s branch=%s depth=%d dir=%s", redactedURL, gitClient.Branch, gitClient.Depth, dir)
 
 	extra := map[string]any{
