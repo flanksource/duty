@@ -81,7 +81,6 @@ jobs:
           version: source
           args: >-
             test --lint --timeout 30m --test-timeout 15m
-            --extra-args=--label-filter=!e2e
             --ignore ./bench
             --ignore ./hack
             --ignore ./specs
@@ -149,7 +148,7 @@ jobs:
           version: source
           args: >-
             test --timeout 30m --test-timeout 15m
-            --extra-args=--label-filter=e2e
+            --extra-args=--ginkgo.label-filter=e2e
             ./tests/e2e
           artifact-name: gavel-e2e
           comment-header: gavel-e2e
@@ -201,7 +200,7 @@ jobs:
           version: source
           args: >-
             test --timeout 30m --test-timeout 15m
-            --extra-args=--label-filter=e2e
+            --extra-args=--ginkgo.label-filter=e2e
             ./tests/e2e-blobs
           artifact-name: gavel-e2e-blobs
           comment-header: gavel-e2e-blobs

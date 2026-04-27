@@ -17,7 +17,6 @@ gavel:
 
 test: gavel
 	gavel test --timeout 30m --test-timeout 15m \
-		--extra-args=--label-filter=!e2e \
 		--ignore ./bench \
 		--ignore ./hack \
 		--ignore ./specs \
@@ -28,7 +27,6 @@ test: gavel
 test-concurrent: gavel
 	gavel test --timeout 30m --test-timeout 15m \
 		--nodes 4 \
-		--extra-args=--label-filter=!e2e \
 		--ignore ./bench \
 		--ignore ./hack \
 		--ignore ./specs \
