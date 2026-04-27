@@ -82,12 +82,12 @@ jobs:
           args: >-
             test --lint --timeout 30m --test-timeout 15m
             --extra-args=--label-filter=!e2e
-            ./api ./artifact ./cache ./canary ./connection ./context ./dataquery
-            ./db ./drivers ./echo ./functions ./gorm
-            ./job ./kubernetes ./leader ./logs ./migrate ./models
-            ./pkg ./postgrest ./postq ./pubsub ./query ./rbac
-            ./rls ./schema ./secret ./shell ./shutdown ./telemetry
-            ./tests ./topology ./tracing ./types ./upstream ./view ./views .
+            --ignore ./bench
+            --ignore ./hack
+            --ignore ./specs
+            --ignore ./tests/e2e
+            --ignore ./tests/e2e-blobs
+            ./...
           artifact-name: gavel-test-pg${{ matrix.postgres-version.tag }}
           comment-header: gavel-test-pg${{ matrix.postgres-version.tag }}
           fail-on-error: "true"
