@@ -339,36 +339,6 @@ func (c *Component) Summarize(depth int) types.Summary {
 	return s
 }
 
-func (component Component) Clone() Component {
-	clone := Component{
-		Name:         component.Name,
-		TopologyType: component.TopologyType,
-		Order:        component.Order,
-		ID:           component.ID,
-		Text:         component.Text,
-		Namespace:    component.Namespace,
-		Labels:       component.Labels,
-		Tooltip:      component.Tooltip,
-		Icon:         component.Icon,
-		Owner:        component.Owner,
-		Status:       component.Status,
-		StatusReason: component.StatusReason,
-		Type:         component.Type,
-		Lifecycle:    component.Lifecycle,
-		Checks:       component.Checks,
-		Configs:      component.Configs,
-		Properties:   component.Properties,
-		ExternalId:   component.ExternalId,
-		Schedule:     component.Schedule,
-		Health:       component.Health,
-		StatusExpr:   component.StatusExpr,
-		HealthExpr:   component.HealthExpr,
-	}
-
-	copy(clone.LogSelectors, component.LogSelectors)
-	return clone
-}
-
 func (component Component) String() string {
 	s := ""
 	if component.Type != "" {
