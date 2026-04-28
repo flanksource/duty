@@ -157,3 +157,59 @@ BEGIN
   WHERE NOT EXISTS (SELECT 1 FROM updated);
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Deletes a single property by name from the config item's properties owned by
+-- (p_creator_type, p_created_by). Properties owned by other creators, and legacy
+-- properties without ownership metadata, are preserved.
+CREATE
+OR REPLACE FUNCTION delete_config_item_property(
+  p_config_id uuid,
+  p_creator_type TEXT,
+  p_created_by uuid,
+  p_property_name TEXT
+) RETURNS TABLE(changed BOOLEAN, properties jsonb) AS $$
+BEGIN
+  RETURN QUERY
+  WITH updated AS (
+    UPDATE config_items ci
+    SET properties =
+      COALESCE(
+        (
+          SELECT jsonb_agg(prop ORDER BY ord)
+          FROM jsonb_array_elements(COALESCE(ci.properties, '[]'::jsonb))
+            WITH ORDINALITY AS existing(prop, ord)
+          WHERE (
+            prop->>'creator_type' = p_creator_type
+            AND prop->>'created_by' = p_created_by::text
+            AND prop->>'name' = p_property_name
+          ) IS NOT TRUE
+        ),
+        '[]'::jsonb
+      )
+    WHERE ci.id = p_config_id
+      AND ci.properties IS DISTINCT FROM
+      COALESCE(
+        (
+          SELECT jsonb_agg(prop ORDER BY ord)
+          FROM jsonb_array_elements(COALESCE(ci.properties, '[]'::jsonb))
+            WITH ORDINALITY AS existing(prop, ord)
+          WHERE (
+            prop->>'creator_type' = p_creator_type
+            AND prop->>'created_by' = p_created_by::text
+            AND prop->>'name' = p_property_name
+          ) IS NOT TRUE
+        ),
+        '[]'::jsonb
+      )
+    RETURNING true AS changed, ci.properties
+  )
+  SELECT updated.changed, updated.properties
+  FROM updated
+  UNION ALL
+  SELECT false AS changed, ci.properties
+  FROM config_items ci
+  WHERE ci.id = p_config_id
+    AND NOT EXISTS (SELECT 1 FROM updated);
+END;
+$$ LANGUAGE plpgsql;

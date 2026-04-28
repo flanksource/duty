@@ -153,6 +153,7 @@ var dbResourceObjMap = map[string]string{
 	"responders":                                policy.ObjectIncident,
 
 	"rpc/update_config_item_properties":                 policy.ObjectCatalog,
+	"rpc/delete_config_item_property":                   policy.ObjectCatalog,
 	"rpc/lookup_component_config_id_related_components": policy.ObjectTopology,
 	"rpc/_related_config_ids_recursive":                 policy.ObjectCatalog,
 	"rpc/check_summary_for_component":                   policy.ObjectCanary,

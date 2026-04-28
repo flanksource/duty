@@ -81,6 +81,27 @@ var _ = Describe("update_config_item_properties", func() {
 		Expect(findProperty(props, "Legacy")).To(HaveKeyWithValue("text", "keep"))
 	})
 
+	It("deletes one creator-owned property without replacing the whole owner slice", func() {
+		configID := uuid.New()
+		personA := uuid.New()
+		personB := uuid.New()
+		seedConfigItemWithProperties(configID, models.OwnedProperties{
+			{Property: types.Property{Name: "Owner", Text: "Team"}, CreatorType: models.PropertyCreatorTypePerson, CreatedBy: personA.String()},
+			{Property: types.Property{Name: "Runbook", Text: "rb"}, CreatorType: models.PropertyCreatorTypePerson, CreatedBy: personA.String()},
+			{Property: types.Property{Name: "Owner", Text: "Other Team"}, CreatorType: models.PropertyCreatorTypePerson, CreatedBy: personB.String()},
+			{Property: types.Property{Name: "Legacy", Text: "keep"}},
+		})
+
+		result := callDeleteConfigItemProperty(configID, models.PropertyCreatorTypePerson, personA, "Owner")
+
+		Expect(result.Changed).To(BeTrue())
+		props := propertyMaps(result.Properties)
+		Expect(findPropertyByOwner(props, "Owner", personA.String())).To(BeNil())
+		Expect(findPropertyByOwner(props, "Runbook", personA.String())).To(HaveKeyWithValue("text", "rb"))
+		Expect(findPropertyByOwner(props, "Owner", personB.String())).To(HaveKeyWithValue("text", "Other Team"))
+		Expect(findProperty(props, "Legacy")).To(HaveKeyWithValue("text", "keep"))
+	})
+
 	It("does not clobber concurrent updates from different scrapers", func() {
 		configID := uuid.New()
 		scraperA := uuid.New()
@@ -142,6 +163,24 @@ func callUpdateConfigItemPropertiesErr(configID uuid.UUID, creatorType string, c
 	return err
 }
 
+func callDeleteConfigItemProperty(configID uuid.UUID, creatorType string, createdBy uuid.UUID, propertyName string) models.UpdateConfigItemPropertiesResult {
+	var row struct {
+		Changed    bool
+		Properties string
+	}
+	Expect(DefaultContext.DB().Raw(
+		`SELECT changed, properties FROM delete_config_item_property(?, ?, ?, ?)`,
+		configID,
+		creatorType,
+		createdBy,
+		propertyName,
+	).Scan(&row).Error).To(Succeed())
+
+	var props models.OwnedProperties
+	Expect(json.Unmarshal([]byte(row.Properties), &props)).To(Succeed())
+	return models.UpdateConfigItemPropertiesResult{Changed: row.Changed, Properties: props}
+}
+
 func propertyMaps(props models.OwnedProperties) []map[string]any {
 	data, err := json.Marshal(props)
 	Expect(err).ToNot(HaveOccurred())
@@ -153,6 +192,15 @@ func propertyMaps(props models.OwnedProperties) []map[string]any {
 func findProperty(props []map[string]any, name string) map[string]any {
 	for _, prop := range props {
 		if prop["name"] == name {
+			return prop
+		}
+	}
+	return nil
+}
+
+func findPropertyByOwner(props []map[string]any, name string, createdBy string) map[string]any {
+	for _, prop := range props {
+		if prop["name"] == name && prop["created_by"] == createdBy {
 			return prop
 		}
 	}
