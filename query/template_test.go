@@ -43,7 +43,7 @@ func TestMatchQuery(t *testing.T) {
 			"app.kubernetes.io/component":       "backend",
 			"deployment.kubernetes.io/revision": "42",
 		},
-		Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
+		Properties: lo.ToPtr(models.NewOwnedProperties(types.Properties{
 			{Name: "cpu", Text: "2000m"},
 			{Name: "memory", Text: "4Gi"},
 			{Name: "replicas", Value: lo.ToPtr(int64(3))},

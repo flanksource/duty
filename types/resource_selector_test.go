@@ -438,12 +438,12 @@ var _ = Describe("Resource Selector", func() {
 					{FieldSelector: "properties.color=red"},
 				},
 				selectable: models.ConfigItem{
-					Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
+					Properties: lo.ToPtr(models.NewOwnedProperties(types.Properties{
 						{Name: "color", Text: "red"},
 					})),
 				},
 				unselectable: models.ConfigItem{
-					Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
+					Properties: lo.ToPtr(models.NewOwnedProperties(types.Properties{
 						{Name: "color", Text: "green"},
 					})),
 				},
@@ -454,12 +454,12 @@ var _ = Describe("Resource Selector", func() {
 					{FieldSelector: "properties.memory>50"},
 				},
 				selectable: models.ConfigItem{
-					Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
+					Properties: lo.ToPtr(models.NewOwnedProperties(types.Properties{
 						{Name: "memory", Value: lo.ToPtr(int64(64))},
 					})),
 				},
 				unselectable: models.ConfigItem{
-					Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
+					Properties: lo.ToPtr(models.NewOwnedProperties(types.Properties{
 						{Name: "memory", Value: lo.ToPtr(int64(32))},
 					})),
 				},

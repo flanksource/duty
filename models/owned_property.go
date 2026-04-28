@@ -21,31 +21,31 @@ const (
 	PropertyCreatorTypePerson  = "person"
 )
 
-type ConfigItemProperty struct {
+type OwnedProperty struct {
 	types.Property
 
 	CreatedBy   string `json:"created_by,omitempty"`
 	CreatorType string `json:"creator_type,omitempty"`
 }
 
-type ConfigItemProperties []*ConfigItemProperty
+type OwnedProperties []*OwnedProperty
 
-func NewConfigItemProperties(props types.Properties) ConfigItemProperties {
+func NewOwnedProperties(props types.Properties) OwnedProperties {
 	if props == nil {
 		return nil
 	}
 
-	out := make(ConfigItemProperties, len(props))
+	out := make(OwnedProperties, len(props))
 	for i, prop := range props {
 		if prop == nil {
 			continue
 		}
-		out[i] = &ConfigItemProperty{Property: *prop.DeepCopy()}
+		out[i] = &OwnedProperty{Property: *prop.DeepCopy()}
 	}
 	return out
 }
 
-func (p ConfigItemProperties) AsProperties() types.Properties {
+func (p OwnedProperties) AsProperties() types.Properties {
 	if p == nil {
 		return nil
 	}
@@ -60,22 +60,22 @@ func (p ConfigItemProperties) AsProperties() types.Properties {
 	return out
 }
 
-func (m ConfigItemProperties) MarshalJSON() ([]byte, error) {
+func (m OwnedProperties) MarshalJSON() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
-	t := ([]*ConfigItemProperty)(m)
+	t := ([]*OwnedProperty)(m)
 	return json.Marshal(t)
 }
 
-func (m *ConfigItemProperties) UnmarshalJSON(b []byte) error {
-	t := []*ConfigItemProperty{}
+func (m *OwnedProperties) UnmarshalJSON(b []byte) error {
+	t := []*OwnedProperty{}
 	err := json.Unmarshal(b, &t)
-	*m = ConfigItemProperties(t)
+	*m = OwnedProperties(t)
 	return err
 }
 
-func (p ConfigItemProperties) AsJSON() []byte {
+func (p OwnedProperties) AsJSON() []byte {
 	if len(p) == 0 {
 		return []byte("[]")
 	}
@@ -86,16 +86,16 @@ func (p ConfigItemProperties) AsJSON() []byte {
 	return data
 }
 
-func (p ConfigItemProperties) Value() (driver.Value, error) {
+func (p OwnedProperties) Value() (driver.Value, error) {
 	if len(p) == 0 {
 		return nil, nil
 	}
 	return p.AsJSON(), nil
 }
 
-func (p *ConfigItemProperties) Scan(val interface{}) error {
+func (p *OwnedProperties) Scan(val interface{}) error {
 	if val == nil {
-		*p = make(ConfigItemProperties, 0)
+		*p = make(OwnedProperties, 0)
 		return nil
 	}
 	var ba []byte
@@ -108,11 +108,11 @@ func (p *ConfigItemProperties) Scan(val interface{}) error {
 	return json.Unmarshal(ba, p)
 }
 
-func (ConfigItemProperties) GormDataType() string {
+func (OwnedProperties) GormDataType() string {
 	return "config_item_properties"
 }
 
-func (ConfigItemProperties) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (OwnedProperties) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "TEXT"
@@ -124,24 +124,29 @@ func (ConfigItemProperties) GormDBDataType(db *gorm.DB, field *schema.Field) str
 	return ""
 }
 
-func (p ConfigItemProperties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
+func (p OwnedProperties) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	data, _ := json.Marshal(p)
 	return gorm.Expr("?", data)
 }
 
 type UpdateConfigItemPropertiesResult struct {
 	Changed    bool
-	Properties ConfigItemProperties
+	Properties OwnedProperties
 }
 
-func UpdateConfigItemPropertiesForCreator(tx *gorm.DB, configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) (UpdateConfigItemPropertiesResult, error) {
+// UpdateConfigItemProperties replaces only the properties owned by the given
+// creator on a config item. Existing properties from other creators, and legacy
+// properties without ownership metadata, are preserved; incoming properties are
+// stamped with creator_type/created_by before being merged. Passing an empty
+// incoming list removes that creator's owned properties.
+func UpdateConfigItemProperties(tx *gorm.DB, configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) (UpdateConfigItemPropertiesResult, error) {
 	incomingJSON := incoming.AsJSON()
 
 	var result struct {
 		Changed    bool
 		Properties string
 	}
-	if err := tx.Raw(`SELECT changed, properties FROM update_config_item_properties_for_creator(@configID, @creatorType, @createdBy, CAST(@incoming AS jsonb))`,
+	if err := tx.Raw(`SELECT changed, properties FROM update_config_item_properties(@configID, @creatorType, @createdBy, CAST(@incoming AS jsonb))`,
 		stdsql.Named("configID", configID),
 		stdsql.Named("creatorType", creatorType),
 		stdsql.Named("createdBy", createdBy),
@@ -150,7 +155,7 @@ func UpdateConfigItemPropertiesForCreator(tx *gorm.DB, configID uuid.UUID, creat
 		return UpdateConfigItemPropertiesResult{}, err
 	}
 
-	var merged ConfigItemProperties
+	var merged OwnedProperties
 	if result.Properties != "" {
 		if err := json.Unmarshal([]byte(result.Properties), &merged); err != nil {
 			return UpdateConfigItemPropertiesResult{}, fmt.Errorf("unmarshal merged properties: %w", err)

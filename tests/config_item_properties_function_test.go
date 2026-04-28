@@ -12,20 +12,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("update_config_item_properties_for_creator", func() {
+var _ = Describe("update_config_item_properties", func() {
 	It("preserves user, other scraper, and legacy properties", func() {
 		configID := uuid.New()
 		scraperA := uuid.New()
 		scraperB := uuid.New()
 		person := uuid.New()
-		seedConfigItemWithProperties(configID, models.ConfigItemProperties{
+		seedConfigItemWithProperties(configID, models.OwnedProperties{
 			{Property: types.Property{Name: "Owner", Text: "Team"}, CreatorType: models.PropertyCreatorTypePerson, CreatedBy: person.String()},
 			{Property: types.Property{Name: "URL", Text: "old"}, CreatorType: models.PropertyCreatorTypeScraper, CreatedBy: scraperA.String()},
 			{Property: types.Property{Name: "Runbook", Text: "rb"}, CreatorType: models.PropertyCreatorTypeScraper, CreatedBy: scraperB.String()},
 			{Property: types.Property{Name: "Legacy", Text: "keep"}},
 		})
 
-		result := callUpdateConfigItemPropertiesForCreator(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{
+		result := callUpdateConfigItemProperties(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{
 			{Name: "URL", Text: "new"},
 			{Name: "Region", Text: "us-east-1"},
 		})
@@ -43,11 +43,11 @@ var _ = Describe("update_config_item_properties_for_creator", func() {
 	It("returns changed=false with merged properties when no update is needed", func() {
 		configID := uuid.New()
 		scraper := uuid.New()
-		seedConfigItemWithProperties(configID, models.ConfigItemProperties{
+		seedConfigItemWithProperties(configID, models.OwnedProperties{
 			{Property: types.Property{Name: "URL", Text: "new"}, CreatorType: models.PropertyCreatorTypeScraper, CreatedBy: scraper.String()},
 		})
 
-		result := callUpdateConfigItemPropertiesForCreator(configID, models.PropertyCreatorTypeScraper, scraper, types.Properties{{Name: "URL", Text: "new"}})
+		result := callUpdateConfigItemProperties(configID, models.PropertyCreatorTypeScraper, scraper, types.Properties{{Name: "URL", Text: "new"}})
 
 		Expect(result.Changed).To(BeFalse())
 		Expect(findProperty(propertyMaps(result.Properties), "URL")).To(HaveKeyWithValue("created_by", scraper.String()))
@@ -57,13 +57,13 @@ var _ = Describe("update_config_item_properties_for_creator", func() {
 		configID := uuid.New()
 		scraperA := uuid.New()
 		scraperB := uuid.New()
-		seedConfigItemWithProperties(configID, models.ConfigItemProperties{
+		seedConfigItemWithProperties(configID, models.OwnedProperties{
 			{Property: types.Property{Name: "URL", Text: "old"}, CreatorType: models.PropertyCreatorTypeScraper, CreatedBy: scraperA.String()},
 			{Property: types.Property{Name: "Runbook", Text: "rb"}, CreatorType: models.PropertyCreatorTypeScraper, CreatedBy: scraperB.String()},
 			{Property: types.Property{Name: "Legacy", Text: "keep"}},
 		})
 
-		result := callUpdateConfigItemPropertiesForCreator(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{})
+		result := callUpdateConfigItemProperties(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{})
 
 		Expect(result.Changed).To(BeTrue())
 		props := propertyMaps(result.Properties)
@@ -83,11 +83,11 @@ var _ = Describe("update_config_item_properties_for_creator", func() {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			errs <- callUpdateConfigItemPropertiesForCreatorErr(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{{Name: "A", Text: "a"}})
+			errs <- callUpdateConfigItemPropertiesErr(configID, models.PropertyCreatorTypeScraper, scraperA, types.Properties{{Name: "A", Text: "a"}})
 		}()
 		go func() {
 			defer wg.Done()
-			errs <- callUpdateConfigItemPropertiesForCreatorErr(configID, models.PropertyCreatorTypeScraper, scraperB, types.Properties{{Name: "B", Text: "b"}})
+			errs <- callUpdateConfigItemPropertiesErr(configID, models.PropertyCreatorTypeScraper, scraperB, types.Properties{{Name: "B", Text: "b"}})
 		}()
 		wg.Wait()
 		close(errs)
@@ -95,13 +95,13 @@ var _ = Describe("update_config_item_properties_for_creator", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		maps := propertyMaps(getConfigItemProperties(configID))
+		maps := propertyMaps(getOwnedProperties(configID))
 		Expect(findProperty(maps, "A")).To(HaveKeyWithValue("created_by", scraperA.String()))
 		Expect(findProperty(maps, "B")).To(HaveKeyWithValue("created_by", scraperB.String()))
 	})
 })
 
-func seedConfigItemWithProperties(id uuid.UUID, properties models.ConfigItemProperties) {
+func seedConfigItemWithProperties(id uuid.UUID, properties models.OwnedProperties) {
 	configType := "test"
 	config := "{}"
 	Expect(DefaultContext.DB().Create(&models.ConfigItem{
@@ -113,27 +113,27 @@ func seedConfigItemWithProperties(id uuid.UUID, properties models.ConfigItemProp
 	}).Error).To(Succeed())
 }
 
-func getConfigItemProperties(configID uuid.UUID) models.ConfigItemProperties {
+func getOwnedProperties(configID uuid.UUID) models.OwnedProperties {
 	var propertiesJSON string
 	Expect(DefaultContext.DB().Raw(`SELECT COALESCE(properties, '[]'::jsonb)::text FROM config_items WHERE id = ?`, configID).Scan(&propertiesJSON).Error).To(Succeed())
 
-	var props models.ConfigItemProperties
+	var props models.OwnedProperties
 	Expect(json.Unmarshal([]byte(propertiesJSON), &props)).To(Succeed())
 	return props
 }
 
-func callUpdateConfigItemPropertiesForCreator(configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) models.UpdateConfigItemPropertiesResult {
-	result, err := models.UpdateConfigItemPropertiesForCreator(DefaultContext.DB(), configID, creatorType, createdBy, incoming)
+func callUpdateConfigItemProperties(configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) models.UpdateConfigItemPropertiesResult {
+	result, err := models.UpdateConfigItemProperties(DefaultContext.DB(), configID, creatorType, createdBy, incoming)
 	Expect(err).ToNot(HaveOccurred())
 	return result
 }
 
-func callUpdateConfigItemPropertiesForCreatorErr(configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) error {
-	_, err := models.UpdateConfigItemPropertiesForCreator(DefaultContext.DB(), configID, creatorType, createdBy, incoming)
+func callUpdateConfigItemPropertiesErr(configID uuid.UUID, creatorType string, createdBy uuid.UUID, incoming types.Properties) error {
+	_, err := models.UpdateConfigItemProperties(DefaultContext.DB(), configID, creatorType, createdBy, incoming)
 	return err
 }
 
-func propertyMaps(props models.ConfigItemProperties) []map[string]any {
+func propertyMaps(props models.OwnedProperties) []map[string]any {
 	data, err := json.Marshal(props)
 	Expect(err).ToNot(HaveOccurred())
 	var result []map[string]any

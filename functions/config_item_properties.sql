@@ -1,4 +1,8 @@
-CREATE OR REPLACE FUNCTION update_config_item_properties_for_creator(
+-- Replaces the config item's properties owned by (p_creator_type, p_created_by)
+-- with p_properties stamped with that ownership. Properties owned by other
+-- creators, and legacy properties without ownership metadata, are preserved;
+-- passing an empty/null p_properties removes this creator's owned properties.
+CREATE OR REPLACE FUNCTION update_config_item_properties(
   p_config_id uuid,
   p_creator_type text,
   p_created_by uuid,
