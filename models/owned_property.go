@@ -146,13 +146,17 @@ func UpdateConfigItemProperties(tx *gorm.DB, configID uuid.UUID, creatorType str
 		Changed    bool
 		Properties string
 	}
-	if err := tx.Raw(`SELECT changed, properties FROM update_config_item_properties(@configID, @creatorType, @createdBy, CAST(@incoming AS jsonb))`,
+	q := tx.Raw(`SELECT changed, properties FROM update_config_item_properties(@configID, @creatorType, @createdBy, CAST(@incoming AS jsonb))`,
 		stdsql.Named("configID", configID),
 		stdsql.Named("creatorType", creatorType),
 		stdsql.Named("createdBy", createdBy),
 		stdsql.Named("incoming", string(incomingJSON)),
-	).Scan(&result).Error; err != nil {
-		return UpdateConfigItemPropertiesResult{}, err
+	).Scan(&result)
+	if q.Error != nil {
+		return UpdateConfigItemPropertiesResult{}, q.Error
+	}
+	if q.RowsAffected == 0 {
+		return UpdateConfigItemPropertiesResult{}, fmt.Errorf("config item not found: %s", configID)
 	}
 
 	var merged OwnedProperties

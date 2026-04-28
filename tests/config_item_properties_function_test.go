@@ -53,6 +53,15 @@ var _ = Describe("update_config_item_properties", func() {
 		Expect(findProperty(propertyMaps(result.Properties), "URL")).To(HaveKeyWithValue("created_by", scraper.String()))
 	})
 
+	It("returns an error when the config item does not exist", func() {
+		missingID := uuid.New()
+		scraper := uuid.New()
+
+		err := callUpdateConfigItemPropertiesErr(missingID, models.PropertyCreatorTypeScraper, scraper, types.Properties{{Name: "URL", Text: "new"}})
+
+		Expect(err).To(MatchError(ContainSubstring("config item not found: " + missingID.String())))
+	})
+
 	It("removes creator-owned properties when incoming properties are empty", func() {
 		configID := uuid.New()
 		scraperA := uuid.New()
