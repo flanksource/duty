@@ -156,6 +156,7 @@ type ConfigItem struct {
 	Tags          types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
 	Properties    *types.Properties    `json:"properties,omitempty"`
 	CreatedAt     time.Time            `json:"created_at" gorm:"<-:create"`
+	InsertedAt    time.Time            `json:"inserted_at" gorm:"->;default:now()"`
 	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
 	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
 	DeleteReason  string               `json:"delete_reason,omitempty"`
