@@ -78,9 +78,9 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 		"cluster":      "demo",
 		"subscription": "018fbd67-bb86-90e1-07c9-243eedc73892",
 	}),
-	Properties: &types.Properties{
+	Properties: lo.ToPtr(models.NewConfigItemProperties(types.Properties{
 		{Name: "memory", Value: lo.ToPtr(int64(64))},
-	},
+	})),
 	CostTotal30d: 100,
 }
 

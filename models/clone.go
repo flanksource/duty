@@ -38,7 +38,7 @@ func (config ConfigItem) Clone() ConfigItem {
 	clone.ParentID = clonePtr(config.ParentID)
 	clone.Labels = cloneJSONStringMapPtr(config.Labels)
 	clone.Tags = maps.Clone(config.Tags)
-	clone.Properties = cloneTypePropertiesPtr(config.Properties)
+	clone.Properties = cloneConfigItemPropertiesPtr(config.Properties)
 	clone.UpdatedAt = clonePtr(config.UpdatedAt)
 	clone.DeletedAt = clonePtr(config.DeletedAt)
 	clone.configJson = cloneAnyMap(config.configJson)
@@ -128,21 +128,28 @@ func cloneModelProperties(in Properties) Properties {
 	return out
 }
 
-func cloneTypePropertiesPtr(in *types.Properties) *types.Properties {
+func cloneConfigItemPropertiesPtr(in *ConfigItemProperties) *ConfigItemProperties {
 	if in == nil {
 		return nil
 	}
-	out := cloneTypeProperties(*in)
+	out := cloneConfigItemProperties(*in)
 	return &out
 }
 
-func cloneTypeProperties(in types.Properties) types.Properties {
+func cloneConfigItemProperties(in ConfigItemProperties) ConfigItemProperties {
 	if in == nil {
 		return nil
 	}
-	out := make(types.Properties, len(in))
+	out := make(ConfigItemProperties, len(in))
 	for i, property := range in {
-		out[i] = property.DeepCopy()
+		if property == nil {
+			continue
+		}
+		out[i] = &ConfigItemProperty{
+			Property:    *property.Property.DeepCopy(),
+			CreatedBy:   property.CreatedBy,
+			CreatorType: property.CreatorType,
+		}
 	}
 	return out
 }
