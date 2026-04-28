@@ -116,14 +116,21 @@ BEGIN
     ) AS incoming
     FROM jsonb_array_elements(COALESCE(p_properties, '[]'::jsonb))
       WITH ORDINALITY AS incoming(prop, ord)
-  ), computed AS (
+  ), locked AS (
     SELECT
       ci.id,
-      ci.properties AS current_properties,
+      COALESCE(ci.properties, '[]'::jsonb) AS current_properties
+    FROM config_items ci
+    WHERE ci.id = p_config_id
+    FOR UPDATE
+  ), computed AS (
+    SELECT
+      locked.id,
+      locked.current_properties,
       COALESCE(
         (
           SELECT jsonb_agg(prop ORDER BY ord)
-          FROM jsonb_array_elements(COALESCE(ci.properties, '[]'::jsonb))
+          FROM jsonb_array_elements(locked.current_properties)
             WITH ORDINALITY AS existing(prop, ord)
           WHERE (
             prop->>'creator_type' = p_creator_type
@@ -132,9 +139,8 @@ BEGIN
         ),
         '[]'::jsonb
       ) || stamped.incoming AS new_properties
-    FROM config_items ci
+    FROM locked
     CROSS JOIN stamped
-    WHERE ci.id = p_config_id
   ), updated AS (
     UPDATE config_items ci
     SET properties = computed.new_properties

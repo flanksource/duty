@@ -102,6 +102,8 @@ func (p *OwnedProperties) Scan(val interface{}) error {
 	switch v := val.(type) {
 	case []byte:
 		ba = v
+	case string:
+		ba = []byte(v)
 	default:
 		return errors.New(fmt.Sprint("Failed to unmarshal config item properties value:", val))
 	}
