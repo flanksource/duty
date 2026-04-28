@@ -26,7 +26,7 @@ var _ = ginkgo.Describe("AsMap", func() {
 				}`),
 			}
 
-			removeFields := []string{"updated_at", "health", "created_at", "config_class", "last_scraped_time"}
+			removeFields := []string{"updated_at", "health", "created_at", "config_class", "last_scraped_time", "inserted_at"}
 			want := map[string]any{
 				"name":        "dummy-canary",
 				"agent_id":    "00000000-0000-0000-0000-000000000000",
