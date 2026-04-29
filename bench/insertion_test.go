@@ -12,13 +12,14 @@ import (
 )
 
 const (
-	benchAliasUserNamePrefix   = "bench-alias-user-"
-	benchAliasScraperName      = "bench-alias-trigger-scraper"
-	benchAliasConfigType       = "Bench::AliasTrigger"
-	benchPropertyConfigType    = "Bench::Properties"
-	benchPropertyUpdateType    = "Bench::PropertiesUpdate"
-	benchPropertyPayloadLength = 16 * 1024
-	benchPropertyCount         = 6
+	benchAliasUserNamePrefix    = "bench-alias-user-"
+	benchAliasScraperName       = "bench-alias-trigger-scraper"
+	benchAliasConfigType        = "Bench::AliasTrigger"
+	benchPropertyConfigType     = "Bench::Properties"
+	benchPropertyUpdateType     = "Bench::PropertiesUpdate"
+	benchPropertyPayloadLength  = 16 * 1024
+	benchPropertyCount          = 6
+	benchPropertyUpdatePoolSize = 100
 )
 
 func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
@@ -74,11 +75,10 @@ func BenchmarkInsertionOfConfigsWithProperties(b *testing.B) {
 	cleanupConfigItemBenchRows(b)
 	configType := benchPropertyConfigType
 	propertyPayload := strings.Repeat("x", benchPropertyPayloadLength)
+	properties := buildBenchProperties(0, propertyPayload)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		name := fmt.Sprintf("bench-config-with-properties-%d", i)
-		properties := buildBenchProperties(i, propertyPayload)
 		item := models.ConfigItem{
 			ID:          uuid.New(),
 			ConfigClass: models.ConfigClassNode,
@@ -101,11 +101,13 @@ func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
 	configType := benchPropertyUpdateType
 	insertPayload := strings.Repeat("x", benchPropertyPayloadLength)
 	updatePayload := strings.Repeat("y", benchPropertyPayloadLength)
-	configIDs := make([]uuid.UUID, b.N)
+	insertProperties := buildBenchProperties(0, insertPayload)
+	updateProperties := buildBenchProperties(1, updatePayload)
+	configIDs := make([]uuid.UUID, benchPropertyUpdatePoolSize)
 
-	for i := 0; i < b.N; i++ {
+	for i := range benchPropertyUpdatePoolSize {
 		name := fmt.Sprintf("bench-config-update-properties-%d", i)
-		properties := buildBenchProperties(i, insertPayload)
+		properties := insertProperties
 		item := models.ConfigItem{
 			ID:          uuid.New(),
 			ConfigClass: models.ConfigClassNode,
@@ -120,14 +122,13 @@ func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
 		configIDs[i] = item.ID
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; b.Loop(); i++ {
 		name := fmt.Sprintf("bench-config-updated-properties-%d", i)
 		description := fmt.Sprintf("updated config item with properties %d", i)
-		properties := buildBenchProperties(i+b.N, updatePayload)
+		properties := updateProperties
 
 		if err := testCtx.DB().Model(&models.ConfigItem{}).
-			Where("id = ?", configIDs[i]).
+			Where("id = ?", configIDs[i%len(configIDs)]).
 			Updates(map[string]any{
 				"name":        name,
 				"description": description,
@@ -142,7 +143,7 @@ func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
 
 func buildBenchProperties(seed int, payload string) types.Properties {
 	properties := make(types.Properties, 0, benchPropertyCount)
-	for i := 0; i < benchPropertyCount; i++ {
+	for i := range benchPropertyCount {
 		properties = append(properties, &types.Property{
 			Name:    fmt.Sprintf("bench-property-%d", i),
 			Label:   fmt.Sprintf("Bench Property %d", i),
