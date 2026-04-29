@@ -3,6 +3,7 @@ package echo
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -151,7 +152,7 @@ func AddDebugHandlers(ctx context.Context, e *echo.Echo, rbac echo.MiddlewareFun
 
 	debug.GET("/cron", CronDetailsHandler())
 
-	if period := properties.Duration(0, "memory.stats"); period > 0 {
+	if period := properties.Duration(0, api.PropertyMemoryStats); period > 0 {
 		timer := timer.NewMemoryTimer()
 		go func() {
 			for {

@@ -2,6 +2,7 @@ package context
 
 import (
 	"fmt"
+	"github.com/flanksource/duty/api"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/artifact"
@@ -17,7 +18,7 @@ var BlobStoreProvider func(ctx Context, connURL string) (artifact.BlobStore, err
 // If an artifacts.connection property is configured and a provider is registered,
 // it returns the external backend. Otherwise it returns the inline DB-backed store.
 func (k Context) Blobs() (artifact.BlobStore, error) {
-	connURL := k.Properties().String("artifacts.connection", "")
+	connURL := k.Properties().String(api.PropertyArtifactsConnection, "")
 	if connURL == "" {
 		blobsLogger.Infof("Initializing inline blob store")
 		store := artifact.NewBlobStore(artifact.NewInlineStore(k.DB()), k.DB(), "inline")

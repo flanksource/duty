@@ -4,6 +4,7 @@ import (
 	gocontext "context"
 	"errors"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"log"
 	"os"
 	"strings"
@@ -99,7 +100,7 @@ func Register(
 	electionConfig := leaderelection.LeaderElectionConfig{
 		Lock:            lock,
 		ReleaseOnCancel: true,
-		LeaseDuration:   ctx.Properties().Duration("leader.lease.duration", 30*time.Second),
+		LeaseDuration:   ctx.Properties().Duration(api.PropertyLeaderLeaseDuration, 30*time.Second),
 		RenewDeadline:   15 * time.Second,
 		RetryPeriod:     5 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{

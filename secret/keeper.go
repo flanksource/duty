@@ -2,6 +2,7 @@ package secret
 
 import (
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"sync"
 	"time"
 
@@ -66,7 +67,7 @@ func createOrGetKeeper(ctx context.Context) (*secrets.Keeper, error) {
 		return nil, err
 	}
 
-	ttl := ctx.Properties().Duration("secretkeeper.cache.ttl", defaultKeeperTTL)
+	ttl := ctx.Properties().Duration(api.PropertySecretKeeperCacheTTL, defaultKeeperTTL)
 	keeperCache.Set("keeper", keeper, ttl)
 	return keeper, nil
 }

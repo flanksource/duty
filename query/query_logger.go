@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"reflect"
 	"slices"
 	"strings"
@@ -72,7 +73,7 @@ type QueryTimer struct {
 
 func NewQueryLogger(ctx context.Context) QueryLogger {
 	l := ctx.Logger.V(3)
-	if ctx.Properties().On(false, "query.log") {
+	if ctx.Properties().On(false, api.PropertyQueryLog) {
 		l = ctx.Logger.V(0)
 	}
 	return QueryLogger{logger: l, queryLog: GetQueryLog(ctx)}

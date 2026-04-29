@@ -8,6 +8,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	testPropertyInt      = "property1"
+	testPropertyDuration = "duration1"
+)
+
 var _ = Describe("Properties", Ordered, func() {
 	BeforeAll(func() {
 		Expect(DefaultContext.DB().Exec("TRUNCATE properties").Error).ToNot(HaveOccurred())
@@ -26,14 +31,14 @@ var _ = Describe("Properties", Ordered, func() {
 	})
 
 	It("Should default int values", func() {
-		Expect(DefaultContext.Properties().Int("property1", 10)).To(Equal(10))
-		Expect(context.UpdateProperty(DefaultContext, "property1", "20")).Error().ToNot(HaveOccurred())
-		Expect(DefaultContext.Properties().Int("property1", 10)).To(Equal(20))
+		Expect(DefaultContext.Properties().Int(testPropertyInt, 10)).To(Equal(10))
+		Expect(context.UpdateProperty(DefaultContext, testPropertyInt, "20")).Error().ToNot(HaveOccurred())
+		Expect(DefaultContext.Properties().Int(testPropertyInt, 10)).To(Equal(20))
 	})
 
 	It("Should default duration values", func() {
-		Expect(DefaultContext.Properties().Duration("duration1", 1*time.Minute)).To(Equal(1 * time.Minute))
-		Expect(context.UpdateProperty(DefaultContext, "duration1", "5m")).Error().ToNot(HaveOccurred())
-		Expect(DefaultContext.Properties().Duration("duration1", 1*time.Minute)).To(Equal(5 * time.Minute))
+		Expect(DefaultContext.Properties().Duration(testPropertyDuration, 1*time.Minute)).To(Equal(1 * time.Minute))
+		Expect(context.UpdateProperty(DefaultContext, testPropertyDuration, "5m")).Error().ToNot(HaveOccurred())
+		Expect(DefaultContext.Properties().Duration(testPropertyDuration, 1*time.Minute)).To(Equal(5 * time.Minute))
 	})
 })

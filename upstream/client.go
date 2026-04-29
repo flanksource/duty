@@ -154,7 +154,7 @@ func (t *UpstreamClient) ListViews(ctx context.Context, views []ViewIdentifier) 
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
-	t.cache.Set(cacheKey, result, ctx.Properties().Duration("upstream.client.cache.view-columns.duration", gocache.DefaultExpiration))
+	t.cache.Set(cacheKey, result, ctx.Properties().Duration(api.PropertyUpstreamClientCacheViewColumns, gocache.DefaultExpiration))
 	return result, nil
 }
 

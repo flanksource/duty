@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"github.com/flanksource/duty/api"
 	"sync/atomic"
 	"time"
 
@@ -32,8 +33,8 @@ var _ = Describe("Job", Ordered, func() {
 		}
 		_ = context.UpdateProperty(ctx, "test.trace", "true")
 		_ = context.UpdateProperty(ctx, "test.db.level", "trace")
-		_ = context.UpdateProperty(ctx, "job.eviction.period", "1s")
-		_ = context.UpdateProperty(ctx, "job.jitter.disable", "true")
+		_ = context.UpdateProperty(ctx, api.PropertyJobEvictionPeriod, "1s")
+		_ = context.UpdateProperty(ctx, api.PropertyJobJitterDisable, "true")
 
 		sampleJob.Run()
 		Expect(sampleJob.Retention.Success).To(Equal(1))

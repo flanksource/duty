@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (va
 	if input.IsEmpty() {
 		return "", nil
 	}
-	ctx, cancel := ctx.WithTimeout(ctx.Properties().Duration("envvar.lookup.timeout", 5*time.Second))
+	ctx, cancel := ctx.WithTimeout(ctx.Properties().Duration(api.PropertyEnvvarLookupTimeout, 5*time.Second))
 	defer cancel()
 	if namespace == "" {
 		namespace = ctx.GetNamespace()
@@ -57,7 +58,7 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (va
 
 	if err != nil {
 		ctx.Logger.V(3).Infof("lookup[%s] failed %s => %s", input.Name, source, err.Error())
-	} else if ctx.Logger.IsLevelEnabled(2) && properties.On(false, "envvar.lookup.log") {
+	} else if ctx.Logger.IsLevelEnabled(2) && properties.On(false, api.PropertyEnvvarLookupLog) {
 		ctx.Logger.V(5).Infof("lookup[%s] %s => %s", input.Name, source, logger.PrintableSecret(value))
 	}
 
@@ -157,7 +158,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		}
 	}
 
-	envCache.Set(id, val, ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)))
+	envCache.Set(id, val, ctx.Properties().Duration(api.PropertyEnvvarHelmCacheTimeout, ctx.Properties().Duration(api.PropertyEnvvarCacheTimeout, 5*time.Minute)))
 	return val, nil
 }
 
@@ -188,7 +189,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if !ok {
 		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
-	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
+	envCache.Set(id, string(value), ctx.Properties().Duration(api.PropertyEnvvarCacheTimeout, 5*time.Minute))
 	return string(value), nil
 }
 
@@ -214,7 +215,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
 			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
-	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
+	envCache.Set(id, string(value), ctx.Properties().Duration(api.PropertyEnvvarCacheTimeout, 5*time.Minute))
 	return string(value), nil
 }
 

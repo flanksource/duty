@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"sort"
 	"strings"
 	"time"
@@ -243,7 +244,7 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 
 	if !params.NoCache {
 		data, _ := json.Marshal(response)
-		topologyCache.Set(cacheKey, data, ctx.Properties().Duration("topology.cache.age", time.Minute*5))
+		topologyCache.Set(cacheKey, data, ctx.Properties().Duration(api.PropertyTopologyCacheAge, time.Minute*5))
 	}
 	return response, nil
 }
@@ -251,7 +252,7 @@ func fetchAllComponents(ctx context.Context, params TopologyOptions) (TopologyRe
 func Topology(ctx context.Context, params TopologyOptions) (*TopologyResponse, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel gocontext.CancelFunc
-		ctx, cancel = ctx.WithTimeout(ctx.Properties().Duration("topology.query.timeout", DefaultQueryTimeout))
+		ctx, cancel = ctx.WithTimeout(ctx.Properties().Duration(api.PropertyTopologyQueryTimeout, DefaultQueryTimeout))
 		defer cancel()
 	}
 	ctx, span := ctx.StartSpan("TopologyQuery")

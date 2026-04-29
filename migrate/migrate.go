@@ -26,7 +26,7 @@ import (
 func RunMigrations(pool *sql.DB, config api.Config) error {
 	l := logger.GetLogger("migrate")
 
-	if properties.On(false, "db.migrate.skip") {
+	if properties.On(false, api.PropertyDBMigrateSkip) {
 		return nil
 	}
 

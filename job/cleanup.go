@@ -2,6 +2,7 @@ package job
 
 import (
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"time"
 
 	"github.com/flanksource/commons/properties"
@@ -38,7 +39,7 @@ func CleanupStaleHistory(
 }
 
 func CleanupStaleAgentHistory(ctx context.Context, itemsToRetain int) (int, error) {
-	batchSize := properties.Int(2000, "job_history.agent_cleanup.batch_size")
+	batchSize := properties.Int(2000, api.PropertyJobHistoryAgentCleanupBatchSize)
 	query := fmt.Sprintf(`
         WITH grouped_history AS (
             SELECT

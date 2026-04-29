@@ -78,7 +78,7 @@ func (fks ForeignKeyErrorSummary) MarshalJSON() ([]byte, error) {
 		return []byte(`null`), nil
 	}
 	// Display less IDs to keep UI consistent
-	idLimit := properties.Int(FKErrorIDCount, "upstream.summary.fkerror_id_count")
+	idLimit := properties.Int(FKErrorIDCount, api.PropertyUpstreamSummaryFKErrorIDCount)
 	fks.ids = lo.Slice(fks.ids, 0, idLimit)
 	if len(fks.ids) >= idLimit {
 		fks.ids = append(fks.ids, "...")
@@ -335,7 +335,7 @@ func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableT
 
 		count += len(items)
 
-		batchSize := ctx.Properties().Int("update_is_pushed.batch.size", 200)
+		batchSize := ctx.Properties().Int(api.PropertyUpdateIsPushedBatchSize, 200)
 		for _, batch := range lo.Chunk(items, batchSize) {
 			backoff := retry.WithJitter(time.Second, retry.WithMaxRetries(3, retry.NewExponential(time.Second)))
 			err = retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
@@ -381,7 +381,7 @@ func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableT
 }
 
 func ResetIsPushed(ctx context.Context) error {
-	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 7)
+	intervalDays := ctx.Properties().Int(api.PropertyJobResetIsPushedIntervalDays, 7)
 
 	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
 	overrides := map[string]string{
@@ -394,7 +394,7 @@ func ResetIsPushed(ctx context.Context) error {
 		models.ConfigItemLastScrapedTime{}.TableName(): defQuery, // We need default query without deleted_at
 	}
 
-	if !ctx.Properties().On(false, "job.ResetIsPushed.ignore_deleted_at") {
+	if !ctx.Properties().On(false, api.PropertyJobResetIsPushedIgnoreDeletedAt) {
 		defQuery += " AND deleted_at IS NULL"
 	}
 

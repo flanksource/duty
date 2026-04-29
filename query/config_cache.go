@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"math/rand/v2"
 	"time"
 
@@ -45,8 +46,8 @@ func randomDurationBetween(minDur, maxDur time.Duration) time.Duration {
 }
 
 func genConfigTraversalCacheExpiry() store.Option {
-	expiryWindowMin := properties.Duration(2*time.Hour, "config.traversal.cache_expiry.min")
-	expiryWindowMax := properties.Duration(4*time.Hour, "config.traversal.cache_expiry.max")
+	expiryWindowMin := properties.Duration(2*time.Hour, api.PropertyConfigTraversalCacheExpiryMin)
+	expiryWindowMax := properties.Duration(4*time.Hour, api.PropertyConfigTraversalCacheExpiryMax)
 	return store.WithExpiration(randomDurationBetween(expiryWindowMin, expiryWindowMax))
 }
 

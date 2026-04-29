@@ -46,9 +46,13 @@ fmt:
 	go fmt ./...
 
 .PHONY: lint
-lint: golangci-lint
+lint: golangci-lint property-lint
 	$(GOLANGCI_LINT) run ./...
 	go vet ./...
+
+.PHONY: property-lint
+property-lint:
+	go run ./hack/propertylint .
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.

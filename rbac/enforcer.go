@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flanksource/duty/api"
+
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
@@ -73,9 +75,9 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 		ctx.Errorf("Failed to load existing policies: %v", err)
 	}
 
-	enforcer.SetExpireTime(ctx.Properties().Duration("casbin.cache.expiry", 1*time.Minute))
-	enforcer.EnableCache(ctx.Properties().On(true, "casbin.cache"))
-	if ctx.Properties().Int("casbin.log.level", 1) >= 2 {
+	enforcer.SetExpireTime(ctx.Properties().Duration(api.PropertyCasbinCacheExpiry, 1*time.Minute))
+	enforcer.EnableCache(ctx.Properties().On(true, api.PropertyCasbinCache))
+	if ctx.Properties().Int(api.PropertyCasbinLogLevel, 1) >= 2 {
 		enforcer.EnableLog(true)
 	}
 
@@ -93,7 +95,7 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 		return fmt.Errorf("unable to load default policies: %v", err)
 	}
 
-	enforcer.EnableAutoSave(ctx.Properties().On(true, "casbin.auto.save"))
+	enforcer.EnableAutoSave(ctx.Properties().On(true, api.PropertyCasbinAutoSave))
 
 	// Adding policies in a loop is important
 	// If we use Enforcer.AddPolicies(), new policies do not get saved
@@ -110,7 +112,7 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 		}
 	}
 
-	enforcer.StartAutoLoadPolicy(ctx.Properties().Duration("casbin.cache.reload.interval", 5*time.Minute))
+	enforcer.StartAutoLoadPolicy(ctx.Properties().Duration(api.PropertyCasbinCacheReloadInterval, 5*time.Minute))
 
 	return nil
 }
@@ -184,7 +186,7 @@ func Check(ctx context.Context, subject, object, action string) bool {
 		}
 	}
 
-	if ctx.Properties().On(false, "casbin.explain") {
+	if ctx.Properties().On(false, api.PropertyCasbinExplain) {
 		allowed, rules, err := enforcer.EnforceEx(subject, object, action)
 		if err != nil {
 			ctx.Errorf("failed run explained enforcer for user=%s, object=%s, action=%s: %v", subject, object, action, err)
@@ -226,7 +228,7 @@ func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribu
 		return true
 	}
 
-	if ctx.Properties().On(false, "casbin.explain") {
+	if ctx.Properties().On(false, api.PropertyCasbinExplain) {
 		allowed, rules, err := enforcer.EnforceEx(subject, attr, action)
 		if err != nil {
 			ctx.Errorf("failed run explained enforcer for subject=%s, action=%s: %v", subject, action, err)

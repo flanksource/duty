@@ -2,6 +2,7 @@ package shell
 
 import (
 	gocontext "context"
+	"github.com/flanksource/duty/api"
 	osExec "os/exec"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 )
 
 func JQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.jq.timeout"))
+	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, api.PropertyShellJQTimeout))
 	defer cancel()
 
 	cmd := osExec.CommandContext(_ctx, "jq", script, path)
@@ -26,7 +27,7 @@ func JQ(ctx context.Context, path string, script string) (string, error) {
 }
 
 func YQ(ctx context.Context, path string, script string) (string, error) {
-	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, "shell.yq.timeout", "shell.jq.timeout"))
+	_ctx, cancel := gocontext.WithTimeout(ctx, properties.Duration(5*time.Second, api.PropertyShellYQTimeout, api.PropertyShellJQTimeout))
 	defer cancel()
 
 	cmd := osExec.CommandContext(_ctx, "yq", script, path)

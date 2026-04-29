@@ -6,6 +6,7 @@ import (
 	"container/list"
 	"context"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"io"
 	"os"
 	"strings"
@@ -276,7 +277,7 @@ func (c *Client) GetRestMapper() (meta.RESTMapper, error) {
 	host = strings.ReplaceAll(host, "-", "_")
 	host = strings.ReplaceAll(host, ":", "_")
 	cacheDir := os.ExpandEnv("$HOME/.kube/cache/discovery/" + host)
-	timeout := properties.Duration(240*time.Minute, "kubernetes.cache.timeout")
+	timeout := properties.Duration(240*time.Minute, api.PropertyKubernetesCacheTimeout)
 	c.logger.V(3).Infof("creating new rest mapper with cache dir: %s and timeout: %s", cacheDir, timeout)
 	cache, err := disk.NewCachedDiscoveryClientForConfig(
 		c.Config,

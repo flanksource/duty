@@ -359,7 +359,7 @@ func verifyKratosMigration(db *gorm.DB) error {
 }
 
 func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
-	postgrestTimeout := ctx.Properties().Duration("db.postgrest.timeout", 1*time.Minute)
+	postgrestTimeout := ctx.Properties().Duration(api.PropertyDBPostgrestTimeout, 1*time.Minute)
 
 	if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, config.Postgrest.DBRole, postgrestTimeout.Seconds())).Error; err != nil {
 		logger.Errorf(err.Error())
@@ -371,7 +371,7 @@ func setStatementTimeouts(ctx dutyContext.Context, config api.Config) {
 		}
 	}
 
-	statementTimeout := ctx.Properties().Duration("db.connection.timeout", 1*time.Hour)
+	statementTimeout := ctx.Properties().Duration(api.PropertyDBConnectionTimeout, 1*time.Hour)
 	if username := config.GetUsername(); username != "" {
 		if err := ctx.DB().Raw(fmt.Sprintf(`ALTER ROLE %s SET statement_timeout = '%0fs'`, username, statementTimeout.Seconds())).Error; err != nil {
 			logger.Errorf(err.Error())

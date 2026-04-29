@@ -367,7 +367,7 @@ func queryResourceSelector[T any](
 	}
 
 	queryLogger := ctx.Logger.V(3)
-	if ctx.Properties().On(false, "query.log") {
+	if ctx.Properties().On(false, api.PropertyQueryLog) {
 		queryLogger = ctx.Logger.V(0)
 	}
 
@@ -425,7 +425,7 @@ func queryResourceSelector[T any](
 		return nil, err
 	}
 
-	if ctx.Properties().String("log.level.resourceSelector", "") != "" {
+	if ctx.Properties().String(api.PropertyLogLevelResourceSelector, "") != "" {
 		ctx.WithName("resourceSelector").Logger.WithValues("cacheKey", cacheKey).Tracef("query: %s", query.ToSQL(func(tx *gorm.DB) *gorm.DB {
 			return tx.Find(&[]T{})
 		}))

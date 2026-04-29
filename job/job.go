@@ -4,6 +4,7 @@ import (
 	"container/ring"
 	gocontext "context"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -30,6 +31,15 @@ const (
 	ResourceTypePlaybook      = "playbook"
 	ResourceTypeScraper       = "config_scraper"
 	ResourceTypeUpstream      = "upstream"
+
+	propertyNameSeparator = "."
+
+	jobPropertyDebug     = "debug"
+	jobPropertyDisable   = "disable"
+	jobPropertyDisabled  = "disabled"
+	jobPropertyHistory   = "history"
+	jobPropertySingleton = "singleton"
+	jobPropertyTrace     = "trace"
 )
 
 const (
@@ -69,7 +79,7 @@ func StartJobHistoryEvictor(ctx context.Context) {
 // deleteEvictedJobs deletes job_history rows from the DB every job.eviction.period(1m),
 // jobs send rows to be deleted by maintaining a circular buffer by status type
 func deleteEvictedJobs(ctx context.Context) {
-	period := ctx.Properties().Duration("job.eviction.period", time.Minute)
+	period := ctx.Properties().Duration(api.PropertyJobEvictionPeriod, time.Minute)
 	ctx = ctx.WithoutTracing().WithName("jobs").WithDBLogger("jobs", logger.Trace1)
 	ctx.Infof("Cleaning up jobs every %v", period)
 	for {
@@ -358,7 +368,7 @@ func (j *Job) SetID(id string) *Job {
 }
 
 func (j *Job) Run() {
-	if !j.Context.Properties().On(false, "job.jitter.disable") && !j.JitterDisable && j.Schedule != "" {
+	if !j.Context.Properties().On(false, api.PropertyJobJitterDisable) && !j.JitterDisable && j.Schedule != "" {
 		// Attempt to get a fixed interval from the schedule to measure the appropriate jitter.
 		// NOTE: Only works for fixed interval schedules.
 		parsedSchedule, err := cron.ParseStandard(j.Schedule)
@@ -398,7 +408,7 @@ func (j *Job) Run() {
 		return
 	}
 
-	if j.Properties().On(false, j.getPropertyNames("disable")...) || j.Properties().On(false, j.getPropertyNames("disabled")...) {
+	if j.Properties().On(false, j.getPropertyNames(jobPropertyDisable)...) || j.Properties().On(false, j.getPropertyNames(jobPropertyDisabled)...) {
 		ctx.Tracef("job disabled via properties")
 		return
 	}
@@ -461,11 +471,11 @@ func (j *Job) getPropertyNames(key string) []string {
 }
 
 func (j *Job) GetProperty(property string) (string, bool) {
-	if val := j.Context.Properties().String("jobs."+j.Name+"."+property, ""); val != "" {
+	if val := j.Context.Properties().String(strings.Join([]string{api.PropertyJobsPrefix + j.Name, property}, propertyNameSeparator), ""); val != "" {
 		return val, true
 	}
 	if j.ID != "" {
-		if val := j.Context.Properties().String(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), ""); val != "" {
+		if val := j.Context.Properties().String(strings.Join([]string{api.PropertyJobsPrefix + j.Name, j.ID, property}, propertyNameSeparator), ""); val != "" {
 			return val, true
 		}
 	}
@@ -473,11 +483,11 @@ func (j *Job) GetProperty(property string) (string, bool) {
 }
 
 func (j *Job) GetPropertyInt(property string, def int) int {
-	if val := j.Context.Properties().Int("jobs."+j.Name+"."+property, def); val != def {
+	if val := j.Context.Properties().Int(strings.Join([]string{api.PropertyJobsPrefix + j.Name, property}, propertyNameSeparator), def); val != def {
 		return val
 	}
 	if j.ID != "" {
-		if val := j.Context.Properties().Int(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), def); val != def {
+		if val := j.Context.Properties().Int(strings.Join([]string{api.PropertyJobsPrefix + j.Name, j.ID, property}, propertyNameSeparator), def); val != def {
 			return val
 		}
 	}
@@ -505,13 +515,13 @@ func (j *Job) init() error {
 		j.Timeout = duration
 	}
 
-	j.JobHistory = j.Properties().On(true, j.getPropertyNames("history")...)
+	j.JobHistory = j.Properties().On(true, j.getPropertyNames(jobPropertyHistory)...)
 	j.Retention.Success = j.GetPropertyInt("retention.success", j.Retention.Success)
 	j.Retention.Failed = j.GetPropertyInt("retention.failed", j.Retention.Failed)
 
-	j.Trace = j.Properties().On(false, j.getPropertyNames("trace")...)
-	j.Debug = j.Properties().On(false, j.getPropertyNames("debug")...)
-	j.Singleton = j.Properties().On(j.Singleton, j.getPropertyNames("singleton")...)
+	j.Trace = j.Properties().On(false, j.getPropertyNames(jobPropertyTrace)...)
+	j.Debug = j.Properties().On(false, j.getPropertyNames(jobPropertyDebug)...)
+	j.Singleton = j.Properties().On(j.Singleton, j.getPropertyNames(jobPropertySingleton)...)
 
 	// Set default retention if it is unset
 	if j.Retention.Empty() {

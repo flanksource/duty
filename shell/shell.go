@@ -3,6 +3,7 @@ package shell
 import (
 	"bytes"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"io"
 	"maps"
 	"os"
@@ -55,7 +56,7 @@ var allowedEnvVars = map[string]struct{}{
 }
 
 func init() {
-	for _, env := range strings.Split(properties.String("", "shell.allowed.envs"), ",") {
+	for _, env := range strings.Split(properties.String("", api.PropertyShellAllowedEnvs), ",") {
 		logger.V(5).Infof("allowing env var %s", env)
 		allowedEnvVars[env] = struct{}{}
 	}
@@ -166,7 +167,7 @@ func runPreparedCmd(ctx context.Context, exec Exec, cmd *osExec.Cmd, cmdCtx *com
 	} else {
 		ctx = ctx.WithLoggingValues("connection", setupResult)
 		defer func() {
-			if waitBeforeCleanup := ctx.Properties().Duration("shell.connection.wait_before_cleanup", 0); waitBeforeCleanup > 0 {
+			if waitBeforeCleanup := ctx.Properties().Duration(api.PropertyShellConnectionWaitBeforeCleanup, 0); waitBeforeCleanup > 0 {
 				time.Sleep(waitBeforeCleanup)
 			}
 			if err := setupResult.Cleanup(); err != nil {

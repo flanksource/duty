@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flanksource/duty/api"
 	"strings"
 	"time"
 
@@ -94,12 +95,12 @@ func NewSqlLogger(logger *commons.SlogLogger) logger.Interface {
 	return &SqlLogger{
 		Config: Config{
 			Colorful:                  true,
-			SlowThreshold:             properties.Duration(time.Second, "log.db.slowThreshold"),
+			SlowThreshold:             properties.Duration(time.Second, api.PropertyLogDBSlowThreshold),
 			IgnoreRecordNotFoundError: true,
 		},
 		Logger:      logger,
-		traceParams: logger.IsTraceEnabled() || properties.On(false, "log.db.params"),
-		maxLength:   properties.Int(1024, "log.db.maxLength"),
+		traceParams: logger.IsTraceEnabled() || properties.On(false, api.PropertyLogDBParams),
+		maxLength:   properties.Int(1024, api.PropertyLogDBMaxLength),
 		baseLevel:   commons.Info,
 	}
 }
