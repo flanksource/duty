@@ -2,17 +2,23 @@ package bench_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
 const (
-	benchAliasUserNamePrefix = "bench-alias-user-"
-	benchAliasScraperName    = "bench-alias-trigger-scraper"
-	benchAliasConfigType     = "Bench::AliasTrigger"
+	benchAliasUserNamePrefix   = "bench-alias-user-"
+	benchAliasScraperName      = "bench-alias-trigger-scraper"
+	benchAliasConfigType       = "Bench::AliasTrigger"
+	benchPropertyConfigType    = "Bench::Properties"
+	benchPropertyUpdateType    = "Bench::PropertiesUpdate"
+	benchPropertyPayloadLength = 16 * 1024
+	benchPropertyCount         = 6
 )
 
 func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
@@ -63,6 +69,92 @@ func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 	})
 }
 
+func BenchmarkInsertionOfConfigsWithProperties(b *testing.B) {
+	resetPG(b, false)
+	cleanupConfigItemBenchRows(b)
+	configType := benchPropertyConfigType
+	propertyPayload := strings.Repeat("x", benchPropertyPayloadLength)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		name := fmt.Sprintf("bench-config-with-properties-%d", i)
+		properties := buildBenchProperties(i, propertyPayload)
+		item := models.ConfigItem{
+			ID:          uuid.New(),
+			ConfigClass: models.ConfigClassNode,
+			Type:        &configType,
+			Name:        &name,
+			Properties:  &properties,
+		}
+
+		if err := testCtx.DB().Create(&item).Error; err != nil {
+			b.Fatalf("failed to insert config_item with properties #%d: %v", i, err)
+		}
+	}
+	b.StopTimer()
+	cleanupConfigItemBenchRows(b)
+}
+
+func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
+	resetPG(b, false)
+	cleanupConfigItemBenchRows(b)
+	configType := benchPropertyUpdateType
+	insertPayload := strings.Repeat("x", benchPropertyPayloadLength)
+	updatePayload := strings.Repeat("y", benchPropertyPayloadLength)
+	configIDs := make([]uuid.UUID, b.N)
+
+	for i := 0; i < b.N; i++ {
+		name := fmt.Sprintf("bench-config-update-properties-%d", i)
+		properties := buildBenchProperties(i, insertPayload)
+		item := models.ConfigItem{
+			ID:          uuid.New(),
+			ConfigClass: models.ConfigClassNode,
+			Type:        &configType,
+			Name:        &name,
+			Properties:  &properties,
+		}
+
+		if err := testCtx.DB().Create(&item).Error; err != nil {
+			b.Fatalf("failed to seed config_item with properties #%d: %v", i, err)
+		}
+		configIDs[i] = item.ID
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		name := fmt.Sprintf("bench-config-updated-properties-%d", i)
+		description := fmt.Sprintf("updated config item with properties %d", i)
+		properties := buildBenchProperties(i+b.N, updatePayload)
+
+		if err := testCtx.DB().Model(&models.ConfigItem{}).
+			Where("id = ?", configIDs[i]).
+			Updates(map[string]any{
+				"name":        name,
+				"description": description,
+				"properties":  properties,
+			}).Error; err != nil {
+			b.Fatalf("failed to update config_item with properties #%d: %v", i, err)
+		}
+	}
+	b.StopTimer()
+	cleanupConfigItemBenchRows(b)
+}
+
+func buildBenchProperties(seed int, payload string) types.Properties {
+	properties := make(types.Properties, 0, benchPropertyCount)
+	for i := 0; i < benchPropertyCount; i++ {
+		properties = append(properties, &types.Property{
+			Name:    fmt.Sprintf("bench-property-%d", i),
+			Label:   fmt.Sprintf("Bench Property %d", i),
+			Type:    "text",
+			Text:    fmt.Sprintf("%s-%d-%d", payload, seed, i),
+			Tooltip: fmt.Sprintf("bench property tooltip %d", i),
+			Order:   i,
+		})
+	}
+	return properties
+}
+
 func cleanupExternalUserBenchRows(b *testing.B) {
 	if err := testCtx.DB().Exec("DELETE FROM external_users WHERE name LIKE ?", benchAliasUserNamePrefix+"%").Error; err != nil {
 		b.Fatalf("failed to cleanup external_users bench rows: %v", err)
@@ -70,7 +162,7 @@ func cleanupExternalUserBenchRows(b *testing.B) {
 }
 
 func cleanupConfigItemBenchRows(b *testing.B) {
-	if err := testCtx.DB().Exec("DELETE FROM config_items WHERE type = ?", benchAliasConfigType).Error; err != nil {
+	if err := testCtx.DB().Exec("DELETE FROM config_items WHERE type IN ?", []string{benchAliasConfigType, benchPropertyConfigType, benchPropertyUpdateType}).Error; err != nil {
 		b.Fatalf("failed to cleanup config_items bench rows: %v", err)
 	}
 }
