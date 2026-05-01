@@ -49,9 +49,9 @@ func TestBuildConfigTreeNestsGrandchildren(t *testing.T) {
 	child := uuid.New()
 	grand := uuid.New()
 
-	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
-	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
-	grandCI := makeCI(grand, child, "block-10", "OIPA::District", target, child)
+	targetCI := makeCI(target, uuid.Nil, "region-a", "Geo::Country")
+	childCI := makeCI(child, target, "city-a", "Geo::City", target)
+	grandCI := makeCI(grand, child, "block-10", "Geo::District", target, child)
 
 	tree := buildConfigTree(&targetCI, nil, []models.ConfigItem{childCI, grandCI}, nil)
 
@@ -71,8 +71,8 @@ func TestBuildConfigTreeDedupsChildren(t *testing.T) {
 	target := uuid.New()
 	child := uuid.New()
 
-	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
-	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
+	targetCI := makeCI(target, uuid.Nil, "region-a", "Geo::Country")
+	childCI := makeCI(child, target, "city-a", "Geo::City", target)
 
 	tree := buildConfigTree(&targetCI, nil, []models.ConfigItem{childCI}, nil)
 
@@ -95,15 +95,15 @@ func TestBuildConfigTreeSoftDoesNotDuplicateChildren(t *testing.T) {
 	target := uuid.New()
 	child := uuid.New()
 
-	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
-	childCI := makeCI(child, target, "gaborone", "OIPA::City", target)
+	targetCI := makeCI(target, uuid.Nil, "region-a", "Geo::Country")
+	childCI := makeCI(child, target, "city-a", "Geo::City", target)
 
 	// The related slice includes the same child that already appears in the
 	// hard children slice — this is what `--soft` (RelationType=Both) does.
 	related := []RelatedConfig{{
 		ID:       child,
-		Name:     "gaborone",
-		Type:     "OIPA::City",
+		Name:     "city-a",
+		Type:     "Geo::City",
 		Path:     childCI.Path,
 		Relation: "contains",
 	}}
@@ -123,12 +123,12 @@ func TestBuildConfigTreeRelatedStillAttachesStandaloneNodes(t *testing.T) {
 	target := uuid.New()
 	rel := uuid.New()
 
-	targetCI := makeCI(target, uuid.Nil, "botswana", "OIPA::Country")
+	targetCI := makeCI(target, uuid.Nil, "region-a", "Geo::Country")
 
 	related := []RelatedConfig{{
 		ID:       rel,
 		Name:     "trade-partner",
-		Type:     "OIPA::Country",
+		Type:     "Geo::Country",
 		Relation: "trades-with",
 	}}
 
@@ -140,7 +140,7 @@ func TestBuildConfigTreeRelatedStillAttachesStandaloneNodes(t *testing.T) {
 	g.Expect(tree.Children[0].Relation).To(gomega.Equal("trades-with"))
 }
 
-// TestBuildConfigTreeNestsRelatedViaAdjacency reproduces the Zimbabwe case:
+// TestBuildConfigTreeNestsRelatedViaAdjacency reproduces the multi-hop case:
 // a security group related to a DB Instance must nest under the DB Instance,
 // not flat under the target country.
 func TestBuildConfigTreeNestsRelatedViaAdjacency(t *testing.T) {
@@ -151,14 +151,14 @@ func TestBuildConfigTreeNestsRelatedViaAdjacency(t *testing.T) {
 	db := uuid.New()
 	sg := uuid.New()
 
-	targetCI := makeCI(target, uuid.Nil, "zimbabwe", "OIPA::Country")
+	targetCI := makeCI(target, uuid.Nil, "region-b", "Geo::Country")
 
 	related := []RelatedConfig{
 		// env is a direct child of target; it points at the DB.
 		{
 			ID:         env,
-			Name:       "uat-zim",
-			Type:       "OIPA::Environment",
+			Name:       "uat-region",
+			Type:       "Geo::Environment",
 			Relation:   "hosts",
 			RelatedIDs: []string{db.String()},
 		},
@@ -314,4 +314,144 @@ func TestResolveChildParentFallsThroughToTarget(t *testing.T) {
 	got := resolveChildParent(childCI, nodes, target)
 	g.Expect(got).ToNot(gomega.BeNil())
 	g.Expect(got.ID).To(gomega.Equal(target))
+}
+
+func makeTreeNode(id uuid.UUID, name string, edge string, children ...*ConfigTreeNode) *ConfigTreeNode {
+	n := name
+	return &ConfigTreeNode{
+		ConfigItem: models.ConfigItem{ID: id, Name: &n},
+		EdgeType:   edge,
+		Children:   children,
+	}
+}
+
+// TestMergeConfigTreesSharedAncestor collapses two RDS matches into a single
+// tree when they share an account and stack — the scenario that motivated the
+// merge (two RDS instances under the same CloudFormation stack in one AWS
+// account).
+func TestMergeConfigTreesSharedAncestor(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	account := uuid.New()
+	stack := uuid.New()
+	rds1 := uuid.New()
+	rds2 := uuid.New()
+
+	tree1 := makeTreeNode(account, "acct", "parent",
+		makeTreeNode(stack, "stack", "parent",
+			makeTreeNode(rds1, "db1", "target"),
+		),
+	)
+	tree2 := makeTreeNode(account, "acct", "parent",
+		makeTreeNode(stack, "stack", "parent",
+			makeTreeNode(rds2, "db2", "target"),
+		),
+	)
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{tree1, tree2})
+	g.Expect(roots).To(gomega.HaveLen(1))
+	g.Expect(roots[0].ID).To(gomega.Equal(account))
+	g.Expect(roots[0].Children).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children[0].ID).To(gomega.Equal(stack))
+	g.Expect(roots[0].Children[0].Children).To(gomega.HaveLen(2))
+
+	childIDs := []uuid.UUID{
+		roots[0].Children[0].Children[0].ID,
+		roots[0].Children[0].Children[1].ID,
+	}
+	g.Expect(childIDs).To(gomega.ConsistOf(rds1, rds2))
+}
+
+// TestMergeConfigTreesUnrelatedRootsStaySeparate confirms that two unrelated
+// roots (e.g. two different AWS accounts) remain as sibling root trees.
+func TestMergeConfigTreesUnrelatedRootsStaySeparate(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	acctA := uuid.New()
+	acctB := uuid.New()
+	stackA := uuid.New()
+	stackB := uuid.New()
+	dbA := uuid.New()
+	dbB := uuid.New()
+
+	trees := []*ConfigTreeNode{
+		makeTreeNode(acctA, "A", "parent", makeTreeNode(stackA, "sA", "parent", makeTreeNode(dbA, "dbA", "target"))),
+		makeTreeNode(acctB, "B", "parent", makeTreeNode(stackB, "sB", "parent", makeTreeNode(dbB, "dbB", "target"))),
+	}
+
+	roots := MergeConfigTrees(trees)
+	g.Expect(roots).To(gomega.HaveLen(2))
+	rootIDs := []uuid.UUID{roots[0].ID, roots[1].ID}
+	g.Expect(rootIDs).To(gomega.ConsistOf(acctA, acctB))
+}
+
+// TestMergeConfigTreesPreservesTargetEdge ensures EdgeType="target" wins when
+// the same node appears as both an ancestor (parent edge) in one tree and a
+// target in another.
+func TestMergeConfigTreesPreservesTargetEdge(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	root := uuid.New()
+	target := uuid.New()
+
+	t1 := makeTreeNode(root, "root", "parent", makeTreeNode(target, "t", "parent"))
+	t2 := makeTreeNode(root, "root", "parent", makeTreeNode(target, "t", "target"))
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{t1, t2})
+	g.Expect(roots).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children).To(gomega.HaveLen(1))
+	g.Expect(roots[0].Children[0].EdgeType).To(gomega.Equal("target"))
+}
+
+func TestMergeConfigTreesEmpty(t *testing.T) {
+	g := gomega.NewWithT(t)
+	g.Expect(MergeConfigTrees(nil)).To(gomega.BeEmpty())
+	g.Expect(MergeConfigTrees([]*ConfigTreeNode{nil, nil})).To(gomega.BeEmpty())
+}
+
+// TestMergeConfigTreesSharedInternalNode confirms that a node shared between
+// two trees with different roots has its children unioned, not lost. With the
+// previous early-return in cloneConfigTree, the second tree's children under a
+// shared internal node were silently dropped.
+func TestMergeConfigTreesSharedInternalNode(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	a := uuid.New()
+	e := uuid.New()
+	b := uuid.New()
+	d := uuid.New()
+	x := uuid.New()
+
+	tree1 := makeTreeNode(a, "a", "parent",
+		makeTreeNode(b, "b", "parent",
+			makeTreeNode(d, "d", "target"),
+		),
+	)
+	tree2 := makeTreeNode(e, "e", "parent",
+		makeTreeNode(b, "b", "parent",
+			makeTreeNode(x, "x", "target"),
+		),
+	)
+
+	roots := MergeConfigTrees([]*ConfigTreeNode{tree1, tree2})
+	g.Expect(roots).To(gomega.HaveLen(2), "a and e have different roots, so two trees")
+
+	rootByID := map[uuid.UUID]*ConfigTreeNode{}
+	for _, r := range roots {
+		rootByID[r.ID] = r
+	}
+	g.Expect(rootByID).To(gomega.HaveKey(a))
+	g.Expect(rootByID).To(gomega.HaveKey(e))
+
+	bUnderA := rootByID[a].Children[0]
+	bUnderE := rootByID[e].Children[0]
+	g.Expect(bUnderA.ID).To(gomega.Equal(b))
+	g.Expect(bUnderE.ID).To(gomega.Equal(b))
+	g.Expect(bUnderA).To(gomega.BeIdenticalTo(bUnderE), "b should be the same node aliased under both roots")
+
+	childIDs := []uuid.UUID{}
+	for _, c := range bUnderA.Children {
+		childIDs = append(childIDs, c.ID)
+	}
+	g.Expect(childIDs).To(gomega.ConsistOf(d, x), "both d and x must appear under merged b")
 }

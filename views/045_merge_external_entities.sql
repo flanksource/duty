@@ -288,11 +288,11 @@ BEGIN
   DELETE FROM config_access_logs USING _eu_merges mp
   WHERE config_access_logs.external_user_id = mp.loser_id;
 
-  INSERT INTO external_user_groups (external_user_id, external_group_id, created_at)
-  SELECT mp.winner_id, eug.external_group_id, eug.created_at
+  INSERT INTO external_user_groups (external_user_id, external_group_id, scraper_id, created_at)
+  SELECT mp.winner_id, eug.external_group_id, eug.scraper_id, eug.created_at
   FROM external_user_groups eug JOIN _eu_merges mp ON eug.external_user_id = mp.loser_id
   WHERE eug.deleted_at IS NULL
-  ON CONFLICT (external_user_id, external_group_id) DO NOTHING;
+  ON CONFLICT (external_user_id, external_group_id, scraper_id) DO NOTHING;
 
   DELETE FROM external_user_groups USING _eu_merges mp
   WHERE external_user_groups.external_user_id = mp.loser_id;
@@ -491,11 +491,11 @@ BEGIN
   WHERE config_access.external_group_id = mp.loser_id
     AND NOT EXISTS (SELECT 1 FROM _eg_ca_dups d WHERE d.id = config_access.id);
 
-  INSERT INTO external_user_groups (external_user_id, external_group_id, created_at)
-  SELECT eug.external_user_id, mp.winner_id, eug.created_at
+  INSERT INTO external_user_groups (external_user_id, external_group_id, scraper_id, created_at)
+  SELECT eug.external_user_id, mp.winner_id, eug.scraper_id, eug.created_at
   FROM external_user_groups eug JOIN _eg_merges mp ON eug.external_group_id = mp.loser_id
   WHERE eug.deleted_at IS NULL
-  ON CONFLICT (external_user_id, external_group_id) DO NOTHING;
+  ON CONFLICT (external_user_id, external_group_id, scraper_id) DO NOTHING;
 
   DELETE FROM external_user_groups USING _eg_merges mp
   WHERE external_user_groups.external_group_id = mp.loser_id;
