@@ -11,11 +11,28 @@ GOLANGCI_LINT_VERSION ?= v2.11.3
 ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
-test: ginkgo
-	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
+.PHONY: gavel
+gavel:
+	@command -v gavel >/dev/null || go install github.com/flanksource/gavel/cmd/gavel@latest
 
-test-concurrent: ginkgo
-	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
+test: gavel
+	gavel test --timeout 30m --test-timeout 15m \
+		--ignore ./bench \
+		--ignore ./hack \
+		--ignore ./specs \
+		--ignore ./tests/e2e \
+		--ignore ./tests/e2e-blobs \
+		./...
+
+test-concurrent: gavel
+	gavel test --timeout 30m --test-timeout 15m \
+		--nodes 4 \
+		--ignore ./bench \
+		--ignore ./hack \
+		--ignore ./specs \
+		--ignore ./tests/e2e \
+		--ignore ./tests/e2e-blobs \
+		./...
 
 
 .PHONY: test-e2e
@@ -65,6 +82,23 @@ gen-schemas:
 	go mod edit -replace=github.com/flanksource/duty=../../../duty && \
 	go mod tidy && \
 	go run .
+
+.PHONY: captain
+captain:
+	@command -v captain >/dev/null || go install github.com/flanksource/captain@latest
+
+# Regenerate PROPERTIES.md and PROPERTIES.schema.json via the properties-doc skill.
+# Cross-references sibling repos when present.
+# Streams stream-json from `claude -p` and pipes it through `captain history`
+# so tool usage / cost analysis is rendered as the run progresses.
+.PHONY: PROPERTIES.md
+PROPERTIES.md: captain
+	claude -p --permission-mode acceptEdits --verbose --output-format stream-json --model sonnet \
+		"/properties-doc Refresh PROPERTIES.md and PROPERTIES.schema.json from the current source tree. Cross-reference ../incident-commander, ../config-db, ../canary-checker, ../flanksource-ui, and ../commons when present. Run in update mode and preserve hand-written prose sections." \
+		| captain
+
+.PHONY: properties-doc
+properties-doc: PROPERTIES.md
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
