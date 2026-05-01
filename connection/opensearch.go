@@ -139,16 +139,8 @@ func (c *OpensearchConnection) Client(ctx context.Context, opts ...types.ClientO
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
-
-	harCollector := o.HARCollector
-	if harCollector == nil {
-		harCollector = ctx.HARCollector()
-	}
-	if harCollector != nil {
-		if tr == nil {
-			tr = http.DefaultTransport
-		}
-		tr = harCollector.Middleware()(tr)
+	if tr != nil || effectiveHARCollector(ctx, "opensearch", o.HARCollector) != nil || ctx.IsHTTPLoggingEnabled("opensearch") {
+		tr = applyHTTPObservability(ctx, "opensearch", tr, o.HARCollector)
 	}
 
 	if tr != nil {

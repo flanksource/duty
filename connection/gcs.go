@@ -37,24 +37,13 @@ func (g *GCSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		clientOpts = append(clientOpts, option.WithEndpoint(g.Endpoint))
 	}
 
-	harCollector := o.HARCollector
-	if harCollector == nil {
-		harCollector = ctx.HARCollector()
-	}
-	if harCollector != nil {
+	if g.SkipTLSVerify || effectiveHARCollector(ctx, "gcs", o.HARCollector) != nil || ctx.IsHTTPLoggingEnabled("gcs") {
 		base := http.RoundTripper(http.DefaultTransport)
 		if g.SkipTLSVerify {
 			base = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		}
-		tr := harCollector.Middleware()(base)
+		tr := applyHTTPObservability(ctx, "gcs", base, o.HARCollector)
 		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{Transport: tr}))
-	} else if g.SkipTLSVerify {
-		insecureHTTPClient := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-		}
-		clientOpts = append(clientOpts, option.WithHTTPClient(insecureHTTPClient))
 	}
 
 	if g.Credentials != nil && !g.Credentials.IsEmpty() {

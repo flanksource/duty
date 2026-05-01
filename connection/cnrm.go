@@ -3,6 +3,7 @@ package connection
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 
 	"github.com/flanksource/duty/context"
 	dutyKube "github.com/flanksource/duty/kubernetes"
@@ -46,6 +47,12 @@ func (t *CNRMConnection) KubernetesClient(ctx context.Context, freshToken bool, 
 	clusterResourceRestConfig, err := t.createRestConfigForClusterResource(ctx, freshToken, obj)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create REST config for cluster resource: %w", err)
+	}
+	o := types.NewClientOptions(opts...)
+	if middleware := httpObservabilityMiddleware(ctx, "kubernetes", o.HARCollector); middleware != nil {
+		clusterResourceRestConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return middleware(rt)
+		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(clusterResourceRestConfig)

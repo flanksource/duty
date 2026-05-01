@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	netURL "net/url"
@@ -13,6 +14,7 @@ import (
 	"github.com/flanksource/commons/console"
 	"github.com/flanksource/commons/files"
 	"github.com/flanksource/commons/har"
+	"github.com/flanksource/commons/http/middlewares"
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/duty/cache"
 	"github.com/henvic/httpretty"
@@ -35,6 +37,18 @@ var sensitiveUrls = []*regexp.Regexp{
 }
 
 func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
+	return NewClientWithCollector(log, nil, kubeconfigPaths...)
+}
+
+func NewClientWithCollector(log logger.Logger, collector *har.Collector, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
+	var middleware middlewares.Middleware
+	if collector != nil {
+		middleware = collector.Middleware()
+	}
+	return NewClientWithMiddleware(log, middleware, kubeconfigPaths...)
+}
+
+func NewClientWithMiddleware(log logger.Logger, middleware middlewares.Middleware, kubeconfigPaths ...string) (kubernetes.Interface, *rest.Config, error) {
 	if len(kubeconfigPaths) == 0 {
 		kubeconfigPaths = []string{os.Getenv("KUBECONFIG"), os.ExpandEnv("$HOME/.kube/config")}
 	}
@@ -45,19 +59,29 @@ func NewClient(log logger.Logger, kubeconfigPaths ...string) (kubernetes.Interfa
 				return nil, nil, err
 			} else {
 				log.Infof("Using kubeconfig %s", path)
-				return NewClientWithConfig(log, configBytes)
+				return NewClientWithConfigMiddleware(log, configBytes, middleware)
 			}
 		}
 	}
 
 	if config, err := rest.InClusterConfig(); err == nil {
-		client, err := kubernetes.NewForConfig(trace(log, config))
+		config = trace(log, config)
+		appendWrapTransport(config, middleware)
+		client, err := kubernetes.NewForConfig(config)
 		return client, config, err
 	}
 	return Nil, nil, nil
 }
 
 func NewClientWithConfig(log logger.Logger, kubeConfig []byte, collector ...*har.Collector) (kubernetes.Interface, *rest.Config, error) {
+	var middleware middlewares.Middleware
+	if len(collector) > 0 && collector[0] != nil {
+		middleware = collector[0].Middleware()
+	}
+	return NewClientWithConfigMiddleware(log, kubeConfig, middleware)
+}
+
+func NewClientWithConfigMiddleware(log logger.Logger, kubeConfig []byte, middleware middlewares.Middleware) (kubernetes.Interface, *rest.Config, error) {
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfig)
 	if err != nil {
 		return nil, nil, err
@@ -74,17 +98,22 @@ func NewClientWithConfig(log logger.Logger, kubeConfig []byte, collector ...*har
 		return nil, nil, err
 	} else {
 		config = trace(logger.GetLogger("k8s."+name), config)
-		if len(collector) > 0 && collector[0] != nil {
-			existing := config.WrapTransport
-			config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-				if existing != nil {
-					rt = existing(rt)
-				}
-				return collector[0].Middleware()(rt)
-			}
-		}
+		appendWrapTransport(config, middleware)
 		client, err := kubernetes.NewForConfig(config)
 		return client, config, err
+	}
+}
+
+func appendWrapTransport(config *rest.Config, middleware middlewares.Middleware) {
+	if middleware == nil {
+		return
+	}
+	existing := config.WrapTransport
+	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		if existing != nil {
+			rt = existing(rt)
+		}
+		return middleware(rt)
 	}
 }
 
@@ -93,25 +122,52 @@ func NewClientFromPathOrConfig(
 	kubeconfigOrPath string,
 	collector ...*har.Collector,
 ) (kubernetes.Interface, *rest.Config, error) {
+	var middleware middlewares.Middleware
+	if len(collector) > 0 && collector[0] != nil {
+		middleware = collector[0].Middleware()
+	}
+	return NewClientFromPathOrConfigWithMiddleware(logger, kubeconfigOrPath, middleware)
+}
+
+func NewClientFromPathOrConfigWithMiddleware(
+	logger logger.Logger,
+	kubeconfigOrPath string,
+	middleware middlewares.Middleware,
+) (kubernetes.Interface, *rest.Config, error) {
 	var client kubernetes.Interface
 	var rest *rest.Config
 	var err error
+
+	kubeconfigOrPath = normalizeKubeconfigOrPath(kubeconfigOrPath)
 
 	if _, pathErr := os.Stat(kubeconfigOrPath); pathErr == nil {
 		configBytes, err := os.ReadFile(kubeconfigOrPath)
 		if err != nil {
 			return nil, nil, err
 		}
-		if client, rest, err = NewClientWithConfig(logger, configBytes, collector...); err != nil {
+		if client, rest, err = NewClientWithConfigMiddleware(logger, configBytes, middleware); err != nil {
 			return nil, nil, err
 		}
 	} else {
-		if client, rest, err = NewClientWithConfig(logger, []byte(kubeconfigOrPath), collector...); err != nil {
+		if client, rest, err = NewClientWithConfigMiddleware(logger, []byte(kubeconfigOrPath), middleware); err != nil {
 			return nil, nil, err
 		}
 	}
 
 	return client, rest, err
+}
+
+func normalizeKubeconfigOrPath(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if !strings.HasPrefix(trimmed, `"`) {
+		return value
+	}
+
+	var decoded string
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return value
+	}
+	return decoded
 }
 
 var clusterNames = cache.NewCache[string]("clusterNames", time.Hour*24)
