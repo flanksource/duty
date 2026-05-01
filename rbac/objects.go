@@ -17,6 +17,7 @@ var dbResourceObjMap = map[string]string{
 	"config_access_summary":                     policy.ObjectApplication,
 	"config_access_summary_by_config":           policy.ObjectApplication,
 	"config_access_summary_by_user":             policy.ObjectApplication,
+	"external_group_summary":                    policy.ObjectCatalog,
 	"rpc/config_access_filter_options":          policy.ObjectApplication,
 	"analysis_by_component":                     policy.ObjectCatalog,
 	"analysis_by_config":                        policy.ObjectCatalog,
