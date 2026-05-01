@@ -1,6 +1,27 @@
 version: '3'
 
 tasks:
+  test:
+    desc: |
+      Run the unit test suite via gavel, mirroring the `test` job in
+      .github/workflows/test.yaml. Excludes the heavy benchmark, generator,
+      spec, and e2e packages so it matches CI scope.
+
+      Anything after `--` is passed straight through to gavel, so:
+        task test -- --focus "MyFlow"
+        task test -- ./query --extra-args=--ginkgo.label-filter=focus
+        task test -- --dry-run
+      Without extra args, runs every unit package matching CI.
+    cmds:
+      - |
+        gavel test --timeout 30m --test-timeout 15m \
+          --ignore ./bench \
+          --ignore ./hack \
+          --ignore ./specs \
+          --ignore ./tests/e2e \
+          --ignore ./tests/e2e-blobs \
+          {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}./...{{end}}
+
   test:migrate:
     desc: |
       Mirrors the `migrate` job in .github/workflows/test.yaml using an
