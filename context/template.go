@@ -5,14 +5,24 @@ import (
 	"strconv"
 
 	"github.com/flanksource/commons/collections"
+	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/gomplate/v3"
 	"github.com/google/cel-go/cel"
+	"github.com/samber/lo"
 )
 
 var CelEnvFuncs = make(map[string]func(Context) cel.EnvOption)
 var TemplateFuncs = make(map[string]func(Context) any)
 
 func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, error) {
+	l := k.Logger.Named("template")
+	if l.V(3).Enabled() {
+		l.V(3).Infof("Running template: %s with environment: %v", t.String(), logger.Pretty(env))
+	} else if l.IsLevelEnabled(logger.Trace) {
+		l.V(2).Infof("Running template: %s with environment keys: %v", t.String(), lo.Keys(env))
+	} else {
+		l.V(1).Infof("Running template: %s", t.String())
+	}
 	for _, f := range CelEnvFuncs {
 		t.CelEnvs = append(t.CelEnvs, f(k))
 	}
@@ -41,8 +51,18 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 			t.RightDelim = delimSet.Right
 
 			val, err := gomplate.RunTemplateContext(k.Context, env, t)
+
 			if err != nil {
 				return "", k.Oops().With("template", t.String(), "environment", env).Wrap(err)
+			}
+			if t.Template == val && l.V(4).Enabled() {
+				l.V(4).Infof("%s = <no change>", t.String())
+			} else if t.Template != val {
+				if l.V(2).Enabled() {
+					l.V(2).Infof("%s = %s", t.String(), val)
+				} else if l.V(1).Enabled() {
+					l.V(1).Infof("templated %s = changed", t.String())
+				}
 			}
 			t.Template = val
 		}

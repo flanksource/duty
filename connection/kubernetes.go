@@ -49,10 +49,10 @@ func (t *KubeconfigConnection) Populate(ctx context.Context, opts ...types.Clien
 			t.Kubeconfig.ValueStatic = v
 		}
 
-		return dutyKubernetes.NewClientFromPathOrConfig(ctx.Logger, t.Kubeconfig.ValueStatic, o.HARCollector)
+		return dutyKubernetes.NewClientFromPathOrConfigWithMiddleware(ctx.Logger, t.Kubeconfig.ValueStatic, httpObservabilityMiddleware(ctx, "kubernetes", o.HARCollector))
 	}
 
-	return dutyKubernetes.NewClient(ctx.Logger)
+	return dutyKubernetes.NewClientWithMiddleware(ctx.Logger, httpObservabilityMiddleware(ctx, "kubernetes", o.HARCollector))
 }
 
 // +kubebuilder:object:generate=true
