@@ -1,17 +1,13 @@
 package setup
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	embeddedPG "github.com/fergusstrange/embedded-postgres"
 	"github.com/flanksource/commons/logger"
@@ -96,45 +92,6 @@ func execPostgres(connection, query string) error {
 
 	_, err = db.Exec(query)
 	return err
-}
-
-func randomDatabaseName(prefix string) string {
-	randomBytes := make([]byte, 4)
-	if _, err := rand.Read(randomBytes); err != nil {
-		panic(fmt.Sprintf("failed to read random bytes: %v", err))
-	}
-
-	name := fmt.Sprintf(
-		"%s_%d_%d_%s_%s",
-		prefix,
-		ginkgo.GinkgoParallelProcess(),
-		os.Getpid(),
-		strconv.FormatInt(time.Now().UnixNano(), 36),
-		hex.EncodeToString(randomBytes),
-	)
-
-	if len(name) > 63 {
-		return name[:63]
-	}
-	return name
-}
-
-func quoteIdentifier(identifier string) string {
-	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
-}
-
-func databaseURL(connection string, database string) (string, error) {
-	u, err := url.Parse(connection)
-	if err != nil {
-		return "", err
-	}
-
-	if u.Scheme != "postgres" && u.Scheme != "postgresql" {
-		return "", fmt.Errorf("unsupported postgres connection string: %s", connection)
-	}
-
-	u.Path = "/" + database
-	return u.String(), nil
 }
 
 func MustDB() *sql.DB {
@@ -227,22 +184,15 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		PgUrl = url
 	} else if url != "" && recreateDatabase {
 		postgresDBUrl = url
-		dbName = randomDatabaseName("duty_test")
-
-		var err error
-		PgUrl, err = databaseURL(url, dbName)
-		if err != nil {
-			return context.Context{}, err
-		}
-
-		quotedDBName := quoteIdentifier(dbName)
-		_ = execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE IF EXISTS %s (FORCE)", quotedDBName))
-		if err := execPostgres(postgresDBUrl, fmt.Sprintf("CREATE DATABASE %s", quotedDBName)); err != nil {
+		dbName = fmt.Sprintf("duty_gingko%d", port)
+		PgUrl = strings.Replace(url, "/postgres", "/"+dbName, 1)
+		_ = execPostgres(postgresDBUrl, "DROP DATABASE "+dbName)
+		if err := execPostgres(postgresDBUrl, "CREATE DATABASE "+dbName); err != nil {
 			return context.Context{}, fmt.Errorf("cannot create %s: %v", dbName, err)
 		}
 
 		shutdown.AddHookWithPriority("remove postgres db", shutdown.PriorityCritical, func() {
-			if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE IF EXISTS %s (FORCE)", quotedDBName)); err != nil {
+			if err := execPostgres(postgresDBUrl, fmt.Sprintf("DROP DATABASE %s (FORCE)", dbName)); err != nil {
 				logger.Errorf("execPostgres: %v", err)
 			}
 		})
@@ -324,18 +274,12 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 	pgUrl := ctx.Value("db_url").(string)
 	pgDbName := ctx.Value("db_name").(string)
 	newName := pgDbName + name
-	quotedDBName := quoteIdentifier(newName)
 
-	if err := ctx.DB().Exec(fmt.Sprintf("CREATE DATABASE %s", quotedDBName)).Error; err != nil {
+	if err := ctx.DB().Exec(fmt.Sprintf("CREATE DATABASE %s", newName)).Error; err != nil {
 		return nil, nil, err
 	}
 
-	newPgURL, err := databaseURL(pgUrl, newName)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	config := api.NewConfig(newPgURL)
+	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
 
 	dbConfig := duty.RunMigrations(config)
 	if !disableRLS {
@@ -352,7 +296,7 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 	}
 
 	return newCtx, func() {
-		if err := ctx.DB().Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s (FORCE)", quotedDBName)).Error; err != nil {
+		if err := ctx.DB().Exec(fmt.Sprintf("DROP DATABASE  %s (FORCE)", newName)).Error; err != nil {
 			logger.Errorf("error cleaning up db: %v", err)
 		}
 	}, nil

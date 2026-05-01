@@ -504,6 +504,11 @@ table "config_relationships" {
     null = true
     type = text
   }
+  column "scraper_id" {
+    null    = false
+    type    = uuid
+    default = "00000000-0000-0000-0000-000000000000"
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -541,7 +546,7 @@ table "config_relationships" {
   }
   index "config_relationships_related_id_config_id_relation_key" {
     unique  = true
-    columns = [column.related_id, column.config_id, column.relation]
+    columns = [column.related_id, column.config_id, column.relation, column.scraper_id]
   }
   index "idx_config_relationships_deleted_at" {
     columns = [column.deleted_at]
