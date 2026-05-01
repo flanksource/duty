@@ -142,22 +142,15 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	if config.Postgrest.URL != "" && !config.Postgrest.Disable {
-		parsedURL, err := url.Parse(config.Postgrest.URL)
-		if err != nil {
-			return context.Context{}, nil, fmt.Errorf("failed to parse PostgREST URL: %v", err)
-		}
-
-		host := strings.ToLower(parsedURL.Hostname())
-		port, _ := strconv.Atoi(parsedURL.Port())
-		config.Postgrest.Port = int(port)
-		if host == "localhost" {
-			if config.Postgrest.JWTSecret == "" {
-				logger.Warnf("PostgREST JWT secret not specified, generating random secret")
-				config.Postgrest.JWTSecret = utils.RandomString(32)
+		if configured, startLocal, err := configurePostgrest(config); err != nil {
+			return context.Context{}, nil, err
+		} else {
+			config = configured
+			if startLocal {
+				go postgrest.Start(config)
 			}
-			go postgrest.Start(config)
+			api.DefaultConfig = config
 		}
-		api.DefaultConfig = config
 	}
 
 	var ctx context.Context
@@ -198,6 +191,37 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	}
 
 	return ctx, stop, nil
+}
+
+func configurePostgrest(config api.Config) (api.Config, bool, error) {
+	if config.Postgrest.URL == "" || config.Postgrest.Disable {
+		return config, false, nil
+	}
+
+	parsedURL, err := url.Parse(config.Postgrest.URL)
+	if err != nil {
+		return config, false, fmt.Errorf("failed to parse PostgREST URL: %v", err)
+	}
+
+	host := strings.ToLower(parsedURL.Hostname())
+	port, _ := strconv.Atoi(parsedURL.Port())
+	config.Postgrest.Port = port
+
+	if host != "localhost" {
+		return config, false, nil
+	}
+
+	if config.Postgrest.Port == 0 {
+		config.Postgrest.Port = FreePort()
+		parsedURL.Host = net.JoinHostPort(parsedURL.Hostname(), strconv.Itoa(config.Postgrest.Port))
+		config.Postgrest.URL = parsedURL.String()
+	}
+
+	if config.Postgrest.JWTSecret == "" {
+		logger.Warnf("PostgREST JWT secret not specified, generating random secret")
+		config.Postgrest.JWTSecret = utils.RandomString(32)
+	}
+	return config, true, nil
 }
 
 const posmasterLinePort = 3

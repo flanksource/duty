@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,4 +34,20 @@ func TestGetAPIServer(t *testing.T) {
 			g.Expect(result).To(gomega.Equal(tc.expected))
 		})
 	}
+}
+
+func TestNewClientFromPathOrConfigAcceptsJSONStringKubeconfig(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	kubeconfig, err := os.ReadFile(filepath.Join("testdata", "kubeconfig.yaml"))
+	g.Expect(err).To(gomega.BeNil())
+
+	encoded, err := json.Marshal(string(kubeconfig))
+	g.Expect(err).To(gomega.BeNil())
+
+	client, restConfig, err := NewClientFromPathOrConfigWithMiddleware(nil, string(encoded), nil)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(client).ToNot(gomega.BeNil())
+	g.Expect(restConfig).ToNot(gomega.BeNil())
+	g.Expect(restConfig.Host).To(gomega.Equal("https://10.99.99.222:6443"))
 }
