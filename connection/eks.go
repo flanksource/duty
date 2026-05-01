@@ -56,6 +56,12 @@ func (t *EKSConnection) KubernetesClient(ctx context.Context, freshToken bool, o
 			CAData: ca,
 		},
 	}
+	o := types.NewClientOptions(opts...)
+	if middleware := httpObservabilityMiddleware(ctx, "kubernetes", o.HARCollector); middleware != nil {
+		restConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return middleware(rt)
+		}
+	}
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {

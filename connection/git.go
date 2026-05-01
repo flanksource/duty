@@ -3,10 +3,12 @@ package connection
 import (
 	"errors"
 	"fmt"
+	netHTTP "net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/utils"
@@ -14,7 +16,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitClient "github.com/go-git/go-git/v5/plumbing/transport/client"
+	gitHTTP "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/samber/lo"
 	ssh2 "golang.org/x/crypto/ssh"
@@ -22,6 +25,8 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/types"
 )
+
+var gitHTTPTransportMu sync.Mutex
 
 const (
 	ServiceGithub = "github"
@@ -34,6 +39,16 @@ type GitClient struct {
 	Owner, Repo, Branch string
 	Depth               int
 	AzureDevops         bool
+}
+
+// RedactedURL returns the URL with userinfo elided, falling back to the raw
+// URL when it doesn't parse — useful for log lines where a literal "redacted"
+// placeholder would be less informative than the original string.
+func (gitClient GitClient) RedactedURL() string {
+	if uri, err := url.Parse(gitClient.URL); err == nil {
+		return uri.Redacted()
+	}
+	return gitClient.URL
 }
 
 func (gitClient GitClient) GetContext() map[string]any {
@@ -77,18 +92,28 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 	}
 
 	ctx = ctx.WithObject(*gitClient)
-	if ctx.Logger.IsLevelEnabled(4) {
-		ctx.Logger.V(4).Infof("cloning to %s", dir)
-	} else {
-		ctx.Tracef("cloning")
+	var gitLog logger.Logger = logger.GetLogger("git")
+	if headers, bodies := ctx.HTTPLoggingContent("git"); bodies {
+		gitLog = gitLog.WithV(logger.Trace)
+	} else if headers {
+		gitLog = gitLog.WithV(logger.Debug)
 	}
+	// progress output from go-git only appears at trace level on the git
+	// logger (set via -Plog.level.git=trace).
+	progress := gitLog.V(2)
+	restoreGitTransport := configureGitHTTPTransport(ctx, gitClient.URL)
+	defer restoreGitTransport()
+
+	redactedURL := gitClient.RedactedURL()
+	gitLog.V(1).Infof("clone url=%s branch=%s depth=%d dir=%s", redactedURL, gitClient.Branch, gitClient.Depth, dir)
+
 	extra := map[string]any{
 		"git": gitClient.GetShortURL(),
 	}
 
 	repo, err := git.PlainCloneContext(ctx, dir, false, &git.CloneOptions{
 		URL:           gitClient.URL,
-		Progress:      ctx.Logger.V(4).WithFilter("Compressing objects", "Counting objects"),
+		Progress:      progress,
 		Auth:          gitClient.Auth,
 		ReferenceName: plumbing.NewBranchReferenceName(gitClient.Branch),
 		Depth:         gitClient.Depth,
@@ -105,9 +130,9 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			return extra, ctx.Oops().Wrapf(err, "unable to open worktree")
 		}
 
-		ctx.Logger.V(4).Infof("fetching ")
+		gitLog.V(1).Infof("fetch url=%s branch=%s depth=%d", redactedURL, gitClient.Branch, gitClient.Depth)
 		if err := repo.FetchContext(ctx, &git.FetchOptions{
-			Progress:  ctx.Logger.V(4).WithFilter("Compressing objects", "Counting objects"),
+			Progress:  progress,
 			RemoteURL: gitClient.URL,
 			Force:     true,
 			Prune:     true,
@@ -128,7 +153,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			for _, ref := range list {
 				if ref.Name().Short() == gitClient.Branch {
 					refName = ref.Name()
-					ctx.Logger.V(4).Infof("found ref %s matching %s", refName, gitClient.Branch)
+					gitLog.V(2).Infof("found ref %s matching %s", refName, gitClient.Branch)
 				}
 			}
 
@@ -153,7 +178,7 @@ func (gitClient *GitClient) Clone(ctx context.Context, dir string) (map[string]a
 			if commit, err := iter.Next(); err != nil {
 				return extra, ctx.Oops().Wrapf(err, "unable to get HEAD commit")
 			} else {
-				ctx.Logger.Debugf("checked out %s", commit.Hash.String()[0:8])
+				gitLog.Infof("checked out %s dir=%s", commit.Hash.String()[0:8], dir)
 			}
 		}
 	}
@@ -308,7 +333,7 @@ func CreateGitConfig(ctx context.Context, conn *GitConnection) (*GitClient, erro
 		config.Auth = publicKeys
 
 	} else {
-		config.Auth = &http.BasicAuth{
+		config.Auth = &gitHTTP.BasicAuth{
 			Username: conn.Username.ValueStatic,
 			Password: conn.Password.ValueStatic,
 		}
@@ -348,4 +373,26 @@ func parseGenericRepoURL(repoURL, host string, custom bool) (owner string, repo 
 	}
 
 	return paths[0], paths[1], true
+}
+
+func configureGitHTTPTransport(ctx context.Context, rawURL string) func() {
+	uri, err := url.Parse(rawURL)
+	if err != nil || (uri.Scheme != "http" && uri.Scheme != "https") {
+		return func() {}
+	}
+
+	middleware := httpObservabilityMiddleware(ctx, "git", nil)
+	if middleware == nil {
+		return func() {}
+	}
+
+	gitHTTPTransportMu.Lock()
+	client := gitHTTP.NewClient(&netHTTP.Client{Transport: middleware(netHTTP.DefaultTransport)})
+	gitClient.InstallProtocol("http", client)
+	gitClient.InstallProtocol("https", client)
+	return func() {
+		gitClient.InstallProtocol("http", gitHTTP.DefaultClient)
+		gitClient.InstallProtocol("https", gitHTTP.DefaultClient)
+		gitHTTPTransportMu.Unlock()
+	}
 }
