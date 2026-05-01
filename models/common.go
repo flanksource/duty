@@ -73,6 +73,28 @@ func (h Health) Pretty() api.Text {
 	}
 }
 
+// Badge renders the health as a coloured pill — intended for dense table
+// cells where the ✓/✗ glyph + capitalised label of Pretty() is too wide.
+// Empty input returns an empty Text so callers can unconditionally embed it.
+func (h Health) Badge() api.Textable {
+	if h == "" {
+		return api.Text{}
+	}
+	label := string(h)
+	switch h {
+	case HealthHealthy:
+		return api.Badge(label, "bg-green-100", "text-green-700", "capitalize")
+	case HealthUnhealthy:
+		return api.Badge(label, "bg-red-100", "text-red-700", "capitalize")
+	case HealthWarning:
+		return api.Badge(label, "bg-yellow-100", "text-yellow-800", "capitalize")
+	case HealthUnknown:
+		return api.Badge(label, "bg-gray-100", "text-gray-600", "capitalize")
+	default:
+		return api.Badge(label, "bg-gray-100", "text-gray-600", "capitalize")
+	}
+}
+
 func WorseHealth(healths ...Health) Health {
 	worst := HealthHealthy
 	for _, h := range healths {

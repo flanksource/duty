@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type ConfigTreeNode struct {
@@ -28,6 +30,71 @@ func (n *ConfigTreeNode) OutgoingIDs() []uuid.UUID {
 	var ids []uuid.UUID
 	n.collectOutgoing(&ids, make(map[uuid.UUID]bool))
 	return ids
+}
+
+// MergeConfigTrees collapses N independently-built config trees into a forest
+// of shared-ancestor trees. Trees sharing a root (same ID) merge into one;
+// their descendants are unioned recursively by ID. Unrelated trees remain as
+// separate roots.
+//
+// Used by callers that fetch a ConfigTree for each of many matched configs and
+// want to render a single unified forest — e.g. two AWS::RDS::DBInstance
+// matches in the same account produce one tree rooted at the account with
+// both instances under their shared CloudFormation stack, rather than two
+// duplicate ancestor chains.
+//
+// EdgeType="target" is preserved when the same node appears as a target in one
+// input and as a non-target (parent/child/related) in another.
+func MergeConfigTrees(trees []*ConfigTreeNode) []*ConfigTreeNode {
+	byID := make(map[uuid.UUID]*ConfigTreeNode)
+	var roots []*ConfigTreeNode
+	for _, t := range trees {
+		if t == nil {
+			continue
+		}
+		if existing, ok := byID[t.ID]; ok {
+			mergeConfigTreeInto(existing, t, byID)
+		} else {
+			roots = append(roots, cloneConfigTree(t, byID))
+		}
+	}
+	return roots
+}
+
+func cloneConfigTree(n *ConfigTreeNode, byID map[uuid.UUID]*ConfigTreeNode) *ConfigTreeNode {
+	if existing, ok := byID[n.ID]; ok {
+		mergeConfigTreeInto(existing, n, byID)
+		return existing
+	}
+	out := &ConfigTreeNode{
+		ConfigItem: n.ConfigItem,
+		EdgeType:   n.EdgeType,
+		Relation:   n.Relation,
+	}
+	byID[n.ID] = out
+	for _, c := range n.Children {
+		out.Children = append(out.Children, cloneConfigTree(c, byID))
+	}
+	return out
+}
+
+func mergeConfigTreeInto(dst, src *ConfigTreeNode, byID map[uuid.UUID]*ConfigTreeNode) {
+	if src.EdgeType == "target" {
+		dst.EdgeType = "target"
+	}
+	existing := make(map[uuid.UUID]*ConfigTreeNode, len(dst.Children))
+	for _, c := range dst.Children {
+		existing[c.ID] = c
+	}
+	for _, c := range src.Children {
+		if cur, ok := existing[c.ID]; ok {
+			mergeConfigTreeInto(cur, c, byID)
+		} else {
+			cloned := cloneConfigTree(c, byID)
+			dst.Children = append(dst.Children, cloned)
+			existing[c.ID] = cloned
+		}
+	}
 }
 
 func (n *ConfigTreeNode) collectOutgoing(ids *[]uuid.UUID, seen map[uuid.UUID]bool) {
@@ -65,7 +132,7 @@ func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions)
 
 	var children []models.ConfigItem
 	if len(childIDs) > 0 {
-		children, err = GetConfigsByIDs(ctx, childIDs)
+		children, err = getExistingConfigsByIDs(ctx, childIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +179,7 @@ func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) ([]m
 	if len(parentIDs) == 0 {
 		return nil, nil
 	}
-	items, err := GetConfigsByIDs(ctx, parentIDs)
+	items, err := getExistingConfigsByIDs(ctx, parentIDs)
 	if err != nil {
 		return nil, fmt.Errorf("resolving parents from path: %w", err)
 	}
@@ -139,7 +206,12 @@ func ExpandConfigChildren(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, er
 	}
 	for _, id := range ids {
 		var children []uuid.UUID
-		if err := ctx.DB().Raw("SELECT child_id FROM lookup_config_children(?, -1)", id.String()).
+		if err := ctx.DB().Raw(`
+			SELECT c.child_id
+			FROM lookup_config_children(?, -1) c
+			JOIN config_items ci ON ci.id = c.child_id
+			WHERE ci.deleted_at IS NULL
+		`, id.String()).
 			Scan(&children).Error; err != nil {
 			return nil, err
 		}
@@ -148,6 +220,21 @@ func ExpandConfigChildren(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, er
 		}
 	}
 	return lo.Keys(allIDs), nil
+}
+
+func getExistingConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem, error) {
+	configs := make([]models.ConfigItem, 0, len(ids))
+	for _, id := range ids {
+		config, err := ConfigItemFromCache(ctx, id.String())
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		configs = append(configs, config)
+	}
+	return configs, nil
 }
 
 type ptrNode struct {

@@ -128,6 +128,7 @@ func (e *ExternalGroup) SetAliases(aliases []string) {
 type ExternalUserGroup struct {
 	ExternalUserID  uuid.UUID  `json:"external_user_id" gorm:"primaryKey"`
 	ExternalGroupID uuid.UUID  `json:"external_group_id" gorm:"primaryKey"`
+	ScraperID       uuid.UUID  `json:"scraper_id" gorm:"primaryKey"`
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 	DeletedBy       *uuid.UUID `json:"deleted_by"`
 	CreatedAt       time.Time  `json:"created_at" gorm:"<-:create"`
@@ -220,21 +221,22 @@ func (e ConfigAccess) PK() string {
 }
 
 type ConfigAccessSummary struct {
-	ConfigID        uuid.UUID  `json:"config_id"`
-	ConfigName      string     `json:"config_name"`
-	ConfigType      string     `json:"config_type"`
-	ExternalGroupID *uuid.UUID `json:"external_group_id,omitempty"`
-	ExternalUserID  uuid.UUID  `json:"external_user_id,omitempty"`
-	Role            string     `json:"role"`
-	User            string     `json:"user"`
-	UserType        string     `json:"user_type"`
-	Email           string     `json:"email"`
-	CreatedAt       time.Time  `json:"created_at"`
-	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
-	CreatedBy       *uuid.UUID `json:"created_by,omitempty"`
-	LastSignedInAt  *time.Time `json:"last_signed_in_at,omitempty"`
-	LastReviewedAt  *time.Time `json:"last_reviewed_at,omitempty"`
-	LastReviewedBy  *uuid.UUID `json:"last_reviewed_by,omitempty"`
+	ConfigID        uuid.UUID      `json:"config_id"`
+	ConfigName      string         `json:"config_name"`
+	ConfigType      string         `json:"config_type"`
+	ExternalGroupID *uuid.UUID     `json:"external_group_id,omitempty"`
+	ExternalUserID  uuid.UUID      `json:"external_user_id,omitempty"`
+	Role            string         `json:"role"`
+	RoleExternalIDs pq.StringArray `json:"role_external_ids,omitempty" gorm:"type:[]text"`
+	User            string         `json:"user"`
+	UserType        string         `json:"user_type"`
+	Email           string         `json:"email"`
+	CreatedAt       time.Time      `json:"created_at"`
+	DeletedAt       *time.Time     `json:"deleted_at,omitempty"`
+	CreatedBy       *uuid.UUID     `json:"created_by,omitempty"`
+	LastSignedInAt  *time.Time     `json:"last_signed_in_at,omitempty"`
+	LastReviewedAt  *time.Time     `json:"last_reviewed_at,omitempty"`
+	LastReviewedBy  *uuid.UUID     `json:"last_reviewed_by,omitempty"`
 }
 
 func (e ConfigAccessSummary) QueryLogSummary() string {
