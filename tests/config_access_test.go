@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
@@ -64,6 +66,69 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(johnDirectRows).To(HaveLen(1))
 		Expect(johnDirectRows[0].LastSignedInAt).ToNot(BeNil())
+	})
+
+	It("should summarize external group members and permissions", func() {
+		deletedAt := dummy.DummyCreatedAt.Add(48 * time.Hour)
+		deletedGroup := models.ExternalGroup{
+			ID:        uuid.New(),
+			ScraperID: dummy.KubeScrapeConfig.ID,
+			Tenant:    "flanksource",
+			Name:      "soft-deleted-member-group",
+			GroupType: "group",
+			CreatedAt: dummy.DummyCreatedAt,
+		}
+		deletedUser := models.ExternalUser{
+			ID:        uuid.New(),
+			ScraperID: dummy.KubeScrapeConfig.ID,
+			Tenant:    "flanksource",
+			Name:      "Soft Deleted Member",
+			UserType:  "user",
+			CreatedAt: dummy.DummyCreatedAt,
+		}
+		deletedMembership := models.ExternalUserGroup{
+			ExternalUserID:  deletedUser.ID,
+			ExternalGroupID: deletedGroup.ID,
+			ScraperID:       dummy.KubeScrapeConfig.ID,
+			CreatedAt:       dummy.DummyCreatedAt,
+			DeletedAt:       &deletedAt,
+		}
+
+		Expect(DefaultContext.DB().Create(&deletedGroup).Error).ToNot(HaveOccurred())
+		Expect(DefaultContext.DB().Create(&deletedUser).Error).ToNot(HaveOccurred())
+		Expect(DefaultContext.DB().Create(&deletedMembership).Error).ToNot(HaveOccurred())
+
+		type externalGroupSummary struct {
+			ID               uuid.UUID
+			MembersCount     int64
+			PermissionsCount int64
+		}
+
+		var summaries []externalGroupSummary
+		err := DefaultContext.DB().
+			Table("external_group_summary").
+			Where("id IN ?", []uuid.UUID{
+				dummy.MissionControlAdminsGroup.ID,
+				dummy.MissionControlReadersGroup.ID,
+				dummy.MissionControlEmptyGroup.ID,
+				deletedGroup.ID,
+			}).
+			Find(&summaries).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		byID := map[uuid.UUID]externalGroupSummary{}
+		for _, summary := range summaries {
+			byID[summary.ID] = summary
+		}
+
+		Expect(byID[dummy.MissionControlAdminsGroup.ID].MembersCount).To(Equal(int64(2)))
+		Expect(byID[dummy.MissionControlAdminsGroup.ID].PermissionsCount).To(Equal(int64(2)))
+		Expect(byID[dummy.MissionControlReadersGroup.ID].MembersCount).To(Equal(int64(2)))
+		Expect(byID[dummy.MissionControlReadersGroup.ID].PermissionsCount).To(Equal(int64(2)))
+		Expect(byID[dummy.MissionControlEmptyGroup.ID].MembersCount).To(Equal(int64(0)))
+		Expect(byID[dummy.MissionControlEmptyGroup.ID].PermissionsCount).To(Equal(int64(1)))
+		Expect(byID[deletedGroup.ID].MembersCount).To(Equal(int64(0)))
+		Expect(byID[deletedGroup.ID].PermissionsCount).To(Equal(int64(0)))
 	})
 })
 

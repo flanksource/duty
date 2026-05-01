@@ -124,6 +124,11 @@ table "external_user_groups" {
   column "external_group_id" {
     type = uuid
   }
+  column "scraper_id" {
+    type    = uuid
+    null    = false
+    default = "00000000-0000-0000-0000-000000000000"
+  }
   column "deleted_at" {
     type = timestamptz
     null = true
@@ -140,7 +145,7 @@ table "external_user_groups" {
     null = true
   }
   primary_key {
-    columns = [column.external_user_id, column.external_group_id]
+    columns = [column.external_user_id, column.external_group_id, column.scraper_id]
   }
   foreign_key "external_user_fk" {
     columns     = [column.external_user_id]
@@ -154,6 +159,9 @@ table "external_user_groups" {
   }
   index "external_user_groups_external_group_id_idx" {
     columns = [column.external_group_id]
+  }
+  index "external_user_groups_scraper_id_idx" {
+    columns = [column.scraper_id]
   }
 }
 
