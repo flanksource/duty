@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -14,7 +13,6 @@ import (
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
-	"github.com/henvic/httpretty"
 )
 
 // +kubebuilder:object:generate=true
@@ -145,30 +143,7 @@ func (t *AWSConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 	tr = &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: t.SkipTLSVerify},
 	}
-
-	harCollector := o.HARCollector
-	if harCollector == nil {
-		harCollector = ctx.HARCollector()
-	}
-	if harCollector != nil {
-		tr = harCollector.Middleware()(tr)
-	}
-
-	if ctx.IsTrace() && harCollector == nil {
-		httplogger := &httpretty.Logger{
-			Time:           true,
-			TLS:            ctx.Logger.IsLevelEnabled(7),
-			RequestHeader:  true,
-			RequestBody:    ctx.Logger.IsLevelEnabled(8),
-			ResponseHeader: true,
-			ResponseBody:   ctx.Logger.IsLevelEnabled(9),
-			Colors:         true,
-			Formatters:     []httpretty.Formatter{&httpretty.JSONFormatter{}},
-		}
-		httplogger.SetOutput(os.Stderr)
-
-		tr = httplogger.RoundTripper(tr)
-	}
+	tr = applyHTTPObservability(ctx, "aws", tr, o.HARCollector)
 
 	options := []func(*config.LoadOptions) error{
 		config.WithHTTPClient(&http.Client{Transport: tr}),

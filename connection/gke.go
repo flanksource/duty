@@ -46,23 +46,13 @@ func (t *GKEConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 		clientOpts = append(clientOpts, option.WithEndpoint(t.Endpoint))
 	}
 
-	harCollector := o.HARCollector
-	if harCollector == nil {
-		harCollector = ctx.HARCollector()
-	}
-	if harCollector != nil {
+	if t.SkipTLSVerify || effectiveHARCollector(ctx, "gke", o.HARCollector) != nil || ctx.IsHTTPLoggingEnabled("gke") {
 		base := http.RoundTripper(http.DefaultTransport)
 		if t.SkipTLSVerify {
 			base = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		}
-		tr := harCollector.Middleware()(base)
+		tr := applyHTTPObservability(ctx, "gke", base, o.HARCollector)
 		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{Transport: tr}))
-	} else if t.SkipTLSVerify {
-		clientOpts = append(clientOpts, option.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			},
-		}))
 	}
 
 	if t.Credentials != nil && !t.Credentials.IsEmpty() {
@@ -88,6 +78,7 @@ func (t *GKEConnection) Client(ctx context.Context, opts ...types.ClientOption) 
 }
 
 func (t *GKEConnection) KubernetesClient(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
+	o := types.NewClientOptions(opts...)
 	containerService, err := t.Client(ctx, opts...)
 	if err != nil {
 		return nil, nil, err
@@ -115,6 +106,11 @@ func (t *GKEConnection) KubernetesClient(ctx context.Context, freshToken bool, o
 		TLSClientConfig: rest.TLSClientConfig{
 			CAData: ca,
 		},
+	}
+	if middleware := httpObservabilityMiddleware(ctx, "kubernetes", o.HARCollector); middleware != nil {
+		restConfig.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			return middleware(rt)
+		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(restConfig)

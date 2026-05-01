@@ -38,7 +38,7 @@ func (p *PrometheusConnection) Populate(ctx ConnectionContext) error {
 func (p *PrometheusConnection) NewClient(ctx context.Context, opts ...types.ClientOption) (v1.API, error) {
 	cfg := api.Config{
 		Address:      p.HTTPConnection.URL,
-		RoundTripper: p.HTTPConnection.Transport(opts...),
+		RoundTripper: p.HTTPConnection.TransportWithContext(ctx, opts...),
 	}
 
 	client, err := api.NewClient(cfg)
