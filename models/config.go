@@ -600,9 +600,15 @@ func (cs *ConfigScraper) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConfigRelationship struct {
-	ConfigID   string     `json:"config_id" gorm:"primaryKey"`
-	RelatedID  string     `json:"related_id" gorm:"primaryKey"`
-	Relation   string     `json:"relation" gorm:"primaryKey"`
+	ConfigID  string `json:"config_id" gorm:"primaryKey"`
+	RelatedID string `json:"related_id" gorm:"primaryKey"`
+	Relation  string `json:"relation" gorm:"primaryKey"`
+	// ScraperID identifies the scraper that owns this relationship and is part of the
+	// composite primary key. uuid.Nil represents a legacy / scraper-agnostic relationship
+	// from before scraper-ownership was introduced; new code should populate this from
+	// the active scraper context so multiple scrapers can independently maintain
+	// (related_id, config_id, relation) tuples without colliding.
+	ScraperID  uuid.UUID  `json:"scraper_id" gorm:"primaryKey"`
 	SelectorID string     `json:"selector_id"`
 	CreatedAt  time.Time  `json:"created_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
@@ -614,7 +620,7 @@ func (c ConfigRelationship) Value() any {
 }
 
 func (c ConfigRelationship) PKCols() []clause.Column {
-	return []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}}
+	return []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}, {Name: "scraper_id"}}
 }
 
 func (t ConfigRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) error {
@@ -632,10 +638,10 @@ func (t ConfigRelationship) UpdateParentsIsPushed(db *gorm.DB, items []DBTable) 
 func (s ConfigRelationship) UpdateIsPushed(db *gorm.DB, items []DBTable) error {
 	ids := lo.Map(items, func(a DBTable, _ int) []string {
 		c := any(a).(ConfigRelationship)
-		return []string{c.RelatedID, c.ConfigID, c.Relation}
+		return []string{c.RelatedID, c.ConfigID, c.Relation, c.ScraperID.String()}
 	})
 
-	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, relation) IN ?", ids).Update("is_pushed", true).Error
+	return db.Model(&ConfigRelationship{}).Where("(related_id, config_id, relation, scraper_id) IN ?", ids).Update("is_pushed", true).Error
 }
 
 func (t ConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
@@ -649,7 +655,7 @@ func (t ConfigRelationship) GetUnpushed(db *gorm.DB) ([]DBTable, error) {
 }
 
 func (cr ConfigRelationship) PK() string {
-	return cr.RelatedID + "," + cr.ConfigID + cr.SelectorID
+	return cr.RelatedID + "," + cr.ConfigID + "," + cr.Relation + "," + cr.ScraperID.String()
 }
 
 func (cr ConfigRelationship) TableName() string {
