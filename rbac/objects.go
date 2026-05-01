@@ -118,6 +118,7 @@ var dbResourceObjMap = map[string]string{
 	"incidents":                                 policy.ObjectIncident,
 	"integrations_with_status":                  policy.ObjectMonitor,
 	"integrations":                              policy.ObjectMonitor,
+	"invites":                                   policy.ObjectAuth,
 	"job_histories":                             policy.ObjectMonitor,
 	"job_history_latest_status":                 policy.ObjectMonitor,
 	"job_history_names":                         policy.ObjectMonitor,
