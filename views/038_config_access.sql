@@ -2,6 +2,7 @@
 
 -- stale view
 DROP VIEW IF EXISTS user_config_access_summary;
+DROP VIEW IF EXISTS external_group_summary;
 
 -- config_access_unwrapped
 -- Flattens config access permissions into one row per (config, principal, role).
@@ -86,6 +87,7 @@ SELECT
   config_access_unwrapped.external_group_id as external_group_id,
   config_access_unwrapped.external_user_id as external_user_id,
   external_roles.name as "role",
+  COALESCE(external_roles.aliases, ARRAY[]::text[]) as role_external_ids,
   COALESCE(external_users.name, external_groups.name) as "user",
   COALESCE(external_users.email, '') as "email",
   COALESCE(external_users.user_type, CASE WHEN external_groups.id IS NOT NULL THEN 'group' END) as user_type,
@@ -207,3 +209,35 @@ SELECT
   MAX(config_access_summary.created_at) as latest_grant
 FROM config_access_summary
 GROUP BY config_access_summary.config_id, config_access_summary.config_name, config_access_summary.config_type;
+
+-- external_group_summary
+CREATE VIEW external_group_summary AS
+SELECT
+  external_groups.id,
+  external_groups.scraper_id,
+  external_groups.account_id,
+  external_groups.aliases,
+  external_groups.name,
+  external_groups.created_at,
+  external_groups.updated_at,
+  external_groups.deleted_at,
+  external_groups.group_type,
+  COALESCE(group_members.members_count, 0)::BIGINT AS members_count,
+  COALESCE(group_permissions.permissions_count, 0)::BIGINT AS permissions_count
+FROM external_groups
+LEFT JOIN (
+  SELECT
+    external_user_groups.external_group_id,
+    COUNT(*) AS members_count
+  FROM external_user_groups
+  WHERE external_user_groups.deleted_at IS NULL
+  GROUP BY external_user_groups.external_group_id
+) group_members ON group_members.external_group_id = external_groups.id
+LEFT JOIN (
+  SELECT
+    config_access_summary.external_group_id,
+    COUNT(*) AS permissions_count
+  FROM config_access_summary
+  WHERE config_access_summary.external_group_id IS NOT NULL
+  GROUP BY config_access_summary.external_group_id
+) group_permissions ON group_permissions.external_group_id = external_groups.id;

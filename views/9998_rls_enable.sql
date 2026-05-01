@@ -392,6 +392,7 @@ ALTER VIEW config_tags SET (security_invoker = true);
 ALTER VIEW config_tags_labels_keys SET (security_invoker = true);
 ALTER VIEW config_types SET (security_invoker = true);
 ALTER VIEW configs SET (security_invoker = true);
+ALTER VIEW external_group_summary SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);

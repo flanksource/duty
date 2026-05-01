@@ -183,11 +183,12 @@ BEGIN
         WITH RECURSIVE children AS (
             SELECT config_items.id as child_id, config_items.parent_id, 0 as level
             FROM config_items
-            WHERE config_items.id = $1::uuid
+            WHERE config_items.id = $1::uuid AND config_items.deleted_at IS NULL
             UNION ALL
             SELECT m.id as child_id, m.parent_id, c.level + 1 as level
             FROM config_items m
             JOIN children c ON m.parent_id = c.child_id
+            WHERE m.deleted_at IS NULL
         )
         SELECT children.child_id, children.parent_id, children.level FROM children
         WHERE children.level <= max_depth;

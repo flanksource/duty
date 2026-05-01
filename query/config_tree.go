@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 type ConfigTreeNode struct {
@@ -130,7 +132,7 @@ func ConfigTree(ctx context.Context, configID uuid.UUID, opts ConfigTreeOptions)
 
 	var children []models.ConfigItem
 	if len(childIDs) > 0 {
-		children, err = GetConfigsByIDs(ctx, childIDs)
+		children, err = getExistingConfigsByIDs(ctx, childIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +179,7 @@ func resolveParentsFromPath(ctx context.Context, config *models.ConfigItem) ([]m
 	if len(parentIDs) == 0 {
 		return nil, nil
 	}
-	items, err := GetConfigsByIDs(ctx, parentIDs)
+	items, err := getExistingConfigsByIDs(ctx, parentIDs)
 	if err != nil {
 		return nil, fmt.Errorf("resolving parents from path: %w", err)
 	}
@@ -204,7 +206,12 @@ func ExpandConfigChildren(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, er
 	}
 	for _, id := range ids {
 		var children []uuid.UUID
-		if err := ctx.DB().Raw("SELECT child_id FROM lookup_config_children(?, -1)", id.String()).
+		if err := ctx.DB().Raw(`
+			SELECT c.child_id
+			FROM lookup_config_children(?, -1) c
+			JOIN config_items ci ON ci.id = c.child_id
+			WHERE ci.deleted_at IS NULL
+		`, id.String()).
 			Scan(&children).Error; err != nil {
 			return nil, err
 		}
@@ -213,6 +220,21 @@ func ExpandConfigChildren(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, er
 		}
 	}
 	return lo.Keys(allIDs), nil
+}
+
+func getExistingConfigsByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigItem, error) {
+	configs := make([]models.ConfigItem, 0, len(ids))
+	for _, id := range ids {
+		config, err := ConfigItemFromCache(ctx, id.String())
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		configs = append(configs, config)
+	}
+	return configs, nil
 }
 
 type ptrNode struct {
