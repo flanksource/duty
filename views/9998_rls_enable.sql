@@ -1,6 +1,6 @@
 -- Generic function to match a row against an array of scopes
--- Returns TRUE if the row matches ANY scope in the array (OR logic between scopes)
--- Within a scope, ALL non-empty fields must match (AND logic within scope)
+-- Returns TRUE if the row matches ANY allow scope and no matching deny scope.
+-- Within a scope, ALL non-empty fields must match (AND logic within scope).
 CREATE OR REPLACE FUNCTION match_scope(
     scopes jsonb,           -- Array of scope objects from JWT claims
     row_tags jsonb,         -- The row's tags (can be NULL)
@@ -14,10 +14,12 @@ DECLARE
     scope_agents jsonb;
     scope_names jsonb;
     scope_id text;
+    scope_deny boolean;
     tags_match boolean;
     agents_match boolean;
     names_match boolean;
     id_match boolean;
+    allow_match boolean := FALSE;
 BEGIN
     -- If scopes is NULL or not an array or empty, deny access
     IF scopes IS NULL
@@ -26,7 +28,7 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    -- Iterate through each scope (OR logic between scopes)
+    -- Iterate through each scope (OR logic between allow scopes; any matching deny wins)
     FOR scope IN SELECT * FROM jsonb_array_elements(scopes)
     LOOP
         -- Extract fields from scope
@@ -34,6 +36,7 @@ BEGIN
         scope_agents := scope->'agents';
         scope_names := scope->'names';
         scope_id := NULLIF(btrim(scope->>'id'), '');
+        scope_deny := lower(coalesce(scope->>'deny', 'false')) = 'true';
 
         -- Check if scope has any fields applicable to this resource type
         -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
@@ -87,14 +90,16 @@ BEGIN
             id_match := lower(scope_id) = row_id::text;
         END IF;
 
-        -- If ALL conditions match (AND logic within scope), return TRUE
+        -- If ALL conditions match (AND logic within scope), apply effect
         IF tags_match AND agents_match AND names_match AND id_match THEN
-            RETURN TRUE;
+            IF scope_deny THEN
+                RETURN FALSE;
+            END IF;
+            allow_match := TRUE;
         END IF;
     END LOOP;
 
-    -- No scope matched
-    RETURN FALSE;
+    RETURN allow_match;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
