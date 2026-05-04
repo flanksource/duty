@@ -21,6 +21,10 @@ const (
 func (rs ResourceSelector) Canonical() ResourceSelector {
 	out := rs
 
+	if !resourceSelectorHasWildcard(out) {
+		return out
+	}
+
 	if isWildcardValue(out.ID) {
 		out.ID = ""
 	}
@@ -138,4 +142,31 @@ func filterWildcardCSV(value string) string {
 
 func isWildcardValue(value string) bool {
 	return strings.TrimSpace(value) == wildcardValue
+}
+
+func resourceSelectorHasWildcard(rs ResourceSelector) bool {
+	if (rs.ID != "" && strings.Contains(rs.ID, wildcardValue)) ||
+		(rs.Namespace != "" && strings.Contains(rs.Namespace, wildcardValue)) ||
+		(rs.Scope != "" && strings.Contains(rs.Scope, wildcardValue)) ||
+		(rs.Agent != "" && strings.Contains(rs.Agent, wildcardValue)) ||
+		(rs.TagSelector != "" && strings.Contains(rs.TagSelector, wildcardValue)) ||
+		(rs.LabelSelector != "" && strings.Contains(rs.LabelSelector, wildcardValue)) ||
+		(rs.FieldSelector != "" && strings.Contains(rs.FieldSelector, wildcardValue)) ||
+		(rs.Health != "" && strings.Contains(string(rs.Health), wildcardValue)) {
+		return true
+	}
+
+	for _, item := range rs.Types {
+		if strings.Contains(item, wildcardValue) {
+			return true
+		}
+	}
+
+	for _, item := range rs.Statuses {
+		if strings.Contains(item, wildcardValue) {
+			return true
+		}
+	}
+
+	return false
 }
