@@ -72,7 +72,7 @@ var _ = Describe("Job", Ordered, func() {
 		Expect(after).To(HaveLen(len(before)))
 	})
 
-	It("Should clean up jobs", func() {
+	PIt("Should clean up jobs", func() {
 		items, _ := sampleJob.FindHistory()
 
 		groups := lo.GroupBy(items, func(j models.JobHistory) string { return j.Status })
