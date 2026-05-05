@@ -166,7 +166,7 @@ func (t *DummyData) Populate(ctx context.Context) error {
 		t.ConfigRelationships[i].UpdatedAt = createTime
 	}
 	if err := gormDB.Model(models.ConfigRelationship{}).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}},
+		Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}, {Name: "scraper_id"}},
 		DoNothing: true,
 	}).CreateInBatches(t.ConfigRelationships, 100).Error; err != nil {
 		return err
