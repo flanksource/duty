@@ -154,7 +154,7 @@ type ConfigItem struct {
 	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
 	Labels        *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
 	Tags          types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
-	Properties    *types.Properties    `json:"properties,omitempty"`
+	Properties    *OwnedProperties     `json:"properties,omitempty"`
 	CreatedAt     time.Time            `json:"created_at" gorm:"<-:create"`
 	InsertedAt    time.Time            `json:"inserted_at" gorm:"->;default:now()"`
 	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`

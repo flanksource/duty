@@ -141,7 +141,7 @@ func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
 	cleanupConfigItemBenchRows(b)
 }
 
-func buildBenchProperties(seed int, payload string) types.Properties {
+func buildBenchProperties(seed int, payload string) models.OwnedProperties {
 	properties := make(types.Properties, 0, benchPropertyCount)
 	for i := range benchPropertyCount {
 		properties = append(properties, &types.Property{
@@ -153,7 +153,7 @@ func buildBenchProperties(seed int, payload string) types.Properties {
 			Order:   i,
 		})
 	}
-	return properties
+	return models.NewOwnedProperties(properties)
 }
 
 func cleanupExternalUserBenchRows(b *testing.B) {
