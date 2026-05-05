@@ -114,6 +114,10 @@ BEGIN
         EXECUTE 'ALTER TABLE config_changes ENABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_properties') THEN
+        EXECUTE 'ALTER TABLE config_properties ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_analysis') THEN
         EXECUTE 'ALTER TABLE config_analysis ENABLE ROW LEVEL SECURITY;';
     END IF;
@@ -171,6 +175,21 @@ CREATE POLICY config_items_auth ON config_items
           config_items.name,
           config_items.id
         )
+      END
+    );
+
+-- Policy config_properties
+DROP POLICY IF EXISTS config_properties_auth ON config_properties;
+
+CREATE POLICY config_properties_auth ON config_properties
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        SELECT 1
+        FROM config_items
+        WHERE config_items.id = config_properties.config_id
+      )
       END
     );
 
