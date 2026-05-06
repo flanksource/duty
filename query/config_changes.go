@@ -222,7 +222,7 @@ func FindCatalogChanges(ctx context.Context, req CatalogChangesSearchRequest) (r
 	if err != nil {
 		return nil, err
 	}
-	if len(configIDs) == 0 && req.CatalogID != "" {
+	if len(configIDs) == 0 && req.CatalogID != "" && !req.HasCatalogIDFilter() {
 		return &CatalogChangesSearchResponse{}, nil
 	}
 
