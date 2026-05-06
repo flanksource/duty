@@ -322,6 +322,22 @@ var _ = ginkgo.Describe("Config changes recursive", ginkgo.Ordered, func() {
 			})
 		})
 
+		ginkgo.Context("Catalog id filter", func() {
+			ginkgo.It("supports NOT uuid", func() {
+				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{
+					BaseCatalogSearch: query.BaseCatalogSearch{
+						CatalogID: "!" + U.ID.String(),
+						SortBy:    "created_at",
+					},
+				})
+				Expect(err).To(BeNil())
+				Expect(response.Total).To(BeNumerically(">", 0))
+				for _, change := range response.Changes {
+					Expect(change.ConfigID).NotTo(Equal(U.ID.String()))
+				}
+			})
+		})
+
 		ginkgo.Context("Severity filter", func() {
 			ginkgo.It("NOT", func() {
 				response, err := query.FindCatalogChanges(DefaultContext, query.CatalogChangesSearchRequest{

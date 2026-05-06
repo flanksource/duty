@@ -15,19 +15,19 @@ import (
 )
 
 type BaseCatalogSearch struct {
-	CatalogID             string `query:"id" json:"id"`
-	ConfigType            string `query:"config_type" json:"config_type"`
-	IncludeDeletedConfigs bool   `query:"include_deleted_configs" json:"include_deleted_configs"`
-	Depth                 int    `query:"depth" json:"depth"`
-	Tags                  string `query:"tags" json:"tags"`
-	AgentID               string `query:"agent_id" json:"agent_id"`
-	From                  string `query:"from" json:"from"`
-	To                    string `query:"to" json:"to"`
-	PageSize              int    `query:"page_size" json:"page_size"`
-	Page                  int    `query:"page" json:"page"`
-	SortBy                string `query:"sort_by" json:"sort_by"`
+	CatalogID             string                  `query:"id" json:"id"`
+	ConfigType            string                  `query:"config_type" json:"config_type"`
+	IncludeDeletedConfigs bool                    `query:"include_deleted_configs" json:"include_deleted_configs"`
+	Depth                 int                     `query:"depth" json:"depth"`
+	Tags                  string                  `query:"tags" json:"tags"`
+	AgentID               string                  `query:"agent_id" json:"agent_id"`
+	From                  string                  `query:"from" json:"from"`
+	To                    string                  `query:"to" json:"to"`
+	PageSize              int                     `query:"page_size" json:"page_size"`
+	Page                  int                     `query:"page" json:"page"`
+	SortBy                string                  `query:"sort_by" json:"sort_by"`
 	Recursive             ChangeRelationDirection `query:"recursive" json:"recursive"`
-	Soft                  bool   `query:"soft" json:"soft"`
+	Soft                  bool                    `query:"soft" json:"soft"`
 
 	// Lenient silently ignores invalid filters, inapplicable columns,
 	// and validation errors instead of returning errors.
@@ -121,6 +121,9 @@ func (b *BaseCatalogSearch) ResolveConfigIDs(ctx context.Context) ([]uuid.UUID, 
 		b.configIDs = ids
 		return ids, nil
 	}
+	if b.HasCatalogIDFilter() {
+		return nil, nil
+	}
 
 	response, err := SearchResources(ctx, SearchResourcesRequest{
 		Configs: []types.ResourceSelector{{Search: b.CatalogID, Cache: "no-cache"}},
@@ -140,6 +143,15 @@ func (b *BaseCatalogSearch) ResolveConfigIDs(ctx context.Context) ([]uuid.UUID, 
 
 func (b *BaseCatalogSearch) ConfigIDs() []uuid.UUID {
 	return b.configIDs
+}
+
+func (b *BaseCatalogSearch) HasCatalogIDFilter() bool {
+	for _, p := range strings.Split(b.CatalogID, ",") {
+		if strings.HasPrefix(strings.TrimSpace(p), "!") {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *BaseCatalogSearch) ApplyClauses(excludeColumns ...string) ([]clause.Expression, func(*gorm.DB) *gorm.DB, error) {
