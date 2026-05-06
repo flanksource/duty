@@ -11,28 +11,34 @@ GOLANGCI_LINT_VERSION ?= v2.11.3
 ginkgo:
 	go install github.com/onsi/ginkgo/v2/ginkgo
 
-.PHONY: gavel
-gavel:
-	@command -v gavel >/dev/null || go install github.com/flanksource/gavel/cmd/gavel@latest
+# .PHONY: gavel
+# gavel:
+# 	@command -v gavel >/dev/null || go install github.com/flanksource/gavel/cmd/gavel@latest
+#
+# test: gavel
+# 	gavel test --timeout 30m --test-timeout 15m \
+# 		--ignore ./bench \
+# 		--ignore ./hack \
+# 		--ignore ./specs \
+# 		--ignore ./tests/e2e \
+# 		--ignore ./tests/e2e-blobs \
+# 		./...
+#
+# test-concurrent: gavel
+# 	gavel test --timeout 30m --test-timeout 15m \
+# 		--nodes 4 \
+# 		--ignore ./bench \
+# 		--ignore ./hack \
+# 		--ignore ./specs \
+# 		--ignore ./tests/e2e \
+# 		--ignore ./tests/e2e-blobs \
+# 		./...
 
-test: gavel
-	gavel test --timeout 30m --test-timeout 15m \
-		--ignore ./bench \
-		--ignore ./hack \
-		--ignore ./specs \
-		--ignore ./tests/e2e \
-		--ignore ./tests/e2e-blobs \
-		./...
+test: ginkgo
+	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
 
-test-concurrent: gavel
-	gavel test --timeout 30m --test-timeout 15m \
-		--nodes 4 \
-		--ignore ./bench \
-		--ignore ./hack \
-		--ignore ./specs \
-		--ignore ./tests/e2e \
-		--ignore ./tests/e2e-blobs \
-		./...
+test-concurrent: ginkgo
+	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
 
 
 .PHONY: test-e2e
