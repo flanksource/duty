@@ -7,7 +7,7 @@ separate from model `properties` fields such as `config_items.properties`,
 metadata stored in JSON columns.
 
 The machine-readable schema for JSON/YAML maps of these runtime properties is
-[PROPERTIES.schema.json](/Users/moshe/go/src/github.com/flanksource/duty/PROPERTIES.schema.json).
+[PROPERTIES.schema.json](./PROPERTIES.schema.json).
 The schema is intentionally kept outside `schema/openapi` because that
 directory is generated.
 

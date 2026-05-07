@@ -34,6 +34,7 @@ ginkgo:
 # 		--ignore ./tests/e2e-blobs \
 # 		./...
 
+.PHONY: test test-concurrent
 test: ginkgo
 	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
 

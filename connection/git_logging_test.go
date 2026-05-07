@@ -22,6 +22,10 @@ func makeBareRepo(t *testing.T, root string) string {
 	t.Helper()
 	g := gomega.NewWithT(t)
 
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("git executable not found in PATH: %v", err)
+	}
+
 	work := filepath.Join(root, "work")
 	g.Expect(os.MkdirAll(work, 0o755)).To(gomega.Succeed())
 

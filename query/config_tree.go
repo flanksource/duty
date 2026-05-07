@@ -82,6 +82,9 @@ func mergeConfigTreeInto(dst, src *ConfigTreeNode, byID map[uuid.UUID]*ConfigTre
 	if src.EdgeType == "target" {
 		dst.EdgeType = "target"
 	}
+	if dst.Relation == "" && src.Relation != "" {
+		dst.Relation = src.Relation
+	}
 	existing := make(map[uuid.UUID]*ConfigTreeNode, len(dst.Children))
 	for _, c := range dst.Children {
 		existing[c.ID] = c
