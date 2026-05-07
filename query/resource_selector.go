@@ -292,7 +292,7 @@ func SetResourceSelectorClause(
 
 	var agentID *uuid.UUID
 	if !searchSetAgent && !searchSetID && qm.HasAgents {
-		agentID, err := getAgentID(ctx, resourceSelector.Agent)
+		agentID, err = getAgentID(ctx, resourceSelector.Agent)
 		if err != nil {
 			return nil, err
 		}

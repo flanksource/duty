@@ -97,6 +97,14 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 		Expect(DefaultContext.DB().Create(&deletedGroup).Error).ToNot(HaveOccurred())
 		Expect(DefaultContext.DB().Create(&deletedUser).Error).ToNot(HaveOccurred())
 		Expect(DefaultContext.DB().Create(&deletedMembership).Error).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			Expect(DefaultContext.DB().
+				Where("external_user_id = ? AND external_group_id = ? AND scraper_id = ?",
+					deletedMembership.ExternalUserID, deletedMembership.ExternalGroupID, deletedMembership.ScraperID).
+				Delete(&models.ExternalUserGroup{}).Error).ToNot(HaveOccurred())
+			Expect(DefaultContext.DB().Delete(&models.ExternalUser{}, "id = ?", deletedUser.ID).Error).ToNot(HaveOccurred())
+			Expect(DefaultContext.DB().Delete(&models.ExternalGroup{}, "id = ?", deletedGroup.ID).Error).ToNot(HaveOccurred())
+		})
 
 		type externalGroupSummary struct {
 			ID               uuid.UUID
@@ -104,21 +112,26 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 			PermissionsCount int64
 		}
 
+		expectedIDs := []uuid.UUID{
+			dummy.MissionControlAdminsGroup.ID,
+			dummy.MissionControlReadersGroup.ID,
+			dummy.MissionControlEmptyGroup.ID,
+			deletedGroup.ID,
+		}
 		var summaries []externalGroupSummary
 		err := DefaultContext.DB().
 			Table("external_group_summary").
-			Where("id IN ?", []uuid.UUID{
-				dummy.MissionControlAdminsGroup.ID,
-				dummy.MissionControlReadersGroup.ID,
-				dummy.MissionControlEmptyGroup.ID,
-				deletedGroup.ID,
-			}).
+			Where("id IN ?", expectedIDs).
 			Find(&summaries).Error
 		Expect(err).ToNot(HaveOccurred())
+		Expect(summaries).To(HaveLen(len(expectedIDs)))
 
 		byID := map[uuid.UUID]externalGroupSummary{}
 		for _, summary := range summaries {
 			byID[summary.ID] = summary
+		}
+		for _, id := range expectedIDs {
+			Expect(byID).To(HaveKey(id))
 		}
 
 		Expect(byID[dummy.MissionControlAdminsGroup.ID].MembersCount).To(Equal(int64(2)))
