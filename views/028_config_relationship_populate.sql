@@ -1,6 +1,10 @@
 -- Add the hard relationship for records existing before the trigger was added
-INSERT INTO config_relationships (config_id, related_id, relation)
-SELECT parent.id "config_id", child.id "related_id", 'hard'
+INSERT INTO config_relationships (config_id, related_id, relation, scraper_id)
+SELECT
+  parent.id "config_id",
+  child.id "related_id",
+  'hard',
+  child.scraper_id
 FROM config_items child
 JOIN config_items parent 
   ON child.parent_id = parent.id
@@ -12,4 +16,5 @@ WHERE child.deleted_at IS NULL
     WHERE cr.config_id = parent.id
       AND cr.related_id = child.id
       AND cr.relation = 'hard'
+      AND cr.scraper_id = child.scraper_id
   );

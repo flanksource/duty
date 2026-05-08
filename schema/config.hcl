@@ -505,9 +505,8 @@ table "config_relationships" {
     type = text
   }
   column "scraper_id" {
-    null    = false
-    type    = uuid
-    default = "00000000-0000-0000-0000-000000000000"
+    null = true
+    type = uuid
   }
   column "created_at" {
     null    = false
@@ -543,6 +542,12 @@ table "config_relationships" {
     ref_columns = [table.config_items.column.id]
     on_update   = NO_ACTION
     on_delete   = CASCADE
+  }
+  foreign_key "config_relationships_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
   }
   index "config_relationships_related_id_config_id_relation_key" {
     unique  = true

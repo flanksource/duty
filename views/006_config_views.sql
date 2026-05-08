@@ -1078,8 +1078,8 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     IF NEW.parent_id IS NOT NULL THEN
-      INSERT INTO config_relationships (config_id, related_id, relation)
-      VALUES (NEW.parent_id, NEW.id, 'hard')
+      INSERT INTO config_relationships (config_id, related_id, relation, scraper_id)
+      VALUES (NEW.parent_id, NEW.id, 'hard', NEW.scraper_id)
       ON CONFLICT DO NOTHING;
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
@@ -1090,8 +1090,8 @@ BEGIN
       END IF;
 
       IF NEW.parent_id IS NOT NULL THEN
-        INSERT INTO config_relationships (config_id, related_id, relation)
-        VALUES (NEW.parent_id, NEW.id, 'hard')
+        INSERT INTO config_relationships (config_id, related_id, relation, scraper_id)
+        VALUES (NEW.parent_id, NEW.id, 'hard', NEW.scraper_id)
         ON CONFLICT DO NOTHING;
       END IF;
     END IF;
@@ -1155,7 +1155,7 @@ DECLARE
     v_config_item RECORD;
 BEGIN
     -- Get the config_item record
-    SELECT id, type, external_id
+    SELECT id, type, external_id, scraper_id
     INTO v_config_item
     FROM config_items
     WHERE id = config_item_id
@@ -1168,11 +1168,12 @@ BEGIN
 
     -- Only proceed if external_id array is not null and not empty
     IF v_config_item.external_id IS NOT NULL AND array_length(v_config_item.external_id, 1) > 0 THEN
-        INSERT INTO config_relationships (config_id, related_id, relation)
+        INSERT INTO config_relationships (config_id, related_id, relation, scraper_id)
         SELECT
             v_config_item.id as config_id,
             ci.id as related_id,
-            'Alias' as relation
+            'Alias' as relation,
+            v_config_item.scraper_id as scraper_id
         FROM config_items ci,
              unnest(v_config_item.external_id) as ext_id
         WHERE

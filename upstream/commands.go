@@ -67,8 +67,18 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 	}
 
 	if len(req.ConfigRelationships) > 0 {
-		if err := db.Delete(req.ConfigRelationships).Error; err != nil {
-			return fmt.Errorf("error deleting config_relationships: %w", err)
+		for _, rel := range req.ConfigRelationships {
+			tx := db.Where("config_id = ?", rel.ConfigID).
+				Where("related_id = ?", rel.RelatedID).
+				Where("relation = ?", rel.Relation)
+			if rel.ScraperID == nil {
+				tx = tx.Where("scraper_id IS NULL")
+			} else {
+				tx = tx.Where("scraper_id = ?", *rel.ScraperID)
+			}
+			if err := tx.Delete(&models.ConfigRelationship{}).Error; err != nil {
+				return fmt.Errorf("error deleting config_relationships: %w", err)
+			}
 		}
 	}
 

@@ -335,7 +335,7 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 		Expect(len(foundConfigs)).To(Equal(len(configItems)))
 
 		err = DefaultContext.DB().Model(models.ConfigRelationship{}).Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "related_id"}, {Name: "config_id"}, {Name: "relation"}, {Name: "scraper_id"}},
+			Columns:   models.ConfigRelationship{}.PKCols(),
 			DoNothing: true,
 		}).Create(&relationships).Error
 		Expect(err).To(BeNil())
@@ -432,16 +432,15 @@ var _ = ginkgo.Describe("Config relationship Kubernetes", ginkgo.Ordered, func()
 })
 
 // UpdateIsPushed matches rows by the 4-tuple (related_id, config_id, relation,
-// scraper_id). When ScraperID is uuid.Nil — the legacy / scraper-agnostic case
-// described on ConfigRelationship.ScraperID — the WHERE clause must still match
-// the inserted row. This regression test pushes one Nil-scraper relationship
-// and one real-scraper relationship, JSON round-trips them to simulate cross-
-// process delivery, and asserts both transition to is_pushed=true.
+// scraper_id). When ScraperID is nil, the WHERE clause must still match the
+// inserted row. This regression test pushes one nil-scraper relationship and one
+// real-scraper relationship, JSON round-trips them to simulate cross-process
+// delivery, and asserts both transition to is_pushed=true.
 var _ = ginkgo.Describe("config relationship UpdateIsPushed scraper round-trip", ginkgo.Ordered, func() {
 	var (
 		legacyRel models.ConfigRelationship
 		ownedRel  models.ConfigRelationship
-		scraperID = uuid.New()
+		scraperID = dummy.KubeScrapeConfig.ID
 	)
 
 	ginkgo.BeforeAll(func() {
@@ -455,7 +454,7 @@ var _ = ginkgo.Describe("config relationship UpdateIsPushed scraper round-trip",
 			ConfigID:  dummy.KubernetesCluster.ID.String(),
 			RelatedID: dummy.KubernetesNodeB.ID.String(),
 			Relation:  "scraper-roundtrip-owned",
-			ScraperID: scraperID,
+			ScraperID: &scraperID,
 		}
 		Expect(DefaultContext.DB().Create(&legacyRel).Error).To(BeNil())
 		Expect(DefaultContext.DB().Create(&ownedRel).Error).To(BeNil())
@@ -477,9 +476,9 @@ var _ = ginkgo.Describe("config relationship UpdateIsPushed scraper round-trip",
 		var roundtripped []models.ConfigRelationship
 		Expect(json.Unmarshal(raw, &roundtripped)).To(Succeed())
 		Expect(roundtripped).To(HaveLen(2))
-		// The Nil ScraperID must survive marshal/unmarshal as Nil, not get dropped.
-		Expect(roundtripped[0].ScraperID).To(Equal(uuid.Nil))
-		Expect(roundtripped[1].ScraperID).To(Equal(scraperID))
+		// The nil ScraperID must survive marshal/unmarshal as nil, not become uuid.Nil.
+		Expect(roundtripped[0].ScraperID).To(BeNil())
+		Expect(roundtripped[1].ScraperID).To(Equal(&scraperID))
 
 		items := lo.Map(roundtripped, func(r models.ConfigRelationship, _ int) models.DBTable { return r })
 		Expect(models.ConfigRelationship{}.UpdateIsPushed(DefaultContext.DB(), items)).To(Succeed())
