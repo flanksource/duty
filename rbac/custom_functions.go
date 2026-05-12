@@ -34,6 +34,7 @@ type Selectors struct {
 	Configs     []types.ResourceSelector `json:"configs,omitempty"`
 	Components  []types.ResourceSelector `json:"components,omitempty"`
 	Views       []ViewRef                `json:"views,omitempty"`
+	Plugins     []types.ResourceSelector `json:"plugins,omitempty"`
 }
 
 type addableEnforcer interface {
@@ -41,7 +42,10 @@ type addableEnforcer interface {
 }
 
 type resourcePair struct {
-	attrField    uuid.UUID
+	// present indicates that the ABAC request supplied this resource type.
+	// Matching itself is delegated to ResourceSelector.Matches; this flag only
+	// distinguishes an absent attribute from a zero-valued resource.
+	present      bool
 	attrResource types.ResourceSelectable
 	selectors    []types.ResourceSelector
 }
@@ -60,11 +64,12 @@ func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool
 	}
 
 	resourcePairs := []resourcePair{
-		{attr.Playbook.ID, &attr.Playbook, selector.Playbooks},
-		{attr.Component.ID, attr.Component, selector.Components},
-		{attr.Connection.ID, &attr.Connection, selector.Connections},
-		{attr.Config.ID, attr.Config, selector.Configs},
-		{attr.View.ID, &attr.View, viewSelectors},
+		{hasResourceID(attr.Playbook.ID), &attr.Playbook, selector.Playbooks},
+		{hasResourceID(attr.Component.ID), attr.Component, selector.Components},
+		{hasResourceID(attr.Connection.ID), &attr.Connection, selector.Connections},
+		{hasResourceID(attr.Config.ID), attr.Config, selector.Configs},
+		{hasResourceID(attr.View.ID), &attr.View, viewSelectors},
+		{hasPlugin(attr.Plugin), attr.Plugin, selector.Plugins},
 	}
 
 	for _, pair := range resourcePairs {
@@ -77,7 +82,7 @@ func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool
 }
 
 func matchResourceSelectorPair(pair resourcePair) bool {
-	if pair.attrField != uuid.Nil {
+	if pair.present {
 		if len(pair.selectors) == 0 {
 			// An attribute was provided but there's no selector to match it against
 			//
@@ -102,6 +107,18 @@ func matchResourceSelectorPair(pair resourcePair) bool {
 	}
 
 	return true
+}
+
+func hasResourceID(id uuid.UUID) bool {
+	return id != uuid.Nil
+}
+
+func hasPlugin(plugin types.ResourceSelectableMap) bool {
+	if plugin == nil {
+		return false
+	}
+	id, _ := plugin["id"].(string)
+	return id != ""
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {

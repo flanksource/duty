@@ -38,6 +38,7 @@ const (
 	PermissionSubjectTypeNotification PermissionSubjectType = "notification"
 	PermissionSubjectTypePerson       PermissionSubjectType = "person"
 	PermissionSubjectTypePlaybook     PermissionSubjectType = "playbook"
+	PermissionSubjectTypePlugin       PermissionSubjectType = "plugin"
 	PermissionSubjectTypeScraper      PermissionSubjectType = "scraper"
 	PermissionSubjectTypeTeam         PermissionSubjectType = "team"
 	PermissionSubjectTypeTopology     PermissionSubjectType = "topology"
@@ -52,6 +53,8 @@ func (p PermissionSubjectType) Pretty() api.Text {
 		icon = "👥"
 	case PermissionSubjectTypePlaybook:
 		icon = "📋"
+	case PermissionSubjectTypePlugin:
+		icon = "🧩"
 	case PermissionSubjectTypeScraper:
 		icon = "🔄"
 	case PermissionSubjectTypeCanary:

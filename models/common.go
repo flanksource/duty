@@ -9,6 +9,7 @@ import (
 	"github.com/flanksource/clicky"
 	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/logger"
+	"github.com/flanksource/duty/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -212,6 +213,7 @@ type ABACAttribute struct {
 	Check      Check
 	Canary     Canary
 	View       View
+	Plugin     types.ResourceSelectableMap
 }
 
 type TaggableModel interface {
