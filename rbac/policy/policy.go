@@ -242,6 +242,7 @@ const (
 	ObjectPeople           = "people"
 	ObjectNotification     = "notification"
 	ObjectViews            = "views"
+	ObjectPlugins          = "plugins"
 
 	// ObjectMCP represents our MCP server endpoint.
 	ObjectMCP = "mcp"
@@ -307,6 +308,7 @@ var AllObjects = []string{
 	ObjectPeople,
 	ObjectNotification,
 	ObjectViews,
+	ObjectPlugins,
 	ObjectMCP,
 }
 
@@ -340,6 +342,11 @@ func ABACObjectSelector(object, action string) []byte {
 	case ObjectViews:
 		if lo.Contains([]string{ActionMCPRun, ActionMCPUse, ActionRead}, action) {
 			return []byte(`{"views": [{"name":"*"}]}`)
+		}
+
+	case ObjectPlugins:
+		if strings.HasPrefix(action, "invoke:") {
+			return []byte(`{"plugins": [{"name":"*"}]}`)
 		}
 	}
 
