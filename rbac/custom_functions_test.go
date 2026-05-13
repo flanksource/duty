@@ -14,6 +14,30 @@ import (
 	"github.com/flanksource/duty/types"
 )
 
+func Test_matchAction(t *testing.T) {
+	tests := []struct {
+		name          string
+		requestAction string
+		policyAction  string
+		want          bool
+	}{
+		{name: "global wildcard", requestAction: "read", policyAction: "*", want: true},
+		{name: "exact match", requestAction: "invoke:kubernetes-logs:list-pods", policyAction: "invoke:kubernetes-logs:list-pods", want: true},
+		{name: "plugin operation wildcard", requestAction: "invoke:kubernetes-logs:tail", policyAction: "invoke:kubernetes-logs:*", want: true},
+		{name: "plugin operation wildcard does not match other plugin", requestAction: "invoke:other-plugin:tail", policyAction: "invoke:kubernetes-logs:*", want: false},
+		{name: "plugin operation wildcard does not match prefix without separator", requestAction: "invoke:kubernetes-logs-extra:tail", policyAction: "invoke:kubernetes-logs:*", want: false},
+		{name: "non wildcard prefix does not match", requestAction: "invoke:kubernetes-logs:tail", policyAction: "invoke:kubernetes-logs", want: false},
+		{name: "unknown action", requestAction: "unknown:kubernetes-logs:tail", policyAction: "unknown:kubernetes-logs:*", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			g.Expect(matchAction(tt.requestAction, tt.policyAction)).To(Equal(tt.want))
+		})
+	}
+}
+
 func Test_matchResourceSelector(t *testing.T) {
 	type args struct {
 		attr     models.ABACAttribute
