@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/casbin/govaluate"
 	"github.com/google/uuid"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac/policy"
 	"github.com/flanksource/duty/types"
 )
 
@@ -34,7 +36,6 @@ type Selectors struct {
 	Configs     []types.ResourceSelector `json:"configs,omitempty"`
 	Components  []types.ResourceSelector `json:"components,omitempty"`
 	Views       []ViewRef                `json:"views,omitempty"`
-	Plugins     []types.ResourceSelector `json:"plugins,omitempty"`
 }
 
 type addableEnforcer interface {
@@ -69,7 +70,6 @@ func matchResourceSelector(attr *models.ABACAttribute, selector Selectors) (bool
 		{hasResourceID(attr.Connection.ID), &attr.Connection, selector.Connections},
 		{hasResourceID(attr.Config.ID), attr.Config, selector.Configs},
 		{hasResourceID(attr.View.ID), &attr.View, viewSelectors},
-		{hasPlugin(attr.Plugin), attr.Plugin, selector.Plugins},
 	}
 
 	for _, pair := range resourcePairs {
@@ -113,15 +113,47 @@ func hasResourceID(id uuid.UUID) bool {
 	return id != uuid.Nil
 }
 
-func hasPlugin(plugin types.ResourceSelectableMap) bool {
-	if plugin == nil {
+func matchAction(requestAction, policyAction string) bool {
+	if policyAction == "*" || policyAction == requestAction {
+		return true
+	}
+
+	// invoke is a special action that can take dynamic suffixes and support wildcard
+	// example:
+	// invoke:<plugin-name>:<action>
+	// invoke:<plugin-name>:*
+	if r, found := strings.CutPrefix(policyAction, policy.ActionPluginInvokePrefix); !found {
+		return false
+	} else if plugin, action, found := strings.Cut(r, ":"); !found || plugin == "" || action != "*" {
 		return false
 	}
-	id, _ := plugin["id"].(string)
-	return id != ""
+
+	return strings.HasPrefix(requestAction, strings.TrimSuffix(policyAction, "*"))
 }
 
 func AddCustomFunctions(enforcer addableEnforcer) {
+	enforcer.AddFunction("matchAction", func(args ...any) (any, error) {
+		// matchAction extends Casbin's exact action match with suffix wildcard support.
+		// This is needed for dynamic actions that are not known at compile time, e.g.
+		// plugin operation grants like "invoke:kubernetes-logs:*" matching
+		// "invoke:kubernetes-logs:list-pods" without also matching another plugin.
+
+		if len(args) != 2 {
+			return false, fmt.Errorf("matchAction needs 2 arguments. got %d", len(args))
+		}
+
+		requestAction, ok := args[0].(string)
+		if !ok {
+			return false, fmt.Errorf("matchAction request action must be a string")
+		}
+		policyAction, ok := args[1].(string)
+		if !ok {
+			return false, fmt.Errorf("matchAction policy action must be a string")
+		}
+
+		return matchAction(requestAction, policyAction), nil
+	})
+
 	// This is used in the Casbin matcher to differentiate between RBAC checks (string objects)
 	// and ABAC checks (ABACAttribute objects).
 	enforcer.AddFunction("isString", func(args ...any) (any, error) {
