@@ -614,6 +614,20 @@ var _ = Describe("Resource Selector", func() {
 				Expect(canonical.Statuses).To(Equal(types.Items{"healthy"}))
 				Expect(canonical.Health).To(Equal(types.MatchExpression("warning")))
 			})
+
+			It("should keep selectors without wildcard unchanged", func() {
+				rs := types.ResourceSelector{
+					Name:          "api-server",
+					TagSelector:   "cluster=aws",
+					LabelSelector: "app=backend",
+					FieldSelector: "owner=platform",
+					Types:         []string{"Kubernetes::Pod"},
+					Statuses:      []string{"healthy"},
+					Health:        "healthy",
+				}
+
+				Expect(rs.Canonical()).To(Equal(rs))
+			})
 		})
 	})
 })
