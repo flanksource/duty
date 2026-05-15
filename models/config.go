@@ -712,10 +712,10 @@ type ConfigChange struct {
 	Patches string `gorm:"column:patches;default:null" json:"patches,omitempty"`
 
 	// Diff represents the differences introduced by this change.
-	Diff string `gorm:"column:diff;default:null" json:"diff,omitempty"`
+	Diff *string `gorm:"column:diff;default:null" json:"diff,omitempty"`
 
 	// Fingerprint is a uniquest identifier for the change, it ignores all UUID, numbers and timestamps to enable de-duplication of equivalent changes.
-	Fingerprint string `gorm:"column:fingerprint;default:null" json:"fingerprint,omitempty"`
+	Fingerprint *string `gorm:"column:fingerprint;default:null" json:"fingerprint,omitempty"`
 
 	// Details contains additional information about the change in JSON format.
 	Details types.JSON `json:"details,omitempty"`
@@ -820,16 +820,16 @@ func (c ConfigChange) RowDetail() api.Textable {
 	if c.ExternalChangeID != nil && *c.ExternalChangeID != "" {
 		t = t.Append("ExternalChangeID: ", "text-gray-500 font-medium").Append(*c.ExternalChangeID)
 	}
-	if c.Fingerprint != "" {
-		t = t.NewLine().Append("Fingerprint: ", "text-gray-500 font-medium").Append(c.Fingerprint)
+	if c.Fingerprint != nil && *c.Fingerprint != "" {
+		t = t.NewLine().Append("Fingerprint: ", "text-gray-500 font-medium").Append(*c.Fingerprint)
 	}
 	if len(c.Details) > 0 {
 		data, _ := json.MarshalIndent(c.Details, "", "  ")
 		t = t.NewLine().Append(clicky.CodeBlock("json", string(data)))
 	}
-	if c.Diff != "" {
+	if c.Diff != nil && *c.Diff != "" {
 		t = t.NewLine().Append("Diff: ", "text-gray-500 font-medium")
-		t = t.NewLine().Append(clicky.CodeBlock("diff", c.Diff))
+		t = t.NewLine().Append(clicky.CodeBlock("diff", *c.Diff))
 	}
 	if c.Patches != "" {
 		t = t.NewLine().Append("Patches: ", "text-gray-500 font-medium")
