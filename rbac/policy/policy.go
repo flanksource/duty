@@ -269,7 +269,12 @@ const (
 	ActionPlaybookCancel  = "playbook:cancel"
 
 	ActionPluginInvokePrefix = "invoke:"
+	ActionPluginRolePrefix   = "plugin-role:"
 )
+
+func NewPluginRoleAction(plugin, role string) string {
+	return fmt.Sprintf("%s%s:%s", ActionPluginRolePrefix, plugin, role)
+}
 
 func NewPluginInvokeAction(plugin, operation string) string {
 	return fmt.Sprintf("%s%s:%s", ActionPluginInvokePrefix, plugin, operation)
