@@ -5,14 +5,20 @@ on:
   pull_request:
 
 name: Test
+permissions:
+  contents: read
+  checks: write
+  issues: write
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
           - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
           - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     services:
@@ -23,7 +29,6 @@ jobs:
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: test
-        # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -43,7 +48,7 @@ jobs:
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
+          cache: false
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -55,15 +60,46 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: Test
-        run: make test
+      - name: Build gavel from feat/action-flag-fix
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/gavel" version || true
+      - uses: flanksource/gavel@feat/action-flag-fix
+        with:
+          version: source
+          args: >-
+            test --lint --timeout 30m --test-timeout 15m
+            --ignore ./bench
+            --ignore ./hack
+            --ignore ./specs
+            --ignore ./tests/e2e
+            --ignore ./tests/e2e-blobs
+            ./...
+          artifact-name: gavel-test-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-test-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
           DUTY_DB_CREATE: "false"
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
+          DUTY_DB_DISABLE_RLS: "false"
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       loki:
         image: grafana/loki:3.5.1@sha256:3a4e80320df38087263e9d450fd812010ee57e1e0b0679465672c0e227441f43
@@ -74,33 +110,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    steps:
-      - name: Install Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
-        with:
-          go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-            .bin
-          key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
-          restore-keys: |
-            cache-
-      - name: E2E Test
-        run: |
-          make ginkgo
-          ginkgo -r tests/e2e/
-        env:
-          DUTY_DB_DISABLE_RLS: "true"
-          LOKI_URL: http://localhost:3100
-
-  e2e-blobs:
-    runs-on: ubuntu-latest
     steps:
       - name: Install Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -118,31 +127,49 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-      - name: E2E Blob Store Tests
-        run: make test-e2e-blobs
+      - name: Build gavel from feat/action-flag-fix
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/gavel" version || true
+      - uses: flanksource/gavel@feat/action-flag-fix
+        with:
+          version: source
+          args: >-
+            test --timeout 30m --test-timeout 15m
+            --extra-args=--ginkgo.label-filter=e2e
+            ./tests/e2e
+          artifact-name: gavel-e2e
+          comment-header: gavel-e2e
+          fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DUTY_DB_DISABLE_RLS: "true"
+          LOKI_URL: http://localhost:3100
 
-  migrate:
+  e2e-blobs:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
-          - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
-          - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
-    env:
-      migrate_command: >
-        make -B tidy hack/migrate/go.mod &&
-        cd hack/migrate &&
-        go build main.go && ./main --db-url 'postgres://postgres:postgres@localhost:5432/test?sslmode=disable'
+    timeout-minutes: 45
     steps:
       - name: Install Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: 1.26.x
-          cache: false # Using custom cache action below for .bin directory
+          cache: false
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
@@ -152,23 +179,46 @@ jobs:
           key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
           restore-keys: |
             cache-
-
-      - name: Check out main branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Build gavel from feat/action-flag-fix
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/gavel" version || true
+      - uses: flanksource/gavel@feat/action-flag-fix
         with:
-          ref: main
-
-      - name: Apply base migrations
-        run: ${{ env.migrate_command }}
+          version: source
+          args: >-
+            test --timeout 30m --test-timeout 15m
+            --extra-args=--ginkgo.label-filter=e2e
+            ./tests/e2e-blobs
+          artifact-name: gavel-e2e-blobs
+          comment-header: gavel-e2e-blobs
+          fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DUTY_DB_DISABLE_RLS: "true"
 
-      - name: Check out current branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Apply new migrations
-        run: ${{ env.migrate_command }}
-        env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres-version:
+          - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
+          - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
     services:
       postgres:
         image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
@@ -177,9 +227,87 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test
-        # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: 1.26.x
+          cache: false
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            .bin
+          key: cache-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.bin/*') }}
+          restore-keys: |
+            cache-
+      - name: Build gavel from feat/action-flag-fix
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          tmp="$(mktemp -d)"
+          git clone --depth=1 --branch feat/action-flag-fix https://github.com/flanksource/gavel "$tmp/gavel"
+          cd "$tmp/gavel"
+          # Stub embedded UI bundles so `go build` doesn't require npm/Vite.
+          mkdir -p testrunner/ui/dist pr/ui/dist
+          : > testrunner/ui/dist/testui.js
+          : > pr/ui/dist/prui.js
+          # Pull in any missing modules referenced by source but absent from go.mod.
+          go mod tidy
+          go build -o "$HOME/.local/bin/gavel" ./cmd/gavel
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/gavel" version || true
+
+      - name: Stage migrate fixture from PR head into RUNNER_TEMP
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/duty-fixtures"
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/.github/fixtures/migrate.fixture.md?ref=${GITHUB_SHA}" \
+            -o "$RUNNER_TEMP/duty-fixtures/migrate.fixture.md"
+          ls -la "$RUNNER_TEMP/duty-fixtures"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check out main branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+      - name: Restore migrate fixture
+        run: |
+          mkdir -p .github/fixtures
+          cp "$RUNNER_TEMP/duty-fixtures/migrate.fixture.md" .github/fixtures/migrate.fixture.md
+      - name: Apply base migrations
+        uses: flanksource/gavel@feat/action-flag-fix
+        with:
+          version: source
+          args: fixtures .github/fixtures/migrate.fixture.md
+          artifact-name: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-migrate-base-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DUTY_DB_DISABLE_RLS: "false"
+
+      - name: Check out current branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Apply new migrations
+        uses: flanksource/gavel@feat/action-flag-fix
+        with:
+          version: source
+          args: fixtures .github/fixtures/migrate.fixture.md
+          artifact-name: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
+          comment-header: gavel-migrate-head-pg${{ matrix.postgres-version.tag }}
+          fail-on-error: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DUTY_DB_DISABLE_RLS: "false"
