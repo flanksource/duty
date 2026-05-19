@@ -2,6 +2,8 @@
 
 -- Add cascade drops first to make sure all functions and views are always recreated
 DROP VIEW IF EXISTS configs CASCADE;
+DROP VIEW IF EXISTS config_items_with_properties CASCADE;
+DROP VIEW IF EXISTS config_properties_json CASCADE;
 
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
@@ -112,6 +114,99 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- config_properties_json
+-- Converts typed config_properties rows back into the legacy JSONB property-array
+-- shape used by config_items.properties. This keeps existing readers compatible
+-- while allowing new writes to target the normalized config_properties table.
+CREATE OR REPLACE VIEW config_properties_json AS
+  SELECT
+    config_id,
+    jsonb_agg(
+      jsonb_strip_nulls(
+        jsonb_build_object(
+          'name', name,
+          'label', label,
+          'tooltip', tooltip,
+          'icon', icon,
+          'type', property_type,
+          'color', color,
+          'order', display_order,
+          'headline', NULLIF(headline, false),
+          'hidden', NULLIF(hidden, false),
+          'text', text,
+          'value', value,
+          'unit', unit,
+          'max', max,
+          'min', min,
+          'status', status,
+          'links', CASE WHEN link_url IS NOT NULL AND link_url <> '' THEN
+            jsonb_build_array(
+              jsonb_strip_nulls(
+                jsonb_build_object(
+                  'url', link_url,
+                  'label', link_label,
+                  'icon', link_icon
+                )
+              )
+            )
+          ELSE NULL END
+        )
+      )
+      ORDER BY display_order NULLS LAST, created_at, id
+    ) AS properties
+  FROM config_properties
+  GROUP BY config_id;
+
+-- config_items_with_properties
+-- Compatibility layer over config_items that exposes a merged properties array:
+-- scraper-written config_items.properties first, followed by normalized
+-- config_properties rows. Use this from views that should present all config
+-- properties without forcing callers to read two sources.
+CREATE OR REPLACE VIEW config_items_with_properties AS
+  SELECT
+    ci.id,
+    ci.agent_id,
+    ci.icon,
+    ci.scraper_id,
+    ci.config_class,
+    ci.status,
+    ci.health,
+    ci.ready,
+    ci.external_id,
+    ci.type,
+    ci.cost_per_minute,
+    ci.cost_total_1d,
+    ci.cost_total_7d,
+    ci.cost_total_30d,
+    ci.name,
+    ci.description,
+    ci.config,
+    ci.source,
+    ci.labels,
+    ci.tags,
+    ci.tags_values,
+    merged.properties,
+    CASE WHEN merged.properties IS NULL THEN NULL
+      ELSE jsonb_path_query_array(merged.properties, '$[*].text'::jsonpath) ||
+           jsonb_path_query_array(merged.properties, '$[*].value'::jsonpath)
+    END AS properties_values,
+    ci.parent_id,
+    ci.path,
+    ci.is_pushed,
+    ci.created_by,
+    ci.created_at,
+    ci.updated_at,
+    ci.deleted_at,
+    ci.delete_reason,
+    ci.inserted_at
+  FROM config_items AS ci
+  LEFT JOIN config_properties_json cp ON cp.config_id = ci.id
+  CROSS JOIN LATERAL (
+    SELECT CASE WHEN ci.properties IS NULL AND cp.properties IS NULL THEN NULL
+      ELSE COALESCE(ci.properties, '[]'::jsonb) || COALESCE(cp.properties, '[]'::jsonb)
+    END AS properties
+  ) AS merged;
+
 CREATE or REPLACE VIEW configs AS
   SELECT
     ci.id,
@@ -143,7 +238,7 @@ CREATE or REPLACE VIEW configs AS
     ci.path,
     config_item_summary_7d.config_changes_count AS changes,
     config_item_summary_7d.config_analysis_type_counts AS analysis
-  FROM config_items AS ci
+  FROM config_items_with_properties AS ci
   LEFT JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id;
 
 
@@ -1010,7 +1105,7 @@ CREATE OR REPLACE VIEW config_detail AS
       'id', config_scrapers.id,
       'name', config_scrapers.name
     ) ELSE NULL END as scraper
-  FROM config_items as ci
+  FROM config_items_with_properties as ci
     LEFT JOIN agents ON agents.id = ci.agent_id
     LEFT JOIN config_items_last_scraped_time ON config_items_last_scraped_time.config_id = ci.id
     LEFT JOIN config_scrapers ON config_scrapers.id = ci.scraper_id
