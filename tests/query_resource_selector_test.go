@@ -327,6 +327,13 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Connections: []models.Connection{dummy.AWSConnection},
 		},
 		{
+			description: "connection by name",
+			query: query.SearchResourcesRequest{
+				Connections: []types.ResourceSelector{{Name: dummy.PostgresConnection.Name}},
+			},
+			Connections: []models.Connection{dummy.PostgresConnection},
+		},
+		{
 			description: "connection by type",
 			query: query.SearchResourcesRequest{
 				Connections: []types.ResourceSelector{{Types: []string{dummy.AWSConnection.Type}}},
@@ -456,6 +463,8 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Components...)), "should contain components")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Checks...)), "should contain checks")
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.ConfigChanges...)), "should contain config changes")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Playbooks...)), "should contain playbooks")
+				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Connections...)), "should contain connections")
 			})
 		}
 	})
