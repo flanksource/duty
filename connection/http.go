@@ -379,11 +379,11 @@ func (h *HTTPConnection) Hydrate(ctx ConnectionContext, namespace string) (*HTTP
 	return h, nil
 }
 
-func (h HTTPConnection) Transport(opts ...types.ClientOption) netHTTP.RoundTripper {
+func (h HTTPConnection) Transport(opts ...types.ClientOption) (netHTTP.RoundTripper, error) {
 	return h.TransportWithContext(nil, opts...)
 }
 
-func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption) netHTTP.RoundTripper {
+func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption) (netHTTP.RoundTripper, error) {
 	o := types.NewClientOptions(opts...)
 	feature := o.Feature
 	if feature == "" {
@@ -392,7 +392,7 @@ func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption
 
 	base, err := h.transport()
 	if err != nil {
-		return errorRoundTripper{err: fmt.Errorf("configure http transport: %w", err)}
+		return nil, err
 	}
 
 	base = applyHTTPObservability(ctx, feature, base, o.HARCollector)
@@ -401,7 +401,7 @@ func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption
 		Base:           base,
 		TokenTransport: harTokenTransport(ctx, feature, o.HARCollector),
 	}
-	return rt
+	return rt, nil
 }
 
 func (h HTTPConnection) transport() (netHTTP.RoundTripper, error) {
@@ -422,14 +422,6 @@ func (h HTTPConnection) transport() (netHTTP.RoundTripper, error) {
 		}
 	}
 	return transport, nil
-}
-
-type errorRoundTripper struct {
-	err error
-}
-
-func (e errorRoundTripper) RoundTrip(*netHTTP.Request) (*netHTTP.Response, error) {
-	return nil, e.err
 }
 
 type httpConnectionRoundTripper struct {

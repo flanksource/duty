@@ -65,7 +65,9 @@ func TestHTTPConnectionTransportTLS(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
-			client := &http.Client{Transport: HTTPConnection{TLS: tc.config}.Transport()}
+			rt, err := HTTPConnection{TLS: tc.config}.Transport()
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			client := &http.Client{Transport: rt}
 
 			resp, err := client.Get(server.URL)
 			if tc.expectsErr {
