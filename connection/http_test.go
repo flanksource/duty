@@ -2,12 +2,90 @@ package connection
 
 import (
 	gocontext "context"
+	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/onsi/gomega"
 )
+
+func TestTLSConfigIsEmpty(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  TLSConfig
+		expects bool
+	}{
+		{name: "empty", config: TLSConfig{}, expects: true},
+		{name: "insecure skip verify", config: TLSConfig{InsecureSkipVerify: true}},
+		{name: "handshake timeout", config: TLSConfig{HandshakeTimeout: time.Second}},
+		{name: "ca only", config: TLSConfig{CA: types.EnvVar{ValueStatic: "ca"}}},
+		{name: "cert only", config: TLSConfig{Cert: types.EnvVar{ValueStatic: "cert"}}},
+		{name: "key only", config: TLSConfig{Key: types.EnvVar{ValueStatic: "key"}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			g.Expect(tc.config.IsEmpty()).To(gomega.Equal(tc.expects))
+		})
+	}
+}
+
+func TestHTTPConnectionTransportTLS(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+
+	tests := []struct {
+		name       string
+		config     TLSConfig
+		expectsErr bool
+	}{
+		{
+			name:       "default TLS rejects unknown CA",
+			expectsErr: true,
+		},
+		{
+			name:   "custom CA",
+			config: TLSConfig{CA: types.EnvVar{ValueStatic: string(certPEM)}},
+		},
+		{
+			name:   "insecure skip verify",
+			config: TLSConfig{InsecureSkipVerify: true},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			client := &http.Client{Transport: HTTPConnection{TLS: tc.config}.Transport()}
+
+			resp, err := client.Get(server.URL)
+			if tc.expectsErr {
+				g.Expect(err).To(gomega.HaveOccurred())
+				return
+			}
+
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			defer resp.Body.Close()
+			g.Expect(resp.StatusCode).To(gomega.Equal(http.StatusOK))
+		})
+	}
+}
+
+func TestCreateHTTPClientWithTLS(t *testing.T) {
+	g := gomega.NewWithT(t)
+	client, err := CreateHTTPClient(nil, HTTPConnection{TLS: TLSConfig{InsecureSkipVerify: true}})
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(client).ToNot(gomega.BeNil())
+}
 
 func TestHTTPConnectionPretty(t *testing.T) {
 	tests := []struct {
