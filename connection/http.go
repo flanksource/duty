@@ -1,6 +1,8 @@
 package connection
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	netHTTP "net/http"
@@ -38,7 +40,36 @@ type TLSConfig struct {
 }
 
 func (t TLSConfig) IsEmpty() bool {
-	return t.CA.IsEmpty() || t.Cert.IsEmpty() || t.Key.IsEmpty()
+	return !t.InsecureSkipVerify && t.HandshakeTimeout == 0 && t.CA.IsEmpty() && t.Cert.IsEmpty() && t.Key.IsEmpty()
+}
+
+func (t TLSConfig) clientConfig() (*tls.Config, error) {
+	if t.IsEmpty() {
+		return nil, nil
+	}
+
+	config := &tls.Config{InsecureSkipVerify: t.InsecureSkipVerify}
+	if t.CA.ValueStatic != "" {
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+
+		if !certPool.AppendCertsFromPEM([]byte(t.CA.ValueStatic)) {
+			return nil, fmt.Errorf("failed to append ca certificate")
+		}
+		config.RootCAs = certPool
+	}
+
+	if t.Cert.ValueStatic != "" && t.Key.ValueStatic != "" {
+		cert, err := tls.X509KeyPair([]byte(t.Cert.ValueStatic), []byte(t.Key.ValueStatic))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create client certificate: %w", err)
+		}
+		config.Certificates = []tls.Certificate{cert}
+	}
+
+	return config, nil
 }
 
 // +kubebuilder:object:generate=true
@@ -354,13 +385,51 @@ func (h HTTPConnection) Transport(opts ...types.ClientOption) netHTTP.RoundTripp
 
 func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption) netHTTP.RoundTripper {
 	o := types.NewClientOptions(opts...)
-	base := applyHTTPObservability(ctx, "http", &netHTTP.Transport{}, o.HARCollector)
+	feature := o.Feature
+	if feature == "" {
+		feature = "http"
+	}
+
+	base, err := h.transport()
+	if err != nil {
+		return errorRoundTripper{err: fmt.Errorf("configure http transport: %w", err)}
+	}
+
+	base = applyHTTPObservability(ctx, feature, base, o.HARCollector)
 	rt := &httpConnectionRoundTripper{
 		HTTPConnection: h,
 		Base:           base,
-		TokenTransport: harTokenTransport(ctx, "http", o.HARCollector),
+		TokenTransport: harTokenTransport(ctx, feature, o.HARCollector),
 	}
 	return rt
+}
+
+func (h HTTPConnection) transport() (netHTTP.RoundTripper, error) {
+	base, ok := netHTTP.DefaultTransport.(*netHTTP.Transport)
+	if !ok {
+		base = &netHTTP.Transport{}
+	}
+
+	transport := base.Clone()
+	if !h.TLS.IsEmpty() {
+		tlsConfig, err := h.TLS.clientConfig()
+		if err != nil {
+			return nil, err
+		}
+		transport.TLSClientConfig = tlsConfig
+		if h.TLS.HandshakeTimeout != 0 {
+			transport.TLSHandshakeTimeout = h.TLS.HandshakeTimeout
+		}
+	}
+	return transport, nil
+}
+
+type errorRoundTripper struct {
+	err error
+}
+
+func (e errorRoundTripper) RoundTrip(*netHTTP.Request) (*netHTTP.Response, error) {
+	return nil, e.err
 }
 
 type httpConnectionRoundTripper struct {
@@ -392,10 +461,6 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 		if !header.IsEmpty() {
 			req.Header.Add(header.Name, header.ValueStatic)
 		}
-	}
-
-	if !conn.TLS.IsEmpty() {
-		rt.TLS = conn.TLS
 	}
 
 	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
