@@ -40,7 +40,8 @@ type TLSConfig struct {
 }
 
 func (t TLSConfig) IsEmpty() bool {
-	return !t.InsecureSkipVerify && t.HandshakeTimeout == 0 && t.CA.IsEmpty() && t.Cert.IsEmpty() && t.Key.IsEmpty()
+	hasClientCert := !t.Cert.IsEmpty() || !t.Key.IsEmpty()
+	return !t.InsecureSkipVerify && t.HandshakeTimeout == 0 && t.CA.IsEmpty() && !hasClientCert
 }
 
 func (t TLSConfig) clientConfig() (*tls.Config, error) {
@@ -61,7 +62,12 @@ func (t TLSConfig) clientConfig() (*tls.Config, error) {
 		config.RootCAs = certPool
 	}
 
-	if t.Cert.ValueStatic != "" && t.Key.ValueStatic != "" {
+	hasCert := !t.Cert.IsEmpty()
+	hasKey := !t.Key.IsEmpty()
+	if hasCert != hasKey {
+		return nil, fmt.Errorf("both client certificate and key must be provided")
+	}
+	if hasCert {
 		cert, err := tls.X509KeyPair([]byte(t.Cert.ValueStatic), []byte(t.Key.ValueStatic))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client certificate: %w", err)
