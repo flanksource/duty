@@ -615,7 +615,11 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 			}
 
 			for _, resource := range resourceList.Items {
-				if ok, _ := selector.Matches(&types.UnstructuredResource{Unstructured: &resource}); ok {
+				ok, err := selector.Matches(&types.UnstructuredResource{Unstructured: &resource})
+				if err != nil {
+					return nil, fmt.Errorf("failed to match selector against %s/%s: %w", resource.GetNamespace(), resource.GetName(), err)
+				}
+				if ok {
 					resources = append(resources, resource)
 				}
 			}
