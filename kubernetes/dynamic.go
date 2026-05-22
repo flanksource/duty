@@ -615,7 +615,7 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 			}
 
 			for _, resource := range resourceList.Items {
-				if selector.Matches(&types.UnstructuredResource{Unstructured: &resource}) {
+				if ok, _ := selector.Matches(&types.UnstructuredResource{Unstructured: &resource}); ok {
 					resources = append(resources, resource)
 				}
 			}

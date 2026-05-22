@@ -94,7 +94,7 @@ func matchResourceSelectorPair(pair resourcePair) bool {
 
 		// Must match one of the selectors
 		for _, rs := range pair.selectors {
-			if rs.Matches(pair.attrResource) {
+			if ok, _ := rs.Matches(pair.attrResource); ok {
 				return true
 			}
 		}

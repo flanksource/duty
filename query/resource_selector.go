@@ -246,7 +246,9 @@ func SetResourceSelectorClause(
 		return nil, fmt.Errorf("grammar parsing not implemented for table: %s", table)
 	}
 
-	if peg := resourceSelector.ToPeg(false); peg != "" {
+	if peg, err := resourceSelector.ToPeg(false); err != nil {
+		return nil, err
+	} else if peg != "" {
 		qf, err := grammar.ParsePEG(peg)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing grammar[%s]: %w", peg, err)

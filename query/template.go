@@ -49,7 +49,7 @@ func MatchQueryCelFunc(ctx context.Context) cel.EnvOption {
 func matchQuery(resourceSelectableRaw map[string]any, peg string) (bool, error) {
 	resourceSelectable := dutyTypes.ResourceSelectableMap(resourceSelectableRaw)
 	rs := dutyTypes.ResourceSelector{Search: peg}
-	return rs.Matches(resourceSelectable), nil
+	return rs.Matches(resourceSelectable)
 }
 
 func convertMap(arg ref.Val) (map[string]any, error) {
