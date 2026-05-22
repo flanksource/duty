@@ -282,18 +282,18 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) (string, error) {
 		}
 
 		if rs.TagSelector != "" {
-			s, err := selectorToPegCondition("labels.", rs.TagSelector)
+			s, err := selectorToPegCondition("tags.", rs.TagSelector)
 			if err != nil {
-				return "", fmt.Errorf("failed to convert labels to selector: %w", err)
+				return "", fmt.Errorf("failed to convert tags to selector: %w", err)
 			}
 
 			searchConditions = append(searchConditions, s...)
 		}
 
 		if rs.FieldSelector != "" {
-			s, err := selectorToPegCondition("labels.", rs.FieldSelector)
+			s, err := selectorToPegCondition("", rs.FieldSelector)
 			if err != nil {
-				return "", fmt.Errorf("failed to convert labels to selector: %w", err)
+				return "", fmt.Errorf("failed to convert fields to selector: %w", err)
 			}
 
 			searchConditions = append(searchConditions, s...)
