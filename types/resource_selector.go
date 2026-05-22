@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -237,7 +238,8 @@ func quote(s string) string {
 	//FIXME only quote if needed, remove quotes if unnecessary
 	return s
 }
-func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
+
+func (rs ResourceSelector) ToPeg(convertSelectors bool) (string, error) {
 	var searchConditions []string
 
 	if rs.ID != "" {
@@ -271,15 +273,30 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 	if convertSelectors {
 		// Adding this flag for now until we migrate matchItems support in the SQL query
 		if rs.LabelSelector != "" {
-			searchConditions = append(searchConditions, selectorToPegCondition("labels.", rs.LabelSelector)...)
+			s, err := selectorToPegCondition("labels.", rs.LabelSelector)
+			if err != nil {
+				return "", fmt.Errorf("failed to convert labels to selector: %w", err)
+			}
+
+			searchConditions = append(searchConditions, s...)
 		}
 
 		if rs.TagSelector != "" {
-			searchConditions = append(searchConditions, selectorToPegCondition("tags.", rs.TagSelector)...)
+			s, err := selectorToPegCondition("labels.", rs.TagSelector)
+			if err != nil {
+				return "", fmt.Errorf("failed to convert labels to selector: %w", err)
+			}
+
+			searchConditions = append(searchConditions, s...)
 		}
 
 		if rs.FieldSelector != "" {
-			searchConditions = append(searchConditions, selectorToPegCondition("", rs.FieldSelector)...)
+			s, err := selectorToPegCondition("labels.", rs.FieldSelector)
+			if err != nil {
+				return "", fmt.Errorf("failed to convert labels to selector: %w", err)
+			}
+
+			searchConditions = append(searchConditions, s...)
 		}
 	}
 
@@ -289,7 +306,7 @@ func (rs ResourceSelector) ToPeg(convertSelectors bool) string {
 		peg += fmt.Sprintf(" %s", joined)
 	}
 
-	return peg
+	return peg, nil
 }
 
 func (rs ResourceSelector) Type(t string) ResourceSelector {
@@ -306,15 +323,15 @@ func (rs ResourceSelector) IsMetadataOnly() bool {
 	return rs.Cache == "metadata"
 }
 
-func selectorToPegCondition(fieldPrefix, selector string) []string {
+func selectorToPegCondition(fieldPrefix, selector string) ([]string, error) {
 	parsed, err := labels.Parse(selector)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	requirements, selectable := parsed.Requirements()
 	if !selectable {
-		return nil
+		return nil, errors.New("not selectable")
 	}
 
 	var searchConditions []string
@@ -345,29 +362,29 @@ func selectorToPegCondition(fieldPrefix, selector string) []string {
 		searchConditions = append(searchConditions, condition)
 	}
 
-	return searchConditions
+	return searchConditions, nil
 }
 
-func (rs ResourceSelector) Matches(s ResourceSelectable) bool {
+func (rs ResourceSelector) Matches(s ResourceSelectable) (bool, error) {
 	if rs.IsEmpty() {
-		return false
+		return false, nil
 	}
 
 	if rs.Wildcard() {
-		return true
+		return true, nil
 	}
 
-	peg := rs.Canonical().ToPeg(true)
+	peg, err := rs.Canonical().ToPeg(true)
 	if peg == "" {
-		return false
+		return false, err
 	}
 
 	qf, err := grammar.ParsePEG(peg)
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	return rs.matchGrammar(qf, s)
+	return rs.matchGrammar(qf, s), nil
 }
 
 func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelectable) bool {
@@ -450,7 +467,12 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 }
 
 func (rs ResourceSelector) String() string {
-	return strings.Trim(rs.ToPeg(true), " ")
+	s, err := rs.ToPeg(true)
+	if err != nil {
+		logger.Errorf("resourceSelector.String() failed to convert to peg: %w", err)
+	}
+
+	return strings.Trim(s, " ")
 }
 
 func (rs ResourceSelector) Pretty() api.Text {
@@ -488,24 +510,31 @@ func (rs ResourceSelector) Pretty() api.Text {
 	if rs.Agent != "" {
 		addField("agent", rs.Agent)
 	}
-	for _, cond := range selectorToPegCondition("labels.", rs.LabelSelector) {
+
+	labelSelectorCond, _ := selectorToPegCondition("labels.", rs.LabelSelector)
+	for _, cond := range labelSelectorCond {
 		if !t.IsEmpty() {
 			t = t.AddText(" ", "text-gray-400")
 		}
 		t = t.AddText(cond, "text-cyan-600")
 	}
-	for _, cond := range selectorToPegCondition("tags.", rs.TagSelector) {
+
+	tagSelectorConditions, _ := selectorToPegCondition("tags.", rs.TagSelector)
+	for _, cond := range tagSelectorConditions {
 		if !t.IsEmpty() {
 			t = t.AddText(" ", "text-gray-400")
 		}
 		t = t.AddText(cond, "text-cyan-600")
 	}
-	for _, cond := range selectorToPegCondition("", rs.FieldSelector) {
+
+	fieldSelectorConditions, _ := selectorToPegCondition("", rs.FieldSelector)
+	for _, cond := range fieldSelectorConditions {
 		if !t.IsEmpty() {
 			t = t.AddText(" ", "text-gray-400")
 		}
 		t = t.AddText(cond, "text-cyan-600")
 	}
+
 	return t
 }
 
@@ -547,7 +576,7 @@ func (rs ResourceSelectors) Matches(s ResourceSelectable) bool {
 	}
 
 	for _, selector := range rs {
-		if selector.Matches(s) {
+		if ok, _ := selector.Matches(s); ok {
 			return true
 		}
 	}
@@ -563,7 +592,7 @@ func MatchSelectables[T ResourceSelectable](selectables []T, selectors ...Resour
 	var matches []T
 	for _, selectable := range selectables {
 		for _, selector := range selectors {
-			if selector.Matches(selectable) {
+			if ok, _ := selector.Matches(selectable); ok {
 				matches = append(matches, selectable)
 				break
 			}
