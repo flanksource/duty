@@ -122,13 +122,20 @@ func (c Config) GetUsername() string {
 }
 
 type PostgrestConfig struct {
-	Port       int
-	Disable    bool
-	LogLevel   string
-	URL        string
-	Version    string
-	Arch       string
-	JWTSecret  string
+	Port     int
+	Disable  bool
+	LogLevel string
+	URL      string
+	Version  string
+	Arch     string
+
+	// JWTSecret is the PostgREST jwt-secret verification material.
+	// It can be an HMAC secret for symmetric algorithms, or a public JWK/JWKS for asymmetric algorithms.
+	JWTSecret string
+
+	// JWTAud is the PostgREST jwt-aud value used to validate the JWT aud claim.
+	JWTAud string
+
 	DBRole     string
 	AnonDBRole string
 	AdminPort  int
@@ -157,9 +164,10 @@ func (p PostgrestConfig) ReadEnv() PostgrestConfig {
 }
 
 func (p PostgrestConfig) String() string {
-	return fmt.Sprintf("version:%v port=%d log-level=%v, jwt=%s",
+	return fmt.Sprintf("version:%v port=%d log-level=%v, jwt=%s aud=%s",
 		p.Version,
 		p.Port,
 		p.LogLevel,
-		logger.PrintableSecret(p.JWTSecret))
+		logger.PrintableSecret(p.JWTSecret),
+		p.JWTAud)
 }

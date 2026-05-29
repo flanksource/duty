@@ -41,7 +41,7 @@ indirection:
 | Env var | Purpose |
 | --- | --- |
 | `DB_URL` | Default value for `--db` if `--db` is not set. |
-| `PGRST_JWT_SECRET` | Default value for `--postgrest-jwt-secret` if the flag is not set. |
+| `PGRST_JWT_SECRET` | Default value for `--postgrest-jwt-secret` if the flag is not set. Despite the name, PostgREST accepts either an HMAC secret or a public JWK/JWKS for asymmetric JWT verification. |
 | `PGRST_VERSION` | Overrides the bundled PostgREST version. |
 | `PGRST_ARCH` | Overrides the PostgREST binary architecture. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Default OpenTelemetry collector endpoint. |
@@ -155,7 +155,7 @@ These are not runtime properties, but they are the main Duty startup settings:
 | `--db-schema` | `public` | PostgreSQL schema. |
 | `--postgrest-uri` | `http://localhost:3000` | Localhost starts an embedded PostgREST process. Empty disables PostgREST. |
 | `--postgrest-log-level` | `info` | PostgREST log level. |
-| `--postgrest-jwt-secret` | `PGRST_JWT_SECRET` | JWT secret. The default is resolved from `PGRST_JWT_SECRET`. |
+| `--postgrest-jwt-secret` | `PGRST_JWT_SECRET` | PostgREST JWT verification material. Can be an HMAC secret for symmetric algorithms, or a public JWK/JWKS for asymmetric algorithms. The default is resolved from `PGRST_JWT_SECRET`. |
 | `--disable-postgrest` | varies | Deprecated; use `--postgrest-uri ''`. |
 | `--postgrest-role` | `postgrest_api` | Authenticated PostgREST database role. |
 | `--postgrest-anon-role` | `postgrest_anon` | Unauthenticated PostgREST database role. |
