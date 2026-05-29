@@ -119,6 +119,18 @@ var KratosAuth = func(config api.Config) api.Config {
 	return config
 }
 
+func IsEmbeddedPostgREST(config api.PostgrestConfig) bool {
+	if config.URL == "" || config.Disable {
+		return false
+	}
+
+	parsed, err := url.Parse(config.URL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "localhost")
+}
+
 func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	config := api.DefaultConfig
 	for _, opt := range opts {
@@ -141,16 +153,14 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 		api.DefaultConfig.ConnectionString = embeddedDBConnectionString
 	}
 
-	if config.Postgrest.URL != "" && !config.Postgrest.Disable {
-		if configured, startLocal, err := configurePostgrest(config); err != nil {
-			return context.Context{}, nil, err
-		} else {
-			config = configured
-			if startLocal {
-				go postgrest.Start(config)
-			}
-			api.DefaultConfig = config
+	if configured, err := configurePostgrest(config); err != nil {
+		return context.Context{}, nil, err
+	} else {
+		config = configured
+		if IsEmbeddedPostgREST(config.Postgrest) {
+			go postgrest.Start(config)
 		}
+		api.DefaultConfig = config
 	}
 
 	var ctx context.Context
@@ -193,22 +203,21 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 	return ctx, stop, nil
 }
 
-func configurePostgrest(config api.Config) (api.Config, bool, error) {
+func configurePostgrest(config api.Config) (api.Config, error) {
 	if config.Postgrest.URL == "" || config.Postgrest.Disable {
-		return config, false, nil
+		return config, nil
 	}
 
 	parsedURL, err := url.Parse(config.Postgrest.URL)
 	if err != nil {
-		return config, false, fmt.Errorf("failed to parse PostgREST URL: %v", err)
+		return config, fmt.Errorf("failed to parse PostgREST URL: %v", err)
 	}
 
-	host := strings.ToLower(parsedURL.Hostname())
 	port, _ := strconv.Atoi(parsedURL.Port())
 	config.Postgrest.Port = port
 
-	if host != "localhost" {
-		return config, false, nil
+	if !IsEmbeddedPostgREST(config.Postgrest) {
+		return config, nil
 	}
 
 	if config.Postgrest.Port == 0 {
@@ -221,7 +230,7 @@ func configurePostgrest(config api.Config) (api.Config, bool, error) {
 		logger.Warnf("PostgREST JWT secret not specified, generating random secret")
 		config.Postgrest.JWTSecret = utils.RandomString(32)
 	}
-	return config, true, nil
+	return config, nil
 }
 
 const posmasterLinePort = 3

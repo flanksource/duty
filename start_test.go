@@ -18,10 +18,10 @@ var _ = ginkgo.Describe("PostgREST configuration", func() {
 			},
 		}
 
-		configured, startLocal, err := configurePostgrest(config)
+		configured, err := configurePostgrest(config)
 
 		Expect(err).ToNot(HaveOccurred())
-		Expect(startLocal).To(BeTrue())
+		Expect(IsEmbeddedPostgREST(configured.Postgrest)).To(BeTrue())
 		Expect(configured.Postgrest.Port).To(BeNumerically(">", 0))
 		Expect(configured.Postgrest.URL).ToNot(Equal("http://localhost:0"))
 
@@ -39,10 +39,10 @@ var _ = ginkgo.Describe("PostgREST configuration", func() {
 			},
 		}
 
-		configured, startLocal, err := configurePostgrest(config)
+		configured, err := configurePostgrest(config)
 
 		Expect(err).ToNot(HaveOccurred())
-		Expect(startLocal).To(BeTrue())
+		Expect(IsEmbeddedPostgREST(configured.Postgrest)).To(BeTrue())
 		Expect(configured.Postgrest.Port).To(Equal(3000))
 		Expect(configured.Postgrest.URL).To(Equal("http://localhost:3000"))
 	})
@@ -54,10 +54,10 @@ var _ = ginkgo.Describe("PostgREST configuration", func() {
 			},
 		}
 
-		configured, startLocal, err := configurePostgrest(config)
+		configured, err := configurePostgrest(config)
 
 		Expect(err).ToNot(HaveOccurred())
-		Expect(startLocal).To(BeFalse())
+		Expect(IsEmbeddedPostgREST(configured.Postgrest)).To(BeFalse())
 		Expect(configured.Postgrest.Port).To(Equal(3000))
 		Expect(configured.Postgrest.URL).To(Equal("http://postgrest.default.svc:3000"))
 	})
@@ -70,10 +70,10 @@ var _ = ginkgo.Describe("PostgREST configuration", func() {
 			},
 		}
 
-		configured, startLocal, err := configurePostgrest(config)
+		configured, err := configurePostgrest(config)
 
 		Expect(err).ToNot(HaveOccurred())
-		Expect(startLocal).To(BeFalse())
+		Expect(IsEmbeddedPostgREST(configured.Postgrest)).To(BeFalse())
 		Expect(configured.Postgrest.Port).To(Equal(0))
 		Expect(configured.Postgrest.URL).To(Equal("http://localhost:0"))
 	})
