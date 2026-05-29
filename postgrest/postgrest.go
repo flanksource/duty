@@ -37,6 +37,7 @@ func runBinary(config api.Config, msg string, args ...any) error {
 		"PGRST_LOG_LEVEL":                config.Postgrest.LogLevel,
 		"PGRST_DB_MAX_ROWS":              strconv.Itoa(config.Postgrest.MaxRows),
 		"PGRST_JWT_SECRET":               config.Postgrest.JWTSecret,
+		"PGRST_JWT_AUD":                  config.Postgrest.JWTAud,
 	}
 
 	return exec.ExecfWithEnv(bin+" "+msg, env, args...)
