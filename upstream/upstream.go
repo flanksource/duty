@@ -23,6 +23,9 @@ type UpstreamConfig struct {
 	Labels             []string
 	Debug              bool
 	Options            []func(c *http.Client)
+
+	// Upstream's JWK used to validate upstream requests on a yamux session
+	JWK string
 }
 
 func (t UpstreamConfig) String() string {
@@ -41,6 +44,9 @@ func (t UpstreamConfig) String() string {
 
 	if t.AgentName != "" {
 		s = append(s, fmt.Sprintf("agent=%s", t.AgentName))
+	}
+	if t.JWK != "" {
+		s = append(s, "jwk=configured")
 	}
 	if len(t.Labels) > 0 {
 		s = append(s, fmt.Sprintf("labels=%v", t.Labels))
