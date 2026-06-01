@@ -52,6 +52,17 @@ WHERE p.deleted_at IS NULL
 UNION ALL
 
 SELECT
+  pb.id::TEXT AS id,
+  COALESCE(NULLIF(pb.title, ''), pb.name) AS name,
+  'playbook' AS type,
+  NULL AS "email",
+  pb.created_by::TEXT AS "owner"
+FROM playbooks pb
+WHERE pb.deleted_at IS NULL
+
+UNION ALL
+
+SELECT
   r.name::TEXT AS id,
   r.name,
   'role' AS type,
