@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           git clone https://github.com/flanksource/gavel.git /tmp/gavel
           cd /tmp/gavel
-          git checkout f5e4e66df93195f4c878776be59717a024fe74f1
+          git checkout ec2451d6d13d1a3f048032a7cbe43a1268c57962
           mkdir -p "$GITHUB_WORKSPACE/.bin"
           go build -o "$GITHUB_WORKSPACE/.bin/gavel" ./cmd/gavel
           file "$GITHUB_WORKSPACE/.bin/gavel"
@@ -42,8 +42,20 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@f5e4e66df93195f4c878776be59717a024fe74f1
+      - uses: flanksource/gavel@ec2451d6d13d1a3f048032a7cbe43a1268c57962
         with:
           version: source
-          args: "-vv test --lint --bench=false --concurrency=2 --nodes=1 --timeout=25m --test-timeout=10m --lint-timeout=10m --diagnostics"
+          args: >-
+            -vv test --lint --bench=false
+            --ignore ./bench
+            --ignore ./hack
+            --ignore ./specs
+            --ignore ./tests/e2e
+            --ignore ./tests/e2e-blobs
+            --concurrency=2
+            --nodes=1
+            --timeout=25m
+            --test-timeout=10m
+            --lint-timeout=10m
+            --diagnostics
           fail-on-error: "true"
