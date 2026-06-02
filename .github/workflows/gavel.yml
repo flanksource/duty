@@ -10,7 +10,34 @@ jobs:
   gavel:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16@sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
+      DUTY_DB_CREATE: "false"
+      DUTY_DB_DISABLE_RLS: "false"
     steps:
+      - name: Install deps
+        uses: flanksource/deps@v1.0.28
+        with:
+          tools: |
+            bun
+            uv
+            powershell
+            postgrest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
@@ -32,7 +59,7 @@ jobs:
           set -euo pipefail
           git clone https://github.com/flanksource/gavel.git /tmp/gavel
           cd /tmp/gavel
-          git checkout ec2451d6d13d1a3f048032a7cbe43a1268c57962
+          git checkout 68bd0fdb6dc469101878b2171a530116727bf75d
           mkdir -p "$GITHUB_WORKSPACE/.bin"
           go build -o "$GITHUB_WORKSPACE/.bin/gavel" ./cmd/gavel
           file "$GITHUB_WORKSPACE/.bin/gavel"
@@ -42,11 +69,13 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@ec2451d6d13d1a3f048032a7cbe43a1268c57962
+      - uses: flanksource/gavel@68bd0fdb6dc469101878b2171a530116727bf75d
         with:
           version: source
           args: >-
             -vv test --lint --bench=false
+            --framework ginkgo
+            --extra-args --label-filter=!e2e
             --ignore ./bench
             --ignore ./hack
             --ignore ./specs
@@ -59,3 +88,4 @@ jobs:
             --lint-timeout=10m
             --diagnostics
           fail-on-error: "true"
+
