@@ -33,9 +33,15 @@ func init() {
 	// disables default handlers registered by importing net/http/pprof.
 	http.DefaultServeMux = http.NewServeMux()
 
-	if err := agent.Listen(agent.Options{}); err != nil {
+	if err := agent.Listen(agent.Options{
+		ShutdownCleanup: true,
+	}); err != nil {
 		logger.Errorf(err.Error())
 	}
+
+	shutdown.AddHookWithPriority("gops agent closure", shutdown.PriorityJobs-1, func() {
+		agent.Close()
+	})
 
 	// stop scheduling
 	shutdown.AddHookWithPriority("cron scheduler", shutdown.PriorityJobs-1, func() {
