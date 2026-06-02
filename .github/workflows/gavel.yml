@@ -9,6 +9,7 @@ permissions:
 jobs:
   gavel:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
@@ -26,6 +27,23 @@ jobs:
           restore-keys: |
             cache-go-1.26.x-
 
-      - uses: flanksource/gavel@main
+      - name: Install pinned gavel
+        run: |
+          set -euo pipefail
+          git clone https://github.com/flanksource/gavel.git /tmp/gavel
+          cd /tmp/gavel
+          git checkout f5e4e66df93195f4c878776be59717a024fe74f1
+          mkdir -p "$GITHUB_WORKSPACE/.bin"
+          go build -o "$GITHUB_WORKSPACE/.bin/gavel" ./cmd/gavel
+          file "$GITHUB_WORKSPACE/.bin/gavel"
+          "$GITHUB_WORKSPACE/.bin/gavel" version
+          GOBIN="$GITHUB_WORKSPACE/.bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+          file "$GITHUB_WORKSPACE/.bin/golangci-lint"
+          "$GITHUB_WORKSPACE/.bin/golangci-lint" version
+          echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
+
+      - uses: flanksource/gavel@f5e4e66df93195f4c878776be59717a024fe74f1
         with:
+          version: source
+          args: "-vv test --lint --bench=false --concurrency=2 --nodes=1 --timeout=25m --test-timeout=10m --lint-timeout=10m --diagnostics"
           fail-on-error: "true"
