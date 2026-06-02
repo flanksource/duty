@@ -4,7 +4,8 @@ SELECT
   t.name,
   'team' AS type,
   NULL AS "email",
-  NULL AS "owner"
+  NULL AS "owner",
+  NULL AS "icon"
 FROM teams t
 WHERE t.deleted_at IS NULL
 
@@ -15,7 +16,8 @@ SELECT
   pg.name,
   'permission_subject_group' AS type,
   NULL AS "email",
-  NULL AS "owner"
+  NULL AS "owner",
+  NULL AS "icon"
 FROM permission_groups pg
 WHERE pg.deleted_at IS NULL
   AND pg.name IS NOT NULL
@@ -28,7 +30,8 @@ SELECT
   access_tokens.name,
   'access_token_person' AS type,
   NULL AS "email",
-  access_tokens.created_by::TEXT AS "owner"
+  access_tokens.created_by::TEXT AS "owner",
+  NULL AS "icon"
 FROM people p
 INNER JOIN access_tokens
   ON p.id = access_tokens.person_id
@@ -43,7 +46,8 @@ SELECT
   p.name,
   'person' AS type,
   p.email,
-  NULL AS "owner"
+  NULL AS "owner",
+  NULL AS "icon"
 FROM people p
 WHERE p.deleted_at IS NULL
   AND p.type IS NULL
@@ -52,11 +56,24 @@ WHERE p.deleted_at IS NULL
 UNION ALL
 
 SELECT
+  pb.id::TEXT AS id,
+  COALESCE(NULLIF(pb.title, ''), pb.name) AS name,
+  'playbook' AS type,
+  NULL AS "email",
+  pb.created_by::TEXT AS "owner",
+  pb.icon AS "icon"
+FROM playbooks pb
+WHERE pb.deleted_at IS NULL
+
+UNION ALL
+
+SELECT
   r.name::TEXT AS id,
   r.name,
   'role' AS type,
   NULL AS "email",
-  NULL AS "owner"
+  NULL AS "owner",
+  NULL AS "icon"
 FROM (
   VALUES
     ('everyone'),
