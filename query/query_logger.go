@@ -163,7 +163,7 @@ func sliceLen(v any) int {
 	if rv.Kind() == reflect.Slice {
 		return rv.Len()
 	}
-	if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
 		return 1
 	}
 	return 0
