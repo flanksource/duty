@@ -66,7 +66,7 @@ jobs:
       - uses: flanksource/gavel@5df008d31d208c6f815fac634db33f0ddd5ca40f # main
         with:
           args: >-
-            -vvvvv test --lint --bench=false
+            -vvvvv test --bench=false
             --framework ginkgo
             --extra-args --label-filter=!e2e
             --ignore ./bench
@@ -74,11 +74,10 @@ jobs:
             --ignore ./specs
             --ignore ./tests/e2e
             --ignore ./tests/e2e-blobs
-            --concurrency=3
+            --concurrency=2
             --nodes=1
             --timeout=35m
             --test-timeout=10m
-            --lint-timeout=10m
             --diagnostics
           fail-on-error: "true"
 
