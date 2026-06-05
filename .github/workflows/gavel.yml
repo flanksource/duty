@@ -9,7 +9,7 @@ permissions:
 jobs:
   gavel:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     services:
       postgres:
         image: postgres:16@sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99
@@ -58,15 +58,17 @@ jobs:
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.bin"
           rm -f "$GITHUB_WORKSPACE/.bin/gavel"
-          GOBIN="$GITHUB_WORKSPACE/.bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+          GOBIN="$GITHUB_WORKSPACE/.bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.3
           file "$GITHUB_WORKSPACE/.bin/golangci-lint"
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@5df008d31d208c6f815fac634db33f0ddd5ca40f # main
+      - uses: flanksource/gavel@a76e0138094c30a890e2df7285dfac30304e7b11 # v0.0.43
         with:
+          version: v0.0.43
           args: >-
             -vvvvv test --bench=false
+            --lint --lint-timeout=15m
             --framework ginkgo
             --extra-args --label-filter=!e2e
             --ignore ./bench
