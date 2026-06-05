@@ -70,13 +70,13 @@ jobs:
           rm -rf "$src"
           git init "$src"
           git -C "$src" remote add origin https://github.com/flanksource/gavel
-          git -C "$src" fetch --depth=1 origin e75a0b68441411647c49555fa24b75bac7d9ca9b
+          git -C "$src" fetch --depth=1 origin a76e0138094c30a890e2df7285dfac30304e7b11
           git -C "$src" checkout --detach FETCH_HEAD
           cd "$src"
           GOBIN="$GITHUB_WORKSPACE/.bin" go install ./cmd/gavel
           "$GITHUB_WORKSPACE/.bin/gavel" version
 
-      - uses: flanksource/gavel@e75a0b68441411647c49555fa24b75bac7d9ca9b # main
+      - uses: flanksource/gavel@a76e0138094c30a890e2df7285dfac30304e7b11 # v0.0.43
         with:
           version: source
           args: >-
