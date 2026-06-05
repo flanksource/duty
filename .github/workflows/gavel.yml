@@ -63,8 +63,23 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@5df008d31d208c6f815fac634db33f0ddd5ca40f # main
+      - name: Checkout gavel
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
+          repository: flanksource/gavel
+          ref: e75a0b68441411647c49555fa24b75bac7d9ca9b
+          path: .gavel-src
+
+      - name: Install gavel from commit
+        run: |
+          set -euo pipefail
+          GOBIN="$GITHUB_WORKSPACE/.bin" go install ./cmd/gavel
+          "$GITHUB_WORKSPACE/.bin/gavel" version
+        working-directory: .gavel-src
+
+      - uses: flanksource/gavel@e75a0b68441411647c49555fa24b75bac7d9ca9b # main
+        with:
+          version: source
           args: >-
             -vvvvv test --bench=false
             --lint --lint-timeout=15m
