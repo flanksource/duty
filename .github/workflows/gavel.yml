@@ -63,22 +63,9 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - name: Install gavel from commit
-        run: |
-          set -euo pipefail
-          src="$RUNNER_TEMP/gavel-src"
-          rm -rf "$src"
-          git init "$src"
-          git -C "$src" remote add origin https://github.com/flanksource/gavel
-          git -C "$src" fetch --depth=1 origin a76e0138094c30a890e2df7285dfac30304e7b11
-          git -C "$src" checkout --detach FETCH_HEAD
-          cd "$src"
-          GOBIN="$GITHUB_WORKSPACE/.bin" go install ./cmd/gavel
-          "$GITHUB_WORKSPACE/.bin/gavel" version
-
       - uses: flanksource/gavel@a76e0138094c30a890e2df7285dfac30304e7b11 # v0.0.43
         with:
-          version: source
+          version: v0.0.43
           args: >-
             -vvvvv test --bench=false
             --lint --lint-timeout=15m
