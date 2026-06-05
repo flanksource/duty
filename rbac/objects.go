@@ -147,6 +147,7 @@ var dbResourceObjMap = map[string]string{
 	"playbook_run_actions":                      policy.ObjectPlaybooks,
 	"playbook_runs":                             policy.ObjectPlaybooks,
 	"playbooks_for_agent":                       policy.ObjectAgentPush,
+	"plugins":                                   policy.ObjectCatalog,
 	"rpc/get_playbook_run_actions":              policy.ObjectPlaybooks,
 	"playbooks":                                 policy.ObjectPlaybooks,
 	"properties":                                policy.ObjectDatabaseSystem,
