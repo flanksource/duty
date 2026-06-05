@@ -50,6 +50,7 @@ type ExecConnections struct {
 	AWS        *AWSConnection        `yaml:"aws,omitempty" json:"aws,omitempty"`
 	GCP        *GCPConnection        `yaml:"gcp,omitempty" json:"gcp,omitempty"`
 	Azure      *AzureConnection      `yaml:"azure,omitempty" json:"azure,omitempty"`
+	OpenSearch *OpensearchConnection `yaml:"opensearch,omitempty" json:"opensearch,omitempty"`
 }
 
 func saveConfig(cwd string, configTemplate *textTemplate.Template, view any) (string, error) {
