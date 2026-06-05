@@ -160,6 +160,7 @@ func Start(name string, opts ...StartOption) (context.Context, func(), error) {
 		if IsEmbeddedPostgREST(config.Postgrest) {
 			go postgrest.Start(config)
 		}
+		api.DefaultConfig = config
 	}
 
 	var ctx context.Context
