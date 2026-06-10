@@ -33,9 +33,10 @@ func init() {
 	// disables default handlers registered by importing net/http/pprof.
 	http.DefaultServeMux = http.NewServeMux()
 
-	if err := agent.Listen(agent.Options{
-		ShutdownCleanup: true,
-	}); err != nil {
+	// ShutdownCleanup must stay disabled: when enabled, gops installs its own
+	// SIGINT/SIGTERM handler that calls os.Exit, which races and pre-empts the
+	// shutdown hooks. The "gops agent closure" hook below handles cleanup.
+	if err := agent.Listen(agent.Options{}); err != nil {
 		logger.Errorf(err.Error())
 	}
 
