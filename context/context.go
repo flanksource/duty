@@ -130,6 +130,15 @@ func (k Context) WithDeadline(deadline time.Time) (Context, gocontext.CancelFunc
 	}, cancelFunc
 }
 
+func (k Context) WithCancel() (Context, gocontext.CancelFunc) {
+	ctx, cancelFunc := gocontext.WithCancel(k.Context)
+	cloned := k.Context.Clone()
+	cloned.Context = ctx
+	return Context{
+		Context: cloned,
+	}, cancelFunc
+}
+
 func (k Context) WithValue(key, val any) Context {
 	return Context{
 		Context: k.Context.WithValue(key, val),

@@ -1,9 +1,9 @@
 package shutdown
 
 import (
-	"container/heap"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -21,24 +21,26 @@ const (
 type shutdownHook func()
 
 var (
-	registryLock         sync.Mutex
-	shutdownTaskRegistry ShutdownTasks
+	registryLock  sync.Mutex
+	shutdownTasks []ShutdownTask
 )
-
-func init() {
-	heap.Init(&shutdownTaskRegistry)
-}
 
 var Shutdown = sync.OnceFunc(func() {
 	logger.Infof("begin shutdown")
 
-	for len(shutdownTaskRegistry) > 0 {
-		_task := heap.Pop(&shutdownTaskRegistry)
-		if _task == nil {
-			break
-		}
+	registryLock.Lock()
+	tasks := shutdownTasks
+	shutdownTasks = nil
+	registryLock.Unlock()
 
-		task := _task.(ShutdownTask)
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i].Priority < tasks[j].Priority
+	})
+
+	for _, task := range tasks {
+		if task.Hook == nil {
+			continue
+		}
 		logger.Infof("shutting down: %s", task.Label)
 
 		s := time.Now()
@@ -64,7 +66,7 @@ func ShutdownAndExit(code int, msg string) {
 // Prefer AddHookWithPriority()
 func AddHook(fn shutdownHook) {
 	registryLock.Lock()
-	heap.Push(&shutdownTaskRegistry, ShutdownTask{Hook: fn, Priority: 0})
+	shutdownTasks = append(shutdownTasks, ShutdownTask{Hook: fn, Priority: 0})
 	registryLock.Unlock()
 }
 
@@ -73,7 +75,7 @@ func AddHook(fn shutdownHook) {
 // Execution order goes from lowest to highest priority numbers.
 func AddHookWithPriority(label string, priority int, fn shutdownHook) {
 	registryLock.Lock()
-	heap.Push(&shutdownTaskRegistry, ShutdownTask{Label: label, Hook: fn, Priority: priority})
+	shutdownTasks = append(shutdownTasks, ShutdownTask{Label: label, Hook: fn, Priority: priority})
 	registryLock.Unlock()
 }
 
@@ -92,29 +94,4 @@ type ShutdownTask struct {
 	Hook     shutdownHook
 	Label    string
 	Priority int
-}
-
-// ShutdownTasks implements heap.Interface
-type ShutdownTasks []ShutdownTask
-
-func (st ShutdownTasks) Len() int { return len(st) }
-
-func (st ShutdownTasks) Less(i, j int) bool {
-	return st[i].Priority < st[j].Priority
-}
-
-func (st ShutdownTasks) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st *ShutdownTasks) Push(x interface{}) {
-	*st = append(*st, x.(ShutdownTask))
-}
-
-func (st *ShutdownTasks) Pop() interface{} {
-	old := *st
-	n := len(old)
-	item := old[n-1]
-	*st = old[0 : n-1]
-	return item
 }
