@@ -32,11 +32,11 @@ type TLSConfig struct {
 	// HandshakeTimeout defaults to 10 seconds
 	HandshakeTimeout time.Duration `json:"handshakeTimeout,omitempty" yaml:"handshakeTimeout,omitempty"`
 	// PEM encoded certificate of the CA to verify the server certificate
-	CA types.EnvVar `json:"ca,omitempty" yaml:"ca,omitempty"`
+	CA types.EnvVar `json:"ca,omitempty" yaml:"ca,omitempty" template:"true"`
 	// PEM encoded client certificate
-	Cert types.EnvVar `json:"cert,omitempty" yaml:"cert,omitempty"`
+	Cert types.EnvVar `json:"cert,omitempty" yaml:"cert,omitempty" template:"true"`
 	// PEM encoded client private key
-	Key types.EnvVar `json:"key,omitempty" yaml:"key,omitempty"`
+	Key types.EnvVar `json:"key,omitempty" yaml:"key,omitempty" template:"true"`
 }
 
 func (t TLSConfig) IsEmpty() bool {
@@ -80,8 +80,8 @@ func (t TLSConfig) clientConfig() (*tls.Config, error) {
 
 // +kubebuilder:object:generate=true
 type AWSSigV4 struct {
-	AWSConnection `json:",inline" yaml:",inline"`
-	Service       string `json:"service,omitempty" yaml:"service,omitempty"`
+	AWSConnection `json:",inline" yaml:",inline" template:"true"`
+	Service       string `json:"service,omitempty" yaml:"service,omitempty" template:"true"`
 }
 
 // cachedAWSConfig wraps aws.Config with DeepCopy methods so controller-gen
@@ -100,14 +100,14 @@ func (in *cachedAWSConfig) DeepCopy() *cachedAWSConfig {
 
 // +kubebuilder:object:generate=true
 type HTTPConnection struct {
-	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty"`
-	types.HTTPBasicAuth `json:",inline"`
-	URL                 string         `json:"url,omitempty" yaml:"url,omitempty"`
-	Bearer              types.EnvVar   `json:"bearer,omitempty" yaml:"bearer,omitempty"`
-	OAuth               types.OAuth    `json:"oauth,omitempty" yaml:"oauth,omitempty"`
-	TLS                 TLSConfig      `json:"tls,omitempty" yaml:"tls,omitempty"`
-	Headers             []types.EnvVar `json:"headers,omitempty" yaml:"headers,omitempty"`
-	AWSSigV4            *AWSSigV4      `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty"`
+	ConnectionName      string `json:"connection,omitempty" yaml:"connection,omitempty" template:"true"`
+	types.HTTPBasicAuth `json:",inline" template:"true"`
+	URL                 string         `json:"url,omitempty" yaml:"url,omitempty" template:"true"`
+	Bearer              types.EnvVar   `json:"bearer,omitempty" yaml:"bearer,omitempty" template:"true"`
+	OAuth               types.OAuth    `json:"oauth,omitempty" yaml:"oauth,omitempty" template:"true"`
+	TLS                 TLSConfig      `json:"tls,omitempty" yaml:"tls,omitempty" template:"true"`
+	Headers             []types.EnvVar `json:"headers,omitempty" yaml:"headers,omitempty" template:"true"`
+	AWSSigV4            *AWSSigV4      `json:"awsSigV4,omitempty" yaml:"awsSigV4,omitempty" template:"true"`
 
 	// Exported to avoid being flagged by CRD unexported-field validation.
 	// The underlying type is unexported, so external code cannot construct values.

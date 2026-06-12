@@ -6,7 +6,7 @@ import (
 
 // +kubebuilder:object:generate=true
 type HTTPBasicAuth struct {
-	Authentication `yaml:",inline" json:",inline"`
+	Authentication `yaml:",inline" json:",inline" template:"true"`
 	NTLM           bool `yaml:"ntlm,omitempty" json:"ntlm,omitempty"`
 	NTLMV2         bool `yaml:"ntlmv2,omitempty" json:"ntlmv2,omitempty"`
 	Digest         bool `yaml:"digest,omitempty" json:"digest,omitempty"`
@@ -14,8 +14,8 @@ type HTTPBasicAuth struct {
 
 // +kubebuilder:object:generate=true
 type Authentication struct {
-	Username EnvVar `yaml:"username,omitempty" json:"username,omitempty"`
-	Password EnvVar `yaml:"password,omitempty" json:"password,omitempty"`
+	Username EnvVar `yaml:"username,omitempty" json:"username,omitempty" template:"true"`
+	Password EnvVar `yaml:"password,omitempty" json:"password,omitempty" template:"true"`
 }
 
 func (auth Authentication) IsEmpty() bool {
