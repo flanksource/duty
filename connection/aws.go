@@ -18,13 +18,13 @@ import (
 // +kubebuilder:object:generate=true
 type AWSConnection struct {
 	// ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey.
-	ConnectionName string       `yaml:"connection,omitempty" json:"connection,omitempty"`
-	AccessKey      types.EnvVar `yaml:"accessKey,omitempty" json:"accessKey,omitempty"`
-	SecretKey      types.EnvVar `yaml:"secretKey,omitempty" json:"secretKey,omitempty"`
-	SessionToken   types.EnvVar `yaml:"sessionToken,omitempty" json:"sessionToken,omitempty"`
-	AssumeRole     string       `yaml:"assumeRole,omitempty" json:"assumeRole,omitempty"`
-	Region         string       `yaml:"region,omitempty" json:"region,omitempty"`
-	Endpoint       string       `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	ConnectionName string       `yaml:"connection,omitempty" json:"connection,omitempty" template:"true"`
+	AccessKey      types.EnvVar `yaml:"accessKey,omitempty" json:"accessKey,omitempty" template:"true"`
+	SecretKey      types.EnvVar `yaml:"secretKey,omitempty" json:"secretKey,omitempty" template:"true"`
+	SessionToken   types.EnvVar `yaml:"sessionToken,omitempty" json:"sessionToken,omitempty" template:"true"`
+	AssumeRole     string       `yaml:"assumeRole,omitempty" json:"assumeRole,omitempty" template:"true"`
+	Region         string       `yaml:"region,omitempty" json:"region,omitempty" template:"true"`
+	Endpoint       string       `yaml:"endpoint,omitempty" json:"endpoint,omitempty" template:"true"`
 	// Skip TLS verify when connecting to aws
 	SkipTLSVerify bool `yaml:"skipTLSVerify,omitempty" json:"skipTLSVerify,omitempty"`
 }

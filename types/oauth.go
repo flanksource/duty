@@ -8,11 +8,11 @@ import (
 
 // +kubebuilder:object:generate=true
 type OAuth struct {
-	ClientID     EnvVar            `json:"clientID,omitempty"`
-	ClientSecret EnvVar            `json:"clientSecret,omitempty"`
-	Scopes       []string          `json:"scope,omitempty" yaml:"scope,omitempty"`
-	TokenURL     string            `json:"tokenURL,omitempty" yaml:"tokenURL,omitempty"`
-	Params       map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
+	ClientID     EnvVar            `json:"clientID,omitempty" template:"true"`
+	ClientSecret EnvVar            `json:"clientSecret,omitempty" template:"true"`
+	Scopes       []string          `json:"scope,omitempty" yaml:"scope,omitempty" template:"true"`
+	TokenURL     string            `json:"tokenURL,omitempty" yaml:"tokenURL,omitempty" template:"true"`
+	Params       map[string]string `json:"params,omitempty" yaml:"params,omitempty" template:"true"`
 }
 
 func (o OAuth) IsEmpty() bool {

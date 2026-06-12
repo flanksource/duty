@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/onsi/gomega"
@@ -175,6 +176,91 @@ func TestCreateHTTPClientWithTLS(t *testing.T) {
 	client, err := CreateHTTPClient(nil, HTTPConnection{TLS: TLSConfig{InsecureSkipVerify: true}})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(client).ToNot(gomega.BeNil())
+}
+
+func TestHTTPConnectionTemplatesFields(t *testing.T) {
+	g := gomega.NewWithT(t)
+	ctx := dutyContext.New()
+	conn := HTTPConnection{
+		ConnectionName: "connection://$(.params.connection)",
+		HTTPBasicAuth: types.HTTPBasicAuth{Authentication: types.Authentication{
+			Username: types.EnvVar{ValueStatic: "$(.params.username)"},
+			Password: types.EnvVar{ValueStatic: "$(.params.password)"},
+		}},
+		URL:    "$(.params.url)",
+		Bearer: types.EnvVar{ValueStatic: "$(.params.bearer)"},
+		OAuth: types.OAuth{
+			ClientID:     types.EnvVar{ValueStatic: "$(.params.clientID)"},
+			ClientSecret: types.EnvVar{ValueStatic: "$(.params.clientSecret)"},
+			TokenURL:     "$(.params.tokenURL)",
+			Scopes:       []string{"$(.params.scope)"},
+			Params:       map[string]string{"audience": "$(.params.audience)"},
+		},
+		TLS: TLSConfig{
+			CA:   types.EnvVar{ValueStatic: "$(.params.ca)"},
+			Cert: types.EnvVar{ValueStatic: "$(.params.cert)"},
+			Key:  types.EnvVar{ValueStatic: "$(.params.key)"},
+		},
+		Headers: []types.EnvVar{{Name: "Content-Type", ValueStatic: "$(.params.contentType)"}},
+		AWSSigV4: &AWSSigV4{
+			AWSConnection: AWSConnection{
+				AccessKey:    types.EnvVar{ValueStatic: "$(.params.accessKey)"},
+				SecretKey:    types.EnvVar{ValueStatic: "$(.params.secretKey)"},
+				SessionToken: types.EnvVar{ValueStatic: "$(.params.sessionToken)"},
+				AssumeRole:   "$(.params.assumeRole)",
+				Region:       "$(.params.region)",
+				Endpoint:     "$(.params.endpoint)",
+			},
+			Service: "$(.params.service)",
+		},
+	}
+
+	err := ctx.NewStructTemplater(map[string]any{"params": map[string]any{
+		"connection":   "http/main",
+		"username":     "user",
+		"password":     "pass",
+		"url":          "https://example.com/api",
+		"bearer":       "token",
+		"clientID":     "client-id",
+		"clientSecret": "client-secret",
+		"tokenURL":     "https://example.com/oauth/token",
+		"scope":        "scope-a",
+		"audience":     "audience-a",
+		"ca":           "ca-pem",
+		"cert":         "cert-pem",
+		"key":          "key-pem",
+		"contentType":  "application/json",
+		"accessKey":    "access-key",
+		"secretKey":    "secret-key",
+		"sessionToken": "session-token",
+		"assumeRole":   "arn:aws:iam::123456789012:role/example",
+		"region":       "us-east-1",
+		"endpoint":     "https://aws.example.com",
+		"service":      "execute-api",
+	}}, "template", nil).Walk(&conn)
+
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(conn.ConnectionName).To(gomega.Equal("connection://http/main"))
+	g.Expect(conn.GetUsername()).To(gomega.Equal("user"))
+	g.Expect(conn.GetPassword()).To(gomega.Equal("pass"))
+	g.Expect(conn.URL).To(gomega.Equal("https://example.com/api"))
+	g.Expect(conn.Bearer.ValueStatic).To(gomega.Equal("token"))
+	g.Expect(conn.OAuth.ClientID.ValueStatic).To(gomega.Equal("client-id"))
+	g.Expect(conn.OAuth.ClientSecret.ValueStatic).To(gomega.Equal("client-secret"))
+	g.Expect(conn.OAuth.TokenURL).To(gomega.Equal("https://example.com/oauth/token"))
+	g.Expect(conn.OAuth.Scopes).To(gomega.Equal([]string{"scope-a"}))
+	g.Expect(conn.OAuth.Params).To(gomega.Equal(map[string]string{"audience": "audience-a"}))
+	g.Expect(conn.TLS.CA.ValueStatic).To(gomega.Equal("ca-pem"))
+	g.Expect(conn.TLS.Cert.ValueStatic).To(gomega.Equal("cert-pem"))
+	g.Expect(conn.TLS.Key.ValueStatic).To(gomega.Equal("key-pem"))
+	g.Expect(conn.Headers[0].ValueStatic).To(gomega.Equal("application/json"))
+	g.Expect(conn.AWSSigV4.AccessKey.ValueStatic).To(gomega.Equal("access-key"))
+	g.Expect(conn.AWSSigV4.SecretKey.ValueStatic).To(gomega.Equal("secret-key"))
+	g.Expect(conn.AWSSigV4.SessionToken.ValueStatic).To(gomega.Equal("session-token"))
+	g.Expect(conn.AWSSigV4.AssumeRole).To(gomega.Equal("arn:aws:iam::123456789012:role/example"))
+	g.Expect(conn.AWSSigV4.Region).To(gomega.Equal("us-east-1"))
+	g.Expect(conn.AWSSigV4.Endpoint).To(gomega.Equal("https://aws.example.com"))
+	g.Expect(conn.AWSSigV4.Service).To(gomega.Equal("execute-api"))
 }
 
 func TestHTTPConnectionPretty(t *testing.T) {
