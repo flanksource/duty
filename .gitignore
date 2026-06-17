@@ -24,3 +24,6 @@ ginkgo*.json
 migrate-e2e
 hack/generate-schemas/generate-schemas
 .gavel/
+
+
+examples/

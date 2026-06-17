@@ -572,8 +572,7 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 		}
 
 		var client dynamic.NamespaceableResourceInterface
-		var rm *meta.RESTMapping
-		var err error
+		var isClusterScoped bool
 
 		if strings.Contains(apiVersionKind, "/") {
 			gvk, parseErr := ParseAPIVersionKind(apiVersionKind)
@@ -581,34 +580,40 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 				return nil, parseErr
 			}
 
-			client, err = c.GetClientByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
+			rm, resolveErr := c.resolveGVK(ctx, gvk.Group, gvk.Version, gvk.Kind)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("failed to resolve %s: %w", apiVersionKind, resolveErr)
 			}
 
-			rm, err = c.resolveGVK(ctx, gvk.Group, gvk.Version, gvk.Kind)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
+			dc, clientErr := c.GetDynamicClient()
+			if clientErr != nil {
+				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, clientErr)
 			}
+
+			client = dc.Resource(rm.Resource)
+			isClusterScoped = rm.Scope.Name() == meta.RESTScopeNameRoot
 		} else {
-			client, rm, err = c.GetClientByKind(apiVersionKind)
+			dynamicClient, rm, err := c.GetClientByKind(apiVersionKind)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
 			}
-		}
 
-		isClusterScoped := rm.Scope.Name() == meta.RESTScopeNameRoot
+			client = dynamicClient
+			isClusterScoped = rm.Scope.Name() == meta.RESTScopeNameRoot
+		}
 
 		var namespaces []string
 		if isClusterScoped {
 			namespaces = []string{""}
 		} else {
-			namespaces, err = c.ExpandNamespaces(ctx, selector.Namespace)
+			ns, err := c.ExpandNamespaces(ctx, selector.Namespace)
 			if apiErrors.IsNotFound(err) {
 				continue
 			} else if err != nil {
 				return nil, fmt.Errorf("failed to expand namespaces for %s: %w", apiVersionKind, err)
 			}
+
+			namespaces = ns
 		}
 
 		for _, namespace := range namespaces {
