@@ -111,85 +111,106 @@ func (c *Client) FetchResources(
 	return output, nil
 }
 
-func (c *Client) GetClientByGroupVersionKind(
-	ctx context.Context, group, version, kind string,
-) (dynamic.NamespaceableResourceInterface, error) {
-	client, _, err := c.GetClientAndMappingByGroupVersionKind(ctx, group, version, kind)
-	return client, err
+func (c *Client) GetClientByGroupVersionKind(ctx context.Context, group, version, kind string) (dynamic.NamespaceableResourceInterface, error) {
+	mapping, err := c.resolveGVK(ctx, group, version, kind)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := c.GetDynamicClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Resource(mapping.Resource), nil
 }
 
-func (c *Client) GetClientAndMappingByGroupVersionKind(
-	ctx context.Context, group, version, kind string,
-) (dynamic.NamespaceableResourceInterface, *meta.RESTMapping, error) {
-	dynamicClient, err := c.GetDynamicClient()
-	if err != nil {
-		return nil, nil, err
-	}
-
+// resolveGVK maps a GroupVersionKind to a RESTMapping, using cache when available.
+func (c *Client) resolveGVK(ctx context.Context, group, version, kind string) (*meta.RESTMapping, error) {
+	// Check in-memory cache first
 	cacheKey := strings.Join([]string{group, version, kind}, "/")
 	if res, err := c.gvkClientResourceCache.Get(ctx, cacheKey); err == nil {
-		return dynamicClient.Resource(res.gvr), res.mapping, nil
+		return res.mapping, nil
 	}
 
+	// Cache miss: resolve using REST mapper (reads from disk cache, not API server)
 	rm, err := c.GetRestMapper()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	mapping, err := rm.RESTMapping(schema.GroupKind{Group: group, Kind: kind}, version)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if err := c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping}); err != nil {
+	// Cache the result (log but don't fail on cache errors)
+	if err := c.gvkClientResourceCache.Set(ctx, cacheKey, gvkClientResourceCacheValue{
+		gvr:     mapping.Resource,
+		mapping: mapping,
+	}); err != nil {
 		c.logger.Errorf("failed to set gvk cache for %s: %s", cacheKey, err)
 	}
 
-	return dynamicClient.Resource(mapping.Resource), mapping, nil
+	return mapping, nil
 }
 
 func (c *Client) RestConfig() *rest.Config {
 	return c.Config
 }
 
-// WARN: "Kind" is not specific enough.
-// A cluster can have various resources with the same Kind.
-// example: helmchrats.helm.cattle.io & helmcharts.source.toolkit.fluxcd.io both have HelmChart as the kind.
+// GetClientByKind resolves a resource name (e.g., "pods") to its API endpoint.
+// The API server discovers the correct group/version automatically.
 //
-// Use GetClientByGroupVersionKind instead.
+// Note: Ambiguous kinds (same name in multiple groups) may return unexpected results.
+// Prefer GetClientByGroupVersionKind when the full GVK is known.
 func (c *Client) GetClientByKind(kind string) (dynamic.NamespaceableResourceInterface, *meta.RESTMapping, error) {
-	dynamicClient, err := c.GetDynamicClient()
+	mapping, err := c.resolveKind(kind)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client, err := c.GetDynamicClient()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get dynamic client: %w", err)
 	}
 
+	return client.Resource(mapping.Resource), mapping, nil
+}
+
+// resolveKind maps a resource name (e.g., "pods", "deployments") to a RESTMapping.
+func (c *Client) resolveKind(kind string) (*meta.RESTMapping, error) {
+	// Check in-memory cache first
 	if res, err := c.gvkClientResourceCache.Get(context.Background(), kind); err == nil {
-		return dynamicClient.Resource(res.gvr), res.mapping, nil
+		return res.mapping, nil
 	}
 
+	// Cache miss: resolve using REST mapper
 	rm, err := c.GetRestMapper()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get rest mapper: %w", err)
+		return nil, fmt.Errorf("failed to get rest mapper: %w", err)
 	}
 
+	// First resolve the kind to a full GVK (handles ambiguity)
 	gvk, err := rm.KindFor(schema.GroupVersionResource{
 		Resource: kind,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get kind for %s: %w", kind, err)
+		return nil, fmt.Errorf("failed to get kind for %s: %w", kind, err)
 	}
 
-	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
-	mapping, err := rm.RESTMapping(gk, gvk.Version)
+	// Then get the full REST mapping with scope info
+	mapping, err := rm.RESTMapping(schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}, gvk.Version)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get rest mapping for %s: %w", kind, err)
+		return nil, fmt.Errorf("failed to get rest mapping for %s: %w", kind, err)
 	}
 
+	// Cache the result
 	if err := c.gvkClientResourceCache.Set(context.Background(), kind, gvkClientResourceCacheValue{gvr: mapping.Resource, mapping: mapping}); err != nil {
 		c.logger.Errorf("failed to set gvk cache for %s: %s", kind, err)
 	}
 
-	return dynamicClient.Resource(mapping.Resource), mapping, nil
+	return mapping, nil
 }
 
 // ParseAPIVersionKind parses an apiVersion/Kind string into a GroupVersionKind.
@@ -560,7 +581,12 @@ func (c *Client) QueryResources(ctx context.Context, selector types.ResourceSele
 				return nil, parseErr
 			}
 
-			client, rm, err = c.GetClientAndMappingByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
+			client, err = c.GetClientByGroupVersionKind(ctx, gvk.Group, gvk.Version, gvk.Kind)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
+			}
+
+			rm, err = c.resolveGVK(ctx, gvk.Group, gvk.Version, gvk.Kind)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get client for %s: %w", apiVersionKind, err)
 			}
