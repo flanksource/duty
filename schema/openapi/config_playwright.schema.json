@@ -1,9 +1,51 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/config-db/api/v1/logs",
-  "$ref": "#/$defs/Logs",
+  "$id": "https://github.com/flanksource/config-db/api/v1/playwright",
+  "$ref": "#/$defs/Playwright",
   "$defs": {
-    "AzureLogAnalyticsConfig": {
+    "AWSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Artifact": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ]
+    },
+    "AzureConnection": {
       "properties": {
         "connection": {
           "type": "string"
@@ -16,55 +58,30 @@
         },
         "tenantID": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CNRMConnection": {
+      "properties": {
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
         },
-        "start": {
+        "clusterResource": {
           "type": "string"
         },
-        "end": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
-        },
-        "workspaceID": {
-          "type": "string"
-        },
-        "query": {
+        "clusterResourceNamespace": {
           "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "workspaceID",
-        "query"
-      ],
-      "description": "AzureLogAnalyticsConfig contains configuration for Azure Log Analytics log scraping"
-    },
-    "BigQueryConfig": {
-      "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "endpoint": {
-          "type": "string"
-        },
-        "credentials": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "skipTLSVerify": {
-          "type": "boolean"
-        },
-        "project": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "BigQueryConfig contains configuration for BigQuery log scraping"
+        "gke",
+        "clusterResource",
+        "clusterResourceNamespace"
+      ]
     },
     "ChangeMapping": {
       "properties": {
@@ -210,6 +227,101 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ConfigQuery": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path is the file path to write the query results to (relative to script working dir)."
+        },
+        "agent": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "search": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "includeDeleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "tagSelector": {
+          "type": "string"
+        },
+        "labelSelector": {
+          "type": "string"
+        },
+        "fieldSelector": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "description": "ConfigQuery defines a query that exports config items as JSON files for use in scripts."
+    },
+    "EKSConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "cluster": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "cluster"
+      ]
+    },
     "EnvVar": {
       "properties": {
         "name": {
@@ -243,67 +355,55 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "FieldMappingConfig": {
+    "ExecConnections": {
       "properties": {
-        "id": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "fromConfigItem": {
+          "type": "string"
         },
-        "message": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "eksPodIdentity": {
+          "type": "boolean"
         },
-        "timestamp": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "serviceAccount": {
+          "type": "boolean"
         },
-        "host": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "kubernetes": {
+          "$ref": "#/$defs/KubernetesConnection"
         },
-        "severity": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "aws": {
+          "$ref": "#/$defs/AWSConnection"
         },
-        "source": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "gcp": {
+          "$ref": "#/$defs/GCPConnection"
         },
-        "ignore": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "groupBy": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "dedupBy": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "azure": {
+          "$ref": "#/$defs/AzureConnection"
         }
       },
       "additionalProperties": false,
       "type": "object"
     },
-    "GCPCloudLoggingConfig": {
+    "GCPConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "credentials": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "project": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GKEConnection": {
       "properties": {
         "connection": {
           "type": "string"
@@ -320,22 +420,56 @@
         "project": {
           "type": "string"
         },
-        "start": {
+        "projectID": {
           "type": "string"
         },
-        "end": {
+        "zone": {
           "type": "string"
         },
-        "limit": {
-          "type": "string"
-        },
-        "filter": {
+        "cluster": {
           "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "GCPCloudLoggingConfig contains configuration for GCP Cloud Logging"
+      "required": [
+        "projectID",
+        "zone",
+        "cluster"
+      ]
+    },
+    "GitConnection": {
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "string"
+        },
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "certificate": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "type": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "integer"
+        },
+        "destination": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "HelmRefKeySelector": {
       "properties": {
@@ -352,12 +486,39 @@
         "key"
       ]
     },
+    "Items": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "JSONStringMap": {
       "additionalProperties": {
         "type": "string"
       },
       "type": "object",
       "description": "JSONStringMap defined JSON data type, need to implements driver.Valuer, sql.Scanner interface"
+    },
+    "KubernetesConnection": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "kubeconfig": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "eks": {
+          "$ref": "#/$defs/EKSConnection"
+        },
+        "gke": {
+          "$ref": "#/$defs/GKEConnection"
+        },
+        "cnrm": {
+          "$ref": "#/$defs/CNRMConnection"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "Link": {
       "properties": {
@@ -410,7 +571,46 @@
         "type"
       ]
     },
-    "Logs": {
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Mask": {
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "Selector is a CEL expression that selects on what config items to apply the mask."
+        },
+        "jsonpath": {
+          "type": "string",
+          "description": "JSONPath specifies what field in the config needs to be masked"
+        },
+        "value": {
+          "type": "string",
+          "description": "Value can be a hash function name or just a string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MaskList": {
+      "items": {
+        "$ref": "#/$defs/Mask"
+      },
+      "type": "array"
+    },
+    "Playwright": {
       "properties": {
         "id": {
           "type": "string",
@@ -484,147 +684,152 @@
           "type": "array",
           "description": "Properties are custom templatable properties for the scraped config items\ngrouped by the config type."
         },
-        "loki": {
-          "$ref": "#/$defs/LokiConfig",
-          "description": "Loki specifies the Loki configuration for log scraping"
+        "script": {
+          "type": "string",
+          "description": "Script is an inline TypeScript/JavaScript to run with Playwright."
         },
-        "gcpCloudLogging": {
-          "$ref": "#/$defs/GCPCloudLoggingConfig",
-          "description": "GCPCloudLogging specifies the GCP Cloud Logging configuration"
+        "connections": {
+          "$ref": "#/$defs/ExecConnections",
+          "description": "Connections for AWS/GCP/Azure/K8s credential injection"
         },
-        "openSearch": {
-          "$ref": "#/$defs/OpenSearchConfig",
-          "description": "OpenSearch specifies the OpenSearch configuration for log scraping"
+        "checkout": {
+          "$ref": "#/$defs/GitConnection",
+          "description": "Checkout is a git repository to check out the script from"
         },
-        "bigQuery": {
-          "$ref": "#/$defs/BigQueryConfig",
-          "description": "BigQuery specifies the BigQuery configuration for log scraping"
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "type": "array",
+          "description": "Artifacts are additional artifact paths to collect after execution"
         },
-        "azureLogAnalytics": {
-          "$ref": "#/$defs/AzureLogAnalyticsConfig",
-          "description": "AzureLogAnalytics specifies the Azure Log Analytics configuration for log scraping"
+        "outputMode": {
+          "type": "string",
+          "description": "OutputMode controls how stdout is parsed: \"json\" (default) or \"raw\""
         },
-        "fieldMapping": {
-          "$ref": "#/$defs/FieldMappingConfig",
-          "description": "FieldMapping defines how source log fields map to canonical LogLine fields"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "LokiConfig": {
-      "properties": {
-        "connection": {
-          "type": "string"
+        "login": {
+          "$ref": "#/$defs/PlaywrightLoginProvider",
+          "description": "Login provider for auto-login (AWS federation, browser cookies)"
         },
-        "url": {
-          "type": "string"
+        "headless": {
+          "type": "boolean",
+          "description": "Headless mode (default true)"
         },
-        "username": {
-          "$ref": "#/$defs/EnvVar"
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in seconds for the script execution (default 300)"
         },
-        "password": {
-          "$ref": "#/$defs/EnvVar"
+        "trace": {
+          "$ref": "#/$defs/PlaywrightTrace",
+          "description": "Trace configures HAR, video, and network recording"
         },
-        "start": {
-          "type": "string"
+        "har": {
+          "type": "boolean",
+          "description": "HAR enables HAR (HTTP Archive) recording"
         },
-        "end": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array",
+          "description": "Env additional environment variables for the script"
         },
         "query": {
-          "type": "string"
-        },
-        "since": {
-          "type": "string"
-        },
-        "step": {
-          "type": "string"
-        },
-        "interval": {
-          "type": "string"
-        },
-        "direction": {
-          "type": "string"
+          "items": {
+            "$ref": "#/$defs/ConfigQuery"
+          },
+          "type": "array",
+          "description": "Query exports config items as JSON files for use in scripts"
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "LokiConfig contains configuration for Loki log scraping"
+      "required": [
+        "script"
+      ]
     },
-    "Lookup": {
-      "properties": {
-        "expr": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Mask": {
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "Selector is a CEL expression that selects on what config items to apply the mask."
-        },
-        "jsonpath": {
-          "type": "string",
-          "description": "JSONPath specifies what field in the config needs to be masked"
-        },
-        "value": {
-          "type": "string",
-          "description": "Value can be a hash function name or just a string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "MaskList": {
-      "items": {
-        "$ref": "#/$defs/Mask"
-      },
-      "type": "array"
-    },
-    "OpenSearchConfig": {
+    "PlaywrightAWSLogin": {
       "properties": {
         "connection": {
-          "type": "string"
+          "type": "string",
+          "description": "ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey."
         },
-        "address": {
-          "type": "string"
-        },
-        "username": {
+        "accessKey": {
           "$ref": "#/$defs/EnvVar"
         },
-        "password": {
+        "secretKey": {
           "$ref": "#/$defs/EnvVar"
         },
-        "index": {
+        "assumeRole": {
           "type": "string"
         },
-        "query": {
+        "endpoint": {
           "type": "string"
         },
-        "limit": {
+        "skipTLSVerify": {
+          "type": "boolean",
+          "description": "Skip TLS verify when connecting to aws"
+        },
+        "region": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sessionDuration": {
+          "type": "integer"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "login": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PlaywrightBrowserLogin": {
+      "properties": {
+        "connection": {
           "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "index",
-        "query"
-      ],
-      "description": "OpenSearchConfig contains configuration for OpenSearch log scraping"
+        "connection"
+      ]
+    },
+    "PlaywrightLoginProvider": {
+      "properties": {
+        "aws": {
+          "$ref": "#/$defs/PlaywrightAWSLogin"
+        },
+        "browser": {
+          "$ref": "#/$defs/PlaywrightBrowserLogin"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PlaywrightTrace": {
+      "properties": {
+        "har": {
+          "type": "boolean"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "video": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "RelationshipConfig": {
       "properties": {

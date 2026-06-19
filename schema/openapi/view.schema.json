@@ -36,6 +36,48 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AccessLogsUIFilters": {
+      "properties": {
+        "search": {
+          "type": "string"
+        },
+        "configTypes": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "mfa": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "AccessUIFilters": {
+      "properties": {
+        "search": {
+          "type": "string"
+        },
+        "configTypes": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "userType": {
+          "type": "string"
+        },
+        "stale": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BadgeConfig": {
       "properties": {
         "color": {
@@ -323,6 +365,54 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "FacetOptions": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "pageSize": {
+          "type": "string"
+        },
+        "landscape": {
+          "type": "boolean"
+        },
+        "margins": {
+          "$ref": "#/$defs/FacetPDFMargins"
+        },
+        "header": {
+          "type": "string"
+        },
+        "footer": {
+          "type": "string"
+        },
+        "timestampUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "FacetPDFMargins": {
+      "properties": {
+        "top": {
+          "type": "integer"
+        },
+        "bottom": {
+          "type": "integer"
+        },
+        "left": {
+          "type": "integer"
+        },
+        "right": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "FieldsV1": {
       "properties": {},
       "additionalProperties": false,
@@ -442,6 +532,44 @@
         "type": "string"
       },
       "type": "array"
+    },
+    "MCPMetadata": {
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title overrides the default tool title shown to LLMs."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description provides additional context for LLMs beyond the spec description."
+        },
+        "readOnlyHint": {
+          "type": "boolean",
+          "description": "ReadOnlyHint indicates the tool does not modify any state."
+        },
+        "destructiveHint": {
+          "type": "boolean",
+          "description": "DestructiveHint indicates the tool may perform destructive operations."
+        },
+        "idempotentHint": {
+          "type": "boolean",
+          "description": "IdempotentHint indicates repeated calls with same args have no additional effect."
+        },
+        "openWorldHint": {
+          "type": "boolean",
+          "description": "OpenWorldHint indicates the tool interacts with external entities."
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Tags are keywords for categorizing the tool for LLM discovery."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "MCPMetadata defines metadata for MCP (Model Context Protocol) tool registration.\nThese fields control how the playbook or view appears to LLM clients\nsuch as Claude, Gemini, and Codex."
     },
     "ManagedFieldsEntry": {
       "properties": {
@@ -652,6 +780,9 @@
         "timeseries": {
           "$ref": "#/$defs/PanelTimeseriesConfig"
         },
+        "heatmap": {
+          "$ref": "#/$defs/PanelHeatmapConfig"
+        },
         "query": {
           "type": "string"
         }
@@ -682,6 +813,15 @@
           "type": "array"
         },
         "unit": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PanelHeatmapConfig": {
+      "properties": {
+        "mode": {
           "type": "string"
         }
       },
@@ -962,6 +1102,12 @@
         },
         "configs": {
           "$ref": "#/$defs/ConfigsUIFilters"
+        },
+        "access": {
+          "$ref": "#/$defs/AccessUIFilters"
+        },
+        "accessLogs": {
+          "$ref": "#/$defs/AccessLogsUIFilters"
         }
       },
       "additionalProperties": false,
@@ -1215,6 +1361,13 @@
           },
           "type": "array",
           "description": "Include other views in the view"
+        },
+        "pdf": {
+          "$ref": "#/$defs/FacetOptions"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCPMetadata",
+          "description": "MCP metadata for tool registration with LLM clients."
         }
       },
       "additionalProperties": false,

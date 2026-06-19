@@ -33,6 +33,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AWSSigV4": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "sessionToken": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean"
+        },
+        "service": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "AlertManagerCheck": {
       "properties": {
         "description": {
@@ -2452,6 +2485,10 @@
           "type": "array",
           "description": "Expected response codes for the HTTP Request."
         },
+        "maxRedirects": {
+          "type": "integer",
+          "description": "Maximum redirects to follow (Defaults 10).\nSet to 0 to disable following redirects."
+        },
         "responseContent": {
           "type": "string",
           "description": "Exact response content expected to be returned by the endpoint."
@@ -2475,6 +2512,10 @@
         "ntlmv2": {
           "type": "boolean",
           "description": "NTLM when set to true will do authentication using NTLM v2 protocol"
+        },
+        "digest": {
+          "type": "boolean",
+          "description": "Digest when set to true will do authentication using HTTP digest"
         },
         "body": {
           "type": "string",
@@ -2501,6 +2542,10 @@
         "oauth2": {
           "$ref": "#/$defs/Oauth2Config",
           "description": "Oauth2 Configuration. The client ID \u0026 Client secret should go to username \u0026 password respectively."
+        },
+        "awsSigV4": {
+          "$ref": "#/$defs/AWSSigV4",
+          "description": "AWS SigV4 signing for authenticating to AWS APIs"
         },
         "tlsConfig": {
           "$ref": "#/$defs/TLSConfig",
@@ -4499,10 +4544,6 @@
           "$ref": "#/$defs/CheckRelationship",
           "description": "Relationships defines a way to link the check results to components and configs\nusing lookup expressions."
         },
-        "host": {
-          "type": "string",
-          "description": "Deprecated: use `url` instead"
-        },
         "connection": {
           "type": "string"
         },
@@ -4538,6 +4579,13 @@
             "$ref": "#/$defs/EnvVar"
           },
           "type": "array"
+        },
+        "awsSigV4": {
+          "$ref": "#/$defs/AWSSigV4"
+        },
+        "host": {
+          "type": "string",
+          "description": "Deprecated: use `url` instead"
         },
         "query": {
           "type": "string",

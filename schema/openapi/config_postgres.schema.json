@@ -1,70 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/flanksource/config-db/api/v1/logs",
-  "$ref": "#/$defs/Logs",
+  "$id": "https://github.com/flanksource/config-db/api/v1/postgres",
+  "$ref": "#/$defs/Postgres",
   "$defs": {
-    "AzureLogAnalyticsConfig": {
+    "Authentication": {
       "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "clientID": {
+        "username": {
           "$ref": "#/$defs/EnvVar"
         },
-        "clientSecret": {
+        "password": {
           "$ref": "#/$defs/EnvVar"
-        },
-        "tenantID": {
-          "type": "string"
-        },
-        "start": {
-          "type": "string"
-        },
-        "end": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
-        },
-        "workspaceID": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "workspaceID",
-        "query"
+        "username",
+        "password"
       ],
-      "description": "AzureLogAnalyticsConfig contains configuration for Azure Log Analytics log scraping"
-    },
-    "BigQueryConfig": {
-      "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "endpoint": {
-          "type": "string"
-        },
-        "credentials": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "skipTLSVerify": {
-          "type": "boolean"
-        },
-        "project": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "BigQueryConfig contains configuration for BigQuery log scraping"
+      "description": "Authentication ..."
     },
     "ChangeMapping": {
       "properties": {
@@ -243,100 +197,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "FieldMappingConfig": {
-      "properties": {
-        "id": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "message": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "timestamp": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "host": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "severity": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "source": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "ignore": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "groupBy": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "dedupBy": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "GCPCloudLoggingConfig": {
-      "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "endpoint": {
-          "type": "string"
-        },
-        "credentials": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "skipTLSVerify": {
-          "type": "boolean"
-        },
-        "project": {
-          "type": "string"
-        },
-        "start": {
-          "type": "string"
-        },
-        "end": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
-        },
-        "filter": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "GCPCloudLoggingConfig contains configuration for GCP Cloud Logging"
-    },
     "HelmRefKeySelector": {
       "properties": {
         "name": {
@@ -410,7 +270,46 @@
         "type"
       ]
     },
-    "Logs": {
+    "Lookup": {
+      "properties": {
+        "expr": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Mask": {
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "Selector is a CEL expression that selects on what config items to apply the mask."
+        },
+        "jsonpath": {
+          "type": "string",
+          "description": "JSONPath specifies what field in the config needs to be masked"
+        },
+        "value": {
+          "type": "string",
+          "description": "Value can be a hash function name or just a string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MaskList": {
+      "items": {
+        "$ref": "#/$defs/Mask"
+      },
+      "type": "array"
+    },
+    "Postgres": {
       "properties": {
         "id": {
           "type": "string",
@@ -484,147 +383,23 @@
           "type": "array",
           "description": "Properties are custom templatable properties for the scraped config items\ngrouped by the config type."
         },
-        "loki": {
-          "$ref": "#/$defs/LokiConfig",
-          "description": "Loki specifies the Loki configuration for log scraping"
-        },
-        "gcpCloudLogging": {
-          "$ref": "#/$defs/GCPCloudLoggingConfig",
-          "description": "GCPCloudLogging specifies the GCP Cloud Logging configuration"
-        },
-        "openSearch": {
-          "$ref": "#/$defs/OpenSearchConfig",
-          "description": "OpenSearch specifies the OpenSearch configuration for log scraping"
-        },
-        "bigQuery": {
-          "$ref": "#/$defs/BigQueryConfig",
-          "description": "BigQuery specifies the BigQuery configuration for log scraping"
-        },
-        "azureLogAnalytics": {
-          "$ref": "#/$defs/AzureLogAnalyticsConfig",
-          "description": "AzureLogAnalytics specifies the Azure Log Analytics configuration for log scraping"
-        },
-        "fieldMapping": {
-          "$ref": "#/$defs/FieldMappingConfig",
-          "description": "FieldMapping defines how source log fields map to canonical LogLine fields"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "LokiConfig": {
-      "properties": {
         "connection": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "username": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "password": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "start": {
-          "type": "string"
-        },
-        "end": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        },
-        "since": {
-          "type": "string"
-        },
-        "step": {
-          "type": "string"
-        },
-        "interval": {
-          "type": "string"
-        },
-        "direction": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "LokiConfig contains configuration for Loki log scraping"
-    },
-    "Lookup": {
-      "properties": {
-        "expr": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Mask": {
-      "properties": {
-        "selector": {
           "type": "string",
-          "description": "Selector is a CEL expression that selects on what config items to apply the mask."
+          "description": "Connection is either the name of the connection to lookup\nor the connection string itself."
         },
-        "jsonpath": {
-          "type": "string",
-          "description": "JSONPath specifies what field in the config needs to be masked"
+        "auth": {
+          "$ref": "#/$defs/Authentication"
         },
-        "value": {
-          "type": "string",
-          "description": "Value can be a hash function name or just a string"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "MaskList": {
-      "items": {
-        "$ref": "#/$defs/Mask"
-      },
-      "type": "array"
-    },
-    "OpenSearchConfig": {
-      "properties": {
-        "connection": {
-          "type": "string"
-        },
-        "address": {
-          "type": "string"
-        },
-        "username": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "password": {
-          "$ref": "#/$defs/EnvVar"
-        },
-        "index": {
-          "type": "string"
-        },
-        "query": {
-          "type": "string"
-        },
-        "limit": {
-          "type": "string"
+        "permissions": {
+          "type": "boolean",
+          "description": "Permissions enables scraping PostgreSQL roles, memberships, and effective privileges."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "required": [
-        "index",
-        "query"
-      ],
-      "description": "OpenSearchConfig contains configuration for OpenSearch log scraping"
+        "connection"
+      ]
     },
     "RelationshipConfig": {
       "properties": {
