@@ -530,6 +530,17 @@
           },
           "type": "array",
           "description": "Releases filters classic release pipelines to scrape by name or glob"
+        },
+        "repositories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Repositories filters Git repositories to scrape by name or glob"
+        },
+        "auditLog": {
+          "$ref": "#/$defs/AzureDevopsAuditLog",
+          "description": "AuditLog configures fetching organization-level audit log entries as config changes"
         }
       },
       "additionalProperties": false,
@@ -539,15 +550,47 @@
         "pipelines"
       ]
     },
+    "AzureDevopsAuditLog": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled enables fetching audit log entries"
+        },
+        "exclusions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Exclusions is a list of actionId prefixes to exclude (e.g. \"AuditLog.AccessLog\")"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AzureDevopsAuditLog configures audit log fetching for Azure DevOps"
+    },
     "AzureDevopsPermissions": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled enables fetching pipeline permissions"
+          "description": "Enabled enables fetching pipeline and repository permissions"
         },
         "rateLimit": {
           "type": "string",
           "description": "RateLimit specifies how often to refresh permissions (e.g., \"6h\", \"24h\")\nDefaults to \"24h\" if not set"
+        },
+        "groups": {
+          "type": "boolean",
+          "description": "Groups enables fetching organization-level group membership"
+        },
+        "roles": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object",
+          "description": "Roles maps role names to permission strings with resource-type prefixes.\nFormat: \"Type:Permission\" where Type is Git, Pipeline, or Release.\nAn identity is assigned a role if it has ANY of the listed permissions for that type.\n\nGit permissions: Read, Contribute, ForcePush, CreateBranch, CreateTag, ManageNotes,\n  CreateRepository, DeleteRepository, RenameRepository, ManagePermissions, PolicyExempt\nPipeline permissions: ViewBuilds, EditBuildPipeline, DeleteBuilds, QueueBuilds,\n  StopBuilds, AdministerBuildPermissions\nRelease permissions: ViewReleaseDefinition, EditReleaseDefinition, DeleteReleaseDefinition,\n  ManageDeployments, ManageReleaseApprovers, ManageReleases, ViewReleases,\n  CreateReleases, EditReleaseEnvironment, DeleteReleaseEnvironment,\n  AdministerReleasePermissions, DeleteReleases, ManageDefinitionReleaseApprovers\n\nDefaults to Viewer, Developer, Admin, Releaser roles when not configured."
         }
       },
       "additionalProperties": false,
@@ -883,6 +926,9 @@
     },
     "ConfigProperties": {
       "properties": {
+        "type": {
+          "type": "string"
+        },
         "label": {
           "type": "string"
         },
@@ -893,9 +939,6 @@
           "type": "string"
         },
         "icon": {
-          "type": "string"
-        },
-        "type": {
           "type": "string"
         },
         "color": {
@@ -943,6 +986,65 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ConfigQuery": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path is the file path to write the query results to (relative to script working dir)."
+        },
+        "agent": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "search": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "includeDeleted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "tagSelector": {
+          "type": "string"
+        },
+        "labelSelector": {
+          "type": "string"
+        },
+        "fieldSelector": {
+          "type": "string"
+        },
+        "health": {
+          "type": "string"
+        },
+        "types": {
+          "$ref": "#/$defs/Items"
+        },
+        "statuses": {
+          "$ref": "#/$defs/Items"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "description": "ConfigQuery defines a query that exports config items as JSON files for use in scripts."
     },
     "CostReporting": {
       "properties": {
@@ -1211,6 +1313,13 @@
           "type": "array",
           "description": "Environment variables"
         },
+        "query": {
+          "items": {
+            "$ref": "#/$defs/ConfigQuery"
+          },
+          "type": "array",
+          "description": "Query exports config items as JSON files for use in scripts."
+        },
         "artifacts": {
           "items": {
             "$ref": "#/$defs/Artifact"
@@ -1266,6 +1375,9 @@
         },
         "powershell": {
           "$ref": "#/$defs/RuntimeSetup"
+        },
+        "playwright": {
+          "$ref": "#/$defs/RuntimeSetup"
         }
       },
       "additionalProperties": false,
@@ -1310,6 +1422,18 @@
           "type": "array"
         },
         "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "groupBy": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dedupBy": {
           "items": {
             "type": "string"
           },
@@ -2123,6 +2247,36 @@
       "required": [
         "key"
       ]
+    },
+    "IncrementalStatus": {
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "success": {
+          "type": "integer"
+        },
+        "error": {
+          "type": "integer"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/Time"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Items": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "JSONStringMap": {
       "additionalProperties": {
@@ -3037,6 +3191,227 @@
         "nextPageExpr"
       ]
     },
+    "Playwright": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the ID for the resource."
+        },
+        "name": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the Name for the resource."
+        },
+        "description": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the description for the resource."
+        },
+        "items": {
+          "type": "string",
+          "description": "A JSONPath expression to use to extract individual items from the resource,\nitems are extracted first and then the ID,Name,Type and transformations are applied for each item."
+        },
+        "type": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the type for the resource."
+        },
+        "class": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the class for the resource."
+        },
+        "format": {
+          "type": "string",
+          "description": "Format of config item, defaults to JSON, available options are JSON, properties"
+        },
+        "status": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the status of the config item"
+        },
+        "health": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the health of the config item"
+        },
+        "timestampFormat": {
+          "type": "string",
+          "description": "TimestampFormat is a Go time format string used to\nparse timestamps in createFields and DeletedFields.\nIf not specified, the default is RFC3339."
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "CreateFields is a list of JSONPath expression used to identify the created time of the config.\nIf multiple fields are specified, the first non-empty value will be used."
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "DeleteFields is a JSONPath expression used to identify the deleted time of the config.\nIf multiple fields are specified, the first non-empty value will be used."
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap",
+          "description": "Labels for each config item."
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags",
+          "description": "Tags for each config item.\nMax allowed: 5"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array",
+          "description": "Properties are custom templatable properties for the scraped config items\ngrouped by the config type."
+        },
+        "script": {
+          "type": "string",
+          "description": "Script is an inline TypeScript/JavaScript to run with Playwright."
+        },
+        "connections": {
+          "$ref": "#/$defs/ExecConnections",
+          "description": "Connections for AWS/GCP/Azure/K8s credential injection"
+        },
+        "checkout": {
+          "$ref": "#/$defs/GitConnection",
+          "description": "Checkout is a git repository to check out the script from"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "type": "array",
+          "description": "Artifacts are additional artifact paths to collect after execution"
+        },
+        "outputMode": {
+          "type": "string",
+          "description": "OutputMode controls how stdout is parsed: \"json\" (default) or \"raw\""
+        },
+        "login": {
+          "$ref": "#/$defs/PlaywrightLoginProvider",
+          "description": "Login provider for auto-login (AWS federation, browser cookies)"
+        },
+        "headless": {
+          "type": "boolean",
+          "description": "Headless mode (default true)"
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Timeout in seconds for the script execution (default 300)"
+        },
+        "trace": {
+          "$ref": "#/$defs/PlaywrightTrace",
+          "description": "Trace configures HAR, video, and network recording"
+        },
+        "har": {
+          "type": "boolean",
+          "description": "HAR enables HAR (HTTP Archive) recording"
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array",
+          "description": "Env additional environment variables for the script"
+        },
+        "query": {
+          "items": {
+            "$ref": "#/$defs/ConfigQuery"
+          },
+          "type": "array",
+          "description": "Query exports config items as JSON files for use in scripts"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "script"
+      ]
+    },
+    "PlaywrightAWSLogin": {
+      "properties": {
+        "connection": {
+          "type": "string",
+          "description": "ConnectionName of the connection. It'll be used to populate the endpoint, accessKey and secretKey."
+        },
+        "accessKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "secretKey": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "assumeRole": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "skipTLSVerify": {
+          "type": "boolean",
+          "description": "Skip TLS verify when connecting to aws"
+        },
+        "region": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sessionDuration": {
+          "type": "integer"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "login": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PlaywrightBrowserLogin": {
+      "properties": {
+        "connection": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "connection"
+      ]
+    },
+    "PlaywrightLoginProvider": {
+      "properties": {
+        "aws": {
+          "$ref": "#/$defs/PlaywrightAWSLogin"
+        },
+        "browser": {
+          "$ref": "#/$defs/PlaywrightBrowserLogin"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PlaywrightTrace": {
+      "properties": {
+        "har": {
+          "type": "boolean"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "video": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "PodFile": {
       "properties": {
         "path": {
@@ -3051,6 +3426,98 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "Postgres": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the ID for the resource."
+        },
+        "name": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the Name for the resource."
+        },
+        "description": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the description for the resource."
+        },
+        "items": {
+          "type": "string",
+          "description": "A JSONPath expression to use to extract individual items from the resource,\nitems are extracted first and then the ID,Name,Type and transformations are applied for each item."
+        },
+        "type": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the type for the resource."
+        },
+        "class": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the class for the resource."
+        },
+        "format": {
+          "type": "string",
+          "description": "Format of config item, defaults to JSON, available options are JSON, properties"
+        },
+        "status": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the status of the config item"
+        },
+        "health": {
+          "type": "string",
+          "description": "A static value or JSONPath expression to use as the health of the config item"
+        },
+        "timestampFormat": {
+          "type": "string",
+          "description": "TimestampFormat is a Go time format string used to\nparse timestamps in createFields and DeletedFields.\nIf not specified, the default is RFC3339."
+        },
+        "createFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "CreateFields is a list of JSONPath expression used to identify the created time of the config.\nIf multiple fields are specified, the first non-empty value will be used."
+        },
+        "deleteFields": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "DeleteFields is a JSONPath expression used to identify the deleted time of the config.\nIf multiple fields are specified, the first non-empty value will be used."
+        },
+        "transform": {
+          "$ref": "#/$defs/Transform"
+        },
+        "labels": {
+          "$ref": "#/$defs/JSONStringMap",
+          "description": "Labels for each config item."
+        },
+        "tags": {
+          "$ref": "#/$defs/Tags",
+          "description": "Tags for each config item.\nMax allowed: 5"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/ConfigProperties"
+          },
+          "type": "array",
+          "description": "Properties are custom templatable properties for the scraped config items\ngrouped by the config type."
+        },
+        "connection": {
+          "type": "string",
+          "description": "Connection is either the name of the connection to lookup\nor the connection string itself."
+        },
+        "auth": {
+          "$ref": "#/$defs/Authentication"
+        },
+        "permissions": {
+          "type": "boolean",
+          "description": "Permissions enables scraping PostgreSQL roles, memberships, and effective privileges."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "connection"
+      ]
     },
     "PubSub": {
       "properties": {
@@ -3325,6 +3792,10 @@
         },
         "staleItemAge": {
           "type": "string"
+        },
+        "staleAnalysisAge": {
+          "type": "string",
+          "description": "StaleAnalysisAge is the duration after which an analysis that is no longer observed by the scraper\nis marked as resolved. Defaults to 48h. Use \"keep\" to disable auto-resolution."
         }
       },
       "additionalProperties": false,
@@ -3545,6 +4016,9 @@
         },
         "lastRun": {
           "$ref": "#/$defs/LastRunStatus"
+        },
+        "incremental": {
+          "$ref": "#/$defs/IncrementalStatus"
         }
       },
       "additionalProperties": false,
@@ -3554,10 +4028,12 @@
     "ScraperSpec": {
       "properties": {
         "logLevel": {
-          "type": "string"
+          "type": "string",
+          "description": "LogLevel sets the log level for the scraper. Supported values are \"trace\", \"debug\", \"info\" Default is \"info\"."
         },
         "schedule": {
-          "type": "string"
+          "type": "string",
+          "description": "Schedule is a cron expression for when to run the scraper. Example: `@every 1m`, `0 */6 * * *` (every 6 hours)"
         },
         "gcp": {
           "items": {
@@ -3613,6 +4089,12 @@
           },
           "type": "array"
         },
+        "postgres": {
+          "items": {
+            "$ref": "#/$defs/Postgres"
+          },
+          "type": "array"
+        },
         "sql": {
           "items": {
             "$ref": "#/$defs/SQL"
@@ -3664,6 +4146,12 @@
         "exec": {
           "items": {
             "$ref": "#/$defs/Exec"
+          },
+          "type": "array"
+        },
+        "playwright": {
+          "items": {
+            "$ref": "#/$defs/Playwright"
           },
           "type": "array"
         },

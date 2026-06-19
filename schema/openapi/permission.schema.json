@@ -237,6 +237,10 @@
           },
           "type": "array"
         },
+        "mcp": {
+          "type": "boolean",
+          "description": "MCP sets the global MCP object permission.\nWhen true, no resource selectors or scopes may be specified."
+        },
         "scopes": {
           "items": {
             "$ref": "#/$defs/NamespacedNameIDSelector"
@@ -332,6 +336,10 @@
         "playbook": {
           "type": "string",
           "description": "Playbook \u003cnamespace\u003e/\u003cname\u003e selector"
+        },
+        "plugin": {
+          "type": "string",
+          "description": "Plugin \u003cnamespace\u003e/\u003cname\u003e or /\u003cname\u003e selector"
         },
         "canary": {
           "type": "string",

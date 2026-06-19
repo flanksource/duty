@@ -25,6 +25,18 @@
           "type": "string",
           "description": "BaseURL or API url.\nExample: server URL for ollama or custom url for Anthropic if using a proxy"
         },
+        "awsRegion": {
+          "type": "string",
+          "description": "AWS region. Used when backend is bedrock."
+        },
+        "awsAccessKeyId": {
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS access key ID. Used when backend is bedrock."
+        },
+        "awsSecretAccessKey": {
+          "$ref": "#/$defs/EnvVar",
+          "description": "AWS secret access key. Used when backend is bedrock."
+        },
         "config": {
           "type": "string"
         },
@@ -71,6 +83,17 @@
           },
           "type": "array",
           "description": "Output format of the prompt.\nSupported: markdown (default), slack, recommendPlaybook"
+        },
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/AISkill"
+          },
+          "type": "array",
+          "description": "Skills references reusable Genkit skill libraries."
+        },
+        "outputSchema": {
+          "$ref": "#/$defs/AIOutputSchema",
+          "description": "OutputSchema is a JSON schema that the AI response must conform to.\nCan be inline (value), from a configMap/secret (valueFrom), or from a git repo (git)."
         }
       },
       "additionalProperties": false,
@@ -79,6 +102,71 @@
         "systemPrompt",
         "prompt"
       ]
+    },
+    "AIOutputSchema": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/EnvVarSource"
+        },
+        "checkout": {
+          "$ref": "#/$defs/AIOutputSchemaGit",
+          "description": "Git connection reference for fetching the schema from a repository"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AIOutputSchema specifies a JSON schema for structured AI output.\nSupports inline value, configMap/secret reference, or a git repository path."
+    },
+    "AIOutputSchemaGit": {
+      "properties": {
+        "connection": {
+          "type": "string",
+          "description": "Git connection reference (e.g., \"connection://github/my-org\")"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the JSON schema file in the repo"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Branch or tag to checkout (optional, defaults to the repo's default branch)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "connection",
+        "path"
+      ],
+      "description": "AIOutputSchemaGit references a JSON schema file in a git repository."
+    },
+    "AISkill": {
+      "properties": {
+        "connection": {
+          "type": "string",
+          "description": "Git connection reference (e.g., \"connection://github/my-org\").\nWhen empty, Path is read from the local filesystem."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the skill library directory within the repo or local filesystem (e.g., \"skills\")"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Branch or tag to checkout (optional, defaults to the repo's default branch)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "description": "AISkill references a Genkit skill library directory, either from a git repository\n(when Connection is set) or from the local filesystem (when Connection is empty).\nSkills are exposed to the model as loadable skills via the use_skill tool."
     },
     "AWSConnection": {
       "properties": {
@@ -272,6 +360,92 @@
         "clusterResourceNamespace"
       ]
     },
+    "CatalogAction": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the config item"
+        },
+        "scraper": {
+          "type": "string",
+          "description": "Scraper reference — ID or namespace/name of the config scraper to link to"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the config item (e.g., \"SecurityAudit::Report\")"
+        },
+        "config_class": {
+          "type": "string",
+          "description": "ConfigClass (e.g., \"Report\")"
+        },
+        "config": {
+          "type": "string",
+          "description": "Config is the JSON body of the config item"
+        },
+        "health": {
+          "type": "string",
+          "description": "Health status"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status"
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Tags"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "scraper",
+        "type"
+      ],
+      "description": "CatalogAction creates a config item in the catalog."
+    },
+    "CatalogReportSections": {
+      "properties": {
+        "changes": {
+          "type": "boolean"
+        },
+        "insights": {
+          "type": "boolean"
+        },
+        "relationships": {
+          "type": "boolean"
+        },
+        "access": {
+          "type": "boolean"
+        },
+        "accessLogs": {
+          "type": "boolean"
+        },
+        "configJSON": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "changes",
+        "insights",
+        "relationships",
+        "access",
+        "accessLogs",
+        "configJSON"
+      ]
+    },
     "ConfigMapKeySelector": {
       "properties": {
         "name": {
@@ -416,6 +590,9 @@
         },
         "azure": {
           "$ref": "#/$defs/AzureConnection"
+        },
+        "opensearch": {
+          "$ref": "#/$defs/OpensearchConnection"
         }
       },
       "additionalProperties": false,
@@ -431,6 +608,9 @@
         },
         "powershell": {
           "$ref": "#/$defs/RuntimeSetup"
+        },
+        "playwright": {
+          "$ref": "#/$defs/RuntimeSetup"
         }
       },
       "additionalProperties": false,
@@ -444,8 +624,14 @@
         "url": {
           "type": "string"
         },
-        "pdfOptions": {
-          "$ref": "#/$defs/FacetPDFOptions"
+        "pageSize": {
+          "type": "string"
+        },
+        "landscape": {
+          "type": "boolean"
+        },
+        "margins": {
+          "$ref": "#/$defs/FacetPDFMargins"
         },
         "header": {
           "type": "string"
@@ -473,21 +659,6 @@
         },
         "right": {
           "type": "integer"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "FacetPDFOptions": {
-      "properties": {
-        "pageSize": {
-          "type": "string"
-        },
-        "landscape": {
-          "type": "boolean"
-        },
-        "margins": {
-          "$ref": "#/$defs/FacetPDFMargins"
         }
       },
       "additionalProperties": false,
@@ -532,6 +703,18 @@
           "type": "array"
         },
         "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "groupBy": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dedupBy": {
           "items": {
             "type": "string"
           },
@@ -1032,6 +1215,10 @@
           "$ref": "#/$defs/FieldMappingConfig",
           "description": "Map labels to fields"
         },
+        "parse": {
+          "type": "string",
+          "description": "Parse specifies the log format to parse.\nSupported: \"logfmt\", \"klogfmt\", \"json\", \"syslog\", \"autodetect\""
+        },
         "connection": {
           "type": "string"
         },
@@ -1096,6 +1283,10 @@
           "$ref": "#/$defs/FieldMappingConfig",
           "description": "Map labels to fields"
         },
+        "parse": {
+          "type": "string",
+          "description": "Parse specifies the log format to parse.\nSupported: \"logfmt\", \"klogfmt\", \"json\", \"syslog\", \"autodetect\""
+        },
         "start": {
           "type": "string"
         },
@@ -1153,6 +1344,10 @@
           "$ref": "#/$defs/FieldMappingConfig",
           "description": "Map labels to fields"
         },
+        "parse": {
+          "type": "string",
+          "description": "Parse specifies the log format to parse.\nSupported: \"logfmt\", \"klogfmt\", \"json\", \"syslog\", \"autodetect\""
+        },
         "connection": {
           "type": "string"
         },
@@ -1198,6 +1393,10 @@
         "mapping": {
           "$ref": "#/$defs/FieldMappingConfig",
           "description": "Map labels to fields"
+        },
+        "parse": {
+          "type": "string",
+          "description": "Parse specifies the log format to parse.\nSupported: \"logfmt\", \"klogfmt\", \"json\", \"syslog\", \"autodetect\""
         },
         "connection": {
           "type": "string"
@@ -1250,6 +1449,44 @@
         "namespace",
         "name"
       ]
+    },
+    "MCPMetadata": {
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title overrides the default tool title shown to LLMs."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description provides additional context for LLMs beyond the spec description."
+        },
+        "readOnlyHint": {
+          "type": "boolean",
+          "description": "ReadOnlyHint indicates the tool does not modify any state."
+        },
+        "destructiveHint": {
+          "type": "boolean",
+          "description": "DestructiveHint indicates the tool may perform destructive operations."
+        },
+        "idempotentHint": {
+          "type": "boolean",
+          "description": "IdempotentHint indicates repeated calls with same args have no additional effect."
+        },
+        "openWorldHint": {
+          "type": "boolean",
+          "description": "OpenWorldHint indicates the tool interacts with external entities."
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Tags are keywords for categorizing the tool for LLM discovery."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "MCPMetadata defines metadata for MCP (Model Context Protocol) tool registration.\nThese fields control how the playbook or view appears to LLM clients\nsuch as Claude, Gemini, and Codex."
     },
     "MatchExpressions": {
       "items": {
@@ -1346,6 +1583,39 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "OpensearchConnection": {
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "password": {
+          "$ref": "#/$defs/EnvVar"
+        },
+        "ntlm": {
+          "type": "boolean"
+        },
+        "ntlmv2": {
+          "type": "boolean"
+        },
+        "digest": {
+          "type": "boolean"
+        },
+        "urls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "index": {
+          "type": "string"
+        },
+        "insecureSkipVerify": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "PlaybookAction": {
       "properties": {
         "name": {
@@ -1418,6 +1688,9 @@
         },
         "report": {
           "$ref": "#/$defs/ReportAction"
+        },
+        "catalog": {
+          "$ref": "#/$defs/CatalogAction"
         }
       },
       "additionalProperties": false,
@@ -1709,6 +1982,10 @@
         },
         "ui": {
           "description": "Properties that are applied to the UI form"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCPMetadata",
+          "description": "MCP defines metadata for MCP tool registration, controlling how\nthis playbook appears to LLM clients (Claude, Gemini, Codex)."
         }
       },
       "additionalProperties": false,
@@ -1934,7 +2211,11 @@
         },
         "configs": {
           "$ref": "#/$defs/ResourceSelector",
-          "description": "Inline catalog query (alternative to View)"
+          "description": "Inline catalog query for the catalog report (alternative to View)"
+        },
+        "file": {
+          "$ref": "#/$defs/ReportFile",
+          "description": "File selects the TSX template that renders the catalog report.\nWhen unset, the embedded CatalogReport.tsx is used."
         },
         "format": {
           "type": "string",
@@ -1950,10 +2231,67 @@
         "facet": {
           "$ref": "#/$defs/FacetOptions",
           "description": "Facet rendering options for facet-html and facet-pdf formats"
+        },
+        "since": {
+          "type": "string",
+          "description": "Since is the time range for changes and access logs (e.g. \"30d\"). Defaults to 30d."
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Recursive includes all descendant config items in the catalog report."
+        },
+        "groupBy": {
+          "type": "string",
+          "description": "GroupBy controls descendant grouping: \"none\" (default), \"merged\", or \"config\"."
+        },
+        "sections": {
+          "$ref": "#/$defs/CatalogReportSections",
+          "description": "Sections selects which catalog report sections to include."
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ReportFile": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to a local TSX file. A relative path is resolved against the\nworking directory (e.g. \"report/CatalogReport.tsx\"); an absolute path is\nused as-is. The file's directory must contain the report scaffold."
+        },
+        "git": {
+          "$ref": "#/$defs/ReportGitFile",
+          "description": "Git references a TSX file inside a git repository."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ReportFile selects the TSX template used to render the catalog report,\neither from a git repository or a local file path."
+    },
+    "ReportGitFile": {
+      "properties": {
+        "connection": {
+          "type": "string",
+          "description": "Connection name used for credentials to the git repo."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL of the git repository."
+        },
+        "base": {
+          "type": "string",
+          "description": "Base is the branch to clone. Defaults to \"main\"."
+        },
+        "file": {
+          "type": "string",
+          "description": "File is the path to the TSX file within the repository."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url",
+        "file"
+      ]
     },
     "ResourceSelector": {
       "properties": {

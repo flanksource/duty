@@ -112,6 +112,17 @@
           },
           "type": "array",
           "description": "Releases filters classic release pipelines to scrape by name or glob"
+        },
+        "repositories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Repositories filters Git repositories to scrape by name or glob"
+        },
+        "auditLog": {
+          "$ref": "#/$defs/AzureDevopsAuditLog",
+          "description": "AuditLog configures fetching organization-level audit log entries as config changes"
         }
       },
       "additionalProperties": false,
@@ -121,15 +132,47 @@
         "pipelines"
       ]
     },
+    "AzureDevopsAuditLog": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled enables fetching audit log entries"
+        },
+        "exclusions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Exclusions is a list of actionId prefixes to exclude (e.g. \"AuditLog.AccessLog\")"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AzureDevopsAuditLog configures audit log fetching for Azure DevOps"
+    },
     "AzureDevopsPermissions": {
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enabled enables fetching pipeline permissions"
+          "description": "Enabled enables fetching pipeline and repository permissions"
         },
         "rateLimit": {
           "type": "string",
           "description": "RateLimit specifies how often to refresh permissions (e.g., \"6h\", \"24h\")\nDefaults to \"24h\" if not set"
+        },
+        "groups": {
+          "type": "boolean",
+          "description": "Groups enables fetching organization-level group membership"
+        },
+        "roles": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object",
+          "description": "Roles maps role names to permission strings with resource-type prefixes.\nFormat: \"Type:Permission\" where Type is Git, Pipeline, or Release.\nAn identity is assigned a role if it has ANY of the listed permissions for that type.\n\nGit permissions: Read, Contribute, ForcePush, CreateBranch, CreateTag, ManageNotes,\n  CreateRepository, DeleteRepository, RenameRepository, ManagePermissions, PolicyExempt\nPipeline permissions: ViewBuilds, EditBuildPipeline, DeleteBuilds, QueueBuilds,\n  StopBuilds, AdministerBuildPermissions\nRelease permissions: ViewReleaseDefinition, EditReleaseDefinition, DeleteReleaseDefinition,\n  ManageDeployments, ManageReleaseApprovers, ManageReleases, ViewReleases,\n  CreateReleases, EditReleaseEnvironment, DeleteReleaseEnvironment,\n  AdministerReleasePermissions, DeleteReleases, ManageDefinitionReleaseApprovers\n\nDefaults to Viewer, Developer, Admin, Releaser roles when not configured."
         }
       },
       "additionalProperties": false,
@@ -219,6 +262,9 @@
     },
     "ConfigProperties": {
       "properties": {
+        "type": {
+          "type": "string"
+        },
         "label": {
           "type": "string"
         },
@@ -229,9 +275,6 @@
           "type": "string"
         },
         "icon": {
-          "type": "string"
-        },
-        "type": {
           "type": "string"
         },
         "color": {
