@@ -3,6 +3,7 @@ package context
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/logger"
@@ -23,9 +24,7 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	} else {
 		l.V(1).Infof("Running template: %s", t.String())
 	}
-	for _, f := range CelEnvFuncs {
-		t.CelEnvs = append(t.CelEnvs, f(k))
-	}
+	appendReferencedCelEnvFuncs(k, &t)
 	if t.Functions == nil {
 		t.Functions = make(map[string]any)
 	}
@@ -76,6 +75,61 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	}
 
 	return val, nil
+}
+
+func appendReferencedCelEnvFuncs(ctx Context, t *gomplate.Template) {
+	if t.Expression == "" || !strings.Contains(t.Expression, "(") {
+		return
+	}
+
+	for name, f := range CelEnvFuncs {
+		if celExpressionCalls(t.Expression, name) || (strings.HasSuffix(name, "Cel") && celExpressionCalls(t.Expression, strings.TrimSuffix(name, "Cel"))) {
+			t.CelEnvs = append(t.CelEnvs, f(ctx))
+		}
+	}
+}
+
+func celExpressionCalls(expr, name string) bool {
+	if name == "" {
+		return false
+	}
+
+	for offset := 0; offset < len(expr); {
+		idx := strings.Index(expr[offset:], name)
+		if idx < 0 {
+			return false
+		}
+		idx += offset
+		afterName := idx + len(name)
+		if isCelNameBoundary(expr, idx, afterName) {
+			for afterName < len(expr) && isCELWhitespace(expr[afterName]) {
+				afterName++
+			}
+			if afterName < len(expr) && expr[afterName] == '(' {
+				return true
+			}
+		}
+		offset = idx + len(name)
+	}
+	return false
+}
+
+func isCelNameBoundary(expr string, start, end int) bool {
+	if start > 0 && isCELNameChar(expr[start-1]) {
+		return false
+	}
+	if end < len(expr) && isCELNameChar(expr[end]) {
+		return false
+	}
+	return true
+}
+
+func isCELNameChar(ch byte) bool {
+	return ch == '.' || ch == '_' || ('0' <= ch && ch <= '9') || ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z')
+}
+
+func isCELWhitespace(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
 }
 
 func (k Context) RunTemplateBool(t gomplate.Template, env map[string]any) (bool, error) {
