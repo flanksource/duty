@@ -23,14 +23,18 @@ func (k Context) RunTemplate(t gomplate.Template, env map[string]any) (string, e
 	} else {
 		l.V(1).Infof("Running template: %s", t.String())
 	}
-	for _, f := range CelEnvFuncs {
-		t.CelEnvs = append(t.CelEnvs, f(k))
+	if t.Expression != "" {
+		for _, f := range CelEnvFuncs {
+			t.CelEnvs = append(t.CelEnvs, f(k))
+		}
 	}
-	if t.Functions == nil {
-		t.Functions = make(map[string]any)
-	}
-	for name, v := range TemplateFuncs {
-		t.Functions[name] = v(k)
+	if t.Template != "" {
+		if t.Functions == nil {
+			t.Functions = make(map[string]any)
+		}
+		for name, v := range TemplateFuncs {
+			t.Functions[name] = v(k)
+		}
 	}
 
 	if t.Template != "" {

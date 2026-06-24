@@ -4,8 +4,49 @@ import (
 	"testing"
 
 	"github.com/flanksource/gomplate/v3"
+	"github.com/google/cel-go/cel"
 	. "github.com/onsi/gomega"
 )
+
+func TestRunTemplateOnlyBuildsMatchingFunctionContexts(t *testing.T) {
+	g := NewWithT(t)
+	oldCelEnvFuncs := CelEnvFuncs
+	oldTemplateFuncs := TemplateFuncs
+	defer func() {
+		CelEnvFuncs = oldCelEnvFuncs
+		TemplateFuncs = oldTemplateFuncs
+	}()
+
+	var celBuilds int
+	var templateBuilds int
+	CelEnvFuncs = map[string]func(Context) cel.EnvOption{
+		"unused_cel_context": func(ctx Context) cel.EnvOption {
+			celBuilds++
+			return cel.Variable("unused_cel_context", cel.AnyType)
+		},
+	}
+	TemplateFuncs = map[string]func(Context) any{
+		"unused_template_context": func(ctx Context) any {
+			templateBuilds++
+			return func() string { return "unused" }
+		},
+	}
+
+	ctx := New()
+	env := map[string]any{"name": "World"}
+
+	got, err := ctx.RunTemplate(gomplate.Template{Template: "Hello {{.name}}!"}, env)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(got).To(Equal("Hello World!"))
+	g.Expect(celBuilds).To(Equal(0))
+	g.Expect(templateBuilds).To(Equal(1))
+
+	ok, err := ctx.RunTemplateBool(gomplate.Template{Expression: `name == "World"`}, env)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(ok).To(BeTrue())
+	g.Expect(celBuilds).To(Equal(1))
+	g.Expect(templateBuilds).To(Equal(1))
+}
 
 func TestRunTemplate(t *testing.T) {
 	t.Parallel()
