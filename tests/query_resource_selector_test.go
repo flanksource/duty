@@ -724,6 +724,76 @@ var _ = ginkgo.Describe("View Resource Selector", func() {
 	})
 })
 
+var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
+	// Other suites insert additional config_analysis rows that are never cleaned
+	// up, so the severity/status/type cases are scoped by config_id to stay
+	// deterministic.
+	logisticsConfigID := dummy.LogisticsDBRDSAnalysis.ConfigID.String()
+	ec2ConfigID := dummy.EC2InstanceBAnalysis.ConfigID.String()
+
+	testData := []struct {
+		description      string
+		resourceSelector types.ResourceSelector
+		expectedIDs      []uuid.UUID
+	}{
+		{
+			description:      "by config_id",
+			resourceSelector: types.ResourceSelector{Search: "config_id=" + logisticsConfigID},
+			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
+		},
+		{
+			description:      "by analyzer",
+			resourceSelector: types.ResourceSelector{Search: "analyzer=ec2-ssh-key-not-rotated"},
+			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
+		},
+		{
+			description:      "by analyzer prefix",
+			resourceSelector: types.ResourceSelector{Search: "analyzer=rds*"},
+			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
+		},
+		{
+			description:      "by analysis_type alias (type)",
+			resourceSelector: types.ResourceSelector{Search: "type=security config_id=" + ec2ConfigID},
+			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
+		},
+		{
+			description:      "by severity",
+			resourceSelector: types.ResourceSelector{Search: "severity=critical config_id=" + logisticsConfigID},
+			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
+		},
+		{
+			description:      "by status",
+			resourceSelector: types.ResourceSelector{Search: "status=open config_id=" + ec2ConfigID},
+			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
+		},
+		{
+			description:      "no match when filtering deleted (table has no deleted_at)",
+			resourceSelector: types.ResourceSelector{Search: "analyzer=does-not-exist"},
+			expectedIDs:      nil,
+		},
+	}
+
+	for _, test := range testData {
+		ginkgo.It(test.description, func() {
+			analyses, err := query.FindConfigAnalysisByResourceSelector(DefaultContext, -1, test.resourceSelector)
+			Expect(err).To(BeNil())
+			gotIDs := lo.Map(analyses, func(a models.ConfigAnalysis, _ int) uuid.UUID { return a.ID })
+			Expect(gotIDs).To(ConsistOf(test.expectedIDs))
+		})
+	}
+
+	ginkgo.It("flows through SearchResources", func() {
+		response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+			ConfigAnalysis: []types.ResourceSelector{{Search: "analyzer=rds-port-exposed"}},
+		})
+		Expect(err).To(BeNil())
+		Expect(response.ConfigAnalysis).To(HaveLen(1))
+		Expect(response.ConfigAnalysis[0].ID).To(Equal(dummy.LogisticsDBRDSAnalysis.ID.String()))
+		Expect(response.ConfigAnalysis[0].Name).To(Equal("rds-port-exposed"))
+		Expect(response.ConfigAnalysis[0].Type).To(Equal(string(models.AnalysisTypeSecurity)))
+	})
+})
+
 var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 	ginkgo.BeforeAll(func() {
 		_ = query.SyncConfigCache(DefaultContext)

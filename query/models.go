@@ -192,6 +192,10 @@ type QueryModel struct {
 	// True when the table has properties column
 	HasProperties bool
 
+	// True when the table has a "deleted_at" column.
+	// When false, the default `deleted_at IS NULL` filter is not applied.
+	HasDeletedAt bool
+
 	// FieldMapper maps the value of these fields
 	FieldMapper map[string]func(ctx context.Context, id string) (any, error)
 }
@@ -211,6 +215,7 @@ var ConfigItemQueryModel = QueryModel{
 	HasTags:        true,
 	HasAgents:      true,
 	HasLabels:      true,
+	HasDeletedAt:   true,
 	Aliases: map[string]string{
 		"created":     "created_at",
 		"updated":     "updated_at",
@@ -243,6 +248,7 @@ var ConfigItemSummaryQueryModel = QueryModel{
 	HasAgents:      true,
 	HasLabels:      true,
 	HasProperties:  true,
+	HasDeletedAt:   true,
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"updated":        "updated_at",
@@ -293,6 +299,7 @@ var ComponentQueryModel = QueryModel{
 	HasProperties: true,
 	HasAgents:     true,
 	HasLabels:     true,
+	HasDeletedAt:  true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":   AgentMapper,
 		"created_at": DateMapper,
@@ -316,8 +323,9 @@ var CheckQueryModel = QueryModel{
 		"health":     "status",
 		"check_type": "type",
 	},
-	HasAgents: true,
-	HasLabels: true,
+	HasAgents:    true,
+	HasLabels:    true,
+	HasDeletedAt: true,
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"agent_id":   AgentMapper,
 		"created_at": DateMapper,
@@ -327,9 +335,10 @@ var CheckQueryModel = QueryModel{
 }
 
 var PlaybookQueryModel = QueryModel{
-	Table:   models.Playbook{}.TableName(),
-	HasTags: true,
-	Columns: []string{"id", "name", "namespace", "created_at", "updated_at", "deleted_at"},
+	Table:        models.Playbook{}.TableName(),
+	HasTags:      true,
+	HasDeletedAt: true,
+	Columns:      []string{"id", "name", "namespace", "created_at", "updated_at", "deleted_at"},
 	Aliases: map[string]string{
 		"created": "created_at",
 		"updated": "updated_at",
@@ -343,8 +352,9 @@ var PlaybookQueryModel = QueryModel{
 }
 
 var ConnectionQueryModel = QueryModel{
-	Table:   models.Connection{}.TableName(),
-	Columns: []string{"id", "name", "namespace", "type"},
+	Table:        models.Connection{}.TableName(),
+	Columns:      []string{"id", "name", "namespace", "type"},
+	HasDeletedAt: true,
 }
 
 var ConfigChangeQueryModel = QueryModel{
@@ -356,6 +366,7 @@ var ConfigChangeQueryModel = QueryModel{
 	JSONMapColumns: []string{"tags", "details"},
 	HasAgents:      true,
 	HasTags:        true,
+	HasDeletedAt:   true,
 	Aliases: map[string]string{
 		"created":        "created_at",
 		"first_observed": "first_observed",
@@ -374,6 +385,7 @@ var ViewQueryModel = QueryModel{
 	Columns:        []string{"name", "namespace"},
 	JSONMapColumns: []string{"labels"},
 	HasLabels:      true,
+	HasDeletedAt:   true,
 }
 
 var CanaryQueryModel = QueryModel{
@@ -385,6 +397,7 @@ var CanaryQueryModel = QueryModel{
 	JSONMapColumns: []string{"labels", "spec"},
 	HasLabels:      true,
 	HasAgents:      true,
+	HasDeletedAt:   true,
 	Aliases: map[string]string{
 		"created": "created_at",
 		"updated": "updated_at",
@@ -396,6 +409,30 @@ var CanaryQueryModel = QueryModel{
 		"created_at": DateMapper,
 		"updated_at": DateMapper,
 		"deleted_at": DateMapper,
+	},
+}
+
+// ConfigAnalysisQueryModel powers resource selector search for config insights
+// (the config_analysis table). The table has neither name/namespace nor
+// deleted_at/agent_id/tags/labels columns, so those features stay disabled.
+var ConfigAnalysisQueryModel = QueryModel{
+	Table: models.ConfigAnalysis{}.TableName(),
+	Columns: []string{
+		"id", "config_id", "scraper_id", "source", "analyzer", "analysis_type",
+		"severity", "status", "summary", "message", "first_observed", "last_observed",
+	},
+	JSONMapColumns: []string{"analysis"},
+	HasProperties:  true,
+	Aliases: map[string]string{
+		"type":           "analysis_type",
+		"analyzer_type":  "analysis_type",
+		"config":         "config_id",
+		"first_observed": "first_observed",
+		"last_observed":  "last_observed",
+	},
+	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"first_observed": DateMapper,
+		"last_observed":  DateMapper,
 	},
 }
 
@@ -419,6 +456,8 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return ConfigItemSummaryQueryModel, nil
 	case models.View{}.TableName():
 		return ViewQueryModel, nil
+	case models.ConfigAnalysis{}.TableName():
+		return ConfigAnalysisQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")
 	}
