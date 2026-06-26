@@ -479,10 +479,13 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesNodeA.ID.String()))
 			Expect(items.Configs[0].CreatedAt).ToNot(BeNil())
 			Expect(items.Configs[0].CreatedAt.UTC()).To(Equal(dummy.KubernetesNodeA.CreatedAt.UTC()))
+			// DeletedAt is nil for a live resource, so omitempty keeps it out.
+			Expect(items.Configs[0].DeletedAt).To(BeNil())
 
 			payload, err := json.Marshal(items.Configs[0])
 			Expect(err).To(BeNil())
 			Expect(string(payload)).To(ContainSubstring("created_at"))
+			Expect(string(payload)).ToNot(ContainSubstring("deleted_at"))
 		})
 
 		ginkgo.It("omits timestamps by default", func() {

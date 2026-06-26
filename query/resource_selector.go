@@ -30,7 +30,7 @@ type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
 
-	// Timestamps, when true, populates CreatedAt/InsertedAt/UpdatedAt on each
+	// Timestamps, when true, populates CreatedAt/UpdatedAt/DeletedAt on each
 	// selected resource. Off by default to keep responses lightweight.
 	Timestamps bool `json:"timestamps,omitempty"`
 
@@ -69,16 +69,16 @@ func (r *SearchResourcesResponse) GetIDs() []string {
 }
 
 type SelectedResource struct {
-	ID         string            `json:"id"`
-	Agent      string            `json:"agent"`
-	Icon       string            `json:"icon,omitempty"`
-	Name       string            `json:"name"`
-	Namespace  string            `json:"namespace"`
-	Type       string            `json:"type"`
-	Tags       map[string]string `json:"tags,omitempty"`
-	CreatedAt  *time.Time        `json:"created_at,omitempty"`
-	InsertedAt *time.Time        `json:"inserted_at,omitempty"`
-	UpdatedAt  *time.Time        `json:"updated_at,omitempty"`
+	ID        string            `json:"id"`
+	Agent     string            `json:"agent"`
+	Icon      string            `json:"icon,omitempty"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Type      string            `json:"type"`
+	Tags      map[string]string `json:"tags,omitempty"`
+	CreatedAt *time.Time        `json:"created_at,omitempty"`
+	UpdatedAt *time.Time        `json:"updated_at,omitempty"`
+	DeletedAt *time.Time        `json:"deleted_at,omitempty"`
 	// Health is populated for resource kinds that carry a health value
 	// (configs, components, checks). Empty for other kinds.
 	Health string `json:"health,omitempty"`
@@ -92,13 +92,13 @@ type SelectedResource struct {
 
 // setTimestamps populates the resource's timestamps when req.Timestamps is set.
 // Zero or nil times are left unset so omitempty keeps them out of the response.
-func (req SearchResourcesRequest) setTimestamps(resource *SelectedResource, createdAt, insertedAt, updatedAt *time.Time) {
+func (req SearchResourcesRequest) setTimestamps(resource *SelectedResource, createdAt, updatedAt, deletedAt *time.Time) {
 	if !req.Timestamps {
 		return
 	}
 	resource.CreatedAt = nonZeroTime(createdAt)
-	resource.InsertedAt = nonZeroTime(insertedAt)
 	resource.UpdatedAt = nonZeroTime(updatedAt)
+	resource.DeletedAt = nonZeroTime(deletedAt)
 }
 
 func nonZeroTime(t *time.Time) *time.Time {
@@ -129,7 +129,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 				}
-				req.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				req.setTimestamps(&resource, &items[i].CreatedAt, items[i].UpdatedAt, items[i].DeletedAt)
 				output.Canaries = append(output.Canaries, resource)
 			}
 		}
@@ -152,7 +152,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    lo.FromPtr(items[i].Status),
 				}
-				req.setTimestamps(&resource, &items[i].CreatedAt, &items[i].InsertedAt, items[i].UpdatedAt)
+				req.setTimestamps(&resource, &items[i].CreatedAt, items[i].UpdatedAt, items[i].DeletedAt)
 				output.Configs = append(output.Configs, resource)
 			}
 		}
@@ -175,7 +175,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    string(items[i].Status),
 				}
-				req.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				req.setTimestamps(&resource, &items[i].CreatedAt, items[i].UpdatedAt, items[i].DeletedAt)
 				output.Components = append(output.Components, resource)
 			}
 		}
@@ -198,7 +198,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Health:    lo.Ternary(items[i].Status == models.CheckStatusHealthy, "healthy", "unhealthy"),
 				}
-				req.setTimestamps(&resource, items[i].CreatedAt, nil, items[i].UpdatedAt)
+				req.setTimestamps(&resource, items[i].CreatedAt, items[i].UpdatedAt, items[i].DeletedAt)
 				output.Checks = append(output.Checks, resource)
 			}
 		}
@@ -265,7 +265,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Icon:      items[i].Icon,
 				}
-				req.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				req.setTimestamps(&resource, &items[i].CreatedAt, &items[i].UpdatedAt, items[i].DeletedAt)
 				output.Playbooks = append(output.Playbooks, resource)
 			}
 		}
@@ -284,7 +284,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 				}
-				req.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				req.setTimestamps(&resource, &items[i].CreatedAt, &items[i].UpdatedAt, nil)
 				output.Connections = append(output.Connections, resource)
 			}
 		}
