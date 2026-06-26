@@ -471,8 +471,9 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 
 		ginkgo.It("populates timestamps when requested", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Timestamps: true,
-				Configs:    []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				Timestamps:     true,
+				Configs:        []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				ConfigAnalysis: []types.ResourceSelector{{ID: dummy.LogisticsDBRDSAnalysis.ID.String()}},
 			})
 			Expect(err).To(BeNil())
 			Expect(items.Configs).To(HaveLen(1))
@@ -486,15 +487,31 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Expect(err).To(BeNil())
 			Expect(string(payload)).To(ContainSubstring("created_at"))
 			Expect(string(payload)).ToNot(ContainSubstring("deleted_at"))
+
+			// config analysis maps first_observed -> created_at and last_observed -> updated_at.
+			Expect(items.ConfigAnalysis).To(HaveLen(1))
+			Expect(items.ConfigAnalysis[0].ID).To(Equal(dummy.LogisticsDBRDSAnalysis.ID.String()))
+			Expect(items.ConfigAnalysis[0].CreatedAt).ToNot(BeNil())
+			Expect(items.ConfigAnalysis[0].UpdatedAt).ToNot(BeNil())
+			// first_observed precedes last_observed, confirming the mapping direction.
+			Expect(*items.ConfigAnalysis[0].CreatedAt).To(BeTemporally("<", *items.ConfigAnalysis[0].UpdatedAt))
+
+			analysisPayload, err := json.Marshal(items.ConfigAnalysis[0])
+			Expect(err).To(BeNil())
+			Expect(string(analysisPayload)).To(ContainSubstring("created_at"))
+			Expect(string(analysisPayload)).To(ContainSubstring("updated_at"))
 		})
 
 		ginkgo.It("omits timestamps by default", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				Configs:        []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				ConfigAnalysis: []types.ResourceSelector{{ID: dummy.LogisticsDBRDSAnalysis.ID.String()}},
 			})
 			Expect(err).To(BeNil())
 			Expect(items.Configs).To(HaveLen(1))
 			Expect(items.Configs[0].CreatedAt).To(BeNil())
+			Expect(items.ConfigAnalysis).To(HaveLen(1))
+			Expect(items.ConfigAnalysis[0].CreatedAt).To(BeNil())
 
 			payload, err := json.Marshal(items.Configs[0])
 			Expect(err).To(BeNil())
