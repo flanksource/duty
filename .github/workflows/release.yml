@@ -3,28 +3,21 @@ on:
   push:
     branches:
       - main
-permissions:
-  contents: read
+
+permissions: {} # start with no permission
 
 jobs:
-  semantic-release:
+  create-release:
     permissions:
-      contents: write # for codfish/semantic-release-action to create release tags
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: codfish/semantic-release-action@6abd188d2458e2fd6c99073454f6cc49196362e8 # v5.0.0
-        id: semantic
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    outputs:
-      release-version: ${{ steps.semantic.outputs.release-version }}
-      new-release-published: ${{ steps.semantic.outputs.new-release-published }}
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: flanksource/action-workflows/.github/workflows/create-release.yml@a7df3dcb783c34338e46318364e99c0ada62bcd9
 
   bump-clients:
     runs-on: ubuntu-latest
-    needs: [semantic-release]
-    if: needs.semantic-release.outputs.new-release-published == 'true'
+    needs: [create-release]
+    if: needs.create-release.outputs.published == 'true'
     strategy:
       matrix:
         repos: ['mission-control', 'canary-checker', 'config-db', 'apm-hub', 'kopper']
@@ -44,7 +37,7 @@ jobs:
         run: |
           # Sleep to let index refresh
           sleep 60
-          go get github.com/flanksource/duty@v${{ needs.semantic-release.outputs.release-version }}
+          go get github.com/flanksource/duty@v${{ needs.create-release.outputs.version }}
           go mod tidy
           if [ -d "hack/generate-schemas" ]; then
             cd hack/generate-schemas && go mod tidy
@@ -55,8 +48,8 @@ jobs:
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           branch: 'bump-duty-auto-pr'
-          commit-message: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
-          title: 'chore: bump duty to v${{ needs.semantic-release.outputs.release-version }}'
+          commit-message: 'chore: bump duty to v${{ needs.create-release.outputs.version }}'
+          title: 'chore: bump duty to v${{ needs.create-release.outputs.version }}'
           token: ${{ secrets.FLANKBOT }}
           labels: dependencies,ready
 
