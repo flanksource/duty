@@ -78,6 +78,9 @@ type SelectedResource struct {
 	// Status is the resource's free-form operational status (e.g. "Running",
 	// "Pending"). Populated for configs and components.
 	Status string `json:"status,omitempty"`
+	// Severity is populated for resource kinds that carry a severity
+	// (e.g. config insights). nil for other kinds.
+	Severity *string `json:"severity,omitempty"`
 }
 
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
@@ -197,11 +200,16 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
+				var severity *string
+				if s := string(items[i].Severity); s != "" {
+					severity = &s
+				}
 				output.ConfigAnalysis = append(output.ConfigAnalysis, SelectedResource{
-					ID:     items[i].ID.String(),
-					Name:   items[i].Analyzer,
-					Type:   string(items[i].AnalysisType),
-					Status: items[i].Status,
+					ID:       items[i].ID.String(),
+					Name:     items[i].Analyzer,
+					Type:     string(items[i].AnalysisType),
+					Status:   items[i].Status,
+					Severity: severity,
 				})
 			}
 		}

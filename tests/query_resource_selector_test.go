@@ -791,6 +791,7 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 		Expect(response.ConfigAnalysis[0].ID).To(Equal(dummy.LogisticsDBRDSAnalysis.ID.String()))
 		Expect(response.ConfigAnalysis[0].Name).To(Equal("rds-port-exposed"))
 		Expect(response.ConfigAnalysis[0].Type).To(Equal(string(models.AnalysisTypeSecurity)))
+		Expect(response.ConfigAnalysis[0].Severity).To(Equal(lo.ToPtr(string(models.SeverityCritical))))
 	})
 })
 
