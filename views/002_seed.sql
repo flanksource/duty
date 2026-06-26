@@ -39,7 +39,7 @@ END $$;
 DO $$
 DECLARE
   tbl TEXT;
-  tables TEXT[] := ARRAY['components', 'config_items'];
+  tables TEXT[] := ARRAY['components', 'config_items', 'config_analysis'];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
     IF NOT EXISTS (

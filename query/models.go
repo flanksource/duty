@@ -424,11 +424,9 @@ var ConfigAnalysisQueryModel = QueryModel{
 	JSONMapColumns: []string{"analysis"},
 	HasProperties:  true,
 	Aliases: map[string]string{
-		"type":           "analysis_type",
-		"analyzer_type":  "analysis_type",
-		"config":         "config_id",
-		"first_observed": "first_observed",
-		"last_observed":  "last_observed",
+		"type":          "analysis_type",
+		"analyzer_type": "analysis_type",
+		"config":        "config_id",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
 		"first_observed": DateMapper,
