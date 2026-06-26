@@ -431,6 +431,7 @@ var ConfigAnalysisQueryModel = QueryModel{
 	HasAgents:      true,
 	HasDeletedAt:   true,
 	Aliases: map[string]string{
+		"agent":         "agent_id",
 		"analyzer_type": "analysis_type",
 		"config_type":   "type",
 		"namespace":     "tags.namespace",
