@@ -17,7 +17,7 @@ func FindConfigAnalysisByResourceSelector(ctx context.Context, limit int, resour
 }
 
 func FindConfigAnalysisIDsByResourceSelector(ctx context.Context, limit int, resourceSelectors ...types.ResourceSelector) ([]uuid.UUID, error) {
-	return queryTableWithResourceSelectors(ctx, models.ConfigAnalysis{}.TableName(), limit, resourceSelectors...)
+	return queryTableWithResourceSelectors(ctx, configAnalysisItemsView, limit, resourceSelectors...)
 }
 
 func GetConfigAnalysisByIDs(ctx context.Context, ids []uuid.UUID) ([]models.ConfigAnalysis, error) {

@@ -412,25 +412,35 @@ var CanaryQueryModel = QueryModel{
 	},
 }
 
-// ConfigAnalysisQueryModel powers resource selector search for config insights
-// (the config_analysis table). The table has neither name/namespace nor
-// deleted_at/agent_id/tags/labels columns, so those features stay disabled.
+const configAnalysisItemsView = "config_analysis_items"
+
+// ConfigAnalysisQueryModel powers resource selector search for config insights.
+// It queries config_analysis_items so config parent fields (agent, deleted_at,
+// type, tags, labels) are available like they are for catalog_changes.
 var ConfigAnalysisQueryModel = QueryModel{
-	Table: models.ConfigAnalysis{}.TableName(),
+	Table: configAnalysisItemsView,
 	Columns: []string{
 		"id", "config_id", "scraper_id", "source", "analyzer", "analysis_type",
 		"severity", "status", "summary", "message", "first_observed", "last_observed",
+		"name", "type", "config_type", "config_class", "agent_id", "deleted_at", "path",
 	},
-	JSONMapColumns: []string{"analysis"},
+	JSONMapColumns: []string{"analysis", "tags", "labels", "config"},
 	HasProperties:  true,
+	HasTags:        true,
+	HasLabels:      true,
+	HasAgents:      true,
+	HasDeletedAt:   true,
 	Aliases: map[string]string{
-		"type":          "analysis_type",
 		"analyzer_type": "analysis_type",
 		"config":        "config_id",
+		"config_type":   "type",
+		"namespace":     "tags.namespace",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
+		"agent_id":       AgentMapper,
 		"first_observed": DateMapper,
 		"last_observed":  DateMapper,
+		"deleted_at":     DateMapper,
 	},
 }
 
@@ -454,7 +464,7 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return ConfigItemSummaryQueryModel, nil
 	case models.View{}.TableName():
 		return ViewQueryModel, nil
-	case models.ConfigAnalysis{}.TableName():
+	case models.ConfigAnalysis{}.TableName(), configAnalysisItemsView:
 		return ConfigAnalysisQueryModel, nil
 	default:
 		return QueryModel{}, fmt.Errorf("invalid table")

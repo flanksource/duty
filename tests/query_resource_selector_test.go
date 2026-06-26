@@ -752,9 +752,14 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
 		},
 		{
-			description:      "by analysis_type alias (type)",
-			resourceSelector: types.ResourceSelector{Search: "type=security config_id=" + ec2ConfigID},
+			description:      "by analysis_type",
+			resourceSelector: types.ResourceSelector{Search: "analysis_type=security config_id=" + ec2ConfigID},
 			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
+		},
+		{
+			description:      "by config type",
+			resourceSelector: types.ResourceSelector{Search: "type=" + *dummy.LogisticsDBRDS.Type + " config_id=" + logisticsConfigID},
+			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
 		},
 		{
 			description:      "by severity",
