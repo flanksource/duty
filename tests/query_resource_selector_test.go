@@ -810,6 +810,13 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
 		},
 		{
+			// Agent is folded into the search PEG as agent="all"; without the
+			// agent->agent_id alias on the query model this errored at runtime.
+			description:      "agent=all is a no-op filter",
+			resourceSelector: types.ResourceSelector{Agent: "all", Search: "config_id=" + logisticsConfigID},
+			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
+		},
+		{
 			description:      "no match for unknown analyzer",
 			resourceSelector: types.ResourceSelector{Search: "analyzer=does-not-exist"},
 			expectedIDs:      nil,
