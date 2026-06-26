@@ -1,6 +1,7 @@
 package query
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"sort"
@@ -29,6 +30,10 @@ import (
 type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
+
+	// Fields limits returned SelectedResource fields. Empty preserves the default
+	// lightweight response.
+	Fields []string `json:"fields,omitempty"`
 
 	Canaries       []types.ResourceSelector `json:"canaries"`
 	Checks         []types.ResourceSelector `json:"checks"`
@@ -65,13 +70,16 @@ func (r *SearchResourcesResponse) GetIDs() []string {
 }
 
 type SelectedResource struct {
-	ID        string            `json:"id"`
-	Agent     string            `json:"agent"`
-	Icon      string            `json:"icon,omitempty"`
-	Name      string            `json:"name"`
-	Namespace string            `json:"namespace"`
-	Type      string            `json:"type"`
-	Tags      map[string]string `json:"tags,omitempty"`
+	ID         string            `json:"id"`
+	Agent      string            `json:"agent"`
+	Icon       string            `json:"icon,omitempty"`
+	Name       string            `json:"name"`
+	Namespace  string            `json:"namespace"`
+	Type       string            `json:"type"`
+	Tags       map[string]string `json:"tags,omitempty"`
+	CreatedAt  *time.Time        `json:"created_at,omitempty"`
+	InsertedAt *time.Time        `json:"inserted_at,omitempty"`
+	UpdatedAt  *time.Time        `json:"updated_at,omitempty"`
 	// Health is populated for resource kinds that carry a health value
 	// (configs, components, checks). Empty for other kinds.
 	Health string `json:"health,omitempty"`
@@ -81,6 +89,110 @@ type SelectedResource struct {
 	// Severity is populated for resource kinds that carry a severity
 	// (e.g. config insights). nil for other kinds.
 	Severity *string `json:"severity,omitempty"`
+
+	fields []string `json:"-"`
+}
+
+type selectedResourceProjection struct {
+	fields []string
+}
+
+func (r SelectedResource) MarshalJSON() ([]byte, error) {
+	if len(r.fields) == 0 {
+		type selectedResource SelectedResource
+		return json.Marshal(selectedResource(r))
+	}
+
+	out := map[string]any{}
+	for _, field := range r.fields {
+		switch field {
+		case "id":
+			out[field] = r.ID
+		case "agent":
+			out[field] = r.Agent
+		case "icon":
+			out[field] = r.Icon
+		case "name":
+			out[field] = r.Name
+		case "namespace":
+			out[field] = r.Namespace
+		case "type":
+			out[field] = r.Type
+		case "tags":
+			out[field] = r.Tags
+		case "created_at":
+			out[field] = r.CreatedAt
+		case "inserted_at":
+			out[field] = r.InsertedAt
+		case "updated_at":
+			out[field] = r.UpdatedAt
+		case "health":
+			out[field] = r.Health
+		case "status":
+			out[field] = r.Status
+		case "severity":
+			out[field] = r.Severity
+		}
+	}
+	return json.Marshal(out)
+}
+
+func (p selectedResourceProjection) apply(resource SelectedResource) SelectedResource {
+	if len(p.fields) == 0 {
+		return resource
+	}
+
+	out := SelectedResource{fields: p.fields}
+	for _, field := range p.fields {
+		switch field {
+		case "id":
+			out.ID = resource.ID
+		case "agent":
+			out.Agent = resource.Agent
+		case "icon":
+			out.Icon = resource.Icon
+		case "name":
+			out.Name = resource.Name
+		case "namespace":
+			out.Namespace = resource.Namespace
+		case "type":
+			out.Type = resource.Type
+		case "tags":
+			out.Tags = resource.Tags
+		case "created_at":
+			out.CreatedAt = resource.CreatedAt
+		case "inserted_at":
+			out.InsertedAt = resource.InsertedAt
+		case "updated_at":
+			out.UpdatedAt = resource.UpdatedAt
+		case "health":
+			out.Health = resource.Health
+		case "status":
+			out.Status = resource.Status
+		case "severity":
+			out.Severity = resource.Severity
+		}
+	}
+	return out
+}
+
+func (p selectedResourceProjection) setTimestamps(resource *SelectedResource, createdAt, insertedAt, updatedAt *time.Time) {
+	if slices.Contains(p.fields, "created_at") {
+		resource.CreatedAt = selectedResourceTimestamp(createdAt)
+	}
+	if slices.Contains(p.fields, "inserted_at") {
+		resource.InsertedAt = selectedResourceTimestamp(insertedAt)
+	}
+	if slices.Contains(p.fields, "updated_at") {
+		resource.UpdatedAt = selectedResourceTimestamp(updatedAt)
+	}
+}
+
+func selectedResourceTimestamp(t *time.Time) *time.Time {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	return t
 }
 
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
@@ -89,6 +201,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	if req.Limit <= 0 {
 		req.Limit = 100
 	}
+	projection := selectedResourceProjection{fields: req.Fields}
 
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -96,14 +209,16 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Canaries = append(output.Canaries, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Tags:      items[i].Labels,
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
-				})
+				}
+				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Canaries = append(output.Canaries, projection.apply(resource))
 			}
 		}
 
@@ -115,7 +230,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Configs = append(output.Configs, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Tags:      items[i].Tags,
@@ -124,7 +239,9 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    lo.FromPtr(items[i].Status),
-				})
+				}
+				projection.setTimestamps(&resource, &items[i].CreatedAt, &items[i].InsertedAt, items[i].UpdatedAt)
+				output.Configs = append(output.Configs, projection.apply(resource))
 			}
 		}
 
@@ -136,7 +253,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Components = append(output.Components, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Tags:      items[i].Labels,
@@ -145,7 +262,9 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    string(items[i].Status),
-				})
+				}
+				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Components = append(output.Components, projection.apply(resource))
 			}
 		}
 
@@ -157,7 +276,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Checks = append(output.Checks, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     items[i].AgentID.String(),
 					Icon:      items[i].Icon,
@@ -166,7 +285,9 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 					Health:    lo.Ternary(items[i].Status == models.CheckStatusHealthy, "healthy", "unhealthy"),
-				})
+				}
+				projection.setTimestamps(&resource, items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Checks = append(output.Checks, projection.apply(resource))
 			}
 		}
 
@@ -182,13 +303,15 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 				if items[i].AgentID != nil {
 					agentID = items[i].AgentID.String()
 				}
-				output.ConfigChanges = append(output.ConfigChanges, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Agent:     agentID,
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
-				})
+				}
+				projection.setTimestamps(&resource, items[i].CreatedAt, nil, nil)
+				output.ConfigChanges = append(output.ConfigChanges, projection.apply(resource))
 			}
 		}
 
@@ -204,13 +327,14 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 				if s := string(items[i].Severity); s != "" {
 					severity = &s
 				}
-				output.ConfigAnalysis = append(output.ConfigAnalysis, SelectedResource{
+				resource := SelectedResource{
 					ID:       items[i].ID.String(),
 					Name:     items[i].Analyzer,
 					Type:     string(items[i].AnalysisType),
 					Status:   items[i].Status,
 					Severity: severity,
-				})
+				}
+				output.ConfigAnalysis = append(output.ConfigAnalysis, projection.apply(resource))
 			}
 		}
 
@@ -222,13 +346,15 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Playbooks = append(output.Playbooks, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 					Icon:      items[i].Icon,
-				})
+				}
+				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				output.Playbooks = append(output.Playbooks, projection.apply(resource))
 			}
 		}
 
@@ -240,12 +366,14 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 			return err
 		} else {
 			for i := range items {
-				output.Connections = append(output.Connections, SelectedResource{
+				resource := SelectedResource{
 					ID:        items[i].GetID(),
 					Name:      items[i].GetName(),
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
-				})
+				}
+				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				output.Connections = append(output.Connections, projection.apply(resource))
 			}
 		}
 

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -467,6 +468,24 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 				Expect(items.GetIDs()).To(ContainElements(models.GetIDs(test.Connections...)), "should contain connections")
 			})
 		}
+
+		ginkgo.It("returns requested fields only", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Fields:  []string{"id", "created_at"},
+				Configs: []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+			})
+			Expect(err).To(BeNil())
+			Expect(items.Configs).To(HaveLen(1))
+			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesNodeA.ID.String()))
+			Expect(items.Configs[0].CreatedAt).ToNot(BeNil())
+			Expect(items.Configs[0].CreatedAt.UTC()).To(Equal(dummy.KubernetesNodeA.CreatedAt.UTC()))
+			Expect(items.Configs[0].Name).To(BeEmpty())
+
+			payload, err := json.Marshal(items.Configs[0])
+			Expect(err).To(BeNil())
+			Expect(string(payload)).To(ContainSubstring("created_at"))
+			Expect(string(payload)).ToNot(ContainSubstring("name"))
+		})
 	})
 })
 
