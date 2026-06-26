@@ -595,9 +595,18 @@ FOR EACH ROW
 
 DROP VIEW IF EXISTS config_analysis_items;
 
+-- Used by resource selector search for config analysis / insights.
 CREATE OR REPLACE VIEW config_analysis_items AS
   SELECT
     ca.*,
+    ci.name,
+    ci.deleted_at,
+    ci.type,
+    ci.tags,
+    ci.labels,
+    ci.config,
+    ci.agent_id,
+    ci.path,
     ci.name as config_name,
     ci.type as config_type,
     ci.config_class

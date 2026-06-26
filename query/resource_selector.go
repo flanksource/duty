@@ -30,23 +30,25 @@ type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
 
-	Canaries      []types.ResourceSelector `json:"canaries"`
-	Checks        []types.ResourceSelector `json:"checks"`
-	Components    []types.ResourceSelector `json:"components"`
-	Configs       []types.ResourceSelector `json:"configs"`
-	ConfigChanges []types.ResourceSelector `json:"config_changes"`
-	Playbooks     []types.ResourceSelector `json:"playbooks"`
-	Connections   []types.ResourceSelector `json:"connections"`
+	Canaries       []types.ResourceSelector `json:"canaries"`
+	Checks         []types.ResourceSelector `json:"checks"`
+	Components     []types.ResourceSelector `json:"components"`
+	Configs        []types.ResourceSelector `json:"configs"`
+	ConfigChanges  []types.ResourceSelector `json:"config_changes"`
+	ConfigAnalysis []types.ResourceSelector `json:"config_analysis"`
+	Playbooks      []types.ResourceSelector `json:"playbooks"`
+	Connections    []types.ResourceSelector `json:"connections"`
 }
 
 type SearchResourcesResponse struct {
-	Canaries      []SelectedResource `json:"canaries,omitempty"`
-	Checks        []SelectedResource `json:"checks,omitempty"`
-	Components    []SelectedResource `json:"components,omitempty"`
-	Configs       []SelectedResource `json:"configs,omitempty"`
-	ConfigChanges []SelectedResource `json:"config_changes,omitempty"`
-	Playbooks     []SelectedResource `json:"playbooks,omitempty"`
-	Connections   []SelectedResource `json:"connections,omitempty"`
+	Canaries       []SelectedResource `json:"canaries,omitempty"`
+	Checks         []SelectedResource `json:"checks,omitempty"`
+	Components     []SelectedResource `json:"components,omitempty"`
+	Configs        []SelectedResource `json:"configs,omitempty"`
+	ConfigChanges  []SelectedResource `json:"config_changes,omitempty"`
+	ConfigAnalysis []SelectedResource `json:"config_analysis,omitempty"`
+	Playbooks      []SelectedResource `json:"playbooks,omitempty"`
+	Connections    []SelectedResource `json:"connections,omitempty"`
 }
 
 func (r *SearchResourcesResponse) GetIDs() []string {
@@ -56,6 +58,7 @@ func (r *SearchResourcesResponse) GetIDs() []string {
 	ids = append(ids, lo.Map(r.Configs, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Components, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.ConfigChanges, func(c SelectedResource, _ int) string { return c.ID })...)
+	ids = append(ids, lo.Map(r.ConfigAnalysis, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Playbooks, func(c SelectedResource, _ int) string { return c.ID })...)
 	ids = append(ids, lo.Map(r.Connections, func(c SelectedResource, _ int) string { return c.ID })...)
 	return ids
@@ -75,6 +78,9 @@ type SelectedResource struct {
 	// Status is the resource's free-form operational status (e.g. "Running",
 	// "Pending"). Populated for configs and components.
 	Status string `json:"status,omitempty"`
+	// Severity is populated for resource kinds that carry a severity
+	// (e.g. config insights). nil for other kinds.
+	Severity *string `json:"severity,omitempty"`
 }
 
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
@@ -190,6 +196,28 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	})
 
 	eg.Go(func() error {
+		if items, err := FindConfigAnalysisByResourceSelector(ctx, req.Limit, req.ConfigAnalysis...); err != nil {
+			return err
+		} else {
+			for i := range items {
+				var severity *string
+				if s := string(items[i].Severity); s != "" {
+					severity = &s
+				}
+				output.ConfigAnalysis = append(output.ConfigAnalysis, SelectedResource{
+					ID:       items[i].ID.String(),
+					Name:     items[i].Analyzer,
+					Type:     string(items[i].AnalysisType),
+					Status:   items[i].Status,
+					Severity: severity,
+				})
+			}
+		}
+
+		return nil
+	})
+
+	eg.Go(func() error {
 		if items, err := FindPlaybooksByResourceSelector(ctx, req.Limit, req.Playbooks...); err != nil {
 			return err
 		} else {
@@ -288,7 +316,7 @@ func SetResourceSelectorClause(
 		query = query.Clauses(clauses...)
 	}
 
-	if !resourceSelector.IncludeDeleted && !searchSetDeleted {
+	if !resourceSelector.IncludeDeleted && !searchSetDeleted && qm.HasDeletedAt {
 		query = query.Where("deleted_at IS NULL")
 	}
 
