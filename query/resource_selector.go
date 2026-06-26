@@ -246,6 +246,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Status:   items[i].Status,
 					Severity: severity,
 				}
+				req.setTimestamps(&resource, items[i].FirstObserved, items[i].LastObserved, nil)
 				output.ConfigAnalysis = append(output.ConfigAnalysis, resource)
 			}
 		}

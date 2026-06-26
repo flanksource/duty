@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -470,9 +471,30 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 		}
 
 		ginkgo.It("populates timestamps when requested", func() {
+			// Seed an analysis with explicit first/last observed so the mapping
+			// (first_observed -> created_at, last_observed -> updated_at) is
+			// unambiguous and not reliant on column defaults.
+			firstObserved := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+			lastObserved := time.Date(2025, 6, 7, 8, 9, 10, 0, time.UTC)
+			analysis := models.ConfigAnalysis{
+				ID:            uuid.New(),
+				ConfigID:      dummy.EKSCluster.ID,
+				Analyzer:      "timestamp-mapping",
+				AnalysisType:  models.AnalysisTypeSecurity,
+				Severity:      models.SeverityLow,
+				Status:        models.AnalysisStatusOpen,
+				FirstObserved: &firstObserved,
+				LastObserved:  &lastObserved,
+			}
+			Expect(DefaultContext.DB().Create(&analysis).Error).To(Succeed())
+			ginkgo.DeferCleanup(func() {
+				Expect(DefaultContext.DB().Where("id = ?", analysis.ID).Delete(&models.ConfigAnalysis{}).Error).To(Succeed())
+			})
+
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Timestamps: true,
-				Configs:    []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				Timestamps:     true,
+				Configs:        []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				ConfigAnalysis: []types.ResourceSelector{{ID: analysis.ID.String()}},
 			})
 			Expect(err).To(BeNil())
 			Expect(items.Configs).To(HaveLen(1))
@@ -486,15 +508,31 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Expect(err).To(BeNil())
 			Expect(string(payload)).To(ContainSubstring("created_at"))
 			Expect(string(payload)).ToNot(ContainSubstring("deleted_at"))
+
+			// config analysis maps first_observed -> created_at and last_observed -> updated_at.
+			Expect(items.ConfigAnalysis).To(HaveLen(1))
+			Expect(items.ConfigAnalysis[0].ID).To(Equal(analysis.ID.String()))
+			Expect(items.ConfigAnalysis[0].CreatedAt).ToNot(BeNil())
+			Expect(items.ConfigAnalysis[0].CreatedAt.UTC()).To(Equal(firstObserved))
+			Expect(items.ConfigAnalysis[0].UpdatedAt).ToNot(BeNil())
+			Expect(items.ConfigAnalysis[0].UpdatedAt.UTC()).To(Equal(lastObserved))
+
+			analysisPayload, err := json.Marshal(items.ConfigAnalysis[0])
+			Expect(err).To(BeNil())
+			Expect(string(analysisPayload)).To(ContainSubstring("created_at"))
+			Expect(string(analysisPayload)).To(ContainSubstring("updated_at"))
 		})
 
 		ginkgo.It("omits timestamps by default", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Configs: []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				Configs:        []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				ConfigAnalysis: []types.ResourceSelector{{ID: dummy.LogisticsDBRDSAnalysis.ID.String()}},
 			})
 			Expect(err).To(BeNil())
 			Expect(items.Configs).To(HaveLen(1))
 			Expect(items.Configs[0].CreatedAt).To(BeNil())
+			Expect(items.ConfigAnalysis).To(HaveLen(1))
+			Expect(items.ConfigAnalysis[0].CreatedAt).To(BeNil())
 
 			payload, err := json.Marshal(items.Configs[0])
 			Expect(err).To(BeNil())
