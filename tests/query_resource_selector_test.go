@@ -469,22 +469,33 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			})
 		}
 
-		ginkgo.It("returns requested fields only", func() {
+		ginkgo.It("populates timestamps when requested", func() {
 			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
-				Fields:  []string{"id", "created_at"},
-				Configs: []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+				Timestamps: true,
+				Configs:    []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
 			})
 			Expect(err).To(BeNil())
 			Expect(items.Configs).To(HaveLen(1))
 			Expect(items.Configs[0].ID).To(Equal(dummy.KubernetesNodeA.ID.String()))
 			Expect(items.Configs[0].CreatedAt).ToNot(BeNil())
 			Expect(items.Configs[0].CreatedAt.UTC()).To(Equal(dummy.KubernetesNodeA.CreatedAt.UTC()))
-			Expect(items.Configs[0].Name).To(BeEmpty())
 
 			payload, err := json.Marshal(items.Configs[0])
 			Expect(err).To(BeNil())
 			Expect(string(payload)).To(ContainSubstring("created_at"))
-			Expect(string(payload)).ToNot(ContainSubstring("name"))
+		})
+
+		ginkgo.It("omits timestamps by default", func() {
+			items, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
+				Configs: []types.ResourceSelector{{ID: dummy.KubernetesNodeA.ID.String()}},
+			})
+			Expect(err).To(BeNil())
+			Expect(items.Configs).To(HaveLen(1))
+			Expect(items.Configs[0].CreatedAt).To(BeNil())
+
+			payload, err := json.Marshal(items.Configs[0])
+			Expect(err).To(BeNil())
+			Expect(string(payload)).ToNot(ContainSubstring("created_at"))
 		})
 	})
 })

@@ -1,7 +1,6 @@
 package query
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 	"sort"
@@ -31,9 +30,9 @@ type SearchResourcesRequest struct {
 	// Limit the number of results returned per resource type
 	Limit int `json:"limit"`
 
-	// Fields limits returned SelectedResource fields. Empty preserves the default
-	// lightweight response.
-	Fields []string `json:"fields,omitempty"`
+	// Timestamps, when true, populates CreatedAt/InsertedAt/UpdatedAt on each
+	// selected resource. Off by default to keep responses lightweight.
+	Timestamps bool `json:"timestamps,omitempty"`
 
 	Canaries       []types.ResourceSelector `json:"canaries"`
 	Checks         []types.ResourceSelector `json:"checks"`
@@ -89,106 +88,20 @@ type SelectedResource struct {
 	// Severity is populated for resource kinds that carry a severity
 	// (e.g. config insights). nil for other kinds.
 	Severity *string `json:"severity,omitempty"`
-
-	fields []string `json:"-"`
 }
 
-type selectedResourceProjection struct {
-	fields []string
+// setTimestamps populates the resource's timestamps when req.Timestamps is set.
+// Zero or nil times are left unset so omitempty keeps them out of the response.
+func (req SearchResourcesRequest) setTimestamps(resource *SelectedResource, createdAt, insertedAt, updatedAt *time.Time) {
+	if !req.Timestamps {
+		return
+	}
+	resource.CreatedAt = nonZeroTime(createdAt)
+	resource.InsertedAt = nonZeroTime(insertedAt)
+	resource.UpdatedAt = nonZeroTime(updatedAt)
 }
 
-func (r SelectedResource) MarshalJSON() ([]byte, error) {
-	if len(r.fields) == 0 {
-		type selectedResource SelectedResource
-		return json.Marshal(selectedResource(r))
-	}
-
-	out := map[string]any{}
-	for _, field := range r.fields {
-		switch field {
-		case "id":
-			out[field] = r.ID
-		case "agent":
-			out[field] = r.Agent
-		case "icon":
-			out[field] = r.Icon
-		case "name":
-			out[field] = r.Name
-		case "namespace":
-			out[field] = r.Namespace
-		case "type":
-			out[field] = r.Type
-		case "tags":
-			out[field] = r.Tags
-		case "created_at":
-			out[field] = r.CreatedAt
-		case "inserted_at":
-			out[field] = r.InsertedAt
-		case "updated_at":
-			out[field] = r.UpdatedAt
-		case "health":
-			out[field] = r.Health
-		case "status":
-			out[field] = r.Status
-		case "severity":
-			out[field] = r.Severity
-		}
-	}
-	return json.Marshal(out)
-}
-
-func (p selectedResourceProjection) apply(resource SelectedResource) SelectedResource {
-	if len(p.fields) == 0 {
-		return resource
-	}
-
-	out := SelectedResource{fields: p.fields}
-	for _, field := range p.fields {
-		switch field {
-		case "id":
-			out.ID = resource.ID
-		case "agent":
-			out.Agent = resource.Agent
-		case "icon":
-			out.Icon = resource.Icon
-		case "name":
-			out.Name = resource.Name
-		case "namespace":
-			out.Namespace = resource.Namespace
-		case "type":
-			out.Type = resource.Type
-		case "tags":
-			out.Tags = resource.Tags
-		case "created_at":
-			out.CreatedAt = resource.CreatedAt
-		case "inserted_at":
-			out.InsertedAt = resource.InsertedAt
-		case "updated_at":
-			out.UpdatedAt = resource.UpdatedAt
-		case "health":
-			out.Health = resource.Health
-		case "status":
-			out.Status = resource.Status
-		case "severity":
-			out.Severity = resource.Severity
-		}
-	}
-	return out
-}
-
-func (p selectedResourceProjection) setTimestamps(resource *SelectedResource, createdAt, insertedAt, updatedAt *time.Time) {
-	if slices.Contains(p.fields, "created_at") {
-		resource.CreatedAt = selectedResourceTimestamp(createdAt)
-	}
-	if slices.Contains(p.fields, "inserted_at") {
-		resource.InsertedAt = selectedResourceTimestamp(insertedAt)
-	}
-	if slices.Contains(p.fields, "updated_at") {
-		resource.UpdatedAt = selectedResourceTimestamp(updatedAt)
-	}
-}
-
-func selectedResourceTimestamp(t *time.Time) *time.Time {
+func nonZeroTime(t *time.Time) *time.Time {
 	if t == nil || t.IsZero() {
 		return nil
 	}
@@ -201,7 +114,6 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 	if req.Limit <= 0 {
 		req.Limit = 100
 	}
-	projection := selectedResourceProjection{fields: req.Fields}
 
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -217,8 +129,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 				}
-				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
-				output.Canaries = append(output.Canaries, projection.apply(resource))
+				req.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Canaries = append(output.Canaries, resource)
 			}
 		}
 
@@ -240,8 +152,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    lo.FromPtr(items[i].Status),
 				}
-				projection.setTimestamps(&resource, &items[i].CreatedAt, &items[i].InsertedAt, items[i].UpdatedAt)
-				output.Configs = append(output.Configs, projection.apply(resource))
+				req.setTimestamps(&resource, &items[i].CreatedAt, &items[i].InsertedAt, items[i].UpdatedAt)
+				output.Configs = append(output.Configs, resource)
 			}
 		}
 
@@ -263,8 +175,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Health:    string(lo.FromPtr(items[i].Health)),
 					Status:    string(items[i].Status),
 				}
-				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
-				output.Components = append(output.Components, projection.apply(resource))
+				req.setTimestamps(&resource, &items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Components = append(output.Components, resource)
 			}
 		}
 
@@ -286,8 +198,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Health:    lo.Ternary(items[i].Status == models.CheckStatusHealthy, "healthy", "unhealthy"),
 				}
-				projection.setTimestamps(&resource, items[i].CreatedAt, nil, items[i].UpdatedAt)
-				output.Checks = append(output.Checks, projection.apply(resource))
+				req.setTimestamps(&resource, items[i].CreatedAt, nil, items[i].UpdatedAt)
+				output.Checks = append(output.Checks, resource)
 			}
 		}
 
@@ -310,8 +222,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 				}
-				projection.setTimestamps(&resource, items[i].CreatedAt, nil, nil)
-				output.ConfigChanges = append(output.ConfigChanges, projection.apply(resource))
+				req.setTimestamps(&resource, items[i].CreatedAt, nil, nil)
+				output.ConfigChanges = append(output.ConfigChanges, resource)
 			}
 		}
 
@@ -334,7 +246,7 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Status:   items[i].Status,
 					Severity: severity,
 				}
-				output.ConfigAnalysis = append(output.ConfigAnalysis, projection.apply(resource))
+				output.ConfigAnalysis = append(output.ConfigAnalysis, resource)
 			}
 		}
 
@@ -353,8 +265,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Type:      items[i].GetType(),
 					Icon:      items[i].Icon,
 				}
-				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
-				output.Playbooks = append(output.Playbooks, projection.apply(resource))
+				req.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				output.Playbooks = append(output.Playbooks, resource)
 			}
 		}
 
@@ -372,8 +284,8 @@ func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchRe
 					Namespace: items[i].GetNamespace(),
 					Type:      items[i].GetType(),
 				}
-				projection.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
-				output.Connections = append(output.Connections, projection.apply(resource))
+				req.setTimestamps(&resource, &items[i].CreatedAt, nil, &items[i].UpdatedAt)
+				output.Connections = append(output.Connections, resource)
 			}
 		}
 
