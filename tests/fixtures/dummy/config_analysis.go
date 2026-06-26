@@ -27,9 +27,21 @@ var EC2InstanceBAnalysis = models.ConfigAnalysis{
 	Status:        models.AnalysisStatusOpen,
 }
 
+var LogisticsAPIPodAnalysis = models.ConfigAnalysis{
+	ID:            uuid.New(),
+	ConfigID:      LogisticsAPIPodConfig.ID,
+	Analyzer:      "pod-security-context",
+	AnalysisType:  models.AnalysisTypeSecurity,
+	Severity:      models.SeverityHigh,
+	Message:       "Pod security context is missing",
+	FirstObserved: &CurrentTime,
+	Status:        models.AnalysisStatusOpen,
+}
+
 func AllDummyConfigAnalysis() []models.ConfigAnalysis {
 	return []models.ConfigAnalysis{
 		LogisticsDBRDSAnalysis,
 		EC2InstanceBAnalysis,
+		LogisticsAPIPodAnalysis,
 	}
 }

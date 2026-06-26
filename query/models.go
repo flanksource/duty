@@ -424,7 +424,7 @@ var ConfigAnalysisQueryModel = QueryModel{
 		"severity", "status", "summary", "message", "first_observed", "last_observed",
 		"name", "type", "config_type", "config_class", "agent_id", "deleted_at", "path",
 	},
-	JSONMapColumns: []string{"analysis", "tags", "labels", "config"},
+	JSONMapColumns: []string{"tags", "labels", "config"},
 	HasProperties:  true,
 	HasTags:        true,
 	HasLabels:      true,
@@ -432,7 +432,6 @@ var ConfigAnalysisQueryModel = QueryModel{
 	HasDeletedAt:   true,
 	Aliases: map[string]string{
 		"analyzer_type": "analysis_type",
-		"config":        "config_id",
 		"config_type":   "type",
 		"namespace":     "tags.namespace",
 	},

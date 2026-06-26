@@ -742,6 +742,11 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 			expectedIDs:      []uuid.UUID{dummy.LogisticsDBRDSAnalysis.ID},
 		},
 		{
+			description:      "config is not a config_id alias",
+			resourceSelector: types.ResourceSelector{Search: "config=" + logisticsConfigID},
+			expectedIDs:      nil,
+		},
+		{
 			description:      "by analyzer",
 			resourceSelector: types.ResourceSelector{Search: "analyzer=ec2-ssh-key-not-rotated"},
 			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
@@ -772,7 +777,7 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 			expectedIDs:      []uuid.UUID{dummy.EC2InstanceBAnalysis.ID},
 		},
 		{
-			description:      "no match when filtering deleted (table has no deleted_at)",
+			description:      "no match for unknown analyzer",
 			resourceSelector: types.ResourceSelector{Search: "analyzer=does-not-exist"},
 			expectedIDs:      nil,
 		},
@@ -786,6 +791,19 @@ var _ = ginkgo.Describe("Config Analysis Resource Selector", func() {
 			Expect(gotIDs).To(ConsistOf(test.expectedIDs))
 		})
 	}
+
+	ginkgo.It("finds high or critical pod analysis", func() {
+		analyses, err := query.FindConfigAnalysisByResourceSelector(DefaultContext, -1, types.ResourceSelector{Search: "severity=high,critical type=Kubernetes::Pod"})
+		Expect(err).To(BeNil())
+		gotIDs := lo.Map(analyses, func(a models.ConfigAnalysis, _ int) uuid.UUID { return a.ID })
+		Expect(gotIDs).To(ContainElement(dummy.LogisticsAPIPodAnalysis.ID))
+	})
+
+	ginkgo.It("does not expose analysis json search", func() {
+		_, err := query.FindConfigAnalysisByResourceSelector(DefaultContext, -1, types.ResourceSelector{Search: "analysis.foo=bar"})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("query for column:analysis.foo"))
+	})
 
 	ginkgo.It("flows through SearchResources", func() {
 		response, err := query.SearchResources(DefaultContext, query.SearchResourcesRequest{
