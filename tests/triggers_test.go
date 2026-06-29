@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,9 +77,10 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 
 var _ = ginkgo.Describe("Person Analytics Triggers", ginkgo.Ordered, func() {
 	const analyticsKey = "health.open-check"
+	const concurrentAnalyticsKey = "health.run-now"
 
 	ginkgo.AfterAll(func() {
-		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, analyticsKey).Error
+		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" IN ?`, dummy.JohnDoe.ID, []string{analyticsKey, concurrentAnalyticsKey}).Error
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -110,6 +112,38 @@ var _ = ginkgo.Describe("Person Analytics Triggers", ginkgo.Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(second.Count).To(Equal(2))
 		Expect(second.UpdatedAt).To(BeTemporally(">", first.UpdatedAt))
+	})
+
+	ginkgo.It("should handle concurrent first inserts", func() {
+		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		const insertCount = 10
+		start := make(chan struct{})
+		errs := make(chan error, insertCount)
+		var wg sync.WaitGroup
+
+		for range insertCount {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				errs <- DefaultContext.DB().Exec(`INSERT INTO person_analytics (person_id, "key") VALUES (?, ?)`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Error
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+		close(errs)
+
+		for err := range errs {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		var count int
+		err = DefaultContext.DB().Raw(`SELECT "count" FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Scan(&count).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(insertCount))
 	})
 })
 
