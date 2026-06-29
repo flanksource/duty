@@ -141,6 +141,7 @@ var dbResourceObjMap = map[string]string{
 	"notification_silences":                     policy.ObjectNotification,
 	"people_roles":                              policy.ObjectDatabasePublic,
 	"people":                                    policy.ObjectPeople,
+	"person_touchpoints":                        policy.ObjectPeople,
 	"playbook_action_agent_data":                policy.ObjectPlaybooks,
 	"playbook_approvals":                        policy.ObjectPlaybooks,
 	"playbook_names":                            policy.ObjectDatabasePublic,
