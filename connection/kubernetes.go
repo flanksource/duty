@@ -128,13 +128,19 @@ func (c KubernetesConnection) String() string {
 
 }
 
-// Hash returns a unique identifier of a KubernetesConnection, suitable for caching
-func (c KubernetesConnection) Hash() string {
+// Hash returns a stable identifier for this Kubernetes connection, suitable for caching.
+func (c KubernetesConnection) Hash(namespace string) string {
 	if c.ConnectionName != "" {
 		return "connection=" + c.ConnectionName
 	}
 	if c.Kubeconfig != nil {
-		return "kubeconfig=" + c.Kubeconfig.String()
+		hash := "kubeconfig=" + c.Kubeconfig.String()
+		if c.Kubeconfig.ValueFrom != nil && !c.Kubeconfig.ValueFrom.IsEmpty() {
+			// Kubeconfig valueFrom refs are namespace-relative, so identical refs in
+			// different namespaces must not share a cached Kubernetes client.
+			return fmt.Sprintf("%s;namespace=%s", hash, namespace)
+		}
+		return hash
 	}
 	if c.EKS != nil {
 		return fmt.Sprintf("eks=%s/%v", c.EKS.Cluster, c.EKS.ToModel())
@@ -163,7 +169,7 @@ func (t KubernetesConnection) ToModel() models.Connection {
 }
 
 func (t KubernetesConnection) Populate(ctx context.Context, freshToken bool, opts ...types.ClientOption) (kubernetes.Interface, *rest.Config, error) {
-	ctx.Counter("kubernetes_connection_populated", "connection", t.Hash()).Add(1)
+	ctx.Counter("kubernetes_connection_populated", "connection", t.Hash(ctx.GetNamespace())).Add(1)
 
 	if clientset, restConfig, err := t.KubeconfigConnection.Populate(ctx, opts...); err != nil {
 		return nil, nil, fmt.Errorf("failed to populate kube config connection: %w", err)

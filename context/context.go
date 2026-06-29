@@ -307,7 +307,7 @@ func (k Context) WithDebug() Context {
 
 type KubernetesConnection interface {
 	Populate(Context, bool, ...types.ClientOption) (kubernetes.Interface, *rest.Config, error)
-	Hash() string
+	Hash(namespace string) string
 	CanExpire() bool
 	String() string
 }
@@ -478,7 +478,7 @@ func (k Context) Kubernetes() (*dutyKubernetes.Client, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("kubernetes connection not set")
 	}
-	connHash := conn.Hash()
+	connHash := conn.Hash(k.GetNamespace())
 	if client, err := k8sclientcache.Get(k, connHash); err == nil {
 		k.Counter("context_kubernetes_client_cache_hit", "connection", connHash).Add(1)
 		if _, err := client.Refresh(k); err != nil {
