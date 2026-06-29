@@ -1,12 +1,16 @@
 package tests
 
 import (
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 )
 
@@ -68,6 +72,78 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 		err = DefaultContext.DB().Where("event_id = ? AND name = ?", ci.ID.String(), "config.warning").Find(&events).Error
 		Expect(err).ToNot(HaveOccurred())
 		Expect(events).To(HaveLen(1))
+	})
+})
+
+var _ = ginkgo.Describe("Person Analytics Triggers", ginkgo.Ordered, func() {
+	const analyticsKey = "health.open-check"
+	const concurrentAnalyticsKey = "health.run-now"
+
+	ginkgo.AfterAll(func() {
+		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" IN ?`, dummy.JohnDoe.ID, []string{analyticsKey, concurrentAnalyticsKey}).Error
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	ginkgo.It("should increment count and updated_at on duplicate inserts", func() {
+		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, analyticsKey).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = DefaultContext.DB().Exec(`INSERT INTO person_analytics (person_id, "key") VALUES (?, ?)`, dummy.JohnDoe.ID, analyticsKey).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var first struct {
+			Count     int
+			UpdatedAt time.Time
+		}
+		err = DefaultContext.DB().Raw(`SELECT "count", updated_at FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, analyticsKey).Scan(&first).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(first.Count).To(Equal(1))
+
+		time.Sleep(10 * time.Millisecond)
+
+		err = DefaultContext.DB().Exec(`INSERT INTO person_analytics (person_id, "key") VALUES (?, ?)`, dummy.JohnDoe.ID, analyticsKey).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		var second struct {
+			Count     int
+			UpdatedAt time.Time
+		}
+		err = DefaultContext.DB().Raw(`SELECT "count", updated_at FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, analyticsKey).Scan(&second).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(second.Count).To(Equal(2))
+		Expect(second.UpdatedAt).To(BeTemporally(">", first.UpdatedAt))
+	})
+
+	ginkgo.It("should handle concurrent first inserts", func() {
+		err := DefaultContext.DB().Exec(`DELETE FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		const insertCount = 10
+		start := make(chan struct{})
+		errs := make(chan error, insertCount)
+		var wg sync.WaitGroup
+
+		for range insertCount {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				errs <- DefaultContext.DB().Exec(`INSERT INTO person_analytics (person_id, "key") VALUES (?, ?)`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Error
+			}()
+		}
+
+		close(start)
+		wg.Wait()
+		close(errs)
+
+		for err := range errs {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		var count int
+		err = DefaultContext.DB().Raw(`SELECT "count" FROM person_analytics WHERE person_id = ? AND "key" = ?`, dummy.JohnDoe.ID, concurrentAnalyticsKey).Scan(&count).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(insertCount))
 	})
 })
 
