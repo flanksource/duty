@@ -17,3 +17,27 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER team_updates
 AFTER UPDATE ON teams
 FOR EACH ROW EXECUTE PROCEDURE handle_team_updates();
+
+CREATE OR REPLACE FUNCTION handle_person_analytics_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE person_analytics
+  SET
+    updated_at = clock_timestamp(),
+    count = count + 1
+  WHERE person_id = NEW.person_id
+    AND key = NEW.key;
+
+  IF FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  NEW.updated_at = COALESCE(NEW.updated_at, clock_timestamp());
+  NEW.count = COALESCE(NEW.count, 1);
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER person_analytics_insert
+BEFORE INSERT ON person_analytics
+FOR EACH ROW EXECUTE PROCEDURE handle_person_analytics_insert();

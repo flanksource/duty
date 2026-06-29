@@ -266,7 +266,7 @@ table "saved_query" {
   }
 }
 
-table "person_touchpoints" {
+table "person_analytics" {
   schema = schema.public
   column "person_id" {
     null = false
@@ -281,12 +281,22 @@ table "person_touchpoints" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "count" {
+    null    = false
+    type    = integer
+    default = 1
+  }
 
   primary_key {
     columns = [column.person_id, column.key]
   }
 
-  foreign_key "person_touchpoints_person_id_fkey" {
+  foreign_key "person_analytics_person_id_fkey" {
     columns     = [column.person_id]
     ref_columns = [table.people.column.id]
     on_update   = CASCADE
