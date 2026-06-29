@@ -98,8 +98,8 @@ table "team_members" {
     type = uuid
   }
   column "source" {
-    type = text
-    null = false
+    type    = text
+    null    = false
     default = "UI"
   }
   primary_key {
@@ -166,7 +166,7 @@ table "teams" {
   primary_key {
     columns = [column.id]
   }
- index "team_name_key" {
+  index "team_name_key" {
     unique  = true
     columns = [column.name]
     where   = "deleted_at IS NULL"
@@ -263,5 +263,32 @@ table "saved_query" {
   }
   primary_key {
     columns = [column.id]
+  }
+}
+
+table "person_touchpoints" {
+  column "person_id" {
+    null = false
+    type = uuid
+  }
+  column "key" {
+    null = false
+    type = text
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  primary_key {
+    columns = [column.person_id, column.key]
+  }
+
+  foreign_key "person_touchpoints_person_id_fkey" {
+    columns     = [column.person_id]
+    ref_columns = [table.people.column.id]
+    on_update   = CASCADE
+    on_delete   = CASCADE
   }
 }
