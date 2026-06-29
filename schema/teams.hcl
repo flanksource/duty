@@ -267,6 +267,7 @@ table "saved_query" {
 }
 
 table "person_touchpoints" {
+  schema = schema.public
   column "person_id" {
     null = false
     type = uuid
