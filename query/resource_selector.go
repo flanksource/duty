@@ -108,9 +108,14 @@ func nonZeroTime(t *time.Time) *time.Time {
 	return t
 }
 
+const MaxSearchResourcesLimit = 1000
+
 func SearchResources(ctx context.Context, req SearchResourcesRequest) (*SearchResourcesResponse, error) {
 	var output SearchResourcesResponse
 
+	if req.Limit > MaxSearchResourcesLimit {
+		return nil, api.Errorf(api.EINVALID, "limit %d exceeds the maximum allowed value of %d", req.Limit, MaxSearchResourcesLimit)
+	}
 	if req.Limit <= 0 {
 		req.Limit = 100
 	}
