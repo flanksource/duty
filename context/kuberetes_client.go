@@ -33,6 +33,7 @@ func authProvider(clusterAddress string, config map[string]string, persister res
 }
 
 func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesClient, error) {
+	connHash := conn.Hash(ctx.GetNamespace())
 	c, rc, err := conn.Populate(ctx, true)
 	if err != nil {
 		return nil, fmt.Errorf("error refreshing kubernetes client: %w", err)
@@ -52,8 +53,6 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 
 	// When BearerTokenFile is set, client-go already performs periodic token reloads from disk.
 	if rc.ExecProvider == nil && rc.AuthProvider == nil && rc.BearerToken != "" && rc.BearerTokenFile == "" {
-		connHash := conn.Hash()
-
 		refreshCallback := func() (*rest.Config, error) {
 			ctx.Counter("kubernetes_auth_plugin_refreshed", "connection", connHash).Add(1)
 			rc, err := client.Refresh(ctx)
@@ -65,7 +64,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 		}
 		rc.AuthProvider = &clientcmdapi.AuthProviderConfig{
 			Name:   "duty",
-			Config: map[string]string{"conn": conn.Hash()},
+			Config: map[string]string{"conn": connHash},
 		}
 	}
 
