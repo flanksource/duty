@@ -9,6 +9,10 @@ BEGIN
         EXECUTE 'ALTER TABLE config_changes DISABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_properties') THEN
+        EXECUTE 'ALTER TABLE config_properties DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_analysis') THEN
         EXECUTE 'ALTER TABLE config_analysis DISABLE ROW LEVEL SECURITY;';
     END IF;
@@ -56,6 +60,8 @@ DROP POLICY IF EXISTS config_items_auth ON config_items;
 DROP POLICY IF EXISTS components_auth ON components;
 
 DROP POLICY IF EXISTS config_changes_auth ON config_changes;
+
+DROP POLICY IF EXISTS config_properties_auth ON config_properties;
 
 DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
 

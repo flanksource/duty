@@ -168,6 +168,101 @@ type ConfigItemLastScrapedTime struct {
 	LastScrapedTime *time.Time `json:"last_scraped_time,omitempty"`
 }
 
+// ConfigProperty represents typed properties for a config item.
+type ConfigProperty struct {
+	ID           uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	ConfigID     uuid.UUID  `json:"config_id"`
+	ScraperID    *uuid.UUID `json:"scraper_id,omitempty"`
+	CreatedBy    *uuid.UUID `json:"created_by,omitempty"`
+	Name         string     `json:"name"`
+	Label        string     `json:"label,omitempty"`
+	Tooltip      string     `json:"tooltip,omitempty"`
+	Icon         string     `json:"icon,omitempty"`
+	PropertyType string     `json:"type,omitempty" gorm:"column:property_type"`
+	Color        string     `json:"color,omitempty"`
+	DisplayOrder int        `json:"order,omitempty" gorm:"column:display_order"`
+	Headline     bool       `json:"headline,omitempty"`
+	Hidden       bool       `json:"hidden,omitempty"`
+	Text         string     `json:"text,omitempty"`
+	Value        *int64     `json:"value,omitempty"`
+	Unit         string     `json:"unit,omitempty"`
+	Max          *int64     `json:"max,omitempty"`
+	Min          *int64     `json:"min,omitempty"`
+	Status       string     `json:"status,omitempty"`
+	LinkURL      string     `json:"link_url,omitempty"`
+	LinkLabel    string     `json:"link_label,omitempty"`
+	LinkIcon     string     `json:"link_icon,omitempty"`
+	CreatedAt    time.Time  `json:"created_at" gorm:"<-:create"`
+	UpdatedAt    *time.Time `json:"updated_at,omitempty" gorm:"autoUpdateTime:false"`
+}
+
+func (ConfigProperty) TableName() string {
+	return "config_properties"
+}
+
+func NewConfigProperty(configID uuid.UUID, scraperID, createdBy *uuid.UUID, property types.Property) ConfigProperty {
+	var link types.Link
+	if len(property.Links) > 0 {
+		link = property.Links[0]
+	}
+
+	return ConfigProperty{
+		ConfigID:     configID,
+		ScraperID:    scraperID,
+		CreatedBy:    createdBy,
+		Name:         property.Name,
+		Label:        property.Label,
+		Tooltip:      property.Tooltip,
+		Icon:         property.Icon,
+		PropertyType: property.Type,
+		Color:        property.Color,
+		DisplayOrder: property.Order,
+		Headline:     property.Headline,
+		Hidden:       property.Hidden,
+		Text:         property.Text,
+		Value:        property.Value,
+		Unit:         property.Unit,
+		Max:          property.Max,
+		Min:          property.Min,
+		Status:       property.Status,
+		LinkURL:      link.URL,
+		LinkLabel:    link.Text.Label,
+		LinkIcon:     link.Text.Icon,
+	}
+}
+
+func (p ConfigProperty) AsProperty() types.Property {
+	var links []types.Link
+	if p.LinkURL != "" {
+		links = []types.Link{{
+			URL: p.LinkURL,
+			Text: types.Text{
+				Label: p.LinkLabel,
+				Icon:  p.LinkIcon,
+			},
+		}}
+	}
+
+	return types.Property{
+		Name:     p.Name,
+		Label:    p.Label,
+		Tooltip:  p.Tooltip,
+		Icon:     p.Icon,
+		Type:     p.PropertyType,
+		Color:    p.Color,
+		Order:    p.DisplayOrder,
+		Headline: p.Headline,
+		Hidden:   p.Hidden,
+		Text:     p.Text,
+		Value:    p.Value,
+		Unit:     p.Unit,
+		Max:      p.Max,
+		Min:      p.Min,
+		Status:   p.Status,
+		Links:    links,
+	}
+}
+
 func (ConfigItemLastScrapedTime) TableName() string {
 	return "config_items_last_scraped_time"
 }
