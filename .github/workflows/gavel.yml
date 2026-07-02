@@ -3,12 +3,12 @@ on:
   pull_request:
 permissions:
   contents: read
-  checks: write
-  issues: write
-  pull-requests: write
 jobs:
   gavel:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     timeout-minutes: 50
     services:
       postgres:
@@ -82,4 +82,3 @@ jobs:
             --test-timeout=10m
             --diagnostics
           fail-on-error: "true"
-

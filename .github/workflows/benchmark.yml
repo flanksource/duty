@@ -5,14 +5,15 @@ name: Benchmark
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 jobs:
   bench:
     if: ${{ !github.event.pull_request.head.repo.fork }}
     name: Benchmark (${{ matrix.title }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     timeout-minutes: 120
     strategy:
       fail-fast: false
