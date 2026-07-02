@@ -31,7 +31,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Install deps
-        uses: flanksource/deps@v1.0.35
+        uses: flanksource/deps@v1.0.36
         with:
           tools: |
             bun
@@ -40,13 +40,13 @@ jobs:
             postgrest
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: 1.26.x
           cache: false # Using custom cache action below for .bin directory
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
@@ -76,13 +76,13 @@ jobs:
           --health-retries 5
     steps:
       - name: Install Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: 1.26.x
           cache: false # Using custom cache action below for .bin directory
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
@@ -103,13 +103,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: 1.26.x
           cache: false
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
@@ -139,11 +139,11 @@ jobs:
         go build main.go && ./main --db-url 'postgres://postgres:postgres@localhost:5432/test?sslmode=disable'
     steps:
       - name: Install Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: 1.26.x
           cache: false # Using custom cache action below for .bin directory
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/go/pkg/mod
@@ -154,7 +154,7 @@ jobs:
             cache-
 
       - name: Check out main branch
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: main
 
@@ -164,7 +164,7 @@ jobs:
           DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
 
       - name: Check out current branch
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Apply new migrations
         run: ${{ env.migrate_command }}
         env:
