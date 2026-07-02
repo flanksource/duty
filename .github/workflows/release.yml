@@ -4,15 +4,14 @@ on:
     branches:
       - main
 
-permissions: {} # start with no permission
+permissions: {}
 
 jobs:
   create-release:
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    uses: flanksource/action-workflows/.github/workflows/create-release.yml@a7df3dcb783c34338e46318364e99c0ada62bcd9
+    permissions: {}
+    uses: flanksource/action-workflows/.github/workflows/create-release.yml@deae42f62bd50853f206635b574189e0b5f99124
+    secrets:
+      token: ${{ secrets.FLANKBOT }}
 
   bump-clients:
     runs-on: ubuntu-latest
