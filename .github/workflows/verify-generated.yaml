@@ -5,6 +5,10 @@ on:
   pull_request:
 
 name: Verify Generated Artifacts
+
+permissions:
+  contents: read
+
 jobs:
   verify-generated:
     runs-on: ubuntu-latest
