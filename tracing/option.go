@@ -29,14 +29,23 @@ func WithDBName(name string) Option {
 	}
 }
 
-// WithoutQueryVariables configures the db.statement attribute to exclude query variables
+// WithoutQueryVariables configures the db.statement attribute to exclude query variables.
+// This is the default.
 func WithoutQueryVariables() Option {
 	return func(p *otelPlugin) {
 		p.excludeQueryVars = true
 	}
 }
 
-// WithQueryFormatter configures a query formatter
+// WithQueryVariables configures the db.statement attribute to include query variables.
+// Use it only for explicit local debugging because it can expose secrets.
+func WithQueryVariables() Option {
+	return func(p *otelPlugin) {
+		p.excludeQueryVars = false
+	}
+}
+
+// WithQueryFormatter configures a query formatter.
 func WithQueryFormatter(queryFormatter func(query string) string) Option {
 	return func(p *otelPlugin) {
 		p.queryFormatter = queryFormatter

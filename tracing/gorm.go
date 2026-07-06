@@ -30,7 +30,10 @@ type otelPlugin struct {
 }
 
 func NewPlugin(opts ...Option) gorm.Plugin {
-	p := &otelPlugin{}
+	p := &otelPlugin{
+		excludeQueryVars: true,
+		queryFormatter:   SQLStatementTruncator(DefaultMaxSQLStatementLength),
+	}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -117,13 +120,9 @@ func (p *otelPlugin) after() gormHookFunc {
 			attrs = append(attrs, sys)
 		}
 
-		vars := tx.Statement.Vars
-
-		var query string
-		if p.excludeQueryVars {
-			query = tx.Statement.SQL.String()
-		} else {
-			query = tx.Dialector.Explain(tx.Statement.SQL.String(), vars...)
+		query := tx.Statement.SQL.String()
+		if !p.excludeQueryVars {
+			query = tx.Dialector.Explain(query, tx.Statement.Vars...)
 		}
 
 		attrs = append(attrs, semconv.DBStatementKey.String(p.formatQuery(query)))
