@@ -1,12 +1,14 @@
 package tests
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -45,6 +47,133 @@ var _ = Describe("Job", Ordered, func() {
 		go sampleJob.Run()
 		time.Sleep(100 * time.Millisecond)
 		Expect(counter.Load()).To(Equal(current + 1))
+	})
+
+	It("Prevents concurrent execution for separate job instances with the same resource identity", func() {
+		var firstRuns atomic.Int32
+		var secondRuns atomic.Int32
+		resourceID := uuid.NewString()
+		name := "keyed-singleton-" + uuid.NewString()
+		started := make(chan struct{})
+		release := make(chan struct{})
+		firstDone := make(chan struct{})
+		var releaseOnce sync.Once
+
+		DeferCleanup(func() {
+			releaseOnce.Do(func() { close(release) })
+			Eventually(firstDone, "5s").Should(BeClosed())
+		})
+
+		first := &job.Job{
+			Name:                 name,
+			Aliases:              []string{"scheduled"},
+			Singleton:            true,
+			Context:              DefaultContext,
+			ResourceID:           resourceID,
+			ResourceType:         job.ResourceTypeScraper,
+			IgnoreSuccessHistory: true,
+			Fn: func(ctx job.JobRuntime) error {
+				firstRuns.Add(1)
+				close(started)
+				<-release
+				return nil
+			},
+		}
+		second := &job.Job{
+			Name:                 name,
+			Aliases:              []string{"manual"},
+			Singleton:            true,
+			Context:              DefaultContext,
+			ResourceID:           resourceID,
+			ResourceType:         job.ResourceTypeScraper,
+			IgnoreSuccessHistory: true,
+			Fn: func(ctx job.JobRuntime) error {
+				secondRuns.Add(1)
+				return nil
+			},
+		}
+
+		go func() {
+			defer close(firstDone)
+			first.Run()
+		}()
+
+		Eventually(started, "5s").Should(BeClosed())
+		second.Run()
+
+		Expect(firstRuns.Load()).To(Equal(int32(1)))
+		Expect(secondRuns.Load()).To(BeZero())
+		Expect(second.LastJob).ToNot(BeNil())
+		Expect(second.LastJob.Status).To(Equal(models.StatusSkipped))
+
+		releaseOnce.Do(func() { close(release) })
+		Eventually(firstDone, "5s").Should(BeClosed())
+	})
+
+	It("Allows singleton jobs with different resource identities to run concurrently", func() {
+		var firstRuns atomic.Int32
+		var secondRuns atomic.Int32
+		name := "keyed-singleton-concurrent-" + uuid.NewString()
+		firstID := uuid.NewString()
+		secondID := uuid.NewString()
+		started := make(chan string, 2)
+		release := make(chan struct{})
+		var wg sync.WaitGroup
+		var releaseOnce sync.Once
+		waitForJobs := func() {
+			done := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+			Eventually(done, "5s").Should(BeClosed())
+		}
+
+		DeferCleanup(func() {
+			releaseOnce.Do(func() { close(release) })
+			waitForJobs()
+		})
+
+		makeJob := func(resourceID string, runs *atomic.Int32) *job.Job {
+			return &job.Job{
+				Name:                 name,
+				Singleton:            true,
+				Context:              DefaultContext,
+				ResourceID:           resourceID,
+				ResourceType:         job.ResourceTypeScraper,
+				IgnoreSuccessHistory: true,
+				Fn: func(ctx job.JobRuntime) error {
+					runs.Add(1)
+					started <- resourceID
+					<-release
+					return nil
+				},
+			}
+		}
+
+		runAsync := func(j *job.Job) {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				j.Run()
+			}()
+		}
+
+		first := makeJob(firstID, &firstRuns)
+		second := makeJob(secondID, &secondRuns)
+
+		runAsync(first)
+		Eventually(started, "5s").Should(Receive(Equal(firstID)))
+		runAsync(second)
+		Eventually(started, "5s").Should(Receive(Equal(secondID)))
+
+		Expect(firstRuns.Load()).To(Equal(int32(1)))
+		Expect(secondRuns.Load()).To(Equal(int32(1)))
+
+		releaseOnce.Do(func() { close(release) })
+		waitForJobs()
+		Expect(first.LastJob.Status).To(Equal(models.StatusSuccess))
+		Expect(second.LastJob.Status).To(Equal(models.StatusSuccess))
 	})
 
 	It("Should skip disabled jobs", func() {

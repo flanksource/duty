@@ -10,8 +10,9 @@ import (
 )
 
 type JobCronEntry struct {
-	ID           string    `json:"id"`
+	JobID        string    `json:"id"`
 	Name         string    `json:"name"`
+	Aliases      []string  `json:"aliases,omitempty"`
 	Schedule     string    `json:"schedule"`
 	ResourceID   string    `json:"resource_id,omitempty"`
 	ResourceType string    `json:"resource_type,omitempty"`
@@ -34,7 +35,8 @@ func CronDetailsHandler(crons ...*cron.Cron) func(c echo.Context) error {
 			}
 
 			return JobCronEntry{
-				ID:           j.ID,
+				JobID:        j.ID(),
+				Aliases:      j.Aliases,
 				ResourceID:   j.ResourceID,
 				ResourceType: j.ResourceType,
 				Name:         j.Name,
