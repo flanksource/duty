@@ -110,7 +110,6 @@ var RetentionHigh = Retention{
 type Job struct {
 	context.Context
 	entryID     *cron.EntryID
-	lock        *sync.Mutex
 	initialized bool
 	unschedule  func()
 	statusRing  StatusRing
@@ -124,7 +123,7 @@ type Job struct {
 	Fn                       func(ctx JobRuntime) error
 	JobHistory               bool
 	RunNow                   bool
-	ID                       string
+	Aliases                  []string
 	ResourceID, ResourceType string
 	IgnoreSuccessHistory     bool
 	lastHistoryCleanup       time.Time
@@ -141,7 +140,8 @@ type Job struct {
 
 func (j *Job) GetContext() map[string]any {
 	return map[string]any{
-		"id":           j.ID,
+		"id":           j.ID(),
+		"aliases":      j.Aliases,
 		"resourceID":   j.ResourceID,
 		"resourceType": j.ResourceType,
 		"name":         j.Name,
@@ -149,11 +149,15 @@ func (j *Job) GetContext() map[string]any {
 	}
 }
 
-func (j *Job) PK() string {
-	return strings.TrimSuffix(
-		strings.TrimSpace(fmt.Sprintf("%s/%s", j.Name, lo.CoalesceOrEmpty(j.ID, j.ResourceID))),
-		"/",
-	)
+// ID returns the canonical logical identity for a job.
+// Aliases are intentionally excluded; they are configuration/display names.
+func (j *Job) ID() string {
+	name := strings.TrimSpace(j.Name)
+	resourceID := strings.TrimSpace(j.ResourceID)
+	if resourceID == "" {
+		return name
+	}
+	return fmt.Sprintf("%s::%s/%s", name, strings.TrimSpace(j.ResourceType), resourceID)
 }
 
 type StatusRing struct {
@@ -352,8 +356,9 @@ func (j *Job) Retain(r Retention) *Job {
 	return j
 }
 
-func (j *Job) SetID(id string) *Job {
-	j.ID = id
+// SetAliases sets friendly names used for job properties and display.
+func (j *Job) SetAliases(aliases ...string) *Job {
+	j.Aliases = aliases
 	return j
 }
 
@@ -379,7 +384,7 @@ func (j *Job) Run() {
 	}
 
 	ctx, span := j.Context.StartSpan(j.Name)
-	ctx = ctx.WithName("job." + j.PK())
+	ctx = ctx.WithName("job." + j.ID())
 	defer span.End()
 
 	r := JobRuntime{
@@ -406,32 +411,31 @@ func (j *Job) Run() {
 	r.start()
 	defer r.end()
 	if j.Singleton {
-		ctx.Logger.V(4).Infof("acquiring lock")
+		key := j.ID()
+		ctx.Logger.V(4).Infof("acquiring lock %s", key)
 
-		if j.lock == nil {
-			j.lock = &sync.Mutex{}
-		}
-		if !j.lock.TryLock() {
+		unlock, ok := singletonLocks.TryLock(key)
+		if !ok {
 			r.History.Status = models.StatusSkipped
-			ctx.Tracef("failed to acquire lock")
+			ctx.Tracef("failed to acquire lock %s", key)
 			r.Skipped("job already running, skipping")
 			return
 		}
-		defer j.lock.Unlock()
+		defer unlock()
 	}
 
 	for i, lock := range j.Semaphores {
-		ctx.Logger.V(6).Infof("[%s] acquiring sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		ctx.Logger.V(6).Infof("[%s] acquiring sempahore [%d/%d]", j.ID(), i+1, len(j.Semaphores))
 		if err := lock.Acquire(ctx, 1); err != nil {
 			r.Skipped("too many concurrent jobs, skipping")
 			return
 		}
-		ctx.Logger.V(7).Infof("[%s] acquired sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores))
+		ctx.Logger.V(7).Infof("[%s] acquired sempahore [%d/%d]", j.ID(), i+1, len(j.Semaphores))
 
 		defer func(s *semaphore.Weighted, msg string) {
 			s.Release(1)
 			ctx.Logger.V(6).Infof(msg)
-		}(lock, fmt.Sprintf("[%s] released sempahore [%d/%d]", j.ID, i+1, len(j.Semaphores)))
+		}(lock, fmt.Sprintf("[%s] released sempahore [%d/%d]", j.ID(), i+1, len(j.Semaphores)))
 	}
 
 	if j.Timeout > 0 {
@@ -449,23 +453,19 @@ func (j *Job) Run() {
 }
 
 func (j *Job) getPropertyNames(key string) []string {
-	if j.ID == "" {
-		return []string{
-			fmt.Sprintf("jobs.%s.%s", j.Name, key),
-			fmt.Sprintf("jobs.%s", key)}
+	names := make([]string, 0, len(j.Aliases)+2)
+	for _, alias := range j.aliases() {
+		names = append(names, fmt.Sprintf("jobs.%s.%s.%s", j.Name, alias, key))
 	}
-	return []string{
-		fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, key),
+	return append(names,
 		fmt.Sprintf("jobs.%s.%s", j.Name, key),
-		fmt.Sprintf("jobs.%s", key)}
+		fmt.Sprintf("jobs.%s", key),
+	)
 }
 
 func (j *Job) GetProperty(property string) (string, bool) {
-	if val := j.Context.Properties().String("jobs."+j.Name+"."+property, ""); val != "" {
-		return val, true
-	}
-	if j.ID != "" {
-		if val := j.Context.Properties().String(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), ""); val != "" {
+	for _, name := range j.getPropertyLookupNames(property) {
+		if val := j.Context.Properties().String(name, ""); val != "" {
 			return val, true
 		}
 	}
@@ -473,15 +473,45 @@ func (j *Job) GetProperty(property string) (string, bool) {
 }
 
 func (j *Job) GetPropertyInt(property string, def int) int {
-	if val := j.Context.Properties().Int("jobs."+j.Name+"."+property, def); val != def {
-		return val
-	}
-	if j.ID != "" {
-		if val := j.Context.Properties().Int(fmt.Sprintf("jobs.%s.%s.%s", j.Name, j.ID, property), def); val != def {
+	for _, name := range j.getPropertyLookupNames(property) {
+		if val := j.Context.Properties().Int(name, def); val != def {
 			return val
 		}
 	}
 	return def
+}
+
+func (j *Job) getPropertyLookupNames(key string) []string {
+	names := []string{fmt.Sprintf("jobs.%s.%s", j.Name, key)}
+	for _, alias := range j.aliases() {
+		names = append(names, fmt.Sprintf("jobs.%s.%s.%s", j.Name, alias, key))
+	}
+	return names
+}
+
+func (j *Job) aliases() []string {
+	aliases := make([]string, 0, len(j.Aliases))
+	seen := make(map[string]struct{}, len(j.Aliases))
+	for _, alias := range j.Aliases {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			continue
+		}
+		if _, ok := seen[alias]; ok {
+			continue
+		}
+		seen[alias] = struct{}{}
+		aliases = append(aliases, alias)
+	}
+	return aliases
+}
+
+func (j *Job) primaryAlias() string {
+	aliases := j.aliases()
+	if len(aliases) == 0 {
+		return ""
+	}
+	return aliases[0]
 }
 
 func (j *Job) init() error {
@@ -544,8 +574,8 @@ func (j *Job) init() error {
 		j.Context = j.Context.WithDBLogLevel(dbLevel)
 	}
 
-	if j.ID != "" {
-		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", strings.ToLower(j.Name), j.ID))
+	if alias := j.primaryAlias(); alias != "" {
+		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", strings.ToLower(j.Name), alias))
 	} else if j.ResourceID != "" {
 		j.Context = j.Context.WithName(fmt.Sprintf("%s.%s", strings.ToLower(j.Name), j.ResourceID))
 	} else {
@@ -564,8 +594,8 @@ func (j *Job) init() error {
 }
 
 func (j *Job) Label() string {
-	if j.ID != "" {
-		return fmt.Sprintf("%s/%s", j.Name, j.ID)
+	if alias := j.primaryAlias(); alias != "" {
+		return fmt.Sprintf("%s/%s", j.Name, alias)
 	}
 	return j.Name
 }
@@ -582,8 +612,8 @@ func (j *Job) String() string {
 }
 
 func (j *Job) GetResourcedName() string {
-	if j.ID != "" {
-		return fmt.Sprintf("%s [%s]", j.Name, j.ID)
+	if alias := j.primaryAlias(); alias != "" {
+		return fmt.Sprintf("%s [%s]", j.Name, alias)
 	}
 
 	return j.Name
