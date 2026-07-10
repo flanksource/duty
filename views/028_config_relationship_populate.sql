@@ -16,5 +16,5 @@ WHERE child.deleted_at IS NULL
     WHERE cr.config_id = parent.id
       AND cr.related_id = child.id
       AND cr.relation = 'hard'
-      AND cr.scraper_id = child.scraper_id
+      AND cr.scraper_id IS NOT DISTINCT FROM child.scraper_id
   );
