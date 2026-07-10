@@ -550,8 +550,9 @@ table "config_relationships" {
     on_delete   = NO_ACTION
   }
   index "config_relationships_related_id_config_id_relation_key" {
-    unique  = true
-    columns = [column.related_id, column.config_id, column.relation, column.scraper_id]
+    unique         = true
+    columns        = [column.related_id, column.config_id, column.relation, column.scraper_id]
+    nulls_distinct = false
   }
   index "idx_config_relationships_deleted_at" {
     columns = [column.deleted_at]
