@@ -16,9 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
           - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
           - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
+          - { tag: "17", sha: "sha256:0af65001d05296a2ead57ac4a6412433d8913d1bb5d0c88435a7d1e1ee5cb04b" }
     services:
       postgres:
         image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
@@ -64,7 +64,6 @@ jobs:
         env:
           DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
           DUTY_DB_CREATE: "false"
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
 
   e2e:
     runs-on: ubuntu-latest
@@ -133,9 +132,9 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-          - { tag: "14", sha: "sha256:bbcaba1d74865ee6d6318b5e297d0df73d1f6b6d995cd892b60a2cf1440b716a" }
           - { tag: "15", sha: "sha256:f57a3bdbf044f0b213fdc99f35a0d21c401608bf41f063176ec00c51df9655f7" }
           - { tag: "16", sha: "sha256:47053cd4ee3f096afc744e53e3280de7b29b3670d2f2196c2acc0c6470923c99" }
+          - { tag: "17", sha: "sha256:0af65001d05296a2ead57ac4a6412433d8913d1bb5d0c88435a7d1e1ee5cb04b" }
     env:
       migrate_command: >
         make -B tidy hack/migrate/go.mod &&
@@ -164,15 +163,11 @@ jobs:
 
       - name: Apply base migrations
         run: ${{ env.migrate_command }}
-        env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
 
       - name: Check out current branch
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Apply new migrations
         run: ${{ env.migrate_command }}
-        env:
-          DUTY_DB_DISABLE_RLS: ${{ matrix.postgres-version.tag == '14' && 'true' || 'false' }}
     services:
       postgres:
         image: postgres:${{ matrix.postgres-version.tag }}@${{ matrix.postgres-version.sha }}
