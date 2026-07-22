@@ -63,7 +63,7 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@1632f718fbd850658c4a04818b800991039f1b74 # v0.0.46
+      - uses: flanksource/gavel@bec0766b728894efaa1bbebbab1666e77a13d1eb # v0.0.52
         with:
           version: v0.0.43
           args: >-
