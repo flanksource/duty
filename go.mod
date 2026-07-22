@@ -32,7 +32,7 @@ require (
 	github.com/exaring/otelpgx v0.11.1
 	github.com/fergusstrange/embedded-postgres v1.34.0
 	github.com/flanksource/artifacts v1.0.24
-	github.com/flanksource/clicky v1.21.18
+	github.com/flanksource/clicky v1.21.40
 	github.com/flanksource/commons v1.53.1
 	github.com/flanksource/deps v1.0.35
 	github.com/flanksource/gomplate/v3 v3.24.84
@@ -155,6 +155,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/yuin/goldmark v1.7.16 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	k8s.io/streaming v0.36.1 // indirect
 )
