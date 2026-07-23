@@ -15,6 +15,20 @@ var _ = Describe("EnvVar", func() {
 				Expect(err).To(BeNil())
 				Expect(envVar.ValueStatic).To(Equal("foo"))
 			})
+
+			It("preserves a 1Password reference as a value", func() {
+				const reference = "op://example-vault/example-item/password"
+				var envVar EnvVar
+
+				err := envVar.Scan(reference)
+				stored, valueErr := envVar.Value()
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(valueErr).NotTo(HaveOccurred())
+				Expect(envVar.ValueFrom).To(BeNil())
+				Expect(envVar.String()).To(Equal(reference))
+				Expect(stored).To(Equal(reference))
+			})
 		})
 
 		Context("with configmap value", func() {
