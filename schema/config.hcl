@@ -449,6 +449,167 @@ table "config_items" {
   }
 }
 
+# Config properties that are owned independently from the scraper-written
+# config_items.properties JSONB column. This table is the typed write path for
+# user-created and future scraper-created properties; compatibility views merge
+# these rows back into the legacy JSON array shape for existing readers.
+table "config_properties" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "scraper_id" {
+    null = true
+    type = uuid
+  }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "name" {
+    null = false
+    type = text
+  }
+  column "label" {
+    null = true
+    type = text
+  }
+  column "tooltip" {
+    null = true
+    type = text
+  }
+  column "icon" {
+    null = true
+    type = text
+  }
+  column "property_type" {
+    null = true
+    type = text
+  }
+  column "color" {
+    null = true
+    type = text
+  }
+  column "display_order" {
+    null = true
+    type = integer
+  }
+  column "headline" {
+    null    = false
+    type    = bool
+    default = false
+  }
+  column "hidden" {
+    null    = false
+    type    = bool
+    default = false
+  }
+  column "text" {
+    null = true
+    type = text
+  }
+  column "value" {
+    null = true
+    type = bigint
+  }
+  column "unit" {
+    null = true
+    type = text
+  }
+  column "max" {
+    null = true
+    type = bigint
+  }
+  column "min" {
+    null = true
+    type = bigint
+  }
+  column "status" {
+    null = true
+    type = text
+  }
+  column "link_url" {
+    null = true
+    type = text
+  }
+  column "link_label" {
+    null = true
+    type = text
+  }
+  column "link_icon" {
+    null = true
+    type = text
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = true
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "config_properties_config_id_fkey" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  foreign_key "config_properties_scraper_id_fkey" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "config_properties_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  index "config_properties_config_id_idx" {
+    columns = [column.config_id]
+  }
+  index "config_properties_scraper_id_idx" {
+    columns = [column.scraper_id]
+  }
+  index "config_properties_created_by_idx" {
+    columns = [column.created_by]
+  }
+  index "config_properties_name_idx" {
+    columns = [column.name]
+  }
+  index "config_properties_config_name_text_idx" {
+    columns = [column.config_id, column.name, column.text]
+  }
+  index "config_properties_config_name_value_idx" {
+    columns = [column.config_id, column.name, column.value]
+  }
+  index "config_properties_scraper_unique_idx" {
+    unique  = true
+    columns = [column.config_id, column.scraper_id, column.name]
+    where   = "scraper_id IS NOT NULL"
+  }
+  index "config_properties_created_by_unique_idx" {
+    unique  = true
+    columns = [column.config_id, column.created_by, column.name]
+    where   = "created_by IS NOT NULL"
+  }
+  check "config_properties_creator_check" {
+    expr = "((scraper_id IS NOT NULL) <> (created_by IS NOT NULL))"
+  }
+}
+
 table "config_items_last_scraped_time" {
   schema   = schema.public
   unlogged = true

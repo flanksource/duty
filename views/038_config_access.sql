@@ -75,6 +75,7 @@ SELECT
   WHERE external_group_id IS NULL;
 
 -- config_access_summary
+DROP VIEW IF EXISTS external_group_summary;
 DROP VIEW IF EXISTS config_access_summary_by_user;
 DROP VIEW IF EXISTS config_access_summary_by_config;
 DROP VIEW IF EXISTS config_access_summary;
