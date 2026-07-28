@@ -60,7 +60,7 @@ ExistsField
     }
 
 ExistSource
-  = name:ExistPrefix path:("." Identifier)+ {
+  = name:ExistPrefix path:("." PathSegment)+ {
       return makeSource(name,path)
     }
 
@@ -70,8 +70,16 @@ ExistPrefix
     }
 
 Source
-  = name:Identifier path:("." Identifier)* {
+  = name:PathSegment path:("." PathSegment)* {
       return makeSource(name,path)
+  }
+
+// A single segment of a dotted field path. Quoting allows characters that
+// would otherwise terminate the segment, eg: labels."topic/mission-control"
+PathSegment
+  = String
+  / [@a-zA-Z0-9_*/,:\\[\]-]+ {
+      return string(c.text), nil
   }
 
 

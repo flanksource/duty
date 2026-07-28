@@ -179,6 +179,114 @@ var _ = Describe("grammar", func() {
 
 	})
 
+	It("parses quoted label keys", func() {
+		result, err := ParsePEG(`config_type=Github::Repository labels."topic/mission-control"=true`)
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "config_type",
+	                "value": "Github::Repository",
+	                "op": "="
+	              },
+	              {
+	                "field": "labels.topic/mission-control",
+	                "value": "true",
+	                "op": "="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("parses unquoted label keys with a slash", func() {
+		result, err := ParsePEG(`labels.topic/mission-control=true`)
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "labels.topic/mission-control",
+	                "value": "true",
+	                "op": "="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("parses label keys with dots and a slash", func() {
+		result, err := ParsePEG(`labels.app.kubernetes.io/name=ingress-nginx`)
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "labels.app.kubernetes.io/name",
+	                "value": "ingress-nginx",
+	                "op": "="
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
+	It("parses quoted label keys exists", func() {
+		result, err := ParsePEG(`labels."topic/mission-control"`)
+		Expect(err).To(BeNil())
+
+		resultJSON, err := json.Marshal(result)
+		Expect(err).To(BeNil())
+		expected := `{
+	        "op": "and",
+	        "fields": [
+	          {
+	            "op": "and",
+	            "fields": [
+	              {
+	                "field": "labels.topic/mission-control",
+	                "op": "exists"
+	              }
+	            ]
+	          }
+	        ]
+	      }
+	      `
+
+		Expect(resultJSON).To(MatchJSON(expected))
+	})
+
 	It("parses label exists", func() {
 		result, err := ParsePEG("labels.account")
 		Expect(err).To(BeNil())

@@ -1070,6 +1070,30 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config labels with a slash in the key",
+			query:       `labels.topic/mission-control=true`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with a quoted key",
+			query:       `labels."topic/mission-control"=true`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with dots in the key",
+			query:       `labels.app.kubernetes.io/name=ingress-nginx`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with a quoted key with dots",
+			query:       `labels."app.kubernetes.io/name"=ingress-nginx`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
 			description: "config array query",
 			query:       `config.spec.template.spec.containers[0].name=logistics-api`,
 			expectedIDs: []uuid.UUID{dummy.LogisticsAPIDeployment.ID, dummy.LogisticsAPIReplicaSet.ID},
