@@ -69,6 +69,28 @@ func (e *ExternalUser) SetAliases(aliases []string) {
 	e.Aliases = aliases
 }
 
+// ExternalUserAlias maps a normalized external identity or historical user ID
+// to its canonical external user. Rows created manually or by a merge are
+// durable and are not owned by a scraper lifecycle.
+type ExternalUserAlias struct {
+	ID             uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	ExternalUserID uuid.UUID  `json:"external_user_id" gorm:"not null"`
+	Alias          string     `json:"alias" gorm:"not null"`
+	Source         string     `json:"source" gorm:"not null;default:scrape"`
+	CreatedAt      time.Time  `json:"created_at" gorm:"not null"`
+	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	DeletedBy      *uuid.UUID `json:"deleted_by,omitempty"`
+}
+
+func (e ExternalUserAlias) PK() string {
+	return e.ID.String()
+}
+
+func (e ExternalUserAlias) TableName() string {
+	return "external_user_aliases"
+}
+
 // ExternalGroup represents a group from an external identity provider.
 type ExternalGroup struct {
 	types.NoOpResourceSelectable `json:"-"`

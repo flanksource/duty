@@ -38,7 +38,7 @@ DECLARE
   v_sample JSONB;
 BEGIN
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
-    external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+    external_user_aliases, external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
 
   IF v_debug THEN
     EXECUTE format('SELECT count(*) FROM %I', p_temp_table) INTO v_row_count;
@@ -296,6 +296,19 @@ BEGIN
 
   DELETE FROM external_user_groups USING _eu_merges mp
   WHERE external_user_groups.external_user_id = mp.loser_id;
+
+  -- Preserve normalized aliases and historical IDs as durable redirects.
+  UPDATE external_user_aliases eua
+  SET external_user_id = mp.winner_id,
+      source = 'merge'
+  FROM _eu_merges mp
+  WHERE eua.external_user_id = mp.loser_id
+    AND eua.deleted_at IS NULL;
+
+  INSERT INTO external_user_aliases (external_user_id, alias, source)
+  SELECT mp.winner_id, mp.loser_id::text, 'merge'
+  FROM _eu_merges mp
+  ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
 
   -- Step 5: Merge aliases from losers into winners in the live table.
   -- We also append `loser.id::text` to the winner's alias union so that

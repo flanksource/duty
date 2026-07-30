@@ -61,6 +61,80 @@ table "external_users" {
   }
 }
 
+table "external_user_aliases" {
+  schema = schema.public
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "external_user_id" {
+    null = false
+    type = uuid
+  }
+  column "alias" {
+    null = false
+    type = text
+  }
+  column "source" {
+    null    = false
+    type    = text
+    default = "scrape"
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+  column "deleted_by" {
+    null = true
+    type = uuid
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "external_user_aliases_external_user_id_fkey" {
+    columns     = [column.external_user_id]
+    ref_columns = [table.external_users.column.id]
+    on_update   = NO_ACTION
+    on_delete   = CASCADE
+  }
+  foreign_key "external_user_aliases_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  foreign_key "external_user_aliases_deleted_by_fkey" {
+    columns     = [column.deleted_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+  index "external_user_aliases_alias_key" {
+    unique  = true
+    columns = [column.alias]
+    where   = "deleted_at IS NULL"
+  }
+  index "external_user_aliases_external_user_id_idx" {
+    columns = [column.external_user_id]
+  }
+  check "external_user_aliases_alias_not_empty" {
+    expr = "btrim(alias) <> ''"
+  }
+  check "external_user_aliases_source" {
+    expr = "source IN ('scrape', 'manual', 'merge')"
+  }
+}
+
 table "external_groups" {
   schema = schema.public
   column "id" {
