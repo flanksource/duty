@@ -1,5 +1,3 @@
-// Tests the rendering of field path keys into jsonpath expressions
-// used to address values inside jsonb columns.
 package query
 
 import (

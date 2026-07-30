@@ -48,16 +48,24 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 }
 
 var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
-	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
-		op = grammar.Eq
-	}
 	segments := strings.Split(path, ".")
 	if slices.Contains(flatJSONMapColumns, column) {
 		segments = []string{path}
 	}
+	jsonPath := toJSONPath(segments)
 
+	switch op {
+	case grammar.Exists:
+		return tx.Where(fmt.Sprintf(`jsonb_path_exists(%s, ?::jsonpath)`, column), jsonPath)
+	case grammar.NotExists:
+		return tx.Where(fmt.Sprintf(`NOT jsonb_path_exists(%s, ?::jsonpath)`, column), jsonPath)
+	}
+
+	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
+		op = grammar.Eq
+	}
 	for v := range strings.SplitSeq(val, ",") {
-		tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, ?::jsonpath)::TEXT) %s ?`, column, op), toJSONPath(segments), v)
+		tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, ?::jsonpath)::TEXT) %s ?`, column, op), jsonPath, v)
 	}
 	return tx
 }

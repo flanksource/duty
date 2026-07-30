@@ -1058,6 +1058,18 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config labels exists query",
+			query:       `name=node-a labels.account`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels does not exist query",
+			query:       `name=node-a !labels.storageprofile`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
 			description: "config labels not equal query",
 			query:       `labels.account=flanksource labels.environment!=production`,
 			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
