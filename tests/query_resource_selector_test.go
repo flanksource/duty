@@ -1058,6 +1058,18 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config labels exists query",
+			query:       `name=node-a labels.account`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels does not exist query",
+			query:       `name=node-a !labels.storageprofile`,
+			expectedIDs: []uuid.UUID{dummy.KubernetesNodeA.ID},
+			resource:    "config",
+		},
+		{
 			description: "config labels not equal query",
 			query:       `labels.account=flanksource labels.environment!=production`,
 			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
@@ -1067,6 +1079,30 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			description: "config labels multiple with ,",
 			query:       `labels.account=flanksource labels.environment!=production,development`,
 			expectedIDs: []uuid.UUID{dummy.EC2InstanceA.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with a slash in the key",
+			query:       `labels.topic/mission-control=true`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with a quoted key",
+			query:       `labels."topic/mission-control"=true`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with dots in the key",
+			query:       `labels.app.kubernetes.io/name=ingress-nginx`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
+			resource:    "config",
+		},
+		{
+			description: "config labels with a quoted key with dots",
+			query:       `labels."app.kubernetes.io/name"=ingress-nginx`,
+			expectedIDs: []uuid.UUID{dummy.NginxIngressPod.ID},
 			resource:    "config",
 		},
 		{

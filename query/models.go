@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -47,13 +48,51 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 }
 
 var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
+	segments := strings.Split(path, ".")
+	if slices.Contains(flatJSONMapColumns, column) {
+		segments = []string{path}
+	}
+	jsonPath := toJSONPath(segments)
+
+	switch op {
+	case grammar.Exists:
+		return tx.Where(fmt.Sprintf(`jsonb_path_exists(%s, ?::jsonpath)`, column), jsonPath)
+	case grammar.NotExists:
+		return tx.Where(fmt.Sprintf(`NOT jsonb_path_exists(%s, ?::jsonpath)`, column), jsonPath)
+	}
+
 	if !slices.Contains([]grammar.QueryOperator{grammar.Eq, grammar.Neq}, op) {
 		op = grammar.Eq
 	}
 	for v := range strings.SplitSeq(val, ",") {
-		tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, '$.%s')::TEXT) %s ?`, column, path, op), v)
+		tx = tx.Where(fmt.Sprintf(`TRIM(BOTH '"' from jsonb_path_query_first(%s, ?::jsonpath)::TEXT) %s ?`, column, op), jsonPath, v)
 	}
 	return tx
+}
+
+// Columns holding a flat map of strings. They cannot nest, so a dot in the
+// field addresses the key itself, eg: labels.app.kubernetes.io/name
+var flatJSONMapColumns = []string{"labels", "tags"}
+
+// jsonpath addresses a key without quotes only when it reads as an identifier,
+// optionally subscripted. Anything else, eg: topic/mission-control, must be quoted.
+var bareJSONPathKey = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\[[^\]]*\])*$`)
+
+var jsonPathKeyQuoter = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+// toJSONPath renders the keys of a field path as a jsonpath expression,
+// eg: $."topic/mission-control"
+func toJSONPath(segments []string) string {
+	quoted := make([]string, len(segments))
+	for i, segment := range segments {
+		if bareJSONPathKey.MatchString(segment) {
+			quoted[i] = segment
+		} else {
+			quoted[i] = `"` + jsonPathKeyQuoter.Replace(segment) + `"`
+		}
+	}
+
+	return "$." + strings.Join(quoted, ".")
 }
 
 // relatedConfigsMapper handles the `related` field in PEG queries.

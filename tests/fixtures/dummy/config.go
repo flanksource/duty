@@ -316,6 +316,7 @@ var NginxIngressPod = models.ConfigItem{
 		"app.kubernetes.io/instance":  "nginx-ingress",
 		"app.kubernetes.io/name":      "ingress-nginx",
 		"helm.sh/chart":               "ingress-nginx-4.8.0",
+		"topic/mission-control":       "true",
 	}),
 	Tags: map[string]string{
 		"namespace": "ingress-nginx",
