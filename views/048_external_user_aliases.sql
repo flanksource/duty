@@ -1,6 +1,6 @@
--- Durable external-user identity mappings. The external_users.aliases array is
--- retained for compatibility, while this table provides a normalized lookup
--- for scraped aliases, manually-added aliases, and historical IDs after merge.
+-- Normalized lookup index for external-user aliases. external_users.aliases is
+-- the source of truth; this table enforces global uniqueness, records how an
+-- alias was added, and provides efficient lookups and cache notifications.
 
 CREATE OR REPLACE FUNCTION normalize_external_user_alias()
 RETURNS TRIGGER AS $$
@@ -19,22 +19,98 @@ CREATE TRIGGER normalize_external_user_alias_trigger
   FOR EACH ROW
   EXECUTE FUNCTION normalize_external_user_alias();
 
--- Keep scraper-discovered aliases represented in the mapping table. Canonical
--- IDs are resolved directly from external_users; only historical loser IDs are
--- stored as aliases after a merge. Conflicts are intentionally left with their
--- existing owner so normal scraper resolution can reconcile duplicate users.
-CREATE OR REPLACE FUNCTION sync_external_user_aliases()
+-- Serialize source-array changes before their statements acquire row locks.
+-- The RPCs and merge functions take the same transaction-scoped advisory lock.
+CREATE OR REPLACE FUNCTION lock_external_user_alias_sync()
 RETURNS TRIGGER AS $$
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS lock_external_user_alias_sync_trigger ON external_users;
+CREATE TRIGGER lock_external_user_alias_sync_trigger
+  BEFORE INSERT OR UPDATE OF aliases, deleted_at ON external_users
+  FOR EACH STATEMENT
+  EXECUTE FUNCTION lock_external_user_alias_sync();
+
+-- Keep the normalized lookup index synchronized with the authoritative aliases
+-- array. Adding an alias creates an index row; removing an alias deactivates its
+-- row. A conflicting owner is rejected rather than silently stealing an alias.
+CREATE OR REPLACE FUNCTION sync_external_user_aliases()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_conflict_alias TEXT;
+  v_conflict_owner UUID;
+BEGIN
   IF NEW.deleted_at IS NOT NULL THEN
+    UPDATE external_user_aliases
+    SET deleted_at = COALESCE(deleted_at, now())
+    WHERE external_user_id = NEW.id AND deleted_at IS NULL;
     RETURN NULL;
   END IF;
 
+  SELECT lower(btrim(a)), eua.external_user_id
+  INTO v_conflict_alias, v_conflict_owner
+  FROM unnest(COALESCE(NEW.aliases, '{}'::text[])) AS a
+  JOIN external_user_aliases eua
+    ON eua.alias = lower(btrim(a)) AND eua.deleted_at IS NULL
+  WHERE btrim(a) <> '' AND eua.external_user_id <> NEW.id
+  LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION 'alias % is already assigned to external user %', v_conflict_alias, v_conflict_owner
+      USING ERRCODE = '23505';
+  END IF;
+
+  -- A live canonical ID is never an alias, including the user's own ID.
+  SELECT lower(btrim(a)), eu.id
+  INTO v_conflict_alias, v_conflict_owner
+  FROM unnest(COALESCE(NEW.aliases, '{}'::text[])) AS a
+  JOIN external_users eu
+    ON eu.id::text = lower(btrim(a)) AND eu.deleted_at IS NULL
+  WHERE btrim(a) <> ''
+  LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION 'alias % is the canonical ID of active external user %', v_conflict_alias, v_conflict_owner
+      USING ERRCODE = '23505';
+  END IF;
+
+  -- Also protect the inverse race: a new canonical user ID cannot claim a
+  -- value already present in another active user's source aliases array.
+  SELECT eu.id INTO v_conflict_owner
+  FROM external_users eu
+  CROSS JOIN LATERAL unnest(COALESCE(eu.aliases, '{}'::text[])) AS a
+  WHERE eu.id <> NEW.id
+    AND eu.deleted_at IS NULL
+    AND lower(btrim(a)) = NEW.id::text
+  LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION 'canonical external user ID % is already an alias of active external user %', NEW.id, v_conflict_owner
+      USING ERRCODE = '23505';
+  END IF;
+
+  UPDATE external_user_aliases eua
+  SET deleted_at = now()
+  WHERE eua.external_user_id = NEW.id
+    AND eua.deleted_at IS NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM unnest(COALESCE(NEW.aliases, '{}'::text[])) AS a
+      WHERE btrim(a) <> '' AND lower(btrim(a)) = eua.alias
+    );
+
   INSERT INTO external_user_aliases (external_user_id, alias, source)
-  SELECT NEW.id, lower(btrim(a)), 'scrape'
+  SELECT DISTINCT NEW.id, lower(btrim(a)), 'scrape'
   FROM unnest(COALESCE(NEW.aliases, '{}'::text[])) AS a
   WHERE btrim(a) <> ''
-  ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
+    AND NOT EXISTS (
+      SELECT 1
+      FROM external_user_aliases eua
+      WHERE eua.alias = lower(btrim(a))
+        AND eua.external_user_id = NEW.id
+        AND eua.deleted_at IS NULL
+    );
 
   RETURN NULL;
 END;
@@ -46,9 +122,24 @@ CREATE TRIGGER sync_external_user_aliases_trigger
   FOR EACH ROW
   EXECUTE FUNCTION sync_external_user_aliases();
 
--- Backfill existing active users. If historical data contains an overlapping
--- alias, choose the same deterministic lowest UUID used by the scrape merge
--- function; a subsequent merge will consolidate the duplicate rows.
+-- Remove stale index rows before rebuilding missing rows from the source of
+-- truth. This also repairs rows left behind by an older add-only trigger.
+UPDATE external_user_aliases eua
+SET deleted_at = now()
+WHERE eua.deleted_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM external_users eu
+    CROSS JOIN LATERAL unnest(COALESCE(eu.aliases, '{}'::text[])) AS a
+    WHERE eu.id = eua.external_user_id
+      AND eu.deleted_at IS NULL
+      AND btrim(a) <> ''
+      AND lower(btrim(a)) = eua.alias
+  );
+
+-- Backfill missing index rows from active users. If historical data contains
+-- an overlapping alias, choose the same deterministic lowest UUID used by the
+-- scrape merge function; a subsequent merge will consolidate the duplicate.
 INSERT INTO external_user_aliases (external_user_id, alias, source)
 SELECT DISTINCT ON (key.alias) key.external_user_id, key.alias, 'scrape'
 FROM (
@@ -60,9 +151,9 @@ FROM (
 ORDER BY key.alias, key.external_user_id::text
 ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
 
--- Add a non-conflicting manual alias. Aliases which already identify another
--- user require merge_external_users so adding a typo cannot silently merge
--- identities and rewrite access records.
+-- Add a non-conflicting manual alias to the authoritative aliases array and
+-- its normalized lookup index. Aliases owned by another user require an
+-- explicit merge so a typo cannot silently rewrite access records.
 CREATE OR REPLACE FUNCTION add_external_user_alias(
   p_external_user_id UUID,
   p_alias TEXT,
@@ -79,12 +170,21 @@ BEGIN
     RAISE EXCEPTION 'external user alias cannot be empty' USING ERRCODE = '23514';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM external_users
-    WHERE id = p_external_user_id AND deleted_at IS NULL
-  ) THEN
+  LOCK TABLE external_user_aliases, external_users IN ROW EXCLUSIVE MODE;
+  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
+
+  PERFORM 1
+  FROM external_users
+  WHERE id = p_external_user_id AND deleted_at IS NULL
+  FOR UPDATE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'active external user % does not exist', p_external_user_id
       USING ERRCODE = '23503';
+  END IF;
+
+  IF v_alias = p_external_user_id::text THEN
+    RAISE EXCEPTION 'canonical external user ID % is not an alias', v_alias
+      USING ERRCODE = '23514';
   END IF;
 
   SELECT * INTO v_existing
@@ -97,39 +197,117 @@ BEGIN
       RAISE EXCEPTION 'alias % is already assigned to external user %', v_alias, v_existing.external_user_id
         USING ERRCODE = '23505';
     END IF;
-    RETURN v_existing;
+    v_result := v_existing;
+  ELSE
+    -- Live canonical UUIDs are intentionally not duplicated in the index, so
+    -- check external_users as well before accepting a manual alias.
+    SELECT id INTO v_owner
+    FROM external_users
+    WHERE deleted_at IS NULL
+      AND id <> p_external_user_id
+      AND (
+        id::text = v_alias
+        OR EXISTS (
+          SELECT 1 FROM unnest(COALESCE(aliases, '{}'::text[])) AS a
+          WHERE lower(btrim(a)) = v_alias
+        )
+      )
+    LIMIT 1;
+    IF FOUND THEN
+      RAISE EXCEPTION 'alias % already identifies active external user %', v_alias, v_owner
+        USING ERRCODE = '23505';
+    END IF;
+
+    INSERT INTO external_user_aliases (external_user_id, alias, source, created_by)
+    VALUES (p_external_user_id, v_alias, 'manual', p_created_by)
+    RETURNING * INTO v_result;
   END IF;
 
-  -- Live canonical UUIDs are intentionally not duplicated in the mapping
-  -- table, so check external_users as well before accepting a manual alias.
-  SELECT id INTO v_owner
+  -- The current canonical ID is represented by external_users.id, not as an
+  -- alias. Every other lookup key is stored in the authoritative aliases array.
+  -- Always perform this update so retrying the RPC repairs an inconsistent
+  -- index row that was created without its source alias.
+  UPDATE external_users
+  SET aliases = ARRAY(
+    SELECT DISTINCT lower(btrim(a))
+    FROM unnest(COALESCE(aliases, '{}'::text[]) || ARRAY[v_alias]) AS a
+    WHERE btrim(a) <> ''
+    ORDER BY lower(btrim(a))
+  ), updated_at = now()
+  WHERE id = p_external_user_id AND deleted_at IS NULL;
+
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Remove an alias from the authoritative aliases array and deactivate its
+-- lookup-index row. Repeating the operation is safe and returns false when
+-- there was nothing left to remove.
+CREATE OR REPLACE FUNCTION remove_external_user_alias(
+  p_external_user_id UUID,
+  p_alias TEXT,
+  p_deleted_by UUID DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_alias TEXT := lower(btrim(p_alias));
+  v_owner UUID;
+  v_removed BOOLEAN := false;
+BEGIN
+  IF v_alias = '' THEN
+    RAISE EXCEPTION 'external user alias cannot be empty' USING ERRCODE = '23514';
+  END IF;
+
+  LOCK TABLE external_user_aliases, external_users IN ROW EXCLUSIVE MODE;
+  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
+
+  PERFORM 1
   FROM external_users
-  WHERE deleted_at IS NULL
-    AND id <> p_external_user_id
-    AND (id::text = v_alias OR v_alias = ANY(COALESCE(aliases, '{}'::text[])))
-  LIMIT 1;
-  IF FOUND THEN
-    RAISE EXCEPTION 'alias % already identifies active external user %', v_alias, v_owner
+  WHERE id = p_external_user_id AND deleted_at IS NULL
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'active external user % does not exist', p_external_user_id
+      USING ERRCODE = '23503';
+  END IF;
+
+  SELECT external_user_id INTO v_owner
+  FROM external_user_aliases
+  WHERE alias = v_alias AND deleted_at IS NULL
+  FOR UPDATE;
+  IF FOUND AND v_owner <> p_external_user_id THEN
+    RAISE EXCEPTION 'alias % is assigned to external user %', v_alias, v_owner
       USING ERRCODE = '23505';
   END IF;
 
-  INSERT INTO external_user_aliases (external_user_id, alias, source, created_by)
-  VALUES (p_external_user_id, v_alias, 'manual', p_created_by)
-  RETURNING * INTO v_result;
-
-  -- Canonical IDs live in the mapping table but are not duplicated in the
-  -- compatibility aliases array.
-  IF v_alias <> p_external_user_id::text THEN
-    UPDATE external_users
-    SET aliases = ARRAY(
-      SELECT DISTINCT a
-      FROM unnest(COALESCE(aliases, '{}'::text[]) || ARRAY[v_alias]) AS a
-      ORDER BY a
-    ), updated_at = now()
-    WHERE id = p_external_user_id AND deleted_at IS NULL;
+  UPDATE external_user_aliases
+  SET deleted_at = now(), deleted_by = p_deleted_by
+  WHERE external_user_id = p_external_user_id
+    AND alias = v_alias
+    AND deleted_at IS NULL;
+  IF FOUND THEN
+    v_removed := true;
   END IF;
 
-  RETURN v_result;
+  UPDATE external_users
+  SET aliases = NULLIF(ARRAY(
+        SELECT DISTINCT lower(btrim(a))
+        FROM unnest(COALESCE(aliases, '{}'::text[])) AS a
+        WHERE btrim(a) <> '' AND lower(btrim(a)) <> v_alias
+        ORDER BY lower(btrim(a))
+      ), '{}'::text[]),
+      updated_at = now()
+  WHERE id = p_external_user_id
+    AND deleted_at IS NULL
+    AND EXISTS (
+      SELECT 1
+      FROM unnest(COALESCE(aliases, '{}'::text[])) AS a
+      WHERE lower(btrim(a)) = v_alias
+    );
+  IF FOUND THEN
+    v_removed := true;
+  END IF;
+
+  RETURN v_removed;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -158,6 +336,7 @@ BEGIN
 
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
     external_user_aliases, external_users IN SHARE ROW EXCLUSIVE MODE;
+  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
 
   SELECT * INTO v_primary
   FROM external_users
@@ -300,6 +479,12 @@ BEGIN
   FROM unnest(COALESCE(v_aliases, '{}'::text[])) AS alias
   ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
 
+  -- The old canonical ID can become an alias only after it stops being a live
+  -- canonical ID. Its aliases remain available for the primary update below.
+  UPDATE external_users
+  SET deleted_at = now(), updated_at = now()
+  WHERE id = p_duplicate_id;
+
   UPDATE external_users
   SET aliases = NULLIF(ARRAY(
         SELECT DISTINCT a
@@ -309,10 +494,6 @@ BEGIN
       ), '{}'::text[]),
       updated_at = now()
   WHERE id = p_primary_id;
-
-  UPDATE external_users
-  SET deleted_at = now(), updated_at = now()
-  WHERE id = p_duplicate_id;
 
   RETURN p_primary_id;
 END;

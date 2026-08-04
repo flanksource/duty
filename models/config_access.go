@@ -69,9 +69,9 @@ func (e *ExternalUser) SetAliases(aliases []string) {
 	e.Aliases = aliases
 }
 
-// ExternalUserAlias maps a normalized external identity or historical user ID
-// to its canonical external user. Rows created manually or by a merge are
-// durable and are not owned by a scraper lifecycle.
+// ExternalUserAlias is the normalized lookup index for an alias in
+// ExternalUser.Aliases. The aliases array remains the source of truth; this
+// model carries uniqueness, provenance, and audit metadata for each key.
 type ExternalUserAlias struct {
 	ID             uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	ExternalUserID uuid.UUID  `json:"external_user_id" gorm:"not null"`
