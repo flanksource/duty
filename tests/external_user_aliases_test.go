@@ -220,13 +220,6 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 		Expect(DefaultContext.DB().Exec("DELETE FROM external_users WHERE id = ?", raceID).Error).ToNot(HaveOccurred())
 	})
 
-	It("rejects storing a live canonical ID as its own alias", func() {
-		err := DefaultContext.DB().
-			Exec("SELECT add_external_user_alias(?, ?)", primaryID, primaryID.String()).Error
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("is not an alias"))
-	})
-
 	It("rejects assigning an existing alias to another active user", func() {
 		err := DefaultContext.DB().
 			Exec("SELECT add_external_user_alias(?, ?)", primaryID, "github://duplicate-user").Error
@@ -242,47 +235,6 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 		`, primaryID).Error
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("already assigned"))
-	})
-
-	It("rejects canonical IDs added directly to the source aliases array", func() {
-		for _, canonicalID := range []uuid.UUID{primaryID, duplicateID} {
-			err := DefaultContext.DB().Exec(`
-				UPDATE external_users
-				SET aliases = array_append(COALESCE(aliases, '{}'::text[]), ?)
-				WHERE id = ?
-			`, canonicalID.String(), primaryID).Error
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("canonical ID of active external user"))
-		}
-	})
-
-	It("rejects assigning another active user's canonical ID as an alias", func() {
-		err := DefaultContext.DB().
-			Exec("SELECT add_external_user_alias(?, ?)", primaryID, duplicateID.String()).Error
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("already identifies active external user"))
-	})
-
-	It("rejects creating a canonical user whose ID is already a source alias", func() {
-		futureID := uuid.New()
-		Expect(DefaultContext.DB().Exec(
-			"SELECT add_external_user_alias(?, ?)", primaryID, futureID.String(),
-		).Error).ToNot(HaveOccurred())
-
-		user := models.ExternalUser{
-			ID:        futureID,
-			Name:      "Conflicting Canonical User",
-			Aliases:   pq.StringArray{"provider://future-user"},
-			ScraperID: dummy.KubeScrapeConfig.ID,
-			CreatedAt: time.Now(),
-		}
-		err := DefaultContext.DB().Create(&user).Error
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("already an alias of active external user"))
-
-		Expect(DefaultContext.DB().Exec(
-			"SELECT remove_external_user_alias(?, ?)", primaryID, futureID.String(),
-		).Error).ToNot(HaveOccurred())
 	})
 
 	It("merges into the explicitly selected primary and redirects old IDs", func() {

@@ -19,22 +19,6 @@ CREATE TRIGGER normalize_external_user_alias_trigger
   FOR EACH ROW
   EXECUTE FUNCTION normalize_external_user_alias();
 
--- Serialize source-array changes before their statements acquire row locks.
--- The RPCs and merge functions take the same transaction-scoped advisory lock.
-CREATE OR REPLACE FUNCTION lock_external_user_alias_sync()
-RETURNS TRIGGER AS $$
-BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS lock_external_user_alias_sync_trigger ON external_users;
-CREATE TRIGGER lock_external_user_alias_sync_trigger
-  BEFORE INSERT OR UPDATE OF aliases, deleted_at ON external_users
-  FOR EACH STATEMENT
-  EXECUTE FUNCTION lock_external_user_alias_sync();
-
 -- Keep the normalized lookup index synchronized with the authoritative aliases
 -- array. Adding an alias creates an index row; removing an alias deactivates its
 -- row. A conflicting owner is rejected rather than silently stealing an alias.
@@ -60,33 +44,6 @@ BEGIN
   LIMIT 1;
   IF FOUND THEN
     RAISE EXCEPTION 'alias % is already assigned to external user %', v_conflict_alias, v_conflict_owner
-      USING ERRCODE = '23505';
-  END IF;
-
-  -- A live canonical ID is never an alias, including the user's own ID.
-  SELECT lower(btrim(a)), eu.id
-  INTO v_conflict_alias, v_conflict_owner
-  FROM unnest(COALESCE(NEW.aliases, '{}'::text[])) AS a
-  JOIN external_users eu
-    ON eu.id::text = lower(btrim(a)) AND eu.deleted_at IS NULL
-  WHERE btrim(a) <> ''
-  LIMIT 1;
-  IF FOUND THEN
-    RAISE EXCEPTION 'alias % is the canonical ID of active external user %', v_conflict_alias, v_conflict_owner
-      USING ERRCODE = '23505';
-  END IF;
-
-  -- Also protect the inverse race: a new canonical user ID cannot claim a
-  -- value already present in another active user's source aliases array.
-  SELECT eu.id INTO v_conflict_owner
-  FROM external_users eu
-  CROSS JOIN LATERAL unnest(COALESCE(eu.aliases, '{}'::text[])) AS a
-  WHERE eu.id <> NEW.id
-    AND eu.deleted_at IS NULL
-    AND lower(btrim(a)) = NEW.id::text
-  LIMIT 1;
-  IF FOUND THEN
-    RAISE EXCEPTION 'canonical external user ID % is already an alias of active external user %', NEW.id, v_conflict_owner
       USING ERRCODE = '23505';
   END IF;
 
@@ -170,9 +127,6 @@ BEGIN
     RAISE EXCEPTION 'external user alias cannot be empty' USING ERRCODE = '23514';
   END IF;
 
-  LOCK TABLE external_user_aliases, external_users IN ROW EXCLUSIVE MODE;
-  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
-
   PERFORM 1
   FROM external_users
   WHERE id = p_external_user_id AND deleted_at IS NULL
@@ -180,11 +134,6 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'active external user % does not exist', p_external_user_id
       USING ERRCODE = '23503';
-  END IF;
-
-  IF v_alias = p_external_user_id::text THEN
-    RAISE EXCEPTION 'canonical external user ID % is not an alias', v_alias
-      USING ERRCODE = '23514';
   END IF;
 
   SELECT * INTO v_existing
@@ -199,18 +148,15 @@ BEGIN
     END IF;
     v_result := v_existing;
   ELSE
-    -- Live canonical UUIDs are intentionally not duplicated in the index, so
-    -- check external_users as well before accepting a manual alias.
+    -- The source arrays remain authoritative even if their derived index is
+    -- temporarily incomplete, so check them before accepting a manual alias.
     SELECT id INTO v_owner
     FROM external_users
     WHERE deleted_at IS NULL
       AND id <> p_external_user_id
-      AND (
-        id::text = v_alias
-        OR EXISTS (
-          SELECT 1 FROM unnest(COALESCE(aliases, '{}'::text[])) AS a
-          WHERE lower(btrim(a)) = v_alias
-        )
+      AND EXISTS (
+        SELECT 1 FROM unnest(COALESCE(aliases, '{}'::text[])) AS a
+        WHERE lower(btrim(a)) = v_alias
       )
     LIMIT 1;
     IF FOUND THEN
@@ -223,8 +169,6 @@ BEGIN
     RETURNING * INTO v_result;
   END IF;
 
-  -- The current canonical ID is represented by external_users.id, not as an
-  -- alias. Every other lookup key is stored in the authoritative aliases array.
   -- Always perform this update so retrying the RPC repairs an inconsistent
   -- index row that was created without its source alias.
   UPDATE external_users
@@ -257,9 +201,6 @@ BEGIN
   IF v_alias = '' THEN
     RAISE EXCEPTION 'external user alias cannot be empty' USING ERRCODE = '23514';
   END IF;
-
-  LOCK TABLE external_user_aliases, external_users IN ROW EXCLUSIVE MODE;
-  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
 
   PERFORM 1
   FROM external_users
@@ -336,7 +277,6 @@ BEGIN
 
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
     external_user_aliases, external_users IN SHARE ROW EXCLUSIVE MODE;
-  PERFORM pg_advisory_xact_lock(hashtextextended('external_user_aliases_source_sync', 0));
 
   SELECT * INTO v_primary
   FROM external_users
