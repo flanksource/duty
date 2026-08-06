@@ -38,7 +38,7 @@ DECLARE
   v_sample JSONB;
 BEGIN
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
-    external_user_aliases, external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+    external_users, external_user_aliases, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
 
   IF v_debug THEN
     EXECUTE format('SELECT count(*) FROM %I', p_temp_table) INTO v_row_count;

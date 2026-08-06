@@ -17,6 +17,7 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 	var primaryID, duplicateID uuid.UUID
 	var accessID string
 	var reviewID uuid.UUID
+	var softDeletedMembershipAt time.Time
 
 	BeforeAll(func() {
 		// The primary deliberately sorts after the duplicate. The manual merge
@@ -91,13 +92,26 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 			CreatedAt:       now,
 		}
 		Expect(DefaultContext.DB().Create(&membership).Error).ToNot(HaveOccurred())
+
+		softDeletedMembershipAt = now.Add(-time.Hour).Truncate(time.Microsecond)
+		softDeletedMembership := models.ExternalUserGroup{
+			ExternalUserID:  duplicateID,
+			ExternalGroupID: dummy.MissionControlAdminsGroup.ID,
+			ScraperID:       dummy.KubeScrapeConfig.ID,
+			CreatedAt:       now.Add(-2 * time.Hour),
+			DeletedAt:       &softDeletedMembershipAt,
+		}
+		Expect(DefaultContext.DB().Create(&softDeletedMembership).Error).ToNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
 		Expect(DefaultContext.DB().Exec("DELETE FROM config_access WHERE id = ?", accessID).Error).ToNot(HaveOccurred())
 		Expect(DefaultContext.DB().Exec("DELETE FROM access_reviews WHERE id = ?", reviewID).Error).ToNot(HaveOccurred())
 		Expect(DefaultContext.DB().Exec("DELETE FROM config_access_logs WHERE config_id = ? AND external_user_id = ? AND scraper_id = ?", dummy.MissionControlNamespace.ID, primaryID, dummy.KubeScrapeConfig.ID).Error).ToNot(HaveOccurred())
-		Expect(DefaultContext.DB().Exec("DELETE FROM external_user_groups WHERE external_user_id = ? AND external_group_id = ? AND scraper_id = ?", primaryID, dummy.MissionControlReadersGroup.ID, dummy.KubeScrapeConfig.ID).Error).ToNot(HaveOccurred())
+		Expect(DefaultContext.DB().Exec(
+			"DELETE FROM external_user_groups WHERE external_user_id = ? AND scraper_id = ?",
+			primaryID, dummy.KubeScrapeConfig.ID,
+		).Error).ToNot(HaveOccurred())
 		Expect(DefaultContext.DB().Exec("DELETE FROM external_users WHERE id IN ?", []uuid.UUID{primaryID, duplicateID}).Error).ToNot(HaveOccurred())
 	})
 
@@ -191,21 +205,74 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 			CreatedAt: time.Now(),
 		}
 		Expect(DefaultContext.DB().Create(&raceUser).Error).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			Expect(DefaultContext.DB().Exec("DELETE FROM external_users WHERE id = ?", raceID).Error).ToNot(HaveOccurred())
+		})
 
 		addTx := DefaultContext.DB().Begin()
 		Expect(addTx.Error).ToNot(HaveOccurred())
+		defer addTx.Rollback()
 		Expect(addTx.Exec(
 			"SELECT add_external_user_alias(?, ?)", raceID, "manual://concurrent-user",
 		).Error).ToNot(HaveOccurred())
 
+		deletePID := make(chan int, 1)
+		deleteIssued := make(chan struct{})
 		deleteDone := make(chan error, 1)
 		go func() {
-			deleteDone <- DefaultContext.DB().Exec(
+			deleteTx := DefaultContext.DB().Begin()
+			if deleteTx.Error != nil {
+				deletePID <- 0
+				close(deleteIssued)
+				deleteDone <- deleteTx.Error
+				return
+			}
+
+			var pid int
+			if err := deleteTx.Raw("SELECT pg_backend_pid()").Scan(&pid).Error; err != nil {
+				deleteTx.Rollback()
+				deletePID <- 0
+				close(deleteIssued)
+				deleteDone <- err
+				return
+			}
+			deletePID <- pid
+			close(deleteIssued)
+
+			err := deleteTx.Exec(
 				"UPDATE external_users SET deleted_at = now() WHERE id = ?", raceID,
 			).Error
+			if err != nil {
+				deleteTx.Rollback()
+				deleteDone <- err
+				return
+			}
+			deleteDone <- deleteTx.Commit().Error
 		}()
 
-		Consistently(deleteDone, 150*time.Millisecond).ShouldNot(Receive())
+		pid := <-deletePID
+		Expect(pid).To(BeNumerically(">", 0))
+		Eventually(deleteIssued, time.Second).Should(BeClosed())
+
+		var lockQueryErr error
+		Eventually(func() bool {
+			var waiting bool
+			lockQueryErr = DefaultContext.DB().Raw(`
+				SELECT EXISTS (
+					SELECT 1
+					FROM pg_stat_activity activity
+					JOIN pg_locks lock ON lock.pid = activity.pid
+					WHERE activity.pid = ?
+					  AND activity.wait_event_type = 'Lock'
+					  AND lock.locktype = 'transactionid'
+					  AND lock.granted = false
+				)
+			`, pid).Scan(&waiting).Error
+			return lockQueryErr == nil && waiting
+		}, 3*time.Second, 10*time.Millisecond).Should(BeTrue())
+		Expect(lockQueryErr).ToNot(HaveOccurred())
+		Consistently(deleteDone, 100*time.Millisecond).ShouldNot(Receive())
+
 		Expect(addTx.Commit().Error).ToNot(HaveOccurred())
 
 		var deleteErr error
@@ -217,7 +284,6 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 			Where("external_user_id = ? AND deleted_at IS NULL", raceID).
 			Count(&activeCount).Error).ToNot(HaveOccurred())
 		Expect(activeCount).To(BeZero())
-		Expect(DefaultContext.DB().Exec("DELETE FROM external_users WHERE id = ?", raceID).Error).ToNot(HaveOccurred())
 	})
 
 	It("rejects assigning an existing alias to another active user", func() {
@@ -298,6 +364,13 @@ var _ = Describe("External user alias mappings", Ordered, func() {
 			"external_user_id = ? AND external_group_id = ? AND scraper_id = ?",
 			primaryID, dummy.MissionControlReadersGroup.ID, dummy.KubeScrapeConfig.ID).Error).ToNot(HaveOccurred())
 		Expect(membership.DeletedAt).To(BeNil())
+
+		var softDeletedMembership models.ExternalUserGroup
+		Expect(DefaultContext.DB().First(&softDeletedMembership,
+			"external_user_id = ? AND external_group_id = ? AND scraper_id = ?",
+			primaryID, dummy.MissionControlAdminsGroup.ID, dummy.KubeScrapeConfig.ID).Error).ToNot(HaveOccurred())
+		Expect(softDeletedMembership.DeletedAt).ToNot(BeNil())
+		Expect(softDeletedMembership.DeletedAt.Equal(softDeletedMembershipAt)).To(BeTrue())
 	})
 
 	It("keeps every active lookup row represented in the source aliases array", func() {

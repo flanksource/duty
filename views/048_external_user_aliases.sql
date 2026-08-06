@@ -262,7 +262,6 @@ CREATE OR REPLACE FUNCTION merge_external_users(
 )
 RETURNS UUID AS $$
 DECLARE
-  v_primary external_users%ROWTYPE;
   v_duplicate external_users%ROWTYPE;
   v_aliases TEXT[];
   v_conflict external_user_aliases%ROWTYPE;
@@ -276,9 +275,9 @@ BEGIN
   END IF;
 
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
-    external_user_aliases, external_users IN SHARE ROW EXCLUSIVE MODE;
+    external_users, external_user_aliases IN SHARE ROW EXCLUSIVE MODE;
 
-  SELECT * INTO v_primary
+  PERFORM 1
   FROM external_users
   WHERE id = p_primary_id AND deleted_at IS NULL
   FOR UPDATE;
@@ -400,10 +399,14 @@ BEGIN
 
   DELETE FROM config_access_logs WHERE external_user_id = p_duplicate_id;
 
-  INSERT INTO external_user_groups (external_user_id, external_group_id, scraper_id, created_at)
-  SELECT p_primary_id, external_group_id, scraper_id, created_at
+  INSERT INTO external_user_groups (
+    external_user_id, external_group_id, scraper_id,
+    deleted_at, deleted_by, created_at, created_by
+  )
+  SELECT p_primary_id, external_group_id, scraper_id,
+         deleted_at, deleted_by, created_at, created_by
   FROM external_user_groups
-  WHERE external_user_id = p_duplicate_id AND deleted_at IS NULL
+  WHERE external_user_id = p_duplicate_id
   ON CONFLICT (external_user_id, external_group_id, scraper_id) DO NOTHING;
 
   DELETE FROM external_user_groups WHERE external_user_id = p_duplicate_id;
@@ -419,18 +422,18 @@ BEGIN
   FROM unnest(COALESCE(v_aliases, '{}'::text[])) AS alias
   ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
 
-  -- The old canonical ID can become an alias only after it stops being a live
-  -- canonical ID. Its aliases remain available for the primary update below.
   UPDATE external_users
   SET deleted_at = now(), updated_at = now()
   WHERE id = p_duplicate_id;
 
+  -- Add the duplicate's normalized aliases, including its old canonical ID,
+  -- to the primary only after the duplicate is no longer active.
   UPDATE external_users
   SET aliases = NULLIF(ARRAY(
-        SELECT DISTINCT a
+        SELECT DISTINCT lower(btrim(a))
         FROM unnest(COALESCE(aliases, '{}'::text[]) || COALESCE(v_aliases, '{}'::text[])) AS a
-        WHERE a <> ''
-        ORDER BY a
+        WHERE lower(btrim(a)) <> ''
+        ORDER BY lower(btrim(a))
       ), '{}'::text[]),
       updated_at = now()
   WHERE id = p_primary_id;
