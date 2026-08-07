@@ -184,6 +184,9 @@ var dbResourceObjMap = map[string]string{
 	"rpc/merge_and_upsert_external_users":               policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_groups":              policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_roles":               policy.ObjectDatabaseSystem,
+	"rpc/add_external_user_alias":                       policy.ObjectCatalog,
+	"rpc/remove_external_user_alias":                    policy.ObjectCatalog,
+	"rpc/merge_external_users":                          policy.ObjectCatalog,
 	"rpc/permissions_for_obj_selector":                  policy.ObjectDatabaseSystem,
 	"rpc/soft_delete_canary":                            policy.ObjectCanary,
 	"rpc/soft_delete_check":                             policy.ObjectCanary,
@@ -234,7 +237,10 @@ var dbResourceObjMap = map[string]string{
 	"external_groups":      policy.ObjectCatalog,
 	"external_roles":       policy.ObjectCatalog,
 	"external_user_groups": policy.ObjectCatalog,
-	"external_users":       policy.ObjectCatalog,
+	// Alias rows are a derived index and are changed through catalog RPCs.
+	// Mapping direct table access to system prevents normal PostgREST writes.
+	"external_user_aliases": policy.ObjectDatabaseSystem,
+	"external_users":        policy.ObjectCatalog,
 }
 
 func GetObjectByTable(resource string) string {

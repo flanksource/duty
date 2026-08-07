@@ -38,7 +38,7 @@ DECLARE
   v_sample JSONB;
 BEGIN
   LOCK TABLE config_access, access_reviews, config_access_logs, external_user_groups,
-    external_users, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
+    external_users, external_user_aliases, external_groups, external_roles IN SHARE ROW EXCLUSIVE MODE;
 
   IF v_debug THEN
     EXECUTE format('SELECT count(*) FROM %I', p_temp_table) INTO v_row_count;
@@ -193,6 +193,14 @@ BEGIN
     ));
   END IF;
 
+  -- Preserve active loser-index provenance before soft deletion synchronizes
+  -- those rows out of the derived lookup table.
+  CREATE TEMP TABLE _eu_alias_migrations ON COMMIT DROP AS
+  SELECT mp.winner_id, eua.alias, eua.created_by
+  FROM external_user_aliases eua
+  JOIN _eu_merges mp ON mp.loser_id = eua.external_user_id
+  WHERE eua.deleted_at IS NULL;
+
   -- Step 3a: Pre-soft-delete any live losers BEFORE Step 3b inserts the temp
   -- winners. Without this, the partial unique index on aliases still contains
   -- the live loser row at the moment the temp winner is inserted, and the
@@ -223,6 +231,21 @@ BEGIN
     GET DIAGNOSTICS v_row_count = ROW_COUNT;
     PERFORM _debug_log('step3b_preinsert', jsonb_build_object('rows_affected', v_row_count));
   END IF;
+
+  -- The winner now exists, so restore the captured aliases as merge-derived
+  -- index rows while retaining the original created_by audit value.
+  UPDATE external_user_aliases eua
+  SET source = 'merge',
+      created_by = COALESCE(eua.created_by, migration.created_by)
+  FROM _eu_alias_migrations migration
+  WHERE eua.external_user_id = migration.winner_id
+    AND eua.alias = migration.alias
+    AND eua.deleted_at IS NULL;
+
+  INSERT INTO external_user_aliases (external_user_id, alias, source, created_by)
+  SELECT migration.winner_id, migration.alias, 'merge', migration.created_by
+  FROM _eu_alias_migrations migration
+  ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
 
   -- Step 4: Remap FKs in bulk without violating unique constraints
   CREATE TEMP TABLE _eu_ca_dups (id TEXT PRIMARY KEY) ON COMMIT DROP;
@@ -297,11 +320,23 @@ BEGIN
   DELETE FROM external_user_groups USING _eu_merges mp
   WHERE external_user_groups.external_user_id = mp.loser_id;
 
-  -- Step 5: Merge aliases from losers into winners in the live table.
+  -- Add historical-ID index rows. The captured loser aliases were restored to
+  -- their winners immediately after the winners were inserted above.
+  INSERT INTO external_user_aliases (external_user_id, alias, source)
+  SELECT mp.winner_id, mp.loser_id::text, 'merge'
+  FROM _eu_merges mp
+  ON CONFLICT (alias) WHERE deleted_at IS NULL DO NOTHING;
+
+  -- Step 5: Soft-delete losers before their old canonical IDs are added to a
+  -- winner's aliases array. The source rows retain their aliases for Step 6.
+  UPDATE external_users SET deleted_at = NOW()
+  FROM _eu_merges mp WHERE external_users.id = mp.loser_id;
+
+  -- Step 6: Merge aliases from losers into winners in the live table.
   -- We also append `loser.id::text` to the winner's alias union so that
   -- future lookups by the loser's old id can recover the winner.
-  -- entity.aliases never contains entity.id for live rows; loser ids only
-  -- become aliases here, at the moment they stop being canonical.
+  -- entity.aliases never contains entity.id for live entities; loser ids only
+  -- become aliases after they stop being canonical above.
   --
   -- A loser may live in the temp table (LEFT JOIN tmp), the live table
   -- (LEFT JOIN external_users) or both — we union all available alias
@@ -323,10 +358,6 @@ BEGIN
     ) agg
     WHERE external_users.id = agg.winner_id
   ', p_temp_table);
-
-  -- Step 6: Soft-delete losers
-  UPDATE external_users SET deleted_at = NOW()
-  FROM _eu_merges mp WHERE external_users.id = mp.loser_id;
 
   -- Step 7: Consolidate temp table (merge aliases from all losers - both
   -- temp and live - into temp winners). As in Step 5, also append the

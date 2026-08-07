@@ -69,6 +69,28 @@ func (e *ExternalUser) SetAliases(aliases []string) {
 	e.Aliases = aliases
 }
 
+// ExternalUserAlias is the normalized lookup index for an alias in
+// ExternalUser.Aliases. The aliases array remains the source of truth; this
+// model carries uniqueness, provenance, and audit metadata for each key.
+type ExternalUserAlias struct {
+	ID             uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
+	ExternalUserID uuid.UUID  `json:"external_user_id" gorm:"not null"`
+	Alias          string     `json:"alias" gorm:"not null"`
+	Source         string     `json:"source" gorm:"not null;default:scrape"`
+	CreatedAt      time.Time  `json:"created_at" gorm:"not null"`
+	CreatedBy      *uuid.UUID `json:"created_by,omitempty"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty"`
+	DeletedBy      *uuid.UUID `json:"deleted_by,omitempty"`
+}
+
+func (e ExternalUserAlias) PK() string {
+	return e.ID.String()
+}
+
+func (e ExternalUserAlias) TableName() string {
+	return "external_user_aliases"
+}
+
 // ExternalGroup represents a group from an external identity provider.
 type ExternalGroup struct {
 	types.NoOpResourceSelectable `json:"-"`
