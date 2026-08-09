@@ -35,8 +35,8 @@ require (
 	github.com/flanksource/clicky v1.21.18
 	github.com/flanksource/commons v1.55.0
 	github.com/flanksource/deps v1.0.35
-	github.com/flanksource/gomplate/v3 v3.24.86
-	github.com/flanksource/is-healthy v1.0.88
+	github.com/flanksource/gomplate/v3 v3.24.87
+	github.com/flanksource/is-healthy v1.0.89
 	github.com/flanksource/sandbox-runtime v1.0.2
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-git/go-git/v5 v5.19.1
@@ -103,7 +103,7 @@ require (
 	gorm.io/gorm v1.31.1
 	gorm.io/plugin/prometheus v0.1.0
 	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
+	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.1
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
@@ -156,7 +156,7 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
-	k8s.io/streaming v0.36.1 // indirect
+	k8s.io/streaming v0.36.2 // indirect
 )
 
 require (
