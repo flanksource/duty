@@ -110,6 +110,88 @@ var _ = Describe("Job", Ordered, func() {
 		Eventually(firstDone, "5s").Should(BeClosed())
 	})
 
+	It("Persists the resource identity on skipped job histories", func() {
+		resourceID := uuid.NewString()
+		name := "skipped-resource-id-" + uuid.NewString()
+		started := make(chan struct{})
+		release := make(chan struct{})
+		firstDone := make(chan struct{})
+		var releaseOnce sync.Once
+		var runs atomic.Int32
+
+		DeferCleanup(func() {
+			releaseOnce.Do(func() { close(release) })
+			Eventually(firstDone, "5s").Should(BeClosed())
+		})
+
+		makeJob := func() *job.Job {
+			return &job.Job{
+				Name:         name,
+				Singleton:    true,
+				JobHistory:   true,
+				Context:      DefaultContext,
+				ResourceID:   resourceID,
+				ResourceType: job.ResourceTypeScraper,
+				Fn: func(ctx job.JobRuntime) error {
+					if runs.Add(1) == 1 {
+						close(started)
+						<-release
+					}
+					return nil
+				},
+			}
+		}
+
+		first := makeJob()
+		second := makeJob()
+
+		go func() {
+			defer close(firstDone)
+			first.Run()
+		}()
+
+		Eventually(started, "5s").Should(BeClosed())
+		second.Run()
+
+		Expect(second.LastJob).ToNot(BeNil())
+		Expect(second.LastJob.Status).To(Equal(models.StatusSkipped))
+		Expect(second.LastJob.ResourceID).To(Equal(resourceID))
+		Expect(second.LastJob.ResourceType).To(Equal(job.ResourceTypeScraper))
+
+		releaseOnce.Do(func() { close(release) })
+		Eventually(firstDone, "5s").Should(BeClosed())
+
+		skipped, err := second.FindHistory(models.StatusSkipped)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(skipped).ToNot(BeEmpty())
+		for _, h := range skipped {
+			Expect(h.ResourceID).To(Equal(resourceID))
+			Expect(h.ResourceType).To(Equal(job.ResourceTypeScraper))
+		}
+	})
+
+	It("Retains the resource identity when a running job history goes stale", func() {
+		resourceID := uuid.NewString()
+		history := models.JobHistory{
+			Name:         "stale-resource-id-" + uuid.NewString(),
+			ResourceID:   resourceID,
+			ResourceType: job.ResourceTypeScraper,
+			Status:       models.StatusRunning,
+			TimeStart:    time.Now().Add(-time.Hour),
+		}
+		Expect(DefaultContext.DB().Create(&history).Error).To(BeNil())
+
+		count, err := job.CleanupStaleRunningHistory(DefaultContext, time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(BeNumerically(">=", 1))
+
+		var stale models.JobHistory
+		Expect(DefaultContext.DB().Where("id = ?", history.ID).First(&stale).Error).To(BeNil())
+		Expect(stale.Status).To(Equal(models.StatusStale))
+		Expect(stale.ResourceID).To(Equal(resourceID))
+		Expect(stale.ResourceType).To(Equal(job.ResourceTypeScraper))
+	})
+
 	It("Allows singleton jobs with different resource identities to run concurrently", func() {
 		var firstRuns atomic.Int32
 		var secondRuns atomic.Int32
