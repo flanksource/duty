@@ -39,6 +39,11 @@ table "oidc_auth_requests" {
     null = false
     type = text
   }
+  column "resource" {
+    null    = true
+    type    = text
+    comment = "MCP resource audience for dynamically registered clients"
+  }
   column "redirect_uri" {
     null = false
     type = text
@@ -125,6 +130,11 @@ table "oidc_refresh_tokens" {
   column "client_id" {
     null = false
     type = text
+  }
+  column "resource" {
+    null    = true
+    type    = text
+    comment = "MCP resource audience retained across refreshes"
   }
   column "subject" {
     null    = false
