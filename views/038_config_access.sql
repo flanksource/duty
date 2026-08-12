@@ -76,6 +76,7 @@ SELECT
 
 -- config_access_summary
 DROP VIEW IF EXISTS config_access_summary_by_user;
+DROP VIEW IF EXISTS config_access_summary_by_group;
 DROP VIEW IF EXISTS config_access_summary_by_config;
 DROP VIEW IF EXISTS config_access_summary;
 
@@ -122,22 +123,45 @@ SELECT
   COUNT(DISTINCT config_access_summary."role") as distinct_roles,
   COUNT(DISTINCT config_access_summary.config_id) as distinct_configs,
   MAX(config_access_summary.last_signed_in_at) as last_signed_in_at,
-  MAX(config_access_summary.created_at) as latest_grant
+  MAX(config_access_summary.created_at) as latest_grant,
+  ARRAY_AGG(DISTINCT config_access_summary.config_type ORDER BY config_access_summary.config_type)
+    FILTER (WHERE config_access_summary.config_type IS NOT NULL) as config_types
 FROM config_access_summary
+WHERE config_access_summary.external_user_id IS NOT NULL
 GROUP BY config_access_summary.external_user_id, config_access_summary."user", config_access_summary.email;
+
+-- config_access_summary_by_group
+CREATE VIEW config_access_summary_by_group AS
+SELECT
+  config_access_summary.external_group_id as external_group_id,
+  external_groups.name as "group",
+  COUNT(*) as access_count,
+  COUNT(DISTINCT config_access_summary.external_user_id) as distinct_users,
+  COUNT(DISTINCT config_access_summary."role") as distinct_roles,
+  COUNT(DISTINCT config_access_summary.config_id) as distinct_configs,
+  MAX(config_access_summary.last_signed_in_at) as last_signed_in_at,
+  MAX(config_access_summary.created_at) as latest_grant,
+  ARRAY_AGG(DISTINCT config_access_summary.config_type ORDER BY config_access_summary.config_type)
+    FILTER (WHERE config_access_summary.config_type IS NOT NULL) as config_types
+FROM config_access_summary
+JOIN external_groups ON config_access_summary.external_group_id = external_groups.id
+WHERE config_access_summary.external_group_id IS NOT NULL
+GROUP BY config_access_summary.external_group_id, external_groups.name;
 
 -- config_access_filter_options
 -- Returns distinct values for all filter dropdowns in a single call.
 -- Each facet excludes its own filter parameter so that selecting a value
 -- in one dropdown does not remove it from its own option list (faceted search).
-DROP FUNCTION IF EXISTS config_access_filter_options;
+DROP FUNCTION IF EXISTS config_access_filter_options(uuid, text, uuid, text, text);
+DROP FUNCTION IF EXISTS config_access_filter_options(uuid, text, uuid, text, text, uuid);
 
 CREATE OR REPLACE FUNCTION config_access_filter_options(
   p_config_id uuid DEFAULT NULL,
   p_config_type text DEFAULT NULL,
   p_user_id uuid DEFAULT NULL,
   p_role text DEFAULT NULL,
-  p_user_type text DEFAULT NULL
+  p_user_type text DEFAULT NULL,
+  p_group_id uuid DEFAULT NULL
 ) RETURNS jsonb AS $$
 SELECT jsonb_build_object(
   'catalogs', COALESCE((
@@ -147,6 +171,7 @@ SELECT jsonb_build_object(
       FROM config_access_summary
       WHERE (p_config_type IS NULL OR config_type = p_config_type)
         AND (p_user_id IS NULL OR external_user_id = p_user_id)
+        AND (p_group_id IS NULL OR external_group_id = p_group_id)
         AND (p_role IS NULL OR "role" = p_role)
         AND (p_user_type IS NULL OR user_type = p_user_type)
       ORDER BY config_name
@@ -158,11 +183,29 @@ SELECT jsonb_build_object(
     FROM (
       SELECT DISTINCT external_user_id, "user", email
       FROM config_access_summary
-      WHERE (p_config_id IS NULL OR config_id = p_config_id)
+      WHERE external_user_id IS NOT NULL
+        AND (p_config_id IS NULL OR config_id = p_config_id)
         AND (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_group_id IS NULL OR external_group_id = p_group_id)
         AND (p_role IS NULL OR "role" = p_role)
         AND (p_user_type IS NULL OR user_type = p_user_type)
       ORDER BY "user"
+    ) sub
+  ), '[]'::jsonb),
+
+  'groups', COALESCE((
+    SELECT jsonb_agg(to_jsonb(sub))
+    FROM (
+      SELECT DISTINCT config_access_summary.external_group_id, external_groups.name AS "group"
+      FROM config_access_summary
+      JOIN external_groups ON config_access_summary.external_group_id = external_groups.id
+      WHERE config_access_summary.external_group_id IS NOT NULL
+        AND (p_config_id IS NULL OR config_id = p_config_id)
+        AND (p_config_type IS NULL OR config_type = p_config_type)
+        AND (p_user_id IS NULL OR external_user_id = p_user_id)
+        AND (p_role IS NULL OR "role" = p_role)
+        AND (p_user_type IS NULL OR user_type = p_user_type)
+      ORDER BY "group"
     ) sub
   ), '[]'::jsonb),
 
@@ -175,6 +218,7 @@ SELECT jsonb_build_object(
         AND (p_config_id IS NULL OR config_id = p_config_id)
         AND (p_config_type IS NULL OR config_type = p_config_type)
         AND (p_user_id IS NULL OR external_user_id = p_user_id)
+        AND (p_group_id IS NULL OR external_group_id = p_group_id)
         AND (p_user_type IS NULL OR user_type = p_user_type)
       ORDER BY "role"
     ) sub
@@ -189,6 +233,7 @@ SELECT jsonb_build_object(
         AND (p_config_id IS NULL OR config_id = p_config_id)
         AND (p_config_type IS NULL OR config_type = p_config_type)
         AND (p_user_id IS NULL OR external_user_id = p_user_id)
+        AND (p_group_id IS NULL OR external_group_id = p_group_id)
         AND (p_role IS NULL OR "role" = p_role)
       ORDER BY user_type
     ) sub
