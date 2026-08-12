@@ -276,22 +276,6 @@ table "config_items" {
     null = false
     type = text
   }
-  column "cost_per_minute" {
-    null = true
-    type = numeric(16, 4)
-  }
-  column "cost_total_1d" {
-    null = true
-    type = numeric(16, 4)
-  }
-  column "cost_total_7d" {
-    null = true
-    type = numeric(16, 4)
-  }
-  column "cost_total_30d" {
-    null = true
-    type = numeric(16, 4)
-  }
   column "name" {
     null = true
     type = text

@@ -30,6 +30,7 @@ type DummyData struct {
 	ComponentRelationships []models.ComponentRelationship
 
 	Configs                      []models.ConfigItem
+	ConfigCosts                  []models.ConfigCost
 	ConfigLocations              []models.ConfigLocation
 	ConfigRelationships          []models.ConfigRelationship
 	ConfigScrapers               []models.ConfigScraper
@@ -119,6 +120,17 @@ func (t *DummyData) Populate(ctx context.Context) error {
 		t.Configs[i].UpdatedAt = &createTime
 	}
 	if err := gormDB.CreateInBatches(t.Configs, 100).Error; err != nil {
+		return err
+	}
+
+	if len(t.ConfigCosts) > 0 {
+		if err := gormDB.CreateInBatches(t.ConfigCosts, 100).Error; err != nil {
+			return err
+		}
+	}
+	// The catalog reads cost through config_costs_rollup, which is only as fresh as its
+	// last refresh, so seeded cost is invisible until this runs.
+	if err := gormDB.Exec("SELECT refresh_config_costs_rollup()").Error; err != nil {
 		return err
 	}
 
@@ -346,6 +358,10 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 		return err
 	}
 
+	if err := DeleteAll(gormDB, t.ConfigCosts); err != nil {
+		return err
+	}
+
 	if len(t.ExternalUserGroups) > 0 {
 		for _, membership := range t.ExternalUserGroups {
 			if err := gormDB.Where("external_user_id = ? AND external_group_id = ?",
@@ -451,6 +467,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
 		ConfigScrapers:               append([]models.ConfigScraper{}, AllConfigScrapers...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
+		ConfigCosts:                  append([]models.ConfigCost{}, AllDummyConfigCosts...),
 		ConfigLocations:              append([]models.ConfigLocation{}, AllDummyConfigLocations...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
@@ -881,7 +898,6 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 			"role":   "worker",
 			"region": "us-east-1",
 		}),
-		CostTotal30d: 1,
 	}
 
 	var KubernetesNodeB = models.ConfigItem{
@@ -893,7 +909,6 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 			"region":         "us-west-2",
 			"storageprofile": "managed",
 		}),
-		CostTotal30d: 1.5,
 	}
 
 	var EC2InstanceA = models.ConfigItem{
@@ -975,6 +990,11 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		LogisticsUIDeployment,
 		LogisticsWorkerDeployment,
 		LogisticsDBRDS,
+	}
+
+	var configCosts = []models.ConfigCost{
+		DayCost(KubernetesNodeA.ID, "1", "Compute"),
+		DayCost(KubernetesNodeB.ID, "1.5", "Compute"),
 	}
 
 	var ClusterNodeARelationship = models.ConfigRelationship{
@@ -1266,6 +1286,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		ConfigRelationships:          configRelationships,
 		ConfigScrapers:               configScrapers,
 		Configs:                      configs,
+		ConfigCosts:                  configCosts,
 		ConfigChanges:                configChanges,
 		ConfigAnalyses:               configAnalysis,
 		ConfigComponentRelationships: configComponentRelationships,

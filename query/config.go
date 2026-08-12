@@ -123,7 +123,7 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	}
 
 	if t.Cost != "" {
-		cols = append(cols, fmt.Sprintf("SUM(cost_total_%s) as cost_%s", t.Cost, t.Cost))
+		cols = append(cols, fmt.Sprintf("SUM(config_costs_rollup.cost_%s) as cost_%s", t.Cost, t.Cost))
 	}
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, t.Changes.Since) {
@@ -304,6 +304,10 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Group(groupBy).
 		Group("aggregated_health_count.health").
 		Order(req.OrderBy())
+
+	if req.Cost != "" {
+		summaryQuery = summaryQuery.Joins("LEFT JOIN config_costs_rollup ON config_costs_rollup.config_id = config_items.id")
+	}
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, req.Changes.Since) {
 		tableName := fmt.Sprintf("config_item_summary_%s", req.Changes.Since)

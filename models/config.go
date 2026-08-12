@@ -133,33 +133,29 @@ type ConfigLocation struct {
 
 // ConfigItem represents the config item database table
 type ConfigItem struct {
-	ID            uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
-	ScraperID     *string              `json:"scraper_id,omitempty"`
-	AgentID       uuid.UUID            `json:"agent_id,omitempty"`
-	ConfigClass   string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
-	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	Type          *string              `json:"type"`
-	Status        *string              `json:"status" gorm:"default:null"`
-	Ready         bool                 `json:"ready"`
-	Health        *Health              `json:"health"`
-	Name          *string              `json:"name,omitempty" faker:"name"`
-	Description   *string              `json:"description"`
-	Config        *string              `json:"config"`
-	Source        *string              `json:"source,omitempty"`
-	ParentID      *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
-	Path          string               `json:"path,omitempty" faker:"-"`
-	CostPerMinute float64              `gorm:"column:cost_per_minute;default:null" json:"cost_per_minute,omitempty"`
-	CostTotal1d   float64              `gorm:"column:cost_total_1d;default:null" json:"cost_total_1d,omitempty"`
-	CostTotal7d   float64              `gorm:"column:cost_total_7d;default:null" json:"cost_total_7d,omitempty"`
-	CostTotal30d  float64              `gorm:"column:cost_total_30d;default:null" json:"cost_total_30d,omitempty"`
-	Labels        *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
-	Tags          types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
-	Properties    *types.Properties    `json:"properties,omitempty"`
-	CreatedAt     time.Time            `json:"created_at" gorm:"<-:create"`
-	InsertedAt    time.Time            `json:"inserted_at" gorm:"->;default:now()"`
-	UpdatedAt     *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
-	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
-	DeleteReason  string               `json:"delete_reason,omitempty"`
+	ID           uuid.UUID            `json:"id" faker:"uuid_hyphenated" gorm:"default:generate_ulid()"`
+	ScraperID    *string              `json:"scraper_id,omitempty"`
+	AgentID      uuid.UUID            `json:"agent_id,omitempty"`
+	ConfigClass  string               `json:"config_class" faker:"oneof:File,EC2Instance,KubernetesPod" `
+	ExternalID   pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
+	Type         *string              `json:"type"`
+	Status       *string              `json:"status" gorm:"default:null"`
+	Ready        bool                 `json:"ready"`
+	Health       *Health              `json:"health"`
+	Name         *string              `json:"name,omitempty" faker:"name"`
+	Description  *string              `json:"description"`
+	Config       *string              `json:"config"`
+	Source       *string              `json:"source,omitempty"`
+	ParentID     *uuid.UUID           `json:"parent_id,omitempty" faker:"-"`
+	Path         string               `json:"path,omitempty" faker:"-"`
+	Labels       *types.JSONStringMap `json:"labels,omitempty" faker:"labels"`
+	Tags         types.JSONStringMap  `json:"tags,omitempty" faker:"tags"`
+	Properties   *types.Properties    `json:"properties,omitempty"`
+	CreatedAt    time.Time            `json:"created_at" gorm:"<-:create"`
+	InsertedAt   time.Time            `json:"inserted_at" gorm:"->;default:now()"`
+	UpdatedAt    *time.Time           `json:"updated_at" gorm:"autoUpdateTime:false"`
+	DeletedAt    *time.Time           `json:"deleted_at,omitempty"`
+	DeleteReason string               `json:"delete_reason,omitempty"`
 
 	configJson map[string]any `json:"-" yaml:"-" gorm:"-"`
 }
@@ -264,10 +260,6 @@ func (c ConfigItem) PrettyRow(opts interface{}) map[string]api.Text {
 
 	if c.Status != nil {
 		row["status"] = clicky.Text(lo.FromPtr(c.Status), "text-gray-700")
-	}
-
-	if c.CostTotal30d > 0 {
-		row["cost"] = clicky.Text(fmt.Sprintf("$%.2f", c.CostTotal30d), "text-green-700")
 	}
 
 	if c.CreatedAt != (time.Time{}) {
@@ -1079,27 +1071,23 @@ func (c ConfigItemSummary) GetAgentID() string {
 
 func (c ConfigItemSummary) ToConfigItem() ConfigItem {
 	return ConfigItem{
-		ID:            c.ID,
-		ScraperID:     c.ScraperID,
-		AgentID:       c.AgentID,
-		ConfigClass:   c.ConfigClass,
-		ExternalID:    c.ExternalID,
-		Type:          c.Type,
-		Status:        c.Status,
-		Ready:         c.Ready,
-		Health:        c.Health,
-		Name:          c.Name,
-		Description:   c.Description,
-		Source:        c.Source,
-		Path:          c.Path,
-		CostPerMinute: c.CostPerMinute,
-		CostTotal1d:   c.CostTotal1d,
-		CostTotal7d:   c.CostTotal7d,
-		CostTotal30d:  c.CostTotal30d,
-		Labels:        c.Labels,
-		Tags:          c.Tags,
-		CreatedAt:     c.CreatedAt,
-		UpdatedAt:     c.UpdatedAt,
-		DeletedAt:     c.DeletedAt,
+		ID:          c.ID,
+		ScraperID:   c.ScraperID,
+		AgentID:     c.AgentID,
+		ConfigClass: c.ConfigClass,
+		ExternalID:  c.ExternalID,
+		Type:        c.Type,
+		Status:      c.Status,
+		Ready:       c.Ready,
+		Health:      c.Health,
+		Name:        c.Name,
+		Description: c.Description,
+		Source:      c.Source,
+		Path:        c.Path,
+		Labels:      c.Labels,
+		Tags:        c.Tags,
+		CreatedAt:   c.CreatedAt,
+		UpdatedAt:   c.UpdatedAt,
+		DeletedAt:   c.DeletedAt,
 	}
 }

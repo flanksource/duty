@@ -20,7 +20,7 @@ var _ = Describe("Aggregation", func() {
 
 	DescribeTable("should aggregate resources correctly",
 		func(tc testCase) {
-			results, err := query.Aggregate(DefaultContext, "config_items", tc.selector)
+			results, err := query.Aggregate(DefaultContext, "configs", tc.selector)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(results).To(Equal(tc.expectedResult))
@@ -73,8 +73,8 @@ var _ = Describe("Aggregation", func() {
 				},
 			},
 			expectedResult: []types.AggregateRow{
-				{"type": "Kubernetes::Node", "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeA.CostTotal30d)},
-				{"type": "Kubernetes::Pod", "cheapest": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodConfig.CostTotal30d)},
+				{"type": "Kubernetes::Node", "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeACost30d)},
+				{"type": "Kubernetes::Pod", "cheapest": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodCost30d)},
 			},
 		}),
 		Entry("calculate MAX created_at by type", testCase{
@@ -90,8 +90,8 @@ var _ = Describe("Aggregation", func() {
 				},
 			},
 			expectedResult: []types.AggregateRow{
-				{"type": "Kubernetes::Node", "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d)},
-				{"type": "Kubernetes::Pod", "most_expensive": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodConfig.CostTotal30d)},
+				{"type": "Kubernetes::Node", "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1Cost30d)},
+				{"type": "Kubernetes::Pod", "most_expensive": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodCost30d)},
 			},
 		}),
 		Entry("calculate SUM created_at by type", testCase{
@@ -107,8 +107,8 @@ var _ = Describe("Aggregation", func() {
 				},
 			},
 			expectedResult: []types.AggregateRow{
-				{"type": "Kubernetes::Node", "total_cost": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d+dummy.KubernetesNodeB.CostTotal30d+dummy.KubernetesNodeA.CostTotal30d)},
-				{"type": "Kubernetes::Pod", "total_cost": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodConfig.CostTotal30d)},
+				{"type": "Kubernetes::Node", "total_cost": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1Cost30d+dummy.KubernetesNodeBCost30d+dummy.KubernetesNodeACost30d)},
+				{"type": "Kubernetes::Pod", "total_cost": fmt.Sprintf("%.4f", dummy.LogisticsAPIPodCost30d)},
 			},
 		}),
 		Entry("combine multiple aggregation functions", testCase{
@@ -126,8 +126,8 @@ var _ = Describe("Aggregation", func() {
 				},
 			},
 			expectedResult: []types.AggregateRow{
-				{"cluster": "aws", "total_count": int64(2), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeA.CostTotal30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeB.CostTotal30d)},
-				{"cluster": "demo", "total_count": int64(1), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1.CostTotal30d)},
+				{"cluster": "aws", "total_count": int64(2), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeACost30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeBCost30d)},
+				{"cluster": "demo", "total_count": int64(1), "cheapest": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1Cost30d), "most_expensive": fmt.Sprintf("%.4f", dummy.KubernetesNodeAKSPool1Cost30d)},
 			},
 		}),
 		Entry("healthy deployments for piechart", testCase{

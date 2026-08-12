@@ -72,6 +72,9 @@ var dbResourceObjMap = map[string]string{
 	"config_class_summary":                      policy.ObjectCatalog,
 	"config_classes":                            policy.ObjectDatabasePublic,
 	"config_component_relationships":            policy.ObjectCatalog,
+	"config_costs":                              policy.ObjectCatalog,
+	"config_costs_rollup":                       policy.ObjectCatalog,
+	"config_costs_unmatched":                    policy.ObjectDatabaseSystem, // unmatched spend has no config item to scope it to
 	"config_detail":                             policy.ObjectCatalog,
 	"config_items_aws":                          policy.ObjectCatalog,
 	"config_items":                              policy.ObjectCatalog,
@@ -182,6 +185,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/related_config_ids":                            policy.ObjectCatalog,
 	"rpc/related_configs_recursive":                     policy.ObjectCatalog,
 	"rpc/related_configs":                               policy.ObjectCatalog,
+	"rpc/refresh_config_costs_rollup":                   policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_users":               policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_groups":              policy.ObjectDatabaseSystem,
 	"rpc/merge_and_upsert_external_roles":               policy.ObjectDatabaseSystem,

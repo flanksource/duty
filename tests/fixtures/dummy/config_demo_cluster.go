@@ -81,7 +81,6 @@ var KubernetesNodeAKSPool1 = models.ConfigItem{
 	Properties: &types.Properties{
 		{Name: "memory", Value: lo.ToPtr(int64(64))},
 	},
-	CostTotal30d: 100,
 }
 
 var LogisticsAPIDeployment = models.ConfigItem{
@@ -278,7 +277,6 @@ var LogisticsAPIPodConfig = models.ConfigItem{
 		"namespace": "missioncontrol",
 		"cluster":   "demo",
 	},
-	CostTotal30d: 5,
 }
 
 var LogisticsUIDeployment = models.ConfigItem{
