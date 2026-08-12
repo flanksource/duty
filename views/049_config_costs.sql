@@ -1,5 +1,3 @@
--- dependsOn: functions/cost_overlap.sql, views/006_config_views.sql
-
 -- Spend the scraper could not attach to a config item. Retained rather than folded into
 -- the account total so the gap is visible and the compaction job can re-attach it once
 -- the config item appears.
