@@ -28,10 +28,15 @@ const (
 type ConfigCost struct {
 	types.NoOpResourceSelectable `json:"-"`
 
-	ID         uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
-	ConfigID   *uuid.UUID `json:"config_id,omitempty"`
-	ScraperID  *uuid.UUID `json:"scraper_id,omitempty"`
-	ExternalID *string    `json:"external_id,omitempty"`
+	ID                      uuid.UUID     `json:"id" gorm:"default:generate_ulid()"`
+	ConfigID                *uuid.UUID    `json:"config_id,omitempty"`
+	ScraperID               *uuid.UUID    `json:"scraper_id,omitempty"`
+	SourceKey               string        `json:"source_key"`
+	SourceRecordID          *string       `json:"source_record_id,omitempty"`
+	ExternalID              *string       `json:"external_id,omitempty"`
+	ExternalConfigType      *string       `json:"external_config_type,omitempty"`
+	ExternalConfigScraperID *string       `json:"external_config_scraper_id,omitempty"`
+	ExternalConfigLabels    types.JSONMap `json:"external_config_labels,omitempty" gorm:"type:jsonb"`
 
 	PeriodStart time.Time `json:"period_start"`
 	PeriodEnd   time.Time `json:"period_end"`
@@ -80,6 +85,7 @@ var _ types.ResourceSelectable = (*ConfigCost)(nil)
 func (c ConfigCost) GetFieldsMatcher() fields.Fields {
 	m := map[string]any{
 		"id":               c.ID.String(),
+		"source_key":       c.SourceKey,
 		"grain":            c.Grain,
 		"charge_category":  c.ChargeCategory,
 		"billing_currency": c.BillingCurrency,
@@ -95,8 +101,17 @@ func (c ConfigCost) GetFieldsMatcher() fields.Fields {
 	if c.ScraperID != nil {
 		m["scraper_id"] = c.ScraperID.String()
 	}
+	if c.SourceRecordID != nil {
+		m["source_record_id"] = *c.SourceRecordID
+	}
 	if c.ExternalID != nil {
 		m["external_id"] = *c.ExternalID
+	}
+	if c.ExternalConfigType != nil {
+		m["external_config_type"] = *c.ExternalConfigType
+	}
+	if c.ExternalConfigScraperID != nil {
+		m["external_config_scraper_id"] = *c.ExternalConfigScraperID
 	}
 	if c.ServiceName != nil {
 		m["service_name"] = *c.ServiceName
@@ -129,20 +144,17 @@ func (c ConfigCost) GetType() string {
 }
 
 // ConfigCostRollup is the config_costs_rollup materialized view: trailing-window
-// totals per config item, refreshed by refresh_config_costs_rollup(). Read only.
+// totals per config item and currency, refreshed by refresh_config_costs_rollup(). Read only.
 // Column names are spelled out: gorm's naming strategy renders Cost30d as "cost30d",
 // which silently binds nothing.
 type ConfigCostRollup struct {
-	ConfigID  uuid.UUID       `json:"config_id" gorm:"column:config_id"`
-	Cost1d    decimal.Decimal `json:"cost_1d" gorm:"column:cost_1d"`
-	Cost7d    decimal.Decimal `json:"cost_7d" gorm:"column:cost_7d"`
-	Cost30d   decimal.Decimal `json:"cost_30d" gorm:"column:cost_30d"`
-	Billed30d decimal.Decimal `json:"billed_30d" gorm:"column:billed_30d"`
-	Currency  string          `json:"billing_currency" gorm:"column:billing_currency"`
-	// MixedCurrency is true when the item's spend spans more than one currency. FOCUS
-	// forbids coalescing currencies, so the totals above are not meaningful when set.
-	MixedCurrency bool      `json:"mixed_currency" gorm:"column:mixed_currency"`
-	LastCostAt    time.Time `json:"last_cost_at" gorm:"column:last_cost_at"`
+	ConfigID        uuid.UUID       `json:"config_id" gorm:"column:config_id"`
+	BillingCurrency string          `json:"billing_currency" gorm:"column:billing_currency"`
+	Cost1d          decimal.Decimal `json:"cost_1d" gorm:"column:cost_1d"`
+	Cost7d          decimal.Decimal `json:"cost_7d" gorm:"column:cost_7d"`
+	Cost30d         decimal.Decimal `json:"cost_30d" gorm:"column:cost_30d"`
+	Billed30d       decimal.Decimal `json:"billed_30d" gorm:"column:billed_30d"`
+	LastCostAt      time.Time       `json:"last_cost_at" gorm:"column:last_cost_at"`
 }
 
 func (ConfigCostRollup) TableName() string {

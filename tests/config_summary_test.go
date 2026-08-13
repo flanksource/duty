@@ -3,9 +3,11 @@ package tests
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/shopspring/decimal"
 
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -30,6 +32,56 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 			return lo.FromPtr(item.Type)
 		}))
 		Expect(types).To(ContainElements(expected))
+	})
+
+	ginkgo.It("does not inflate dynamic counts or combine mixed currencies", func() {
+		configID := dummy.KubernetesNodeA.ID
+		midnight := dummy.AllDummyConfigCosts[0].PeriodEnd
+		cost := models.ConfigCost{
+			ID:              uuid.New(),
+			ConfigID:        &configID,
+			SourceKey:       "mixed-currency-summary-test",
+			PeriodStart:     midnight.AddDate(0, 0, -1),
+			PeriodEnd:       midnight,
+			Grain:           models.ConfigCostGrainDay,
+			ChargeCategory:  "Usage",
+			BillingCurrency: "EUR",
+			BilledCost:      decimal.NewFromInt(10),
+			EffectiveCost:   decimal.NewFromInt(10),
+			Fingerprint:     "mixed-currency-summary-test",
+		}
+		Expect(DefaultContext.DB().Create(&cost).Error).To(Succeed())
+		defer func() {
+			Expect(DefaultContext.DB().Delete(&cost).Error).To(Succeed())
+			Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_costs_rollup").Error).To(Succeed())
+		}()
+		Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_costs_rollup").Error).To(Succeed())
+
+		var expectedCount int64
+		Expect(DefaultContext.DB().Model(&models.ConfigItem{}).
+			Where("type = ? AND labels->>'cluster' = ? AND deleted_at IS NULL", *dummy.KubernetesNodeA.Type, "aws").
+			Count(&expectedCount).Error).To(Succeed())
+
+		response, err := query.ConfigSummary(DefaultContext, query.ConfigSummaryRequest{
+			Cost:    "30d",
+			GroupBy: []string{"type"},
+			Filter:  map[string]string{"cluster": "aws"},
+		})
+		Expect(err).To(BeNil())
+
+		var output []map[string]any
+		Expect(json.Unmarshal(response, &output)).To(Succeed())
+		var nodeSummary map[string]any
+		for _, item := range output {
+			if item["type"] == *dummy.KubernetesNodeA.Type {
+				nodeSummary = item
+				break
+			}
+		}
+		Expect(nodeSummary).ToNot(BeNil())
+		Expect(nodeSummary["count"]).To(Equal(float64(expectedCount)))
+		Expect(nodeSummary).To(HaveKey("cost_30d"))
+		Expect(nodeSummary["cost_30d"]).To(BeNil())
 	})
 
 	ginkgo.It("should not fetch changes if not requested", func() {

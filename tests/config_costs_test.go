@@ -24,6 +24,11 @@ var _ = Describe("config_costs rollup", Ordered, func() {
 			Delete(&models.ConfigCost{}).Error).To(Succeed())
 	})
 
+	AfterAll(func() {
+		Expect(DefaultContext.DB().Where("config_id = ?", configID).
+			Delete(&models.ConfigCost{}).Error).To(Succeed())
+	})
+
 	AfterEach(func() {
 		Expect(DefaultContext.DB().Where("config_id = ?", configID).
 			Delete(&models.ConfigCost{}).Error).To(Succeed())
@@ -54,7 +59,7 @@ var _ = Describe("config_costs rollup", Ordered, func() {
 		// Compared numerically: numeric(24,10) scaled by the overlap fraction carries a
 		// long tail of zeros that says nothing about correctness.
 		Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", 30, 0.0001))
-		Expect(rollup.MixedCurrency).To(BeFalse())
+		Expect(rollup.BillingCurrency).To(Equal("USD"))
 	})
 
 	It("prorates a month-grain row across the shorter windows", func() {
@@ -90,7 +95,7 @@ var _ = Describe("config_costs rollup", Ordered, func() {
 		Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", perHour*(30*24-elapsed), 0.5))
 	})
 
-	It("keeps currencies separate and flags the mix", func() {
+	It("keeps currencies in independent rollup rows and nulls legacy mixed totals", func() {
 		midnight := time.Now().UTC().Truncate(24 * time.Hour)
 		for _, currency := range []string{"USD", "EUR"} {
 			insertCost(models.ConfigCost{
@@ -107,7 +112,118 @@ var _ = Describe("config_costs rollup", Ordered, func() {
 		}
 		refreshRollup()
 
-		Expect(getRollup(configID).MixedCurrency).To(BeTrue())
+		var rollups []models.ConfigCostRollup
+		Expect(DefaultContext.DB().Table("config_costs_rollup").
+			Where("config_id = ?", configID).Order("billing_currency").Find(&rollups).Error).To(Succeed())
+		Expect(rollups).To(HaveLen(2))
+		Expect([]string{rollups[0].BillingCurrency, rollups[1].BillingCurrency}).To(Equal([]string{"EUR", "USD"}))
+		for _, rollup := range rollups {
+			Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", 7, 0.0001))
+		}
+
+		var config struct {
+			CostTotal30d    *float64
+			BillingCurrency *string
+			MixedCurrency   bool
+		}
+		Expect(DefaultContext.DB().Table("configs").
+			Select("cost_total_30d, billing_currency, mixed_currency").
+			Where("id = ?", configID).Scan(&config).Error).To(Succeed())
+		Expect(config.CostTotal30d).To(BeNil())
+		Expect(config.BillingCurrency).To(BeNil())
+		Expect(config.MixedCurrency).To(BeTrue())
+
+		var identity struct {
+			Type        string
+			ConfigClass string
+		}
+		Expect(DefaultContext.DB().Table("config_items").Select("type, config_class").
+			Where("id = ?", configID).Scan(&identity).Error).To(Succeed())
+		var typeTotal, classTotal *float64
+		Expect(DefaultContext.DB().Table("config_summary").Select("cost_total_30d").
+			Where("type = ?", identity.Type).Scan(&typeTotal).Error).To(Succeed())
+		Expect(DefaultContext.DB().Table("config_class_summary").Select("cost_total_30d").
+			Where("config_class = ?", identity.ConfigClass).Scan(&classTotal).Error).To(Succeed())
+		Expect(typeTotal).To(BeNil())
+		Expect(classTotal).To(BeNil())
+	})
+
+	It("keeps identical rows from different sources distinct", func() {
+		midnight := time.Now().UTC().Truncate(24 * time.Hour)
+		for _, sourceKey := range []string{"cur-export-a", "cur-export-b"} {
+			insertCost(models.ConfigCost{
+				SourceKey:       sourceKey,
+				ConfigID:        &configID,
+				PeriodStart:     midnight.Add(-24 * time.Hour),
+				PeriodEnd:       midnight,
+				Grain:           models.ConfigCostGrainDay,
+				ChargeCategory:  "Usage",
+				BillingCurrency: "USD",
+				BilledCost:      decimal.NewFromInt(5),
+				EffectiveCost:   decimal.NewFromInt(5),
+				Fingerprint:     "shared-fingerprint",
+			})
+		}
+
+		var count int64
+		Expect(DefaultContext.DB().Model(&models.ConfigCost{}).
+			Where("config_id = ?", configID).Count(&count).Error).To(Succeed())
+		Expect(count).To(Equal(int64(2)))
+		refreshRollup()
+		Expect(mustFloat(getRollup(configID).Cost30d)).To(BeNumerically("~", 10, 0.0001))
+	})
+
+	It("retains source record identity while merging by its fingerprint", func() {
+		midnight := time.Now().UTC().Truncate(24 * time.Hour)
+		sourceRecordID := "invoice-line-17"
+		row := models.ConfigCost{
+			SourceKey:       "cur-export",
+			SourceRecordID:  &sourceRecordID,
+			ConfigID:        &configID,
+			PeriodStart:     midnight.Add(-24 * time.Hour),
+			PeriodEnd:       midnight,
+			Grain:           models.ConfigCostGrainDay,
+			ChargeCategory:  "Usage",
+			BillingCurrency: "USD",
+			BilledCost:      decimal.NewFromInt(3),
+			EffectiveCost:   decimal.NewFromInt(3),
+			Fingerprint:     "source-record/invoice-line-17",
+		}
+		insertCost(row)
+		row.ID = uuid.Nil
+		row.BilledCost = decimal.NewFromInt(4)
+		row.EffectiveCost = decimal.NewFromInt(4)
+		upsertCost(row)
+
+		var stored models.ConfigCost
+		Expect(DefaultContext.DB().Where("config_id = ?", configID).First(&stored).Error).To(Succeed())
+		Expect(stored.SourceRecordID).ToNot(BeNil())
+		Expect(*stored.SourceRecordID).To(Equal(sourceRecordID))
+		Expect(mustFloat(stored.EffectiveCost)).To(BeNumerically("~", 4, 0.0001))
+	})
+
+	It("enforces source record identity across targets and periods", func() {
+		midnight := time.Now().UTC().Truncate(24 * time.Hour)
+		sourceRecordID := "invoice-line-unique"
+		row := models.ConfigCost{
+			SourceKey:       "cur-export-unique",
+			SourceRecordID:  &sourceRecordID,
+			ConfigID:        &configID,
+			PeriodStart:     midnight.Add(-24 * time.Hour),
+			PeriodEnd:       midnight,
+			Grain:           models.ConfigCostGrainDay,
+			ChargeCategory:  "Usage",
+			BillingCurrency: "USD",
+			BilledCost:      decimal.NewFromInt(3),
+			EffectiveCost:   decimal.NewFromInt(3),
+			Fingerprint:     "source-record/invoice-line-unique",
+		}
+		Expect(DefaultContext.DB().Create(&row).Error).To(Succeed())
+
+		row.ID = uuid.Nil
+		row.PeriodStart = row.PeriodStart.Add(-24 * time.Hour)
+		row.PeriodEnd = row.PeriodEnd.Add(-24 * time.Hour)
+		Expect(DefaultContext.DB().Create(&row).Error).To(MatchError(ContainSubstring("config_costs_source_record_uniq")))
 	})
 
 	It("merges a re-scraped bucket instead of accumulating it", func() {
@@ -141,42 +257,108 @@ var _ = Describe("config_costs rollup", Ordered, func() {
 		Expect(count).To(Equal(int64(1)))
 	})
 
-	It("excludes unmatched spend from the rollup and surfaces it separately", func() {
+	It("rejects structured unresolved identity without an external id", func() {
 		midnight := time.Now().UTC().Truncate(24 * time.Hour)
-		externalID := "i-0deadbeef"
-		insertCost(models.ConfigCost{
-			ExternalID:      &externalID,
+		externalType := "Kubernetes::Pod"
+		cost := models.ConfigCost{
+			ID:                 uuid.New(),
+			SourceKey:          "kubernetes-cost-export",
+			ExternalConfigType: &externalType,
+			ExternalConfigLabels: map[string]any{
+				"namespace": "payments",
+				"name":      "api-0",
+			},
 			PeriodStart:     midnight.Add(-24 * time.Hour),
 			PeriodEnd:       midnight,
 			Grain:           models.ConfigCostGrainDay,
 			ChargeCategory:  "Usage",
 			BillingCurrency: "USD",
-			BilledCost:      decimal.NewFromInt(42),
-			EffectiveCost:   decimal.NewFromInt(42),
-			Fingerprint:     "unmatched",
+			BilledCost:      decimal.NewFromInt(2),
+			EffectiveCost:   decimal.NewFromInt(2),
+			Fingerprint:     "structured-only",
+		}
+		Expect(DefaultContext.DB().Create(&cost).Error).To(HaveOccurred())
+	})
+
+	It("excludes unmatched spend from the rollup and surfaces it separately", func() {
+		midnight := time.Now().UTC().Truncate(24 * time.Hour)
+		externalID := "i-0deadbeef"
+		externalType := "AWS::EC2::Instance"
+		externalScraperID := "aws-prod"
+		sourceRecordID := "line-item-42"
+		insertCost(models.ConfigCost{
+			SourceKey:               "cur-export-prod",
+			SourceRecordID:          &sourceRecordID,
+			ExternalID:              &externalID,
+			ExternalConfigType:      &externalType,
+			ExternalConfigScraperID: &externalScraperID,
+			ExternalConfigLabels:    map[string]any{"account": "prod"},
+			PeriodStart:             midnight.Add(-24 * time.Hour),
+			PeriodEnd:               midnight,
+			Grain:                   models.ConfigCostGrainDay,
+			ChargeCategory:          "Usage",
+			BillingCurrency:         "USD",
+			BilledCost:              decimal.NewFromInt(42),
+			EffectiveCost:           decimal.NewFromInt(42),
+			Fingerprint:             "unmatched",
 		})
 		refreshRollup()
 
 		var unmatched struct {
-			ExternalID    string
-			EffectiveCost decimal.Decimal
+			SourceKey               string
+			SourceRecordID          string
+			ExternalID              string
+			ExternalConfigType      string
+			ExternalConfigScraperID string
+			ExternalConfigLabels    string
+			EffectiveCost           decimal.Decimal
 		}
 		Expect(DefaultContext.DB().Table("config_costs_unmatched").
+			Select("source_key, source_record_id, external_id, external_config_type, external_config_scraper_id, external_config_labels::text AS external_config_labels, effective_cost").
 			Where("external_id = ?", externalID).Scan(&unmatched).Error).To(Succeed())
+		Expect(unmatched.SourceKey).To(Equal("cur-export-prod"))
+		Expect(unmatched.SourceRecordID).To(Equal(sourceRecordID))
+		Expect(unmatched.ExternalConfigType).To(Equal(externalType))
+		Expect(unmatched.ExternalConfigScraperID).To(Equal(externalScraperID))
+		Expect(unmatched.ExternalConfigLabels).To(MatchJSON(`{"account":"prod"}`))
 		Expect(mustFloat(unmatched.EffectiveCost)).To(BeNumerically("~", 42, 0.0001))
 
 		Expect(DefaultContext.DB().Where("external_id = ?", externalID).
 			Delete(&models.ConfigCost{}).Error).To(Succeed())
 	})
 
-	It("serves the rollup through the configs view", func() {
-		var costTotal30d *float64
+	It("serves a single-currency rollup through one configs row", func() {
+		var config models.ConfigItemSummary
 		Expect(DefaultContext.DB().Table("configs").
-			Select("cost_total_30d").
 			Where("id = ?", dummy.KubernetesNodeA.ID).
-			Scan(&costTotal30d).Error).To(Succeed())
-		Expect(costTotal30d).ToNot(BeNil())
-		Expect(*costTotal30d).To(BeNumerically("~", dummy.KubernetesNodeACost30d, 0.0001))
+			Scan(&config).Error).To(Succeed())
+		Expect(config.CostTotal30d).ToNot(BeNil())
+		Expect(*config.CostTotal30d).To(BeNumerically("~", dummy.KubernetesNodeACost30d, 0.0001))
+		Expect(config.BillingCurrency).ToNot(BeNil())
+		Expect(*config.BillingCurrency).To(Equal("USD"))
+		Expect(config.MixedCurrency).To(BeFalse())
+
+		var count int64
+		Expect(DefaultContext.DB().Table("configs").Where("id = ?", dummy.KubernetesNodeA.ID).Count(&count).Error).To(Succeed())
+		Expect(count).To(Equal(int64(1)))
+	})
+
+	It("rejects unsupported grains", func() {
+		midnight := time.Now().UTC().Truncate(24 * time.Hour)
+		cost := models.ConfigCost{
+			ConfigID:        &configID,
+			PeriodStart:     midnight.Add(-time.Hour),
+			PeriodEnd:       midnight,
+			Grain:           "hour",
+			ChargeCategory:  "Usage",
+			BillingCurrency: "USD",
+			BilledCost:      decimal.NewFromInt(1),
+			EffectiveCost:   decimal.NewFromInt(1),
+			Fingerprint:     "invalid-grain",
+		}
+		cost.ID = uuid.New()
+		cost.SourceKey = "test"
+		Expect(DefaultContext.DB().Create(&cost).Error).To(HaveOccurred())
 	})
 })
 
@@ -184,6 +366,9 @@ func insertCost(c models.ConfigCost) {
 	GinkgoHelper()
 	if c.ID == uuid.Nil {
 		c.ID = uuid.New()
+	}
+	if c.SourceKey == "" {
+		c.SourceKey = "test"
 	}
 	Expect(DefaultContext.DB().Create(&c).Error).To(Succeed())
 }
@@ -194,15 +379,18 @@ func upsertCost(c models.ConfigCost) {
 	if c.ID == uuid.Nil {
 		c.ID = uuid.New()
 	}
+	if c.SourceKey == "" {
+		c.SourceKey = "test"
+	}
 	err := DefaultContext.DB().Exec(`
-		INSERT INTO config_costs (id, config_id, external_id, period_start, period_end, grain,
+		INSERT INTO config_costs (id, source_key, config_id, external_id, period_start, period_end, grain,
 		                          charge_category, billing_currency, billed_cost, effective_cost, fingerprint)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (config_id, period_start, period_end, fingerprint)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (source_key, config_id, period_start, period_end, fingerprint)
 		DO UPDATE SET billed_cost = excluded.billed_cost,
 		              effective_cost = excluded.effective_cost,
 		              updated_at = now()`,
-		c.ID, c.ConfigID, c.ExternalID, c.PeriodStart, c.PeriodEnd, c.Grain,
+		c.ID, c.SourceKey, c.ConfigID, c.ExternalID, c.PeriodStart, c.PeriodEnd, c.Grain,
 		c.ChargeCategory, c.BillingCurrency, c.BilledCost, c.EffectiveCost, c.Fingerprint).Error
 	Expect(err).To(Succeed())
 }

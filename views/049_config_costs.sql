@@ -4,8 +4,13 @@
 DROP VIEW IF EXISTS config_costs_unmatched;
 CREATE OR REPLACE VIEW config_costs_unmatched AS
   SELECT
-    external_id,
+    source_key,
+    source_record_id,
     scraper_id,
+    external_id,
+    external_config_type,
+    external_config_scraper_id,
+    external_config_labels,
     billing_currency,
     SUM(effective_cost) AS effective_cost,
     SUM(billed_cost) AS billed_cost,
@@ -13,4 +18,5 @@ CREATE OR REPLACE VIEW config_costs_unmatched AS
     MAX(period_end) AS until
   FROM config_costs
   WHERE config_id IS NULL
-  GROUP BY external_id, scraper_id, billing_currency;
+  GROUP BY source_key, source_record_id, scraper_id, external_id, external_config_type,
+           external_config_scraper_id, external_config_labels, billing_currency;

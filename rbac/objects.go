@@ -74,7 +74,7 @@ var dbResourceObjMap = map[string]string{
 	"config_component_relationships":            policy.ObjectCatalog,
 	"config_costs":                              policy.ObjectCatalog,
 	"config_costs_rollup":                       policy.ObjectCatalog,
-	"config_costs_unmatched":                    policy.ObjectDatabaseSystem, // unmatched spend has no config item to scope it to
+	"config_costs_unmatched":                    policy.ObjectCatalog,
 	"config_detail":                             policy.ObjectCatalog,
 	"config_items_aws":                          policy.ObjectCatalog,
 	"config_items":                              policy.ObjectCatalog,

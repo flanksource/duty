@@ -202,7 +202,7 @@ CREATE POLICY config_costs_auth ON config_costs
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       -- Unmatched spend has no config item to inherit from, so it stays hidden from
-      -- tenant-scoped reads. config_costs_unmatched is a system-level object.
+      -- tenant-scoped reads. Direct tenant isolation for the derived views is deferred.
       WHEN config_costs.config_id IS NULL THEN FALSE
       ELSE EXISTS (
         -- just leverage the RLS on config_items

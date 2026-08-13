@@ -120,26 +120,24 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --
 -- Defined here rather than in a higher-numbered views file because the `configs` view below
 -- joins it and migration scripts run in filename order.
-CREATE MATERIALIZED VIEW IF NOT EXISTS
-  config_costs_rollup AS
+DROP MATERIALIZED VIEW IF EXISTS config_costs_rollup CASCADE;
+CREATE MATERIALIZED VIEW config_costs_rollup AS
 SELECT
   config_id,
+  billing_currency,
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '1 day', now()))   AS cost_1d,
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '7 days', now()))  AS cost_7d,
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS cost_30d,
   SUM(billed_cost    * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS billed_30d,
-  MIN(billing_currency) AS billing_currency,
-  -- FOCUS forbids coalescing currencies, so summing USD and EUR into one number is wrong.
-  -- Consumers need to know when it happened.
-  COUNT(DISTINCT billing_currency) > 1 AS mixed_currency,
   MAX(period_end) AS last_cost_at
 FROM config_costs
 WHERE config_id IS NOT NULL
   AND period_end >= now() - interval '30 days'
-GROUP BY config_id;
+GROUP BY config_id, billing_currency;
 
--- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY.
-CREATE UNIQUE INDEX IF NOT EXISTS config_costs_rollup_config_id_idx ON config_costs_rollup (config_id);
+-- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY and guarantees one row per
+-- config/currency pair.
+CREATE UNIQUE INDEX config_costs_rollup_config_currency_idx ON config_costs_rollup (config_id, billing_currency);
 
 CREATE OR REPLACE FUNCTION refresh_config_costs_rollup() RETURNS VOID AS $$
 BEGIN
@@ -167,12 +165,13 @@ CREATE or REPLACE VIEW configs AS
     ci.created_at,
     ci.updated_at,
     ci.deleted_at,
-    -- Cast back to numeric(16,4): consumers (related_configs, the aggregation API, the UI)
-    -- were built against that width and compare the text rendering.
-    (config_costs_rollup.cost_1d / 1440.0)::numeric(16, 4) AS cost_per_minute,
-    config_costs_rollup.cost_1d::numeric(16, 4) AS cost_total_1d,
-    config_costs_rollup.cost_7d::numeric(16, 4) AS cost_total_7d,
-    config_costs_rollup.cost_30d::numeric(16, 4) AS cost_total_30d,
+    -- Legacy scalar totals are only meaningful when exactly one currency exists.
+    CASE WHEN config_costs.currency_count = 1 THEN (config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_1d::numeric(16, 4) END AS cost_total_1d,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_7d::numeric(16, 4) END AS cost_total_7d,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_30d::numeric(16, 4) END AS cost_total_30d,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.billing_currency END AS billing_currency,
+    COALESCE(config_costs.currency_count > 1, false) AS mixed_currency,
     ci.agent_id,
     ci.status,
     ci.health,
@@ -182,7 +181,17 @@ CREATE or REPLACE VIEW configs AS
     config_item_summary_7d.config_analysis_type_counts AS analysis
   FROM config_items AS ci
   LEFT JOIN config_item_summary_7d ON config_item_summary_7d.config_id = ci.id
-  LEFT JOIN config_costs_rollup ON config_costs_rollup.config_id = ci.id;
+  LEFT JOIN (
+    SELECT
+      config_id,
+      COUNT(*) AS currency_count,
+      MIN(billing_currency) AS billing_currency,
+      SUM(cost_1d) AS cost_1d,
+      SUM(cost_7d) AS cost_7d,
+      SUM(cost_30d) AS cost_30d
+    FROM config_costs_rollup
+    GROUP BY config_id
+  ) config_costs ON config_costs.config_id = ci.id;
 
 
 DROP VIEW IF EXISTS config_names;
@@ -392,16 +401,26 @@ CREATE VIEW config_summary AS
     aggregated_analysis_severity_counts.severity,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
-    SUM(config_costs_rollup.cost_1d / 1440.0)::numeric(16, 4) AS cost_per_minute,
-    SUM(config_costs_rollup.cost_1d)::numeric(16, 4) AS cost_total_1d,
-    SUM(config_costs_rollup.cost_7d)::numeric(16, 4) AS cost_total_7d,
-    SUM(config_costs_rollup.cost_30d)::numeric(16, 4) AS cost_total_30d
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d)::numeric(16, 4) END AS cost_total_1d,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_7d)::numeric(16, 4) END AS cost_total_7d,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_30d)::numeric(16, 4) END AS cost_total_30d
   FROM
     config_items
     LEFT JOIN changes_per_type ON config_items.type = changes_per_type.type
     LEFT JOIN aggregated_analysis_counts ON config_items.type = aggregated_analysis_counts.type
     LEFT JOIN aggregated_analysis_severity_counts ON config_items.type = aggregated_analysis_severity_counts.type
-    LEFT JOIN config_costs_rollup ON config_costs_rollup.config_id = config_items.id
+    LEFT JOIN (
+      SELECT
+        config_id,
+        CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
+        COUNT(*) > 1 AS mixed_currency,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
+      FROM config_costs_rollup
+      GROUP BY config_id
+    ) config_costs ON config_costs.config_id = config_items.id
   WHERE config_items.deleted_at IS NULL
   GROUP BY
     config_items.type,
@@ -454,15 +473,25 @@ CREATE VIEW config_class_summary AS
     aggregated_analysis_counts.analysis,
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
-    SUM(config_costs_rollup.cost_1d / 1440.0)::numeric(16, 4) AS cost_per_minute,
-    SUM(config_costs_rollup.cost_1d)::numeric(16, 4) AS cost_total_1d,
-    SUM(config_costs_rollup.cost_7d)::numeric(16, 4) AS cost_total_7d,
-    SUM(config_costs_rollup.cost_30d)::numeric(16, 4) AS cost_total_30d
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d)::numeric(16, 4) END AS cost_total_1d,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_7d)::numeric(16, 4) END AS cost_total_7d,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_30d)::numeric(16, 4) END AS cost_total_30d
   FROM
     config_items
     LEFT JOIN changes_per_type ON config_items.config_class = changes_per_type.config_class
     LEFT JOIN aggregated_analysis_counts ON config_items.config_class = aggregated_analysis_counts.config_class
-    LEFT JOIN config_costs_rollup ON config_costs_rollup.config_id = config_items.id
+    LEFT JOIN (
+      SELECT
+        config_id,
+        CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
+        COUNT(*) > 1 AS mixed_currency,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
+      FROM config_costs_rollup
+      GROUP BY config_id
+    ) config_costs ON config_costs.config_id = config_items.id
   GROUP BY
     config_items.config_class,
     changes_per_type.count,

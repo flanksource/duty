@@ -23,6 +23,7 @@ func DayCost(configID uuid.UUID, amount string, serviceName string) models.Confi
 	return models.ConfigCost{
 		ID:              uuid.New(),
 		ConfigID:        &configID,
+		SourceKey:       "dummy",
 		PeriodStart:     start,
 		PeriodEnd:       end,
 		Grain:           models.ConfigCostGrainDay,

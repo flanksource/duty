@@ -9,16 +9,39 @@ table "config_costs" {
   column "config_id" {
     null    = true
     type    = uuid
-    comment = "null when the spend could not be attached to a config item; external_id carries the source identifier until it can"
+    comment = "null when the spend could not be attached to a config item"
   }
   column "scraper_id" {
-    null = true
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "config scraper that emitted this cost row"
+  }
+  column "source_key" {
+    null    = false
+    type    = text
+    comment = "immutable identity of the source dataset or connection"
+  }
+  column "source_record_id" {
+    null    = true
+    type    = text
+    comment = "immutable source-native record identity, unique within source_key; defines the fingerprint when present"
   }
   column "external_id" {
     null    = true
     type    = text
-    comment = "FOCUS ResourceId as scraped; retained so unmatched spend can be attached later"
+    comment = "legacy external resource identifier retained for matching"
+  }
+  column "external_config_type" {
+    null = true
+    type = text
+  }
+  column "external_config_scraper_id" {
+    null = true
+    type = text
+  }
+  column "external_config_labels" {
+    null = true
+    type = jsonb
   }
 
   # half-open [period_start, period_end), clock-aligned, always UTC
@@ -129,13 +152,18 @@ table "config_costs" {
     columns = [column.id]
   }
 
-  # Idempotent merge target. external_id is folded into the fingerprint rather than
-  # indexed directly, and nulls_distinct = false so unmatched rows (config_id IS NULL)
-  # collapse onto the same row across re-scrapes instead of inserting a duplicate every time.
+  # Idempotent target/bucket merge key. Source-native records also have a separate
+  # source-scoped uniqueness constraint so corrections can move between targets/periods.
+  # nulls_distinct = false keeps unmatched rows idempotent.
   index "config_costs_merge_uniq" {
     unique         = true
     nulls_distinct = false
-    columns        = [column.config_id, column.period_start, column.period_end, column.fingerprint]
+    columns        = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
+  }
+  index "config_costs_source_record_uniq" {
+    unique  = true
+    columns = [column.source_key, column.source_record_id]
+    where   = "source_record_id IS NOT NULL"
   }
   index "config_costs_period_brin_idx" {
     type    = BRIN
@@ -145,7 +173,7 @@ table "config_costs" {
     columns = [column.config_id, column.period_start]
   }
   index "config_costs_unmatched_idx" {
-    columns = [column.external_id]
+    columns = [column.source_key, column.external_config_type, column.external_config_scraper_id, column.external_id]
     where   = "config_id IS NULL"
   }
 
@@ -165,5 +193,8 @@ table "config_costs" {
   }
   check "config_costs_period" {
     expr = "period_end > period_start"
+  }
+  check "config_costs_grain" {
+    expr = "grain IN ('day', 'week', 'month')"
   }
 }

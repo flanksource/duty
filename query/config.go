@@ -123,7 +123,7 @@ func (t *ConfigSummaryRequest) summarySelectClause() []string {
 	}
 
 	if t.Cost != "" {
-		cols = append(cols, fmt.Sprintf("SUM(config_costs_rollup.cost_%s) as cost_%s", t.Cost, t.Cost))
+		cols = append(cols, fmt.Sprintf("CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_%s) END as cost_%s", t.Cost, t.Cost))
 	}
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, t.Changes.Since) {
@@ -306,7 +306,17 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 		Order(req.OrderBy())
 
 	if req.Cost != "" {
-		summaryQuery = summaryQuery.Joins("LEFT JOIN config_costs_rollup ON config_costs_rollup.config_id = config_items.id")
+		summaryQuery = summaryQuery.Joins(`LEFT JOIN (
+			SELECT
+				config_id,
+				CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
+				COUNT(*) > 1 AS mixed_currency,
+				CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
+				CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
+				CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
+			FROM config_costs_rollup
+			GROUP BY config_id
+		) config_costs ON config_costs.config_id = config_items.id`)
 	}
 
 	if slices.Contains([]string{"3d", "7d", "30d"}, req.Changes.Since) {

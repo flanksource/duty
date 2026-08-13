@@ -256,8 +256,8 @@ type QueryModel struct {
 var ConfigItemQueryModel = QueryModel{
 	Table: models.ConfigItem{}.TableName(),
 	Columns: []string{
-		// Cost lives on config_costs_rollup and is exposed through the `configs` view,
-		// so cost filtering and aggregation go through ConfigItemSummaryQueryModel.
+		// Normal config selectors query config_items and deliberately omit cost fields.
+		// Cost predicates require an explicit rollup join and are not supported here.
 		"id", "name", "source", "type", "status", "agent_id", "health", "external_id", "config_class",
 		"created_at", "updated_at", "deleted_at",
 	},
@@ -294,8 +294,7 @@ var ConfigItemSummaryQueryModel = QueryModel{
 	Table: models.ConfigItemSummary{}.TableName(),
 	Columns: []string{
 		"id", "scraper_id", "config_class", "external_id", "type", "name", "namespace",
-		"source", "created_by", "created_at", "updated_at", "deleted_at", "cost_per_minute",
-		"cost_total_1d", "cost_total_7d", "cost_total_30d", "agent_id", "status", "health",
+		"source", "created_by", "created_at", "updated_at", "deleted_at", "agent_id", "status", "health",
 		"ready", "path", "changes", "analysis",
 	},
 	FieldTypes: map[string]grammar.FieldType{

@@ -1030,32 +1030,34 @@ func (e ExternalID) WhereClause(db *gorm.DB) *gorm.DB {
 
 // ConfigItemSummary represents the configs view
 type ConfigItemSummary struct {
-	ID            uuid.UUID            `json:"id" gorm:"primaryKey"`
-	ScraperID     *string              `json:"scraper_id,omitempty"`
-	ConfigClass   string               `json:"config_class"`
-	ExternalID    pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
-	Type          *string              `json:"type"`
-	Name          *string              `json:"name,omitempty"`
-	Namespace     *string              `json:"namespace,omitempty"`
-	Description   *string              `json:"description"`
-	Source        *string              `json:"source,omitempty"`
-	Labels        *types.JSONStringMap `json:"labels,omitempty"`
-	Tags          types.JSONStringMap  `json:"tags,omitempty"`
-	CreatedBy     *uuid.UUID           `json:"created_by,omitempty"`
-	CreatedAt     time.Time            `json:"created_at"`
-	UpdatedAt     *time.Time           `json:"updated_at"`
-	DeletedAt     *time.Time           `json:"deleted_at,omitempty"`
-	CostPerMinute float64              `gorm:"column:cost_per_minute" json:"cost_per_minute,omitempty"`
-	CostTotal1d   float64              `gorm:"column:cost_total_1d" json:"cost_total_1d,omitempty"`
-	CostTotal7d   float64              `gorm:"column:cost_total_7d" json:"cost_total_7d,omitempty"`
-	CostTotal30d  float64              `gorm:"column:cost_total_30d" json:"cost_total_30d,omitempty"`
-	AgentID       uuid.UUID            `json:"agent_id,omitempty"`
-	Status        *string              `json:"status"`
-	Health        *Health              `json:"health"`
-	Ready         bool                 `json:"ready"`
-	Path          string               `json:"path,omitempty"`
-	Changes       int                  `json:"changes,omitempty"`
-	Analysis      *types.JSONMap       `json:"analysis,omitempty"`
+	ID              uuid.UUID            `json:"id" gorm:"primaryKey"`
+	ScraperID       *string              `json:"scraper_id,omitempty"`
+	ConfigClass     string               `json:"config_class"`
+	ExternalID      pq.StringArray       `gorm:"type:[]text" json:"external_id,omitempty"`
+	Type            *string              `json:"type"`
+	Name            *string              `json:"name,omitempty"`
+	Namespace       *string              `json:"namespace,omitempty"`
+	Description     *string              `json:"description"`
+	Source          *string              `json:"source,omitempty"`
+	Labels          *types.JSONStringMap `json:"labels,omitempty"`
+	Tags            types.JSONStringMap  `json:"tags,omitempty"`
+	CreatedBy       *uuid.UUID           `json:"created_by,omitempty"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       *time.Time           `json:"updated_at"`
+	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
+	CostPerMinute   *float64             `gorm:"column:cost_per_minute" json:"cost_per_minute,omitempty"`
+	CostTotal1d     *float64             `gorm:"column:cost_total_1d" json:"cost_total_1d,omitempty"`
+	CostTotal7d     *float64             `gorm:"column:cost_total_7d" json:"cost_total_7d,omitempty"`
+	CostTotal30d    *float64             `gorm:"column:cost_total_30d" json:"cost_total_30d,omitempty"`
+	BillingCurrency *string              `gorm:"column:billing_currency" json:"billing_currency,omitempty"`
+	MixedCurrency   bool                 `gorm:"column:mixed_currency" json:"mixed_currency"`
+	AgentID         uuid.UUID            `json:"agent_id,omitempty"`
+	Status          *string              `json:"status"`
+	Health          *Health              `json:"health"`
+	Ready           bool                 `json:"ready"`
+	Path            string               `json:"path,omitempty"`
+	Changes         int                  `json:"changes,omitempty"`
+	Analysis        *types.JSONMap       `json:"analysis,omitempty"`
 }
 
 func (ConfigItemSummary) TableName() string {

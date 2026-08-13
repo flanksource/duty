@@ -1,3 +1,5 @@
+-- dependsOn: views/006_config_views.sql
+
 CREATE OR REPLACE VIEW
   config_items_aws AS
 SELECT
