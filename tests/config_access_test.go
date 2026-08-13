@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,6 +55,82 @@ var _ = Describe("Config Access Summary View", Ordered, func() {
 		Expect(emptyGroupRow.User).To(Equal(dummy.MissionControlEmptyGroup.Name))
 		Expect(emptyGroupRow.UserType).To(Equal("group"))
 		Expect(emptyGroupRow.ExternalUserID).To(Equal(uuid.Nil))
+	})
+
+	It("should separate user and group access summaries", func() {
+		var nullUserCount int64
+		Expect(DefaultContext.DB().
+			Table("config_access_summary_by_user").
+			Where("external_user_id IS NULL").
+			Count(&nullUserCount).Error).ToNot(HaveOccurred())
+		Expect(nullUserCount).To(BeZero())
+
+		type groupAccessSummary struct {
+			ExternalGroupID uuid.UUID
+			AccessCount     int64
+			DistinctUsers   int64
+			DistinctRoles   int64
+			DistinctConfigs int64
+		}
+
+		groupIDs := []uuid.UUID{
+			dummy.MissionControlAdminsGroup.ID,
+			dummy.MissionControlReadersGroup.ID,
+			dummy.MissionControlEmptyGroup.ID,
+		}
+		var groupSummaries []groupAccessSummary
+		Expect(DefaultContext.DB().
+			Table("config_access_summary_by_group").
+			Where("external_group_id IN ?", groupIDs).
+			Find(&groupSummaries).Error).ToNot(HaveOccurred())
+		Expect(groupSummaries).To(HaveLen(len(groupIDs)))
+
+		byID := make(map[uuid.UUID]groupAccessSummary, len(groupSummaries))
+		for _, summary := range groupSummaries {
+			byID[summary.ExternalGroupID] = summary
+		}
+
+		Expect(byID[dummy.MissionControlAdminsGroup.ID]).To(Equal(groupAccessSummary{
+			ExternalGroupID: dummy.MissionControlAdminsGroup.ID,
+			AccessCount:     2,
+			DistinctUsers:   2,
+			DistinctConfigs: 1,
+		}))
+		Expect(byID[dummy.MissionControlReadersGroup.ID]).To(Equal(groupAccessSummary{
+			ExternalGroupID: dummy.MissionControlReadersGroup.ID,
+			AccessCount:     2,
+			DistinctUsers:   2,
+			DistinctConfigs: 1,
+		}))
+		Expect(byID[dummy.MissionControlEmptyGroup.ID]).To(Equal(groupAccessSummary{
+			ExternalGroupID: dummy.MissionControlEmptyGroup.ID,
+			AccessCount:     1,
+			DistinctConfigs: 1,
+		}))
+	})
+
+	It("should keep users and groups in separate filter facets", func() {
+		var options struct {
+			Users []struct {
+				ExternalUserID uuid.UUID `json:"external_user_id"`
+			} `json:"users"`
+			Groups []struct {
+				ExternalGroupID uuid.UUID `json:"external_group_id"`
+			} `json:"groups"`
+		}
+
+		var raw string
+		Expect(DefaultContext.DB().
+			Raw("SELECT config_access_filter_options()::text").
+			Scan(&raw).Error).ToNot(HaveOccurred())
+		Expect(json.Unmarshal([]byte(raw), &options)).To(Succeed())
+
+		for _, user := range options.Users {
+			Expect(user.ExternalUserID).ToNot(Equal(uuid.Nil))
+		}
+		Expect(options.Groups).To(ContainElement(struct {
+			ExternalGroupID uuid.UUID `json:"external_group_id"`
+		}{ExternalGroupID: dummy.MissionControlEmptyGroup.ID}))
 	})
 
 	It("should not fan out rows for users with multiple access log entries", func() {
