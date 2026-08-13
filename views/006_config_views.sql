@@ -69,6 +69,8 @@ LEFT JOIN
 GROUP BY
     ci.id, ci.name;
 
+CREATE UNIQUE INDEX IF NOT EXISTS config_item_summary_7d_config_id_idx
+ON config_item_summary_7d (config_id);
 
 CREATE OR REPLACE FUNCTION refresh_config_item_summary_7d() RETURNS VOID AS $$
 BEGIN
