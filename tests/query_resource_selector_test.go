@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 
+	duty "github.com/flanksource/duty"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
@@ -538,6 +541,221 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Expect(err).To(BeNil())
 			Expect(string(payload)).ToNot(ContainSubstring("created_at"))
 		})
+	})
+})
+
+var _ = ginkgo.Describe("Config external ID resource selectors", ginkgo.Ordered, func() {
+	var (
+		alias            string
+		deletedAlias     string
+		dynamicField     string
+		primaryType      string
+		secondaryType    string
+		wrongAgentType   string
+		wrongScopeType   string
+		primary          models.ConfigItem
+		secondary        models.ConfigItem
+		propertyOnly     models.ConfigItem
+		deleted          models.ConfigItem
+		dynamicProperty  models.ConfigItem
+		wrongAgent       models.ConfigItem
+		wrongScope       models.ConfigItem
+		insertedConfigID []uuid.UUID
+	)
+
+	ginkgo.BeforeAll(func() {
+		suffix := strings.ToLower(uuid.NewString())
+		alias = "resource-selector-" + suffix
+		deletedAlias = "resource-selector-deleted-" + suffix
+		dynamicField = "selector_probe_" + strings.ReplaceAll(suffix, "-", "_")
+		primaryType = "ResourceSelectorPrimary" + suffix
+		secondaryType = "ResourceSelectorSecondary" + suffix
+		wrongAgentType = "ResourceSelectorAgent" + suffix
+		wrongScopeType = "ResourceSelectorScope" + suffix
+
+		newConfig := func(configType, name string) models.ConfigItem {
+			return models.ConfigItem{
+				ID:          uuid.New(),
+				AgentID:     uuid.Nil,
+				ScraperID:   lo.ToPtr(dummy.KubeScrapeConfig.ID.String()),
+				ConfigClass: "ResourceSelectorTest",
+				Type:        lo.ToPtr(configType),
+				Name:        lo.ToPtr(name),
+				ExternalID:  pq.StringArray{alias},
+				Labels:      lo.ToPtr(types.JSONStringMap{"selector-test": "primary"}),
+			}
+		}
+
+		primary = newConfig(primaryType, "external-id-primary")
+		secondary = newConfig(secondaryType, "external-id-secondary")
+		propertyOnly = newConfig(primaryType, "external-id-property-only")
+		propertyOnly.ExternalID = pq.StringArray{"different-" + suffix}
+		propertyOnly.Properties = &types.Properties{{Name: "external_id", Text: alias}}
+
+		deleted = newConfig(primaryType, "external-id-deleted")
+		deleted.ExternalID = pq.StringArray{deletedAlias}
+		deleted.DeletedAt = lo.ToPtr(time.Now())
+
+		dynamicProperty = newConfig(primaryType, "dynamic-property")
+		dynamicProperty.ExternalID = pq.StringArray{"dynamic-" + suffix}
+		dynamicProperty.Properties = &types.Properties{{Name: dynamicField, Text: "works"}}
+
+		wrongAgent = newConfig(wrongAgentType, "external-id-wrong-agent")
+		wrongAgent.AgentID = dummy.HomelabAgent.ID
+		wrongScope = newConfig(wrongScopeType, "external-id-wrong-scope")
+		wrongScope.ScraperID = lo.ToPtr(dummy.HomelabKubeScraper.ID.String())
+
+		configs := []models.ConfigItem{primary, secondary, propertyOnly, deleted, dynamicProperty, wrongAgent, wrongScope}
+		Expect(DefaultContext.DB().Create(&configs).Error).To(Succeed())
+		insertedConfigID = lo.Map(configs, func(item models.ConfigItem, _ int) uuid.UUID { return item.ID })
+	})
+
+	ginkgo.AfterAll(func() {
+		Expect(DefaultContext.DB().Exec("DELETE FROM config_items WHERE id IN ?", insertedConfigID).Error).To(Succeed())
+	})
+
+	find := func(selector types.ResourceSelector) ([]uuid.UUID, error) {
+		selector.Cache = "no-store"
+		return query.FindConfigIDsByResourceSelector(DefaultContext, 0, selector)
+	}
+
+	ginkgo.It("normalizes and matches an external ID array member", func() {
+		ids, err := find(types.ResourceSelector{
+			Types:         []string{primaryType},
+			FieldSelector: fmt.Sprintf("external_id=  %s  ", strings.ToUpper(alias)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
+	})
+
+	ginkgo.It("uses the requested type to disambiguate aliases", func() {
+		ids, err := find(types.ResourceSelector{Types: []string{secondaryType}, FieldSelector: "external_id=" + alias})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{secondary.ID}))
+
+		ids, err = find(types.ResourceSelector{Types: []string{"ResourceSelectorMissing" + alias}, FieldSelector: "external_id=" + alias})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+	})
+
+	ginkgo.It("does not treat an external_id property as the typed column", func() {
+		ids, err := find(types.ResourceSelector{Types: []string{primaryType}, FieldSelector: "external_id=" + alias})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
+		Expect(ids).ToNot(ContainElement(propertyOnly.ID))
+	})
+
+	ginkgo.It("excludes deleted external ID matches", func() {
+		ids, err := find(types.ResourceSelector{Types: []string{primaryType}, FieldSelector: "external_id=" + deletedAlias})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+	})
+
+	ginkgo.It("intersects the external ID with agent and scope constraints", func() {
+		ids, err := find(types.ResourceSelector{
+			Types:         []string{primaryType, secondaryType, wrongAgentType, wrongScopeType},
+			Scope:         dummy.KubeScrapeConfig.ID.String(),
+			FieldSelector: "external_id=" + alias,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID, secondary.ID}))
+		Expect(ids).ToNot(ContainElements(wrongAgent.ID, wrongScope.ID))
+	})
+
+	ginkgo.It("intersects the external ID with name and label constraints", func() {
+		ids, err := find(types.ResourceSelector{
+			Types:         []string{primaryType},
+			Name:          "external-id-primary",
+			LabelSelector: "selector-test=primary",
+			FieldSelector: "external_id=" + alias,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
+
+		ids, err = find(types.ResourceSelector{
+			Types:         []string{primaryType},
+			Name:          "external-id-secondary",
+			LabelSelector: "selector-test=primary",
+			FieldSelector: "external_id=" + alias,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+	})
+
+	ginkgo.It("rejects a whitespace-only external ID", func() {
+		ids, err := find(types.ResourceSelector{Types: []string{primaryType}, FieldSelector: "external_id=   "})
+		Expect(err).To(MatchError(ContainSubstring("external_id cannot be empty")))
+		Expect(ids).To(BeEmpty())
+	})
+
+	ginkgo.It("continues to resolve unknown fields as dynamic properties", func() {
+		ids, err := find(types.ResourceSelector{Types: []string{primaryType}, FieldSelector: dynamicField + "=works"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{dynamicProperty.ID}))
+	})
+
+	ginkgo.It("applies the array predicate to config summary queries", func() {
+		ids, err := query.FindConfigItemSummaryIDsByResourceSelector(DefaultContext, 0, types.ResourceSelector{
+			Cache:         "no-store",
+			Types:         []string{primaryType},
+			FieldSelector: "external_id=" + alias,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
+	})
+
+	ginkgo.It("uses one SQL query with all selector predicates", func() {
+		selector := types.ResourceSelector{
+			Types:         []string{primaryType},
+			Name:          primary.GetName(),
+			Scope:         dummy.KubeScrapeConfig.ID.String(),
+			LabelSelector: "selector-test=primary",
+			FieldSelector: "external_id=" + strings.ToUpper(alias),
+		}
+		db := DefaultContext.DB().Session(&gorm.Session{DryRun: true}).Table("config_items").Select("id")
+		db, err := query.SetResourceSelectorClause(DefaultContext, selector, db, "config_items")
+		Expect(err).ToNot(HaveOccurred())
+		sql := db.ToSQL(func(tx *gorm.DB) *gorm.DB { return tx.Find(&[]uuid.UUID{}) })
+
+		Expect(strings.Count(sql, "SELECT ")).To(Equal(1), sql)
+		Expect(sql).ToNot(ContainSubstring("id IN"))
+		Expect(sql).To(ContainSubstring("external_id"))
+		Expect(sql).To(ContainSubstring("@>"))
+		Expect(sql).To(ContainSubstring("::text[]"))
+		Expect(sql).To(ContainSubstring(alias))
+		Expect(sql).To(ContainSubstring("scraper_id"))
+		Expect(sql).To(ContainSubstring("agent_id"))
+		Expect(sql).To(ContainSubstring("deleted_at IS NULL"))
+		Expect(sql).To(ContainSubstring("labels"))
+		Expect(sql).To(ContainSubstring("name"))
+		Expect(sql).To(ContainSubstring("type"))
+	})
+
+	ginkgo.It("keeps component external IDs scalar", func() {
+		selector := types.ResourceSelector{Agent: "all", FieldSelector: "external_id=Component-Alias"}
+		db := DefaultContext.DB().Session(&gorm.Session{DryRun: true}).Table("components").Select("id")
+		db, err := query.SetResourceSelectorClause(DefaultContext, selector, db, "components")
+		Expect(err).ToNot(HaveOccurred())
+		sql := db.ToSQL(func(tx *gorm.DB) *gorm.DB { return tx.Find(&[]uuid.UUID{}) })
+
+		Expect(sql).To(ContainSubstring("external_id"))
+		Expect(sql).To(ContainSubstring("component-alias"))
+		Expect(sql).ToNot(ContainSubstring("@>"))
+		Expect(sql).ToNot(ContainSubstring("::text[]"))
+	})
+
+	ginkgo.It("requires a type for config relationship external-ID lookups", func() {
+		_, err := duty.LookupConfigs(DefaultContext, duty.RelationshipSelectorTemplate{
+			ExternalID: duty.Lookup{Value: alias},
+		}, nil, nil)
+		Expect(err).To(MatchError(ContainSubstring("requires a type")))
+
+		ids, err := duty.LookupConfigs(DefaultContext, duty.RelationshipSelectorTemplate{
+			ExternalID: duty.Lookup{Value: strings.ToUpper(alias)},
+			Type:       duty.Lookup{Value: primaryType},
+		}, nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
 	})
 })
 

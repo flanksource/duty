@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -14,6 +15,7 @@ type FieldType int
 const (
 	FieldTypeUnknown FieldType = iota
 	FieldTypeJsonbArray
+	FieldTypeTextArray
 )
 
 type expressions struct {
@@ -26,10 +28,53 @@ type expressions struct {
 type Expressions []clause.Expression
 
 func (e expressions) ToExpression(field string, fieldType FieldType) []clause.Expression {
-	if fieldType == FieldTypeJsonbArray {
+	switch fieldType {
+	case FieldTypeJsonbArray:
 		return e.jsonbListFieldExpression(field)
+	case FieldTypeTextArray:
+		return e.textArrayFieldExpression(field)
 	}
 	return e.textFieldExpression(field)
+}
+
+func (e expressions) textArrayFieldExpression(field string) []clause.Expression {
+	var clauses []clause.Expression
+	col := clause.Column{Name: field}
+
+	if len(e.In) > 0 {
+		values := make(pq.StringArray, 0, len(e.In))
+		for _, value := range e.In {
+			values = append(values, strings.ToLower(strings.TrimSpace(fmt.Sprint(value))))
+		}
+
+		operator := "@>"
+		if len(values) > 1 {
+			operator = "&&"
+		}
+		clauses = append(clauses, clause.Expr{
+			SQL:  fmt.Sprintf("? %s ?::text[]", operator),
+			Vars: []any{col, values},
+		})
+	}
+
+	for _, value := range e.Prefix {
+		clauses = append(clauses, textArrayLikeExpression(col, strings.ToLower(value)+"%"))
+	}
+	for _, value := range e.Glob {
+		clauses = append(clauses, textArrayLikeExpression(col, "%"+strings.ToLower(value)+"%"))
+	}
+	for _, value := range e.Suffix {
+		clauses = append(clauses, textArrayLikeExpression(col, "%"+strings.ToLower(value)))
+	}
+
+	return clauses
+}
+
+func textArrayLikeExpression(column clause.Column, pattern string) clause.Expression {
+	return clause.Expr{
+		SQL:  "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) LIKE ?)",
+		Vars: []any{column, pattern},
+	}
 }
 
 func (e expressions) jsonbListFieldExpression(field string) []clause.Expression {
