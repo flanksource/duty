@@ -759,6 +759,23 @@ var _ = ginkgo.Describe("Config external ID resource selectors", ginkgo.Ordered,
 	})
 })
 
+var _ = ginkgo.Describe("Dynamic property field-selector comparisons", func() {
+	ginkgo.DescribeTable("preserves numeric comparison operators",
+		func(selector string, expected, excluded uuid.UUID) {
+			ids, err := query.FindConfigIDsByResourceSelector(DefaultContext, 0, types.ResourceSelector{
+				Cache:         "no-store",
+				Types:         []string{"Kubernetes::Node"},
+				FieldSelector: selector,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ids).To(ContainElement(expected))
+			Expect(ids).ToNot(ContainElement(excluded))
+		},
+		ginkgo.Entry("greater than", "memory>50", dummy.KubernetesNodeA.ID, dummy.KubernetesNodeB.ID),
+		ginkgo.Entry("less than", "memory<50", dummy.KubernetesNodeB.ID, dummy.KubernetesNodeA.ID),
+	)
+})
+
 var _ = ginkgo.Describe("Search Properties", ginkgo.Ordered, ginkgo.Pending, func() {
 	ginkgo.BeforeAll(func() {
 		Expect(query.SyncConfigCache(DefaultContext)).To(Succeed())

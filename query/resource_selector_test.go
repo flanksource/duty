@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/flanksource/duty/context"
@@ -37,4 +38,36 @@ func TestConfigExternalIDFieldSelectorUsesTextArrayColumn(t *testing.T) {
 		"kubernetes::pod",
 		pq.StringArray{"mixed-alias"},
 	}))
+}
+
+func TestDynamicPropertyFieldSelectorPreservesComparisonOperator(t *testing.T) {
+	g := gomega.NewWithT(t)
+	db, err := gorm.Open(postgres.Open("host=localhost user=test dbname=test sslmode=disable"), &gorm.Config{
+		DryRun:               true,
+		DisableAutomaticPing: true,
+	})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	ctx := context.New().WithDB(db, nil)
+
+	for _, test := range []struct {
+		selector string
+		operator string
+	}{
+		{selector: "memory>5", operator: ">"},
+		{selector: "memory<50", operator: "<"},
+	} {
+		t.Run(test.selector, func(t *testing.T) {
+			tx, err := SetResourceSelectorClause(ctx, types.ResourceSelector{
+				Agent:          "all",
+				IncludeDeleted: true,
+				FieldSelector:  test.selector,
+			}, db.Table(models.ConfigItem{}.TableName()), models.ConfigItem{}.TableName())
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+
+			statement := tx.Find(&[]models.ConfigItem{}).Statement
+			g.Expect(statement.SQL.String()).To(gomega.ContainSubstring(
+				fmt.Sprintf(`AND (prop->>'value')::bigint %s $2::bigint`, test.operator),
+			))
+		})
+	}
 }
