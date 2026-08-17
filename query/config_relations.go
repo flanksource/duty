@@ -27,8 +27,8 @@ type RelatedConfig struct {
 	Changes       int                 `json:"changes,omitempty"`
 	Analysis      types.JSON          `json:"analysis,omitempty"`
 	CostPerMinute *float64            `json:"cost_per_minute,omitempty"`
+	CostTotal1h   *float64            `json:"cost_total_1h,omitempty"`
 	CostTotal1d   *float64            `json:"cost_total_1d,omitempty"`
-	CostTotal7d   *float64            `json:"cost_total_7d,omitempty"`
 	CostTotal30d  *float64            `json:"cost_total_30d,omitempty"`
 	CreatedAt     time.Time           `json:"created_at"`
 	UpdatedAt     time.Time           `json:"updated_at"`

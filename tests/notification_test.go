@@ -174,7 +174,7 @@ var _ = ginkgo.Describe("unsent notification", ginkgo.Ordered, func() {
 
 			sentHistory := sentHistories[0]
 			Expect(sentHistory.Count).To(Equal(2), "Expected count to be 2 after duplicate insert")
-			Expect(sentHistory.Body).ToNot(BeNil()) //nolint:staticcheck
+			Expect(sentHistory.Body).ToNot(BeNil())                                                        //nolint:staticcheck
 			Expect(*sentHistory.Body).To(Equal(updatedBody), "Body should be updated to the newest value") //nolint:staticcheck
 		})
 

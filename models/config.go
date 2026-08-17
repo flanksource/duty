@@ -1046,8 +1046,8 @@ type ConfigItemSummary struct {
 	UpdatedAt       *time.Time           `json:"updated_at"`
 	DeletedAt       *time.Time           `json:"deleted_at,omitempty"`
 	CostPerMinute   *float64             `gorm:"column:cost_per_minute" json:"cost_per_minute,omitempty"`
+	CostTotal1h     *float64             `gorm:"column:cost_total_1h" json:"cost_total_1h,omitempty"`
 	CostTotal1d     *float64             `gorm:"column:cost_total_1d" json:"cost_total_1d,omitempty"`
-	CostTotal7d     *float64             `gorm:"column:cost_total_7d" json:"cost_total_7d,omitempty"`
 	CostTotal30d    *float64             `gorm:"column:cost_total_30d" json:"cost_total_30d,omitempty"`
 	BillingCurrency *string              `gorm:"column:billing_currency" json:"billing_currency,omitempty"`
 	MixedCurrency   bool                 `gorm:"column:mixed_currency" json:"mixed_currency"`

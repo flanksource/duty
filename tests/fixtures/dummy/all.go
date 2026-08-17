@@ -30,7 +30,7 @@ type DummyData struct {
 	ComponentRelationships []models.ComponentRelationship
 
 	Configs                      []models.ConfigItem
-	ConfigCosts                  []models.ConfigCost
+	ConfigCosts                  []models.ConfigCostCompact
 	ConfigLocations              []models.ConfigLocation
 	ConfigRelationships          []models.ConfigRelationship
 	ConfigScrapers               []models.ConfigScraper
@@ -128,9 +128,10 @@ func (t *DummyData) Populate(ctx context.Context) error {
 			return err
 		}
 	}
-	// The catalog reads cost through config_costs_rollup, which is only as fresh as its
+	// The catalog reads cost through config_cost_summary over config_cost_compact, which
+	// is only as fresh as its
 	// last refresh, so seeded cost is invisible until this runs.
-	if err := gormDB.Exec("SELECT refresh_config_costs_rollup()").Error; err != nil {
+	if err := gormDB.Exec("SELECT refresh_config_cost_summary()").Error; err != nil {
 		return err
 	}
 
@@ -467,7 +468,7 @@ func GetStaticDummyData(db *gorm.DB) DummyData {
 		ComponentRelationships:       append([]models.ComponentRelationship{}, AllDummyComponentRelationships...),
 		ConfigScrapers:               append([]models.ConfigScraper{}, AllConfigScrapers...),
 		Configs:                      append([]models.ConfigItem{}, AllDummyConfigs...),
-		ConfigCosts:                  append([]models.ConfigCost{}, AllDummyConfigCosts...),
+		ConfigCosts:                  append([]models.ConfigCostCompact{}, AllDummyConfigCosts...),
 		ConfigLocations:              append([]models.ConfigLocation{}, AllDummyConfigLocations...),
 		ConfigChanges:                append([]models.ConfigChange{}, AllDummyConfigChanges...),
 		ConfigRelationships:          append([]models.ConfigRelationship{}, AllConfigRelationships...),
@@ -992,7 +993,7 @@ func GenerateDynamicDummyData(db *gorm.DB) DummyData {
 		LogisticsDBRDS,
 	}
 
-	var configCosts = []models.ConfigCost{
+	var configCosts = []models.ConfigCostCompact{
 		DayCost(KubernetesNodeA.ID, "1", "Compute"),
 		DayCost(KubernetesNodeB.ID, "1.5", "Compute"),
 	}

@@ -37,25 +37,25 @@ var _ = ginkgo.Describe("Config Summary Search", ginkgo.Ordered, func() {
 	ginkgo.It("does not inflate dynamic counts or combine mixed currencies", func() {
 		configID := dummy.KubernetesNodeA.ID
 		midnight := dummy.AllDummyConfigCosts[0].PeriodEnd
-		cost := models.ConfigCost{
+		cost := models.ConfigCostCompact{ConfigCost: models.ConfigCost{
 			ID:              uuid.New(),
-			ConfigID:        &configID,
+			ConfigID:        configID,
 			SourceKey:       "mixed-currency-summary-test",
 			PeriodStart:     midnight.AddDate(0, 0, -1),
 			PeriodEnd:       midnight,
-			Grain:           models.ConfigCostGrainDay,
+			Grain:           models.ConfigCostLevel2,
 			ChargeCategory:  "Usage",
 			BillingCurrency: "EUR",
 			BilledCost:      decimal.NewFromInt(10),
 			EffectiveCost:   decimal.NewFromInt(10),
 			Fingerprint:     "mixed-currency-summary-test",
-		}
+		}}
 		Expect(DefaultContext.DB().Create(&cost).Error).To(Succeed())
 		defer func() {
 			Expect(DefaultContext.DB().Delete(&cost).Error).To(Succeed())
-			Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_costs_rollup").Error).To(Succeed())
+			Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_cost_summary").Error).To(Succeed())
 		}()
-		Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_costs_rollup").Error).To(Succeed())
+		Expect(DefaultContext.DB().Exec("REFRESH MATERIALIZED VIEW config_cost_summary").Error).To(Succeed())
 
 		var expectedCount int64
 		Expect(DefaultContext.DB().Model(&models.ConfigItem{}).

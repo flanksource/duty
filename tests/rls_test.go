@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/api"
@@ -39,7 +38,7 @@ func verifyConfigCostCount(tx *gorm.DB, rlsPayload rls.Payload, expectedCount in
 	Expect(rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
 
 	var count int64
-	Expect(tx.Model(&models.ConfigCost{}).Count(&count).Error).To(BeNil())
+	Expect(tx.Model(&models.ConfigCostCompact{}).Count(&count).Error).To(BeNil())
 	Expect(count).To(Equal(expectedCount))
 }
 
@@ -588,33 +587,17 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		}
 	})
 
-	var _ = Describe("config_costs query", Ordered, func() {
+	var _ = Describe("config cost query", Ordered, func() {
 		var (
-			tx              *gorm.DB
-			awsCostCount    int64
-			unmatchedCostID uuid.UUID
+			tx           *gorm.DB
+			awsCostCount int64
 		)
 
 		BeforeAll(func() {
-			externalID := "rls-unmatched-cost"
-			unmatchedCostID = uuid.New()
-			cost := models.ConfigCost{
-				ID:              unmatchedCostID,
-				SourceKey:       "rls-test",
-				ExternalID:      &externalID,
-				PeriodStart:     dummy.AllDummyConfigCosts[0].PeriodStart,
-				PeriodEnd:       dummy.AllDummyConfigCosts[0].PeriodEnd,
-				Grain:           models.ConfigCostGrainDay,
-				ChargeCategory:  "Usage",
-				BillingCurrency: "USD",
-				BilledCost:      decimal.NewFromInt(1),
-				EffectiveCost:   decimal.NewFromInt(1),
-				Fingerprint:     "rls-unmatched-cost",
-			}
-			Expect(DefaultContext.DB().Create(&cost).Error).To(Succeed())
-
-			Expect(DefaultContext.DB().Table("config_costs").
-				Joins("JOIN config_items ON config_items.id = config_costs.config_id").
+			// Every cost row is attached to a config item now, so the whole question is
+			// whether it inherits that item's scope.
+			Expect(DefaultContext.DB().Table("config_cost_compact").
+				Joins("JOIN config_items ON config_items.id = config_cost_compact.config_id").
 				Where("config_items.tags->>'cluster' = ?", "aws").
 				Count(&awsCostCount).Error).To(Succeed())
 			Expect(awsCostCount).To(BeNumerically(">", 0))
@@ -625,16 +608,10 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 		AfterAll(func() {
 			Expect(tx.Commit().Error).To(BeNil())
-			Expect(DefaultContext.DB().Delete(&models.ConfigCost{}, unmatchedCostID).Error).To(Succeed())
 		})
 
-		It("inherits matched config scope and denies unmatched spend", func() {
+		It("inherits the scope of the config item it is attached to", func() {
 			verifyConfigCostCount(tx, rls.Payload{Config: []rls.Scope{{Tags: map[string]string{"cluster": "aws"}}}}, awsCostCount)
-
-			var unmatchedCount int64
-			Expect(tx.Model(&models.ConfigCost{}).Where("id = ?", unmatchedCostID).Count(&unmatchedCount).Error).To(BeNil())
-			Expect(unmatchedCount).To(BeZero())
-
 			verifyConfigCostCount(tx, rls.Payload{Config: []rls.Scope{}}, 0)
 		})
 	})

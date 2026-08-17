@@ -7,9 +7,9 @@ table "config_costs" {
     default = sql("generate_ulid()")
   }
   column "config_id" {
-    null    = true
+    null    = false
     type    = uuid
-    comment = "null when the spend could not be attached to a config item"
+    comment = "always set; spend with no resource of its own is attributed to the scraper's root config item (AWS::::Account, GCP::Project, ...)"
   }
   column "scraper_id" {
     null    = true
@@ -21,15 +21,10 @@ table "config_costs" {
     type    = text
     comment = "immutable identity of the source dataset or connection"
   }
-  column "source_record_id" {
-    null    = true
-    type    = text
-    comment = "immutable source-native record identity, unique within source_key; defines the fingerprint when present"
-  }
   column "external_id" {
     null    = true
     type    = text
-    comment = "legacy external resource identifier retained for matching"
+    comment = "FOCUS ResourceId as scraped, kept as provenance; the target is already resolved in config_id"
   }
   column "external_config_type" {
     null = true
@@ -56,10 +51,11 @@ table "config_costs" {
   column "grain" {
     null    = false
     type    = text
-    comment = "day | week | month"
+    comment = "level1 | level2 | level3. The width of each level is a property, so changing it is not a migration; each width must divide the next exactly."
   }
 
-  # FOCUS dimensions kept queryable
+  # FOCUS dimensions kept queryable. Account identifiers live in focus; they are still
+  # row identity via the fingerprint, they are just not filtered on directly.
   column "charge_category" {
     null    = false
     type    = text
@@ -83,14 +79,6 @@ table "config_costs" {
     type = text
   }
   column "region_id" {
-    null = true
-    type = text
-  }
-  column "billing_account_id" {
-    null = true
-    type = text
-  }
-  column "sub_account_id" {
     null = true
     type = text
   }
@@ -130,7 +118,7 @@ table "config_costs" {
   column "focus" {
     null    = true
     type    = jsonb
-    comment = "the FOCUS long tail: Tags, SkuPriceDetails, CommitmentDiscount*, and all x_* custom columns"
+    comment = "the FOCUS long tail plus billing_account_id / sub_account_id, and all x_* custom columns"
   }
   column "fingerprint" {
     null    = false
@@ -152,31 +140,23 @@ table "config_costs" {
     columns = [column.id]
   }
 
-  # Idempotent target/bucket merge key. Source-native records also have a separate
-  # source-scoped uniqueness constraint so corrections can move between targets/periods.
-  # nulls_distinct = false keeps unmatched rows idempotent.
+  # Idempotent target/bucket merge key.
   index "config_costs_merge_uniq" {
-    unique         = true
-    nulls_distinct = false
-    columns        = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
-  }
-  index "config_costs_source_record_uniq" {
     unique  = true
-    columns = [column.source_key, column.source_record_id]
-    where   = "source_record_id IS NOT NULL"
+    columns = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
   }
   index "config_costs_period_brin_idx" {
     type    = BRIN
     columns = [column.period_start]
   }
+  # Drives both the read path (cost for a config over a window) and the compaction
+  # passes, which select by grain and age.
   index "config_costs_config_period_idx" {
     columns = [column.config_id, column.period_start]
   }
-  index "config_costs_unmatched_idx" {
-    columns = [column.source_key, column.external_config_type, column.external_config_scraper_id, column.external_id]
-    where   = "config_id IS NULL"
+  index "config_costs_grain_period_idx" {
+    columns = [column.grain, column.period_end]
   }
-
   foreign_key "config_costs_config_fk" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
@@ -188,13 +168,177 @@ table "config_costs" {
     on_delete   = SET_NULL
   }
 
-  check "config_costs_target" {
-    expr = "config_id IS NOT NULL OR external_id IS NOT NULL"
-  }
   check "config_costs_period" {
     expr = "period_end > period_start"
   }
   check "config_costs_grain" {
-    expr = "grain IN ('day', 'week', 'month')"
+    expr = "grain IN ('level1', 'level2', 'level3')"
+  }
+}
+
+# config_cost_compact is the queryable cost series, derived from config_costs and carrying
+# every grain: 1h for recent data, 1d from the day threshold, 30d past the coarsening
+# threshold. config_cost_summary and every read path go through this table; config_costs is
+# the raw landing zone nothing reads.
+#
+# The shape is identical to config_costs so compaction is a plain INSERT ... SELECT and the
+# same merge key keeps re-runs idempotent. Because config_costs retains its rows and
+# providers restate open billing periods, compaction REPLACES a bucket rather than adding
+# to it — re-running it must recompute the same total, not double it.
+table "config_cost_compact" {
+  schema = schema.public
+
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+  column "config_id" {
+    null = false
+    type = uuid
+  }
+  column "scraper_id" {
+    null = true
+    type = uuid
+  }
+  column "source_key" {
+    null = false
+    type = text
+  }
+  column "external_id" {
+    null = true
+    type = text
+  }
+  column "external_config_type" {
+    null = true
+    type = text
+  }
+  column "external_config_scraper_id" {
+    null = true
+    type = text
+  }
+  column "external_config_labels" {
+    null = true
+    type = jsonb
+  }
+
+  column "period_start" {
+    null = false
+    type = timestamptz
+  }
+  column "period_end" {
+    null = false
+    type = timestamptz
+  }
+  column "grain" {
+    null = false
+    type = text
+  }
+
+  column "charge_category" {
+    null = false
+    type = text
+  }
+  column "charge_class" {
+    null = true
+    type = text
+  }
+  column "service_name" {
+    null = true
+    type = text
+  }
+  column "service_category" {
+    null = true
+    type = text
+  }
+  column "sku_id" {
+    null = true
+    type = text
+  }
+  column "region_id" {
+    null = true
+    type = text
+  }
+  column "billing_currency" {
+    null = false
+    type = text
+  }
+
+  column "billed_cost" {
+    null = false
+    type = numeric(24, 10)
+  }
+  column "effective_cost" {
+    null = false
+    type = numeric(24, 10)
+  }
+  column "list_cost" {
+    null = true
+    type = numeric(24, 10)
+  }
+  column "contracted_cost" {
+    null = true
+    type = numeric(24, 10)
+  }
+  column "pricing_quantity" {
+    null = true
+    type = numeric(24, 10)
+  }
+  column "pricing_unit" {
+    null = true
+    type = text
+  }
+
+  column "focus" {
+    null = true
+    type = jsonb
+  }
+  column "fingerprint" {
+    null = false
+    type = text
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  primary_key {
+    columns = [column.id]
+  }
+
+  index "config_cost_compact_merge_uniq" {
+    unique  = true
+    columns = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
+  }
+  index "config_cost_compact_period_brin_idx" {
+    type    = BRIN
+    columns = [column.period_start]
+  }
+  index "config_cost_compact_config_period_idx" {
+    columns = [column.config_id, column.period_start]
+  }
+
+  foreign_key "config_cost_compact_config_fk" {
+    columns     = [column.config_id]
+    ref_columns = [table.config_items.column.id]
+    on_delete   = CASCADE
+  }
+  foreign_key "config_cost_compact_scraper_fk" {
+    columns     = [column.scraper_id]
+    ref_columns = [table.config_scrapers.column.id]
+    on_delete   = SET_NULL
+  }
+
+  check "config_cost_compact_period" {
+    expr = "period_end > period_start"
+  }
+  check "config_cost_compact_grain" {
+    expr = "grain IN ('level1', 'level2', 'level3')"
   }
 }

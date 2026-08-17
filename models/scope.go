@@ -3,8 +3,8 @@ package models
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/flanksource/duty/types"
+	"github.com/google/uuid"
 )
 
 // Scope represents a collection of resources of a single type

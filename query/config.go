@@ -197,10 +197,10 @@ func (t *ConfigSummaryRequest) Parse() error {
 	}
 
 	switch t.Cost {
-	case "1d", "7d", "30d", "":
+	case "1h", "1d", "30d", "":
 		// do nothing
 	default:
-		return fmt.Errorf("cost range is not allowed. allowed (1d, 7d, 30d)")
+		return fmt.Errorf("cost range is not allowed. allowed (1h, 1d, 30d)")
 	}
 
 	return nil
@@ -311,10 +311,10 @@ func ConfigSummary(ctx context.Context, req ConfigSummaryRequest) (types.JSON, e
 				config_id,
 				CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
 				COUNT(*) > 1 AS mixed_currency,
+				CASE WHEN COUNT(*) = 1 THEN SUM(cost_1h) END AS cost_1h,
 				CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
-				CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
 				CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
-			FROM config_costs_rollup
+			FROM config_cost_summary
 			GROUP BY config_id
 		) config_costs ON config_costs.config_id = config_items.id`)
 	}

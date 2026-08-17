@@ -114,34 +114,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- config_costs_rollup collapses the config_costs history into the trailing windows the
--- catalog reads. Rows coarser than a day are prorated by cost_window_overlap rather than
--- included whole, so a monthly charge contributes its daily share to cost_1d.
+-- config_cost_summary collapses the compacted cost series into the trailing windows the
+-- catalog reads. It reads config_cost_compact, never config_costs: compact carries every
+-- grain (1h for recent data, 1d, then 30d) and is rebuilt from the raw table every 30
+-- minutes, so cost_1h is served from real hour-grain rows rather than a coarse estimate.
+--
+-- Rows coarser than a window are prorated by cost_window_overlap rather than included
+-- whole, so a 30d-grain charge contributes only its share to cost_1h and cost_1d.
 --
 -- Defined here rather than in a higher-numbered views file because the `configs` view below
 -- joins it and migration scripts run in filename order.
-DROP MATERIALIZED VIEW IF EXISTS config_costs_rollup CASCADE;
-CREATE MATERIALIZED VIEW config_costs_rollup AS
+DROP MATERIALIZED VIEW IF EXISTS config_cost_summary CASCADE;
+CREATE MATERIALIZED VIEW config_cost_summary AS
 SELECT
   config_id,
   billing_currency,
+  SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '1 hour', now())) AS cost_1h,
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '1 day', now()))   AS cost_1d,
-  SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '7 days', now()))  AS cost_7d,
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS cost_30d,
   SUM(billed_cost    * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS billed_30d,
   MAX(period_end) AS last_cost_at
-FROM config_costs
-WHERE config_id IS NOT NULL
-  AND period_end >= now() - interval '30 days'
+FROM config_cost_compact
+WHERE period_end >= now() - interval '30 days'
 GROUP BY config_id, billing_currency;
 
 -- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY and guarantees one row per
 -- config/currency pair.
-CREATE UNIQUE INDEX config_costs_rollup_config_currency_idx ON config_costs_rollup (config_id, billing_currency);
+CREATE UNIQUE INDEX config_cost_summary_config_currency_idx ON config_cost_summary (config_id, billing_currency);
 
-CREATE OR REPLACE FUNCTION refresh_config_costs_rollup() RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION refresh_config_cost_summary() RETURNS VOID AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY config_costs_rollup;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY config_cost_summary;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -165,10 +168,10 @@ CREATE or REPLACE VIEW configs AS
     ci.created_at,
     ci.updated_at,
     ci.deleted_at,
-    -- Legacy scalar totals are only meaningful when exactly one currency exists.
+    -- Scalar totals are only meaningful when exactly one currency exists.
     CASE WHEN config_costs.currency_count = 1 THEN (config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_1h::numeric(16, 4) END AS cost_total_1h,
     CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_1d::numeric(16, 4) END AS cost_total_1d,
-    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_7d::numeric(16, 4) END AS cost_total_7d,
     CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_30d::numeric(16, 4) END AS cost_total_30d,
     CASE WHEN config_costs.currency_count = 1 THEN config_costs.billing_currency END AS billing_currency,
     COALESCE(config_costs.currency_count > 1, false) AS mixed_currency,
@@ -186,10 +189,10 @@ CREATE or REPLACE VIEW configs AS
       config_id,
       COUNT(*) AS currency_count,
       MIN(billing_currency) AS billing_currency,
+      SUM(cost_1h) AS cost_1h,
       SUM(cost_1d) AS cost_1d,
-      SUM(cost_7d) AS cost_7d,
       SUM(cost_30d) AS cost_30d
-    FROM config_costs_rollup
+    FROM config_cost_summary
     GROUP BY config_id
   ) config_costs ON config_costs.config_id = ci.id;
 
@@ -402,8 +405,8 @@ CREATE VIEW config_summary AS
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1h)::numeric(16, 4) END AS cost_total_1h,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d)::numeric(16, 4) END AS cost_total_1d,
-    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_7d)::numeric(16, 4) END AS cost_total_7d,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_30d)::numeric(16, 4) END AS cost_total_30d
   FROM
     config_items
@@ -415,10 +418,10 @@ CREATE VIEW config_summary AS
         config_id,
         CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
         COUNT(*) > 1 AS mixed_currency,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_1h) END AS cost_1h,
         CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
-        CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
         CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
-      FROM config_costs_rollup
+      FROM config_cost_summary
       GROUP BY config_id
     ) config_costs ON config_costs.config_id = config_items.id
   WHERE config_items.deleted_at IS NULL
@@ -474,8 +477,8 @@ CREATE VIEW config_class_summary AS
     changes_per_type.count AS changes,
     COUNT(*) AS total_configs,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1h)::numeric(16, 4) END AS cost_total_1h,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_1d)::numeric(16, 4) END AS cost_total_1d,
-    CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_7d)::numeric(16, 4) END AS cost_total_7d,
     CASE WHEN COUNT(DISTINCT config_costs.billing_currency) <= 1 AND NOT COALESCE(BOOL_OR(config_costs.mixed_currency), false) THEN SUM(config_costs.cost_30d)::numeric(16, 4) END AS cost_total_30d
   FROM
     config_items
@@ -486,10 +489,10 @@ CREATE VIEW config_class_summary AS
         config_id,
         CASE WHEN COUNT(*) = 1 THEN MIN(billing_currency) END AS billing_currency,
         COUNT(*) > 1 AS mixed_currency,
+        CASE WHEN COUNT(*) = 1 THEN SUM(cost_1h) END AS cost_1h,
         CASE WHEN COUNT(*) = 1 THEN SUM(cost_1d) END AS cost_1d,
-        CASE WHEN COUNT(*) = 1 THEN SUM(cost_7d) END AS cost_7d,
         CASE WHEN COUNT(*) = 1 THEN SUM(cost_30d) END AS cost_30d
-      FROM config_costs_rollup
+      FROM config_cost_summary
       GROUP BY config_id
     ) config_costs ON config_costs.config_id = config_items.id
   GROUP BY
@@ -846,8 +849,8 @@ CREATE FUNCTION related_configs_recursive (
     changes BIGINT,
     analysis jsonb,
     cost_per_minute NUMERIC(16, 4),
+    cost_total_1h NUMERIC(16, 4),
     cost_total_1d NUMERIC(16, 4),
-    cost_total_7d NUMERIC(16, 4),
     cost_total_30d NUMERIC(16, 4),
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
@@ -886,8 +889,8 @@ BEGIN
         configs.changes,
         configs.analysis,
         configs.cost_per_minute,
+        configs.cost_total_1h,
         configs.cost_total_1d,
-        configs.cost_total_7d,
         configs.cost_total_30d,
         configs.created_at,
         configs.updated_at,
@@ -922,8 +925,8 @@ CREATE FUNCTION related_configs (
     changes json,
     analysis json,
     cost_per_minute NUMERIC(16, 4),
+    cost_total_1h NUMERIC(16, 4),
     cost_total_1d NUMERIC(16, 4),
-    cost_total_7d NUMERIC(16, 4),
     cost_total_30d NUMERIC(16, 4),
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,
