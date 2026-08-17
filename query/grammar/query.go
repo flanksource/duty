@@ -75,6 +75,10 @@ func (q QueryField) ToClauses() ([]clause.Expression, error) {
 		clauses = append(clauses, clause.Lt{Column: q.Field, Value: q.Value})
 	case Gt:
 		clauses = append(clauses, clause.Gt{Column: q.Field, Value: q.Value})
+	case Exists:
+		clauses = append(clauses, clause.Neq{Column: q.Field, Value: nil})
+	case NotExists:
+		clauses = append(clauses, clause.Eq{Column: q.Field, Value: nil})
 	default:
 		return nil, fmt.Errorf("invalid operator: %s", q.Op)
 	}

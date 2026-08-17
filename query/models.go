@@ -47,6 +47,17 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 	return nil, fmt.Errorf("invalid agent: %s", id)
 }
 
+var ExternalIDMapper = func(_ context.Context, value string) (any, error) {
+	values := strings.Split(value, ",")
+	for i := range values {
+		values[i] = strings.ToLower(strings.TrimSpace(values[i]))
+		if values[i] == "" {
+			return nil, fmt.Errorf("external_id cannot be empty")
+		}
+	}
+	return strings.Join(values, ","), nil
+}
+
 var JSONPathMapper = func(ctx context.Context, tx *gorm.DB, column string, op grammar.QueryOperator, path string, val string) *gorm.DB {
 	segments := strings.Split(path, ".")
 	if slices.Contains(flatJSONMapColumns, column) {
@@ -216,6 +227,9 @@ type QueryModel struct {
 	// Any other fields will be treated as a property lookup.
 	Columns []string
 
+	// FieldTypes identifies columns that need non-scalar query handling.
+	FieldTypes map[string]grammar.FieldType
+
 	// Alias maps fields from the search query to the table columns
 	Aliases map[string]string
 
@@ -246,6 +260,9 @@ var ConfigItemQueryModel = QueryModel{
 		"cost_total_1d", "cost_total_7d", "cost_total_30d", "cost_per_minute",
 		"created_at", "updated_at", "deleted_at",
 	},
+	FieldTypes: map[string]grammar.FieldType{
+		"external_id": grammar.FieldTypeTextArray,
+	},
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"related": relatedConfigsMapper,
 	},
@@ -264,10 +281,11 @@ var ConfigItemQueryModel = QueryModel{
 		"namespace":   "tags.namespace",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
-		"agent_id":   AgentMapper,
-		"created_at": DateMapper,
-		"updated_at": DateMapper,
-		"deleted_at": DateMapper,
+		"agent_id":    AgentMapper,
+		"external_id": ExternalIDMapper,
+		"created_at":  DateMapper,
+		"updated_at":  DateMapper,
+		"deleted_at":  DateMapper,
 	},
 }
 
@@ -278,6 +296,9 @@ var ConfigItemSummaryQueryModel = QueryModel{
 		"source", "created_by", "created_at", "updated_at", "deleted_at", "cost_per_minute",
 		"cost_total_1d", "cost_total_7d", "cost_total_30d", "agent_id", "status", "health",
 		"ready", "path", "changes", "analysis",
+	},
+	FieldTypes: map[string]grammar.FieldType{
+		"external_id": grammar.FieldTypeTextArray,
 	},
 	Custom: map[string]func(ctx context.Context, tx *gorm.DB, val string) (*gorm.DB, error){
 		"related": relatedConfigsMapper,
@@ -298,10 +319,11 @@ var ConfigItemSummaryQueryModel = QueryModel{
 		"analysis_count": "analysis",
 	},
 	FieldMapper: map[string]func(ctx context.Context, id string) (any, error){
-		"agent_id":   AgentMapper,
-		"created_at": DateMapper,
-		"updated_at": DateMapper,
-		"deleted_at": DateMapper,
+		"agent_id":    AgentMapper,
+		"external_id": ExternalIDMapper,
+		"created_at":  DateMapper,
+		"updated_at":  DateMapper,
+		"deleted_at":  DateMapper,
 	},
 }
 
@@ -324,7 +346,7 @@ var ComponentQueryModel = QueryModel{
 		},
 	},
 	Columns: []string{
-		"id", "name", "namespace", "topology_id", "type", "status", "health", "agent_id",
+		"id", "name", "namespace", "topology_id", "external_id", "type", "status", "health", "agent_id",
 		"created_at", "updated_at", "deleted_at",
 	},
 	JSONMapColumns: []string{"labels", "summary"},
@@ -527,6 +549,9 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		if alias, ok := qm.Aliases[q.Field]; ok {
 			q.Field = alias
 		}
+		if fieldType, ok := qm.FieldTypes[q.Field]; ok {
+			q.FieldType = fieldType
+		}
 
 		if q.Field == "@order" {
 			if strings.HasPrefix(q.Value.(string), "-") {
@@ -539,7 +564,7 @@ func (qm QueryModel) Apply(ctx context.Context, q grammar.QueryField, tx *gorm.D
 		}
 
 		val := fmt.Sprint(q.Value)
-		if mapper, ok := qm.FieldMapper[q.Field]; ok {
+		if mapper, ok := qm.FieldMapper[q.Field]; ok && q.Op != grammar.Exists && q.Op != grammar.NotExists {
 			mappedVal, err := mapper(ctx, val)
 			if err != nil {
 				return nil, nil, err
@@ -685,6 +710,15 @@ func filterJSONColumnValues(tx *gorm.DB, column string, op grammar.QueryOperator
 }
 
 func filterProperties(tx *gorm.DB, op grammar.QueryOperator, name string, text string) *gorm.DB {
+	if op == grammar.Exists || op == grammar.NotExists {
+		subQueryCondition := lo.Ternary(op == grammar.NotExists, "NOT EXISTS", "EXISTS")
+		return tx.Where(fmt.Sprintf(`%s (
+			SELECT 1
+			FROM jsonb_array_elements(properties) AS prop
+			WHERE prop->>'name' = ?
+		)`, subQueryCondition), name)
+	}
+
 	var subQueryCondition string
 	switch op {
 	case grammar.Neq:

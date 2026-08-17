@@ -435,7 +435,10 @@ func SetResourceSelectorClause(
 
 		requirements, _ := parsedFieldSelector.Requirements()
 		for _, r := range requirements {
-			query = jsonColumnRequirementsToSQLClause(query, "properties", r)
+			query, err = applyFieldSelectorRequirement(ctx, query, qm, r)
+			if err != nil {
+				return nil, api.Errorf(api.EINVALID, "failed to apply field selector: %v", err)
+			}
 		}
 	}
 
@@ -447,6 +450,53 @@ func SetResourceSelectorClause(
 	}
 
 	return query, nil
+}
+
+func applyFieldSelectorRequirement(ctx context.Context, query *gorm.DB, qm QueryModel, requirement labels.Requirement) (*gorm.DB, error) {
+	field := requirement.Key()
+	resolvedField := strings.ToLower(field)
+	if alias, ok := qm.Aliases[resolvedField]; ok {
+		resolvedField = alias
+	}
+
+	knownField := slices.Contains(qm.Columns, resolvedField)
+	if !knownField {
+		for _, column := range qm.JSONMapColumns {
+			if resolvedField == column || strings.HasPrefix(resolvedField, column+".") {
+				knownField = true
+				break
+			}
+		}
+	}
+
+	if !knownField && !(qm.HasProperties && (resolvedField == "properties" || strings.HasPrefix(resolvedField, "properties."))) {
+		field = "properties." + field
+	}
+
+	op := grammar.Eq
+	switch requirement.Operator() {
+	case selection.NotEquals, selection.NotIn:
+		op = grammar.Neq
+	case selection.GreaterThan:
+		op = grammar.Gt
+	case selection.LessThan:
+		op = grammar.Lt
+	case selection.Exists:
+		op = grammar.Exists
+	case selection.DoesNotExist:
+		op = grammar.NotExists
+	}
+
+	qf := grammar.QueryField{
+		Field: field,
+		Op:    op,
+		Value: strings.Join(requirement.Values().List(), ","),
+	}
+	query, clauses, err := qm.Apply(ctx, qf, query)
+	if err != nil {
+		return nil, err
+	}
+	return query.Clauses(clauses...), nil
 }
 
 // queryResourceSelector runs the given resourceSelector and returns the resource ids

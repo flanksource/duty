@@ -218,6 +218,9 @@ func LookupConfigs(ctx context.Context, lookup RelationshipSelectorTemplate, lab
 	} else if lookupResult == nil {
 		return nil, nil
 	}
+	if strings.TrimSpace(lookupResult.ExternalID) != "" && strings.TrimSpace(lookupResult.Type) == "" {
+		return nil, fmt.Errorf("config external ID lookup requires a type")
+	}
 
 	if ctx.IsTrace() {
 		logger.Tracef("finding all config items (%s)", lookupResult)
