@@ -718,6 +718,15 @@ func filterProperties(tx *gorm.DB, op grammar.QueryOperator, name string, text s
 			WHERE prop->>'name' = ?
 		)`, subQueryCondition), name)
 	}
+	if op == grammar.Gt || op == grammar.Lt {
+		comparison := lo.Ternary(op == grammar.Gt, ">", "<")
+		return tx.Where(fmt.Sprintf(`EXISTS (
+			SELECT 1
+			FROM jsonb_array_elements(properties) AS prop
+			WHERE prop->>'name' = ?
+			AND (prop->>'value')::bigint %s ?::bigint
+		)`, comparison), name, text)
+	}
 
 	var subQueryCondition string
 	switch op {
