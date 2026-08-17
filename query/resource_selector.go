@@ -469,7 +469,8 @@ func applyFieldSelectorRequirement(ctx context.Context, query *gorm.DB, qm Query
 		}
 	}
 
-	if !knownField && !(qm.HasProperties && (resolvedField == "properties" || strings.HasPrefix(resolvedField, "properties."))) {
+	propertyField := qm.HasProperties && (resolvedField == "properties" || strings.HasPrefix(resolvedField, "properties."))
+	if !knownField && !propertyField {
 		field = "properties." + field
 	}
 
