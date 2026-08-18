@@ -40,6 +40,30 @@ func TestConfigExternalIDFieldSelectorUsesTextArrayColumn(t *testing.T) {
 	}))
 }
 
+func TestConfigExternalIDFieldSelectorPreservesCase(t *testing.T) {
+	g := gomega.NewWithT(t)
+	db, err := gorm.Open(postgres.Open("host=localhost user=test dbname=test sslmode=disable"), &gorm.Config{
+		DryRun:               true,
+		DisableAutomaticPing: true,
+	})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ctx := context.New().WithDB(db, nil)
+	tx, err := SetResourceSelectorClause(ctx, types.ResourceSelector{
+		Agent:          "all",
+		IncludeDeleted: true,
+		Types:          []string{"AWS::Resource"},
+		FieldSelector:  "external_id=AWS/Foo",
+	}, db.Table(models.ConfigItem{}.TableName()), models.ConfigItem{}.TableName())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	statement := tx.Find(&[]models.ConfigItem{}).Statement
+	g.Expect(statement.Vars).To(gomega.Equal([]any{
+		"aws::resource",
+		pq.StringArray{"AWS/Foo"},
+	}))
+}
+
 func TestDynamicPropertyFieldSelectorPreservesComparisonOperator(t *testing.T) {
 	g := gomega.NewWithT(t)
 	db, err := gorm.Open(postgres.Open("host=localhost user=test dbname=test sslmode=disable"), &gorm.Config{
