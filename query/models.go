@@ -50,7 +50,7 @@ var AgentMapper = func(ctx context.Context, id string) (any, error) {
 var ExternalIDMapper = func(_ context.Context, value string) (any, error) {
 	values := strings.Split(value, ",")
 	for i := range values {
-		values[i] = strings.ToLower(strings.TrimSpace(values[i]))
+		values[i] = strings.TrimSpace(values[i])
 		if values[i] == "" {
 			return nil, fmt.Errorf("external_id cannot be empty")
 		}

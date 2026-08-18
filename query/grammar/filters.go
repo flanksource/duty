@@ -44,7 +44,7 @@ func (e expressions) textArrayFieldExpression(field string) []clause.Expression 
 	if len(e.In) > 0 {
 		values := make(pq.StringArray, 0, len(e.In))
 		for _, value := range e.In {
-			values = append(values, strings.ToLower(strings.TrimSpace(fmt.Sprint(value))))
+			values = append(values, strings.TrimSpace(fmt.Sprint(value)))
 		}
 
 		operator := "@>"
@@ -58,13 +58,13 @@ func (e expressions) textArrayFieldExpression(field string) []clause.Expression 
 	}
 
 	for _, value := range e.Prefix {
-		clauses = append(clauses, textArrayLikeExpression(col, strings.ToLower(value)+"%"))
+		clauses = append(clauses, textArrayLikeExpression(col, value+"%"))
 	}
 	for _, value := range e.Glob {
-		clauses = append(clauses, textArrayLikeExpression(col, "%"+strings.ToLower(value)+"%"))
+		clauses = append(clauses, textArrayLikeExpression(col, "%"+value+"%"))
 	}
 	for _, value := range e.Suffix {
-		clauses = append(clauses, textArrayLikeExpression(col, "%"+strings.ToLower(value)))
+		clauses = append(clauses, textArrayLikeExpression(col, "%"+value))
 	}
 
 	return clauses
@@ -72,7 +72,7 @@ func (e expressions) textArrayFieldExpression(field string) []clause.Expression 
 
 func textArrayLikeExpression(column clause.Column, pattern string) clause.Expression {
 	return clause.Expr{
-		SQL:  "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE LOWER(value) LIKE ?)",
+		SQL:  "EXISTS (SELECT 1 FROM unnest(?) AS value WHERE value LIKE ?)",
 		Vars: []any{column, pattern},
 	}
 }
