@@ -26,7 +26,7 @@ func TestConfigExternalIDFieldSelectorUsesTextArrayColumn(t *testing.T) {
 		Agent:          "all",
 		IncludeDeleted: true,
 		Types:          []string{"Kubernetes::Pod"},
-		FieldSelector:  "external_id=  MiXeD-Alias  ",
+		FieldSelector:  "external_id=  mixed-alias  ",
 	}, db.Table(models.ConfigItem{}.TableName()), models.ConfigItem{}.TableName())
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 

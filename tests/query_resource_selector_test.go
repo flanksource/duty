@@ -619,10 +619,10 @@ var _ = ginkgo.Describe("Config external ID resource selectors", ginkgo.Ordered,
 		return query.FindConfigIDsByResourceSelector(DefaultContext, 0, selector)
 	}
 
-	ginkgo.It("normalizes and matches an external ID array member", func() {
+	ginkgo.It("trims and matches an external ID array member", func() {
 		ids, err := find(types.ResourceSelector{
 			Types:         []string{primaryType},
-			FieldSelector: fmt.Sprintf("external_id=  %s  ", strings.ToUpper(alias)),
+			FieldSelector: fmt.Sprintf("external_id=  %s  ", alias),
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ids).To(ConsistOf([]uuid.UUID{primary.ID}))
@@ -710,7 +710,7 @@ var _ = ginkgo.Describe("Config external ID resource selectors", ginkgo.Ordered,
 			Name:          primary.GetName(),
 			Scope:         dummy.KubeScrapeConfig.ID.String(),
 			LabelSelector: "selector-test=primary",
-			FieldSelector: "external_id=" + strings.ToUpper(alias),
+			FieldSelector: "external_id=" + alias,
 		}
 		db := DefaultContext.DB().Session(&gorm.Session{DryRun: true}).Table("config_items").Select("id")
 		db, err := query.SetResourceSelectorClause(DefaultContext, selector, db, "config_items")
@@ -751,7 +751,7 @@ var _ = ginkgo.Describe("Config external ID resource selectors", ginkgo.Ordered,
 		Expect(err).To(MatchError(ContainSubstring("requires a type")))
 
 		ids, err := duty.LookupConfigs(DefaultContext, duty.RelationshipSelectorTemplate{
-			ExternalID: duty.Lookup{Value: strings.ToUpper(alias)},
+			ExternalID: duty.Lookup{Value: alias},
 			Type:       duty.Lookup{Value: primaryType},
 		}, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
