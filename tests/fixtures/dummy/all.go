@@ -128,9 +128,8 @@ func (t *DummyData) Populate(ctx context.Context) error {
 			return err
 		}
 	}
-	// The catalog reads cost through config_cost_summary over config_cost_compact, which
-	// is only as fresh as its
-	// last refresh, so seeded cost is invisible until this runs.
+	// The catalog reads cost through config_cost_summary over config_cost_compact, which is
+	// only as fresh as its last refresh, so seeded cost is invisible until this runs.
 	if err := gormDB.Exec("SELECT refresh_config_cost_summary()").Error; err != nil {
 		return err
 	}
@@ -361,6 +360,14 @@ func (t *DummyData) Delete(gormDB *gorm.DB) error {
 
 	if err := DeleteAll(gormDB, t.ConfigCosts); err != nil {
 		return err
+	}
+	if len(t.ConfigCosts) > 0 {
+		// Delete is also called on its own for teardown, not only from Populate, so the
+		// summary has to be rebuilt here too or it keeps serving costs for rows that are
+		// gone.
+		if err := gormDB.Exec("SELECT refresh_config_cost_summary()").Error; err != nil {
+			return err
+		}
 	}
 
 	if len(t.ExternalUserGroups) > 0 {

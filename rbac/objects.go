@@ -74,7 +74,6 @@ var dbResourceObjMap = map[string]string{
 	"config_component_relationships":            policy.ObjectCatalog,
 	"config_costs":                              policy.ObjectCatalog,
 	"config_cost_compact":                       policy.ObjectCatalog,
-	"config_cost_summary":                       policy.ObjectCatalog,
 	"config_detail":                             policy.ObjectCatalog,
 	"config_items_aws":                          policy.ObjectCatalog,
 	"config_items":                              policy.ObjectCatalog,
