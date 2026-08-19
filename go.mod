@@ -32,9 +32,9 @@ require (
 	github.com/exaring/otelpgx v0.11.1
 	github.com/fergusstrange/embedded-postgres v1.34.0
 	github.com/flanksource/artifacts v1.0.24
-	github.com/flanksource/clicky v1.21.18
+	github.com/flanksource/clicky v1.21.55
 	github.com/flanksource/commons v1.56.0
-	github.com/flanksource/deps v1.0.35
+	github.com/flanksource/deps v1.0.40
 	github.com/flanksource/gomplate/v3 v3.24.89
 	github.com/flanksource/is-healthy v1.0.90
 	github.com/flanksource/sandbox-runtime v1.0.2
@@ -156,6 +156,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/yuin/goldmark v1.7.17 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	k8s.io/streaming v0.36.2 // indirect
 )
@@ -415,7 +416,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260608224507-4308a22a1bab // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
