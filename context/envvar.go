@@ -39,8 +39,13 @@ func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (va
 	var source = ""
 
 	if input.ValueFrom == nil {
-		source = "static"
-		value = input.ValueStatic
+		if strings.HasPrefix(input.ValueStatic, onePasswordReferencePrefix) {
+			source = "onepassword"
+			value, err = getOnePasswordSecretFromCache(ctx, input.ValueStatic)
+		} else {
+			source = "static"
+			value = input.ValueStatic
+		}
 	} else if input.ValueFrom.SecretKeyRef != nil && !input.ValueFrom.SecretKeyRef.IsEmpty() {
 		source = fmt.Sprintf("secret(%s/%s).%s", namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)
 		value, err = GetSecretFromCache(ctx, namespace, input.ValueFrom.SecretKeyRef.Name, input.ValueFrom.SecretKeyRef.Key)

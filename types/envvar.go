@@ -13,7 +13,8 @@ const EnvVarType = "env_var"
 
 // +kubebuilder:object:generate=true
 type EnvVar struct {
-	Name        string        `json:"name,omitempty" yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	// ValueStatic is a literal value or a 1Password secret reference URI beginning with op://, resolved using OP_SERVICE_ACCOUNT_TOKEN.
 	ValueStatic string        `json:"value,omitempty" yaml:"value,omitempty" protobuf:"bytes,2,opt,name=value" template:"true"`
 	ValueFrom   *EnvVarSource `json:"valueFrom,omitempty" yaml:"valueFrom,omitempty" protobuf:"bytes,3,opt,name=valueFrom"`
 }
