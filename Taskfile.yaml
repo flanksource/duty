@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   # test:
@@ -21,6 +21,32 @@ tasks:
   #         --ignore ./tests/e2e \
   #         --ignore ./tests/e2e-blobs \
   #         {{if .CLI_ARGS}}{{.CLI_ARGS}}{{else}}./...{{end}}
+
+  gen:openapi:
+    desc: |
+      Boots embedded postgres, applies all migrations, fetches PostgREST's
+      live Swagger 2.0 spec, converts it to OpenAPI 3.1, enriches it with
+      Go-doc descriptions and RBAC tags, applies the RPC overlay
+      (schema/openapi/postgrest/rpc-overlays.yaml), and writes:
+        - schema/openapi/db.json
+        - schema/openapi/db.yaml
+        - sdk/typescript/openapi.json
+        - sdk/typescript/src/types.ts (via npx openapi-typescript)
+      Takes ~90s end-to-end. Requires Node.js (>=18) on PATH for the TS
+      codegen step; fails loudly if npx is missing.
+    cmds:
+      - go run ./hack/generate-openapi {{.CLI_ARGS}}
+    env:
+      PGRST_VERSION: any
+
+  gen:openapi:check:
+    desc: |
+      Regenerates the spec and the TypeScript types, then fails if any of
+      the committed artifacts have changed. Wire into CI to catch schema
+      changes that ship without a corresponding spec regeneration.
+    deps: [gen:openapi]
+    cmds:
+      - git diff --exit-code schema/openapi/db.json schema/openapi/db.yaml sdk/typescript/openapi.json sdk/typescript/src/types.ts
 
   test:migrate:
     desc: |
