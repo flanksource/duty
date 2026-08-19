@@ -1173,6 +1173,13 @@ var _ = ginkgo.Describe("Resoure Selector with PEG", ginkgo.Ordered, func() {
 			resource:    "config",
 		},
 		{
+			description: "config selectors deliberately reject cost predicates",
+			query:       `cost_total_30d>0`,
+			resource:    "config",
+			err:         true,
+			errMsg:      "query for column:cost_total_30d",
+		},
+		{
 			description: "config item name query no match",
 			query:       `name=unknown-name-config`,
 			expectedIDs: []uuid.UUID{},

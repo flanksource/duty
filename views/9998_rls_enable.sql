@@ -118,6 +118,14 @@ BEGIN
         EXECUTE 'ALTER TABLE config_analysis ENABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_costs') THEN
+        EXECUTE 'ALTER TABLE config_costs ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_cost_compact') THEN
+        EXECUTE 'ALTER TABLE config_cost_compact ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'components') THEN
         EXECUTE 'ALTER TABLE components ENABLE ROW LEVEL SECURITY;';
     END IF;
@@ -186,6 +194,37 @@ CREATE POLICY config_changes_auth ON config_changes
         SELECT 1
         FROM config_items
         WHERE config_items.id = config_changes.config_id
+      )
+      END
+    );
+
+-- Policy config_costs
+DROP POLICY IF EXISTS config_costs_auth ON config_costs;
+
+CREATE POLICY config_costs_auth ON config_costs
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        -- just leverage the RLS on config_items
+        SELECT 1
+        FROM config_items
+        WHERE config_items.id = config_costs.config_id
+      )
+      END
+    );
+
+-- Policy config_cost_compact: identical rules to config_costs.
+DROP POLICY IF EXISTS config_cost_compact_auth ON config_cost_compact;
+
+CREATE POLICY config_cost_compact_auth ON config_cost_compact
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        SELECT 1
+        FROM config_items
+        WHERE config_items.id = config_cost_compact.config_id
       )
       END
     );

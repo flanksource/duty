@@ -131,7 +131,6 @@ var KubernetesNodeA = models.ConfigItem{
 		{Name: "memory", Value: lo.ToPtr(int64(64))},
 		{Name: "region", Text: "us-east-1"},
 	},
-	CostTotal30d: 50,
 }
 
 var KubernetesNodeB = models.ConfigItem{
@@ -160,7 +159,6 @@ var KubernetesNodeB = models.ConfigItem{
 		{Name: "region", Text: "us-west-2"},
 		{Name: "os", Text: "linux"},
 	},
-	CostTotal30d: 80,
 }
 
 var EC2InstanceA = models.ConfigItem{

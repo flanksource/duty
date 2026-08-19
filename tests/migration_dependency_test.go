@@ -71,6 +71,21 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		Expect(err).To(BeNil(), "failed to restore hash for incidents_ids.sql")
 	})
 
+	It("should include views that depend on configs", func() {
+		var currentHash string
+		Expect(DefaultContext.DB().Raw(`SELECT hash FROM migration_logs WHERE path = '006_config_views.sql'`).Scan(&currentHash).Error).To(BeNil())
+		Expect(DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = 'dummy' WHERE path = '006_config_views.sql'`).Error).To(BeNil())
+
+		db, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+		funcs, views, err := migrate.GetExecutableScripts(db, nil, []string{"9998_rls_enable.sql", "9999_rls_disable.sql"})
+		Expect(err).To(BeNil())
+		Expect(funcs).To(BeEmpty())
+		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "014_config_item_by_type.sql", "021_notification.sql", "037_notification_group_resources.sql"}))
+
+		Expect(DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = ? WHERE path = '006_config_views.sql'`, []byte(currentHash)[:]).Error).To(BeNil())
+	})
+
 	It("should get correct executable scripts", func() {
 		err := DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = 'dummy' WHERE path = 'drop.sql'`).Error
 		Expect(err).To(BeNil())
@@ -81,7 +96,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, []string{"9998_rls_enable.sql", "9999_rls_disable.sql"})
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
-		Expect(len(views)).To(Equal(4), "RLS scripts & notification_group_resources index creation scripts are picked up here")
+		Expect(len(views)).To(Equal(4), "RLS scripts & direct drop.sql dependents are picked up here")
 
 		Expect(collections.MapKeys(funcs)).To(Equal([]string{"drop.sql"}))
 		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "021_notification.sql", "037_notification_group_resources.sql", "038_config_access.sql"}))

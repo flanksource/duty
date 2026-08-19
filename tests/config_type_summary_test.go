@@ -20,13 +20,16 @@ type configClassSummary struct {
 	configClass           string
 	totalConfigs          int
 	changes               *int
-	cpm, cpd, cp7d, cp30d *float64
+	cpm, cp1h, cpd, cp30d *float64
 	analysis              map[string]any
+	// hasCost marks a class the fixtures attach cost to, so the cost projection is
+	// asserted rather than merely scanned.
+	hasCost bool
 }
 
 var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func() {
 	ginkgo.It("Should query config_class_summary view", func() {
-		rows, err := DefaultContext.Pool().Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1d, cost_total_7d, cost_total_30d FROM config_class_summary")
+		rows, err := DefaultContext.Pool().Query(context.Background(), "SELECT config_class, analysis, changes, total_configs, cost_per_minute, cost_total_1h, cost_total_1d, cost_total_30d FROM config_class_summary")
 		Expect(err).ToNot(HaveOccurred())
 		defer rows.Close()
 
@@ -34,7 +37,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 		for rows.Next() {
 			var c configClassSummary
 			var analysisRaw json.RawMessage
-			err := rows.Scan(&c.configClass, &analysisRaw, &c.changes, &c.totalConfigs, &c.cpm, &c.cpd, &c.cp7d, &c.cp30d)
+			err := rows.Scan(&c.configClass, &analysisRaw, &c.changes, &c.totalConfigs, &c.cpm, &c.cp1h, &c.cpd, &c.cp30d)
 			Expect(err).ToNot(HaveOccurred())
 
 			if analysisRaw != nil {
@@ -66,7 +69,7 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 				configClass:  models.ConfigClassNode,
 				totalConfigs: 3,
 				changes:      lo.ToPtr(1),
-				cp30d:        lo.ToPtr(2.5),
+				hasCost:      true,
 			},
 			{
 				configClass:  models.ConfigClassPod,
@@ -92,6 +95,21 @@ var _ = ginkgo.Describe("Check config_class_summary view", ginkgo.Ordered, func(
 			Expect(found).To(BeTrue())
 			Expect(i.totalConfigs).To(BeNumerically(">=", expected.totalConfigs))
 			Expect(lo.FromPtr(i.changes)).To(BeNumerically(">=", lo.FromPtr(expected.changes)))
+
+			if expected.hasCost {
+				Expect(i.cp30d).ToNot(BeNil(), "%s should project a 30d cost", expected.configClass)
+				Expect(*i.cp30d).To(BeNumerically(">", 0))
+				Expect(i.cp1h).ToNot(BeNil(), "%s should project a 1h cost", expected.configClass)
+			}
+		}
+
+		// The 1h window is a subset of the 30d window over the same rows, so a swapped or
+		// misaligned column mapping shows up as this ordering breaking.
+		for _, c := range configClassSummaries {
+			if c.cp1h == nil || c.cp30d == nil {
+				continue
+			}
+			Expect(*c.cp1h).To(BeNumerically("<=", *c.cp30d), "class %s", c.configClass)
 		}
 
 	})

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"github.com/flanksource/duty/api"
@@ -32,6 +34,17 @@ func verifyConfigCount(tx *gorm.DB, rlsPayload rls.Payload, expectedCount int64)
 	var count int64
 	Expect(tx.Model(&models.ConfigItem{}).Count(&count).Error).To(BeNil())
 	Expect(count).To(Equal(expectedCount))
+}
+
+// verifyCostCount checks one cost relation under a given scope. Both config_costs and
+// config_cost_compact carry their own policy, so both are exercised.
+func verifyCostCount(tx *gorm.DB, table string, rlsPayload rls.Payload, expectedCount int64) {
+	GinkgoHelper()
+	Expect(rlsPayload.SetPostgresSessionRLS(tx)).To(BeNil())
+
+	var count int64
+	Expect(tx.Table(table).Count(&count).Error).To(BeNil())
+	Expect(count).To(Equal(expectedCount), "table %s", table)
 }
 
 var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
@@ -577,6 +590,70 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				)
 			})
 		}
+	})
+
+	var _ = Describe("config cost query", Ordered, func() {
+		var (
+			tx              *gorm.DB
+			awsCompactCount int64
+			rawCostID             = uuid.New()
+			awsRawCount     int64 = 1
+		)
+
+		BeforeAll(func() {
+			// Fixtures seed the compacted series; config_costs has its own policy and is
+			// otherwise empty, so give it a row attached to an aws-cluster config item.
+			bucket := time.Now().UTC().Truncate(time.Hour)
+			Expect(DefaultContext.DB().Create(&models.ConfigCost{
+				ID: rawCostID, ConfigID: dummy.KubernetesNodeA.ID, SourceKey: "rls-raw-cost",
+				PeriodStart: bucket.Add(-time.Hour), PeriodEnd: bucket,
+				Grain: models.ConfigCostLevel1, ChargeCategory: "Usage", BillingCurrency: "USD",
+				BilledCost: decimal.NewFromInt(1), EffectiveCost: decimal.NewFromInt(1),
+				Fingerprint: "rls-raw-cost",
+			}).Error).To(Succeed())
+
+			// Every cost row is attached to a config item now, so the whole question is
+			// whether it inherits that item's scope.
+			// Counted rather than hardcoded: other specs leave rows in these tables, and
+			// the point here is the scope filter, not the fixture size.
+			Expect(DefaultContext.DB().Table("config_cost_compact").
+				Joins("JOIN config_items ON config_items.id = config_cost_compact.config_id").
+				Where("config_items.tags->>'cluster' = ?", "aws").
+				Count(&awsCompactCount).Error).To(Succeed())
+			Expect(awsCompactCount).To(BeNumerically(">", 0))
+
+			Expect(DefaultContext.DB().Table("config_costs").
+				Joins("JOIN config_items ON config_items.id = config_costs.config_id").
+				Where("config_items.tags->>'cluster' = ?", "aws").
+				Count(&awsRawCount).Error).To(Succeed())
+			Expect(awsRawCount).To(BeNumerically(">", 0))
+
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(BeNil())
+			Expect(DefaultContext.DB().Delete(&models.ConfigCost{}, rawCostID).Error).To(Succeed())
+		})
+
+		It("grants access to cost whose config item is in scope", func() {
+			inScope := rls.Payload{Config: []rls.Scope{{Tags: map[string]string{"cluster": "aws"}}}}
+			verifyCostCount(tx, "config_cost_compact", inScope, awsCompactCount)
+			verifyCostCount(tx, "config_costs", inScope, awsRawCount)
+		})
+
+		It("denies cost whose config item is out of scope", func() {
+			// KubernetesNodeA is tagged cluster=aws, so a demo-only scope must not see it.
+			outOfScope := rls.Payload{Config: []rls.Scope{{Tags: map[string]string{"cluster": "demo"}}}}
+			verifyCostCount(tx, "config_costs", outOfScope, 0)
+		})
+
+		It("denies everything when no scope is granted", func() {
+			none := rls.Payload{Config: []rls.Scope{}}
+			verifyCostCount(tx, "config_cost_compact", none, 0)
+			verifyCostCount(tx, "config_costs", none, 0)
+		})
 	})
 
 	var _ = Describe("components query", func() {
@@ -2219,8 +2296,8 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 	var _ = Describe("view_panels query", func() {
 		var (
-			tx               *gorm.DB
-			totalViewPanels  int64
+			tx                *gorm.DB
+			totalViewPanels   int64
 			podViewPanelCount int64
 			devViewPanelCount int64
 		)

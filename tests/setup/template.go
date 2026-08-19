@@ -214,7 +214,6 @@ func SynchronizedAfterSuiteNode1() {
 	shutdown.Shutdown()
 }
 
-
 func ensurePostgres(port int) (string, error) {
 	url := os.Getenv(DUTY_DB_URL)
 	if url != "" {

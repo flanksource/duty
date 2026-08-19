@@ -13,6 +13,14 @@ BEGIN
         EXECUTE 'ALTER TABLE config_analysis DISABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_costs') THEN
+        EXECUTE 'ALTER TABLE config_costs DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_cost_compact') THEN
+        EXECUTE 'ALTER TABLE config_cost_compact DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'components') THEN
         EXECUTE 'ALTER TABLE components DISABLE ROW LEVEL SECURITY;';
     END IF;
@@ -58,6 +66,10 @@ DROP POLICY IF EXISTS components_auth ON components;
 DROP POLICY IF EXISTS config_changes_auth ON config_changes;
 
 DROP POLICY IF EXISTS config_analysis_auth ON config_analysis;
+
+DROP POLICY IF EXISTS config_costs_auth ON config_costs;
+
+DROP POLICY IF EXISTS config_cost_compact_auth ON config_cost_compact;
 
 DROP POLICY IF EXISTS config_component_relationships_auth ON config_component_relationships;
 
