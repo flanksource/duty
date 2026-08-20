@@ -1,3 +1,8 @@
+-- runs: always
+--
+-- The DO block below enumerates the tables that exist when it runs, so a table created
+-- after this file was last modified never gets a trigger. Re-running every migration is
+-- what keeps a database upgraded in place consistent with one built from scratch.
 CREATE EXTENSION IF NOT EXISTS hstore;
 
 CREATE OR REPLACE FUNCTION update_updated_at_column () RETURNS TRIGGER AS $$
