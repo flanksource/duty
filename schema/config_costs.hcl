@@ -157,6 +157,11 @@ table "config_costs" {
   index "config_costs_grain_period_idx" {
     columns = [column.grain, column.period_end]
   }
+  # Compaction selects the rows a provider has restated since the last pass. Without this
+  # the window is a sequential scan of the whole retained history on every run.
+  index "config_costs_updated_at_idx" {
+    columns = [column.updated_at]
+  }
   foreign_key "config_costs_config_fk" {
     columns     = [column.config_id]
     ref_columns = [table.config_items.column.id]
@@ -322,6 +327,11 @@ table "config_cost_compact" {
   }
   index "config_cost_compact_config_period_idx" {
     columns = [column.config_id, column.period_start]
+  }
+  # Both the superseded-delete and the compaction pass that supersedes those rows select
+  # by grain and age, the same way config_costs is read.
+  index "config_cost_compact_grain_period_idx" {
+    columns = [column.grain, column.period_end]
   }
 
   foreign_key "config_cost_compact_config_fk" {
