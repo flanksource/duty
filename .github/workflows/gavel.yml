@@ -29,7 +29,7 @@ jobs:
       DUTY_DB_DISABLE_RLS: "false"
     steps:
       - name: Install deps
-        uses: flanksource/deps@1e2d3aa46edc0971b3b3a15e3fb35ed252304aeb # v1.0.35
+        uses: flanksource/deps@3f9ac322c8b3af81bd803c1c449283492b9c16c4 # v1.0.41
         with:
           tools: |
             bun
@@ -63,7 +63,7 @@ jobs:
           "$GITHUB_WORKSPACE/.bin/golangci-lint" version
           echo "$GITHUB_WORKSPACE/.bin" >> "$GITHUB_PATH"
 
-      - uses: flanksource/gavel@1632f718fbd850658c4a04818b800991039f1b74 # v0.0.46
+      - uses: flanksource/gavel@43a9189b99e71ed928f418e01cd34aa797c2c0e0 # v0.0.54
         with:
           version: v0.0.43
           args: >-
