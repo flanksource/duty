@@ -66,6 +66,13 @@ table "playbooks" {
     columns = [column.namespace, column.name, column.category]
     where   = "deleted_at IS NULL"
   }
+  index "playbooks_webhook_path_key" {
+    unique = true
+    where  = "deleted_at IS NULL AND COALESCE(spec->'on'->'webhook'->>'path', '') <> ''"
+    on {
+      expr = "spec->'on'->'webhook'->>'path'"
+    }
+  }
   index "playbooks_created_by_idx" {
     columns = [column.created_by]
   }
