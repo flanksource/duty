@@ -1090,7 +1090,14 @@ CREATE OR REPLACE VIEW config_detail AS
     CASE WHEN config_scrapers.id IS NOT NULL THEN json_build_object(
       'id', config_scrapers.id,
       'name', config_scrapers.name
-    ) ELSE NULL END as scraper
+    ) ELSE NULL END as scraper,
+    -- Scalar totals are only meaningful when exactly one currency exists.
+    CASE WHEN config_costs.currency_count = 1 THEN (config_costs.cost_1d / 1440.0)::numeric(16, 4) END AS cost_per_minute,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_1h::numeric(16, 4) END AS cost_total_1h,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_1d::numeric(16, 4) END AS cost_total_1d,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.cost_30d::numeric(16, 4) END AS cost_total_30d,
+    CASE WHEN config_costs.currency_count = 1 THEN config_costs.billing_currency END AS billing_currency,
+    COALESCE(config_costs.currency_count > 1, false) AS mixed_currency
   FROM config_items as ci
     LEFT JOIN agents ON agents.id = ci.agent_id
     LEFT JOIN config_items_last_scraped_time ON config_items_last_scraped_time.config_id = ci.id
@@ -1128,7 +1135,18 @@ CREATE OR REPLACE VIEW config_detail AS
             LEFT JOIN components ON components.id = ccr.component_id
           ) as config_components
         GROUP BY config_id) as gcc
-        ON ci.id = gcc.config_id;
+        ON ci.id = gcc.config_id
+    LEFT JOIN (
+      SELECT
+        config_id,
+        COUNT(*) AS currency_count,
+        MIN(billing_currency) AS billing_currency,
+        SUM(cost_1h) AS cost_1h,
+        SUM(cost_1d) AS cost_1d,
+        SUM(cost_30d) AS cost_30d
+      FROM config_cost_summary
+      GROUP BY config_id
+    ) config_costs ON config_costs.config_id = ci.id;
 
 --- config_path is a function that given a config id returns its path by walking the tree recursively up using the parent id and then joining the ids with a `.`
 CREATE OR REPLACE FUNCTION config_path(UUID)

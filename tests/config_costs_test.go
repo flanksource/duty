@@ -219,6 +219,21 @@ var _ = Describe("config cost summary", Ordered, func() {
 		Expect(count).To(Equal(int64(1)))
 	})
 
+	It("serves the same rollup through config_detail", func() {
+		// config_detail backs the catalog sidebar. It projects config_items.*, which no
+		// longer carries cost, so the totals have to be joined in the way configs joins
+		// them — otherwise the sidebar reports no cost at all and says nothing about it.
+		var detail models.ConfigItemSummary
+		Expect(DefaultContext.DB().Table("config_detail").
+			Where("id = ?", dummy.KubernetesNodeA.ID).
+			Scan(&detail).Error).To(Succeed())
+		Expect(detail.CostTotal30d).ToNot(BeNil())
+		Expect(*detail.CostTotal30d).To(BeNumerically("~", dummy.KubernetesNodeACost30d, 0.0001))
+		Expect(detail.BillingCurrency).ToNot(BeNil())
+		Expect(*detail.BillingCurrency).To(Equal("USD"))
+		Expect(detail.MixedCurrency).To(BeFalse())
+	})
+
 	It("reports a level-1 row in cost_1h", func() {
 		// A level-1 bucket (an hour by default) ending now sits inside every window, so
 		// the wider totals are exact.
