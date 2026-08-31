@@ -75,6 +75,65 @@ var _ = ginkgo.Describe("Config Health Triggers", ginkgo.Ordered, func() {
 	})
 })
 
+var _ = ginkgo.Describe("Playbook Description Trigger", func() {
+	createPlaybook := func(description string, spec types.JSON) models.Playbook {
+		playbook := models.Playbook{
+			ID:          uuid.New(),
+			Namespace:   "default",
+			Name:        "description-trigger-" + uuid.NewString(),
+			Description: description,
+			Spec:        spec,
+			Source:      models.SourceUI,
+		}
+
+		err := DefaultContext.DB().Create(&playbook).Error
+		Expect(err).ToNot(HaveOccurred())
+		ginkgo.DeferCleanup(func() {
+			Expect(DefaultContext.DB().Delete(&models.Playbook{}, "id = ?", playbook.ID).Error).ToNot(HaveOccurred())
+		})
+
+		return playbook
+	}
+
+	getPlaybook := func(id uuid.UUID) models.Playbook {
+		var playbook models.Playbook
+		Expect(DefaultContext.DB().First(&playbook, "id = ?", id).Error).ToNot(HaveOccurred())
+		return playbook
+	}
+
+	ginkgo.It("should populate an empty description on insert", func() {
+		playbook := createPlaybook("", types.JSON(`{"description":"from spec"}`))
+
+		Expect(getPlaybook(playbook.ID).Description).To(Equal("from spec"))
+	})
+
+	ginkgo.It("should preserve an explicit description on insert", func() {
+		playbook := createPlaybook("explicit", types.JSON(`{"description":"from spec"}`))
+
+		Expect(getPlaybook(playbook.ID).Description).To(Equal("explicit"))
+	})
+
+	ginkgo.It("should populate an empty description when the spec is updated", func() {
+		playbook := createPlaybook("", types.JSON(`{}`))
+
+		err := DefaultContext.DB().Model(&models.Playbook{}).
+			Where("id = ?", playbook.ID).
+			Update("spec", types.JSON(`{"description":"updated spec"}`)).Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(getPlaybook(playbook.ID).Description).To(Equal("updated spec"))
+	})
+
+	ginkgo.It("should populate a description cleared during an update", func() {
+		playbook := createPlaybook("explicit", types.JSON(`{"description":"fallback"}`))
+
+		err := DefaultContext.DB().Model(&models.Playbook{}).
+			Where("id = ?", playbook.ID).
+			Update("description", "").Error
+		Expect(err).ToNot(HaveOccurred())
+		Expect(getPlaybook(playbook.ID).Description).To(Equal("fallback"))
+	})
+})
+
 var _ = ginkgo.Describe("Person Analytics Triggers", ginkgo.Ordered, func() {
 	const analyticsKey = "health.open-check"
 	const concurrentAnalyticsKey = "health.run-now"

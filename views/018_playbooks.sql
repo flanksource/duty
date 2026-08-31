@@ -54,6 +54,22 @@ CREATE OR REPLACE TRIGGER playbook_updated_trigger
   FOR EACH ROW
   EXECUTE PROCEDURE notify_playbook_update();
 
+CREATE OR REPLACE FUNCTION set_playbook_description_from_spec()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF NULLIF(NEW.description, '') IS NULL AND NULLIF(NEW.spec ->> 'description', '') IS NOT NULL THEN
+      NEW.description = NEW.spec ->> 'description';
+    END IF;
+
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER set_playbook_description_from_spec_trigger
+  BEFORE INSERT OR UPDATE ON playbooks
+  FOR EACH ROW
+  EXECUTE FUNCTION set_playbook_description_from_spec();
+
 -- List of all the playbooks that can be run by an agent
 DROP VIEW IF EXISTS playbooks_for_agent;
 
