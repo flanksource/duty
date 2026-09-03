@@ -122,10 +122,92 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Rows coarser than a window are prorated by cost_window_overlap rather than included
 -- whole, so a 30d-grain charge contributes only its share to cost_1h and cost_1d.
 --
+-- Cloud roots also receive aggregate rows. The cost scrapers store the AWS usage account
+-- ID and GCP project ID in focus.sub_account_id. Those values match the normalized
+-- external_id aliases on AWS::::Account and GCP::Project config items. A GCP organization
+-- receives the costs of projects below it through the project's parent_id ancestry, plus
+-- costs attributed directly to the organization. Other config types retain only their
+-- directly attributed spend.
+--
 -- Defined here rather than in a higher-numbered views file because the `configs` view below
 -- joins it and migration scripts run in filename order.
 DROP MATERIALIZED VIEW IF EXISTS config_cost_summary CASCADE;
 CREATE MATERIALIZED VIEW config_cost_summary AS
+WITH RECURSIVE recent_costs AS (
+  SELECT *
+  FROM config_cost_compact
+  WHERE period_end >= now() - interval '30 days'
+),
+aws_accounts AS (
+  SELECT id, external_id
+  FROM config_items
+  WHERE type = 'AWS::::Account' AND deleted_at IS NULL
+),
+gcp_projects AS (
+  SELECT id, parent_id, external_id
+  FROM config_items
+  WHERE type = 'GCP::Project' AND deleted_at IS NULL
+),
+gcp_project_ancestors AS (
+  SELECT id AS project_id, parent_id AS ancestor_id, ARRAY[id] AS path
+  FROM gcp_projects
+  WHERE parent_id IS NOT NULL
+
+  UNION ALL
+
+  SELECT ancestors.project_id, parent.parent_id, ancestors.path || parent.id
+  FROM gcp_project_ancestors ancestors
+  JOIN config_items parent ON parent.id = ancestors.ancestor_id
+  WHERE parent.parent_id IS NOT NULL
+    AND NOT parent.id = ANY(ancestors.path)
+),
+gcp_project_organizations AS (
+  SELECT ancestors.project_id, organization.id AS organization_id
+  FROM gcp_project_ancestors ancestors
+  JOIN config_items organization ON organization.id = ancestors.ancestor_id
+  WHERE organization.type = 'GCP::Organization'
+    AND organization.deleted_at IS NULL
+),
+aws_cost_accounts AS (
+  SELECT costs.id AS cost_id, accounts.id AS account_id
+  FROM recent_costs costs
+  JOIN aws_accounts accounts
+    ON accounts.id = costs.config_id
+    OR NULLIF(lower(btrim(costs.focus->>'sub_account_id')), '') = ANY(accounts.external_id)
+),
+gcp_cost_projects AS (
+  SELECT costs.id AS cost_id, projects.id AS project_id
+  FROM recent_costs costs
+  JOIN gcp_projects projects
+    ON projects.id = costs.config_id
+    OR NULLIF(lower(btrim(costs.focus->>'sub_account_id')), '') = ANY(projects.external_id)
+),
+cost_targets AS (
+  SELECT id AS cost_id, config_id AS target_config_id
+  FROM recent_costs
+
+  UNION
+
+  SELECT cost_id, account_id
+  FROM aws_cost_accounts
+
+  UNION
+
+  SELECT cost_id, project_id
+  FROM gcp_cost_projects
+
+  UNION
+
+  SELECT costs.cost_id, organizations.organization_id
+  FROM gcp_cost_projects costs
+  JOIN gcp_project_organizations organizations ON organizations.project_id = costs.project_id
+),
+attributed_costs AS (
+  SELECT targets.target_config_id AS config_id, costs.billing_currency, costs.effective_cost,
+         costs.billed_cost, costs.period_start, costs.period_end
+  FROM cost_targets targets
+  JOIN recent_costs costs ON costs.id = targets.cost_id
+)
 SELECT
   config_id,
   billing_currency,
@@ -134,8 +216,7 @@ SELECT
   SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS cost_30d,
   SUM(billed_cost    * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS billed_30d,
   MAX(period_end) AS last_cost_at
-FROM config_cost_compact
-WHERE period_end >= now() - interval '30 days'
+FROM attributed_costs
 GROUP BY config_id, billing_currency;
 
 -- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY and guarantees one row per

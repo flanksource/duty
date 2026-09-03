@@ -163,7 +163,9 @@ func (ConfigCostCompact) TableName() string {
 }
 
 // ConfigCostSummary is the config_cost_summary materialized view: trailing-window totals
-// per config item and currency, refreshed by refresh_config_cost_summary(). Read only.
+// per config item and currency. AWS account, GCP project, and GCP organization rows also
+// include their cloud-scope aggregate. It is refreshed by refresh_config_cost_summary()
+// and is read only.
 //
 // Column names are spelled out because gorm's naming strategy renders Cost30d as
 // "cost30d", which silently binds nothing.
