@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
+	"github.com/flanksource/duty/types"
 )
 
 var _ = Describe("config cost summary", Ordered, func() {
@@ -60,6 +62,95 @@ var _ = Describe("config cost summary", Ordered, func() {
 		// long tail of zeros that says nothing about correctness.
 		Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", 30, 0.0001))
 		Expect(rollup.BillingCurrency).To(Equal("USD"))
+	})
+
+	It("includes usage-account spend in the AWS account total", func() {
+		accountID, resourceID := uuid.New(), uuid.New()
+		accountType, resourceType := "AWS::::Account", "AWS::EC2::Instance"
+		account := models.ConfigItem{
+			ID:          accountID,
+			ConfigClass: "Account",
+			Type:        &accountType,
+			ExternalID:  pq.StringArray{"123456789012"},
+		}
+		resource := models.ConfigItem{
+			ID:          resourceID,
+			ConfigClass: "VirtualMachine",
+			Type:        &resourceType,
+		}
+		Expect(DefaultContext.DB().Create(&account).Error).To(Succeed())
+		Expect(DefaultContext.DB().Create(&resource).Error).To(Succeed())
+		DeferCleanup(func() {
+			Expect(DefaultContext.DB().Where("config_id IN ?", []uuid.UUID{accountID, resourceID}).
+				Delete(&models.ConfigCostCompact{}).Error).To(Succeed())
+			Expect(DefaultContext.DB().Delete(&resource).Error).To(Succeed())
+			Expect(DefaultContext.DB().Delete(&account).Error).To(Succeed())
+			refreshSummary()
+		})
+
+		insertSummaryTestCost(accountID, 2, nil)
+		insertSummaryTestCost(resourceID, 8, types.JSONMap{"sub_account_id": "123456789012"})
+		refreshSummary()
+
+		Expect(mustFloat(getSummary(accountID).Cost30d)).To(BeNumerically("~", 10, 0.0001))
+		Expect(mustFloat(getSummary(resourceID).Cost30d)).To(BeNumerically("~", 8, 0.0001))
+	})
+
+	It("aggregates GCP costs into their project and organization", func() {
+		organizationID, folderID, projectID, resourceID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+		organizationType := "GCP::Organization"
+		folderType := "GCP::ResourceManager::Folder"
+		projectType := "GCP::Project"
+		resourceType := "GCP::Instance"
+		organization := models.ConfigItem{
+			ID:          organizationID,
+			ConfigClass: "Organization",
+			Type:        &organizationType,
+			ExternalID:  pq.StringArray{"//cloudresourcemanager.googleapis.com/organizations/123456789012"},
+		}
+		folder := models.ConfigItem{
+			ID:          folderID,
+			ConfigClass: "ResourceManager::Folder",
+			Type:        &folderType,
+			ParentID:    &organizationID,
+		}
+		project := models.ConfigItem{
+			ID:          projectID,
+			ConfigClass: "Project",
+			Type:        &projectType,
+			ParentID:    &folderID,
+			ExternalID: pq.StringArray{
+				"demo",
+				"projects/demo",
+				"//cloudresourcemanager.googleapis.com/projects/210987654321",
+			},
+		}
+		resource := models.ConfigItem{
+			ID:          resourceID,
+			ConfigClass: "Instance",
+			Type:        &resourceType,
+		}
+		for _, config := range []*models.ConfigItem{&organization, &folder, &project, &resource} {
+			Expect(DefaultContext.DB().Create(config).Error).To(Succeed())
+		}
+		DeferCleanup(func() {
+			ids := []uuid.UUID{organizationID, folderID, projectID, resourceID}
+			Expect(DefaultContext.DB().Where("config_id IN ?", ids).
+				Delete(&models.ConfigCostCompact{}).Error).To(Succeed())
+			for _, config := range []*models.ConfigItem{&resource, &project, &folder, &organization} {
+				Expect(DefaultContext.DB().Delete(config).Error).To(Succeed())
+			}
+			refreshSummary()
+		})
+
+		insertSummaryTestCost(resourceID, 5, types.JSONMap{"sub_account_id": "demo"})
+		insertSummaryTestCost(projectID, 3, nil)
+		insertSummaryTestCost(organizationID, 2, nil)
+		refreshSummary()
+
+		Expect(mustFloat(getSummary(resourceID).Cost30d)).To(BeNumerically("~", 5, 0.0001))
+		Expect(mustFloat(getSummary(projectID).Cost30d)).To(BeNumerically("~", 8, 0.0001))
+		Expect(mustFloat(getSummary(organizationID).Cost30d)).To(BeNumerically("~", 10, 0.0001))
 	})
 
 	It("prorates a month-grain row across the shorter windows", func() {
@@ -333,6 +424,22 @@ var _ = Describe("config cost summary", Ordered, func() {
 		Expect(DefaultContext.DB().Create(&cost).Error).To(HaveOccurred())
 	})
 })
+
+func insertSummaryTestCost(configID uuid.UUID, amount int64, focus types.JSONMap) {
+	midnight := time.Now().UTC().Truncate(24 * time.Hour)
+	insertCost(models.ConfigCost{
+		ConfigID:        configID,
+		PeriodStart:     midnight.Add(-24 * time.Hour),
+		PeriodEnd:       midnight,
+		Grain:           models.ConfigCostLevel2,
+		ChargeCategory:  "Usage",
+		BillingCurrency: "USD",
+		BilledCost:      decimal.NewFromInt(amount),
+		EffectiveCost:   decimal.NewFromInt(amount),
+		Focus:           focus,
+		Fingerprint:     "cloud-rollup-" + configID.String(),
+	})
+}
 
 // insertCost seeds the compacted series, which is what config_cost_summary reads.
 // config_costs is the raw landing zone and nothing queries it directly.
