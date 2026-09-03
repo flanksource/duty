@@ -25,7 +25,10 @@ import (
 // purges expired items every 10 minutes
 var envCache = cache.New(5*time.Minute, 10*time.Minute)
 
-const helmSecretType = "helm.sh/release.v1"
+const (
+	helmSecretType           = "helm.sh/release.v1"
+	immutableEnvCacheTimeout = time.Hour
+)
 
 func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (value string, err error) {
 	if input.IsEmpty() {
@@ -188,7 +191,11 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if !ok {
 		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
-	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
+	cacheDuration := ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)
+	if lo.FromPtr(secret.Immutable) {
+		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
+	}
+	envCache.Set(id, string(value), cacheDuration)
 	return string(value), nil
 }
 
@@ -214,7 +221,11 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
 			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
-	envCache.Set(id, string(value), ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute))
+	cacheDuration := ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)
+	if lo.FromPtr(configMap.Immutable) {
+		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
+	}
+	envCache.Set(id, string(value), cacheDuration)
 	return string(value), nil
 }
 
