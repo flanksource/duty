@@ -185,8 +185,8 @@ file, DB, or annotations.
 | `casbin.log.level` | int | `1` | Enables Casbin logging when `>= 2`. |
 | `db.connection.timeout` | duration | `1h` | Statement timeout applied to the application DB user role. |
 | `db.postgrest.timeout` | duration | `1m` | Statement timeout applied to PostgREST DB roles. |
-| `envvar.cache.timeout` | duration | `5m` | Cache TTL for Kubernetes Secret and ConfigMap env var lookups. |
-| `envvar.helm.cache.timeout` | duration | `envvar.cache.timeout` | Cache TTL for Helm release value lookups. |
+| `envvar.cache.timeout` | duration | `1h` | Cache TTL for Kubernetes Secret and ConfigMap env var lookups. When unset, watched entries default to `1h` and fallback entries to `5m`; a configured value applies to both. Immutable objects are cached for at least `1h`, but may be purged if invalidation becomes unavailable. |
+| `envvar.helm.cache.timeout` | duration | `envvar.cache.timeout` | Cache TTL for Helm release value lookups. When both cache timeout properties are unset, watched entries default to `1h` and fallback entries to `5m`; a configured value applies to both. |
 | `envvar.lookup.timeout` | duration | `5s` | Timeout for resolving an `EnvVar` from Kubernetes sources. |
 | `har.captureContentTypes` | CSV string | empty | Restricts HAR content capture to matching content types. |
 | `har.maxBodySize` | int bytes | `65536` | Maximum HAR body capture size. |
