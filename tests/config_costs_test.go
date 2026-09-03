@@ -154,9 +154,16 @@ var _ = Describe("config cost summary", Ordered, func() {
 	})
 
 	It("prorates a month-grain row across the shorter windows", func() {
-		// $300 over a 30-day month => $10/day. The window boundaries are relative to now(),
-		// so the expectation is derived from the same arithmetic the rollup should perform,
-		// not read back out of it.
+		// $300 over a 30-day month => $10/day, $0.41667/hour.
+		//
+		// The windows end at the newest charge period present rather than at now(), and
+		// every cost row in this database — this one and the fixtures — closes at the most
+		// recent midnight. So each window ends exactly where the period does and the
+		// proration is exact, with no dependence on how long ago that midnight was.
+		//
+		// Against now() the windows instead hung past the end of the period by however
+		// long the test ran after midnight, and each one lost that fraction. A day of lag
+		// emptied cost_1d and cost_1h completely, which is what this anchoring fixes.
 		periodEnd := time.Now().UTC().Truncate(24 * time.Hour)
 		periodStart := periodEnd.Add(-30 * 24 * time.Hour)
 		insertCost(models.ConfigCost{
@@ -174,15 +181,11 @@ var _ = Describe("config cost summary", Ordered, func() {
 
 		rollup := getSummary(configID)
 
-		// The period closed at the last midnight but every window is anchored on now(), so
-		// each window's tail hangs past the end of the period and contributes nothing.
-		// Every window therefore covers its own length minus the time since midnight.
-		now := time.Now().UTC()
-		elapsed := now.Sub(periodEnd).Hours() // hours since the period closed
 		perHour := 300.0 / (30 * 24)
 
-		Expect(mustFloat(rollup.Cost1d)).To(BeNumerically("~", perHour*(24-elapsed), 0.5))
-		Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", perHour*(30*24-elapsed), 0.5))
+		Expect(mustFloat(rollup.Cost1h)).To(BeNumerically("~", perHour, 0.0001))
+		Expect(mustFloat(rollup.Cost1d)).To(BeNumerically("~", perHour*24, 0.0001))
+		Expect(mustFloat(rollup.Cost30d)).To(BeNumerically("~", 300, 0.0001))
 	})
 
 	It("keeps currencies in independent rollup rows and nulls legacy mixed totals", func() {
@@ -342,9 +345,11 @@ var _ = Describe("config cost summary", Ordered, func() {
 		})
 		refreshSummary()
 
+		// This bucket is the newest charge period in the database, so it is what the
+		// windows anchor on and cost_1h covers it exactly. Against now() the hour window
+		// slid past the closed bucket and reported only the fraction still overlapping.
 		summary := getSummary(configID)
-		elapsed := time.Since(hour).Hours() // the bucket closed this long ago
-		Expect(mustFloat(summary.Cost1h)).To(BeNumerically("~", 3*(1-elapsed), 0.1))
+		Expect(mustFloat(summary.Cost1h)).To(BeNumerically("~", 3, 0.0001))
 		Expect(mustFloat(summary.Cost1d)).To(BeNumerically("~", 3, 0.0001))
 		Expect(mustFloat(summary.Cost30d)).To(BeNumerically("~", 3, 0.0001))
 	})
@@ -467,8 +472,9 @@ func upsertCost(c models.ConfigCost) {
 		INSERT INTO config_cost_compact (id, source_key, config_id, external_id, period_start, period_end, grain,
 		                          charge_category, billing_currency, billed_cost, effective_cost, fingerprint)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (source_key, config_id, period_start, period_end, fingerprint)
-		DO UPDATE SET billed_cost = excluded.billed_cost,
+		ON CONFLICT (source_key, fingerprint, period_start, period_end)
+		DO UPDATE SET config_id = excluded.config_id,
+		              billed_cost = excluded.billed_cost,
 		              effective_cost = excluded.effective_cost,
 		              updated_at = now()`,
 		c.ID, c.SourceKey, c.ConfigID, c.ExternalID, c.PeriodStart, c.PeriodEnd, c.Grain,
