@@ -122,6 +122,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Rows coarser than a window are prorated by cost_window_overlap rather than included
 -- whole, so a 30d-grain charge contributes only its share to cost_1h and cost_1d.
 --
+-- The windows end at the newest charge period present rather than at now(). Billing
+-- exports land hours to days after the usage they describe, and against now() that lag
+-- reports every trailing window as zero — cost_1h and cost_1d effectively always, since
+-- no provider is ever current to the hour. Anchoring on the data instead means the
+-- windows describe the most recent spend actually known. The anchor is capped at now()
+-- so an open charge period, whose period_end is in the future, cannot push the windows
+-- past the present.
+--
+-- The anchor is global rather than per config item so that every row covers the same
+-- absolute interval and totals across configs stay comparable. A source lagging further
+-- behind than the rest therefore still reports zero for the shorter windows.
+--
 -- Cloud roots also receive aggregate rows. The cost scrapers store the AWS usage account
 -- ID and GCP project ID in focus.sub_account_id. Those values match the normalized
 -- external_id aliases on AWS::::Account and GCP::Project config items. A GCP organization
@@ -133,10 +145,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- joins it and migration scripts run in filename order.
 DROP MATERIALIZED VIEW IF EXISTS config_cost_summary CASCADE;
 CREATE MATERIALIZED VIEW config_cost_summary AS
-WITH RECURSIVE recent_costs AS (
-  SELECT *
+WITH RECURSIVE cost_frontier AS (
+  SELECT LEAST(MAX(period_end), now()) AS at
   FROM config_cost_compact
-  WHERE period_end >= now() - interval '30 days'
+),
+recent_costs AS (
+  SELECT costs.*
+  FROM config_cost_compact costs, cost_frontier frontier
+  WHERE costs.period_end >= frontier.at - interval '30 days'
 ),
 aws_accounts AS (
   SELECT id, external_id
@@ -211,12 +227,12 @@ attributed_costs AS (
 SELECT
   config_id,
   billing_currency,
-  SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '1 hour', now())) AS cost_1h,
-  SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '1 day', now()))   AS cost_1d,
-  SUM(effective_cost * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS cost_30d,
-  SUM(billed_cost    * cost_window_overlap(period_start, period_end, now() - interval '30 days', now())) AS billed_30d,
+  SUM(effective_cost * cost_window_overlap(period_start, period_end, frontier.at - interval '1 hour', frontier.at)) AS cost_1h,
+  SUM(effective_cost * cost_window_overlap(period_start, period_end, frontier.at - interval '1 day', frontier.at))   AS cost_1d,
+  SUM(effective_cost * cost_window_overlap(period_start, period_end, frontier.at - interval '30 days', frontier.at)) AS cost_30d,
+  SUM(billed_cost    * cost_window_overlap(period_start, period_end, frontier.at - interval '30 days', frontier.at)) AS billed_30d,
   MAX(period_end) AS last_cost_at
-FROM attributed_costs
+FROM attributed_costs, cost_frontier frontier
 GROUP BY config_id, billing_currency;
 
 -- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY and guarantees one row per

@@ -140,10 +140,20 @@ table "config_costs" {
     columns = [column.id]
   }
 
-  # Idempotent target/bucket merge key.
+  # Idempotent bucket merge key.
+  #
+  # config_id is deliberately not part of it. The fingerprint already hashes the resource
+  # the charge is for, so this tuple identifies the charge on its own, and config_id is
+  # the attribution — which moves off the account root onto the resource as soon as the
+  # catalog discovers it. Keying on config_id made that move insert a second row instead
+  # of updating the first, leaving every late-discovered resource with a permanent
+  # duplicate booked against its account.
+  #
+  # fingerprint precedes period_start so the compaction join, which seeks by source_key
+  # and fingerprint over a range of period_start, still drives off the index.
   index "config_costs_merge_uniq" {
     unique  = true
-    columns = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
+    columns = [column.source_key, column.fingerprint, column.period_start, column.period_end]
   }
   index "config_costs_period_brin_idx" {
     type    = BRIN
@@ -317,9 +327,11 @@ table "config_cost_compact" {
     columns = [column.id]
   }
 
+  # Identical to config_costs_merge_uniq, and for the same reason: config_id is the
+  # attribution a charge currently carries, not part of what makes it that charge.
   index "config_cost_compact_merge_uniq" {
     unique  = true
-    columns = [column.source_key, column.config_id, column.period_start, column.period_end, column.fingerprint]
+    columns = [column.source_key, column.fingerprint, column.period_start, column.period_end]
   }
   index "config_cost_compact_period_brin_idx" {
     type    = BRIN
