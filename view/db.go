@@ -318,6 +318,8 @@ func getAtlasType(colType ColumnType) schema.Type {
 		return &schema.StringType{T: "text"}
 	case ColumnTypeNumber:
 		return &schema.DecimalType{T: "numeric"}
+	case ColumnTypeDecimal:
+		return &schema.DecimalType{T: "numeric"}
 	case ColumnTypeBoolean:
 		return &schema.BoolType{T: "boolean"}
 	case ColumnTypeDateTime:
