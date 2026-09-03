@@ -76,14 +76,16 @@ func GetEnvStringFromCache(ctx Context, env string, namespace string) (string, e
 }
 
 func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (string, error) {
-	id := fmt.Sprintf("helm/%s/%s/%s", namespace, releaseName, key)
-	if value, found := envCache.Get(id); found {
-		return value.(string), nil
-	}
-
+	// Helm values are nested, so key is a JSONPath expression. For example,
+	// "$.database.host" selects "host" from the "database" values map.
 	keyJPExpr, err := jp.ParseString(key)
 	if err != nil {
 		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
+	}
+
+	id := fmt.Sprintf("helm/%s/%s", namespace, releaseName)
+	if merged, found := envCache.Get(id); found {
+		return getHelmValueByKey(merged, keyJPExpr, namespace, releaseName, key)
 	}
 
 	client, err := ctx.LocalKubernetes()
@@ -134,9 +136,14 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not merge helm config and values of helm secret %s/%s: %v", namespace, secret.Name, info.Errors)
 	}
 
+	envCache.Set(id, merged, ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)))
+	return getHelmValueByKey(merged, keyJPExpr, namespace, releaseName, key)
+}
+
+func getHelmValueByKey(merged any, keyJPExpr jp.Expr, namespace, releaseName, key string) (string, error) {
 	results := keyJPExpr.Get(merged)
 	if len(results) == 0 {
-		return "", fmt.Errorf("could not find key %s in merged helm secret %s/%s: %w", key, namespace, secret.Name, err)
+		return "", fmt.Errorf("could not find key %s in merged helm release %s/%s", key, namespace, releaseName)
 	}
 
 	val := ""
@@ -153,21 +160,25 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		default:
 			b, err := json.Marshal(v)
 			if err != nil {
-				return "", fmt.Errorf("could not marshal merged helm secret %s/%s: %w", namespace, secret.Name, err)
+				return "", fmt.Errorf("could not marshal merged helm release %s/%s: %w", namespace, releaseName, err)
 			}
 			val = string(b)
 
 		}
 	}
 
-	envCache.Set(id, val, ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)))
 	return val, nil
 }
 
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("secret/%s/%s/%s", namespace, name, key)
-	if value, found := envCache.Get(id); found {
-		return value.(string), nil
+	id := fmt.Sprintf("secret/%s/%s", namespace, name)
+	if cached, found := envCache.Get(id); found {
+		data := cached.(map[string][]byte)
+		value, ok := data[key]
+		if !ok {
+			return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(data), ", "))
+		}
+		return string(value), nil
 	}
 	client, err := ctx.LocalKubernetes()
 	if err != nil {
@@ -195,14 +206,20 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if lo.FromPtr(secret.Immutable) {
 		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
 	}
-	envCache.Set(id, string(value), cacheDuration)
+	envCache.Set(id, secret.Data, cacheDuration)
 	return string(value), nil
 }
 
 func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("cm/%s/%s/%s", namespace, name, key)
-	if value, found := envCache.Get(id); found {
-		return value.(string), nil
+	id := fmt.Sprintf("cm/%s/%s", namespace, name)
+	if cached, found := envCache.Get(id); found {
+		data := cached.(map[string]string)
+		value, ok := data[key]
+		if !ok {
+			return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
+				strings.Join(lo.Keys(data), ", "))
+		}
+		return value, nil
 	}
 	client, err := ctx.LocalKubernetes()
 	if err != nil {
@@ -225,8 +242,8 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if lo.FromPtr(configMap.Immutable) {
 		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
 	}
-	envCache.Set(id, string(value), cacheDuration)
-	return string(value), nil
+	envCache.Set(id, configMap.Data, cacheDuration)
+	return value, nil
 }
 
 func GetServiceAccountTokenFromCache(ctx Context, namespace, serviceAccount string) (string, error) {
