@@ -21,14 +21,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Create a cache with a default expiration time of 5 minutes, and which
-// purges expired items every 10 minutes
-var envCache = cache.New(5*time.Minute, 10*time.Minute)
-
 const (
 	helmSecretType           = "helm.sh/release.v1"
 	immutableEnvCacheTimeout = time.Hour
+	envCacheDefaultTimeout   = time.Hour
+	envCacheFallbackTimeout  = 5 * time.Minute
 )
+
+var envCache = cache.New(envCacheDefaultTimeout, 10*time.Minute)
+
+func secretEnvCacheKey(namespace, name string) string {
+	return fmt.Sprintf("secret/%s/%s", namespace, name)
+}
+
+func configMapEnvCacheKey(namespace, name string) string {
+	return fmt.Sprintf("cm/%s/%s", namespace, name)
+}
+
+func helmEnvCacheKey(namespace, releaseName string) string {
+	return fmt.Sprintf("helm/%s/%s", namespace, releaseName)
+}
 
 func GetEnvValueFromCache(ctx Context, input types.EnvVar, namespace string) (value string, err error) {
 	if input.IsEmpty() {
@@ -83,7 +95,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not parse key:%s. must be a valid jsonpath expression. %w", key, err)
 	}
 
-	id := fmt.Sprintf("helm/%s/%s", namespace, releaseName)
+	id := helmEnvCacheKey(namespace, releaseName)
 	if merged, found := envCache.Get(id); found {
 		return getHelmValueByKey(merged, keyJPExpr, namespace, releaseName, key)
 	}
@@ -92,6 +104,7 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
+	informers := getCachedNamespaceInformerSet(namespace, client.RestConfig())
 
 	secretList, err := client.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("type=%s", helmSecretType),
@@ -136,7 +149,9 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not merge helm config and values of helm secret %s/%s: %v", namespace, secret.Name, info.Errors)
 	}
 
-	envCache.Set(id, merged, ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)))
+	fallbackTimeout := ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout))
+	watchedTimeout := ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout))
+	cacheEnvObject(informers.secret, namespace, secret.Name, secret.ResourceVersion, id, merged, fallbackTimeout, watchedTimeout)
 	return getHelmValueByKey(merged, keyJPExpr, namespace, releaseName, key)
 }
 
@@ -171,7 +186,7 @@ func getHelmValueByKey(merged any, keyJPExpr jp.Expr, namespace, releaseName, ke
 }
 
 func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("secret/%s/%s", namespace, name)
+	id := secretEnvCacheKey(namespace, name)
 	if cached, found := envCache.Get(id); found {
 		data := cached.(map[string][]byte)
 		value, ok := data[key]
@@ -184,6 +199,7 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
+	informers := getCachedNamespaceInformerSet(namespace, client.RestConfig())
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -202,16 +218,18 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if !ok {
 		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
-	cacheDuration := ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)
+	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
+	watchedTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout)
 	if lo.FromPtr(secret.Immutable) {
-		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
+		fallbackTimeout = max(fallbackTimeout, immutableEnvCacheTimeout)
+		watchedTimeout = max(watchedTimeout, immutableEnvCacheTimeout)
 	}
-	envCache.Set(id, secret.Data, cacheDuration)
+	cacheEnvObject(informers.secret, namespace, name, secret.ResourceVersion, id, secret.Data, fallbackTimeout, watchedTimeout)
 	return string(value), nil
 }
 
 func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, error) {
-	id := fmt.Sprintf("cm/%s/%s", namespace, name)
+	id := configMapEnvCacheKey(namespace, name)
 	if cached, found := envCache.Get(id); found {
 		data := cached.(map[string]string)
 		value, ok := data[key]
@@ -225,6 +243,7 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("error creating kubernetes client: %w", err)
 	}
+	informers := getCachedNamespaceInformerSet(namespace, client.RestConfig())
 	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not get configmap %s/%s: %w", namespace, name, err)
@@ -238,11 +257,13 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
 			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
-	cacheDuration := ctx.Properties().Duration("envvar.cache.timeout", 5*time.Minute)
+	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
+	watchedTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout)
 	if lo.FromPtr(configMap.Immutable) {
-		cacheDuration = max(cacheDuration, immutableEnvCacheTimeout)
+		fallbackTimeout = max(fallbackTimeout, immutableEnvCacheTimeout)
+		watchedTimeout = max(watchedTimeout, immutableEnvCacheTimeout)
 	}
-	envCache.Set(id, configMap.Data, cacheDuration)
+	cacheEnvObject(informers.configMap, namespace, name, configMap.ResourceVersion, id, configMap.Data, fallbackTimeout, watchedTimeout)
 	return value, nil
 }
 
