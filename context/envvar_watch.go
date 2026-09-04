@@ -53,12 +53,16 @@ type cacheInvalidationInformer struct {
 	warnOnce    sync.Once
 }
 
+func (i *cacheInvalidationInformer) available() bool {
+	return i != nil && !i.unavailable.Load()
+}
+
 func (i *cacheInvalidationInformer) ready() bool {
-	return i != nil && !i.unavailable.Load() && i.informer.HasSynced()
+	return i.available() && i.informer.HasSynced()
 }
 
 func (i *cacheInvalidationInformer) start() {
-	if i != nil && !i.unavailable.Load() {
+	if i.available() {
 		go i.informer.Run(i.stopCh)
 	}
 }
@@ -230,17 +234,20 @@ func cacheEnvObject(
 	envCacheInvalidationMu.Lock()
 	defer envCacheInvalidationMu.Unlock()
 
-	timeout := fallbackTimeout
-	if informer.ready() {
-		object, exists, err := informer.informer.GetStore().GetByKey(namespace + "/" + name)
-		if err != nil || !exists {
-			return
-		}
-		metadata, ok := envCacheObjectMetadata(object)
-		if !ok || metadata.GetResourceVersion() != resourceVersion {
-			return
-		}
-		timeout = watchedTimeout
+	if !informer.available() {
+		envCache.Set(cacheKey, value, fallbackTimeout)
+		return
 	}
-	envCache.Set(cacheKey, value, timeout)
+	if !informer.informer.HasSynced() {
+		return
+	}
+	object, exists, err := informer.informer.GetStore().GetByKey(namespace + "/" + name)
+	if err != nil || !exists {
+		return
+	}
+	metadata, ok := envCacheObjectMetadata(object)
+	if !ok || metadata.GetResourceVersion() != resourceVersion {
+		return
+	}
+	envCache.Set(cacheKey, value, watchedTimeout)
 }
