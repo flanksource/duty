@@ -138,8 +138,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ID and GCP project ID in focus.sub_account_id. Those values match the normalized
 -- external_id aliases on AWS::::Account and GCP::Project config items. A GCP organization
 -- receives the costs of projects below it through the project's parent_id ancestry, plus
--- costs attributed directly to the organization. Other config types retain only their
--- directly attributed spend.
+-- costs attributed directly to the organization. When hierarchy links have not been
+-- persisted, GCP costs fall back to the single organization owned by their scraper. The
+-- fallback is disabled for scrapers with multiple organizations. Other config types retain
+-- only their directly attributed spend.
 --
 -- Defined here rather than in a higher-numbered views file because the `configs` view below
 -- joins it and migration scripts run in filename order.
@@ -184,6 +186,15 @@ gcp_project_organizations AS (
   WHERE organization.type = 'GCP::Organization'
     AND organization.deleted_at IS NULL
 ),
+gcp_scraper_organizations AS (
+  SELECT scraper_id, MIN(id::text)::uuid AS organization_id
+  FROM config_items
+  WHERE type = 'GCP::Organization'
+    AND deleted_at IS NULL
+    AND scraper_id IS NOT NULL
+  GROUP BY scraper_id
+  HAVING COUNT(*) = 1
+),
 aws_cost_accounts AS (
   SELECT costs.id AS cost_id, accounts.id AS account_id
   FROM recent_costs costs
@@ -197,6 +208,19 @@ gcp_cost_projects AS (
   JOIN gcp_projects projects
     ON projects.id = costs.config_id
     OR NULLIF(lower(btrim(costs.focus->>'sub_account_id')), '') = ANY(projects.external_id)
+),
+gcp_cost_scraper_organizations AS (
+  SELECT costs.id AS cost_id, organizations.organization_id
+  FROM recent_costs costs
+  JOIN gcp_scraper_organizations organizations ON organizations.scraper_id = costs.scraper_id
+  WHERE costs.source_key LIKE 'gcp-billing:%'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM gcp_cost_projects projects
+      JOIN gcp_project_organizations project_organizations
+        ON project_organizations.project_id = projects.project_id
+      WHERE projects.cost_id = costs.id
+    )
 ),
 cost_targets AS (
   SELECT id AS cost_id, config_id AS target_config_id
@@ -217,6 +241,11 @@ cost_targets AS (
   SELECT costs.cost_id, organizations.organization_id
   FROM gcp_cost_projects costs
   JOIN gcp_project_organizations organizations ON organizations.project_id = costs.project_id
+
+  UNION
+
+  SELECT cost_id, organization_id
+  FROM gcp_cost_scraper_organizations
 ),
 attributed_costs AS (
   SELECT targets.target_config_id AS config_id, costs.billing_currency, costs.effective_cost,

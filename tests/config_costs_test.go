@@ -153,6 +153,44 @@ var _ = Describe("config cost summary", Ordered, func() {
 		Expect(mustFloat(getSummary(organizationID).Cost30d)).To(BeNumerically("~", 10, 0.0001))
 	})
 
+	It("falls back to a unique scraper organization when GCP hierarchy links are missing", func() {
+		scraperID, organizationID, projectID, resourceID := dummy.KubeScrapeConfig.ID, uuid.New(), uuid.New(), uuid.New()
+		scraperIDString := scraperID.String()
+		organizationType, projectType, resourceType := "GCP::Organization", "GCP::Project", "GCP::Instance"
+		configs := []*models.ConfigItem{
+			{
+				ID: organizationID, ScraperID: &scraperIDString, ConfigClass: "Organization",
+				Type: &organizationType, ExternalID: pq.StringArray{"//cloudresourcemanager.googleapis.com/organizations/123456789012"},
+			},
+			{
+				ID: projectID, ScraperID: &scraperIDString, ConfigClass: "Project",
+				Type: &projectType, ExternalID: pq.StringArray{"demo"},
+			},
+			{
+				ID: resourceID, ScraperID: &scraperIDString, ConfigClass: "Instance", Type: &resourceType,
+			},
+		}
+		for _, config := range configs {
+			Expect(DefaultContext.DB().Create(config).Error).To(Succeed())
+		}
+		DeferCleanup(func() {
+			ids := []uuid.UUID{organizationID, projectID, resourceID}
+			Expect(DefaultContext.DB().Where("config_id IN ?", ids).
+				Delete(&models.ConfigCostCompact{}).Error).To(Succeed())
+			for i := len(configs) - 1; i >= 0; i-- {
+				Expect(DefaultContext.DB().Delete(configs[i]).Error).To(Succeed())
+			}
+			refreshSummary()
+		})
+
+		insertScopedSummaryTestCost(resourceID, scraperID, "gcp-billing:test", 5, types.JSONMap{"sub_account_id": "demo"})
+		insertScopedSummaryTestCost(resourceID, scraperID, "aws-cur:test", 20, nil)
+		refreshSummary()
+
+		Expect(mustFloat(getSummary(projectID).Cost30d)).To(BeNumerically("~", 5, 0.0001))
+		Expect(mustFloat(getSummary(organizationID).Cost30d)).To(BeNumerically("~", 5, 0.0001))
+	})
+
 	It("prorates a month-grain row across the shorter windows", func() {
 		// $300 over a 30-day month => $10/day, $0.41667/hour.
 		//
@@ -443,6 +481,24 @@ func insertSummaryTestCost(configID uuid.UUID, amount int64, focus types.JSONMap
 		EffectiveCost:   decimal.NewFromInt(amount),
 		Focus:           focus,
 		Fingerprint:     "cloud-rollup-" + configID.String(),
+	})
+}
+
+func insertScopedSummaryTestCost(configID, scraperID uuid.UUID, sourceKey string, amount int64, focus types.JSONMap) {
+	midnight := time.Now().UTC().Truncate(24 * time.Hour)
+	insertCost(models.ConfigCost{
+		ConfigID:        configID,
+		ScraperID:       &scraperID,
+		SourceKey:       sourceKey,
+		PeriodStart:     midnight.Add(-24 * time.Hour),
+		PeriodEnd:       midnight,
+		Grain:           models.ConfigCostLevel2,
+		ChargeCategory:  "Usage",
+		BillingCurrency: "USD",
+		BilledCost:      decimal.NewFromInt(amount),
+		EffectiveCost:   decimal.NewFromInt(amount),
+		Focus:           focus,
+		Fingerprint:     sourceKey + "-" + configID.String(),
 	})
 }
 
