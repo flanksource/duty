@@ -29,6 +29,7 @@ var (
 
 	envCacheInformersMu          sync.Mutex
 	envCacheInformersByNamespace = make(map[string]*cachedNamespaceInformerSet)
+	noEnvCacheInformers          = &cachedNamespaceInformerSet{}
 
 	// Serializing cache writes with invalidation prevents a stale GET from
 	// repopulating an entry after the informer has processed its update.
@@ -40,7 +41,6 @@ var (
 type cachedNamespaceInformerSet struct {
 	secret    *cacheInvalidationInformer
 	configMap *cacheInvalidationInformer
-	warnOnce  sync.Once
 }
 
 // cacheInvalidationInformer wraps one resource-specific metadata informer and
@@ -50,6 +50,7 @@ type cacheInvalidationInformer struct {
 	unavailable atomic.Bool
 	stopCh      chan struct{}
 	stopOnce    sync.Once
+	warnOnce    sync.Once
 }
 
 func (i *cacheInvalidationInformer) ready() bool {
@@ -66,13 +67,21 @@ func (i *cacheInvalidationInformer) stop() {
 	i.stopOnce.Do(func() { close(i.stopCh) })
 }
 
-func (i *cachedNamespaceInformerSet) warn(namespace, resource string, err error) {
+func (i *cacheInvalidationInformer) warn(namespace, resource string, err error) {
 	i.warnOnce.Do(func() {
-		logger.GetLogger("envvar-cache").Warnf("metadata informer for Kubernetes %s in namespace %q is unavailable: %v; env var cache will use the fallback timeout", resource, namespace, err)
+		warnEnvCacheInformer(namespace, resource, err)
 	})
 }
 
+func warnEnvCacheInformer(namespace, resource string, err error) {
+	logger.GetLogger("envvar-cache").Warnf("metadata informer for Kubernetes %s in namespace %q reported an error: %v; env var cache entries without watch invalidation use the fallback timeout", resource, namespace, err)
+}
+
 func getCachedNamespaceInformerSet(namespace string, config *rest.Config) *cachedNamespaceInformerSet {
+	if namespace == "" {
+		return noEnvCacheInformers
+	}
+
 	envCacheInformersMu.Lock()
 	defer envCacheInformersMu.Unlock()
 
@@ -83,19 +92,18 @@ func getCachedNamespaceInformerSet(namespace string, config *rest.Config) *cache
 	informerSet := &cachedNamespaceInformerSet{}
 	envCacheInformersByNamespace[namespace] = informerSet
 	if config == nil {
-		informerSet.warn(namespace, "Secrets and ConfigMaps", fmt.Errorf("Kubernetes REST config is nil"))
+		warnEnvCacheInformer(namespace, "Secrets and ConfigMaps", fmt.Errorf("Kubernetes REST config is nil"))
 		return informerSet
 	}
 
 	metadataClient, err := metadata.NewForConfig(config)
 	if err != nil {
-		informerSet.warn(namespace, "Secrets and ConfigMaps", err)
+		warnEnvCacheInformer(namespace, "Secrets and ConfigMaps", err)
 		return informerSet
 	}
 
 	factory := metadatainformer.NewFilteredSharedInformerFactory(metadataClient, 0, namespace, nil)
 	informerSet.secret = configureEnvCacheInformer(
-		informerSet,
 		namespace,
 		"Secrets",
 		factory.ForResource(secretGVR).Informer(),
@@ -103,7 +111,6 @@ func getCachedNamespaceInformerSet(namespace string, config *rest.Config) *cache
 		[]string{secretEnvCacheKey(namespace, ""), helmEnvCacheKey(namespace, "")},
 	)
 	informerSet.configMap = configureEnvCacheInformer(
-		informerSet,
 		namespace,
 		"ConfigMaps",
 		factory.ForResource(configMapGVR).Informer(),
@@ -116,7 +123,6 @@ func getCachedNamespaceInformerSet(namespace string, config *rest.Config) *cache
 }
 
 func configureEnvCacheInformer(
-	informerSet *cachedNamespaceInformerSet,
 	namespace, resource string,
 	informer toolscache.SharedIndexInformer,
 	handler toolscache.ResourceEventHandler,
@@ -125,7 +131,7 @@ func configureEnvCacheInformer(
 	configured := &cacheInvalidationInformer{informer: informer, stopCh: make(chan struct{})}
 	if _, err := informer.AddEventHandler(handler); err != nil {
 		configured.unavailable.Store(true)
-		informerSet.warn(namespace, resource, err)
+		configured.warn(namespace, resource, err)
 		return configured
 	}
 
@@ -138,13 +144,15 @@ func configureEnvCacheInformer(
 			deleteEnvCachePrefixes(cachePrefixes)
 			envCacheInvalidationMu.Unlock()
 			configured.stop()
+			warnEnvCacheInformer(namespace, resource, err)
+			return
 		}
 		if !configured.ready() {
-			informerSet.warn(namespace, resource, err)
+			configured.warn(namespace, resource, err)
 		}
 	}); err != nil {
 		configured.unavailable.Store(true)
-		informerSet.warn(namespace, resource, err)
+		configured.warn(namespace, resource, err)
 	}
 	return configured
 }

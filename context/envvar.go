@@ -149,8 +149,8 @@ func GetHelmValueFromCache(ctx Context, namespace, releaseName, key string) (str
 		return "", fmt.Errorf("could not merge helm config and values of helm secret %s/%s: %v", namespace, secret.Name, info.Errors)
 	}
 
-	fallbackTimeout := ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout))
 	watchedTimeout := ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout))
+	fallbackTimeout := ctx.Properties().Duration("envvar.helm.cache.timeout", ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout))
 	cacheEnvObject(informers.secret, namespace, secret.Name, secret.ResourceVersion, id, merged, fallbackTimeout, watchedTimeout)
 	return getHelmValueByKey(merged, keyJPExpr, namespace, releaseName, key)
 }
@@ -218,8 +218,8 @@ func GetSecretFromCache(ctx Context, namespace, name, key string) (string, error
 	if !ok {
 		return "", fmt.Errorf("could not find key %v in secret %s/%s (%s)", key, namespace, name, strings.Join(lo.Keys(secret.Data), ", "))
 	}
-	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
 	watchedTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout)
+	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
 	if lo.FromPtr(secret.Immutable) {
 		fallbackTimeout = max(fallbackTimeout, immutableEnvCacheTimeout)
 		watchedTimeout = max(watchedTimeout, immutableEnvCacheTimeout)
@@ -257,8 +257,8 @@ func GetConfigMapFromCache(ctx Context, namespace, name, key string) (string, er
 		return "", fmt.Errorf("could not find key %v in configmap %s/%s (%s)", key, namespace, name,
 			strings.Join(lo.Keys(configMap.Data), ", "))
 	}
-	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
 	watchedTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheDefaultTimeout)
+	fallbackTimeout := ctx.Properties().Duration("envvar.cache.timeout", envCacheFallbackTimeout)
 	if lo.FromPtr(configMap.Immutable) {
 		fallbackTimeout = max(fallbackTimeout, immutableEnvCacheTimeout)
 		watchedTimeout = max(watchedTimeout, immutableEnvCacheTimeout)
