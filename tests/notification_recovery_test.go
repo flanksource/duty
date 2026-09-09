@@ -108,9 +108,11 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 	ginkgo.It("protects internal tables and helpers through repeated enabled and disabled RLS migrations", func() {
 		pool, err := DefaultContext.DB().DB()
 		Expect(err).NotTo(HaveOccurred())
+		var initiallyEnabled bool
+		Expect(pool.QueryRow("SELECT relrowsecurity FROM pg_class WHERE oid = 'public.config_items'::regclass").Scan(&initiallyEnabled)).To(Succeed())
 		cfg := api.Config{ConnectionString: DefaultContext.Value("db_url").(string), Postgrest: api.PostgrestConfig{DBRole: "postgrest_api", AnonDBRole: "postgrest_anon"}}
 		ginkgo.DeferCleanup(func() {
-			cfg.EnableRLS, cfg.DisableRLS = true, false
+			cfg.EnableRLS, cfg.DisableRLS = initiallyEnabled, !initiallyEnabled
 			Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
 		})
 		for _, enabled := range []bool{true, false, false, true, true} {
@@ -140,6 +142,7 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 				Expect(tx.Where("resource_type = ? AND resource_id = ?", source.kind, source.id).First(&state).Error).To(Succeed())
 				var episode string
 				Expect(tx.Raw("SELECT properties->>'recovery_episode' FROM event_queue WHERE event_id = ? AND name = ?", source.id, source.event).Scan(&episode).Error).To(Succeed())
+				Expect(state.EpisodeID).NotTo(BeNil())
 				Expect(episode).To(Equal(state.EpisodeID.String()))
 				Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
 			}
@@ -193,6 +196,7 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 		Expect(tx.Where("resource_type = 'config' AND resource_id = ?", id).First(&state).Error).To(Succeed())
 		var episode string
 		Expect(tx.Raw("SELECT properties->>'recovery_episode' FROM event_queue WHERE event_id = ? AND name = 'config.unhealthy'", id).Scan(&episode).Error).To(Succeed())
+		Expect(state.EpisodeID).NotTo(BeNil())
 		Expect(episode).To(Equal(state.EpisodeID.String()))
 		var oldEpisode string
 		Expect(tx.Raw("SELECT properties->>'recovery_episode' FROM event_queue WHERE event_id = ? AND name = 'config.warning'", id).Scan(&oldEpisode).Error).To(Succeed())
@@ -241,6 +245,7 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 				event = "check.failed"
 			}
 			Expect(tx.Raw("SELECT properties->>'recovery_episode' FROM event_queue WHERE event_id = ? AND name = ?", id, event).Scan(&episode).Error).To(Succeed())
+			Expect(state.EpisodeID).NotTo(BeNil())
 			Expect(episode).To(Equal(state.EpisodeID.String()))
 		})
 	}
@@ -250,7 +255,9 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 		ginkgo.DeferCleanup(func() { Expect(DefaultContext.DB().Delete(&config).Error).To(Succeed()) })
 		tx := DefaultContext.DB().Begin()
 		defer tx.Rollback()
-		Expect(tx.Exec("SELECT 1 FROM notification_health_states WHERE resource_id = ? FOR UPDATE", config.ID).Error).To(Succeed())
+		locked := tx.Exec("SELECT 1 FROM notification_health_states WHERE resource_id = ? FOR UPDATE", config.ID)
+		Expect(locked.Error).To(Succeed())
+		Expect(locked.RowsAffected).To(Equal(int64(1)))
 		other := DefaultContext.DB().Begin()
 		defer other.Rollback()
 		Expect(other.Exec("SET LOCAL lock_timeout = '1s'").Error).To(Succeed())

@@ -292,11 +292,11 @@ func restrictNotificationRecovery(pool *sql.DB, config api.Config) error {
 		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries"} {
 			var exists bool
 			if err := pool.QueryRow("SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&exists); err != nil {
-				return err
+				return fmt.Errorf("failed to check table public.%s for grantee %s: %w", table, grantee, err)
 			}
 			if exists {
 				if _, err := pool.Exec("REVOKE ALL ON TABLE public." + table + " FROM " + grantee); err != nil {
-					return err
+					return fmt.Errorf("failed to revoke privileges on table public.%s from grantee %s: %w", table, grantee, err)
 				}
 			}
 		}
@@ -306,11 +306,11 @@ func restrictNotificationRecovery(pool *sql.DB, config api.Config) error {
 		} {
 			var exists bool
 			if err := pool.QueryRow("SELECT to_regprocedure($1) IS NOT NULL", "public."+function).Scan(&exists); err != nil {
-				return err
+				return fmt.Errorf("failed to check function public.%s for grantee %s: %w", function, grantee, err)
 			}
 			if exists {
 				if _, err := pool.Exec("REVOKE ALL ON FUNCTION public." + function + " FROM " + grantee); err != nil {
-					return err
+					return fmt.Errorf("failed to revoke privileges on function public.%s from grantee %s: %w", function, grantee, err)
 				}
 			}
 		}
