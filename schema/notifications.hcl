@@ -63,6 +63,10 @@ table "notifications" {
     null = true
     type = text
   }
+  column "on_resolved" {
+    null = true
+    type = jsonb
+  }
   column "inhibitions" {
     null = true
     type = jsonb

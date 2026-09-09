@@ -149,16 +149,16 @@ BEGIN
     END IF;
 
     IF NEW.status = 'healthy' THEN
-        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.passed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        INSERT INTO public.event_queue(name, event_id, properties) VALUES ('check.passed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime, 'recovery_episode', (SELECT episode_id FROM public.notification_health_states WHERE resource_type = 'check' AND resource_id = NEW.check_id)))
         ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     ELSEIF NEW.status = 'unhealthy' THEN
-        INSERT INTO event_queue(name, event_id, properties) VALUES ('check.failed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime))
+        INSERT INTO public.event_queue(name, event_id, properties) VALUES ('check.failed', NEW.check_id, jsonb_build_object('last_runtime', NEW.last_runtime, 'recovery_episode', (SELECT episode_id FROM public.notification_health_states WHERE resource_type = 'check' AND resource_id = NEW.check_id)))
         ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
     END IF;
 
     RETURN NULL;
 END
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog;
 
 CREATE OR REPLACE TRIGGER check_enqueue
 AFTER UPDATE ON checks_unlogged
@@ -189,8 +189,8 @@ BEGIN
         event_name := CONCAT('config.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
     END IF;
 
-    INSERT INTO event_queue(name, event_id, properties)
-    VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description))
+    INSERT INTO public.event_queue(name, event_id, properties)
+    VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description, 'recovery_episode', (SELECT episode_id FROM public.notification_health_states WHERE resource_type = 'config' AND resource_id = NEW.id)))
     ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET
         created_at = NOW(),
         last_attempt = NULL,
@@ -199,7 +199,7 @@ BEGIN
 
     RETURN NULL;
 END
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog;
 
 CREATE OR REPLACE TRIGGER config_health_event_enqueue
 AFTER INSERT OR UPDATE ON config_items
@@ -221,17 +221,20 @@ BEGIN
     END IF;
 
     event_name := CONCAT('component.', COALESCE(NULLIF(NEW.health, ''), 'unknown'));
-    INSERT INTO event_queue (name, event_id, properties) VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description))
+    INSERT INTO public.event_queue (name, event_id, properties) VALUES (event_name, NEW.id, jsonb_build_object('status', NEW.status, 'description', NEW.description, 'recovery_episode', (SELECT episode_id FROM public.notification_health_states WHERE resource_type = 'component' AND resource_id = NEW.id)))
     ON CONFLICT ON CONSTRAINT event_queue_name_event_id DO UPDATE SET created_at = NOW(), last_attempt = NULL, attempts = 0, properties = EXCLUDED.properties;
 
     RETURN NULL;
 END
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog;
 
 CREATE OR REPLACE TRIGGER component_health_enqueue
 AFTER UPDATE ON components
 FOR EACH ROW
 EXECUTE PROCEDURE insert_component_health_updates_in_event_queue();
+
+REVOKE ALL ON FUNCTION public.insert_check_updates_in_event_queue(),
+    public.insert_config_health_updates_in_event_queue(), public.insert_component_health_updates_in_event_queue() FROM PUBLIC;
 
 DROP VIEW IF EXISTS push_queue_summary;
 

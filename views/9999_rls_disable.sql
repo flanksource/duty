@@ -86,3 +86,8 @@ DROP POLICY IF EXISTS checks_auth ON checks;
 DROP POLICY IF EXISTS views_auth ON views;
 
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;
+
+-- Internal notification recovery queues have no public row policies.
+ALTER TABLE notification_health_states DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_health_episodes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_deliveries DISABLE ROW LEVEL SECURITY;

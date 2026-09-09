@@ -33,6 +33,8 @@ type Notification struct {
 	CreatedAt        time.Time           `json:"created_at" time_format:"postgres_timestamp" gorm:"<-:false"`
 	DeletedAt        *time.Time          `json:"deleted_at,omitempty"`
 
+	OnResolved types.JSON `json:"on_resolved,omitempty" gorm:"default:NULL"`
+
 	// List of inhibition config
 	Inhibitions types.JSON `json:"inhibitions,omitempty" gorm:"default:NULL"`
 
