@@ -36,7 +36,7 @@ BEGIN
   timestamp = SET_BYTE(timestamp, 5, unix_time::BIT(8)::INTEGER);
 
   -- 10 entropy bytes
-  ulid =  timestamp || gen_random_bytes(10);
+  ulid =  timestamp || public.gen_random_bytes(10);
   return substring(CAST (ulid AS text) from 3)::uuid;
 END
 $$

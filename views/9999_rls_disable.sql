@@ -56,6 +56,18 @@ BEGIN
     IF (SELECT relrowsecurity FROM pg_class WHERE relname = 'view_panels') THEN
         EXECUTE 'ALTER TABLE view_panels DISABLE ROW LEVEL SECURITY;';
     END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_health_states'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_health_states DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_health_episodes'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_health_episodes DISABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_deliveries'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_deliveries DISABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- POLICIES

@@ -441,3 +441,8 @@ ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
+
+-- Internal notification recovery queues have no public row policies.
+ALTER TABLE notification_health_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_health_episodes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_deliveries ENABLE ROW LEVEL SECURITY;
