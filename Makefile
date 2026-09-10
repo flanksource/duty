@@ -90,6 +90,28 @@ gen-schemas:
 	go mod tidy && \
 	go run .
 
+# Boots embedded postgres, applies all migrations, fetches PostgREST's live
+# Swagger 2.0 spec, converts to OpenAPI 3.1, enriches with Go-doc descriptions
+# and RBAC tags, applies the RPC overlay, and writes:
+#   - schema/openapi/db.json
+#   - schema/openapi/db.yaml
+#   - sdk/typescript/openapi.json
+.PHONY: gen-openapi
+gen-openapi:
+	cp go.mod hack/generate-openapi && \
+	cd hack/generate-openapi && \
+	go mod edit -module=github.com/flanksource/duty/hack/generate-openapi && \
+	go mod edit -replace=github.com/flanksource/duty=../../../duty && \
+	go mod tidy && \
+	go run .
+
+# Regenerates the spec into a temp area and fails if the result drifts from the
+# committed artifacts. Wire into CI to catch schema changes that ship without a
+# spec regeneration.
+.PHONY: gen-openapi-check
+gen-openapi-check: gen-openapi
+	git diff --exit-code schema/openapi/db.json schema/openapi/db.yaml sdk/typescript/openapi.json
+
 .PHONY: captain
 captain:
 	@command -v captain >/dev/null || go install github.com/flanksource/captain@latest
