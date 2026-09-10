@@ -162,6 +162,19 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'view_panels') THEN
         EXECUTE 'ALTER TABLE view_panels ENABLE ROW LEVEL SECURITY;';
     END IF;
+
+    -- Internal notification recovery queues have no public row policies.
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_health_states'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_health_states ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_health_episodes'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_health_episodes ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_deliveries'::regclass) THEN
+        EXECUTE 'ALTER TABLE public.notification_deliveries ENABLE ROW LEVEL SECURITY;';
+    END IF;
 END $$;
 
 -- Policy config items
@@ -441,8 +454,3 @@ ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
-
--- Internal notification recovery queues have no public row policies.
-ALTER TABLE notification_health_states ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_health_episodes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notification_deliveries ENABLE ROW LEVEL SECURITY;

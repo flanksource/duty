@@ -8,12 +8,14 @@ import (
 
 // NotificationHealthState is the authoritative health marker, independent of event queue coalescing.
 type NotificationHealthState struct {
-	ResourceType string     `json:"resource_type"`
-	ResourceID   uuid.UUID  `json:"resource_id"`
-	Generation   uuid.UUID  `json:"generation"`
-	EpisodeID    *uuid.UUID `json:"episode_id"`
-	Health       string     `json:"health"`
-	HealthySince *time.Time `json:"healthy_since"`
+	ResourceType       string     `json:"resource_type"`
+	ResourceID         uuid.UUID  `json:"resource_id"`
+	Generation         uuid.UUID  `json:"generation"`
+	EpisodeID          *uuid.UUID `json:"episode_id"`
+	Health             string     `json:"health"`
+	HealthySince       *time.Time `json:"healthy_since"`
+	WakePending        bool       `json:"wake_pending"`
+	DeletionObservedAt *time.Time `json:"deletion_observed_at"`
 }
 
 type NotificationHealthEpisode struct {
@@ -42,6 +44,7 @@ type NotificationDelivery struct {
 	ReplyAt        *time.Time `json:"reply_at"`
 	ReactionAt     *time.Time `json:"reaction_at"`
 	ResolvedAt     *time.Time `json:"resolved_at"`
+	ExhaustedAt    *time.Time `json:"exhausted_at"`
 	NotBefore      time.Time  `json:"not_before"`
 	LeaseUntil     *time.Time `json:"lease_until"`
 	LeaseToken     *uuid.UUID `json:"lease_token"`

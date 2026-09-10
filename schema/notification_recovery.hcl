@@ -24,8 +24,28 @@ table "notification_health_states" {
     type = timestamptz
     null = true
   }
+  column "wake_pending" {
+    type = boolean
+    null = false
+    default = true
+  }
+  column "deletion_observed_at" {
+    type = timestamptz
+    null = true
+  }
   primary_key {
     columns = [column.resource_type, column.resource_id]
+  }
+  index "notification_health_states_wake_idx" {
+    columns = [column.resource_type, column.resource_id]
+    where = "((health = 'healthy'::text) AND wake_pending)"
+  }
+  index "notification_health_states_episode_idx" {
+    columns = [column.episode_id]
+  }
+  index "notification_health_states_deleted_idx" {
+    columns = [column.deletion_observed_at]
+    where = "(deletion_observed_at IS NOT NULL)"
   }
 }
 
@@ -54,6 +74,13 @@ table "notification_health_episodes" {
   }
   primary_key {
     columns = [column.id]
+  }
+  index "notification_health_episodes_resource_idx" {
+    columns = [column.resource_type, column.resource_id, column.id]
+  }
+  index "notification_health_episodes_retention_idx" {
+    columns = [column.healthy_at]
+    where = "(healthy_at IS NOT NULL)"
   }
 }
 
@@ -120,6 +147,10 @@ table "notification_deliveries" {
     type = timestamptz
     null = true
   }
+  column "exhausted_at" {
+    type = timestamptz
+    null = true
+  }
   column "not_before" {
     type = timestamptz
     null = false
@@ -169,9 +200,26 @@ table "notification_deliveries" {
     unique = true
     columns = [column.history_id]
   }
+  index "notification_deliveries_notification_id_idx" {
+    columns = [column.notification_id]
+  }
+  index "notification_deliveries_episode_id_idx" {
+    columns = [column.episode_id]
+  }
   index "notification_deliveries_pending_idx" {
     columns = [column.not_before]
-    where = "resolved_at IS NULL"
+    where = "((resolved_at IS NULL) AND (sent_at IS NOT NULL) AND (status <> 'recovery-exhausted'::text) AND (status <> 'waiting-for-healthy'::text))"
+  }
+  index "notification_deliveries_wake_idx" {
+    columns = [column.episode_id, column.id]
+    where = "((resolved_at IS NULL) AND (sent_at IS NOT NULL) AND (status = ANY (ARRAY['sent'::text, 'waiting-for-healthy'::text])))"
+  }
+  index "notification_deliveries_resolved_retention_idx" {
+    columns = [column.resolved_at]
+    where = "((resolved_at IS NOT NULL) AND (sent_at IS NOT NULL) AND (status = 'resolved'::text))"
+  }
+  index "notification_deliveries_exhausted_retention_idx" {
+    columns = [column.exhausted_at]
+    where = "((exhausted_at IS NOT NULL) AND (sent_at IS NOT NULL) AND (status = 'recovery-exhausted'::text))"
   }
 }
-
