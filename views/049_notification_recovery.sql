@@ -23,6 +23,8 @@ BEGIN
         UPDATE public.notification_health_episodes SET healthy_at = observed WHERE id = episode AND healthy_at IS NULL;
     END IF;
     UPDATE public.notification_health_states SET health = new_health, generation = pg_catalog.gen_random_uuid(),
+        wake_pending = (new_health = 'healthy'),
+        deletion_observed_at = CASE WHEN new_health = 'deleted' THEN observed ELSE NULL END,
         episode_id = episode, healthy_since = CASE WHEN new_health = 'healthy' THEN observed ELSE NULL END
     WHERE resource_type = kind AND resource_id = resource;
 END
@@ -30,7 +32,6 @@ $$ LANGUAGE plpgsql SET search_path = pg_catalog;
 
 CREATE OR REPLACE FUNCTION notification_health_source_trigger() RETURNS trigger AS $$
 DECLARE
-    row_data jsonb;
     kind text := TG_ARGV[0];
     resource uuid;
     health text;
@@ -42,10 +43,23 @@ BEGIN
             RETURN NULL;
         END IF;
     END IF;
-    row_data := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
-    resource := COALESCE(row_data->>'check_id', row_data->>'id')::uuid;
-    health := CASE WHEN kind = 'check' THEN row_data->>'status' ELSE row_data->>'health' END;
-    IF TG_OP = 'DELETE' OR row_data->>'deleted_at' IS NOT NULL THEN health := 'deleted'; END IF;
+    IF kind = 'check' THEN
+        IF TG_OP = 'DELETE' THEN
+            resource := OLD.check_id;
+            health := 'deleted';
+        ELSE
+            resource := NEW.check_id;
+            health := NEW.status;
+        END IF;
+    ELSE
+        IF TG_OP = 'DELETE' THEN
+            resource := OLD.id;
+            health := 'deleted';
+        ELSE
+            resource := NEW.id;
+            health := CASE WHEN NEW.deleted_at IS NOT NULL THEN 'deleted' ELSE NEW.health END;
+        END IF;
+    END IF;
     PERFORM public.record_notification_health(kind, resource, health);
     RETURN NULL;
 END
@@ -71,13 +85,17 @@ BEGIN
     WHEN 'config' THEN
         SELECT CASE WHEN deleted_at IS NULL THEN public.config_items.health::text ELSE 'deleted' END INTO health
         FROM public.config_items WHERE id = resource FOR SHARE;
+        IF NOT FOUND THEN health := 'deleted'; END IF;
     WHEN 'component' THEN
         SELECT CASE WHEN deleted_at IS NULL THEN public.components.health::text ELSE 'deleted' END INTO health
         FROM public.components WHERE id = resource FOR SHARE;
+        IF NOT FOUND THEN health := 'deleted'; END IF;
     WHEN 'check' THEN
         PERFORM 1 FROM public.checks WHERE id = resource AND deleted_at IS NULL FOR SHARE;
         IF FOUND THEN
             SELECT status INTO health FROM public.checks_unlogged WHERE check_id = resource FOR SHARE;
+        ELSE
+            health := 'deleted';
         END IF;
     ELSE RAISE EXCEPTION 'unsupported recovery resource %', kind;
     END CASE;
