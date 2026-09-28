@@ -22,7 +22,7 @@ import (
 
 func startMinio(ctx gocontext.Context) (*s3.Client, testcontainers.Container, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "minio/minio",
+		Image:        "pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46",
 		ExposedPorts: []string{"9000/tcp"},
 		Env: map[string]string{
 			"MINIO_ROOT_USER":     "minioadmin",
