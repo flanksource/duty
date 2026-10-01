@@ -656,6 +656,44 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
+	var _ = Describe("config items without tags", Ordered, func() {
+		var (
+			tx       *gorm.DB
+			untagged models.ConfigItem
+		)
+
+		BeforeAll(func() {
+			untagged = models.ConfigItem{ID: uuid.New(), Name: lo.ToPtr("rls-untagged"), Type: lo.ToPtr("Test::Untagged"), ConfigClass: "Test"}
+			Expect(DefaultContext.DB().Create(&untagged).Error).To(Succeed())
+			Expect(DefaultContext.DB().Exec("UPDATE config_items SET tags = NULL WHERE id = ?", untagged.ID).Error).To(Succeed())
+
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(Succeed())
+			Expect(DefaultContext.DB().Delete(&untagged).Error).To(Succeed())
+		})
+
+		count := func(payload rls.Payload) int64 {
+			GinkgoHelper()
+			Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+
+			var count int64
+			Expect(tx.Model(&models.ConfigItem{}).Where("id = ?", untagged.ID).Count(&count).Error).To(Succeed())
+			return count
+		}
+
+		It("matches by name", func() {
+			Expect(count(rls.Payload{Config: []rls.Scope{{Names: []string{"rls-untagged"}}}})).To(Equal(int64(1)))
+		})
+
+		It("keeps the tag condition of a scope that also matches by name", func() {
+			payload := rls.Payload{Config: []rls.Scope{{Names: []string{"rls-untagged"}, Tags: map[string]string{"cluster": "aws"}}}}
+			Expect(count(payload)).To(BeZero())
+		})
+	})
+
 	var _ = Describe("components query", func() {
 		var (
 			tx                     *gorm.DB

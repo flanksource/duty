@@ -187,7 +187,7 @@ CREATE POLICY config_items_auth ON config_items
       ELSE
         match_scope(
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'config',
-          config_items.tags,
+          COALESCE(config_items.tags, '{}'::jsonb),
           config_items.agent_id,
           config_items.name,
           config_items.id
