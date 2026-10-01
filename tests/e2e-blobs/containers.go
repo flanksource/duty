@@ -20,16 +20,12 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func startMinio(ctx gocontext.Context) (*s3.Client, testcontainers.Container, error) {
+func startSeaweedFS(ctx gocontext.Context) (*s3.Client, testcontainers.Container, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "pgsty/silo:RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46",
-		ExposedPorts: []string{"9000/tcp"},
-		Env: map[string]string{
-			"MINIO_ROOT_USER":     "minioadmin",
-			"MINIO_ROOT_PASSWORD": "minioadmin",
-		},
-		Cmd:        []string{"server", "/data"},
-		WaitingFor: wait.ForHTTP("/minio/health/live").WithPort("9000").WithStartupTimeout(60 * time.Second),
+		Image:        "chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d",
+		ExposedPorts: []string{"8333/tcp"},
+		Cmd:          []string{"mini", "-master.telemetry=false"},
+		WaitingFor:   wait.ForHTTP("/readyz").WithPort("8333").WithStartupTimeout(60 * time.Second),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -37,10 +33,10 @@ func startMinio(ctx gocontext.Context) (*s3.Client, testcontainers.Container, er
 		Started:          true,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("starting minio: %w", err)
+		return nil, nil, fmt.Errorf("starting SeaweedFS: %w", err)
 	}
 
-	endpoint, err := container.Endpoint(ctx, "http")
+	endpoint, err := container.PortEndpoint(ctx, "8333/tcp", "http")
 	if err != nil {
 		return nil, container, err
 	}
