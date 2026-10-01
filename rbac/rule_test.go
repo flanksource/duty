@@ -150,3 +150,48 @@ func Test_matchRuleCasbinIntegration(t *testing.T) {
 	g.Expect(enforce(&models.ABACAttribute{Playbook: restartPod, Config: stagingConfig}, policy.ActionPlaybookApprove)).To(BeFalse())
 	g.Expect(enforcer.Enforce("user1", "playbooks", policy.ActionPlaybookRun)).To(BeFalse())
 }
+
+func Test_adminsIgnoreGrantedDenyRules(t *testing.T) {
+	g := NewWithT(t)
+
+	enforcer, err := casbin.NewEnforcer("model.ini")
+	g.Expect(err).ToNot(HaveOccurred())
+	AddCustomFunctions(enforcer)
+
+	for _, p := range [][]string{
+		{policy.RoleAdmin, "*", "*", "allow", "", "na"},
+		{policy.RoleEveryone, "database.kratos", "*", "deny", "", "na"},
+		{"platform", "*", policy.ActionPlaybookRun, "deny", "", "binding:" + uuid.NewString() + "/deny-run"},
+		{"platform", "catalog", policy.ActionDelete, "deny", "", uuid.NewString()},
+	} {
+		_, err := enforcer.AddPolicy(p)
+		g.Expect(err).ToNot(HaveOccurred())
+	}
+
+	for _, r := range [][]string{
+		{"alice", policy.RoleAdmin}, {"alice", policy.RoleEveryone}, {"alice", "platform-team"}, {"platform-team", "platform"},
+		{"bob", policy.RoleEveryone}, {"bob", "platform"},
+	} {
+		_, err := enforcer.AddGroupingPolicy(r)
+		g.Expect(err).ToNot(HaveOccurred())
+	}
+
+	enforce := func(subject string, obj any, action string) bool {
+		allowed, err := enforcer.Enforce(subject, obj, action)
+		g.Expect(err).ToNot(HaveOccurred())
+		return allowed
+	}
+
+	run := &models.ABACAttribute{Playbook: restartPod}
+
+	// alice is an admin through a team: deny rules from bindings and permissions don't apply to her
+	g.Expect(enforce("alice", run, policy.ActionPlaybookRun)).To(BeTrue())
+	g.Expect(enforce("alice", "catalog", policy.ActionDelete)).To(BeTrue())
+
+	// built-in deny rules still apply to admins
+	g.Expect(enforce("alice", "database.kratos", policy.ActionRead)).To(BeFalse())
+
+	// everyone else is denied
+	g.Expect(enforce("bob", run, policy.ActionPlaybookRun)).To(BeFalse())
+	g.Expect(enforce("bob", "catalog", policy.ActionDelete)).To(BeFalse())
+}
