@@ -28,6 +28,18 @@ table "scopes" {
     comment = "Array of scope targets - each target contains one resource type (config/component/playbook/canary/*) with selector"
   }
 
+  column "error" {
+    null    = true
+    type    = text
+    comment = "why the scope isn't in effect, e.g. an agent it selects by doesn't exist. NULL when it's valid"
+  }
+
+  column "error_reason" {
+    null    = true
+    type    = text
+    comment = "machine readable reason for error, e.g. AgentNotFound. NULL when it's valid"
+  }
+
   column "source" {
     null    = false
     type    = text

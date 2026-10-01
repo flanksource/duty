@@ -24,6 +24,12 @@ type Scope struct {
 	// Each target contains exactly one resource type key (config, component, playbook, canary, or *)
 	// with a selector containing: agent, name, tagSelector fields
 	Targets types.JSON `json:"targets" gorm:"type:jsonb"`
+
+	// Error says why the scope isn't in effect. Nil when it's valid.
+	Error *string `json:"error,omitempty" gorm:"default:NULL"`
+
+	// ErrorReason is a machine readable reason for Error, e.g. AgentNotFound.
+	ErrorReason *string `json:"error_reason,omitempty" gorm:"default:NULL"`
 }
 
 func (Scope) TableName() string {

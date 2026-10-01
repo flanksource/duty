@@ -234,10 +234,12 @@ var dbResourceObjMap = map[string]string{
 	// permission
 	"permissions":               policy.ObjectDatabaseSystem,
 	"permission_groups":         policy.ObjectDatabaseSystem,
+	"roles":                     policy.ObjectRBAC,
+	"role_bindings":             policy.ObjectRBAC,
 	"permission_subjects":       policy.ObjectDatabaseSystem,
 	"permissions_summary":       policy.ObjectDatabaseSystem,
 	"permissions_group_summary": policy.ObjectDatabaseSystem,
-	"scopes":                    policy.ObjectDatabaseSystem,
+	"scopes":                    policy.ObjectRBAC,
 
 	// Access logs
 	"config_access_logs":   policy.ObjectCatalog,
