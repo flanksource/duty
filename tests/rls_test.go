@@ -656,6 +656,44 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
+	var _ = Describe("config items without tags", Ordered, func() {
+		var (
+			tx       *gorm.DB
+			untagged models.ConfigItem
+		)
+
+		BeforeAll(func() {
+			untagged = models.ConfigItem{ID: uuid.New(), Name: lo.ToPtr("rls-untagged"), Type: lo.ToPtr("Test::Untagged"), ConfigClass: "Test"}
+			Expect(DefaultContext.DB().Create(&untagged).Error).To(Succeed())
+			Expect(DefaultContext.DB().Exec("UPDATE config_items SET tags = NULL WHERE id = ?", untagged.ID).Error).To(Succeed())
+
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(Succeed())
+			Expect(DefaultContext.DB().Delete(&untagged).Error).To(Succeed())
+		})
+
+		count := func(payload rls.Payload) int64 {
+			GinkgoHelper()
+			Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+
+			var count int64
+			Expect(tx.Model(&models.ConfigItem{}).Where("id = ?", untagged.ID).Count(&count).Error).To(Succeed())
+			return count
+		}
+
+		It("matches by name", func() {
+			Expect(count(rls.Payload{Config: []rls.Scope{{Names: []string{"rls-untagged"}}}})).To(Equal(int64(1)))
+		})
+
+		It("keeps the tag condition of a scope that also matches by name", func() {
+			payload := rls.Payload{Config: []rls.Scope{{Names: []string{"rls-untagged"}, Tags: map[string]string{"cluster": "aws"}}}}
+			Expect(count(payload)).To(BeZero())
+		})
+	})
+
 	var _ = Describe("components query", func() {
 		var (
 			tx                     *gorm.DB
@@ -1714,6 +1752,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			logisticsDBCanaryChecksCount  int64
 			cartAPICanaryAgentChecksCount int64
 			logisticsAPIAndDBCanaryChecks int64
+			logisticsAPIChecksAndDBCheck  int64
 		)
 
 		BeforeAll(func() {
@@ -1724,6 +1763,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(DefaultContext.DB().Where("canary_id = ?", dummy.LogisticsDBCanary.ID).Model(&models.Check{}).Count(&logisticsDBCanaryChecksCount).Error).To(BeNil())
 			Expect(DefaultContext.DB().Where("canary_id = ?", dummy.CartAPICanaryAgent.ID).Model(&models.Check{}).Count(&cartAPICanaryAgentChecksCount).Error).To(BeNil())
 			logisticsAPIAndDBCanaryChecks = logisticsAPICanaryChecksCount + logisticsDBCanaryChecksCount
+			logisticsAPIChecksAndDBCheck = logisticsAPICanaryChecksCount + 1
 
 			Expect(totalChecks).To(BeNumerically(">", 0), "No checks found in test data")
 			Expect(logisticsAPICanaryChecksCount).To(BeNumerically(">", 0), "No checks found for LogisticsAPICanary")
@@ -1933,6 +1973,37 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 							},
 						},
 						expectedCount: &logisticsAPIAndDBCanaryChecks, // Union of both scopes
+					}),
+					Entry("check by name, without its canary", testCase{
+						rlsPayload: rls.Payload{
+							Check: []rls.Scope{{Names: []string{dummy.LogisticsDBCheck.Name}}},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("check by id", testCase{
+						rlsPayload: rls.Payload{
+							Check: []rls.Scope{{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
+						},
+						expectedCount: lo.ToPtr(int64(1)),
+					}),
+					Entry("check by agent", testCase{
+						rlsPayload: rls.Payload{
+							Check: []rls.Scope{{Agents: []string{dummy.GCPAgent.ID.String()}}},
+						},
+						expectedCount: &cartAPICanaryAgentChecksCount,
+					}),
+					Entry("check by name and a non-matching id (AND within scope)", testCase{
+						rlsPayload: rls.Payload{
+							Check: []rls.Scope{{Names: []string{dummy.LogisticsDBCheck.Name}, ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}},
+						},
+						expectedCount: lo.ToPtr(int64(0)),
+					}),
+					Entry("checks of a canary, or a check by name (OR)", testCase{
+						rlsPayload: rls.Payload{
+							Canary: []rls.Scope{{Names: []string{dummy.LogisticsAPICanary.Name}}},
+							Check:  []rls.Scope{{Names: []string{dummy.LogisticsDBCheck.Name}}},
+						},
+						expectedCount: &logisticsAPIChecksAndDBCheck,
 					}),
 				)
 			})

@@ -66,6 +66,13 @@ func (person Person) AsMap(removeFields ...string) map[string]any {
 
 type PersonProperties struct {
 	Role string `json:"role,omitempty"`
+
+	// Provider is the external identity provider that authenticated a federated person
+	Provider string `json:"provider,omitempty"`
+
+	// Email as claimed by the external identity provider.
+	// Not stored in Person.Email since it's not verified by Mission Control.
+	Email string `json:"email,omitempty"`
 }
 
 func (p PersonProperties) Value() (driver.Value, error) {

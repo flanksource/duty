@@ -327,3 +327,202 @@ table "permission_groups" {
     on_delete   = NO_ACTION
   }
 }
+
+table "roles" {
+  schema = schema.public
+
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+
+  column "name" {
+    null = false
+    type = text
+  }
+
+  column "namespace" {
+    null = false
+    type = text
+  }
+
+  column "description" {
+    null = true
+    type = text
+  }
+
+  column "rules" {
+    null    = false
+    type    = jsonb
+    default = "[]"
+    comment = "rules as declared on the role: each allows or denies an action on the resources selected by a scope, optionally on the targets selected by another scope. They are compiled into casbin policies filed under binding:<namespace>/<name> for each binding of the role"
+  }
+
+  column "error" {
+    null    = true
+    type    = text
+    comment = "why the role isn't in effect, e.g. a rule references a scope that doesn't exist. NULL when it's valid"
+  }
+
+  column "error_reason" {
+    null    = true
+    type    = text
+    comment = "machine readable reason for error, e.g. ScopeNotFound or RowLevelSecurityRequired. NULL when it's valid"
+  }
+
+  column "source" {
+    null    = false
+    type    = text
+    default = "UI"
+  }
+
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+
+  primary_key {
+    columns = [column.id]
+  }
+
+  index "roles_namespace_name_key" {
+    unique  = true
+    columns = [column.namespace, column.name]
+    where   = "deleted_at IS NULL"
+  }
+
+  index "roles_created_by_idx" {
+    columns = [column.created_by]
+  }
+
+  foreign_key "roles_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+}
+
+table "role_bindings" {
+  schema = schema.public
+
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("generate_ulid()")
+  }
+
+  column "name" {
+    null = false
+    type = text
+  }
+
+  column "namespace" {
+    null = false
+    type = text
+  }
+
+  column "description" {
+    null = true
+    type = text
+  }
+
+  column "role" {
+    null    = false
+    type    = text
+    comment = "name of the bound role, in the same namespace as the binding"
+  }
+
+  column "constraints" {
+    null    = false
+    type    = jsonb
+    default = "[]"
+    comment = "constraints that narrow rules of the role, each naming a rule and the scopes, in the same namespace as the binding, its resource and target must also belong to. When there are constraints, only the allow rules they name are granted"
+  }
+
+  column "subjects" {
+    null    = false
+    type    = jsonb
+    default = "{}"
+    comment = "selectors for the people, teams, roles, OIDC identities and resources the role is bound to"
+  }
+
+  column "error" {
+    null    = true
+    type    = text
+    comment = "why the role binding isn't in effect, e.g. a constraint names a rule the role doesn't have. NULL when it's valid"
+  }
+
+  column "error_reason" {
+    null    = true
+    type    = text
+    comment = "machine readable reason for error, e.g. RoleNotFound or RowLevelSecurityRequired. NULL when it's valid"
+  }
+
+  column "source" {
+    null    = false
+    type    = text
+    default = "UI"
+  }
+
+  column "created_by" {
+    null = true
+    type = uuid
+  }
+
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+
+  column "deleted_at" {
+    null = true
+    type = timestamptz
+  }
+
+  primary_key {
+    columns = [column.id]
+  }
+
+  index "role_bindings_namespace_name_key" {
+    unique  = true
+    columns = [column.namespace, column.name]
+    where   = "deleted_at IS NULL"
+  }
+
+  index "role_bindings_created_by_idx" {
+    columns = [column.created_by]
+  }
+
+  foreign_key "role_bindings_created_by_fkey" {
+    columns     = [column.created_by]
+    ref_columns = [table.people.column.id]
+    on_update   = NO_ACTION
+    on_delete   = NO_ACTION
+  }
+}

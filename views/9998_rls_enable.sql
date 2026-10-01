@@ -187,7 +187,7 @@ CREATE POLICY config_items_auth ON config_items
       ELSE
         match_scope(
           current_setting('request.jwt.claims', TRUE)::jsonb -> 'config',
-          config_items.tags,
+          COALESCE(config_items.tags, '{}'::jsonb),
           config_items.agent_id,
           config_items.name,
           config_items.id
@@ -384,10 +384,16 @@ CREATE POLICY checks_auth ON checks
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE EXISTS (
-        -- just leverage the RLS on canaries
+        -- a check is visible with its canary
         SELECT 1
         FROM canaries
         WHERE canaries.id = checks.canary_id
+      ) OR match_scope(
+        current_setting('request.jwt.claims', TRUE)::jsonb -> 'check',
+        NULL,
+        checks.agent_id,
+        checks.name,
+        checks.id
       )
       END
     );

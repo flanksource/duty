@@ -171,16 +171,28 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 	return lo.Uniq(s), nil
 }
 
-func Check(ctx context.Context, subject, object, action string) bool {
-	hasEveryone, err := enforcer.HasRoleForUser(subject, policy.RoleEveryone)
-	if err != nil {
-		ctx.Errorf("failed to check role for user %s: %v", subject, err)
-		return false
-	}
+// HasImplicitGrants reports whether the subject is granted the "everyone" role and,
+// in CheckContext, the viewer role on top of what it was explicitly granted.
+//
+// Role bindings and federated identities have no implicit grants. A binding must not join "everyone",
+// or every member of the binding would inherit "everyone" through it.
+func HasImplicitGrants(subject string) bool {
+	return !strings.HasPrefix(subject, models.BindingPrincipalPrefix) &&
+		!strings.HasPrefix(subject, models.FederatedPrincipalPrefix)
+}
 
-	if !hasEveryone {
-		if _, err := enforcer.AddRoleForUser(subject, policy.RoleEveryone); err != nil {
-			ctx.Debugf("error adding role %s to user %s", policy.RoleEveryone, subject)
+func Check(ctx context.Context, subject, object, action string) bool {
+	if HasImplicitGrants(subject) {
+		hasEveryone, err := enforcer.HasRoleForUser(subject, policy.RoleEveryone)
+		if err != nil {
+			ctx.Errorf("failed to check role for user %s: %v", subject, err)
+			return false
+		}
+
+		if !hasEveryone {
+			if _, err := enforcer.AddRoleForUser(subject, policy.RoleEveryone); err != nil {
+				ctx.Debugf("error adding role %s to user %s", policy.RoleEveryone, subject)
+			}
 		}
 	}
 
@@ -210,6 +222,10 @@ func CheckContext(ctx context.Context, object, action string) bool {
 	user := ctx.User()
 	if user == nil {
 		return false
+	}
+
+	if subject := ctx.Subject(); !HasImplicitGrants(subject) {
+		return Check(ctx, subject, object, action)
 	}
 
 	// TODO: Everyone with an account is not a viewer. i.e. user role.

@@ -44,6 +44,7 @@ type Payload struct {
 	Component []Scope `json:"component,omitempty"`
 	Playbook  []Scope `json:"playbook,omitempty"`
 	Canary    []Scope `json:"canary,omitempty"`
+	Check     []Scope `json:"check,omitempty"`
 	View      []Scope `json:"view,omitempty"`
 
 	// Scopes contains the list of scope UUIDs the user has access to.
@@ -77,6 +78,10 @@ func (t Payload) JWTClaims() map[string]any {
 		claims["canary"] = t.Canary
 	}
 
+	if len(t.Check) > 0 {
+		claims["check"] = t.Check
+	}
+
 	if len(t.View) > 0 {
 		claims["view"] = t.View
 	}
@@ -95,10 +100,14 @@ func (t *Payload) EvalFingerprint() {
 	}
 
 	parts := []string{}
-	for _, scopeArray := range [][]Scope{t.Config, t.Component, t.Playbook, t.Canary, t.View} {
+	// Scopes are prefixed with their table, so the same scope on different tables doesn't collide
+	for table, scopeArray := range map[string][]Scope{
+		"config": t.Config, "component": t.Component, "playbook": t.Playbook,
+		"canary": t.Canary, "check": t.Check, "view": t.View,
+	} {
 		for _, scope := range scopeArray {
 			if !scope.IsEmpty() {
-				parts = append(parts, scope.Fingerprint())
+				parts = append(parts, table+":"+scope.Fingerprint())
 			}
 		}
 	}

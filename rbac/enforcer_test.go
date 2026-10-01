@@ -7,6 +7,7 @@ import (
 	casbinModel "github.com/casbin/casbin/v2/model"
 	stringadapter "github.com/casbin/casbin/v2/persist/string-adapter"
 	"github.com/google/uuid"
+	"github.com/onsi/gomega"
 
 	"github.com/flanksource/duty/models"
 )
@@ -152,5 +153,22 @@ p, bob, catalog, read, allow, , na
 				t.Errorf("expected %t but got %t. user=%s, obj=%v, act=%s", td.allowed, allowed, user, obj, act)
 			}
 		})
+	}
+}
+
+func TestHasImplicitGrants(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	cases := map[string]bool{
+		models.BindingPrincipal("staging", "ops"):   false,
+		models.FederatedPrincipal(uuid.NewString()): false,
+		"role:staging/ops":                          true,
+		uuid.NewString():                            true,
+		"editor":                                    true,
+		"plugin:ns/name":                            true,
+	}
+
+	for subject, expected := range cases {
+		g.Expect(HasImplicitGrants(subject)).To(gomega.Equal(expected), "HasImplicitGrants(%q)", subject)
 	}
 }
