@@ -46,11 +46,11 @@ var _ = ginkgo.BeforeSuite(func() {
 	var c testcontainers.Container
 	var err error
 
-	log.Infof("Starting MinIO container...")
-	s3Client, c, err = startMinio(ctx)
+	log.Infof("Starting SeaweedFS container...")
+	s3Client, c, err = startSeaweedFS(ctx)
 	Expect(err).ToNot(HaveOccurred())
 	allContainers = append(allContainers, c)
-	log.Infof("MinIO ready")
+	log.Infof("SeaweedFS ready")
 
 	log.Infof("Starting fake-gcs-server container...")
 	gcsClient, c, err = startFakeGCS(ctx)
