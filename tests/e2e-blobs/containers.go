@@ -36,7 +36,7 @@ func startSeaweedFS(ctx gocontext.Context) (*s3.Client, testcontainers.Container
 		return nil, nil, fmt.Errorf("starting SeaweedFS: %w", err)
 	}
 
-	endpoint, err := container.Endpoint(ctx, "http")
+	endpoint, err := container.PortEndpoint(ctx, "8333/tcp", "http")
 	if err != nil {
 		return nil, container, err
 	}
