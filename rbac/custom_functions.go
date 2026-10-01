@@ -197,6 +197,36 @@ func AddCustomFunctions(enforcer addableEnforcer) {
 		return matchResourceSelector(attr, objectSelector)
 	})
 
+	// matchRule matches an ABACAttribute against a condition compiled from a Role rule (see RuleCondition).
+	enforcer.AddFunction("matchRule", func(args ...any) (any, error) {
+		if len(args) != 2 {
+			return false, fmt.Errorf("matchRule needs 2 arguments. got %d", len(args))
+		}
+
+		if _, ok := args[0].(string); ok {
+			return false, nil
+		}
+
+		attr, ok := args[0].(*models.ABACAttribute)
+		if !ok {
+			return false, fmt.Errorf("[matchRule] unknown input type: %T. expected *models.ABACAttribute", args[0])
+		} else if attr == nil {
+			return false, errors.New("attribute cannot be nil")
+		}
+
+		raw, ok := args[1].(string)
+		if !ok {
+			return false, fmt.Errorf("[matchRule] condition must be a string")
+		}
+
+		var condition RuleCondition
+		if err := json.Unmarshal([]byte(raw), &condition); err != nil {
+			return false, err
+		}
+
+		return matchRule(attr, condition), nil
+	})
+
 	// str converts UUIDs to strings for comparison in Casbin conditions.
 	// We need this because - for ABAC, our attributes may have IDs as uuid.UUID types.
 	// for casbin rules where we need to match Id against a <uuid-string>,

@@ -247,6 +247,17 @@ const (
 	ObjectMCP = "mcp"
 )
 
+// Resource types that Scopes select and Role rules act on.
+const (
+	ResourceConfig     = "config"
+	ResourceComponent  = "component"
+	ResourceCheck      = "check"
+	ResourceCanary     = "canary"
+	ResourcePlaybook   = "playbook"
+	ResourceView       = "view"
+	ResourceConnection = "connection"
+)
+
 // Actions
 const (
 	ActionAll    = "*"
