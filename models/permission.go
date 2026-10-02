@@ -67,7 +67,7 @@ func (r Role) GetNamespace() string {
 }
 
 // RoleBinding grants a role (in the same namespace) to many subjects,
-// optionally narrowing the role's allow rules with constraints.
+// optionally narrowing the role's allow rules with a constraint.
 type RoleBinding struct {
 	ID          uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
 	Name        string    `json:"name"`
@@ -78,8 +78,8 @@ type RoleBinding struct {
 	// Role is the name of the bound role, in the binding's namespace
 	Role string `json:"role"`
 
-	// Constraints is the JSON list of constraints, each narrowing one rule of the role
-	Constraints types.JSON `json:"constraints"`
+	// Constraint is the JSON constraint that narrows every allow rule of the role. Nil when there's none.
+	Constraint *types.JSON `json:"constraint,omitempty"`
 
 	// Subjects is a JSON object of subject selectors
 	Subjects types.JSON `json:"subjects"`

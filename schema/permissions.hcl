@@ -451,11 +451,10 @@ table "role_bindings" {
     comment = "name of the bound role, in the same namespace as the binding"
   }
 
-  column "constraints" {
-    null    = false
+  column "constraint" {
+    null    = true
     type    = jsonb
-    default = "[]"
-    comment = "constraints that narrow rules of the role, each naming a rule and the scopes, in the same namespace as the binding, its resource and target must also belong to. When there are constraints, only the allow rules they name are granted"
+    comment = "narrows every allow rule of the role: the scopes, in the same namespace as the binding, the resource and target of every operation must also belong to. NULL when the binding has no constraint"
   }
 
   column "subjects" {
@@ -468,7 +467,7 @@ table "role_bindings" {
   column "error" {
     null    = true
     type    = text
-    comment = "why the role binding isn't in effect, e.g. a constraint names a rule the role doesn't have. NULL when it's valid"
+    comment = "why the role binding isn't ready, e.g. its role doesn't exist or none of its allow rules applies through the constraint. NULL when it's ready"
   }
 
   column "error_reason" {
