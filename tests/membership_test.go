@@ -186,11 +186,11 @@ var _ = Describe("Scope membership", Ordered, func() {
 		Expect(scopesOf(mtx)).To(ContainElement(wholeScopeID))
 		Expect(scopesOf(mtUpper)).To(ContainElement(wholeScopeID))
 
-		var admitted bool
-		Expect(DefaultContext.DB().Raw("SELECT scope_admits(?, 'config', ?)", wholeScopeID, mtx.ID).Scan(&admitted).Error).To(Succeed())
-		Expect(admitted).To(BeTrue())
-		Expect(DefaultContext.DB().Raw("SELECT scope_admits(?, 'config', ?)", scopeID, mtx.ID).Scan(&admitted).Error).To(Succeed())
-		Expect(admitted).To(BeFalse())
+		var contained bool
+		Expect(DefaultContext.DB().Raw("SELECT scope_contains(?, 'config', ?)", wholeScopeID, mtx.ID).Scan(&contained).Error).To(Succeed())
+		Expect(contained).To(BeTrue())
+		Expect(DefaultContext.DB().Raw("SELECT scope_contains(?, 'config', ?)", scopeID, mtx.ID).Scan(&contained).Error).To(Succeed())
+		Expect(contained).To(BeFalse())
 	})
 
 	It("rebuilds a changed Scope writing only the members that change", func() {

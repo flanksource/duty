@@ -48,11 +48,11 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- scope_admits reports whether a resource is in the Scope: the Scope has a member row for it, or one for its whole
--- type (resource_id NULL). A Scope with neither admits nothing. Row-level security reads membership through it.
+-- scope_contains reports whether a resource is in the Scope: the Scope has a member row for it, or one for its whole
+-- type (resource_id NULL). A Scope with neither contains nothing. Row-level security reads membership through it.
 --
---   SELECT scope_admits($scope, 'config', $id);  => true if ($scope, config, $id) or ($scope, config, NULL) exists
-CREATE OR REPLACE FUNCTION scope_admits(scope uuid, kind text, row_id uuid)
+--   SELECT scope_contains($scope, 'config', $id);  => true if ($scope, config, $id) or ($scope, config, NULL) exists
+CREATE OR REPLACE FUNCTION scope_contains(scope uuid, kind text, resource_id uuid)
   RETURNS boolean
   AS $$
   SELECT EXISTS (
@@ -60,7 +60,7 @@ CREATE OR REPLACE FUNCTION scope_admits(scope uuid, kind text, row_id uuid)
     FROM scope_members m
     WHERE m.scope_id = scope
       AND m.resource_type = kind
-      AND (m.resource_id = row_id OR m.resource_id IS NULL)
+      AND (m.resource_id = scope_contains.resource_id OR m.resource_id IS NULL)
   )
 $$
 LANGUAGE sql STABLE SECURITY DEFINER;
