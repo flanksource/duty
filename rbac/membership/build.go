@@ -1,6 +1,6 @@
 // Package membership stores which Scopes each resource belongs to.
 //
-// A Scope's targets are stored as rows of values (scope_targets), and one SQL predicate, scope_target_matches,
+// A Scope's targets are stored as rows of values (scope_targets), and one SQL predicate, _scope_target_matches,
 // decides whether a resource matches a target. A resource is matched by trigger in the transaction that writes it,
 // and a Scope is rebuilt in the transaction that saves it. Checks and listings only read the stored result
 // (scope_members), e.g. through ForOperation.

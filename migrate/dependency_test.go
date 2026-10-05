@@ -45,9 +45,10 @@ func TestDependencyMap(t *testing.T) {
 	}
 
 	expected := map[string][]string{
-		"functions/drop.sql":         {"views/006_config_views.sql", "views/021_notification.sql", "views/038_config_access.sql"},
-		"functions/cost_overlap.sql": {"views/006_config_views.sql"},
-		"views/006_config_views.sql": {"views/014_config_item_by_type.sql", "views/021_notification.sql"},
+		"functions/drop.sql":                     {"views/006_config_views.sql", "views/021_notification.sql", "views/038_config_access.sql"},
+		"functions/cost_overlap.sql":             {"views/006_config_views.sql"},
+		"views/006_config_views.sql":             {"views/014_config_item_by_type.sql", "views/021_notification.sql"},
+		"views/050_scope_membership_helpers.sql": {"views/051_scope_membership.sql"},
 	}
 
 	g.Expect(graph).To(gomega.HaveLen(len(expected)))
