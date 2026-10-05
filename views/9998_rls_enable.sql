@@ -185,13 +185,7 @@ CREATE POLICY config_items_auth ON config_items
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'config',
-          COALESCE(config_items.tags, '{}'::jsonb),
-          config_items.agent_id,
-          config_items.name,
-          config_items.id
-        )
+        rls_grants_admit('config', config_items.id)
       END
     );
 
@@ -297,13 +291,7 @@ CREATE POLICY components_auth ON components
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'component',
-          NULL,
-          components.agent_id,
-          components.name,
-          components.id
-        )
+        rls_grants_admit('component', components.id)
       END
     );
 
@@ -315,13 +303,7 @@ CREATE POLICY canaries_auth ON canaries
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'canary',
-          NULL,
-          canaries.agent_id,
-          canaries.name,
-          canaries.id
-        )
+        rls_grants_admit('canary', canaries.id)
       END
     );
 
@@ -333,13 +315,7 @@ CREATE POLICY playbooks_auth ON playbooks
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'playbook',
-          NULL,
-          NULL,
-          playbooks.name,
-          playbooks.id
-        )
+        rls_grants_admit('playbook', playbooks.id)
       END
     );
 
@@ -388,13 +364,7 @@ CREATE POLICY checks_auth ON checks
         SELECT 1
         FROM canaries
         WHERE canaries.id = checks.canary_id
-      ) OR match_scope(
-        current_setting('request.jwt.claims', TRUE)::jsonb -> 'check',
-        NULL,
-        checks.agent_id,
-        checks.name,
-        checks.id
-      )
+      ) OR rls_grants_admit('check', checks.id)
       END
     );
 

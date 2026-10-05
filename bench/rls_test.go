@@ -7,7 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac/membership"
+	"github.com/flanksource/duty/rbac/policy"
 	pkgRLS "github.com/flanksource/duty/rls"
+	"github.com/flanksource/duty/types"
 )
 
 // number of total configs in the database
@@ -73,15 +79,37 @@ func BenchmarkRLS(b *testing.B) {
 			b.Fatalf("failed to setup configs for size %d: %v", size, err)
 		}
 
+		scopes := tagScopes(b)
 		b.Run(fmt.Sprintf("Sample-%d", size), func(b *testing.B) {
 			for _, config := range benchConfigs {
-				runBenchmark(b, config)
+				runBenchmark(b, config, scopes)
 			}
 		})
 	}
 }
 
-func runBenchmark(b *testing.B, config DistinctBenchConfig) {
+// tagScopes stores one Scope per sample tag set, selecting the configs with those tags, and returns their ids.
+func tagScopes(b *testing.B) []string {
+	var ids []string
+	for _, tags := range sampleTags {
+		var pairs []string
+		for k, v := range tags {
+			pairs = append(pairs, k+"="+v)
+		}
+		scope := models.Scope{ID: uuid.New(), Name: fmt.Sprintf("bench-tags-%d", len(ids)), Namespace: "bench", Targets: types.JSON(`[]`)}
+		if err := testCtx.DB().Create(&scope).Error; err != nil {
+			b.Fatalf("failed to create scope for tags %v: %v", tags, err)
+		}
+		target := membership.Target{Type: policy.ResourceConfig, Selector: types.ResourceSelector{TagSelector: strings.Join(pairs, ",")}}
+		if _, err := membership.Rebuild(testCtx, scope.ID, scope.Targets, []membership.Target{target}); err != nil {
+			b.Fatalf("failed to store scope for tags %v: %v", tags, err)
+		}
+		ids = append(ids, scope.ID.String())
+	}
+	return ids
+}
+
+func runBenchmark(b *testing.B, config DistinctBenchConfig, scopes []string) {
 	b.Run(config.relation, func(b *testing.B) {
 		for _, rls := range []bool{false, true} {
 			resetPG(b, rls)
@@ -116,7 +144,9 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig) {
 					var payload pkgRLS.Payload
 					if rls {
 						b.StopTimer()
-						payload = pkgRLS.Payload{Config: []pkgRLS.Scope{{Tags: sampleTags[i%len(sampleTags)]}}}
+						grants := pkgRLS.NoRows()
+						grants.Add(scopes[i%len(scopes)])
+						payload = pkgRLS.Payload{Config: grants}
 						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
 							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
 						}

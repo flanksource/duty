@@ -204,3 +204,29 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
   FOR EACH ROW
   WHEN (OLD.name IS DISTINCT FROM NEW.name OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
   EXECUTE PROCEDURE notify_table_updates_and_deletes();
+
+-- rls_grants_admit reports whether the request's claim grants a row of the given type:
+-- the claim grants "all" rows of the type, or the row is in every Scope of at least one grant.
+-- A type without grants, or a grant naming a Scope with no membership rows, admits nothing.
+CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
+  RETURNS boolean
+  AS $$
+  SELECT CASE
+    WHEN c IS NULL THEN FALSE
+    WHEN c = '"all"'::jsonb THEN TRUE
+    WHEN jsonb_typeof(c) <> 'array' THEN FALSE
+    ELSE EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(c) AS g(scopes)
+      WHERE jsonb_typeof(g.scopes) = 'array'
+        AND jsonb_array_length(g.scopes) > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(g.scopes) AS s(scope_id)
+          WHERE NOT scope_contains(s.scope_id::uuid, kind, row_id)
+        )
+    )
+  END
+  FROM (SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind AS c) AS claim
+$$
+LANGUAGE sql STABLE;
