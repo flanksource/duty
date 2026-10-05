@@ -46,12 +46,12 @@ CREATE OR REPLACE TRIGGER scope_targets_lookup_keys
 --   target name_prefix 'web-', tags {"env":"prod"}; resource name 'web-1', tags {"env":"prod","app":"a"} => true
 --   target name_prefix 'web-', tags {"env":"prod"}; resource name 'api-1', tags {"env":"prod"}         => false
 CREATE OR REPLACE FUNCTION _scope_target_matches(
-  t_id uuid, t_name text, t_name_prefix text, t_namespace text, t_agent_id uuid, t_types text[], t_tags jsonb, t_labels jsonb,
+  t_resource_id uuid, t_name text, t_name_prefix text, t_namespace text, t_agent_id uuid, t_types text[], t_tags jsonb, t_labels jsonb,
   r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
   RETURNS boolean
   AS $$
   SELECT COALESCE(
-    (t_id IS NULL OR r_id = t_id)
+    (t_resource_id IS NULL OR r_id = t_resource_id)
     AND (t_name IS NULL OR r_name = t_name)
     AND (t_name_prefix IS NULL OR starts_with(r_name, t_name_prefix))
     AND (t_namespace IS NULL OR r_namespace = t_namespace)

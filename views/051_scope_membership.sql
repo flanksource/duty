@@ -192,9 +192,6 @@ $$;
 
 -- Registering, renaming or deleting an agent can change what a Scope's agent resolves to, so Mission Control
 -- re-validates every Scope. Heartbeats and other updates don't notify.
-DROP TRIGGER IF EXISTS agents_scope_validity ON agents;
-DROP TRIGGER IF EXISTS agents_scope_validity_update ON agents;
-
 CREATE OR REPLACE TRIGGER agents_scope_validity
   AFTER INSERT OR DELETE ON agents
   FOR EACH ROW EXECUTE PROCEDURE notify_table_updates_and_deletes();
