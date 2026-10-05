@@ -1,5 +1,27 @@
 package membership
 
+// One user action can need several permission checks. Each check asks: which Scopes is this resource in?
+//
+// If each check asked the database separately, the answers could change between checks. Someone might edit a
+// Scope in the middle. Then one check would use the old Scope and the next check would use the new one.
+//
+// Example: Alice may run playbooks on anything in the Scope "production". She runs the playbook
+// "restart-deployment" on the Kubernetes Deployment "payments-api". Two checks run:
+//
+//  1. Is "restart-deployment" in a Scope Alice can use? The database says yes, it is in "production".
+//  2. Is "payments-api" in a Scope Alice can use?
+//
+// Between check 1 and check 2, an admin removes "payments-api" from "production". Check 2 now says no. Alice's
+// request was judged against two different versions of "production".
+//
+// A Snapshot prevents this. It reads the Scopes of all the resources at once, in one query, before the checks
+// start. The checks then read from the Snapshot, not the database. So every check gets the same answer.
+//
+// How to use it:
+//   - Call ForOperation before the checks. It reads the Snapshot and stores it in the context.
+//   - Call SnapshotFrom inside a check to get the Snapshot back.
+//   - Call Covers to see if the Snapshot has the resource. If it doesn't, the check must ask the database itself.
+
 import (
 	"slices"
 
