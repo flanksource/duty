@@ -1,0 +1,426 @@
+// Package membership stores which Scopes each resource belongs to.
+//
+// A Scope's targets are stored as rows of values (scope_targets), and one SQL predicate, _scope_target_matches,
+// decides whether a resource matches a target. A resource is matched by trigger in the transaction that writes it,
+// and a Scope is rebuilt in the transaction that saves it. Checks and listings only read the stored result
+// (scope_members), e.g. through ForOperation.
+package membership
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
+	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/rbac/policy"
+	"github.com/flanksource/duty/types"
+)
+
+var (
+	// LockTimeout is how long saving a Scope waits for the membership lock before backing off.
+	// Writers already holding it shared, e.g. a long config scraper transaction, would otherwise stall every resource write
+	// queued behind the exclusive request.
+	LockTimeout = time.Second
+
+	// LockRetries is how many times saving a Scope retries after LockTimeout, backing off between attempts.
+	LockRetries = 5
+
+	// LockBackoff is the wait before the first retry. It doubles after each one.
+	LockBackoff = 200 * time.Millisecond
+)
+
+// ErrLockTimeout is returned when the membership lock couldn't be taken within LockRetries.
+var ErrLockTimeout = db.ErrAdvisoryLockTimeout
+
+// ErrStaleScope is returned by Rebuild when the Scope row no longer holds the targets the caller resolved: a newer
+// version was saved meanwhile, or the Scope was deleted. Nothing is written; the newer version's own save rebuilds it.
+var ErrStaleScope = errors.New("the scope changed since its targets were resolved")
+
+// Rebuild rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't save
+// the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
+// it commits and the new one after. targets are the Scope's targets as stored on its row, and resolved are those
+// targets validated, with their agents resolved to ids.
+// Targets of types whose membership isn't stored, e.g. views, are ignored, and a whole-type target is stored as one
+// member with no resource. Nothing is written when the targets haven't changed, and a rebuild writes only the members
+// that change. It reports whether anything was rebuilt.
+//
+// The Scope row is locked for the rebuild and checked against targets, so a caller holding a version of the Scope
+// that a concurrent save has since replaced gets ErrStaleScope instead of rewriting the newer membership with the
+// older targets. The row is locked before the membership lock, in the same order a save takes them.
+func Rebuild(ctx context.Context, scopeID uuid.UUID, targets types.JSON, resolved []Target) (bool, error) {
+	var rows []targetRow
+	var whole []string
+	for _, t := range resolved {
+		if !Supported(t.Type) {
+			continue
+		} else if t.WholeType() {
+			whole = append(whole, t.Type)
+			continue
+		}
+		row, err := t.row(scopeID)
+		if err != nil {
+			return false, fmt.Errorf("scope %s: %s target: %w", scopeID, t.Type, err)
+		}
+		rows = append(rows, row)
+	}
+	slices.Sort(whole)
+	whole = slices.Compact(whole)
+
+	// Targets of a type the Scope selects entirely add nothing
+	rows = slices.DeleteFunc(rows, func(r targetRow) bool { return slices.Contains(whole, r.ResourceType) })
+
+	rebuilt := false
+	err := ctx.DB().Transaction(func(tx *gorm.DB) error {
+		if err := lockScope(tx, scopeID, targets); err != nil {
+			return err
+		}
+
+		unchanged, err := stored(tx, scopeID, rows, whole)
+		if err != nil {
+			return err
+		} else if unchanged {
+			return nil
+		}
+
+		rebuilt = true
+		return db.WithAdvisoryLock(tx, membershipLock(), func(tx *gorm.DB) error {
+			if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
+				return err
+			}
+			if len(rows) > 0 {
+				if err := tx.Table("scope_targets").Omit("lookup_keys").Create(&rows).Error; err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Exec("DELETE FROM scope_members WHERE scope_id = ? AND resource_id IS NULL AND NOT (resource_type = ANY (?::text[]))",
+				scopeID, textArray(whole)).Error; err != nil {
+				return err
+			}
+			for _, kind := range whole {
+				if err := tx.Exec(`DELETE FROM scope_members WHERE scope_id = ? AND resource_type = ? AND resource_id IS NOT NULL`, scopeID, kind).Error; err != nil {
+					return err
+				}
+				if err := tx.Exec(`INSERT INTO scope_members (scope_id, resource_type) VALUES (?, ?)
+					ON CONFLICT (scope_id, resource_type) WHERE resource_id IS NULL DO NOTHING`, scopeID, kind).Error; err != nil {
+					return err
+				}
+			}
+
+			return tx.Exec("SELECT scope_rebuild_members(?)", scopeID).Error
+		})
+	})
+	if errors.Is(err, ErrStaleScope) {
+		return false, err
+	} else if err != nil {
+		return false, fmt.Errorf("failed to rebuild the membership of scope %s: %w", scopeID, err)
+	}
+	return rebuilt, nil
+}
+
+// lockScope locks the Scope row for the transaction and checks that it still holds the given targets.
+// A save of the Scope holds the row until it commits, so this waits for one in flight and then sees its targets.
+func lockScope(tx *gorm.DB, scopeID uuid.UUID, targets types.JSON) error {
+	var current []bool
+	if err := tx.Raw("SELECT targets = ?::jsonb FROM scopes WHERE id = ? AND deleted_at IS NULL FOR SHARE",
+		string(targets), scopeID).Scan(&current).Error; err != nil {
+		return err
+	}
+	if len(current) == 0 || !current[0] {
+		return fmt.Errorf("scope %s: %w", scopeID, ErrStaleScope)
+	}
+	return nil
+}
+
+// Clear deletes the Scope's stored targets and members in the context's transaction, e.g. when it becomes invalid or
+// is deleted. It doesn't delete the Scope row. The Scope admits nothing from then on.
+func Clear(ctx context.Context, scopeID uuid.UUID) error {
+	if built, err := IsBuilt(ctx, scopeID); err != nil || !built {
+		return err
+	}
+
+	err := db.WithAdvisoryLock(ctx.DB(), membershipLock(), func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
+			return err
+		}
+		return tx.Exec("DELETE FROM scope_members WHERE scope_id = ?", scopeID).Error
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete the membership of scope %s: %w", scopeID, err)
+	}
+	return nil
+}
+
+// IsBuilt reports whether the Scope has stored targets or members, i.e. whether its membership has been built.
+func IsBuilt(ctx context.Context, scopeID uuid.UUID) (bool, error) {
+	var has bool
+	err := ctx.DB().Raw(`SELECT EXISTS (SELECT 1 FROM scope_targets WHERE scope_id = ?)
+		OR EXISTS (SELECT 1 FROM scope_members WHERE scope_id = ?)`, scopeID, scopeID).Scan(&has).Error
+	return has, err
+}
+
+// stored reports whether the Scope's stored targets and whole types are exactly the given ones.
+func stored(tx *gorm.DB, scopeID uuid.UUID, rows []targetRow, whole []string) (bool, error) {
+	var current []targetRow
+	if err := tx.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
+		FROM scope_targets WHERE scope_id = ?`, scopeID).Scan(&current).Error; err != nil {
+		return false, err
+	}
+
+	var currentWhole []string
+	if err := tx.Raw("SELECT resource_type FROM scope_members WHERE scope_id = ? AND resource_id IS NULL ORDER BY resource_type", scopeID).
+		Scan(&currentWhole).Error; err != nil {
+		return false, err
+	}
+
+	if len(current) == 0 && len(currentWhole) == 0 {
+		// Never built, or deleted: a Scope that selects nothing storable still has nothing to build
+		return len(rows) == 0 && len(whole) == 0, nil
+	}
+
+	keys := func(rows []targetRow) []string {
+		var out []string
+		for _, r := range rows {
+			out = append(out, r.normalized().key())
+		}
+		slices.Sort(out)
+		return out
+	}
+
+	return slices.Equal(keys(current), keys(rows)) && slices.Equal(currentWhole, whole), nil
+}
+
+// normalized returns the row in one form, so a row read back from Postgres and a new one compare equal.
+func (r targetRow) normalized() targetRow {
+	for _, field := range []**string{&r.Tags, &r.Labels} {
+		if *field != nil {
+			var pairs map[string]string
+			if err := json.Unmarshal([]byte(**field), &pairs); err == nil {
+				raw, _ := json.Marshal(pairs)
+				s := string(raw)
+				*field = &s
+			}
+		}
+	}
+	if r.Types != nil {
+		var values pq.StringArray
+		if err := values.Scan(*r.Types); err == nil {
+			s := textArray(values)
+			r.Types = &s
+		}
+	}
+	return r
+}
+
+// textArray returns the values as a Postgres text array literal.
+func textArray(values []string) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	value, _ := pq.StringArray(values).Value()
+	return value.(string)
+}
+
+// membershipLock is the lock Rebuild and Clear take exclusively, and resource triggers and scope deletes take
+// shared (views/050_scope_membership.sql), so no resource is written while a Scope's targets change.
+func membershipLock() db.AdvisoryLock {
+	return db.AdvisoryLock{Key: "scope_membership", Timeout: LockTimeout, Retries: LockRetries, Backoff: LockBackoff}
+}
+
+// Target is one target of a Scope: a selector over the resources of one type, with its agent resolved to an id.
+type Target struct {
+	Type     string                 `json:"type"`
+	Selector types.ResourceSelector `json:"selector"`
+}
+
+// WholeType reports whether the target selects every resource of its type: name "*" and nothing else.
+func (t Target) WholeType() bool {
+	return t.Selector.Wildcard() && t.Selector.Functions.ComponentConfigTraversal == nil
+}
+
+// fields are the selector fields each resource type has, besides id, name and namespace.
+var fields = map[string]struct{ agent, types, tags, labels bool }{
+	policy.ResourceConfig:     {agent: true, types: true, tags: true, labels: true},
+	policy.ResourceComponent:  {agent: true, types: true, labels: true},
+	policy.ResourceCheck:      {agent: true, types: true, labels: true},
+	policy.ResourceCanary:     {agent: true, labels: true},
+	policy.ResourcePlaybook:   {},
+	policy.ResourceConnection: {types: true},
+}
+
+// Types are the resource types whose membership is stored.
+func Types() []string {
+	kinds := make([]string, 0, len(fields))
+	for kind := range fields {
+		kinds = append(kinds, kind)
+	}
+	slices.Sort(kinds)
+	return kinds
+}
+
+// Supported reports whether the membership of the resource type is stored.
+func Supported(kind string) bool {
+	_, ok := fields[kind]
+	return ok
+}
+
+// targetRow is a row of scope_targets. A condition the target doesn't set is nil, and matches anything.
+type targetRow struct {
+	ScopeID      uuid.UUID `gorm:"column:scope_id"`
+	ResourceType string    `gorm:"column:resource_type"`
+	ResourceID   *string   `gorm:"column:resource_id"`
+	Name         *string   `gorm:"column:name"`
+	NamePrefix   *string   `gorm:"column:name_prefix"`
+	Namespace    *string   `gorm:"column:namespace"`
+	AgentID      *string   `gorm:"column:agent_id"`
+	Types        *string   `gorm:"column:types"`
+	Tags         *string   `gorm:"column:tags"`
+	Labels       *string   `gorm:"column:labels"`
+}
+
+// key identifies the row's conditions, for comparing a Scope's stored targets with new ones.
+func (r targetRow) key() string {
+	raw, _ := json.Marshal([]any{r.ResourceType, r.ResourceID, r.Name, r.NamePrefix, r.Namespace, r.AgentID, r.Types, r.Tags, r.Labels})
+	return string(raw)
+}
+
+// row converts a target that isn't a whole-type target to a row of scope_targets.
+func (t Target) row(scopeID uuid.UUID) (targetRow, error) {
+	f, ok := fields[t.Type]
+	if !ok {
+		return targetRow{}, fmt.Errorf("membership of %s isn't stored", t.Type)
+	}
+
+	s := t.Selector
+	if s.Search != "" || s.FieldSelector != "" || s.Scope != "" || len(s.Statuses) > 0 || s.Health != "" ||
+		s.Functions.ComponentConfigTraversal != nil {
+		return targetRow{}, fmt.Errorf("%s selector: search, fieldSelector, scope, statuses, health and functions aren't supported", t.Type)
+	}
+	if s.ID == "" && s.Name == "" && s.Namespace == "" && s.Agent == "" && len(s.Types) == 0 &&
+		s.TagSelector == "" && s.LabelSelector == "" {
+		return targetRow{}, fmt.Errorf("an empty %s selector selects nothing", t.Type)
+	}
+
+	row := targetRow{ScopeID: scopeID, ResourceType: t.Type}
+	optional := func(v string) *string {
+		if v == "" {
+			return nil
+		}
+		return &v
+	}
+
+	if s.ID != "" {
+		id, err := uuid.Parse(s.ID)
+		if err != nil {
+			return targetRow{}, fmt.Errorf("id %q isn't a uuid", s.ID)
+		}
+		row.ResourceID = optional(id.String())
+	}
+
+	switch {
+	case s.Name == "" || s.Name == "*":
+	case strings.Count(s.Name, "*") == 1 && strings.HasSuffix(s.Name, "*") && len(s.Name) > 1:
+		row.NamePrefix = optional(strings.TrimSuffix(s.Name, "*"))
+	case strings.Contains(s.Name, "*"):
+		return targetRow{}, fmt.Errorf("name %q: * is only supported at the end", s.Name)
+	default:
+		row.Name = optional(s.Name)
+	}
+
+	if strings.Contains(s.Namespace, "*") {
+		return targetRow{}, fmt.Errorf("namespace %q must be exact", s.Namespace)
+	}
+	row.Namespace = optional(s.Namespace)
+
+	if s.Agent != "" {
+		if !f.agent {
+			return targetRow{}, fmt.Errorf("%s has no agent", t.Type)
+		}
+		id, err := uuid.Parse(s.Agent)
+		if err != nil {
+			return targetRow{}, fmt.Errorf("agent %q must be resolved to an id", s.Agent)
+		}
+		row.AgentID = optional(id.String())
+	}
+
+	if len(s.Types) > 0 {
+		if !f.types {
+			return targetRow{}, fmt.Errorf("%s has no types", t.Type)
+		}
+		values := slices.Clone(s.Types)
+		slices.Sort(values)
+		array := textArray(slices.Compact(values))
+		row.Types = &array
+	}
+
+	for _, sel := range []struct {
+		name, value string
+		has         bool
+		dest        **string
+	}{
+		{"tags", s.TagSelector, f.tags, &row.Tags},
+		{"labels", s.LabelSelector, f.labels, &row.Labels},
+	} {
+		if sel.value == "" {
+			continue
+		} else if !sel.has {
+			return targetRow{}, fmt.Errorf("%s has no %s", t.Type, sel.name)
+		}
+
+		pairs, err := Equalities(sel.value)
+		if err != nil {
+			return targetRow{}, fmt.Errorf("%s: %w", sel.name, err)
+		} else if pairs == nil {
+			// Two values for one key: nothing matches. No resource has a tag with an empty key.
+			pairs = map[string]string{"": ""}
+		}
+		raw, _ := json.Marshal(pairs)
+		*sel.dest = optional(string(raw))
+	}
+
+	return row, nil
+}
+
+// Validate checks that the target can be stored.
+func Validate(t Target) error {
+	if !Supported(t.Type) {
+		return fmt.Errorf("membership of %s isn't stored", t.Type)
+	} else if t.WholeType() {
+		return nil
+	}
+	_, err := t.row(uuid.Nil)
+	return err
+}
+
+// Equalities returns the key=value pairs of a tag or label selector. Every other operator is rejected.
+// It returns nil pairs when two pairs give one key different values, which no resource matches.
+func Equalities(selector string) (map[string]string, error) {
+	parsed, err := labels.Parse(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	requirements, _ := parsed.Requirements()
+	pairs := map[string]string{}
+	for _, r := range requirements {
+		if (r.Operator() != selection.Equals && r.Operator() != selection.DoubleEquals) || r.Values().Len() != 1 {
+			return nil, fmt.Errorf("%q must only use key=value pairs", selector)
+		}
+		value := r.Values().List()[0]
+		if existing, ok := pairs[r.Key()]; ok && existing != value {
+			return nil, nil
+		}
+		pairs[r.Key()] = value
+	}
+	return pairs, nil
+}

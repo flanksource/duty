@@ -232,14 +232,17 @@ var dbResourceObjMap = map[string]string{
 	"views_summary": policy.ObjectViews,
 
 	// permission
-	"permissions":               policy.ObjectDatabaseSystem,
-	"permission_groups":         policy.ObjectDatabaseSystem,
-	"roles":                     policy.ObjectRBAC,
-	"role_bindings":             policy.ObjectRBAC,
-	"permission_subjects":       policy.ObjectDatabaseSystem,
-	"permissions_summary":       policy.ObjectDatabaseSystem,
-	"permissions_group_summary": policy.ObjectDatabaseSystem,
-	"scopes":                    policy.ObjectRBAC,
+	"permissions":                 policy.ObjectDatabaseSystem,
+	"permission_groups":           policy.ObjectDatabaseSystem,
+	"roles":                       policy.ObjectRBAC,
+	"role_bindings":               policy.ObjectRBAC,
+	"permission_subjects":         policy.ObjectDatabaseSystem,
+	"permissions_summary":         policy.ObjectDatabaseSystem,
+	"permissions_group_summary":   policy.ObjectDatabaseSystem,
+	"scopes":                      policy.ObjectRBAC,
+	"scope_members":               policy.ObjectRBAC,
+	"scope_targets":               policy.ObjectRBAC,
+	"rpc/_scope_resource_columns": policy.ObjectAuthConfidential,
 
 	// Access logs
 	"config_access_logs":   policy.ObjectCatalog,

@@ -89,7 +89,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
-	return restrictNotificationRecovery(pool, config)
+	return revokeInternalAccess(pool, config)
 }
 
 // GetExecutableScripts returns functions & views that must be applied.
@@ -276,11 +276,12 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
 		return err
 	}
 
-	return restrictNotificationRecovery(pool, config)
+	return revokeInternalAccess(pool, config)
 }
 
-// restrictNotificationRecovery also runs after blanket grants on repeat migrations.
-func restrictNotificationRecovery(pool *sql.DB, config api.Config) error {
+// revokeInternalAccess revokes PostgREST roles' access to tables and functions only the app may use, e.g. the
+// notification health tables and scope_rebuild_members. It also runs after blanket grants on repeat migrations.
+func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 	for _, role := range []string{"PUBLIC", config.Postgrest.DBRole, config.Postgrest.AnonDBRole} {
 		if role == "" {
 			continue
@@ -303,6 +304,7 @@ func restrictNotificationRecovery(pool *sql.DB, config api.Config) error {
 		for _, function := range []string{
 			"record_notification_health(text,uuid,text)", "refresh_notification_health(text,uuid)", "notification_health_source_trigger()",
 			"insert_check_updates_in_event_queue()", "insert_config_health_updates_in_event_queue()", "insert_component_health_updates_in_event_queue()",
+			"scope_rebuild_members(uuid)",
 		} {
 			var exists bool
 			if err := pool.QueryRow("SELECT to_regprocedure($1) IS NOT NULL", "public."+function).Scan(&exists); err != nil {
