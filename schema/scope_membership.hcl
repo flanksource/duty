@@ -59,7 +59,7 @@ table "scope_targets" {
     comment = "key=value pairs the resource's labels must contain"
   }
 
-  # match_keys lets us find the Scopes a new resource belongs to with an index lookup,
+  # lookup_keys lets us find the Scopes a new resource belongs to with an index lookup,
   # instead of running every Scope's matcher against it.
   #
   # Each target stores the exact values it asks for, e.g. `namespace: team-42` is stored
@@ -73,7 +73,7 @@ table "scope_targets" {
   #
   # Targets with no exact values, e.g. `name: prod-*`, have an empty list and are always
   # run through the matcher. Filled in by a trigger; don't write it yourself.
-  column "match_keys" {
+  column "lookup_keys" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
@@ -84,14 +84,14 @@ table "scope_targets" {
     columns = [column.scope_id]
   }
 
-  index "scope_targets_match_keys_idx" {
+  index "scope_targets_lookup_keys_idx" {
     type    = GIN
-    columns = [column.match_keys]
+    columns = [column.lookup_keys]
   }
 
   index "scope_targets_unkeyed_idx" {
     columns = [column.resource_type]
-    where   = "match_keys = '{}'::text[]"
+    where   = "lookup_keys = '{}'::text[]"
   }
 }
 

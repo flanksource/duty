@@ -71,7 +71,7 @@ func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, e
 			return err
 		}
 		if len(rows) > 0 {
-			if err := tx.Table("scope_targets").Omit("match_keys").Create(&rows).Error; err != nil {
+			if err := tx.Table("scope_targets").Omit("lookup_keys").Create(&rows).Error; err != nil {
 				return err
 			}
 		}

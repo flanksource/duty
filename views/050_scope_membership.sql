@@ -4,9 +4,9 @@
 -- matches a target, used both ways: a written resource against every target of its type (the triggers below), and a
 -- saved Scope's targets against every resource (scope_rebuild_members). Membership is stored in scope_members.
 
--- scope_match_keys returns the tag, label and namespace conditions of a target, or the tags, labels and namespace of
+-- scope_lookup_keys returns the tag, label and namespace conditions of a target, or the tags, labels and namespace of
 -- a resource, as keys. A resource can only match a target whose keys are all among its own.
-CREATE OR REPLACE FUNCTION scope_match_keys(tags jsonb, labels jsonb, namespace text)
+CREATE OR REPLACE FUNCTION scope_lookup_keys(tags jsonb, labels jsonb, namespace text)
   RETURNS text[]
   AS $$
   SELECT ARRAY(
@@ -21,19 +21,19 @@ CREATE OR REPLACE FUNCTION scope_match_keys(tags jsonb, labels jsonb, namespace 
 $$
 LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
-CREATE OR REPLACE FUNCTION scope_targets_set_match_keys()
+CREATE OR REPLACE FUNCTION scope_targets_set_lookup_keys()
   RETURNS TRIGGER
   AS $$
 BEGIN
-  NEW.match_keys := scope_match_keys(NEW.tags, NEW.labels, NEW.namespace);
+  NEW.lookup_keys := scope_lookup_keys(NEW.tags, NEW.labels, NEW.namespace);
   RETURN NEW;
 END;
 $$
 LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER scope_targets_match_keys
+CREATE OR REPLACE TRIGGER scope_targets_lookup_keys
   BEFORE INSERT OR UPDATE ON scope_targets
-  FOR EACH ROW EXECUTE FUNCTION scope_targets_set_match_keys();
+  FOR EACH ROW EXECUTE FUNCTION scope_targets_set_lookup_keys();
 
 -- scope_target_matches reports whether a resource matches a target: every condition the target sets holds.
 -- Names and namespaces match case-sensitively, and a prefix is compared literally.
@@ -112,11 +112,11 @@ BEGIN
     SELECT * INTO c FROM scope_resource_columns(def.kind, 'r');
     match_targets := format(
       'SELECT t.scope_id, r.id AS resource_id FROM %%s r JOIN scope_targets t
-         ON t.resource_type = %1$L AND t.match_keys && scope_match_keys(%2$s, %3$s, %4$s)
+         ON t.resource_type = %1$L AND t.lookup_keys && scope_lookup_keys(%2$s, %3$s, %4$s)
         AND scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
        UNION
        SELECT t.scope_id, r.id FROM %%s r JOIN scope_targets t
-         ON t.resource_type = %1$L AND t.match_keys = ''{}''::text[]
+         ON t.resource_type = %1$L AND t.lookup_keys = ''{}''::text[]
         AND scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)',
       def.kind, c.tags, c.labels, c.namespace, c.id, c.name, c.agent_id, c.type);
 
