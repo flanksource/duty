@@ -24,7 +24,7 @@ The claim is put in `request.jwt.claims`, and each table's policy decides from i
   {"config": [{"scope": "<prod>"}, {"scope": "<payments>", "constraint": "<eu>"}]}
   ```
 
-  Configs in `prod`, or in both `payments` and `eu`. `scope` is a Role rule's (or Permission's) Scope, `constraint` the RoleBinding constraint's, and `impersonated` a Scope named by the `X-Flanksource-Scope` header.
+  Configs in `prod`, or in both `payments` and `eu`. `scope` is a Role rule's (or Permission's) Scope, `constraint` the RoleBinding constraint's, and `impersonated` the Scopes named by the `X-Flanksource-Scope` header, all of which a row must also be in.
 
 - Missing: no rows of the type.
 
@@ -34,7 +34,9 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 **Resource tables** (`config_items`, `components`, `canaries`, `playbooks`, `checks`):
 
-- `USING (rls_grants_admit('<type>', id))` decides which existing rows are visible, by their stored membership.
+- `USING` decides which rows are visible, by their stored membership:
+  `(SELECT rls_admits_all('<type>')) OR id IN (SELECT rls_admitted_ids('<type>'))`.
+  Both are computed once per query, not per row: keep it in this shape. The row an `INSERT` is adding, e.g. for its `RETURNING`, has no membership yet, so `USING` also admits it by its values (`rls_grants_admit_row`), told apart from stored rows by its unset `ctid`.
 - `WITH CHECK (rls_grants_admit_row('<type>', id, name, namespace, agent_id, type, tags, labels))` decides which rows may be written, by matching the new row's values against the Scopes' targets.
   It can't use stored membership: the triggers only match the row after the check, so the old row's membership would let a writer move a row into a Scope they can't access.
 - `checks` are also visible through their canary.

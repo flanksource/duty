@@ -185,7 +185,11 @@ CREATE POLICY config_items_auth ON config_items
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_grants_admit('config', config_items.id)
+        (SELECT rls_admits_all('config'))
+        OR config_items.id IN (SELECT rls_admitted_ids('config'))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (config_items.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('config', config_items.id, config_items.name, config_items.tags->>'namespace', config_items.agent_id, config_items.type, config_items.tags, config_items.labels))
       END
     )
     WITH CHECK (
@@ -297,7 +301,11 @@ CREATE POLICY components_auth ON components
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_grants_admit('component', components.id)
+        (SELECT rls_admits_all('component'))
+        OR components.id IN (SELECT rls_admitted_ids('component'))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (components.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('component', components.id, components.name, components.namespace, components.agent_id, components.type, NULL, components.labels))
       END
     )
     WITH CHECK (
@@ -315,7 +323,11 @@ CREATE POLICY canaries_auth ON canaries
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_grants_admit('canary', canaries.id)
+        (SELECT rls_admits_all('canary'))
+        OR canaries.id IN (SELECT rls_admitted_ids('canary'))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (canaries.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('canary', canaries.id, canaries.name, canaries.namespace, canaries.agent_id, NULL, NULL, canaries.labels))
       END
     )
     WITH CHECK (
@@ -333,7 +345,11 @@ CREATE POLICY playbooks_auth ON playbooks
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_grants_admit('playbook', playbooks.id)
+        (SELECT rls_admits_all('playbook'))
+        OR playbooks.id IN (SELECT rls_admitted_ids('playbook'))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (playbooks.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('playbook', playbooks.id, playbooks.name, playbooks.namespace, NULL, NULL, NULL, NULL))
       END
     )
     WITH CHECK (
@@ -388,7 +404,11 @@ CREATE POLICY checks_auth ON checks
         SELECT 1
         FROM canaries
         WHERE canaries.id = checks.canary_id
-      ) OR rls_grants_admit('check', checks.id)
+      ) OR (SELECT rls_admits_all('check'))
+        OR checks.id IN (SELECT rls_admitted_ids('check'))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (checks.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('check', checks.id, checks.name, checks.namespace, checks.agent_id, checks.type, NULL, checks.labels))
       END
     )
     WITH CHECK (

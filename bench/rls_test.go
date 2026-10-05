@@ -90,6 +90,11 @@ func BenchmarkRLS(b *testing.B) {
 
 // tagScopes stores one Scope per sample tag set, selecting the configs with those tags, and returns their ids.
 func tagScopes(b *testing.B) []string {
+	// the database outlives resetPG, so drop the Scopes an earlier size stored
+	if err := testCtx.DB().Exec("DELETE FROM scopes WHERE namespace = 'bench'").Error; err != nil {
+		b.Fatalf("failed to delete earlier bench scopes: %v", err)
+	}
+
 	var ids []string
 	for _, tags := range sampleTags {
 		var pairs []string

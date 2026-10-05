@@ -205,14 +205,11 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
   WHEN (OLD.name IS DISTINCT FROM NEW.name OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
   EXECUTE PROCEDURE notify_table_updates_and_deletes();
 
--- rls_grants_admit reports whether the request's claim admits a row of the given type, by its stored membership:
--- the claim grants "all" rows of the type, or the row is in every Scope of at least one grant. A type without grants,
--- a grant that isn't well formed, or a grant naming a Scope with no membership rows, admits nothing. Row-level security
--- checks existing rows with it.
+-- rls_admits_all reports whether the request's claim admits every row of the given type: it's "all", or one of its
+-- grants names only Scopes that select the whole type. Row-level security evaluates it once per query.
 --
---   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
---   SELECT rls_grants_admit('config', $id);  => true if $id is in both payments and eu
-CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
+--   claim {"config": [{"scope": "<Scope with target name '*'>"}]}:  SELECT rls_admits_all('config');  => true
+CREATE OR REPLACE FUNCTION rls_admits_all(kind text)
   RETURNS boolean
   AS $$
   SELECT CASE
@@ -222,11 +219,68 @@ CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
       FROM jsonb_array_elements(c) AS g(item)
       CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
       WHERE s.scopes IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM unnest(s.scopes) AS u(scope_id) WHERE NOT scope_contains(u.scope_id, kind, row_id))
+        AND NOT EXISTS (
+          SELECT 1 FROM unnest(s.scopes) AS u(scope_id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM scope_members m
+            WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
+          )
+        )
     )
     ELSE FALSE
   END
   FROM (SELECT _rls_claim(kind) AS c) AS claim
+$$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- rls_admitted_ids returns the ids of the rows of the given type the request's claim admits by stored membership: for
+-- each grant, the rows that are members of every one of its Scopes that doesn't select the whole type. Row-level
+-- security evaluates it once per query and probes it with each row's id, so a listing never interprets the claim per
+-- row. A grant naming a Scope with no membership rows admits nothing; one whose Scopes all select the whole type
+-- admits every row, which rls_admits_all reports.
+--
+--   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
+--   SELECT rls_admitted_ids('config');  => the configs that are members of both payments and eu
+CREATE OR REPLACE FUNCTION rls_admitted_ids(kind text)
+  RETURNS SETOF uuid
+  AS $$
+  WITH grants AS (
+    SELECT g.ord, s.scopes
+    FROM (SELECT _rls_claim(kind) AS c) AS claim
+    CROSS JOIN LATERAL jsonb_array_elements(
+      CASE WHEN jsonb_typeof(claim.c) = 'array' THEN claim.c ELSE '[]'::jsonb END
+    ) WITH ORDINALITY AS g(item, ord)
+    CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
+    WHERE s.scopes IS NOT NULL
+  ),
+  required AS (
+    SELECT DISTINCT g.ord, u.scope_id
+    FROM grants g
+    CROSS JOIN LATERAL unnest(g.scopes) AS u(scope_id)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM scope_members m
+      WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
+    )
+  ),
+  required_counts AS (
+    SELECT ord, count(*) AS scopes FROM required GROUP BY ord
+  )
+  SELECT m.resource_id
+  FROM required r
+  JOIN scope_members m ON m.scope_id = r.scope_id AND m.resource_type = kind AND m.resource_id IS NOT NULL
+  GROUP BY r.ord, m.resource_id
+  HAVING count(*) = (SELECT rc.scopes FROM required_counts rc WHERE rc.ord = r.ord)
+$$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- rls_grants_admit reports whether the request's claim admits a stored row of the given type, by its membership.
+--
+--   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
+--   SELECT rls_grants_admit('config', $id);  => true if $id is in both payments and eu
+CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
+  RETURNS boolean
+  AS $$
+  SELECT rls_admits_all(kind) OR row_id IN (SELECT rls_admitted_ids(kind))
 $$
 LANGUAGE sql STABLE;
 

@@ -69,7 +69,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		constrained := &Grants{}
 		constrained.Add(Grant{Scope: s1, Constraint: s2})
 		impersonated := &Grants{}
-		impersonated.Add(Grant{Scope: s1, Impersonated: s2})
+		impersonated.Add(Grant{Scope: s1, Impersonated: []string{s2}})
 
 		g.Expect((&Payload{Config: constrained}).Fingerprint()).NotTo(gomega.Equal((&Payload{Config: impersonated}).Fingerprint()))
 	})
@@ -113,16 +113,24 @@ func TestGrants(t *testing.T) {
 
 		grants := &Grants{}
 		grants.Add(Grant{Scope: " 00000000-0000-0000-0000-0000000000A1 ", Constraint: s1})
-		grants.Add(Grant{Scope: s2, Constraint: s3, Impersonated: s3})
+		grants.Add(Grant{Scope: s2, Constraint: s3, Impersonated: []string{s3, x, x}})
+		grants.Add(Grant{Scope: "{00000000-0000-0000-0000-0000000000a3}"})
+		grants.Add(Grant{Scope: "000000000000000000000000000000a3"})
 		grants.Add(Grant{Constraint: s1})
 		grants.Add(Grant{Scope: "staging"})
 		grants.Add(Grant{Scope: s1, Constraint: "staging"})
+		grants.Add(Grant{Scope: s1, Impersonated: []string{"staging"}})
+		grants.Add(Grant{})
 
-		g.Expect(grants.Any).To(gomega.Equal([]Grant{{Scope: s1}, {Scope: s2, Constraint: s3}}))
-		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3}))
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{
+			{Scope: s1},
+			{Scope: s2, Constraint: s3, Impersonated: []string{x}},
+			{Scope: s3},
+		}))
+		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
 	})
 
-	t.Run("impersonating splits every grant into one per impersonated Scope", func(t *testing.T) {
+	t.Run("impersonating adds every impersonated Scope to every grant", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
@@ -130,16 +138,20 @@ func TestGrants(t *testing.T) {
 		grants.Add(Grant{Scope: s2, Constraint: s3})
 		grants.Impersonate(x, y)
 		g.Expect(grants.Any).To(gomega.Equal([]Grant{
-			{Scope: s1, Impersonated: x},
-			{Scope: s1, Impersonated: y},
-			{Scope: s2, Constraint: s3, Impersonated: x},
-			{Scope: s2, Constraint: s3, Impersonated: y},
+			{Scope: s1, Impersonated: []string{x, y}},
+			{Scope: s2, Constraint: s3, Impersonated: []string{x, y}},
 		}))
 
 		all := AllRows()
 		all.Impersonate(x, y)
 		g.Expect(all.All).To(gomega.BeFalse())
-		g.Expect(all.Any).To(gomega.Equal([]Grant{{Scope: x}, {Scope: y}}))
+		g.Expect(all.Any).To(gomega.Equal([]Grant{{Impersonated: []string{x, y}}}))
+
+		twice := &Grants{}
+		twice.Add(Grant{Scope: s1})
+		twice.Impersonate(x)
+		twice.Impersonate(y)
+		g.Expect(twice.Any).To(gomega.Equal([]Grant{{Scope: s1, Impersonated: []string{x, y}}}), "impersonating again narrows further")
 
 		none := NoRows()
 		none.Impersonate(x)
@@ -149,11 +161,13 @@ func TestGrants(t *testing.T) {
 		nothing.Impersonate()
 		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "impersonating no Scope admits nothing")
 
-		twice := &Grants{}
-		twice.Add(Grant{Scope: s1})
-		twice.Impersonate(x)
-		twice.Impersonate(y)
-		g.Expect(twice.IsEmpty()).To(gomega.BeTrue(), "impersonating twice can't widen")
+		invalid := AllRows()
+		invalid.Impersonate(x, "staging")
+		g.Expect(invalid.IsEmpty()).To(gomega.BeTrue(), "impersonating anything but Scope ids admits nothing")
+
+		var missing *Grants
+		g.Expect(func() { missing.Impersonate(x) }).ToNot(gomega.Panic())
+		g.Expect(missing.IsEmpty()).To(gomega.BeTrue())
 	})
 
 	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {

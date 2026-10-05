@@ -133,25 +133,54 @@ CREATE OR REPLACE FUNCTION _rls_claim(kind text)
 $$
 LANGUAGE sql STABLE;
 
--- _rls_grant_scopes returns the Scopes a grant of the claim requires a row to be in: its scope, and its constraint and
--- impersonated Scopes when set. It returns NULL for a grant that isn't well formed, i.e. not an object, without a
--- scope, or with a value that isn't a UUID, so the grant admits nothing.
+-- _rls_grant_scopes returns the Scopes a grant of the claim requires a row to be in: its scope, its constraint, and
+-- each of its impersonated Scopes. It returns NULL for a grant that isn't well formed, i.e. not an object, naming no
+-- Scope, with a constraint but no scope, or with a value that isn't a UUID, so the grant admits nothing.
 --
---   SELECT _rls_grant_scopes('{"scope": "<a>", "constraint": "<b>"}');  => {<a>,<b>}
---   SELECT _rls_grant_scopes('{"constraint": "<b>"}');                  => NULL
+--   SELECT _rls_grant_scopes('{"scope": "<a>", "constraint": "<b>", "impersonated": ["<c>"]}');  => {<a>,<b>,<c>}
+--   SELECT _rls_grant_scopes('{"constraint": "<b>"}');                                          => NULL
 CREATE OR REPLACE FUNCTION _rls_grant_scopes(item jsonb)
   RETURNS uuid[]
   AS $$
-  SELECT CASE
-    WHEN jsonb_typeof(item) = 'object'
-      AND item->>'scope' IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1
-        FROM unnest(ARRAY[item->>'scope', item->>'constraint', item->>'impersonated']) AS f(value)
-        WHERE f.value IS NOT NULL
-          AND f.value !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      )
-    THEN array_remove(ARRAY[(item->>'scope')::uuid, (item->>'constraint')::uuid, (item->>'impersonated')::uuid], NULL)
-  END
+DECLARE
+  ids text[] := '{}';
+  value jsonb;
+BEGIN
+  IF jsonb_typeof(item) IS DISTINCT FROM 'object' THEN
+    RETURN NULL;
+  END IF;
+
+  IF item ? 'scope' THEN
+    IF jsonb_typeof(item->'scope') <> 'string' THEN
+      RETURN NULL;
+    END IF;
+    ids := ids || (item->>'scope');
+  END IF;
+
+  IF item ? 'constraint' THEN
+    IF jsonb_typeof(item->'constraint') <> 'string' OR NOT item ? 'scope' THEN
+      RETURN NULL;
+    END IF;
+    ids := ids || (item->>'constraint');
+  END IF;
+
+  IF item ? 'impersonated' THEN
+    IF jsonb_typeof(item->'impersonated') <> 'array' THEN
+      RETURN NULL;
+    END IF;
+    FOR value IN SELECT jsonb_array_elements(item->'impersonated') LOOP
+      IF jsonb_typeof(value) <> 'string' THEN
+        RETURN NULL;
+      END IF;
+      ids := ids || (value #>> '{}');
+    END LOOP;
+  END IF;
+
+  IF cardinality(ids) = 0
+    OR EXISTS (SELECT 1 FROM unnest(ids) AS v WHERE v !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
+    RETURN NULL;
+  END IF;
+  RETURN ids::uuid[];
+END;
 $$
-LANGUAGE sql IMMUTABLE;
+LANGUAGE plpgsql IMMUTABLE;

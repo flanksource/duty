@@ -238,16 +238,23 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				}, func() int64 { return aws }},
 				{"a Scope of another type", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: logisticsComponentScope})} }, func() int64 { return 0 }},
 				{"a constraint and an impersonated Scope", func() rls.Payload {
-					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope, Impersonated: eksScope})}
+					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope, Impersonated: []string{eksScope}})}
 				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
-				{"impersonating any of several Scopes", func() rls.Payload {
-					g := grants(rls.Grant{Scope: allConfigsScope})
-					g.Impersonate(awsScope, demoScope)
+				{"impersonating several Scopes requires all of them", func() rls.Payload {
+					g := grants(rls.Grant{Scope: allConfigsScope}, rls.Grant{Scope: demoScope})
+					g.Impersonate(awsScope, eksScope)
 					return rls.Payload{Config: g}
 				}, func() int64 {
-					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
+					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
+				}},
+				{"impersonating Scopes as a subject granted every row", func() rls.Payload {
+					g := rls.AllRows()
+					g.Impersonate(awsScope, eksScope)
+					return rls.Payload{Config: g}
+				}, func() int64 {
+					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
 			}
 		})
@@ -262,6 +269,8 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			`{"config": [{"scope": "not-a-uuid"}]}`,
 			`{"config": [{"constraint": "` + awsScope + `"}]}`,
 			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "staging"}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": "` + awsScope + `"}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": ["staging"]}]}`,
 			`{"config": [["` + awsScope + `"]]}`,
 			`{"config": {"scope": "` + awsScope + `"}}`,
 			`{"config": "some"}`,
@@ -474,6 +483,35 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 		It("allows INSERT through a whole-type Scope", func() {
 			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope})}, newConfig("test-config-insert-whole-type", "demo"))).To(Succeed())
+		})
+
+		It("allows INSERT ... RETURNING of a row the subject's Scope matches", func() {
+			config := newConfig("test-config-insert-returning", "aws")
+			Expect((rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
+			var id string
+			Expect(tx.Raw("INSERT INTO config_items (id, config_class, type, name, tags) VALUES (?, ?, ?, ?, ?) RETURNING id",
+				config.ID, config.ConfigClass, config.Type, config.Name, config.Tags).Scan(&id).Error).To(Succeed())
+			Expect(id).To(Equal(config.ID.String()))
+		})
+
+		It("denies INSERT ... RETURNING of a row the subject's Scope doesn't match", func() {
+			config := newConfig("test-config-insert-returning-unmatched", "demo")
+			Expect((rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect(tx.Exec("SAVEPOINT write").Error).To(Succeed())
+			var id string
+			err := tx.Raw("INSERT INTO config_items (id, config_class, type, name, tags) VALUES (?, ?, ?, ?, ?) RETURNING id",
+				config.ID, config.ConfigClass, config.Type, config.Name, config.Tags).Scan(&id).Error
+			Expect(err).To(refused)
+			Expect(tx.Exec("ROLLBACK TO SAVEPOINT write").Error).To(Succeed())
+		})
+
+		It("allows UPDATE ... RETURNING within the subject's Scope", func() {
+			config := newConfig("test-config-update-returning", "demo")
+			Expect(insertConfig(rls.Payload{Config: rls.AllRows()}, config)).To(Succeed())
+			Expect((rls.Payload{Config: grants(rls.Grant{Scope: demoScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
+			var id string
+			Expect(tx.Raw("UPDATE config_items SET description = 'changed' WHERE id = ? RETURNING id", config.ID).Scan(&id).Error).To(Succeed())
+			Expect(id).To(Equal(config.ID.String()))
 		})
 
 		It("denies INSERT without grants", func() {
