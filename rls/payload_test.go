@@ -32,11 +32,11 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		a := &Grants{}
-		a.Add("s1", "s2")
-		a.Add("s3")
+		a.Add(Grant{Scope: s1, Constraint: s2})
+		a.Add(Grant{Scope: s3})
 		b := &Grants{}
-		b.Add("s3")
-		b.Add("s2", "s1")
+		b.Add(Grant{Scope: s3})
+		b.Add(Grant{Scope: s1, Constraint: s2})
 
 		g.Expect((&Payload{Config: a}).Fingerprint()).To(gomega.Equal((&Payload{Config: b}).Fingerprint()))
 	})
@@ -45,7 +45,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
-		grants.Add("s1")
+		grants.Add(Grant{Scope: s1})
 
 		fingerprints := []string{
 			(&Payload{Config: grants}).Fingerprint(),
@@ -62,47 +62,98 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("should tell a constraint from an impersonated Scope", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		constrained := &Grants{}
+		constrained.Add(Grant{Scope: s1, Constraint: s2})
+		impersonated := &Grants{}
+		impersonated.Add(Grant{Scope: s1, Impersonated: s2})
+
+		g.Expect((&Payload{Config: constrained}).Fingerprint()).NotTo(gomega.Equal((&Payload{Config: impersonated}).Fingerprint()))
+	})
 }
 
+const (
+	s1 = "00000000-0000-0000-0000-0000000000a1"
+	s2 = "00000000-0000-0000-0000-0000000000a2"
+	s3 = "00000000-0000-0000-0000-0000000000a3"
+	x  = "00000000-0000-0000-0000-0000000000b1"
+	y  = "00000000-0000-0000-0000-0000000000b2"
+)
+
 func TestGrants(t *testing.T) {
-	t.Run("marshals all rows as \"all\" and grants as sets of Scopes", func(t *testing.T) {
+	t.Run("marshals all rows as \"all\" and grants as a list of grants", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
-		grants.Add("B", "a", "a")
-		grants.Add("c")
-		grants.Add("a", "b")
-		grants.Add()
+		grants.Add(Grant{Scope: s3})
+		grants.Add(Grant{Scope: s1, Constraint: s2})
+		grants.Add(Grant{Scope: s1, Constraint: s2})
 
 		raw, err := json.Marshal(Payload{Config: AllRows(), Component: grants, Check: NoRows()})
 		g.Expect(err).ToNot(gomega.HaveOccurred())
-		g.Expect(string(raw)).To(gomega.MatchJSON(`{"config":"all","component":[["a","b"],["c"]],"check":[]}`))
+		g.Expect(string(raw)).To(gomega.MatchJSON(`{
+			"config": "all",
+			"component": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}],
+			"check": []
+		}`))
 
 		var decoded Payload
 		g.Expect(json.Unmarshal(raw, &decoded)).To(gomega.Succeed())
 		g.Expect(decoded.Config.All).To(gomega.BeTrue())
-		g.Expect(decoded.Component.Sets).To(gomega.Equal([][]string{{"a", "b"}, {"c"}}))
+		g.Expect(decoded.Component.Any).To(gomega.Equal([]Grant{{Scope: s1, Constraint: s2}, {Scope: s3}}))
 		g.Expect(decoded.Check.IsEmpty()).To(gomega.BeTrue())
 		g.Expect(decoded.Playbook).To(gomega.BeNil())
 	})
 
-	t.Run("narrows every grant, and all rows to the narrowing Scopes", func(t *testing.T) {
+	t.Run("normalizes a grant, and ignores one that isn't made of Scope ids", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
-		grants.Add("a")
-		grants.Add("b", "c")
-		grants.Narrow("x")
-		g.Expect(grants.Sets).To(gomega.Equal([][]string{{"a", "x"}, {"b", "c", "x"}}))
+		grants.Add(Grant{Scope: " 00000000-0000-0000-0000-0000000000A1 ", Constraint: s1})
+		grants.Add(Grant{Scope: s2, Constraint: s3, Impersonated: s3})
+		grants.Add(Grant{Constraint: s1})
+		grants.Add(Grant{Scope: "staging"})
+		grants.Add(Grant{Scope: s1, Constraint: "staging"})
+
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{{Scope: s1}, {Scope: s2, Constraint: s3}}))
+		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3}))
+	})
+
+	t.Run("impersonating splits every grant into one per impersonated Scope", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		grants := &Grants{}
+		grants.Add(Grant{Scope: s1})
+		grants.Add(Grant{Scope: s2, Constraint: s3})
+		grants.Impersonate(x, y)
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{
+			{Scope: s1, Impersonated: x},
+			{Scope: s1, Impersonated: y},
+			{Scope: s2, Constraint: s3, Impersonated: x},
+			{Scope: s2, Constraint: s3, Impersonated: y},
+		}))
 
 		all := AllRows()
-		all.Narrow("x", "y")
+		all.Impersonate(x, y)
 		g.Expect(all.All).To(gomega.BeFalse())
-		g.Expect(all.Sets).To(gomega.Equal([][]string{{"x", "y"}}))
+		g.Expect(all.Any).To(gomega.Equal([]Grant{{Scope: x}, {Scope: y}}))
 
 		none := NoRows()
-		none.Narrow("x")
+		none.Impersonate(x)
 		g.Expect(none.IsEmpty()).To(gomega.BeTrue())
+
+		nothing := AllRows()
+		nothing.Impersonate()
+		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "impersonating no Scope admits nothing")
+
+		twice := &Grants{}
+		twice.Add(Grant{Scope: s1})
+		twice.Impersonate(x)
+		twice.Impersonate(y)
+		g.Expect(twice.IsEmpty()).To(gomega.BeTrue(), "impersonating twice can't widen")
 	})
 
 	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {
@@ -111,5 +162,6 @@ func TestGrants(t *testing.T) {
 		var grants Grants
 		g.Expect(json.Unmarshal([]byte(`"some"`), &grants)).ToNot(gomega.Succeed())
 		g.Expect(json.Unmarshal([]byte(`{"tags":{}}`), &grants)).ToNot(gomega.Succeed())
+		g.Expect(json.Unmarshal([]byte(`[["`+s1+`"]]`), &grants)).ToNot(gomega.Succeed())
 	})
 }

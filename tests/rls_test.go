@@ -37,11 +37,11 @@ type grantCase struct {
 	expected func() int64
 }
 
-// grants returns grants of the given sets of Scope ids.
-func grants(sets ...[]string) *rls.Grants {
+// grants returns the given grants.
+func grants(list ...rls.Grant) *rls.Grants {
 	g := rls.NoRows()
-	for _, set := range sets {
-		g.Add(set...)
+	for _, grant := range list {
+		g.Add(grant)
 	}
 	return g
 }
@@ -55,7 +55,7 @@ func grantRows(tx *gorm.DB, kind string, ids ...uuid.UUID) *rls.Grants {
 		Expect(tx.Exec("INSERT INTO scope_targets (scope_id, resource_type, resource_id) VALUES (?, ?, ?)", scopeID, kind, id).Error).To(Succeed())
 		Expect(tx.Exec("INSERT INTO scope_members (scope_id, resource_type, resource_id) VALUES (?, ?, ?)", scopeID, kind, id).Error).To(Succeed())
 	}
-	return grants([]string{scopeID.String()})
+	return grants(rls.Grant{Scope: scopeID.String()})
 }
 
 func countRows(tx *gorm.DB, table string, payload rls.Payload) int64 {
@@ -144,7 +144,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			tx = DefaultContext.DB().Begin()
 
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
-			Expect((rls.Payload{Config: grants([]string{awsScope})}).SetPostgresSessionRLS(tx)).To(BeNil())
+			Expect((rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}).SetPostgresSessionRLS(tx)).To(BeNil())
 
 			err = job.RefreshConfigItemSummary7d(DefaultContext)
 			Expect(err).To(BeNil())
@@ -212,23 +212,71 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				{"all rows", func() rls.Payload { return rls.Payload{Config: rls.AllRows()} }, func() int64 { return countAll("config_items", "") }},
 				{"no rows", func() rls.Payload { return rls.Payload{Config: rls.NoRows()} }, func() int64 { return 0 }},
 				{"a grant on another type", func() rls.Payload { return rls.Payload{Component: rls.AllRows()} }, func() int64 { return 0 }},
-				{"one Scope", func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope})} }, func() int64 { return aws }},
-				{"a whole-type Scope", func() rls.Payload { return rls.Payload{Config: grants([]string{allConfigsScope})} }, func() int64 { return countAll("config_items", "") }},
-				{"by agent", func() rls.Payload { return rls.Payload{Config: grants([]string{localAgentScope})} }, func() int64 {
+				{"one Scope", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: awsScope})} }, func() int64 { return aws }},
+				{"a whole-type Scope", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope})} }, func() int64 { return countAll("config_items", "") }},
+				{"by agent", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: localAgentScope})} }, func() int64 {
 					return countAll("config_items", "agent_id = ?", uuid.Nil)
 				}},
-				{"every Scope of a grant", func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope, eksScope})} }, func() int64 {
+				{"a Scope narrowed by a constraint", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: eksScope})}
+				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
-				{"a whole-type Scope narrowed", func() rls.Payload { return rls.Payload{Config: grants([]string{allConfigsScope, awsScope})} }, func() int64 { return aws }},
-				{"any grant", func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope}, []string{demoScope})} }, func() int64 {
+				{"a whole-type Scope narrowed", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope})}
+				}, func() int64 { return aws }},
+				{"any grant", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope}, rls.Grant{Scope: demoScope})}
+				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
 				}},
-				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope, unbuiltScope})} }, func() int64 { return 0 }},
-				{"other grants still apply", func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope}, []string{unbuiltScope})} }, func() int64 { return aws }},
-				{"a Scope of another type", func() rls.Payload { return rls.Payload{Config: grants([]string{logisticsComponentScope})} }, func() int64 { return 0 }},
+				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: unbuiltScope})}
+				}, func() int64 { return 0 }},
+				{"other grants still apply", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope}, rls.Grant{Scope: unbuiltScope})}
+				}, func() int64 { return aws }},
+				{"a Scope of another type", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: logisticsComponentScope})} }, func() int64 { return 0 }},
+				{"a constraint and an impersonated Scope", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope, Impersonated: eksScope})}
+				}, func() int64 {
+					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
+				}},
+				{"impersonating any of several Scopes", func() rls.Payload {
+					g := grants(rls.Grant{Scope: allConfigsScope})
+					g.Impersonate(awsScope, demoScope)
+					return rls.Payload{Config: g}
+				}, func() int64 {
+					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
+				}},
 			}
 		})
+	})
+
+	It("admits nothing through a grant that isn't well formed, without failing the listing", func() {
+		tx := DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+		defer tx.Rollback()
+		Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
+
+		for _, claim := range []string{
+			`{"config": [{"scope": "not-a-uuid"}]}`,
+			`{"config": [{"constraint": "` + awsScope + `"}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "staging"}]}`,
+			`{"config": [["` + awsScope + `"]]}`,
+			`{"config": {"scope": "` + awsScope + `"}}`,
+			`{"config": "some"}`,
+		} {
+			Expect(tx.Exec("SELECT set_config('request.jwt.claims', ?, TRUE)", claim).Error).To(Succeed())
+			var count int64
+			Expect(tx.Table("config_items").Count(&count).Error).To(Succeed(), claim)
+			Expect(count).To(BeZero(), claim)
+		}
+
+		claim := `{"config": [{"scope": "not-a-uuid"}, {"scope": "` + awsScope + `"}]}`
+		Expect(tx.Exec("SELECT set_config('request.jwt.claims', ?, TRUE)", claim).Error).To(Succeed())
+		var count int64
+		Expect(tx.Table("config_items").Count(&count).Error).To(Succeed())
+		Expect(count).To(Equal(countAll("config_items", "tags->>'cluster' = 'aws'")), "the well formed grant still applies")
 	})
 
 	var _ = Describe("config child tables", Ordered, func() {
@@ -258,7 +306,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(DefaultContext.DB().Delete(&models.ConfigCost{}, rawCostID).Error).To(Succeed())
 		})
 
-		awsOnly := func() rls.Payload { return rls.Payload{Config: grants([]string{awsScope})} }
+		awsOnly := func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: awsScope})} }
 
 		for _, table := range []string{"config_changes", "config_analysis", "config_costs", "config_cost_compact", "config_component_relationships"} {
 			It("lists "+table+" of readable configs", func() {
@@ -282,14 +330,14 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		runCases("components", func() []grantCase {
 			return []grantCase{
 				{"all rows", func() rls.Payload { return rls.Payload{Component: rls.AllRows()} }, func() int64 { return countAll("components", "") }},
-				{"by name", func() rls.Payload { return rls.Payload{Component: grants([]string{logisticsComponentScope})} }, func() int64 {
+				{"by name", func() rls.Payload { return rls.Payload{Component: grants(rls.Grant{Scope: logisticsComponentScope})} }, func() int64 {
 					return countAll("components", "name = ?", dummy.Logistics.Name)
 				}},
-				{"by agent", func() rls.Payload { return rls.Payload{Component: grants([]string{gcpComponentScope})} }, func() int64 {
+				{"by agent", func() rls.Payload { return rls.Payload{Component: grants(rls.Grant{Scope: gcpComponentScope})} }, func() int64 {
 					return countAll("components", "agent_id = ?", dummy.GCPAgent.ID)
 				}},
 				{"any grant", func() rls.Payload {
-					return rls.Payload{Component: grants([]string{logisticsComponentScope}, []string{gcpComponentScope})}
+					return rls.Payload{Component: grants(rls.Grant{Scope: logisticsComponentScope}, rls.Grant{Scope: gcpComponentScope})}
 				}, func() int64 {
 					return countAll("components", "name = ? OR agent_id = ?", dummy.Logistics.Name, dummy.GCPAgent.ID)
 				}},
@@ -302,10 +350,10 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		runCases("playbooks", func() []grantCase {
 			return []grantCase{
 				{"all rows", func() rls.Payload { return rls.Payload{Playbook: rls.AllRows()} }, func() int64 { return countAll("playbooks", "") }},
-				{"by name", func() rls.Payload { return rls.Payload{Playbook: grants([]string{echoPlaybookScope})} }, func() int64 {
+				{"by name", func() rls.Payload { return rls.Payload{Playbook: grants(rls.Grant{Scope: echoPlaybookScope})} }, func() int64 {
 					return countAll("playbooks", "name = ?", dummy.EchoConfig.Name)
 				}},
-				{"by namespace", func() rls.Payload { return rls.Payload{Playbook: grants([]string{mcPlaybooksScope})} }, func() int64 {
+				{"by namespace", func() rls.Payload { return rls.Payload{Playbook: grants(rls.Grant{Scope: mcPlaybooksScope})} }, func() int64 {
 					return countAll("playbooks", "namespace = ?", dummy.EchoConfig.Namespace)
 				}},
 			}
@@ -316,10 +364,10 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		runCases("canaries", func() []grantCase {
 			return []grantCase{
 				{"all rows", func() rls.Payload { return rls.Payload{Canary: rls.AllRows()} }, func() int64 { return countAll("canaries", "") }},
-				{"by name", func() rls.Payload { return rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})} }, func() int64 {
+				{"by name", func() rls.Payload { return rls.Payload{Canary: grants(rls.Grant{Scope: logisticsAPICanaryScope})} }, func() int64 {
 					return countAll("canaries", "name = ?", dummy.LogisticsAPICanary.Name)
 				}},
-				{"by agent", func() rls.Payload { return rls.Payload{Canary: grants([]string{gcpCanaryScope})} }, func() int64 {
+				{"by agent", func() rls.Payload { return rls.Payload{Canary: grants(rls.Grant{Scope: gcpCanaryScope})} }, func() int64 {
 					return countAll("canaries", "agent_id = ?", dummy.GCPAgent.ID)
 				}},
 			}
@@ -330,13 +378,13 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		runCases("checks", func() []grantCase {
 			return []grantCase{
 				{"all rows", func() rls.Payload { return rls.Payload{Check: rls.AllRows()} }, func() int64 { return countAll("checks", "") }},
-				{"through their canary", func() rls.Payload { return rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})} }, func() int64 {
+				{"through their canary", func() rls.Payload { return rls.Payload{Canary: grants(rls.Grant{Scope: logisticsAPICanaryScope})} }, func() int64 {
 					return countAll("checks", "canary_id = ?", dummy.LogisticsAPICanary.ID)
 				}},
 				{"through every canary", func() rls.Payload { return rls.Payload{Canary: rls.AllRows()} }, func() int64 { return countAll("checks", "") }},
-				{"through their own Scopes", func() rls.Payload { return rls.Payload{Check: grants([]string{apiHealthCheckScope})} }, func() int64 { return 1 }},
+				{"through their own Scopes", func() rls.Payload { return rls.Payload{Check: grants(rls.Grant{Scope: apiHealthCheckScope})} }, func() int64 { return 1 }},
 				{"through either", func() rls.Payload {
-					return rls.Payload{Check: grants([]string{apiHealthCheckScope}), Canary: grants([]string{gcpCanaryScope})}
+					return rls.Payload{Check: grants(rls.Grant{Scope: apiHealthCheckScope}), Canary: grants(rls.Grant{Scope: gcpCanaryScope})}
 				}, func() int64 {
 					return countAll("checks", "id = ? OR canary_id IN (SELECT id FROM canaries WHERE agent_id = ?)", dummy.LogisticsAPIHealthHTTPCheck.ID, dummy.GCPAgent.ID)
 				}},
@@ -351,7 +399,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 					return rls.Payload{Playbook: rls.AllRows(), Config: rls.AllRows(), Canary: rls.AllRows()}
 				}, func() int64 { return countAll("playbook_runs", "") }},
 				{"one playbook", func() rls.Payload {
-					return rls.Payload{Playbook: grants([]string{echoPlaybookScope}), Config: rls.AllRows(), Canary: rls.AllRows()}
+					return rls.Payload{Playbook: grants(rls.Grant{Scope: echoPlaybookScope}), Config: rls.AllRows(), Canary: rls.AllRows()}
 				}, func() int64 {
 					return countAll("playbook_runs", "playbook_id = ?", dummy.EchoConfig.ID)
 				}},
@@ -413,19 +461,19 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 
 		It("allows INSERT of a row the subject's Scope matches", func() {
-			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope})}, newConfig("test-config-insert-matched", "aws"))).To(Succeed())
+			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}, newConfig("test-config-insert-matched", "aws"))).To(Succeed())
 		})
 
 		It("denies INSERT of a row the subject's Scope doesn't match", func() {
-			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope})}, newConfig("test-config-insert-unmatched", "demo"))).To(refused)
+			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}, newConfig("test-config-insert-unmatched", "demo"))).To(refused)
 		})
 
 		It("denies INSERT of a row that matches only some Scopes of a grant", func() {
-			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope, eksScope})}, newConfig("test-config-insert-partial", "aws"))).To(refused)
+			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: eksScope})}, newConfig("test-config-insert-partial", "aws"))).To(refused)
 		})
 
 		It("allows INSERT through a whole-type Scope", func() {
-			Expect(insertConfig(rls.Payload{Config: grants([]string{allConfigsScope})}, newConfig("test-config-insert-whole-type", "demo"))).To(Succeed())
+			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope})}, newConfig("test-config-insert-whole-type", "demo"))).To(Succeed())
 		})
 
 		It("denies INSERT without grants", func() {
@@ -435,7 +483,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		It("denies UPDATE that moves a config out of the subject's Scope", func() {
 			config := newConfig("test-config-move", "demo")
 			Expect(insertConfig(rls.Payload{Config: rls.AllRows()}, config)).To(Succeed())
-			demo := rls.Payload{Config: grants([]string{demoScope})}
+			demo := rls.Payload{Config: grants(rls.Grant{Scope: demoScope})}
 
 			Expect(write(demo, "UPDATE config_items SET description = 'changed' WHERE id = ?", config.ID)).To(Equal(int64(1)))
 			Expect(write(demo, `UPDATE config_items SET tags = '{"cluster":"demo","team":"a"}' WHERE id = ?`, config.ID)).To(Equal(int64(1)))
@@ -444,35 +492,35 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 
 		It("denies UPDATE that moves a component out of the subject's Scope", func() {
-			logistics := rls.Payload{Component: grants([]string{logisticsComponentScope})}
+			logistics := rls.Payload{Component: grants(rls.Grant{Scope: logisticsComponentScope})}
 			Expect(write(logistics, "UPDATE components SET updated_at = NOW() WHERE id = ?", dummy.Logistics.ID)).To(Equal(int64(1)))
 			_, err := write(logistics, "UPDATE components SET name = 'logistics-renamed' WHERE id = ?", dummy.Logistics.ID)
 			Expect(err).To(refused)
 		})
 
 		It("denies UPDATE that moves a canary out of the subject's Scope", func() {
-			canary := rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})}
+			canary := rls.Payload{Canary: grants(rls.Grant{Scope: logisticsAPICanaryScope})}
 			Expect(write(canary, "UPDATE canaries SET updated_at = NOW() WHERE id = ?", dummy.LogisticsAPICanary.ID)).To(Equal(int64(1)))
 			_, err := write(canary, "UPDATE canaries SET name = 'renamed-canary' WHERE id = ?", dummy.LogisticsAPICanary.ID)
 			Expect(err).To(refused)
 		})
 
 		It("denies UPDATE that moves a playbook out of the subject's Scope", func() {
-			byName := rls.Payload{Playbook: grants([]string{echoPlaybookScope})}
+			byName := rls.Payload{Playbook: grants(rls.Grant{Scope: echoPlaybookScope})}
 			_, err := write(byName, "UPDATE playbooks SET name = 'echo-renamed' WHERE id = ?", dummy.EchoConfig.ID)
 			Expect(err).To(refused)
 
-			byNamespace := rls.Payload{Playbook: grants([]string{mcPlaybooksScope})}
+			byNamespace := rls.Payload{Playbook: grants(rls.Grant{Scope: mcPlaybooksScope})}
 			Expect(write(byNamespace, "UPDATE playbooks SET name = 'echo-renamed' WHERE id = ?", dummy.EchoConfig.ID)).To(Equal(int64(1)))
 			_, err = write(byNamespace, "UPDATE playbooks SET namespace = 'elsewhere' WHERE id = ?", dummy.EchoConfig.ID)
 			Expect(err).To(refused)
 		})
 
 		It("allows UPDATE of a check through its own Scope or its canary's", func() {
-			check := rls.Payload{Check: grants([]string{apiHealthCheckScope})}
+			check := rls.Payload{Check: grants(rls.Grant{Scope: apiHealthCheckScope})}
 			Expect(write(check, "UPDATE checks SET name = 'renamed-check' WHERE id = ?", dummy.LogisticsAPIHealthHTTPCheck.ID)).To(Equal(int64(1)))
 
-			canary := rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})}
+			canary := rls.Payload{Canary: grants(rls.Grant{Scope: logisticsAPICanaryScope})}
 			Expect(write(canary, "UPDATE checks SET name = 'renamed-check-2' WHERE id = ?", dummy.LogisticsAPIHealthHTTPCheck.ID)).To(Equal(int64(1)))
 		})
 	})
@@ -494,7 +542,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			tx := DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
 			defer tx.Rollback()
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
-			Expect((rls.Payload{Config: grants([]string{scope})}).SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect((rls.Payload{Config: grants(rls.Grant{Scope: scope})}).SetPostgresSessionRLS(tx)).To(Succeed())
 
 			var count int64
 			Expect(tx.Table("config_items").Where("id = ?", item.ID).Count(&count).Error).To(Succeed())

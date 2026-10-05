@@ -10,42 +10,58 @@
 
 ## Database RLS
 
-We use PostgreSQL Row-Level Security (RLS) to enforce multi-tenant access control.
-RLS policies filter database rows based on JWT claims passed via PostgREST, ensuring users only see data they have permission to access.
+We use PostgreSQL Row-Level Security (RLS) to filter the rows a subject can list, through PostgREST or through Go code that sets the subject's claim.
+The claim is put in `request.jwt.claims`, and each table's policy decides from it which rows the subject sees.
 
-### Policy Patterns
+### The claim
 
-**Direct Policies**: Tables with direct RLS use `rls_grants_admit('<type>', row.id)`. The JWT claim carries, per resource type, `"all"` or a list of grants, each a list of Scope ids the row must be in all of. Whether a row is in a Scope is read from stored membership (`scope_members`, kept current by triggers in the writing transaction; see @rbac/membership and `views/051_scope_membership.sql`), never evaluated per row.
-  Writes are checked with `WITH CHECK (rls_grants_admit_row('<type>', <the row's selectable fields>))`, which matches the new row's values against the Scopes' targets: a new or changed row isn't re-matched to its Scopes until after the check, so its stored membership would let a writer move a row into a Scope they can't access.
+`rls.Payload` (@rls/payload.go) is serialized into the claim. For each resource type (`config`, `component`, `canary`, `playbook`, `check`) it carries `rls.Grants` (@rls/grants.go):
 
-- Examples: `config_items`, `canaries`, `components`, `playbooks`
-- `views` still use `match_scope()` against the view's own fields: Views aren't covered by stored membership.
+- `"all"`: every row of the type.
+- A list of grants: a row is visible when at least one grant admits it. A grant names a Scope, and optionally narrows it:
 
-**Inherited Policies**: Child tables inherit access control from their parent using `EXISTS` clauses.
+  ```json
+  {"config": [{"scope": "<prod>"}, {"scope": "<payments>", "constraint": "<eu>"}]}
+  ```
 
-- Examples: `checks` (inherits from `canaries`), `playbook_runs` (inherits from `playbooks`)
-- Policy: `EXISTS (SELECT 1 FROM parent_table WHERE parent_table.id = child_table.parent_id)`
+  Configs in `prod`, or in both `payments` and `eu`. `scope` is a Role rule's (or Permission's) Scope, `constraint` the RoleBinding constraint's, and `impersonated` a Scope named by the `X-Flanksource-Scope` header.
 
-### Adding RLS to a Table
+- Missing: no rows of the type.
+
+The claim only names Scopes. Whether a row is in a Scope is stored in `scope_members`, kept current by triggers in the transaction that writes the row (@rbac/membership, `views/051_scope_membership.sql`). A Scope with no membership rows admits nothing.
+
+### Policy patterns
+
+**Resource tables** (`config_items`, `components`, `canaries`, `playbooks`, `checks`):
+
+- `USING (rls_grants_admit('<type>', id))` decides which existing rows are visible, by their stored membership.
+- `WITH CHECK (rls_grants_admit_row('<type>', id, name, namespace, agent_id, type, tags, labels))` decides which rows may be written, by matching the new row's values against the Scopes' targets.
+  It can't use stored membership: the triggers only match the row after the check, so the old row's membership would let a writer move a row into a Scope they can't access.
+- `checks` are also visible through their canary.
+
+**Child tables** inherit their parent's policy with `EXISTS`, e.g. `config_changes` from `config_items`, `playbook_runs` from `playbooks`:
+`EXISTS (SELECT 1 FROM parent_table WHERE parent_table.id = child_table.parent_id)`
+
+**Views** (`views`, `view_panels`) still match the claim's `view` selectors against the row with `match_scope()`. Stored membership doesn't cover them.
+
+### Adding RLS to a table
 
 1. Add RLS enable logic to `@views/9998_rls_enable.sql`
    - Enable RLS on the table
-   - Create the policy (either direct with `rls_grants_admit()` or inherited with `EXISTS`)
+   - Create the policy: inherited with `EXISTS` for a child table. A new resource type with its own grants also needs Scope membership for the type (`_scope_resource_columns` and the triggers in `views/051_scope_membership.sql`, and `membership.Supported`) before it can use `rls_grants_admit`.
 2. Add counterpart disable logic to `@views/9999_rls_disable.sql`
    - Disable RLS on the table
    - Drop the policy
-3. Add comprehensive test cases to `@tests/rls_test.go`
-   - Test access granted scenarios (various JWT claim combinations)
-   - Test access denied scenarios (empty scopes, non-existent resources, conflicting criteria)
-   - Test edge cases (wildcards, case sensitivity, empty strings)
+3. Add test cases to `@tests/rls_test.go`, with real Scopes built through `membership.Rebuild`
+   - Rows granted: `"all"`, one Scope, a narrowed Scope, several grants, through a parent
+   - Rows refused: no grants, a grant on another type, a Scope with no membership, a grant that isn't well formed
+   - Writes: a row the grants match, and a row moved out of them
 
 ### PostgREST JWT Claims Injection
 
-The RLS policies work by injecting JWT claims into PostgreSQL session variables via `request.jwt.claims`. The flow is:
-
-- Go code builds an RLS Payload (grants for config, component, playbook, canary, check; selectors for view) in `@rls/payload.go`
-- `SetPostgresSessionRLS()` serializes the Payload to JSON and executes: `SET request.jwt.claims TO <json>`
-- PostgreSQL RLS policies read `(current_setting('request.jwt.claims')::jsonb)` to enforce access control
+- Go builds the `rls.Payload` for the request's subject (grants per resource type; selectors for views).
+- `SetPostgresSessionRLS()` serializes it and runs `SET request.jwt.claims TO <json>`.
+- The policies read it with `current_setting('request.jwt.claims')`.
 
 ## Test Notes
 

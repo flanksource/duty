@@ -205,68 +205,56 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
   WHEN (OLD.name IS DISTINCT FROM NEW.name OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
   EXECUTE PROCEDURE notify_table_updates_and_deletes();
 
--- rls_grants_admit reports whether the request's claim grants a row of the given type:
--- the claim grants "all" rows of the type, or the row is in every Scope of at least one grant.
--- A type without grants, or a grant naming a Scope with no membership rows, admits nothing.
+-- rls_grants_admit reports whether the request's claim admits a row of the given type, by its stored membership:
+-- the claim grants "all" rows of the type, or the row is in every Scope of at least one grant. A type without grants,
+-- a grant that isn't well formed, or a grant naming a Scope with no membership rows, admits nothing. Row-level security
+-- checks existing rows with it.
+--
+--   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
+--   SELECT rls_grants_admit('config', $id);  => true if $id is in both payments and eu
 CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
   RETURNS boolean
   AS $$
   SELECT CASE
-    WHEN c IS NULL THEN FALSE
     WHEN c = '"all"'::jsonb THEN TRUE
-    WHEN jsonb_typeof(c) <> 'array' THEN FALSE
-    ELSE EXISTS (
+    WHEN jsonb_typeof(c) = 'array' THEN EXISTS (
       SELECT 1
-      FROM jsonb_array_elements(c) AS g(scopes)
-      WHERE jsonb_typeof(g.scopes) = 'array'
-        AND jsonb_array_length(g.scopes) > 0
-        AND NOT EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements_text(g.scopes) AS s(scope_id)
-          WHERE NOT scope_contains(s.scope_id::uuid, kind, row_id)
-        )
+      FROM jsonb_array_elements(c) AS g(item)
+      CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
+      WHERE s.scopes IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM unnest(s.scopes) AS u(scope_id) WHERE NOT scope_contains(u.scope_id, kind, row_id))
     )
+    ELSE FALSE
   END
-  FROM (SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind AS c) AS claim
+  FROM (SELECT _rls_claim(kind) AS c) AS claim
 $$
 LANGUAGE sql STABLE;
 
--- rls_grants_admit_row reports whether the request's claim grants a row with the given values, as rls_grants_admit
+-- rls_grants_admit_row reports whether the request's claim admits a row with the given values, as rls_grants_admit
 -- does, but matches the values against each Scope's targets instead of reading stored membership. Row-level security
--- checks a new or updated row with it: the row is checked before the membership triggers match it, so its stored
--- membership is still that of the old row, or none.
+-- checks new and updated rows with it: a row is checked before the membership triggers match it, so its stored
+-- membership is still the old row's, or none, and would let a writer move a row into a Scope they can't access.
 --
---   claim {"config": [["<scope with target tags cluster=demo>"]]}:
+--   claim {"config": [{"scope": "<Scope with target tags cluster=demo>"}]}:
 --   SELECT rls_grants_admit_row('config', $id, 'web', NULL, NULL, 'Kubernetes::Pod', '{"cluster":"aws"}', NULL);  => false
 CREATE OR REPLACE FUNCTION rls_grants_admit_row(
   kind text, r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
   RETURNS boolean
   AS $$
   SELECT CASE
-    WHEN c IS NULL THEN FALSE
     WHEN c = '"all"'::jsonb THEN TRUE
-    WHEN jsonb_typeof(c) <> 'array' THEN FALSE
-    ELSE EXISTS (
+    WHEN jsonb_typeof(c) = 'array' THEN EXISTS (
       SELECT 1
-      FROM jsonb_array_elements(c) AS g(scopes)
-      WHERE jsonb_typeof(g.scopes) = 'array'
-        AND jsonb_array_length(g.scopes) > 0
+      FROM jsonb_array_elements(c) AS g(item)
+      CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
+      WHERE s.scopes IS NOT NULL
         AND NOT EXISTS (
-          SELECT 1
-          FROM jsonb_array_elements_text(g.scopes) AS s(scope_id)
-          WHERE NOT EXISTS (
-              SELECT 1 FROM scope_members m
-              WHERE m.scope_id = s.scope_id::uuid AND m.resource_type = kind AND m.resource_id IS NULL
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM scope_targets t
-              WHERE t.scope_id = s.scope_id::uuid AND t.resource_type = kind
-                AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags,
-                  t.labels, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
-            )
+          SELECT 1 FROM unnest(s.scopes) AS u(scope_id)
+          WHERE NOT _scope_matches(u.scope_id, kind, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
         )
     )
+    ELSE FALSE
   END
-  FROM (SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind AS c) AS claim
+  FROM (SELECT _rls_claim(kind) AS c) AS claim
 $$
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
