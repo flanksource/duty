@@ -113,11 +113,11 @@ BEGIN
     match_targets := format(
       'SELECT t.scope_id, r.id AS resource_id FROM %%s r JOIN scope_targets t
          ON t.resource_type = %1$L AND t.match_keys && scope_match_keys(%2$s, %3$s, %4$s)
-        AND scope_target_matches(t.id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
+        AND scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
        UNION
        SELECT t.scope_id, r.id FROM %%s r JOIN scope_targets t
          ON t.resource_type = %1$L AND t.match_keys = ''{}''::text[]
-        AND scope_target_matches(t.id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)',
+        AND scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)',
       def.kind, c.tags, c.labels, c.namespace, c.id, c.name, c.agent_id, c.type);
 
     EXECUTE format($f$
@@ -210,7 +210,7 @@ BEGIN
     LOOP
       desired := concat_ws(' UNION ', desired, format(
         'SELECT r.id FROM %s r WHERE scope_target_matches(%L::uuid, %L::text, %L::text, %L::text, %L::uuid, %L::text[], %L::jsonb, %L::jsonb, %s, %s, %s, %s, %s, %s, %s)',
-        cols.tbl, tgt.id, tgt.name, tgt.name_prefix, tgt.namespace, tgt.agent_id, tgt.types, tgt.tags, tgt.labels,
+        cols.tbl, tgt.resource_id, tgt.name, tgt.name_prefix, tgt.namespace, tgt.agent_id, tgt.types, tgt.tags, tgt.labels,
         cols.id, cols.name, cols.namespace, cols.agent_id, cols.type, cols.tags, cols.labels));
     END LOOP;
 

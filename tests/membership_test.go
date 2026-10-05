@@ -11,6 +11,7 @@ import (
 	"github.com/flanksource/duty"
 	"github.com/flanksource/duty/membership"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac"
 	"github.com/flanksource/duty/rbac/policy"
 	"github.com/flanksource/duty/types"
 )
@@ -37,9 +38,9 @@ var _ = Describe("Scope membership", Ordered, func() {
 
 	scopesOf := func(item models.ConfigItem) []uuid.UUID {
 		GinkgoHelper()
-		snapshot, err := membership.Read(DefaultContext, membership.Ref{Type: policy.ResourceConfig, ID: item.ID})
+		snapshot, err := rbac.ReadScopeSnapshot(DefaultContext, rbac.ResourceRef{Type: policy.ResourceConfig, ID: item.ID})
 		Expect(err).ToNot(HaveOccurred())
-		return snapshot.Scopes(membership.Ref{Type: policy.ResourceConfig, ID: item.ID})
+		return snapshot.Scopes(rbac.ResourceRef{Type: policy.ResourceConfig, ID: item.ID})
 	}
 
 	members := func(scope uuid.UUID) []uuid.UUID {
@@ -78,7 +79,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("matches names case-sensitively, with * only as a prefix and every other character literal", func() {
-		rebuilt, err := membership.SaveScope(DefaultContext, scopeID, []membership.Target{
+		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-*", TagSelector: "team=membership-test"}),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -94,15 +95,22 @@ var _ = Describe("Scope membership", Ordered, func() {
 			{TagSelector: "team"},
 			{TagSelector: "team in (a,b)"},
 			{},
+			{Name: "*", Statuses: types.Items{"healthy"}},
+			{Name: "*", Health: "healthy"},
+			{Name: "mt-a", Search: "env=prod"},
+			{Name: "mt-a", FieldSelector: "type=x"},
+			{Name: "mt-a", Scope: uuid.NewString()},
+			{Name: "*", Functions: types.Functions{ComponentConfigTraversal: &types.ComponentConfigTraversalArgs{}}},
 		} {
 			Expect(membership.Validate(target(selector))).ToNot(Succeed(), "%+v", selector)
 		}
 		Expect(membership.Validate(membership.Target{Type: policy.ResourcePlaybook, Selector: types.ResourceSelector{Agent: uuid.NewString()}})).ToNot(Succeed())
 		Expect(membership.Validate(target(types.ResourceSelector{Agent: "homelab"}))).ToNot(Succeed(), "agents must be resolved to ids")
+		Expect(membership.Validate(target(types.ResourceSelector{TagSelector: "team==membership-test"}))).To(Succeed())
 	})
 
 	It("doesn't rebuild a Scope whose targets haven't changed", func() {
-		rebuilt, err := membership.SaveScope(DefaultContext, scopeID, []membership.Target{
+		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
 			target(types.ResourceSelector{TagSelector: "team=membership-test", Name: "mt-*"}),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -164,7 +172,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("stores a whole-type target as one member with no resource, which admits every resource of the type", func() {
-		_, err := membership.SaveScope(DefaultContext, wholeScopeID, []membership.Target{
+		_, err := membership.Rebuild(DefaultContext, wholeScopeID, []membership.Target{
 			target(types.ResourceSelector{Name: "*"}),
 			target(types.ResourceSelector{Name: "mt-*"}),
 			{Type: policy.ResourcePlaybook, Selector: types.ResourceSelector{Name: "mt-*"}},
@@ -187,7 +195,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("rebuilds a changed Scope writing only the members that change", func() {
-		_, err := membership.SaveScope(DefaultContext, scopeID, []membership.Target{
+		_, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-a"}),
 			target(types.ResourceSelector{Name: "mt_*"}),
 		})
@@ -196,7 +204,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 		var before string
 		Expect(DefaultContext.DB().Raw("SELECT xmin::text FROM scope_members WHERE scope_id = ? AND resource_id = ?", scopeID, mtA.ID).Scan(&before).Error).To(Succeed())
 
-		_, err = membership.SaveScope(DefaultContext, scopeID, []membership.Target{
+		_, err = membership.Rebuild(DefaultContext, scopeID, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-a"}),
 			target(types.ResourceSelector{Name: "mtx"}),
 		})
@@ -218,17 +226,17 @@ var _ = Describe("Scope membership", Ordered, func() {
 		writer := DefaultContext.DB().Begin()
 		Expect(writer.Exec("SELECT pg_advisory_xact_lock_shared(hashtext('scope_membership'))").Error).To(Succeed())
 
-		_, err := membership.SaveScope(DefaultContext, scopeID, []membership.Target{target(types.ResourceSelector{Name: "mt-b"})})
+		_, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{target(types.ResourceSelector{Name: "mt-b"})})
 		Expect(err).To(MatchError(ContainSubstring(membership.ErrLockTimeout.Error())))
 		Expect(writer.Rollback().Error).To(Succeed())
 		Expect(members(scopeID)).To(ConsistOf(mtA.ID, mtx.ID))
 	})
 
 	It("admits nothing through a deleted Scope", func() {
-		Expect(membership.DeleteScope(DefaultContext, scopeID)).To(Succeed())
+		Expect(membership.Clear(DefaultContext, scopeID)).To(Succeed())
 		Expect(scopesOf(mtx)).ToNot(ContainElement(scopeID))
 
-		has, err := membership.HasMembership(DefaultContext, scopeID)
+		has, err := membership.Built(DefaultContext, scopeID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(has).To(BeFalse())
 	})
@@ -239,13 +247,13 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("reads every resource of an operation in one snapshot", func() {
-		ctx, err := membership.ForOperation(DefaultContext,
-			membership.Ref{Type: policy.ResourceConfig, ID: mtA.ID},
-			membership.Ref{Type: policy.ResourceConfig, ID: mtx.ID})
+		ctx, err := rbac.WithOperation(DefaultContext,
+			rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtA.ID},
+			rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtx.ID})
 		Expect(err).ToNot(HaveOccurred())
 
-		snapshot := membership.SnapshotFrom(ctx)
-		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtA.ID}, membership.Ref{Type: policy.ResourceConfig, ID: mtx.ID})).To(BeTrue())
-		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtB.ID})).To(BeFalse())
+		snapshot := rbac.ScopeSnapshotFrom(ctx)
+		Expect(snapshot.Covers(rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtA.ID}, rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtx.ID})).To(BeTrue())
+		Expect(snapshot.Covers(rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtB.ID})).To(BeFalse())
 	})
 })

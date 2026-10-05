@@ -2,8 +2,8 @@
 //
 // A Scope's targets are stored as rows of values (scope_targets), and one SQL predicate, scope_target_matches,
 // decides whether a resource matches a target. A resource is matched by trigger in the transaction that writes it,
-// and a Scope is rebuilt in the transaction that saves it. Checks and listings only read the stored result
-// (scope_members).
+// and a Scope is rebuilt in the transaction that saves it. This package is the write side; checks and listings only
+// read the stored result (scope_members), e.g. through rbac.WithOperation.
 package membership
 
 import (
@@ -28,7 +28,7 @@ type Target struct {
 
 // WholeType reports whether the target selects every resource of its type: name "*" and nothing else.
 func (t Target) WholeType() bool {
-	return t.Selector.Wildcard()
+	return t.Selector.Wildcard() && t.Selector.Functions.ComponentConfigTraversal == nil
 }
 
 // fields are the selector fields each resource type has, besides id, name and namespace.
@@ -61,7 +61,7 @@ func Supported(kind string) bool {
 type targetRow struct {
 	ScopeID      uuid.UUID `gorm:"column:scope_id"`
 	ResourceType string    `gorm:"column:resource_type"`
-	ID           *string   `gorm:"column:id"`
+	ResourceID   *string   `gorm:"column:resource_id"`
 	Name         *string   `gorm:"column:name"`
 	NamePrefix   *string   `gorm:"column:name_prefix"`
 	Namespace    *string   `gorm:"column:namespace"`
@@ -73,7 +73,7 @@ type targetRow struct {
 
 // key identifies the row's conditions, for comparing a Scope's stored targets with new ones.
 func (r targetRow) key() string {
-	raw, _ := json.Marshal([]any{r.ResourceType, r.ID, r.Name, r.NamePrefix, r.Namespace, r.AgentID, r.Types, r.Tags, r.Labels})
+	raw, _ := json.Marshal([]any{r.ResourceType, r.ResourceID, r.Name, r.NamePrefix, r.Namespace, r.AgentID, r.Types, r.Tags, r.Labels})
 	return string(raw)
 }
 
@@ -85,6 +85,10 @@ func (t Target) row(scopeID uuid.UUID) (targetRow, error) {
 	}
 
 	s := t.Selector
+	if s.Search != "" || s.FieldSelector != "" || s.Scope != "" || len(s.Statuses) > 0 || s.Health != "" ||
+		s.Functions.ComponentConfigTraversal != nil {
+		return targetRow{}, fmt.Errorf("%s selector: search, fieldSelector, scope, statuses, health and functions aren't supported", t.Type)
+	}
 	if s.ID == "" && s.Name == "" && s.Namespace == "" && s.Agent == "" && len(s.Types) == 0 &&
 		s.TagSelector == "" && s.LabelSelector == "" {
 		return targetRow{}, fmt.Errorf("an empty %s selector selects nothing", t.Type)
@@ -103,7 +107,7 @@ func (t Target) row(scopeID uuid.UUID) (targetRow, error) {
 		if err != nil {
 			return targetRow{}, fmt.Errorf("id %q isn't a uuid", s.ID)
 		}
-		row.ID = optional(id.String())
+		row.ResourceID = optional(id.String())
 	}
 
 	switch {
@@ -192,7 +196,7 @@ func Equalities(selector string) (map[string]string, error) {
 	requirements, _ := parsed.Requirements()
 	pairs := map[string]string{}
 	for _, r := range requirements {
-		if r.Operator() != selection.Equals || r.Values().Len() != 1 {
+		if (r.Operator() != selection.Equals && r.Operator() != selection.DoubleEquals) || r.Values().Len() != 1 {
 			return nil, fmt.Errorf("%q must only use key=value pairs", selector)
 		}
 		value := r.Values().List()[0]

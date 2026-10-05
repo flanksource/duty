@@ -1,6 +1,6 @@
 table "scope_targets" {
   schema  = schema.public
-  comment = "The targets of every valid Scope, one row of values each. A condition a target doesn't set is NULL and matches anything. Whole-type targets aren't stored here (see scope_members)."
+  comment = "The selectors of every valid Scope, flattened to plain columns so SQL can match resources against them. Each row is one target of a Scope (one ResourceSelector); a resource matches the row when every non-NULL column holds for it, and a NULL column matches anything. Resource triggers and scope_rebuild_members read these rows to keep scope_members up to date. Whole-type targets (name \"*\") aren't stored here, see scope_members."
 
   column "scope_id" {
     null = false
@@ -12,9 +12,10 @@ table "scope_targets" {
     type = text
   }
 
-  column "id" {
-    null = true
-    type = uuid
+  column "resource_id" {
+    null    = true
+    type    = uuid
+    comment = "the selector's id: the one resource the target selects"
   }
 
   column "name" {
@@ -62,7 +63,7 @@ table "scope_targets" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
-    comment = "the tag, label and namespace conditions as keys (see scope_match_keys), set by trigger. A written resource is only matched against targets sharing one of its keys, and targets with none"
+    comment = "the tag, label and namespace conditions as keys, set by trigger from tags, labels and namespace (see scope_match_keys). E.g. tags {\"env\":\"prod\"}, labels {\"team\":\"x\"} and namespace \"default\" give {tag:env=prod,label:team=x,ns:default}. A written resource is only matched against targets sharing one of its keys (through the GIN index), and targets with none"
   }
 
   index "scope_targets_scope_id_idx" {

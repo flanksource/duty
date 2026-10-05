@@ -31,15 +31,16 @@ var (
 // ErrLockTimeout is returned when the membership lock couldn't be taken within LockRetries.
 var ErrLockTimeout = errors.New("timed out waiting for the scope membership lock")
 
-// SaveScope stores the Scope's targets and rebuilds its members, in the context's transaction: the caller saves the
-// Scope in the same transaction, and readers see the old membership until it commits and the new one after.
+// Rebuild rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't save
+// the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
+// it commits and the new one after. resolved are the Scope's validated targets with their agents resolved to ids.
 // Targets of types whose membership isn't stored, e.g. views, are ignored, and a whole-type target is stored as one
 // member with no resource. Nothing is written when the targets haven't changed, and a rebuild writes only the members
 // that change. It reports whether anything was rebuilt.
-func SaveScope(ctx context.Context, scopeID uuid.UUID, targets []Target) (bool, error) {
+func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, error) {
 	var rows []targetRow
 	var whole []string
-	for _, t := range targets {
+	for _, t := range resolved {
 		if !Supported(t.Type) {
 			continue
 		} else if t.WholeType() {
@@ -97,10 +98,10 @@ func SaveScope(ctx context.Context, scopeID uuid.UUID, targets []Target) (bool, 
 	return true, nil
 }
 
-// DeleteScope deletes the Scope's targets and members in the context's transaction, e.g. when it becomes invalid or
-// is deleted. It admits nothing from then on.
-func DeleteScope(ctx context.Context, scopeID uuid.UUID) error {
-	if has, err := HasMembership(ctx, scopeID); err != nil || !has {
+// Clear deletes the Scope's stored targets and members in the context's transaction, e.g. when it becomes invalid or
+// is deleted. It doesn't delete the Scope row. The Scope admits nothing from then on.
+func Clear(ctx context.Context, scopeID uuid.UUID) error {
+	if built, err := Built(ctx, scopeID); err != nil || !built {
 		return err
 	}
 
@@ -116,8 +117,8 @@ func DeleteScope(ctx context.Context, scopeID uuid.UUID) error {
 	return nil
 }
 
-// HasMembership reports whether the Scope has stored targets or members, i.e. whether it has been built.
-func HasMembership(ctx context.Context, scopeID uuid.UUID) (bool, error) {
+// Built reports whether the Scope has stored targets or members, i.e. whether its membership has been built.
+func Built(ctx context.Context, scopeID uuid.UUID) (bool, error) {
 	var has bool
 	err := ctx.DB().Raw(`SELECT EXISTS (SELECT 1 FROM scope_targets WHERE scope_id = ?)
 		OR EXISTS (SELECT 1 FROM scope_members WHERE scope_id = ?)`, scopeID, scopeID).Scan(&has).Error
@@ -127,7 +128,7 @@ func HasMembership(ctx context.Context, scopeID uuid.UUID) (bool, error) {
 // stored reports whether the Scope's stored targets and whole types are exactly the given ones.
 func stored(db *gorm.DB, scopeID uuid.UUID, rows []targetRow, whole []string) (bool, error) {
 	var current []targetRow
-	if err := db.Raw(`SELECT scope_id, resource_type, id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
+	if err := db.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
 		FROM scope_targets WHERE scope_id = ?`, scopeID).Scan(&current).Error; err != nil {
 		return false, err
 	}

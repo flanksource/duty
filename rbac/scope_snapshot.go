@@ -1,4 +1,4 @@
-package membership
+package rbac
 
 import (
 	"slices"
@@ -9,20 +9,20 @@ import (
 	"github.com/flanksource/duty/context"
 )
 
-// Ref identifies a resource.
-type Ref struct {
+// ResourceRef identifies a resource.
+type ResourceRef struct {
 	Type string
 	ID   uuid.UUID
 }
 
-// Snapshot holds the Scopes each resource is in, read at one moment.
+// ScopeSnapshot holds the Scopes each resource is in, read from scope_members at one moment.
 // A resource is in a Scope when the Scope has a membership row for it, or one for its whole type.
-type Snapshot struct {
-	scopes map[Ref][]uuid.UUID
+type ScopeSnapshot struct {
+	scopes map[ResourceRef][]uuid.UUID
 }
 
 // Covers reports whether the snapshot was read for every resource.
-func (s *Snapshot) Covers(refs ...Ref) bool {
+func (s *ScopeSnapshot) Covers(refs ...ResourceRef) bool {
 	if s == nil {
 		return false
 	}
@@ -35,16 +35,16 @@ func (s *Snapshot) Covers(refs ...Ref) bool {
 }
 
 // Scopes returns the Scopes the resource is in, sorted.
-func (s *Snapshot) Scopes(ref Ref) []uuid.UUID {
+func (s *ScopeSnapshot) Scopes(ref ResourceRef) []uuid.UUID {
 	if s == nil {
 		return nil
 	}
 	return s.scopes[ref]
 }
 
-// NewSnapshot returns a snapshot holding the given memberships. For tests.
-func NewSnapshot(scopes map[Ref][]uuid.UUID) *Snapshot {
-	s := &Snapshot{scopes: map[Ref][]uuid.UUID{}}
+// NewScopeSnapshot returns a snapshot holding the given memberships. For tests.
+func NewScopeSnapshot(scopes map[ResourceRef][]uuid.UUID) *ScopeSnapshot {
+	s := &ScopeSnapshot{scopes: map[ResourceRef][]uuid.UUID{}}
 	for ref, ids := range scopes {
 		ids = slices.Clone(ids)
 		slices.SortFunc(ids, func(a, b uuid.UUID) int { return compareUUID(a, b) })
@@ -53,9 +53,9 @@ func NewSnapshot(scopes map[Ref][]uuid.UUID) *Snapshot {
 	return s
 }
 
-// Read reads the Scopes every resource is in, in one query, so they're all of one moment.
-func Read(ctx context.Context, refs ...Ref) (*Snapshot, error) {
-	snapshot := &Snapshot{scopes: map[Ref][]uuid.UUID{}}
+// ReadScopeSnapshot reads the Scopes every resource is in, in one query, so they're all of one moment.
+func ReadScopeSnapshot(ctx context.Context, refs ...ResourceRef) (*ScopeSnapshot, error) {
+	snapshot := &ScopeSnapshot{scopes: map[ResourceRef][]uuid.UUID{}}
 	var kinds, ids []string
 	for _, ref := range refs {
 		if ref.ID == uuid.Nil {
@@ -86,7 +86,7 @@ func Read(ctx context.Context, refs ...Ref) (*Snapshot, error) {
 	}
 
 	for _, row := range rows {
-		ref := Ref{Type: row.ResourceType, ID: row.ResourceID}
+		ref := ResourceRef{Type: row.ResourceType, ID: row.ResourceID}
 		snapshot.scopes[ref] = append(snapshot.scopes[ref], row.ScopeID)
 	}
 	for ref, scopes := range snapshot.scopes {
@@ -97,30 +97,30 @@ func Read(ctx context.Context, refs ...Ref) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-type snapshotKey struct{}
+type scopeSnapshotKey struct{}
 
-// WithSnapshot returns a context whose checks use the snapshot for the resources it covers,
+// WithScopeSnapshot returns a context whose checks use the snapshot for the resources it covers,
 // so all checks of one operation see the membership of one moment.
-func WithSnapshot(ctx context.Context, snapshot *Snapshot) context.Context {
-	return ctx.WithValue(snapshotKey{}, snapshot)
+func WithScopeSnapshot(ctx context.Context, snapshot *ScopeSnapshot) context.Context {
+	return ctx.WithValue(scopeSnapshotKey{}, snapshot)
 }
 
-// SnapshotFrom returns the snapshot of the context, if any.
-func SnapshotFrom(ctx context.Context) *Snapshot {
-	if v, ok := ctx.Value(snapshotKey{}).(*Snapshot); ok {
+// ScopeSnapshotFrom returns the snapshot of the context, if any.
+func ScopeSnapshotFrom(ctx context.Context) *ScopeSnapshot {
+	if v, ok := ctx.Value(scopeSnapshotKey{}).(*ScopeSnapshot); ok {
 		return v
 	}
 	return nil
 }
 
-// ForOperation reads the memberships of every resource an operation involves, and returns a context whose
+// WithOperation reads the Scopes of every resource an operation involves, and returns a context whose
 // checks use them. Call it once, before an operation's checks.
-func ForOperation(ctx context.Context, refs ...Ref) (context.Context, error) {
-	snapshot, err := Read(ctx, refs...)
+func WithOperation(ctx context.Context, refs ...ResourceRef) (context.Context, error) {
+	snapshot, err := ReadScopeSnapshot(ctx, refs...)
 	if err != nil {
 		return ctx, err
 	}
-	return WithSnapshot(ctx, snapshot), nil
+	return WithScopeSnapshot(ctx, snapshot), nil
 }
 
 func compareUUID(a, b uuid.UUID) int {
