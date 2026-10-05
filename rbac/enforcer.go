@@ -242,6 +242,8 @@ func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribu
 		return true
 	}
 
+	attr = withMembership(ctx, attr, action)
+
 	if ctx.Properties().On(false, "casbin.explain") {
 		allowed, rules, err := enforcer.EnforceEx(subject, attr, action)
 		if err != nil {
