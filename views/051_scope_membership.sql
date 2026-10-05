@@ -79,7 +79,7 @@ BEGIN
   RETURN NULL;
 END;
 $$
-LANGUAGE plpgsql;
+LANGUAGE plpgsql SET lock_timeout = '1s';
 
 CREATE OR REPLACE TRIGGER scopes_delete_membership
   AFTER DELETE ON scopes REFERENCING OLD TABLE AS old_rows
