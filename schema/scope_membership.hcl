@@ -59,11 +59,25 @@ table "scope_targets" {
     comment = "key=value pairs the resource's labels must contain"
   }
 
+  # match_keys lets us find the Scopes a new resource belongs to with an index lookup,
+  # instead of running every Scope's matcher against it.
+  #
+  # Each target stores the exact values it asks for, e.g. `namespace: team-42` is stored
+  # as {ns:team-42}. A new pod in namespace team-42 looks up its own values in the index
+  # on this column, and gets back only the targets asking for them. Only those are run
+  # through the matcher.
+  #
+  # Example: there are 1,000 targets, and one of them is `namespace: payments`. A new pod
+  # in namespace payments looks up {ns:payments} and gets back just that one target, so
+  # the matcher runs once instead of 1,000 times.
+  #
+  # Targets with no exact values, e.g. `name: prod-*`, have an empty list and are always
+  # run through the matcher. Filled in by a trigger; don't write it yourself.
   column "match_keys" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
-    comment = "the tag, label and namespace conditions as keys, set by trigger from tags, labels and namespace (see scope_match_keys). E.g. tags {\"env\":\"prod\"}, labels {\"team\":\"x\"} and namespace \"default\" give {tag:env=prod,label:team=x,ns:default}. A written resource is only matched against targets sharing one of its keys (through the GIN index), and targets with none"
+    comment = "The exact values this target asks for, e.g. {ns:team-42,tag:env=prod}. A new resource looks up its own values here, through an index, to find the few targets worth matching instead of matching all of them. Filled in by a trigger."
   }
 
   index "scope_targets_scope_id_idx" {
