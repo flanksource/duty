@@ -249,7 +249,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 		rebuilt, err = membership.Rebuild(DefaultContext, scopeID, newer, []membership.Target{target(types.ResourceSelector{Name: "mt-a"})})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rebuilt).To(BeTrue())
-		Expect(members(scopeID)).To(ConsistOf(mtA.ID))
+		Expect(members(scopeID)).To(Equal([]uuid.UUID{mtA.ID}))
 	})
 
 	It("admits nothing through a deleted Scope", func() {
