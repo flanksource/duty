@@ -63,7 +63,7 @@ CREATE OR REPLACE FUNCTION scope_contains(scope uuid, kind text, resource_id uui
       AND (m.resource_id = scope_contains.resource_id OR m.resource_id IS NULL)
   )
 $$
-LANGUAGE sql STABLE SECURITY DEFINER;
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- delete_scope_membership deletes the targets and members of Scopes deleted outright from scopes, so no member row
 -- outlives its Scope. A soft delete is handled where the Scope is saved (membership.Clear).
@@ -88,6 +88,9 @@ CREATE OR REPLACE TRIGGER scopes_delete_membership
 -- For each resource type, generate three trigger functions that keep scope_members in step with writes to its table,
 -- in the writing transaction. They take the membership lock shared, so a Scope's rebuild, which takes it exclusively,
 -- never misses a write. Setting deleted_at changes nothing.
+--
+-- They run as their definer so any writer can store membership, and pin search_path so the names in their bodies
+-- resolve to the public schema whatever the caller's path says. scope_contains does the same.
 --
 --   scope_members_inserted_<kind>: per statement, adds a member row for every inserted resource and every target it
 --     matches. E.g. inserting config 'web-1' with tags {"env":"prod"} adds it to each Scope with a config target
@@ -137,7 +140,7 @@ BEGIN
         RETURN NULL;
       END;
       $body$
-      LANGUAGE plpgsql SECURITY DEFINER;
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
     $f$, replace(def.kind, '-', '_'), def.kind, format(match_targets, 'new_rows', 'new_rows'));
 
     EXECUTE format($f$
@@ -153,7 +156,7 @@ BEGIN
         RETURN NULL;
       END;
       $body$
-      LANGUAGE plpgsql SECURITY DEFINER;
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
     $f$, def.kind, def.kind, format(match_targets, '(SELECT NEW.*)', '(SELECT NEW.*)'));
 
     EXECUTE format($f$
@@ -166,7 +169,7 @@ BEGIN
         RETURN NULL;
       END;
       $body$
-      LANGUAGE plpgsql SECURITY DEFINER;
+      LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
     $f$, def.kind, def.kind);
 
     EXECUTE format('CREATE OR REPLACE TRIGGER %1$s_scope_membership_insert
