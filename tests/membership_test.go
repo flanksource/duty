@@ -50,9 +50,12 @@ var _ = Describe("Scope membership", Ordered, func() {
 		return ids
 	}
 
+	// the targets stored on the test Scopes' rows; the targets passed to Rebuild stand in for their resolved form
+	noTargets := types.JSON(`[]`)
+
 	createScope := func(name string) uuid.UUID {
 		GinkgoHelper()
-		scope := models.Scope{ID: uuid.New(), Name: name, Namespace: "default", Targets: types.JSON(`[]`)}
+		scope := models.Scope{ID: uuid.New(), Name: name, Namespace: "default", Targets: noTargets}
 		Expect(DefaultContext.DB().Create(&scope).Error).To(Succeed())
 		return scope.ID
 	}
@@ -78,7 +81,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("matches names case-sensitively, with * only as a prefix and every other character literal", func() {
-		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
+		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-*", TagSelector: "team=membership-test"}),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -109,7 +112,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("doesn't rebuild a Scope whose targets haven't changed", func() {
-		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
+		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{
 			target(types.ResourceSelector{TagSelector: "team=membership-test", Name: "mt-*"}),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -171,7 +174,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("stores a whole-type target as one member with no resource, which admits every resource of the type", func() {
-		_, err := membership.Rebuild(DefaultContext, wholeScopeID, []membership.Target{
+		_, err := membership.Rebuild(DefaultContext, wholeScopeID, noTargets, []membership.Target{
 			target(types.ResourceSelector{Name: "*"}),
 			target(types.ResourceSelector{Name: "mt-*"}),
 			{Type: policy.ResourcePlaybook, Selector: types.ResourceSelector{Name: "mt-*"}},
@@ -194,7 +197,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("rebuilds a changed Scope writing only the members that change", func() {
-		_, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{
+		_, err := membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-a"}),
 			target(types.ResourceSelector{Name: "mt_*"}),
 		})
@@ -203,7 +206,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 		var before string
 		Expect(DefaultContext.DB().Raw("SELECT xmin::text FROM scope_members WHERE scope_id = ? AND resource_id = ?", scopeID, mtA.ID).Scan(&before).Error).To(Succeed())
 
-		_, err = membership.Rebuild(DefaultContext, scopeID, []membership.Target{
+		_, err = membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{
 			target(types.ResourceSelector{Name: "mt-a"}),
 			target(types.ResourceSelector{Name: "mtx"}),
 		})
@@ -225,10 +228,28 @@ var _ = Describe("Scope membership", Ordered, func() {
 		writer := DefaultContext.DB().Begin()
 		Expect(writer.Exec("SELECT pg_advisory_xact_lock_shared(hashtext('scope_membership'))").Error).To(Succeed())
 
-		_, err := membership.Rebuild(DefaultContext, scopeID, []membership.Target{target(types.ResourceSelector{Name: "mt-b"})})
+		_, err := membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{target(types.ResourceSelector{Name: "mt-b"})})
 		Expect(err).To(MatchError(ContainSubstring(membership.ErrLockTimeout.Error())))
 		Expect(writer.Rollback().Error).To(Succeed())
 		Expect(members(scopeID)).To(ConsistOf(mtA.ID, mtx.ID))
+	})
+
+	It("refuses to rebuild from a version of the Scope that a newer save replaced", func() {
+		newer := types.JSON(`[{"config": {"name": "mt-a"}}]`)
+		Expect(DefaultContext.DB().Model(&models.Scope{}).Where("id = ?", scopeID).Update("targets", newer).Error).To(Succeed())
+		DeferCleanup(func() {
+			Expect(DefaultContext.DB().Model(&models.Scope{}).Where("id = ?", scopeID).Update("targets", noTargets).Error).To(Succeed())
+		})
+
+		rebuilt, err := membership.Rebuild(DefaultContext, scopeID, noTargets, []membership.Target{target(types.ResourceSelector{Name: "mt-b"})})
+		Expect(err).To(MatchError(membership.ErrStaleScope))
+		Expect(rebuilt).To(BeFalse())
+		Expect(members(scopeID)).To(ConsistOf(mtA.ID, mtx.ID), "the newer version's membership is left alone")
+
+		rebuilt, err = membership.Rebuild(DefaultContext, scopeID, newer, []membership.Target{target(types.ResourceSelector{Name: "mt-a"})})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rebuilt).To(BeTrue())
+		Expect(members(scopeID)).To(ConsistOf(mtA.ID))
 	})
 
 	It("admits nothing through a deleted Scope", func() {

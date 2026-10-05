@@ -8,6 +8,7 @@ package membership
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -41,13 +42,22 @@ var (
 // ErrLockTimeout is returned when the membership lock couldn't be taken within LockRetries.
 var ErrLockTimeout = db.ErrAdvisoryLockTimeout
 
+// ErrStaleScope is returned by Rebuild when the Scope row no longer holds the targets the caller resolved: a newer
+// version was saved meanwhile, or the Scope was deleted. Nothing is written; the newer version's own save rebuilds it.
+var ErrStaleScope = errors.New("the scope changed since its targets were resolved")
+
 // Rebuild rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't save
 // the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
-// it commits and the new one after. resolved are the Scope's validated targets with their agents resolved to ids.
+// it commits and the new one after. targets are the Scope's targets as stored on its row, and resolved are those
+// targets validated, with their agents resolved to ids.
 // Targets of types whose membership isn't stored, e.g. views, are ignored, and a whole-type target is stored as one
 // member with no resource. Nothing is written when the targets haven't changed, and a rebuild writes only the members
 // that change. It reports whether anything was rebuilt.
-func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, error) {
+//
+// The Scope row is locked for the rebuild and checked against targets, so a caller holding a version of the Scope
+// that a concurrent save has since replaced gets ErrStaleScope instead of rewriting the newer membership with the
+// older targets. The row is locked before the membership lock, in the same order a save takes them.
+func Rebuild(ctx context.Context, scopeID uuid.UUID, targets types.JSON, resolved []Target) (bool, error) {
 	var rows []targetRow
 	var whole []string
 	for _, t := range resolved {
@@ -69,43 +79,67 @@ func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, e
 	// Targets of a type the Scope selects entirely add nothing
 	rows = slices.DeleteFunc(rows, func(r targetRow) bool { return slices.Contains(whole, r.ResourceType) })
 
-	unchanged, err := stored(ctx.DB(), scopeID, rows, whole)
-	if err != nil {
-		return false, err
-	} else if unchanged {
-		return false, nil
-	}
-
-	err = db.WithAdvisoryLock(ctx.DB(), membershipLock(), func(tx *gorm.DB) error {
-		if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
+	rebuilt := false
+	err := ctx.DB().Transaction(func(tx *gorm.DB) error {
+		if err := lockScope(tx, scopeID, targets); err != nil {
 			return err
 		}
-		if len(rows) > 0 {
-			if err := tx.Table("scope_targets").Omit("lookup_keys").Create(&rows).Error; err != nil {
-				return err
-			}
-		}
 
-		if err := tx.Exec("DELETE FROM scope_members WHERE scope_id = ? AND resource_id IS NULL AND NOT (resource_type = ANY (?::text[]))",
-			scopeID, textArray(whole)).Error; err != nil {
+		unchanged, err := stored(tx, scopeID, rows, whole)
+		if err != nil {
 			return err
-		}
-		for _, kind := range whole {
-			if err := tx.Exec(`DELETE FROM scope_members WHERE scope_id = ? AND resource_type = ? AND resource_id IS NOT NULL`, scopeID, kind).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec(`INSERT INTO scope_members (scope_id, resource_type) VALUES (?, ?)
-				ON CONFLICT (scope_id, resource_type) WHERE resource_id IS NULL DO NOTHING`, scopeID, kind).Error; err != nil {
-				return err
-			}
+		} else if unchanged {
+			return nil
 		}
 
-		return tx.Exec("SELECT scope_rebuild_members(?)", scopeID).Error
+		rebuilt = true
+		return db.WithAdvisoryLock(tx, membershipLock(), func(tx *gorm.DB) error {
+			if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
+				return err
+			}
+			if len(rows) > 0 {
+				if err := tx.Table("scope_targets").Omit("lookup_keys").Create(&rows).Error; err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Exec("DELETE FROM scope_members WHERE scope_id = ? AND resource_id IS NULL AND NOT (resource_type = ANY (?::text[]))",
+				scopeID, textArray(whole)).Error; err != nil {
+				return err
+			}
+			for _, kind := range whole {
+				if err := tx.Exec(`DELETE FROM scope_members WHERE scope_id = ? AND resource_type = ? AND resource_id IS NOT NULL`, scopeID, kind).Error; err != nil {
+					return err
+				}
+				if err := tx.Exec(`INSERT INTO scope_members (scope_id, resource_type) VALUES (?, ?)
+					ON CONFLICT (scope_id, resource_type) WHERE resource_id IS NULL DO NOTHING`, scopeID, kind).Error; err != nil {
+					return err
+				}
+			}
+
+			return tx.Exec("SELECT scope_rebuild_members(?)", scopeID).Error
+		})
 	})
-	if err != nil {
+	if errors.Is(err, ErrStaleScope) {
+		return false, err
+	} else if err != nil {
 		return false, fmt.Errorf("failed to rebuild the membership of scope %s: %w", scopeID, err)
 	}
-	return true, nil
+	return rebuilt, nil
+}
+
+// lockScope locks the Scope row for the transaction and checks that it still holds the given targets.
+// A save of the Scope holds the row until it commits, so this waits for one in flight and then sees its targets.
+func lockScope(tx *gorm.DB, scopeID uuid.UUID, targets types.JSON) error {
+	var current []bool
+	if err := tx.Raw("SELECT targets = ?::jsonb FROM scopes WHERE id = ? AND deleted_at IS NULL FOR SHARE",
+		string(targets), scopeID).Scan(&current).Error; err != nil {
+		return err
+	}
+	if len(current) == 0 || !current[0] {
+		return fmt.Errorf("scope %s: %w", scopeID, ErrStaleScope)
+	}
+	return nil
 }
 
 // Clear deletes the Scope's stored targets and members in the context's transaction, e.g. when it becomes invalid or
