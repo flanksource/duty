@@ -20,6 +20,13 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
 			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
 		}
+
+		// Other specs migrate with RLS disabled, which logs the disable script. Start from a database migrated
+		// with RLS enabled only, whatever ran before.
+		Expect(DefaultContext.DB().Exec(`DELETE FROM migration_logs WHERE path IN ('9998_rls_enable.sql', '9999_rls_disable.sql')`).Error).To(Succeed())
+		sqlDB, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+		Expect(migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString, EnableRLS: true})).To(Succeed())
 	})
 
 	AfterAll(func() {
