@@ -1,11 +1,8 @@
--- Scope membership, stored synchronously (mission-control specs/authorization/design/materialised-membership.md).
+-- scope_lookup_keys flattens tags, labels and a namespace into one array of keys. For a target the keys are its
+-- conditions, for a resource its attributes, so a resource can only match a target whose keys are all among its own.
 --
--- A Scope's targets are rows of scope_targets. scope_target_matches is the one predicate deciding whether a resource
--- matches a target, used both ways: a written resource against every target of its type (the triggers below), and a
--- saved Scope's targets against every resource (scope_rebuild_members). Membership is stored in scope_members.
-
--- scope_lookup_keys returns the tag, label and namespace conditions of a target, or the tags, labels and namespace of
--- a resource, as keys. A resource can only match a target whose keys are all among its own.
+--   SELECT scope_lookup_keys('{"env":"prod"}', '{"team":"x"}', 'default');
+--   => {tag:env=prod,label:team=x,ns:default}
 CREATE OR REPLACE FUNCTION scope_lookup_keys(tags jsonb, labels jsonb, namespace text)
   RETURNS text[]
   AS $$
@@ -21,6 +18,11 @@ CREATE OR REPLACE FUNCTION scope_lookup_keys(tags jsonb, labels jsonb, namespace
 $$
 LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
+-- scope_targets_set_lookup_keys fills scope_targets.lookup_keys from the row's tags, labels and namespace before it is
+-- written, so callers never set it.
+--
+--   INSERT INTO scope_targets (scope_id, resource_type, tags) VALUES ($1, 'config', '{"env":"prod"}');
+--   => lookup_keys = {tag:env=prod}
 CREATE OR REPLACE FUNCTION scope_targets_set_lookup_keys()
   RETURNS TRIGGER
   AS $$
@@ -35,8 +37,12 @@ CREATE OR REPLACE TRIGGER scope_targets_lookup_keys
   BEFORE INSERT OR UPDATE ON scope_targets
   FOR EACH ROW EXECUTE FUNCTION scope_targets_set_lookup_keys();
 
--- scope_target_matches reports whether a resource matches a target: every condition the target sets holds.
--- Names and namespaces match case-sensitively, and a prefix is compared literally.
+-- scope_target_matches reports whether a resource matches a target: every condition the target sets (t_*) holds for
+-- the resource (r_*), and a NULL condition matches anything. Names and namespaces match case-sensitively, and a prefix
+-- is compared literally.
+--
+--   target name_prefix 'web-', tags {"env":"prod"}; resource name 'web-1', tags {"env":"prod","app":"a"} => true
+--   target name_prefix 'web-', tags {"env":"prod"}; resource name 'api-1', tags {"env":"prod"}         => false
 CREATE OR REPLACE FUNCTION scope_target_matches(
   t_id uuid, t_name text, t_name_prefix text, t_namespace text, t_agent_id uuid, t_types text[], t_tags jsonb, t_labels jsonb,
   r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
@@ -55,8 +61,13 @@ CREATE OR REPLACE FUNCTION scope_target_matches(
 $$
 LANGUAGE sql IMMUTABLE PARALLEL SAFE;
 
--- scope_resource_columns returns the table of a resource type whose membership is stored, and the expressions of its
--- fields a target can select, over the row alias, in scope_target_matches' order. A field the type doesn't have is NULL.
+-- scope_resource_columns returns, for a resource type, its table and the SQL expressions of the fields a target can
+-- select, over the given row alias, in scope_target_matches' order. A field the type doesn't have is NULL. It is used
+-- to generate the trigger functions and the rebuild query for each type.
+--
+--   SELECT * FROM scope_resource_columns('canary', 'r');
+--   => tbl canaries, id r.id, name r.name, namespace r.namespace, agent_id r.agent_id, type NULL::text,
+--      tags NULL::jsonb, labels r.labels
 CREATE OR REPLACE FUNCTION scope_resource_columns(kind text, alias text)
   RETURNS TABLE (tbl text, id text, name text, namespace text, agent_id text, type text, tags text, labels text)
   AS $$
@@ -87,10 +98,17 @@ END;
 $$
 LANGUAGE plpgsql IMMUTABLE;
 
--- Triggers matching written resources against the targets of their type, in the writing transaction.
--- They take the membership lock shared, so a Scope's rebuild, which takes it exclusively, never misses a write.
--- Inserts and hard deletes are handled once per statement. Updates are matched only when a field a Scope can select
--- changes, decided by the trigger's WHEN clause. Setting deleted_at changes nothing.
+-- For each resource type, generate three trigger functions that keep scope_members in step with writes to its table,
+-- in the writing transaction. They take the membership lock shared, so a Scope's rebuild, which takes it exclusively,
+-- never misses a write. Setting deleted_at changes nothing.
+--
+--   scope_members_inserted_<kind>: per statement, adds a member row for every inserted resource and every target it
+--     matches. E.g. inserting config 'web-1' with tags {"env":"prod"} adds it to each Scope with a config target
+--     tags env=prod.
+--   scope_members_updated_<kind>: per row, only when a field a target can select changes (the trigger's WHEN clause),
+--     deletes the resource's member rows and re-adds those it now matches. E.g. retagging 'web-1' to env=dev removes
+--     it from the env=prod Scopes.
+--   scope_members_deleted_<kind>: per statement, deletes the member rows of hard-deleted resources.
 DO $$
 DECLARE
   def record;
@@ -185,10 +203,13 @@ BEGIN
 END
 $$;
 
--- scope_rebuild_members makes the Scope's stored members of every type it has targets of exactly the resources its
--- targets match, writing only the rows that change. Each target's values are constants in the query, so the tables'
--- indexes apply. Members of types it has neither targets nor a whole-type row for are deleted. The caller holds the
--- membership lock exclusively.
+-- scope_rebuild_members recomputes a Scope's member rows from its scope_targets after the targets change, writing only
+-- the rows that change. Members of types it has neither targets nor a whole-type row for are deleted. Each target's
+-- values are constants in the query, so the tables' indexes apply. The caller holds the membership lock exclusively
+-- (membership.Rebuild).
+--
+--   a Scope whose only target is config name 'web-1', changed to config tags env=prod:
+--   SELECT scope_rebuild_members($1);  => removes web-1's row unless it's tagged env=prod, adds every env=prod config
 CREATE OR REPLACE FUNCTION scope_rebuild_members(scope uuid)
   RETURNS void
   AS $$
@@ -230,8 +251,10 @@ END;
 $$
 LANGUAGE plpgsql;
 
--- scope_admits reports whether a row of the given type is in the Scope: it has a membership row for the row,
--- or one for the whole type. A Scope with neither admits nothing.
+-- scope_admits reports whether a resource is in the Scope: the Scope has a member row for it, or one for its whole
+-- type (resource_id NULL). A Scope with neither admits nothing. Row-level security reads membership through it.
+--
+--   SELECT scope_admits($scope, 'config', $id);  => true if ($scope, config, $id) or ($scope, config, NULL) exists
 CREATE OR REPLACE FUNCTION scope_admits(scope uuid, kind text, row_id uuid)
   RETURNS boolean
   AS $$
@@ -245,7 +268,10 @@ CREATE OR REPLACE FUNCTION scope_admits(scope uuid, kind text, row_id uuid)
 $$
 LANGUAGE sql STABLE SECURITY DEFINER;
 
--- A Scope deleted outright loses its targets and members. A soft delete is handled where the Scope is saved.
+-- delete_scope_membership deletes the targets and members of Scopes deleted outright from scopes, so no member row
+-- outlives its Scope. A soft delete is handled where the Scope is saved (membership.Clear).
+--
+--   DELETE FROM scopes WHERE id = $1;  => scope_targets and scope_members rows with scope_id $1 are deleted too
 CREATE OR REPLACE FUNCTION delete_scope_membership()
   RETURNS TRIGGER
   AS $$
