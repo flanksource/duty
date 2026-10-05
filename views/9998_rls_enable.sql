@@ -187,6 +187,12 @@ CREATE POLICY config_items_auth ON config_items
       ELSE
         rls_grants_admit('config', config_items.id)
       END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('config', config_items.id, config_items.name, config_items.tags->>'namespace', config_items.agent_id, config_items.type, config_items.tags, config_items.labels)
+      END
     );
 
 -- Policy config_changes 
@@ -293,6 +299,12 @@ CREATE POLICY components_auth ON components
       ELSE
         rls_grants_admit('component', components.id)
       END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('component', components.id, components.name, components.namespace, components.agent_id, components.type, NULL, components.labels)
+      END
     );
 
 -- Policy canaries
@@ -305,6 +317,12 @@ CREATE POLICY canaries_auth ON canaries
       ELSE
         rls_grants_admit('canary', canaries.id)
       END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('canary', canaries.id, canaries.name, canaries.namespace, canaries.agent_id, NULL, NULL, canaries.labels)
+      END
     );
 
 -- Policy playbooks
@@ -316,6 +334,12 @@ CREATE POLICY playbooks_auth ON playbooks
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
         rls_grants_admit('playbook', playbooks.id)
+      END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('playbook', playbooks.id, playbooks.name, playbooks.namespace, NULL, NULL, NULL, NULL)
       END
     );
 
@@ -365,6 +389,15 @@ CREATE POLICY checks_auth ON checks
         FROM canaries
         WHERE canaries.id = checks.canary_id
       ) OR rls_grants_admit('check', checks.id)
+      END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE EXISTS (
+        SELECT 1
+        FROM canaries
+        WHERE canaries.id = checks.canary_id
+      ) OR rls_grants_admit_row('check', checks.id, checks.name, checks.namespace, checks.agent_id, checks.type, NULL, checks.labels)
       END
     );
 

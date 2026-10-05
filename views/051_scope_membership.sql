@@ -230,3 +230,43 @@ CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
   FROM (SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind AS c) AS claim
 $$
 LANGUAGE sql STABLE;
+
+-- rls_grants_admit_row reports whether the request's claim grants a row with the given values, as rls_grants_admit
+-- does, but matches the values against each Scope's targets instead of reading stored membership. Row-level security
+-- checks a new or updated row with it: the row is checked before the membership triggers match it, so its stored
+-- membership is still that of the old row, or none.
+--
+--   claim {"config": [["<scope with target tags cluster=demo>"]]}:
+--   SELECT rls_grants_admit_row('config', $id, 'web', NULL, NULL, 'Kubernetes::Pod', '{"cluster":"aws"}', NULL);  => false
+CREATE OR REPLACE FUNCTION rls_grants_admit_row(
+  kind text, r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
+  RETURNS boolean
+  AS $$
+  SELECT CASE
+    WHEN c IS NULL THEN FALSE
+    WHEN c = '"all"'::jsonb THEN TRUE
+    WHEN jsonb_typeof(c) <> 'array' THEN FALSE
+    ELSE EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(c) AS g(scopes)
+      WHERE jsonb_typeof(g.scopes) = 'array'
+        AND jsonb_array_length(g.scopes) > 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(g.scopes) AS s(scope_id)
+          WHERE NOT EXISTS (
+              SELECT 1 FROM scope_members m
+              WHERE m.scope_id = s.scope_id::uuid AND m.resource_type = kind AND m.resource_id IS NULL
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM scope_targets t
+              WHERE t.scope_id = s.scope_id::uuid AND t.resource_type = kind
+                AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags,
+                  t.labels, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+            )
+        )
+    )
+  END
+  FROM (SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind AS c) AS claim
+$$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;

@@ -46,12 +46,13 @@ func grants(sets ...[]string) *rls.Grants {
 	return g
 }
 
-// grantRows stores the resources as members of a new Scope, inside the transaction, and returns grants naming
+// grantRows stores a new Scope selecting the resources by id, inside the transaction, and returns grants naming
 // that Scope. It must be called before the transaction switches role.
 func grantRows(tx *gorm.DB, kind string, ids ...uuid.UUID) *rls.Grants {
 	GinkgoHelper()
 	scopeID := uuid.New()
 	for _, id := range ids {
+		Expect(tx.Exec("INSERT INTO scope_targets (scope_id, resource_type, resource_id) VALUES (?, ?, ?)", scopeID, kind, id).Error).To(Succeed())
 		Expect(tx.Exec("INSERT INTO scope_members (scope_id, resource_type, resource_id) VALUES (?, ?, ?)", scopeID, kind, id).Error).To(Succeed())
 	}
 	return grants([]string{scopeID.String()})
@@ -364,10 +365,9 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
-	var _ = Describe("INSERT QUERY", func() {
+	var _ = Describe("writes", func() {
 		var tx *gorm.DB
 
-		// PostgreSQL RLS policies without an explicit WITH CHECK clause use the USING clause for writes too.
 		BeforeEach(func() {
 			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin()
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(BeNil())
@@ -377,31 +377,103 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(tx.Rollback().Error).To(BeNil())
 		})
 
-		newConfig := func(name string) *models.ConfigItem {
+		// write runs the statement as the subject in a savepoint, so a refused write leaves the transaction usable.
+		write := func(payload rls.Payload, sql string, args ...any) (int64, error) {
+			GinkgoHelper()
+			Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect(tx.Exec("SAVEPOINT write").Error).To(Succeed())
+			res := tx.Exec(sql, args...)
+			if res.Error != nil {
+				Expect(tx.Exec("ROLLBACK TO SAVEPOINT write").Error).To(Succeed())
+			}
+			return res.RowsAffected, res.Error
+		}
+
+		refused := MatchError(ContainSubstring("new row violates row-level security policy"))
+
+		newConfig := func(name, cluster string) *models.ConfigItem {
 			return &models.ConfigItem{
 				ID:          uuid.New(),
 				ConfigClass: "TestClass",
 				Type:        lo.ToPtr("Test::Type"),
 				Name:        lo.ToPtr(name),
-				Tags:        types.JSONStringMap{"cluster": "aws"},
+				Tags:        types.JSONStringMap{"cluster": cluster},
 			}
 		}
 
+		insertConfig := func(payload rls.Payload, config *models.ConfigItem) error {
+			GinkgoHelper()
+			_, err := write(payload, "INSERT INTO config_items (id, config_class, type, name, tags) VALUES (?, ?, ?, ?, ?)",
+				config.ID, config.ConfigClass, config.Type, config.Name, config.Tags)
+			return err
+		}
+
 		It("allows INSERT to a subject granted every config", func() {
-			Expect((rls.Payload{Config: rls.AllRows()}).SetPostgresSessionRLS(tx)).To(Succeed())
-			Expect(tx.Create(newConfig("test-config-insert-allowed")).Error).To(Succeed())
+			Expect(insertConfig(rls.Payload{Config: rls.AllRows()}, newConfig("test-config-insert-all", "demo"))).To(Succeed())
 		})
 
-		It("denies INSERT through a Scope: the row is checked before it's matched to its Scopes", func() {
-			Expect((rls.Payload{Config: grants([]string{awsScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
-			err := tx.Create(newConfig("test-config-insert-denied")).Error
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("new row violates row-level security policy"))
+		It("allows INSERT of a row the subject's Scope matches", func() {
+			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope})}, newConfig("test-config-insert-matched", "aws"))).To(Succeed())
+		})
+
+		It("denies INSERT of a row the subject's Scope doesn't match", func() {
+			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope})}, newConfig("test-config-insert-unmatched", "demo"))).To(refused)
+		})
+
+		It("denies INSERT of a row that matches only some Scopes of a grant", func() {
+			Expect(insertConfig(rls.Payload{Config: grants([]string{awsScope, eksScope})}, newConfig("test-config-insert-partial", "aws"))).To(refused)
 		})
 
 		It("allows INSERT through a whole-type Scope", func() {
-			Expect((rls.Payload{Config: grants([]string{allConfigsScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
-			Expect(tx.Create(newConfig("test-config-insert-whole-type")).Error).To(Succeed())
+			Expect(insertConfig(rls.Payload{Config: grants([]string{allConfigsScope})}, newConfig("test-config-insert-whole-type", "demo"))).To(Succeed())
+		})
+
+		It("denies INSERT without grants", func() {
+			Expect(insertConfig(rls.Payload{}, newConfig("test-config-insert-none", "aws"))).To(refused)
+		})
+
+		It("denies UPDATE that moves a config out of the subject's Scope", func() {
+			config := newConfig("test-config-move", "demo")
+			Expect(insertConfig(rls.Payload{Config: rls.AllRows()}, config)).To(Succeed())
+			demo := rls.Payload{Config: grants([]string{demoScope})}
+
+			Expect(write(demo, "UPDATE config_items SET description = 'changed' WHERE id = ?", config.ID)).To(Equal(int64(1)))
+			Expect(write(demo, `UPDATE config_items SET tags = '{"cluster":"demo","team":"a"}' WHERE id = ?`, config.ID)).To(Equal(int64(1)))
+			_, err := write(demo, `UPDATE config_items SET tags = '{"cluster":"aws"}' WHERE id = ?`, config.ID)
+			Expect(err).To(refused)
+		})
+
+		It("denies UPDATE that moves a component out of the subject's Scope", func() {
+			logistics := rls.Payload{Component: grants([]string{logisticsComponentScope})}
+			Expect(write(logistics, "UPDATE components SET updated_at = NOW() WHERE id = ?", dummy.Logistics.ID)).To(Equal(int64(1)))
+			_, err := write(logistics, "UPDATE components SET name = 'logistics-renamed' WHERE id = ?", dummy.Logistics.ID)
+			Expect(err).To(refused)
+		})
+
+		It("denies UPDATE that moves a canary out of the subject's Scope", func() {
+			canary := rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})}
+			Expect(write(canary, "UPDATE canaries SET updated_at = NOW() WHERE id = ?", dummy.LogisticsAPICanary.ID)).To(Equal(int64(1)))
+			_, err := write(canary, "UPDATE canaries SET name = 'renamed-canary' WHERE id = ?", dummy.LogisticsAPICanary.ID)
+			Expect(err).To(refused)
+		})
+
+		It("denies UPDATE that moves a playbook out of the subject's Scope", func() {
+			byName := rls.Payload{Playbook: grants([]string{echoPlaybookScope})}
+			_, err := write(byName, "UPDATE playbooks SET name = 'echo-renamed' WHERE id = ?", dummy.EchoConfig.ID)
+			Expect(err).To(refused)
+
+			byNamespace := rls.Payload{Playbook: grants([]string{mcPlaybooksScope})}
+			Expect(write(byNamespace, "UPDATE playbooks SET name = 'echo-renamed' WHERE id = ?", dummy.EchoConfig.ID)).To(Equal(int64(1)))
+			_, err = write(byNamespace, "UPDATE playbooks SET namespace = 'elsewhere' WHERE id = ?", dummy.EchoConfig.ID)
+			Expect(err).To(refused)
+		})
+
+		It("allows UPDATE of a check through its own Scope or its canary's", func() {
+			check := rls.Payload{Check: grants([]string{apiHealthCheckScope})}
+			Expect(write(check, "UPDATE checks SET name = 'renamed-check' WHERE id = ?", dummy.LogisticsAPIHealthHTTPCheck.ID)).To(Equal(int64(1)))
+
+			canary := rls.Payload{Canary: grants([]string{logisticsAPICanaryScope})}
+			Expect(write(canary, "UPDATE checks SET name = 'renamed-check-2' WHERE id = ?", dummy.LogisticsAPIHealthHTTPCheck.ID)).To(Equal(int64(1)))
 		})
 	})
 

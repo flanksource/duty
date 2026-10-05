@@ -15,7 +15,8 @@ RLS policies filter database rows based on JWT claims passed via PostgREST, ensu
 
 ### Policy Patterns
 
-**Direct Policies**: Tables with direct RLS use `rls_grants_admit('<type>', row.id)`. The JWT claim carries, per resource type, `"all"` or a list of grants, each a list of Scope ids the row must be in all of. Whether a row is in a Scope is read from stored membership (`scope_members`, kept current by triggers in the writing transaction; see @membership and `views/050_scope_membership.sql`), never evaluated per row.
+**Direct Policies**: Tables with direct RLS use `rls_grants_admit('<type>', row.id)`. The JWT claim carries, per resource type, `"all"` or a list of grants, each a list of Scope ids the row must be in all of. Whether a row is in a Scope is read from stored membership (`scope_members`, kept current by triggers in the writing transaction; see @rbac/membership and `views/051_scope_membership.sql`), never evaluated per row.
+  Writes are checked with `WITH CHECK (rls_grants_admit_row('<type>', <the row's selectable fields>))`, which matches the new row's values against the Scopes' targets: a new or changed row isn't re-matched to its Scopes until after the check, so its stored membership would let a writer move a row into a Scope they can't access.
 
 - Examples: `config_items`, `canaries`, `components`, `playbooks`
 - `views` still use `match_scope()` against the view's own fields: Views aren't covered by stored membership.
