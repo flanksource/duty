@@ -9,9 +9,8 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/flanksource/duty"
-	"github.com/flanksource/duty/membership"
 	"github.com/flanksource/duty/models"
-	"github.com/flanksource/duty/rbac"
+	"github.com/flanksource/duty/rbac/membership"
 	"github.com/flanksource/duty/rbac/policy"
 	"github.com/flanksource/duty/types"
 )
@@ -38,9 +37,9 @@ var _ = Describe("Scope membership", Ordered, func() {
 
 	scopesOf := func(item models.ConfigItem) []uuid.UUID {
 		GinkgoHelper()
-		snapshot, err := rbac.ReadScopeSnapshot(DefaultContext, rbac.ResourceRef{Type: policy.ResourceConfig, ID: item.ID})
+		snapshot, err := membership.Read(DefaultContext, membership.Ref{Type: policy.ResourceConfig, ID: item.ID})
 		Expect(err).ToNot(HaveOccurred())
-		return snapshot.Scopes(rbac.ResourceRef{Type: policy.ResourceConfig, ID: item.ID})
+		return snapshot.Scopes(membership.Ref{Type: policy.ResourceConfig, ID: item.ID})
 	}
 
 	members := func(scope uuid.UUID) []uuid.UUID {
@@ -247,13 +246,13 @@ var _ = Describe("Scope membership", Ordered, func() {
 	})
 
 	It("reads every resource of an operation in one snapshot", func() {
-		ctx, err := rbac.WithOperation(DefaultContext,
-			rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtA.ID},
-			rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtx.ID})
+		ctx, err := membership.ForOperation(DefaultContext,
+			membership.Ref{Type: policy.ResourceConfig, ID: mtA.ID},
+			membership.Ref{Type: policy.ResourceConfig, ID: mtx.ID})
 		Expect(err).ToNot(HaveOccurred())
 
-		snapshot := rbac.ScopeSnapshotFrom(ctx)
-		Expect(snapshot.Covers(rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtA.ID}, rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtx.ID})).To(BeTrue())
-		Expect(snapshot.Covers(rbac.ResourceRef{Type: policy.ResourceConfig, ID: mtB.ID})).To(BeFalse())
+		snapshot := membership.SnapshotFrom(ctx)
+		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtA.ID}, membership.Ref{Type: policy.ResourceConfig, ID: mtx.ID})).To(BeTrue())
+		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtB.ID})).To(BeFalse())
 	})
 })
