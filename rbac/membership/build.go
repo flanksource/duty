@@ -8,27 +8,26 @@ package membership
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/flanksource/duty/context"
+	"github.com/flanksource/duty/db"
 	"github.com/flanksource/duty/rbac/policy"
 	"github.com/flanksource/duty/types"
 )
 
 var (
 	// LockTimeout is how long saving a Scope waits for the membership lock before backing off.
-	// Writers already holding it shared, e.g. a long scraper transaction, would otherwise stall every resource write
+	// Writers already holding it shared, e.g. a long config scraper transaction, would otherwise stall every resource write
 	// queued behind the exclusive request.
 	LockTimeout = time.Second
 
@@ -40,7 +39,7 @@ var (
 )
 
 // ErrLockTimeout is returned when the membership lock couldn't be taken within LockRetries.
-var ErrLockTimeout = errors.New("timed out waiting for the scope membership lock")
+var ErrLockTimeout = db.ErrAdvisoryLockTimeout
 
 // Rebuild rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't save
 // the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
@@ -77,7 +76,7 @@ func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, e
 		return false, nil
 	}
 
-	err = withLock(ctx, func(tx *gorm.DB) error {
+	err = db.WithAdvisoryLock(ctx.DB(), membershipLock(), func(tx *gorm.DB) error {
 		if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
 			return err
 		}
@@ -112,11 +111,11 @@ func Rebuild(ctx context.Context, scopeID uuid.UUID, resolved []Target) (bool, e
 // Clear deletes the Scope's stored targets and members in the context's transaction, e.g. when it becomes invalid or
 // is deleted. It doesn't delete the Scope row. The Scope admits nothing from then on.
 func Clear(ctx context.Context, scopeID uuid.UUID) error {
-	if built, err := Built(ctx, scopeID); err != nil || !built {
+	if built, err := IsBuilt(ctx, scopeID); err != nil || !built {
 		return err
 	}
 
-	err := withLock(ctx, func(tx *gorm.DB) error {
+	err := db.WithAdvisoryLock(ctx.DB(), membershipLock(), func(tx *gorm.DB) error {
 		if err := tx.Exec("DELETE FROM scope_targets WHERE scope_id = ?", scopeID).Error; err != nil {
 			return err
 		}
@@ -128,8 +127,8 @@ func Clear(ctx context.Context, scopeID uuid.UUID) error {
 	return nil
 }
 
-// Built reports whether the Scope has stored targets or members, i.e. whether its membership has been built.
-func Built(ctx context.Context, scopeID uuid.UUID) (bool, error) {
+// IsBuilt reports whether the Scope has stored targets or members, i.e. whether its membership has been built.
+func IsBuilt(ctx context.Context, scopeID uuid.UUID) (bool, error) {
 	var has bool
 	err := ctx.DB().Raw(`SELECT EXISTS (SELECT 1 FROM scope_targets WHERE scope_id = ?)
 		OR EXISTS (SELECT 1 FROM scope_members WHERE scope_id = ?)`, scopeID, scopeID).Scan(&has).Error
@@ -137,15 +136,15 @@ func Built(ctx context.Context, scopeID uuid.UUID) (bool, error) {
 }
 
 // stored reports whether the Scope's stored targets and whole types are exactly the given ones.
-func stored(db *gorm.DB, scopeID uuid.UUID, rows []targetRow, whole []string) (bool, error) {
+func stored(tx *gorm.DB, scopeID uuid.UUID, rows []targetRow, whole []string) (bool, error) {
 	var current []targetRow
-	if err := db.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
+	if err := tx.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
 		FROM scope_targets WHERE scope_id = ?`, scopeID).Scan(&current).Error; err != nil {
 		return false, err
 	}
 
 	var currentWhole []string
-	if err := db.Raw("SELECT resource_type FROM scope_members WHERE scope_id = ? AND resource_id IS NULL ORDER BY resource_type", scopeID).
+	if err := tx.Raw("SELECT resource_type FROM scope_members WHERE scope_id = ? AND resource_id IS NULL ORDER BY resource_type", scopeID).
 		Scan(&currentWhole).Error; err != nil {
 		return false, err
 	}
@@ -198,40 +197,10 @@ func textArray(values []string) string {
 	return value.(string)
 }
 
-// withLock runs fn holding the membership lock exclusively, so no resource is written while a Scope's targets change.
-// It waits for the lock at most LockTimeout, then backs off and retries, LockRetries times.
-// Each attempt runs in a savepoint of the context's transaction.
-func withLock(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	backoff := LockBackoff
-	for attempt := 0; ; attempt++ {
-		err := ctx.DB().Transaction(func(tx *gorm.DB) error {
-			var previous string
-			if err := tx.Raw("SELECT current_setting('lock_timeout')").Scan(&previous).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec("SELECT set_config('lock_timeout', ?, true)", fmt.Sprintf("%dms", LockTimeout.Milliseconds())).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext('scope_membership'))").Error; err != nil {
-				return err
-			}
-			if err := tx.Exec("SELECT set_config('lock_timeout', ?, true)", previous).Error; err != nil {
-				return err
-			}
-			return fn(tx)
-		})
-
-		var pgErr *pgconn.PgError
-		if err == nil || !errors.As(err, &pgErr) || pgErr.Code != "55P03" {
-			return err
-		} else if attempt >= LockRetries {
-			return ErrLockTimeout
-		}
-
-		ctx.Debugf("scope membership lock busy, retrying in %s", backoff)
-		time.Sleep(backoff)
-		backoff *= 2
-	}
+// membershipLock is the lock Rebuild and Clear take exclusively, and resource triggers and scope deletes take
+// shared (views/050_scope_membership.sql), so no resource is written while a Scope's targets change.
+func membershipLock() db.AdvisoryLock {
+	return db.AdvisoryLock{Key: "scope_membership", Timeout: LockTimeout, Retries: LockRetries, Backoff: LockBackoff}
 }
 
 // Target is one target of a Scope: a selector over the resources of one type, with its agent resolved to an id.

@@ -235,7 +235,7 @@ var _ = Describe("Scope membership", Ordered, func() {
 		Expect(membership.Clear(DefaultContext, scopeID)).To(Succeed())
 		Expect(scopesOf(mtx)).ToNot(ContainElement(scopeID))
 
-		has, err := membership.Built(DefaultContext, scopeID)
+		has, err := membership.IsBuilt(DefaultContext, scopeID)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(has).To(BeFalse())
 	})
