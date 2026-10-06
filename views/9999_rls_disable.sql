@@ -98,3 +98,7 @@ DROP POLICY IF EXISTS checks_auth ON checks;
 DROP POLICY IF EXISTS views_auth ON views;
 
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;
+
+DROP FUNCTION IF EXISTS rls_grants_admit(text, uuid);
+DROP FUNCTION IF EXISTS rls_admitted_ids(text);
+DROP FUNCTION IF EXISTS rls_admits_all(text);

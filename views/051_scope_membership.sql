@@ -205,89 +205,62 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
   WHEN (OLD.name IS DISTINCT FROM NEW.name OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
   EXECUTE PROCEDURE notify_table_updates_and_deletes();
 
--- rls_admits_all reports whether the request's claim admits every row of the given type: it's "all", or one of its
--- grants names only Scopes that select the whole type. Row-level security evaluates it once per query.
+-- rls_required_scopes returns the remaining Scope requirements of each valid grant, omitting whole-type Scopes.
+-- An empty array admits every row; no arrays admit none. A Scope with no membership stays required and fails closed.
+-- The uncorrelated function scan caches these small arrays for the statement, never the Scopes' resource IDs.
 --
---   claim {"config": [{"scope": "<Scope with target name '*'>"}]}:  SELECT rls_admits_all('config');  => true
-CREATE OR REPLACE FUNCTION rls_admits_all(kind text)
-  RETURNS boolean
+--   claim {"config": [{"scope": "<all-configs>", "constraint": "<payments>"}]} => {<payments>}
+CREATE OR REPLACE FUNCTION rls_required_scopes(kind text)
+  RETURNS SETOF uuid[]
   AS $$
-  SELECT CASE
-    WHEN c = '"all"'::jsonb THEN TRUE
-    WHEN jsonb_typeof(c) = 'array' THEN EXISTS (
-      SELECT 1
-      FROM jsonb_array_elements(c) AS g(item)
-      CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
-      WHERE s.scopes IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1 FROM unnest(s.scopes) AS u(scope_id)
+DECLARE
+  claim jsonb := _rls_claim(kind);
+  item jsonb;
+  scopes uuid[];
+BEGIN
+  IF claim = '"all"'::jsonb THEN
+    RETURN NEXT '{}'::uuid[];
+  ELSIF jsonb_typeof(claim) = 'array' THEN
+    FOR item IN SELECT jsonb_array_elements(claim) LOOP
+      scopes := _rls_grant_scopes(item);
+      IF scopes IS NOT NULL THEN
+        RETURN NEXT ARRAY(
+          SELECT DISTINCT u.scope_id FROM unnest(scopes) AS u(scope_id)
           WHERE NOT EXISTS (
             SELECT 1 FROM scope_members m
             WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
           )
-        )
-    )
-    ELSE FALSE
-  END
-  FROM (SELECT _rls_claim(kind) AS c) AS claim
+        );
+      END IF;
+    END LOOP;
+  END IF;
+END;
 $$
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
 
--- rls_admitted_ids returns the ids of the rows of the given type the request's claim admits by stored membership: for
--- each grant, the rows that are members of every one of its Scopes that doesn't select the whole type. Row-level
--- security evaluates it once per query and probes it with each row's id, so a listing never interprets the claim per
--- row. A grant naming a Scope with no membership rows admits nothing; one whose Scopes all select the whole type
--- admits every row, which rls_admits_all reports.
+-- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
+-- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
 --
 --   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
---   SELECT rls_admitted_ids('config');  => the configs that are members of both payments and eu
-CREATE OR REPLACE FUNCTION rls_admitted_ids(kind text)
-  RETURNS SETOF uuid
+--   SELECT EXISTS (SELECT 1 FROM rls_matching_grants('config', $id)); => true if $id is in payments and eu
+CREATE OR REPLACE FUNCTION rls_matching_grants(kind text, row_id uuid)
+  RETURNS SETOF boolean
   AS $$
-  WITH grants AS (
-    SELECT g.ord, s.scopes
-    FROM (SELECT _rls_claim(kind) AS c) AS claim
-    CROSS JOIN LATERAL jsonb_array_elements(
-      CASE WHEN jsonb_typeof(claim.c) = 'array' THEN claim.c ELSE '[]'::jsonb END
-    ) WITH ORDINALITY AS g(item, ord)
-    CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
-    WHERE s.scopes IS NOT NULL
-  ),
-  required AS (
-    SELECT DISTINCT g.ord, u.scope_id
-    FROM grants g
-    CROSS JOIN LATERAL unnest(g.scopes) AS u(scope_id)
+  SELECT TRUE
+  FROM public.rls_required_scopes(kind) AS g(scopes)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM pg_catalog.unnest(g.scopes) AS required(scope_id)
     WHERE NOT EXISTS (
-      SELECT 1 FROM scope_members m
-      WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
+      SELECT 1 FROM public.scope_members m
+      WHERE m.resource_type = kind AND m.resource_id = row_id AND m.scope_id = required.scope_id
     )
-  ),
-  required_counts AS (
-    SELECT ord, count(*) AS scopes FROM required GROUP BY ord
   )
-  SELECT m.resource_id
-  FROM required r
-  JOIN scope_members m ON m.scope_id = r.scope_id AND m.resource_type = kind AND m.resource_id IS NOT NULL
-  GROUP BY r.ord, m.resource_id
-  HAVING count(*) = (SELECT rc.scopes FROM required_counts rc WHERE rc.ord = r.ord)
-$$
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
-
--- rls_grants_admit reports whether the request's claim admits a stored row of the given type, by its membership.
---
---   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
---   SELECT rls_grants_admit('config', $id);  => true if $id is in both payments and eu
-CREATE OR REPLACE FUNCTION rls_grants_admit(kind text, row_id uuid)
-  RETURNS boolean
-  AS $$
-  SELECT rls_admits_all(kind) OR row_id IN (SELECT rls_admitted_ids(kind))
 $$
 LANGUAGE sql STABLE;
 
--- rls_grants_admit_row reports whether the request's claim admits a row with the given values, as rls_grants_admit
--- does, but matches the values against each Scope's targets instead of reading stored membership. Row-level security
--- checks new and updated rows with it: a row is checked before the membership triggers match it, so its stored
--- membership is still the old row's, or none, and would let a writer move a row into a Scope they can't access.
+-- rls_grants_admit_row matches a row's new values against each Scope's targets instead of reading stored membership.
+-- It runs before membership triggers, when stored membership is still the old row's, or none, and would let a writer
+-- move a row into a Scope they can't access.
 --
 --   claim {"config": [{"scope": "<Scope with target tags cluster=demo>"}]}:
 --   SELECT rls_grants_admit_row('config', $id, 'web', NULL, NULL, 'Kubernetes::Pod', '{"cluster":"aws"}', NULL);  => false

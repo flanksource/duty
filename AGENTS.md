@@ -35,8 +35,9 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 **Resource tables** (`config_items`, `components`, `canaries`, `playbooks`, `checks`):
 
 - `USING` decides which rows are visible, by their stored membership:
-  `(SELECT rls_admits_all('<type>')) OR id IN (SELECT rls_admitted_ids('<type>'))`.
-  Both are computed once per query, not per row: keep it in this shape. The row an `INSERT` is adding, e.g. for its `RETURNING`, has no membership yet, so `USING` also admits it by its values (`rls_grants_admit_row`), told apart from stored rows by its unset `ctid`.
+  `EXISTS (SELECT 1 FROM rls_matching_grants('<type>', id))`.
+  `rls_required_scopes` parses the claim and removes whole-type requirements once per function-scan node per statement. The matching helper then checks the current row's membership through an index, without collecting every allowed resource ID. Keep it inlinable (SQL, set-returning, security-invoker, no function-level `SET`) and keep `EXISTS` visible in the policy.
+  The row an `INSERT` is adding, e.g. for its `RETURNING`, has no membership yet, so `USING` also admits it by its values (`rls_grants_admit_row`), told apart from stored rows by its unset `ctid`.
 - `WITH CHECK (rls_grants_admit_row('<type>', id, name, namespace, agent_id, type, tags, labels))` decides which rows may be written, by matching the new row's values against the Scopes' targets.
   It can't use stored membership: the triggers only match the row after the check, so the old row's membership would let a writer move a row into a Scope they can't access.
 - `checks` are also visible through their canary.
@@ -50,7 +51,7 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 1. Add RLS enable logic to `@views/9998_rls_enable.sql`
    - Enable RLS on the table
-   - Create the policy: inherited with `EXISTS` for a child table. A new resource type with its own grants also needs Scope membership for the type (`_scope_resource_columns` and the triggers in `views/051_scope_membership.sql`, and `membership.Supported`) before it can use `rls_grants_admit`.
+   - Create the policy: inherited with `EXISTS` for a child table. A new resource type with its own grants also needs Scope membership for the type (`_scope_resource_columns` and the triggers in `views/051_scope_membership.sql`, and `membership.Supported`) before it can use `rls_matching_grants`.
 2. Add counterpart disable logic to `@views/9999_rls_disable.sql`
    - Disable RLS on the table
    - Drop the policy
