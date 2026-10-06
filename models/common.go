@@ -212,6 +212,35 @@ type ABACAttribute struct {
 	Check      Check
 	Canary     Canary
 	View       View
+
+	// Membership is filled in for each check from the operation's stored Scope membership.
+	// Casbin conditions test it, e.g. 'scope:<id>' in r.obj.Membership.Resource.
+	Membership ABACMembership
+}
+
+// ABACMembership holds the Scopes the resources of an authorization request are in, as "scope:<id>".
+// The lists are []any so Casbin's in operator can test them.
+type ABACMembership struct {
+	// Fits is set when the request has one primary resource of a type the action accepts,
+	// at most one target of a type it accepts, and nothing else.
+	Fits bool
+
+	// HasTarget is set when the request has a target.
+	HasTarget bool
+
+	// Resource are the Scopes the primary resource is in.
+	Resource []any
+
+	// Target are the Scopes the target is in.
+	Target []any
+
+	// The Scopes the request's resource of each type is in, whatever the action.
+	Config     []any
+	Component  []any
+	Check      []any
+	Canary     []any
+	Playbook   []any
+	Connection []any
 }
 
 type TaggableModel interface {
