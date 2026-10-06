@@ -99,3 +99,88 @@ BEGIN
 END;
 $$
 LANGUAGE plpgsql IMMUTABLE;
+
+-- _scope_matches reports whether a resource with the given values belongs to the Scope by its targets: the Scope
+-- selects the resource's whole type, or one of its targets matches the values. It decides what the resource's
+-- membership will be once the triggers match it.
+--
+--   a Scope whose only target is config tags env=prod:
+--   SELECT _scope_matches($scope, 'config', $id, 'web', NULL, NULL, NULL, '{"env":"prod"}', NULL);  => true
+CREATE OR REPLACE FUNCTION _scope_matches(
+  scope uuid, kind text, r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
+  RETURNS boolean
+  AS $$
+  SELECT EXISTS (
+      SELECT 1 FROM scope_members m
+      WHERE m.scope_id = scope AND m.resource_type = kind AND m.resource_id IS NULL
+    )
+    OR EXISTS (
+      SELECT 1 FROM scope_targets t
+      WHERE t.scope_id = scope AND t.resource_type = kind
+        AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels,
+          r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+    )
+$$
+LANGUAGE sql STABLE;
+
+-- _rls_claim returns the request's claim for a resource type: "all", a list of grants, or NULL when it has none.
+--
+--   with request.jwt.claims {"config": "all"}:  SELECT _rls_claim('config');  => "all"
+CREATE OR REPLACE FUNCTION _rls_claim(kind text)
+  RETURNS jsonb
+  AS $$
+  SELECT current_setting('request.jwt.claims', TRUE)::jsonb -> kind
+$$
+LANGUAGE sql STABLE;
+
+-- _rls_grant_scopes returns the Scopes a grant of the claim requires a row to be in: its scope, its constraint, and
+-- each of its impersonated Scopes. It returns NULL for a grant that isn't well formed, i.e. not an object, naming no
+-- Scope, with a constraint but no scope, or with a value that isn't a UUID, so the grant admits nothing.
+--
+--   SELECT _rls_grant_scopes('{"scope": "<a>", "constraint": "<b>", "impersonated": ["<c>"]}');  => {<a>,<b>,<c>}
+--   SELECT _rls_grant_scopes('{"constraint": "<b>"}');                                          => NULL
+CREATE OR REPLACE FUNCTION _rls_grant_scopes(item jsonb)
+  RETURNS uuid[]
+  AS $$
+DECLARE
+  ids text[] := '{}';
+  value jsonb;
+BEGIN
+  IF jsonb_typeof(item) IS DISTINCT FROM 'object' THEN
+    RETURN NULL;
+  END IF;
+
+  IF item ? 'scope' THEN
+    IF jsonb_typeof(item->'scope') <> 'string' THEN
+      RETURN NULL;
+    END IF;
+    ids := ids || (item->>'scope');
+  END IF;
+
+  IF item ? 'constraint' THEN
+    IF jsonb_typeof(item->'constraint') <> 'string' OR NOT item ? 'scope' THEN
+      RETURN NULL;
+    END IF;
+    ids := ids || (item->>'constraint');
+  END IF;
+
+  IF item ? 'impersonated' THEN
+    IF jsonb_typeof(item->'impersonated') <> 'array' THEN
+      RETURN NULL;
+    END IF;
+    FOR value IN SELECT jsonb_array_elements(item->'impersonated') LOOP
+      IF jsonb_typeof(value) <> 'string' THEN
+        RETURN NULL;
+      END IF;
+      ids := ids || (value #>> '{}');
+    END LOOP;
+  END IF;
+
+  IF cardinality(ids) = 0
+    OR EXISTS (SELECT 1 FROM unnest(ids) AS v WHERE v !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
+    RETURN NULL;
+  END IF;
+  RETURN ids::uuid[];
+END;
+$$
+LANGUAGE plpgsql IMMUTABLE;

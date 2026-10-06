@@ -528,8 +528,11 @@ func queryResourceSelector[T any](
 	var dummy T
 	cacheKey := fmt.Sprintf("%s-%s-%s-%d-%T", strings.Join(selectColumnsCopy, ","), table, resourceSelector.Hash(), limit, dummy)
 
-	// NOTE: When RLS is enabled, we need to scope the cache per RLS permission.
+	// Results filtered by row-level security aren't cached: the claim names Scopes, so a Scope whose membership changed
+	// leaves the payload's fingerprint as it was, and a cached result would outlive the access it was listed under.
+	cacheable := true
 	if payload := ctx.RLSPayload(); payload != nil {
+		cacheable = payload.Disable
 		cacheKey += fmt.Sprintf("-rls-%s", payload.Fingerprint())
 	}
 
@@ -538,7 +541,7 @@ func queryResourceSelector[T any](
 		cacheToUse = immutableCache
 	}
 
-	if resourceSelector.Cache != "no-cache" {
+	if cacheable && resourceSelector.Cache != "no-cache" {
 		if val, ok := cacheToUse.Get(cacheKey); ok {
 			if queryLogger.Enabled() {
 				results := val.([]T)
@@ -587,7 +590,7 @@ func queryResourceSelector[T any](
 		return nil, err
 	}
 
-	if resourceSelector.Cache != "no-store" {
+	if cacheable && resourceSelector.Cache != "no-store" {
 		cacheDuration := cache.DefaultExpiration
 		if len(output) == 0 {
 			cacheDuration = time.Minute // if results weren't found, cache it shortly even on the immutable cache

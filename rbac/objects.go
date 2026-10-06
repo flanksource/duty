@@ -243,6 +243,8 @@ var dbResourceObjMap = map[string]string{
 	"scope_members":               policy.ObjectRBAC,
 	"scope_targets":               policy.ObjectRBAC,
 	"rpc/_scope_resource_columns": policy.ObjectAuthConfidential,
+	"rpc/rls_required_scopes":     policy.ObjectAuthConfidential,
+	"rpc/rls_matching_grants":     policy.ObjectAuthConfidential,
 
 	// Access logs
 	"config_access_logs":   policy.ObjectCatalog,

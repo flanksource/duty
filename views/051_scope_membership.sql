@@ -79,7 +79,7 @@ BEGIN
   RETURN NULL;
 END;
 $$
-LANGUAGE plpgsql;
+LANGUAGE plpgsql SET lock_timeout = '1s';
 
 CREATE OR REPLACE TRIGGER scopes_delete_membership
   AFTER DELETE ON scopes REFERENCING OLD TABLE AS old_rows
@@ -204,3 +204,84 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
   FOR EACH ROW
   WHEN (OLD.name IS DISTINCT FROM NEW.name OR OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
   EXECUTE PROCEDURE notify_table_updates_and_deletes();
+
+-- rls_required_scopes returns the remaining Scope requirements of each valid grant, omitting whole-type Scopes.
+-- An empty array admits every row; no arrays admit none. A Scope with no membership stays required and fails closed.
+-- The uncorrelated function scan caches these small arrays for the statement, never the Scopes' resource IDs.
+--
+--   claim {"config": [{"scope": "<all-configs>", "constraint": "<payments>"}]} => {<payments>}
+CREATE OR REPLACE FUNCTION rls_required_scopes(kind text)
+  RETURNS SETOF uuid[]
+  AS $$
+DECLARE
+  claim jsonb := _rls_claim(kind);
+  item jsonb;
+  scopes uuid[];
+BEGIN
+  IF claim = '"all"'::jsonb THEN
+    RETURN NEXT '{}'::uuid[];
+  ELSIF jsonb_typeof(claim) = 'array' THEN
+    FOR item IN SELECT jsonb_array_elements(claim) LOOP
+      scopes := _rls_grant_scopes(item);
+      IF scopes IS NOT NULL THEN
+        RETURN NEXT ARRAY(
+          SELECT DISTINCT u.scope_id FROM unnest(scopes) AS u(scope_id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM scope_members m
+            WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
+          )
+        );
+      END IF;
+    END LOOP;
+  END IF;
+END;
+$$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
+
+-- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
+-- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
+--
+--   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
+--   SELECT EXISTS (SELECT 1 FROM rls_matching_grants('config', $id)); => true if $id is in payments and eu
+CREATE OR REPLACE FUNCTION rls_matching_grants(kind text, row_id uuid)
+  RETURNS SETOF boolean
+  AS $$
+  SELECT TRUE
+  FROM public.rls_required_scopes(kind) AS g(scopes)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM pg_catalog.unnest(g.scopes) AS required(scope_id)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.scope_members m
+      WHERE m.resource_type = kind AND m.resource_id = row_id AND m.scope_id = required.scope_id
+    )
+  )
+$$
+LANGUAGE sql STABLE;
+
+-- rls_grants_admit_row matches a row's new values against each Scope's targets instead of reading stored membership.
+-- It runs before membership triggers, when stored membership is still the old row's, or none, and would let a writer
+-- move a row into a Scope they can't access.
+--
+--   claim {"config": [{"scope": "<Scope with target tags cluster=demo>"}]}:
+--   SELECT rls_grants_admit_row('config', $id, 'web', NULL, NULL, 'Kubernetes::Pod', '{"cluster":"aws"}', NULL);  => false
+CREATE OR REPLACE FUNCTION rls_grants_admit_row(
+  kind text, r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
+  RETURNS boolean
+  AS $$
+  SELECT CASE
+    WHEN c = '"all"'::jsonb THEN TRUE
+    WHEN jsonb_typeof(c) = 'array' THEN EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(c) AS g(item)
+      CROSS JOIN LATERAL _rls_grant_scopes(g.item) AS s(scopes)
+      WHERE s.scopes IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM unnest(s.scopes) AS u(scope_id)
+          WHERE NOT _scope_matches(u.scope_id, kind, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+        )
+    )
+    ELSE FALSE
+  END
+  FROM (SELECT _rls_claim(kind) AS c) AS claim
+$$
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;

@@ -120,8 +120,9 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 			Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
 			tx := DefaultContext.DB().Begin()
 			configID, componentID, checkID := uuid.New(), dummy.Logistics.ID, uuid.UUID(dummy.LogisticsAPIHealthHTTPCheck.ID)
+			component := grantRows(tx, "component", componentID)
 			Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
-			Expect((rls.Payload{Config: []rls.Scope{{ID: configID.String()}}, Component: []rls.Scope{{ID: componentID.String()}}, Canary: []rls.Scope{{ID: "*"}}}).SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect((rls.Payload{Config: rls.AllRows(), Component: component, Canary: rls.AllRows()}).SetPostgresSessionRLS(tx)).To(Succeed())
 			Expect(tx.Exec("INSERT INTO config_items(id, config_class, name, type, health) VALUES (?, '', 'mode-recovery', 'Test::Recovery', 'healthy')", configID).Error).To(Succeed())
 			Expect(tx.Exec("INSERT INTO checks_unlogged(check_id, canary_id, status) SELECT id, canary_id, 'unknown' FROM checks WHERE id = ? ON CONFLICT DO NOTHING", checkID).Error).To(Succeed())
 			for _, source := range []struct {
@@ -186,9 +187,10 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 		id := uuid.New()
 		tx := DefaultContext.DB().Begin()
 		defer tx.Rollback()
-		Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
-		Expect((rls.Payload{Config: []rls.Scope{{ID: id.String()}}}).SetPostgresSessionRLS(tx)).To(Succeed())
 		Expect(tx.Exec("INSERT INTO config_items(id, config_class, name, type, health) VALUES (?, '', 'role-recovery', 'Test::Recovery', 'warning')", id).Error).To(Succeed())
+		granted := grantRows(tx, "config", id)
+		Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
+		Expect((rls.Payload{Config: granted}).SetPostgresSessionRLS(tx)).To(Succeed())
 		Expect(tx.Exec("UPDATE config_items SET health = 'healthy' WHERE id = ?", id).RowsAffected).To(Equal(int64(1)))
 		Expect(tx.Exec("UPDATE config_items SET health = 'unhealthy' WHERE id = ?", id).RowsAffected).To(Equal(int64(1)))
 		Expect(tx.Exec("RESET ROLE").Error).To(Succeed())
@@ -210,7 +212,7 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 		Expect(tx.Exec("SAVEPOINT denied_insert").Error).To(Succeed())
 		Expect(tx.Exec("INSERT INTO config_items(id, config_class, name, type, health) VALUES (?, '', 'denied', 'Test::Recovery', 'warning')", uuid.New()).Error).To(HaveOccurred())
 		Expect(tx.Exec("ROLLBACK TO SAVEPOINT denied_insert").Error).To(Succeed())
-		Expect((rls.Payload{Config: []rls.Scope{{ID: id.String()}}}).SetPostgresSessionRLS(tx)).To(Succeed())
+		Expect((rls.Payload{Config: granted}).SetPostgresSessionRLS(tx)).To(Succeed())
 		Expect(tx.Exec("DELETE FROM config_items WHERE id = ?", id).RowsAffected).To(Equal(int64(1)))
 		Expect(tx.Exec("RESET ROLE").Error).To(Succeed())
 		var health string
@@ -225,8 +227,9 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 			}
 			tx := DefaultContext.DB().Begin()
 			defer tx.Rollback()
+			component := grantRows(tx, "component", id)
 			Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
-			Expect((rls.Payload{Component: []rls.Scope{{ID: id.String()}}, Canary: []rls.Scope{{ID: "*"}}}).SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect((rls.Payload{Component: component, Canary: rls.AllRows()}).SetPostgresSessionRLS(tx)).To(Succeed())
 			if kind == "check" {
 				Expect(tx.Exec("INSERT INTO checks_unlogged(check_id, canary_id, status) SELECT id, canary_id, 'unknown' FROM checks WHERE id = ? ON CONFLICT DO NOTHING", id).Error).To(Succeed())
 			}

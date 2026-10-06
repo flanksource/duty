@@ -1,6 +1,7 @@
 package rls
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -18,26 +19,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g.Expect(payload.Fingerprint()).To(gomega.Equal("disabled"))
 	})
 
-	t.Run("should compute deterministic fingerprint for scopes", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-
-		payload := &Payload{
-			Config: []Scope{
-				{
-					Tags:   map[string]string{"z": "value1", "a": "value2"},
-					Agents: []string{"agent2", "agent1"},
-				},
-			},
-		}
-		payload.EvalFingerprint()
-
-		// Fingerprint should be deterministic (hash of sorted scope fingerprints)
-		g.Expect(payload.Fingerprint()).NotTo(gomega.BeEmpty())
-		g.Expect(payload.Fingerprint()).NotTo(gomega.Equal("disabled"))
-		g.Expect(payload.Fingerprint()).NotTo(gomega.Equal("empty"))
-	})
-
-	t.Run("should compute 'empty' fingerprint for empty scopes", func(t *testing.T) {
+	t.Run("should compute 'empty' fingerprint for empty payload", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		payload := &Payload{}
@@ -46,45 +28,154 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g.Expect(payload.Fingerprint()).To(gomega.Equal("empty"))
 	})
 
-	t.Run("should sort scopes deterministically", func(t *testing.T) {
+	t.Run("should not depend on the order grants were added in", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload1 := &Payload{
-			Config: []Scope{
-				{Tags: map[string]string{"a": "value1"}},
-				{Tags: map[string]string{"b": "value2"}},
-			},
-		}
-		payload1.EvalFingerprint()
+		a := &Grants{}
+		a.Add(Grant{Scope: s1, Constraint: s2})
+		a.Add(Grant{Scope: s3})
+		b := &Grants{}
+		b.Add(Grant{Scope: s3})
+		b.Add(Grant{Scope: s1, Constraint: s2})
 
-		payload2 := &Payload{
-			Config: []Scope{
-				{Tags: map[string]string{"b": "value2"}},
-				{Tags: map[string]string{"a": "value1"}},
-			},
-		}
-		payload2.EvalFingerprint()
-
-		// Same scopes in different order should produce the same fingerprint
-		g.Expect(payload1.Fingerprint()).To(gomega.Equal(payload2.Fingerprint()))
+		g.Expect((&Payload{Config: a}).Fingerprint()).To(gomega.Equal((&Payload{Config: b}).Fingerprint()))
 	})
 
-	t.Run("should cache the fingerprint after first computation", func(t *testing.T) {
+	t.Run("should tell types, all and no rows apart", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		payload := &Payload{
-			Config: []Scope{
-				{
-					Tags:   map[string]string{"x": "value4"},
-					Agents: []string{"agentX"},
-				},
-			},
-		}
-		payload.EvalFingerprint()
-		firstFingerprint := payload.Fingerprint()
+		grants := &Grants{}
+		grants.Add(Grant{Scope: s1})
 
-		// Modify the underlying data to see if the cached fingerprint remains unchanged
-		payload.Config[0].Tags["x"] = "modified_value"
-		g.Expect(payload.Fingerprint()).To(gomega.Equal(firstFingerprint))
+		fingerprints := []string{
+			(&Payload{Config: grants}).Fingerprint(),
+			(&Payload{Component: grants}).Fingerprint(),
+			(&Payload{Config: AllRows()}).Fingerprint(),
+			(&Payload{Config: NoRows()}).Fingerprint(),
+			(&Payload{}).Fingerprint(),
+		}
+		for i := range fingerprints {
+			for j := range fingerprints {
+				if i != j {
+					g.Expect(fingerprints[i]).NotTo(gomega.Equal(fingerprints[j]))
+				}
+			}
+		}
+	})
+
+	t.Run("should tell a constraint from an impersonated Scope", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		constrained := &Grants{}
+		constrained.Add(Grant{Scope: s1, Constraint: s2})
+		impersonated := &Grants{}
+		impersonated.Add(Grant{Scope: s1, Impersonated: []string{s2}})
+
+		g.Expect((&Payload{Config: constrained}).Fingerprint()).NotTo(gomega.Equal((&Payload{Config: impersonated}).Fingerprint()))
+	})
+}
+
+const (
+	s1 = "00000000-0000-0000-0000-0000000000a1"
+	s2 = "00000000-0000-0000-0000-0000000000a2"
+	s3 = "00000000-0000-0000-0000-0000000000a3"
+	x  = "00000000-0000-0000-0000-0000000000b1"
+	y  = "00000000-0000-0000-0000-0000000000b2"
+)
+
+func TestGrants(t *testing.T) {
+	t.Run("marshals all rows as \"all\" and grants as a list of grants", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		grants := &Grants{}
+		grants.Add(Grant{Scope: s3})
+		grants.Add(Grant{Scope: s1, Constraint: s2})
+		grants.Add(Grant{Scope: s1, Constraint: s2})
+
+		raw, err := json.Marshal(Payload{Config: AllRows(), Component: grants, Check: NoRows()})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(string(raw)).To(gomega.MatchJSON(`{
+			"config": "all",
+			"component": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}],
+			"check": []
+		}`))
+
+		var decoded Payload
+		g.Expect(json.Unmarshal(raw, &decoded)).To(gomega.Succeed())
+		g.Expect(decoded.Config.All).To(gomega.BeTrue())
+		g.Expect(decoded.Component.Any).To(gomega.Equal([]Grant{{Scope: s1, Constraint: s2}, {Scope: s3}}))
+		g.Expect(decoded.Check.IsEmpty()).To(gomega.BeTrue())
+		g.Expect(decoded.Playbook).To(gomega.BeNil())
+	})
+
+	t.Run("normalizes a grant, and ignores one that isn't made of Scope ids", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		grants := &Grants{}
+		grants.Add(Grant{Scope: " 00000000-0000-0000-0000-0000000000A1 ", Constraint: s1})
+		grants.Add(Grant{Scope: s2, Constraint: s3, Impersonated: []string{s3, x, x}})
+		grants.Add(Grant{Scope: "{00000000-0000-0000-0000-0000000000a3}"})
+		grants.Add(Grant{Scope: "000000000000000000000000000000a3"})
+		grants.Add(Grant{Constraint: s1})
+		grants.Add(Grant{Scope: "staging"})
+		grants.Add(Grant{Scope: s1, Constraint: "staging"})
+		grants.Add(Grant{Scope: s1, Impersonated: []string{"staging"}})
+		grants.Add(Grant{})
+
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{
+			{Scope: s1},
+			{Scope: s2, Constraint: s3, Impersonated: []string{x}},
+			{Scope: s3},
+		}))
+		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
+	})
+
+	t.Run("impersonating adds every impersonated Scope to every grant", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		grants := &Grants{}
+		grants.Add(Grant{Scope: s1})
+		grants.Add(Grant{Scope: s2, Constraint: s3})
+		grants.Impersonate(x, y)
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{
+			{Scope: s1, Impersonated: []string{x, y}},
+			{Scope: s2, Constraint: s3, Impersonated: []string{x, y}},
+		}))
+
+		all := AllRows()
+		all.Impersonate(x, y)
+		g.Expect(all.All).To(gomega.BeFalse())
+		g.Expect(all.Any).To(gomega.Equal([]Grant{{Impersonated: []string{x, y}}}))
+
+		twice := &Grants{}
+		twice.Add(Grant{Scope: s1})
+		twice.Impersonate(x)
+		twice.Impersonate(y)
+		g.Expect(twice.Any).To(gomega.Equal([]Grant{{Scope: s1, Impersonated: []string{x, y}}}), "impersonating again narrows further")
+
+		none := NoRows()
+		none.Impersonate(x)
+		g.Expect(none.IsEmpty()).To(gomega.BeTrue())
+
+		nothing := AllRows()
+		nothing.Impersonate()
+		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "impersonating no Scope admits nothing")
+
+		invalid := AllRows()
+		invalid.Impersonate(x, "staging")
+		g.Expect(invalid.IsEmpty()).To(gomega.BeTrue(), "impersonating anything but Scope ids admits nothing")
+
+		var missing *Grants
+		g.Expect(func() { missing.Impersonate(x) }).ToNot(gomega.Panic())
+		g.Expect(missing.IsEmpty()).To(gomega.BeTrue())
+	})
+
+	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		var grants Grants
+		g.Expect(json.Unmarshal([]byte(`"some"`), &grants)).ToNot(gomega.Succeed())
+		g.Expect(json.Unmarshal([]byte(`{"tags":{}}`), &grants)).ToNot(gomega.Succeed())
+		g.Expect(json.Unmarshal([]byte(`[["`+s1+`"]]`), &grants)).ToNot(gomega.Succeed())
 	})
 }

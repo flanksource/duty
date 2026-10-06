@@ -36,16 +36,20 @@ func (s Scope) Fingerprint() string {
 }
 
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
+//
+// Each resource type carries the subject's grants on it (see Grants). A type without grants lists no rows.
 type Payload struct {
 	// cached fingerprint
 	fingerprint string
 
-	Config    []Scope `json:"config,omitempty"`
-	Component []Scope `json:"component,omitempty"`
-	Playbook  []Scope `json:"playbook,omitempty"`
-	Canary    []Scope `json:"canary,omitempty"`
-	Check     []Scope `json:"check,omitempty"`
-	View      []Scope `json:"view,omitempty"`
+	Config    *Grants `json:"config,omitempty"`
+	Component *Grants `json:"component,omitempty"`
+	Playbook  *Grants `json:"playbook,omitempty"`
+	Canary    *Grants `json:"canary,omitempty"`
+	Check     *Grants `json:"check,omitempty"`
+
+	// View filters views by their own fields. Views aren't covered by stored Scope membership.
+	View []Scope `json:"view,omitempty"`
 
 	// Scopes contains the list of scope UUIDs the user has access to.
 	// This is used for generated view tables only (for now).
@@ -53,6 +57,43 @@ type Payload struct {
 
 	Disable bool `json:"disable_rls,omitempty"`
 }
+
+// GrantsFor returns the grants of a resource type, e.g. "config". Nil when the type has none.
+func (t *Payload) GrantsFor(resourceType string) *Grants {
+	switch resourceType {
+	case "config":
+		return t.Config
+	case "component":
+		return t.Component
+	case "playbook":
+		return t.Playbook
+	case "canary":
+		return t.Canary
+	case "check":
+		return t.Check
+	}
+	return nil
+}
+
+// SetGrants sets the grants of a resource type, e.g. "config".
+func (t *Payload) SetGrants(resourceType string, grants *Grants) {
+	switch resourceType {
+	case "config":
+		t.Config = grants
+	case "component":
+		t.Component = grants
+	case "playbook":
+		t.Playbook = grants
+	case "canary":
+		t.Canary = grants
+	case "check":
+		t.Check = grants
+	}
+	t.fingerprint = ""
+}
+
+// GrantTypes are the resource types whose rows are filtered by grants.
+var GrantTypes = []string{"config", "component", "playbook", "canary", "check"}
 
 // Get the JWT claims that'll be passed on to PostgREST
 func (t Payload) JWTClaims() map[string]any {
@@ -62,24 +103,10 @@ func (t Payload) JWTClaims() map[string]any {
 		return claims
 	}
 
-	if len(t.Config) > 0 {
-		claims["config"] = t.Config
-	}
-
-	if len(t.Component) > 0 {
-		claims["component"] = t.Component
-	}
-
-	if len(t.Playbook) > 0 {
-		claims["playbook"] = t.Playbook
-	}
-
-	if len(t.Canary) > 0 {
-		claims["canary"] = t.Canary
-	}
-
-	if len(t.Check) > 0 {
-		claims["check"] = t.Check
+	for _, kind := range GrantTypes {
+		if grants := t.GrantsFor(kind); grants != nil {
+			claims[kind] = grants
+		}
 	}
 
 	if len(t.View) > 0 {
@@ -100,15 +127,15 @@ func (t *Payload) EvalFingerprint() {
 	}
 
 	parts := []string{}
-	// Scopes are prefixed with their table, so the same scope on different tables doesn't collide
-	for table, scopeArray := range map[string][]Scope{
-		"config": t.Config, "component": t.Component, "playbook": t.Playbook,
-		"canary": t.Canary, "check": t.Check, "view": t.View,
-	} {
-		for _, scope := range scopeArray {
-			if !scope.IsEmpty() {
-				parts = append(parts, table+":"+scope.Fingerprint())
-			}
+	for _, kind := range GrantTypes {
+		if grants := t.GrantsFor(kind); grants != nil {
+			parts = append(parts, kind+":"+grants.Fingerprint())
+		}
+	}
+
+	for _, scope := range t.View {
+		if !scope.IsEmpty() {
+			parts = append(parts, "view:"+scope.Fingerprint())
 		}
 	}
 

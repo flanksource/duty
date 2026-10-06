@@ -234,6 +234,19 @@ var _ = Describe("Scope membership", Ordered, func() {
 		Expect(members(scopeID)).To(ConsistOf(mtA.ID, mtx.ID))
 	})
 
+	It("fails a Scope's hard delete that can't take the lock instead of waiting for it", func() {
+		writer := DefaultContext.DB().Begin()
+		Expect(writer.Exec("SELECT pg_advisory_xact_lock_shared(hashtext('scope_membership'))").Error).To(Succeed())
+		DeferCleanup(func() { Expect(writer.Rollback().Error).To(Succeed()) })
+
+		err := DefaultContext.DB().Exec("DELETE FROM scopes WHERE id = ?", wholeScopeID).Error
+		Expect(err).To(MatchError(ContainSubstring("lock timeout")))
+
+		var count int64
+		Expect(DefaultContext.DB().Model(&models.Scope{}).Where("id = ?", wholeScopeID).Count(&count).Error).To(Succeed())
+		Expect(count).To(Equal(int64(1)))
+	})
+
 	It("refuses to rebuild from a version of the Scope that a newer save replaced", func() {
 		newer := types.JSON(`[{"config": {"name": "mt-a"}}]`)
 		Expect(DefaultContext.DB().Model(&models.Scope{}).Where("id = ?", scopeID).Update("targets", newer).Error).To(Succeed())

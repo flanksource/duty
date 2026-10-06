@@ -6,6 +6,7 @@ Usage: benchstat-summary.py [--threshold PCT] benchstat.txt
 
 Extracts significant regressions/improvements from benchstat output.
 Exit code 1 if any regression exceeds the threshold (default: 5%).
+Exit code 2 if there are no comparable base/head results.
 """
 
 import argparse
@@ -30,12 +31,12 @@ LINE_RE = re.compile(
     r"^(\S+)"  # benchmark name
     r"\s+"
     r"(\S+)"  # base value
-    r"\s+±\s+\d+%"  # base variance
+    r"\s+±\s+(?:\d+%|∞)"  # base variance
     r"\s+"
     r"(\S+)"  # head value
-    r"\s+±\s+\d+%"  # head variance
+    r"\s+±\s+(?:\d+%|∞)"  # head variance
     r"\s+"
-    r"([+-]\d+\.\d+)%"  # percentage change
+    r"([+-]\d+\.\d+%|~)"  # percentage change, or no significant change
     r"\s+"
     r"\(p=(\d+\.\d+)"  # p-value
 )
@@ -43,6 +44,7 @@ LINE_RE = re.compile(
 
 def parse_benchstat(path: str) -> list[Change]:
     changes = []
+    comparisons = 0
     with open(path) as f:
         for line in f:
             stripped = line.strip()
@@ -51,15 +53,20 @@ def parse_benchstat(path: str) -> list[Change]:
             m = LINE_RE.match(stripped)
             if not m:
                 continue
+            comparisons += 1
+            if m.group(4) == "~":
+                continue
             changes.append(
                 Change(
                     name=m.group(1),
                     base=m.group(2),
                     head=m.group(3),
-                    pct=float(m.group(4)),
+                    pct=float(m.group(4).removesuffix("%")),
                     pval=m.group(5),
                 )
             )
+    if comparisons == 0:
+        raise ValueError("No comparable base/head benchmark results were found.")
     return changes
 
 
@@ -119,7 +126,11 @@ def main():
     )
     args = parser.parse_args()
 
-    changes = parse_benchstat(args.input)
+    try:
+        changes = parse_benchstat(args.input)
+    except ValueError as err:
+        print(f"### ❌ Benchmark comparison unavailable\n\n{err}")
+        sys.exit(2)
     summary = render_markdown(changes, args.threshold)
     print(summary)
 

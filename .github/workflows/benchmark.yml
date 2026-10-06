@@ -89,6 +89,7 @@ jobs:
           # the same benchmark suite — only the implementation under test differs.
           rm -rf .bench/base/bench && cp -r bench/ .bench/base/bench/
       - name: Benchmark base
+        shell: bash
         run: |
           cd .bench/base
 
@@ -98,6 +99,7 @@ jobs:
             go test ${{ matrix.bench_args }} -count=6 -timeout 20m \
             github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
       - name: Benchmark head
+        shell: bash
         run: |
           # benchstat recommends at least 10 runs to gather a statistically significant sample.
           # We use -count=6 because -count=10 is extremely slow on github actions.
