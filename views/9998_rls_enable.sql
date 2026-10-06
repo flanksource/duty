@@ -478,8 +478,3 @@ ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
-
--- Old policies must be replaced before their helpers can be removed.
-DROP FUNCTION IF EXISTS rls_grants_admit(text, uuid);
-DROP FUNCTION IF EXISTS rls_admitted_ids(text);
-DROP FUNCTION IF EXISTS rls_admits_all(text);
