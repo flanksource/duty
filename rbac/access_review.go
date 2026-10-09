@@ -225,7 +225,11 @@ func RunSubjectAccessSearch(ctx context.Context, req SubjectAccessSearchRequest)
 	}, nil
 }
 
+// RunSubjectAccessReview checks what each subject may do on the resource, by the subject's own access alone:
+// the requester's Scope limits (LimitToScopes) don't apply to it.
 func RunSubjectAccessReview(ctx context.Context, req SubjectAccessReviewRequest) ([]SubjectAccessReviewResult, error) {
+	ctx = withoutScopeLimits(ctx)
+
 	subjects, err := resolveAccessReviewSubjects(ctx, req.Subjects)
 	if err != nil {
 		return nil, err

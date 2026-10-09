@@ -130,43 +130,50 @@ func TestGrants(t *testing.T) {
 		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
 	})
 
-	t.Run("impersonating adds every impersonated Scope to every grant", func(t *testing.T) {
+	t.Run("limiting to Scopes keeps the rows in any one of them", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
 		grants.Add(Grant{Scope: s1})
 		grants.Add(Grant{Scope: s2, Constraint: s3})
-		grants.Impersonate(x, y)
-		g.Expect(grants.Any).To(gomega.Equal([]Grant{
-			{Scope: s1, Impersonated: []string{x, y}},
-			{Scope: s2, Constraint: s3, Impersonated: []string{x, y}},
-		}))
+		grants.Limit(x, y)
+		g.Expect(grants.Any).To(gomega.ConsistOf(
+			Grant{Scope: s1, Impersonated: []string{x}},
+			Grant{Scope: s1, Impersonated: []string{y}},
+			Grant{Scope: s2, Constraint: s3, Impersonated: []string{x}},
+			Grant{Scope: s2, Constraint: s3, Impersonated: []string{y}},
+		))
 
 		all := AllRows()
-		all.Impersonate(x, y)
+		all.Limit(x, y)
 		g.Expect(all.All).To(gomega.BeFalse())
-		g.Expect(all.Any).To(gomega.Equal([]Grant{{Impersonated: []string{x, y}}}))
+		g.Expect(all.Any).To(gomega.ConsistOf(Grant{Impersonated: []string{x}}, Grant{Impersonated: []string{y}}))
 
 		twice := &Grants{}
 		twice.Add(Grant{Scope: s1})
-		twice.Impersonate(x)
-		twice.Impersonate(y)
-		g.Expect(twice.Any).To(gomega.Equal([]Grant{{Scope: s1, Impersonated: []string{x, y}}}), "impersonating again narrows further")
+		twice.Limit(x)
+		twice.Limit(y)
+		g.Expect(twice.Any).To(gomega.Equal([]Grant{{Scope: s1, Impersonated: []string{x, y}}}), "limiting again narrows further")
+
+		own := &Grants{}
+		own.Add(Grant{Scope: s1})
+		own.Limit(s1)
+		g.Expect(own.Any).To(gomega.Equal([]Grant{{Scope: s1}}), "a limit to the grant's own Scope changes nothing")
 
 		none := NoRows()
-		none.Impersonate(x)
+		none.Limit(x)
 		g.Expect(none.IsEmpty()).To(gomega.BeTrue())
 
 		nothing := AllRows()
-		nothing.Impersonate()
-		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "impersonating no Scope admits nothing")
+		nothing.Limit()
+		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "a limit naming no Scope admits nothing")
 
 		invalid := AllRows()
-		invalid.Impersonate(x, "staging")
-		g.Expect(invalid.IsEmpty()).To(gomega.BeTrue(), "impersonating anything but Scope ids admits nothing")
+		invalid.Limit(x, "staging")
+		g.Expect(invalid.IsEmpty()).To(gomega.BeTrue(), "a limit naming anything but Scope ids admits nothing")
 
 		var missing *Grants
-		g.Expect(func() { missing.Impersonate(x) }).ToNot(gomega.Panic())
+		g.Expect(func() { missing.Limit(x) }).ToNot(gomega.Panic())
 		g.Expect(missing.IsEmpty()).To(gomega.BeTrue())
 	})
 
