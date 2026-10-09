@@ -71,6 +71,17 @@ func TestScopeLimits(t *testing.T) {
 		g.Expect(withinScopeLimits(ctx, withMembership(ctx, &models.ABACAttribute{Config: otherCfg}, policy.ActionRead))).To(BeTrue())
 	})
 
+	t.Run("a context without the limits isn't limited", func(t *testing.T) {
+		g := NewWithT(t)
+		limited := LimitToScopes(ctx, []string{staging.String()})
+		cleared := withoutScopeLimits(limited)
+		g.Expect(ScopeLimits(cleared)).To(BeNil())
+		g.Expect(withinScopeLimits(cleared, withMembership(cleared, &models.ABACAttribute{Config: productionCfg}, policy.ActionRead))).To(BeTrue())
+		g.Expect(ScopeLimits(limited)).To(HaveLen(1), "the limited context isn't changed")
+
+		g.Expect(ScopeLimits(LimitToScopes(cleared, []string{production.String()}))).To(Equal([][]string{{production.String()}}))
+	})
+
 	t.Run("a resource whose membership couldn't be read is refused", func(t *testing.T) {
 		g := NewWithT(t)
 		limited := LimitToScopes(context.New(), []string{staging.String()})

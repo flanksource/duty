@@ -27,6 +27,15 @@ func ScopeLimits(ctx context.Context) [][]string {
 	return limits
 }
 
+// withoutScopeLimits returns a context whose resource checks aren't limited, e.g. to check what another subject
+// may do: a requester's limit is about the requester's request, not about other subjects' access.
+func withoutScopeLimits(ctx context.Context) context.Context {
+	if ScopeLimits(ctx) == nil {
+		return ctx
+	}
+	return ctx.WithValue(scopeLimitsKey{}, nil)
+}
+
 // withinScopeLimits reports whether every resource of the request, with its Membership filled in, is in at least
 // one Scope of each of the context's limits. Resources whose membership isn't stored, e.g. views, aren't limited,
 // as their listings aren't.
