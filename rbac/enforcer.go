@@ -238,6 +238,11 @@ func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribu
 
 	attr = withMembership(ctx, attr, action)
 
+	if !withinScopeLimits(ctx, attr) {
+		ctx.Debugf("[%s] attr=%#v action=%s -> false (outside the request's scope limits)", subject, lo.FromPtr(attr), action)
+		return false
+	}
+
 	if ctx.Properties().On(false, "casbin.explain") {
 		allowed, rules, err := enforcer.EnforceEx(subject, attr, action)
 		if err != nil {

@@ -102,20 +102,8 @@ func withMembership(ctx context.Context, attr *models.ABACAttribute, action stri
 
 	m := &out.Membership
 	for _, r := range resources {
-		scopes := scopesOf(r)
-		switch r.kind {
-		case policy.ResourceConfig:
-			m.Config = scopes
-		case policy.ResourceComponent:
-			m.Component = scopes
-		case policy.ResourceCheck:
-			m.Check = scopes
-		case policy.ResourceCanary:
-			m.Canary = scopes
-		case policy.ResourcePlaybook:
-			m.Playbook = scopes
-		case policy.ResourceConnection:
-			m.Connection = scopes
+		if field := membershipOf(m, r.kind); field != nil {
+			*field = scopesOf(r)
 		}
 	}
 
@@ -150,6 +138,26 @@ func withMembership(ctx context.Context, attr *models.ABACAttribute, action stri
 	}
 
 	return &out
+}
+
+// membershipOf returns the list of a request's Membership that holds the Scopes of its resource of the type,
+// or nil for a type whose membership isn't stored.
+func membershipOf(m *models.ABACMembership, kind string) *[]any {
+	switch kind {
+	case policy.ResourceConfig:
+		return &m.Config
+	case policy.ResourceComponent:
+		return &m.Component
+	case policy.ResourceCheck:
+		return &m.Check
+	case policy.ResourceCanary:
+		return &m.Canary
+	case policy.ResourcePlaybook:
+		return &m.Playbook
+	case policy.ResourceConnection:
+		return &m.Connection
+	}
+	return nil
 }
 
 // RuleCondition returns the Casbin condition of a Role rule, over the request's Membership.
