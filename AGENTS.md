@@ -49,8 +49,6 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 ### Adding RLS to a table
 
-RLS is always enabled; there is no switch to turn it off. A request skips it only through the `disable_rls` claim (`rls.Payload.Disable`).
-
 1. Add RLS enable logic to `@views/9998_rls_enable.sql`. It runs on every migration, so keep it idempotent and don't take locks on tables that are already set up.
    - Enable RLS on the table
    - Create the policy: inherited with `EXISTS` for a child table. A new resource type with its own grants also needs Scope membership for the type (`_scope_resource_columns` and the triggers in `views/051_scope_membership.sql`, and `membership.Supported`) before it can use `rls_matching_grants`.
