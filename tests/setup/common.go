@@ -39,8 +39,7 @@ import (
 )
 
 const (
-	DUTY_DB_CREATE      = "DUTY_DB_CREATE"
-	DUTY_DB_DISABLE_RLS = "DUTY_DB_DISABLE_RLS"
+	DUTY_DB_CREATE = "DUTY_DB_CREATE"
 )
 
 // Env vars for embedded db
@@ -102,13 +101,11 @@ func MustDB() *sql.DB {
 	return db
 }
 
-var WithoutRLS = "rls_disabled"
 var WithoutDummyData = "without_dummy_data"
 var WithExistingDatabase = "with_existing_database"
 
 var (
 	recreateDatabase = os.Getenv(DUTY_DB_CREATE) != "false"
-	disableRLS       = os.Getenv(DUTY_DB_DISABLE_RLS) == "true"
 )
 
 func findFileInPath(filename string, depth int) string {
@@ -157,13 +154,6 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		if arg == WithExistingDatabase {
 			recreateDatabase = false
 		}
-		if arg == WithoutRLS {
-			disableRLS = true
-		}
-	}
-
-	if !disableRLS {
-		dbOptions = append(dbOptions, duty.EnableRLS)
 	}
 
 	var port int
@@ -282,10 +272,6 @@ func NewDB(ctx context.Context, name string) (*context.Context, func(), error) {
 	config := api.NewConfig(strings.ReplaceAll(pgUrl, pgDbName, newName))
 
 	dbConfig := duty.RunMigrations(config)
-	if !disableRLS {
-		dbConfig = duty.EnableRLS(dbConfig)
-	}
-
 	newCtx, err := duty.InitDB(dbConfig)
 	if err != nil {
 		return nil, nil, err

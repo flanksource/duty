@@ -99,7 +99,6 @@ jobs:
           make ginkgo
           ginkgo -r tests/e2e/
         env:
-          DUTY_DB_DISABLE_RLS: "true"
           LOKI_URL: http://localhost:3100
 
   e2e-blobs:
@@ -123,8 +122,6 @@ jobs:
             cache-
       - name: E2E Blob Store Tests
         run: make test-e2e-blobs
-        env:
-          DUTY_DB_DISABLE_RLS: "true"
 
   migrate:
     runs-on: ubuntu-latest

@@ -105,18 +105,11 @@ var _ = ginkgo.Describe("Notification recovery migration and health markers", fu
 		})
 	}
 
-	ginkgo.It("protects internal tables and helpers through repeated enabled and disabled RLS migrations", func() {
+	ginkgo.It("protects internal tables and helpers through repeated migrations", func() {
 		pool, err := DefaultContext.DB().DB()
 		Expect(err).NotTo(HaveOccurred())
-		var initiallyEnabled bool
-		Expect(pool.QueryRow("SELECT relrowsecurity FROM pg_class WHERE oid = 'public.config_items'::regclass").Scan(&initiallyEnabled)).To(Succeed())
 		cfg := api.Config{ConnectionString: DefaultContext.Value("db_url").(string), Postgrest: api.PostgrestConfig{DBRole: "postgrest_api", AnonDBRole: "postgrest_anon"}}
-		ginkgo.DeferCleanup(func() {
-			cfg.EnableRLS, cfg.DisableRLS = initiallyEnabled, !initiallyEnabled
-			Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
-		})
-		for _, enabled := range []bool{true, false, false, true, true} {
-			cfg.EnableRLS, cfg.DisableRLS = enabled, !enabled
+		for range 3 {
 			Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
 			tx := DefaultContext.DB().Begin()
 			configID, componentID, checkID := uuid.New(), dummy.Logistics.ID, uuid.UUID(dummy.LogisticsAPIHealthHTTPCheck.ID)

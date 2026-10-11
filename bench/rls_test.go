@@ -75,7 +75,7 @@ func benchSizes() []int {
 
 func BenchmarkRLS(b *testing.B) {
 	for _, size := range benchSizes() {
-		resetPG(b, false)
+		resetPG(b)
 		_, err := setupConfigsForSize(testCtx, size)
 		if err != nil {
 			b.Fatalf("failed to setup configs for size %d: %v", size, err)
@@ -129,7 +129,7 @@ func tagPayloads(b *testing.B) []pkgRLS.Payload {
 func runBenchmark(b *testing.B, config DistinctBenchConfig, payloads []pkgRLS.Payload) {
 	b.Run(config.relation, func(b *testing.B) {
 		for _, rls := range []bool{false, true} {
-			resetPG(b, rls)
+			resetPG(b)
 			name := "Without RLS"
 			if rls {
 				name = "With RLS"
@@ -153,7 +153,7 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig, payloads []pkgRLS.Pa
 			// 			}
 			// 		}
 			// 	})
-			// 	resetPG(b, rls)
+			// 	resetPG(b)
 			// }
 
 			b.Run(name, func(b *testing.B) {
@@ -186,7 +186,7 @@ func runBenchmark(b *testing.B, config DistinctBenchConfig, payloads []pkgRLS.Pa
 // runRLSQueries measures both full scans and selective reads: enumerating a Scope can help one and hurt the other.
 func runRLSQueries(b *testing.B, payload pkgRLS.Payload, tags map[string]string) {
 	b.Run("queries", func(b *testing.B) {
-		resetPG(b, false)
+		resetPG(b)
 		g := gomega.NewWithT(b)
 		tagJSON, err := json.Marshal(tags)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -211,7 +211,7 @@ func runRLSQueries(b *testing.B, payload pkgRLS.Payload, tags map[string]string)
 		g.Expect(deniedID).NotTo(gomega.Equal(uuid.Nil))
 
 		for _, rls := range []bool{false, true} {
-			resetPG(b, rls)
+			resetPG(b)
 			name := "Without RLS"
 			visibleCount, deniedCount := int64(len(configs)), int64(1)
 			if rls {

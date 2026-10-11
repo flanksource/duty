@@ -48,7 +48,6 @@ indirection:
 | `OTEL_LABELS` | Comma-separated OpenTelemetry resource labels, `key=value,key2=value2`. |
 | `POD_NAMESPACE` | Kubernetes namespace used by leader election. |
 | `MC_HOSTNAME_OVERRIDE` | Hostname override used by leader election. |
-| `DUTY_DB_DISABLE_RLS` | Used by tests and `hack/migrate`; disables RLS when set to `true`. |
 | `DUTY_DB_URL`, `DUTY_DB_CREATE`, `DUTY_DB_DATA_DIR` | Test database setup only. |
 | `DUTY_BENCH_SIZES` | Benchmark size list only. |
 | `KUBECONFIG` | Kubernetes config path used by the Kubernetes client. |

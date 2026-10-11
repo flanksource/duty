@@ -24,7 +24,7 @@ const (
 
 func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 	b.Run("external_users.aliases", func(b *testing.B) {
-		resetPG(b, false)
+		resetPG(b)
 		cleanupExternalUserBenchRows(b)
 		scraperID := ensureBenchScraper(b)
 
@@ -47,7 +47,7 @@ func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 	})
 
 	b.Run("config_items.external_id", func(b *testing.B) {
-		resetPG(b, false)
+		resetPG(b)
 		cleanupConfigItemBenchRows(b)
 		configType := benchAliasConfigType
 
@@ -71,7 +71,7 @@ func BenchmarkInsertionForRowsWithAliases(b *testing.B) {
 }
 
 func BenchmarkInsertionOfConfigsWithProperties(b *testing.B) {
-	resetPG(b, false)
+	resetPG(b)
 	cleanupConfigItemBenchRows(b)
 	configType := benchPropertyConfigType
 	propertyPayload := strings.Repeat("x", benchPropertyPayloadLength)
@@ -96,7 +96,7 @@ func BenchmarkInsertionOfConfigsWithProperties(b *testing.B) {
 }
 
 func BenchmarkUpdateOfConfigsWithProperties(b *testing.B) {
-	resetPG(b, false)
+	resetPG(b)
 	cleanupConfigItemBenchRows(b)
 	configType := benchPropertyUpdateType
 	insertPayload := strings.Repeat("x", benchPropertyPayloadLength)

@@ -1,3 +1,6 @@
+-- runs: always
+-- Runs on every migration so that RLS is enabled even on databases that last migrated with RLS disabled.
+
 -- Generic function to match a row against an array of scopes
 -- Returns TRUE if the row matches ANY allow scope and no matching deny scope.
 -- Within a scope, ALL non-empty fields must match (AND logic within scope).
