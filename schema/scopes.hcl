@@ -13,7 +13,7 @@ table "scopes" {
   }
 
   column "namespace" {
-    null = true
+    null = false
     type = text
   }
 
