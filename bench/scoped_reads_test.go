@@ -73,9 +73,9 @@ func benchSizes() []int {
 	return sizes
 }
 
-func BenchmarkRLS(b *testing.B) {
+func BenchmarkScopedReads(b *testing.B) {
 	for _, size := range benchSizes() {
-		resetPG(b, false)
+		resetPG(b)
 		_, err := setupConfigsForSize(testCtx, size)
 		if err != nil {
 			b.Fatalf("failed to setup configs for size %d: %v", size, err)
@@ -86,7 +86,7 @@ func BenchmarkRLS(b *testing.B) {
 			for _, config := range benchConfigs {
 				runBenchmark(b, config, payloads)
 			}
-			runRLSQueries(b, payloads[0], sampleTags[0])
+			runScopedQueries(b, payloads[0], sampleTags[0])
 		})
 	}
 }
@@ -127,66 +127,33 @@ func tagPayloads(b *testing.B) []pkgRLS.Payload {
 }
 
 func runBenchmark(b *testing.B, config DistinctBenchConfig, payloads []pkgRLS.Payload) {
+	resetPG(b)
 	b.Run(config.relation, func(b *testing.B) {
-		for _, rls := range []bool{false, true} {
-			resetPG(b, rls)
-			name := "Without RLS"
-			if rls {
-				name = "With RLS"
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			payload := payloads[i%len(payloads)]
+			if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
+				b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
 			}
 
-			// Testing out the performance when the RLS payload is also used as a WHERE clause
-			// if rls && lo.Contains(viewsWithTags, config.relation) {
-			// 	b.Run(name+"-With-Clause", func(b *testing.B) {
-			// 		for i := 0; i < b.N; i++ {
-			// 			b.StopTimer()
-			// 			payload := pkgRLS.Payload{Tags: []map[string]string{sampleTags[i%len(sampleTags)]}}
-			// 			if err := payload.SetPostgresSessionRLS(testCtx.DB(), false); err != nil {
-			// 				b.Fatalf("failed to setup rls payload(%v): %v", payload, err)
-			// 			}
-			// 			b.StartTimer()
+			if err := verifyRLSPayload(testCtx); err != nil {
+				b.Fatalf("rls payload wasn't setup: %v", err)
+			}
+			b.StartTimer()
 
-			// 			if result, err := fetchView(testCtx, config.relation, config.column, payload.Tags[0]); err != nil {
-			// 				b.Fatalf("%v", err)
-			// 			} else if result == 0 {
-			// 				b.Fatalf("payload [%#v] got 0 results", payload)
-			// 			}
-			// 		}
-			// 	})
-			// 	resetPG(b, rls)
-			// }
-
-			b.Run(name, func(b *testing.B) {
-				for i := 0; i < b.N; i++ {
-					var payload pkgRLS.Payload
-					if rls {
-						b.StopTimer()
-						payload = payloads[i%len(payloads)]
-						if err := payload.SetGlobalPostgresSessionRLS(testCtx.DB()); err != nil {
-							b.Fatalf("failed to setup rls payload with tag(%v): %v", payload, err)
-						}
-
-						if err := verifyRLSPayload(testCtx); err != nil {
-							b.Fatalf("rls payload wasn't setup: %v", err)
-						}
-						b.StartTimer()
-					}
-
-					if result, err := fetchView(testCtx, config.relation, config.column, nil); err != nil {
-						b.Fatalf("%v", err)
-					} else if result == 0 {
-						b.Fatalf("payload [%#v] got 0 results which doesn't seem right", payload)
-					}
-				}
-			})
+			if result, err := fetchView(testCtx, config.relation, config.column, nil); err != nil {
+				b.Fatalf("%v", err)
+			} else if result == 0 {
+				b.Fatalf("payload [%#v] got 0 results which doesn't seem right", payload)
+			}
 		}
 	})
 }
 
-// runRLSQueries measures both full scans and selective reads: enumerating a Scope can help one and hurt the other.
-func runRLSQueries(b *testing.B, payload pkgRLS.Payload, tags map[string]string) {
+// runScopedQueries measures both full scans and selective reads: enumerating a Scope can help one and hurt the other.
+func runScopedQueries(b *testing.B, payload pkgRLS.Payload, tags map[string]string) {
 	b.Run("queries", func(b *testing.B) {
-		resetPG(b, false)
+		resetPG(b)
 		g := gomega.NewWithT(b)
 		tagJSON, err := json.Marshal(tags)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -210,38 +177,28 @@ func runRLSQueries(b *testing.B, payload pkgRLS.Payload, tags map[string]string)
 		g.Expect(allowedID).NotTo(gomega.Equal(uuid.Nil))
 		g.Expect(deniedID).NotTo(gomega.Equal(uuid.Nil))
 
-		for _, rls := range []bool{false, true} {
-			resetPG(b, rls)
-			name := "Without RLS"
-			visibleCount, deniedCount := int64(len(configs)), int64(1)
-			if rls {
-				name = "With RLS"
-				visibleCount, deniedCount = allowedCount, 0
-				g.Expect(payload.SetGlobalPostgresSessionRLS(testCtx.DB())).To(gomega.Succeed())
-				g.Expect(verifyRLSPayload(testCtx)).To(gomega.Succeed())
-			}
+		resetPG(b)
+		g.Expect(payload.SetGlobalPostgresSessionRLS(testCtx.DB())).To(gomega.Succeed())
+		g.Expect(verifyRLSPayload(testCtx)).To(gomega.Succeed())
 
-			b.Run(name, func(b *testing.B) {
-				for _, query := range []struct {
-					name string
-					sql  string
-					args []any
-					rows int64
-				}{
-					{"Count", "SELECT count(*) FROM config_items", nil, visibleCount},
-					{"PointAllowed", "SELECT count(*) FROM config_items WHERE id = ?", []any{allowedID}, 1},
-					{"PointDenied", "SELECT count(*) FROM config_items WHERE id = ?", []any{deniedID}, deniedCount},
-					{"Page50", "SELECT count(*) FROM (SELECT id FROM config_items ORDER BY id LIMIT 50) AS page", nil, min(50, visibleCount)},
-				} {
-					b.Run(query.name, func(b *testing.B) {
-						g := gomega.NewWithT(b)
-						b.ResetTimer()
-						for i := 0; i < b.N; i++ {
-							var count int64
-							g.Expect(testCtx.DB().Raw(query.sql, query.args...).Scan(&count).Error).To(gomega.Succeed())
-							g.Expect(count).To(gomega.Equal(query.rows))
-						}
-					})
+		for _, query := range []struct {
+			name string
+			sql  string
+			args []any
+			rows int64
+		}{
+			{"Count", "SELECT count(*) FROM config_items", nil, allowedCount},
+			{"PointAllowed", "SELECT count(*) FROM config_items WHERE id = ?", []any{allowedID}, 1},
+			{"PointDenied", "SELECT count(*) FROM config_items WHERE id = ?", []any{deniedID}, 0},
+			{"Page50", "SELECT count(*) FROM (SELECT id FROM config_items ORDER BY id LIMIT 50) AS page", nil, min(50, allowedCount)},
+		} {
+			b.Run(query.name, func(b *testing.B) {
+				g := gomega.NewWithT(b)
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					var count int64
+					g.Expect(testCtx.DB().Raw(query.sql, query.args...).Scan(&count).Error).To(gomega.Succeed())
+					g.Expect(count).To(gomega.Equal(query.rows))
 				}
 			})
 		}

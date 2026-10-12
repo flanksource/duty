@@ -14,7 +14,7 @@ import (
 const resourceSelectorBenchSize = 200_000
 
 func BenchmarkResourceSelectorConfigs(b *testing.B) {
-	resetPG(b, false)
+	resetPG(b)
 	if err := seedResourceSelectorConfigItems(testCtx, resourceSelectorBenchSize); err != nil {
 		b.Fatalf("failed to setup configs: %v", err)
 	}

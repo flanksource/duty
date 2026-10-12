@@ -102,10 +102,6 @@ func SetupTemplate(opts SetupOpts) []byte {
 	}
 
 	dbOptions := []duty.StartOption{duty.DisablePostgrest, duty.RunMigrations, duty.WithUrl(templateURL)}
-	if !disableRLS {
-		dbOptions = append(dbOptions, duty.EnableRLS)
-	}
-
 	ctx, stop, err := duty.Start(templateDB, dbOptions...)
 	if err != nil {
 		panic(fmt.Sprintf("failed to start duty for template: %v", err))

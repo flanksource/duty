@@ -37,7 +37,7 @@ tasks:
     desc: |
       Mirrors the benchmark workflow in .github/workflows/benchmark.yml.
       Compares the current working tree against a base revision, runs both
-      `Other` and `RLS` benchmark suites, generates benchstat output +
+      `Other` and `Scoped reads` benchmark suites, generates benchstat output +
       summaries under .bench/results/, and fails if regressions exceed the
       threshold. Defaults:
         BASE_REF=$(git merge-base HEAD origin/main)
@@ -124,5 +124,5 @@ tasks:
           echo
         }
 
-        run_suite other "-bench=. -skip=BenchmarkRLS"
-        run_suite rls "-bench=BenchmarkRLS"
+        run_suite other "-bench=. -skip=BenchmarkScopedReads"
+        run_suite scoped-reads "-bench=BenchmarkScopedReads"

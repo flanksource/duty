@@ -3,7 +3,6 @@ package tests
 import (
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -105,10 +104,6 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 	}
 
 	BeforeAll(func() {
-		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
-			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
-		}
-
 		awsScope = buildScope("aws", target(policy.ResourceConfig, types.ResourceSelector{TagSelector: "cluster=aws"}))
 		demoScope = buildScope("demo", target(policy.ResourceConfig, types.ResourceSelector{TagSelector: "cluster=demo"}))
 		localAgentScope = buildScope("local-agent", target(policy.ResourceConfig, types.ResourceSelector{Agent: uuid.Nil.String()}))
@@ -138,7 +133,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(DefaultContext.DB().Exec("DELETE FROM migration_logs").Error).To(BeNil())
 
 			connString := DefaultContext.Value("db_url").(string)
-			err = migrate.RunMigrations(sqldb, api.Config{ConnectionString: connString, EnableRLS: true})
+			err = migrate.RunMigrations(sqldb, api.Config{ConnectionString: connString})
 			Expect(err).To(BeNil())
 
 			tx = DefaultContext.DB().Begin()

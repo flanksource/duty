@@ -229,18 +229,12 @@ func setupConfigsForSize(ctx context.Context, size int) ([]uuid.UUID, error) {
 	return configIDs, nil
 }
 
-func resetPG(b *testing.B, rlsEnable bool) {
+func resetPG(b *testing.B) {
 	if err := setup.RestartEmbeddedPG(); err != nil {
 		b.Fatalf("failed to restart embedded pg")
 	}
 
-	if rlsEnable {
-		if err := duty.Migrate(duty.EnableRLS(duty.RunMigrations(api.NewConfig(connUrl)))); err != nil {
-			b.Fatalf("failed to enable rls: %v", err)
-		}
-	} else {
-		if err := duty.Migrate(duty.RunMigrations(api.NewConfig(connUrl))); err != nil {
-			b.Fatalf("failed to enable rls: %v", err)
-		}
+	if err := duty.Migrate(duty.RunMigrations(api.NewConfig(connUrl))); err != nil {
+		b.Fatalf("failed to run migrations: %v", err)
 	}
 }

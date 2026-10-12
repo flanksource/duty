@@ -10,17 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	disableRLS = os.Getenv("DUTY_DB_DISABLE_RLS") == "true"
-	connection string
-)
+var connection string
 
 var migrate = &cobra.Command{
 	Use: "migrate",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return duty.Migrate(api.Config{
 			ConnectionString: connection,
-			EnableRLS:        !disableRLS,
 			Postgrest:        api.DefaultConfig.Postgrest,
 		})
 	},

@@ -131,11 +131,10 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 	return nil
 }
 
-// ensureViewRLSPolicy reconciles the RLS state of a dynamically generated view table
-// to match the current configuration (api.DefaultConfig.DisableRLS).
+// ensureViewRLSPolicy enables RLS and the grants policy on a dynamically generated view table.
 //
 // RLS for these tables is managed here in application code rather than in the SQL
-// migration scripts (9998_rls_enable.sql / 9999_rls_disable.sql) because the set of
+// migration script (9998_rls_enable.sql) because the set of
 // generated view tables is dynamic — they are created at runtime by CreateViewTable
 // and are not known at migration time.
 //
@@ -145,7 +144,6 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 // actual state diverges from the desired state.
 func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 	quotedTable := pq.QuoteIdentifier(tableName)
-	wantRLS := !api.DefaultConfig.DisableRLS
 
 	var hasRLS bool
 	if err := ctx.DB().Raw(`
@@ -167,23 +165,7 @@ func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 		return fmt.Errorf("failed to check RLS policy: %w", err)
 	}
 
-	if hasRLS == wantRLS && hasPolicy == wantRLS {
-		return nil
-	}
-
-	if !wantRLS {
-		if hasPolicy {
-			if err := ctx.DB().Exec("DROP POLICY IF EXISTS view_grants_policy ON " + quotedTable).Error; err != nil {
-				return fmt.Errorf("failed to drop RLS policy: %w", err)
-			}
-		}
-
-		if hasRLS {
-			if err := ctx.DB().Exec("ALTER TABLE " + quotedTable + " DISABLE ROW LEVEL SECURITY").Error; err != nil {
-				return fmt.Errorf("failed to disable RLS: %w", err)
-			}
-		}
-
+	if hasRLS && hasPolicy {
 		return nil
 	}
 

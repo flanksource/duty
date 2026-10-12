@@ -169,13 +169,7 @@ var _ = ginkgo.Describe("Notification recovery SQL performance", func() {
 		tables := []string{"notification_health_states", "notification_health_episodes", "notification_deliveries"}
 		pool, err := DefaultContext.DB().DB()
 		Expect(err).NotTo(HaveOccurred())
-		var initiallyEnabled bool
-		Expect(pool.QueryRow("SELECT relrowsecurity FROM pg_class WHERE oid = 'public.config_items'::regclass").Scan(&initiallyEnabled)).To(Succeed())
-		cfg := api.Config{ConnectionString: DefaultContext.Value("db_url").(string), EnableRLS: true, Postgrest: api.PostgrestConfig{DBRole: "postgrest_api", AnonDBRole: "postgrest_anon"}}
-		ginkgo.DeferCleanup(func() {
-			cfg.EnableRLS, cfg.DisableRLS = initiallyEnabled, !initiallyEnabled
-			Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
-		})
+		cfg := api.Config{ConnectionString: DefaultContext.Value("db_url").(string), Postgrest: api.PostgrestConfig{DBRole: "postgrest_api", AnonDBRole: "postgrest_anon"}}
 		Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
 		for _, enabled := range []bool{false, true, true} {
 			tx := DefaultContext.DB().Begin()

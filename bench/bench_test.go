@@ -30,7 +30,6 @@ func setupTestDB(dbPath string) error {
 	var err error
 	testCtx, err = setup.SetupDB("test",
 		setup.WithoutDummyData, // we generate the dummy data
-		setup.WithoutRLS,       // start without RLS
 	)
 	if err != nil {
 		return fmt.Errorf("failed to setup db: %v", err)

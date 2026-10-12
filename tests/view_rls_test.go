@@ -1,12 +1,9 @@
 package tests
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/view"
 )
 
@@ -18,18 +15,11 @@ var _ = Describe("View table RLS", Ordered, Serial, func() {
 		{Name: "name", Type: view.ColumnTypeString},
 	}
 
-	BeforeAll(func() {
-		if os.Getenv("DUTY_DB_DISABLE_RLS") == "true" {
-			Skip("RLS tests are disabled because DUTY_DB_DISABLE_RLS is set to true")
-		}
-	})
-
 	AfterAll(func() {
 		DefaultContext.DB().Exec("DROP TABLE IF EXISTS " + tableName)
 	})
 
 	It("should enable RLS on new view tables", func() {
-		api.DefaultConfig.DisableRLS = false
 		err := view.CreateViewTable(DefaultContext, tableName, columns)
 		Expect(err).To(BeNil())
 
@@ -37,17 +27,10 @@ var _ = Describe("View table RLS", Ordered, Serial, func() {
 		Expect(viewTableHasGrantsPolicy(tableName)).To(BeTrue())
 	})
 
-	It("should disable RLS when config changes without schema changes", func() {
-		api.DefaultConfig.DisableRLS = true
-		err := view.CreateViewTable(DefaultContext, tableName, columns)
-		Expect(err).To(BeNil())
+	It("should re-enable RLS on a view table that has it disabled", func() {
+		Expect(DefaultContext.DB().Exec("DROP POLICY view_grants_policy ON " + tableName).Error).To(Succeed())
+		Expect(DefaultContext.DB().Exec("ALTER TABLE " + tableName + " DISABLE ROW LEVEL SECURITY").Error).To(Succeed())
 
-		Expect(viewTableHasRLS(tableName)).To(BeFalse())
-		Expect(viewTableHasGrantsPolicy(tableName)).To(BeFalse())
-	})
-
-	It("should re-enable RLS when config changes back", func() {
-		api.DefaultConfig.DisableRLS = false
 		err := view.CreateViewTable(DefaultContext, tableName, columns)
 		Expect(err).To(BeNil())
 

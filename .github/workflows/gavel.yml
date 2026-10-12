@@ -26,7 +26,6 @@ jobs:
     env:
       DUTY_DB_URL: postgres://postgres:password@localhost:5432/test?sslmode=disable
       DUTY_DB_CREATE: "false"
-      DUTY_DB_DISABLE_RLS: "false"
     steps:
       - name: Install deps
         uses: flanksource/deps@1e2d3aa46edc0971b3b3a15e3fb35ed252304aeb # v1.0.35
