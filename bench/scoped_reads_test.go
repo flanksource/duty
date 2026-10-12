@@ -127,8 +127,8 @@ func tagPayloads(b *testing.B) []pkgRLS.Payload {
 }
 
 func runBenchmark(b *testing.B, config DistinctBenchConfig, payloads []pkgRLS.Payload) {
+	resetPG(b)
 	b.Run(config.relation, func(b *testing.B) {
-		resetPG(b)
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
 			payload := payloads[i%len(payloads)]

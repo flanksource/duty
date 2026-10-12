@@ -187,7 +187,7 @@ test-migrate:
 # test-bench: delegates to the `test:bench` Task (see Taskfile.yaml),
 # which mirrors the benchmark workflow in .github/workflows/benchmark.yml.
 # It compares the current working tree against a base revision, runs both
-# `Other` and `RLS` suites, and writes benchstat artifacts under .bench/results/.
+# `Other` and `Scoped reads` suites, and writes benchstat artifacts under .bench/results/.
 .PHONY: test-bench
 test-bench:
 	task test:bench
