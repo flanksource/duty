@@ -243,6 +243,15 @@ const (
 	ObjectNotification     = "notification"
 	ObjectViews            = "views"
 
+	// ObjectJobs is job history, granted whole through ActionJobRead.
+	ObjectJobs = "jobs"
+
+	// ObjectEvents is the event queue, granted whole through ActionEventRead.
+	ObjectEvents = "events"
+
+	// ObjectProperties is Mission Control's properties, written through ActionPropertyManage.
+	ObjectProperties = "properties"
+
 	// ObjectMCP represents our MCP server endpoint.
 	ObjectMCP = "mcp"
 )
@@ -279,6 +288,15 @@ const (
 	ActionPlaybookApprove = "playbook:approve"
 	ActionPlaybookCancel  = "playbook:cancel"
 
+	// ActionJobRead grants reading all job history (ObjectJobs).
+	ActionJobRead = "job:read"
+
+	// ActionEventRead grants reading the whole event queue (ObjectEvents).
+	ActionEventRead = "event:read"
+
+	// ActionPropertyManage grants writing properties (ObjectProperties).
+	ActionPropertyManage = "property:manage"
+
 	ActionPluginInvokePrefix = "invoke:"
 	ActionPluginRolePrefix   = "plugin-role:"
 )
@@ -301,6 +319,9 @@ var AllActions = []string{
 	ActionPlaybookRun,
 	ActionMCPRun,
 	ActionMCPUse,
+	ActionJobRead,
+	ActionEventRead,
+	ActionPropertyManage,
 }
 
 var AllObjects = []string{
@@ -330,6 +351,9 @@ var AllObjects = []string{
 	ObjectNotification,
 	ObjectViews,
 	ObjectMCP,
+	ObjectJobs,
+	ObjectEvents,
+	ObjectProperties,
 }
 
 // ABACObjectSelector returns the ABAC object selector JSON for a given
