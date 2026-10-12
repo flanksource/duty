@@ -156,8 +156,6 @@ These are not runtime properties, but they are the main Duty startup settings:
 | `--postgrest-log-level` | `info` | PostgREST log level. |
 | `--postgrest-jwt-secret` | `PGRST_JWT_SECRET` | PostgREST JWT verification material. Can be an HMAC secret for symmetric algorithms, or a public JWK/JWKS for asymmetric algorithms. The default is resolved from `PGRST_JWT_SECRET`. |
 | `--disable-postgrest` | varies | Deprecated; use `--postgrest-uri ''`. |
-| `--postgrest-role` | `postgrest_api` | Authenticated PostgREST database role. |
-| `--postgrest-anon-role` | `postgrest_anon` | Unauthenticated PostgREST database role. |
 | `--postgrest-max-rows` | `2000` | Hard row limit for PostgREST. |
 | `--db-log-level` | `error` | GORM log level: `trace`, `debug`, `info`, `error`. |
 | `--disable-kubernetes` | `false` | Disable Kubernetes integration. |

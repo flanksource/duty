@@ -28,15 +28,12 @@ func BindPFlags(flags *pflag.FlagSet, opts ...StartOption) {
 		config = opt(config)
 	}
 
-	_ = flags.MarkDeprecated("postgrest-anon-role", "Use postgrest-role instead")
 	flags.StringVar(&api.DefaultConfig.ConnectionString, "db", "DB_URL", "Connection string for the postgres database")
 	flags.StringVar(&api.DefaultConfig.Schema, "db-schema", "public", "Postgres schema")
 	flags.StringVar(&api.DefaultConfig.Postgrest.URL, "postgrest-uri", "http://localhost:3000", "URL for the PostgREST instance to use. If localhost is supplied, a PostgREST instance will be started")
 	flags.StringVar(&api.DefaultConfig.Postgrest.LogLevel, "postgrest-log-level", "info", "PostgREST log level")
 	flags.StringVar(&api.DefaultConfig.Postgrest.JWTSecret, "postgrest-jwt-secret", "PGRST_JWT_SECRET", "JWT Secret Token for PostgREST")
 	flags.BoolVar(&api.DefaultConfig.Postgrest.Disable, "disable-postgrest", config.Postgrest.Disable, "Disable PostgREST. Deprecated (Use --postgrest-uri '' to disable PostgREST)")
-	flags.StringVar(&api.DefaultConfig.Postgrest.DBRole, "postgrest-role", "postgrest_api", "PostgREST role for authentication connections")
-	flags.StringVar(&api.DefaultConfig.Postgrest.AnonDBRole, "postgrest-anon-role", "postgrest_anon", "PostgREST role for unauthenticated connections")
 
 	flags.IntVar(&api.DefaultConfig.Postgrest.MaxRows, "postgrest-max-rows", 2000, "A hard limit to the number of rows PostgREST will fetch")
 	flags.StringVar(&api.DefaultConfig.LogLevel, "db-log-level", "error", "Set gorm logging level. trace, debug & info")

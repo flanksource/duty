@@ -15,7 +15,7 @@ var DefaultConfig = Config{
 		Version:    "v14.6",
 		DBRole:     "postgrest_api",
 		Arch:       runtime.GOARCH,
-		AnonDBRole: "",
+		AnonDBRole: "postgrest_anon",
 		Port:       3000,
 		AdminPort:  3001,
 		MaxRows:    2000,
