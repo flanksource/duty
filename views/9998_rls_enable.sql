@@ -498,12 +498,14 @@ CREATE POLICY view_panels_auth ON view_panels
     );
 
 ALTER VIEW analysis_by_config SET (security_invoker = true);
+ALTER VIEW artifact_summary SET (security_invoker = true);
 ALTER VIEW catalog_changes SET (security_invoker = true);
 ALTER VIEW check_summary SET (security_invoker = true);
 ALTER VIEW check_summary_by_config SET (security_invoker = true);
 ALTER VIEW check_summary_for_config SET (security_invoker = true);
 ALTER VIEW checks_by_config SET (security_invoker = true);
 ALTER VIEW checks_labels_keys SET (security_invoker = true);
+ALTER VIEW checks_status_artifacts SET (security_invoker = true);
 ALTER VIEW component_labels_keys SET (security_invoker = true);
 ALTER VIEW config_analysis_analyzers SET (security_invoker = true);
 ALTER VIEW config_analysis_by_severity SET (security_invoker = true);

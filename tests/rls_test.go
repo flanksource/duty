@@ -486,11 +486,18 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			tx                            *gorm.DB
 			homelabArtifact, kubeArtifact models.Artifact
 			withoutScraper                int64
+			checkStatus                   struct {
+				CheckID uuid.UUID
+				Time    time.Time
+			}
 		)
 
 		BeforeAll(func() {
-			homelabArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.HomelabKubeScraper.ID, Path: "/rls/homelab", Filename: "homelab.txt", Checksum: "rls"}
-			kubeArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.KubeScrapeConfig.ID, Path: "/rls/kube", Filename: "kube.txt", Checksum: "rls"}
+			Expect(DefaultContext.DB().Raw("SELECT check_id, time FROM check_statuses ORDER BY time DESC LIMIT 1").Scan(&checkStatus).Error).To(Succeed())
+
+			homelabArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.HomelabKubeScraper.ID, Path: "/rls/homelab", Filename: "homelab.txt", Checksum: "rls", ContentType: "rls/scraper"}
+			kubeArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.KubeScrapeConfig.ID, Path: "/rls/kube", Filename: "kube.txt", Checksum: "rls", ContentType: "rls/scraper",
+				CheckID: &checkStatus.CheckID, CheckTime: &checkStatus.Time}
 			Expect(DefaultContext.DB().Omit("connection_id").Create(&[]models.Artifact{homelabArtifact, kubeArtifact}).Error).To(Succeed())
 			withoutScraper = countAll("artifacts", "scraper_id IS NULL")
 
@@ -527,6 +534,34 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 		It("leaves artifacts no scraper produced to their own access", func() {
 			Expect(countRows(tx, "artifacts", rls.Payload{})).To(Equal(withoutScraper))
+		})
+
+		It("summarizes only the artifacts of readable scrapers in artifact_summary", func() {
+			summarized := func(payload rls.Payload) int64 {
+				GinkgoHelper()
+				Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+				var total int64
+				Expect(tx.Raw("SELECT COALESCE(SUM(total_count), 0) FROM artifact_summary WHERE content_type = 'rls/scraper'").Scan(&total).Error).To(Succeed())
+				return total
+			}
+
+			Expect(summarized(rls.Payload{})).To(BeZero())
+			Expect(summarized(rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})})).To(Equal(int64(1)))
+			Expect(summarized(rls.Payload{Scraper: rls.AllRows()})).To(Equal(int64(2)))
+		})
+
+		It("lists only the artifacts of readable scrapers in checks_status_artifacts", func() {
+			listed := func(payload rls.Payload) string {
+				GinkgoHelper()
+				Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+				var artifacts string
+				Expect(tx.Raw("SELECT artifacts::text FROM checks_status_artifacts WHERE check_id = ? AND time = ?", checkStatus.CheckID, checkStatus.Time).
+					Scan(&artifacts).Error).To(Succeed())
+				return artifacts
+			}
+
+			Expect(listed(rls.Payload{})).ToNot(ContainSubstring(kubeArtifact.ID.String()))
+			Expect(listed(rls.Payload{Scraper: rls.AllRows()})).To(ContainSubstring(kubeArtifact.ID.String()))
 		})
 	})
 
