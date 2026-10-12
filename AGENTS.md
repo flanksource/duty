@@ -15,7 +15,7 @@ The claim is put in `request.jwt.claims`, and each table's policy decides from i
 
 ### The claim
 
-`rls.Payload` (@rls/payload.go) is serialized into the claim. For each resource type (`config`, `component`, `canary`, `playbook`, `check`) it carries `rls.Grants` (@rls/grants.go):
+`rls.Payload` (@rls/payload.go) is serialized into the claim. For each resource type (`config`, `component`, `canary`, `playbook`, `check`, `scraper`) it carries `rls.Grants` (@rls/grants.go):
 
 - `"all"`: every row of the type.
 - A list of grants: a row is visible when at least one grant admits it. A grant names a Scope, and optionally narrows it:
@@ -32,7 +32,7 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 ### Policy patterns
 
-**Resource tables** (`config_items`, `components`, `canaries`, `playbooks`, `checks`):
+**Resource tables** (`config_items`, `components`, `canaries`, `playbooks`, `checks`, `config_scrapers`):
 
 - `USING` decides which rows are visible, by their stored membership:
   `EXISTS (SELECT 1 FROM rls_matching_grants('<type>', id))`.
@@ -42,7 +42,7 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
   It can't use stored membership: the triggers only match the row after the check, so the old row's membership would let a writer move a row into a Scope they can't access.
 - `checks` are also visible through their canary.
 
-**Child tables** inherit their parent's policy with `EXISTS`, e.g. `config_changes` from `config_items`, `playbook_runs` from `playbooks`:
+**Child tables** inherit their parent's policy with `EXISTS`, e.g. `config_changes` from `config_items`, `playbook_runs` from `playbooks`, `artifacts` from `config_scrapers`:
 `EXISTS (SELECT 1 FROM parent_table WHERE parent_table.id = child_table.parent_id)`
 
 **Views** (`views`, `view_panels`) still match the claim's `view` selectors against the row with `match_scope()`. Stored membership doesn't cover them.

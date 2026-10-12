@@ -86,6 +86,8 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		echoPlaybookScope, mcPlaybooksScope                             string
 		logisticsAPICanaryScope, gcpCanaryScope                         string
 		apiHealthCheckScope                                             string
+		homelabScraperScope, homelabAgentScraperScope                   string
+		defaultScrapersScope                                            string
 		unbuiltScope                                                    = uuid.NewString()
 	)
 
@@ -116,6 +118,9 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		logisticsAPICanaryScope = buildScope("logistics-api-canary", target(policy.ResourceCanary, types.ResourceSelector{Name: dummy.LogisticsAPICanary.Name}))
 		gcpCanaryScope = buildScope("gcp-canaries", target(policy.ResourceCanary, types.ResourceSelector{Agent: dummy.GCPAgent.ID.String()}))
 		apiHealthCheckScope = buildScope("api-health-check", target(policy.ResourceCheck, types.ResourceSelector{ID: dummy.LogisticsAPIHealthHTTPCheck.ID.String()}))
+		homelabScraperScope = buildScope("homelab-scraper", target(policy.ResourceScraper, types.ResourceSelector{Name: dummy.HomelabKubeScraper.Name}))
+		homelabAgentScraperScope = buildScope("homelab-agent-scrapers", target(policy.ResourceScraper, types.ResourceSelector{Agent: dummy.HomelabAgent.ID.String()}))
+		defaultScrapersScope = buildScope("default-scrapers", target(policy.ResourceScraper, types.ResourceSelector{Namespace: "default"}))
 	})
 
 	AfterAll(func() {
@@ -432,6 +437,99 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
+	var _ = Describe("config_scrapers query", func() {
+		runCases("config_scrapers", func() []grantCase {
+			return []grantCase{
+				{"all rows", func() rls.Payload { return rls.Payload{Scraper: rls.AllRows()} }, func() int64 { return countAll("config_scrapers", "") }},
+				{"no rows", func() rls.Payload { return rls.Payload{Scraper: rls.NoRows()} }, func() int64 { return 0 }},
+				{"a grant on configs", func() rls.Payload { return rls.Payload{Config: rls.AllRows()} }, func() int64 { return 0 }},
+				{"by name", func() rls.Payload { return rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})} }, func() int64 {
+					return countAll("config_scrapers", "name = ?", dummy.HomelabKubeScraper.Name)
+				}},
+				{"by agent", func() rls.Payload { return rls.Payload{Scraper: grants(rls.Grant{Scope: homelabAgentScraperScope})} }, func() int64 {
+					return countAll("config_scrapers", "agent_id = ?", dummy.HomelabAgent.ID)
+				}},
+				{"by namespace", func() rls.Payload { return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope})} }, func() int64 {
+					return countAll("config_scrapers", "namespace = 'default'")
+				}},
+				{"a Scope narrowed by a constraint", func() rls.Payload {
+					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraint: homelabAgentScraperScope})}
+				}, func() int64 {
+					return countAll("config_scrapers", "namespace = 'default' AND agent_id = ?", dummy.HomelabAgent.ID)
+				}},
+				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload {
+					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraint: unbuiltScope})}
+				}, func() int64 { return 0 }},
+			}
+		})
+
+		It("lists config_scrapers_with_status and integrations through the scraper grants", func() {
+			tx := DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			defer tx.Rollback()
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
+
+			homelab := rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})}
+			Expect(countRows(tx, "config_scrapers_with_status", homelab)).To(Equal(int64(1)))
+			Expect(countRows(tx, "config_scrapers_with_status", rls.Payload{})).To(BeZero())
+
+			var count int64
+			Expect(tx.Table("integrations_with_status").Where("integration_type = 'scrapers'").Count(&count).Error).To(Succeed())
+			Expect(count).To(BeZero())
+			Expect(homelab.SetPostgresSessionRLS(tx)).To(Succeed())
+			Expect(tx.Table("integrations_with_status").Where("integration_type = 'scrapers'").Count(&count).Error).To(Succeed())
+			Expect(count).To(Equal(int64(1)))
+		})
+	})
+
+	var _ = Describe("artifacts query", Ordered, func() {
+		var (
+			tx                            *gorm.DB
+			homelabArtifact, kubeArtifact models.Artifact
+			withoutScraper                int64
+		)
+
+		BeforeAll(func() {
+			homelabArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.HomelabKubeScraper.ID, Path: "/rls/homelab", Filename: "homelab.txt", Checksum: "rls"}
+			kubeArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.KubeScrapeConfig.ID, Path: "/rls/kube", Filename: "kube.txt", Checksum: "rls"}
+			Expect(DefaultContext.DB().Omit("connection_id").Create(&[]models.Artifact{homelabArtifact, kubeArtifact}).Error).To(Succeed())
+			withoutScraper = countAll("artifacts", "scraper_id IS NULL")
+
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(Succeed())
+			Expect(DefaultContext.DB().Exec("DELETE FROM artifacts WHERE id IN ?", []uuid.UUID{homelabArtifact.ID, kubeArtifact.ID}).Error).To(Succeed())
+		})
+
+		ids := func(payload rls.Payload) []uuid.UUID {
+			GinkgoHelper()
+			Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+			var out []uuid.UUID
+			Expect(tx.Table("artifacts").Where("scraper_id IS NOT NULL").Pluck("id", &out).Error).To(Succeed())
+			return out
+		}
+
+		It("lists every artifact when RLS is disabled", func() {
+			Expect(countRows(tx, "artifacts", rls.Payload{Disable: true})).To(Equal(countAll("artifacts", "")))
+		})
+
+		It("lists the artifacts of readable scrapers", func() {
+			Expect(ids(rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})})).To(Equal([]uuid.UUID{homelabArtifact.ID}))
+			Expect(ids(rls.Payload{Scraper: rls.AllRows()})).To(ContainElements(homelabArtifact.ID, kubeArtifact.ID))
+		})
+
+		It("lists no scraper's artifacts without scraper grants", func() {
+			Expect(ids(rls.Payload{})).To(BeEmpty())
+			Expect(ids(rls.Payload{Config: rls.AllRows()})).To(BeEmpty())
+		})
+
+		It("leaves artifacts no scraper produced to their own access", func() {
+			Expect(countRows(tx, "artifacts", rls.Payload{})).To(Equal(withoutScraper))
+		})
+	})
+
 	var _ = Describe("writes", func() {
 		var tx *gorm.DB
 
@@ -562,6 +660,27 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(write(byNamespace, "UPDATE playbooks SET name = 'echo-renamed' WHERE id = ?", dummy.EchoConfig.ID)).To(Equal(int64(1)))
 			_, err = write(byNamespace, "UPDATE playbooks SET namespace = 'elsewhere' WHERE id = ?", dummy.EchoConfig.ID)
 			Expect(err).To(refused)
+		})
+
+		It("allows INSERT ... RETURNING of a scraper the subject's Scope matches", func() {
+			Expect((rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope})}).SetPostgresSessionRLS(tx)).To(Succeed())
+			id := uuid.New()
+			var returned string
+			Expect(tx.Raw("INSERT INTO config_scrapers (id, name, namespace, spec, source) VALUES (?, 'rls-new-scraper', 'default', '{}', 'UI') RETURNING id", id).
+				Scan(&returned).Error).To(Succeed())
+			Expect(returned).To(Equal(id.String()))
+
+			_, err := write(rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope})},
+				"INSERT INTO config_scrapers (id, name, namespace, spec, source) VALUES (?, 'rls-new-scraper-2', 'elsewhere', '{}', 'UI')", uuid.New())
+			Expect(err).To(refused)
+		})
+
+		It("denies UPDATE that moves a scraper out of the subject's Scope", func() {
+			homelab := rls.Payload{Scraper: grants(rls.Grant{Scope: homelabAgentScraperScope})}
+			Expect(write(homelab, "UPDATE config_scrapers SET spec = '{}' WHERE id = ?", dummy.HomelabKubeScraper.ID)).To(Equal(int64(1)))
+			_, err := write(homelab, "UPDATE config_scrapers SET agent_id = ? WHERE id = ?", uuid.Nil, dummy.HomelabKubeScraper.ID)
+			Expect(err).To(refused)
+			Expect(write(homelab, "UPDATE config_scrapers SET spec = '{}' WHERE id = ?", dummy.KubeScrapeConfig.ID)).To(BeZero(), "a scraper outside the Scope isn't visible to update")
 		})
 
 		It("allows UPDATE of a check through its own Scope or its canary's", func() {

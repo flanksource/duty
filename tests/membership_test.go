@@ -12,6 +12,7 @@ import (
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/rbac/membership"
 	"github.com/flanksource/duty/rbac/policy"
+	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 )
 
@@ -288,5 +289,132 @@ var _ = Describe("Scope membership", Ordered, func() {
 		snapshot := membership.SnapshotFrom(ctx)
 		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtA.ID}, membership.Ref{Type: policy.ResourceConfig, ID: mtx.ID})).To(BeTrue())
 		Expect(snapshot.Covers(membership.Ref{Type: policy.ResourceConfig, ID: mtB.ID})).To(BeFalse())
+	})
+})
+
+var _ = Describe("Scraper membership", Ordered, func() {
+	var (
+		byID, byName, byPrefix, byNamespace, byAgent uuid.UUID
+		web, api, other                              models.ConfigScraper
+	)
+
+	noTargets := types.JSON(`[]`)
+
+	scraper := func(name, namespace string, agent uuid.UUID) models.ConfigScraper {
+		return models.ConfigScraper{ID: uuid.New(), Name: name, Namespace: namespace, AgentID: agent, Source: models.SourceUI, Spec: "{}"}
+	}
+
+	buildScope := func(name string, selector types.ResourceSelector) uuid.UUID {
+		GinkgoHelper()
+		scope := models.Scope{ID: uuid.New(), Name: name, Namespace: "default", Targets: noTargets}
+		Expect(DefaultContext.DB().Create(&scope).Error).To(Succeed())
+		_, err := membership.Rebuild(DefaultContext, scope.ID, noTargets, []membership.Target{{Type: policy.ResourceScraper, Selector: selector}})
+		Expect(err).ToNot(HaveOccurred())
+		return scope.ID
+	}
+
+	members := func(scope uuid.UUID) []uuid.UUID {
+		GinkgoHelper()
+		var ids []uuid.UUID
+		Expect(DefaultContext.DB().Raw(`SELECT resource_id FROM scope_members WHERE scope_id = ? AND resource_type = 'scraper' AND resource_id IS NOT NULL`, scope).
+			Scan(&ids).Error).To(Succeed())
+		return ids
+	}
+
+	BeforeAll(func() {
+		web = scraper("mst-web", "mst-a", dummy.HomelabAgent.ID)
+		api = scraper("mst-api", "mst-a", uuid.Nil)
+		other = scraper("other-mst", "mst-b", uuid.Nil)
+		for _, s := range []models.ConfigScraper{web, api, other} {
+			Expect(DefaultContext.DB().Create(&s).Error).To(Succeed())
+		}
+
+		byID = buildScope("mst-by-id", types.ResourceSelector{ID: other.ID.String()})
+		byName = buildScope("mst-by-name", types.ResourceSelector{Name: "mst-web"})
+		byPrefix = buildScope("mst-by-prefix", types.ResourceSelector{Name: "mst-*"})
+		byNamespace = buildScope("mst-by-namespace", types.ResourceSelector{Namespace: "mst-a"})
+		byAgent = buildScope("mst-by-agent", types.ResourceSelector{Agent: dummy.HomelabAgent.ID.String()})
+	})
+
+	AfterAll(func() {
+		Expect(DefaultContext.DB().Exec("DELETE FROM config_scrapers WHERE id IN ?", []uuid.UUID{web.ID, api.ID, other.ID}).Error).To(Succeed())
+		Expect(DefaultContext.DB().Exec("DELETE FROM scopes WHERE id IN ?", []uuid.UUID{byID, byName, byPrefix, byNamespace, byAgent}).Error).To(Succeed())
+	})
+
+	It("rebuilds a Scope from its id, name, prefix, namespace and agent targets", func() {
+		Expect(members(byID)).To(Equal([]uuid.UUID{other.ID}))
+		Expect(members(byName)).To(Equal([]uuid.UUID{web.ID}))
+		Expect(members(byPrefix)).To(ConsistOf(web.ID, api.ID))
+		Expect(members(byNamespace)).To(ConsistOf(web.ID, api.ID))
+		Expect(members(byAgent)).To(ContainElement(web.ID))
+		Expect(members(byAgent)).ToNot(ContainElements(api.ID, other.ID))
+	})
+
+	It("rejects the fields scrapers don't have", func() {
+		for _, selector := range []types.ResourceSelector{
+			{Types: []string{"Kubernetes"}},
+			{TagSelector: "env=prod"},
+			{LabelSelector: "env=prod"},
+		} {
+			Expect(membership.Validate(membership.Target{Type: policy.ResourceScraper, Selector: selector})).ToNot(Succeed(), "%+v", selector)
+		}
+	})
+
+	It("matches a new scraper when it's inserted", func() {
+		added := scraper("mst-new", "mst-b", dummy.HomelabAgent.ID)
+		Expect(DefaultContext.DB().Create(&added).Error).To(Succeed())
+		DeferCleanup(func() {
+			Expect(DefaultContext.DB().Exec("DELETE FROM config_scrapers WHERE id = ?", added.ID).Error).To(Succeed())
+		})
+
+		Expect(members(byPrefix)).To(ContainElement(added.ID))
+		Expect(members(byAgent)).To(ContainElement(added.ID))
+		Expect(members(byNamespace)).ToNot(ContainElement(added.ID))
+	})
+
+	It("re-matches a scraper whose name, namespace or agent changes", func() {
+		update := func(column string, value any) {
+			GinkgoHelper()
+			Expect(DefaultContext.DB().Model(&models.ConfigScraper{}).Where("id = ?", api.ID).Update(column, value).Error).To(Succeed())
+		}
+
+		update("name", "renamed-api")
+		Expect(members(byPrefix)).ToNot(ContainElement(api.ID))
+
+		update("namespace", "mst-b")
+		Expect(members(byNamespace)).ToNot(ContainElement(api.ID))
+
+		update("agent_id", dummy.HomelabAgent.ID)
+		Expect(members(byAgent)).To(ContainElement(api.ID))
+
+		update("name", "mst-api")
+		update("namespace", "mst-a")
+		update("agent_id", uuid.Nil)
+		Expect(members(byPrefix)).To(ContainElement(api.ID))
+		Expect(members(byNamespace)).To(ContainElement(api.ID))
+		Expect(members(byAgent)).ToNot(ContainElement(api.ID))
+	})
+
+	It("doesn't touch membership when another field, e.g. spec, changes", func() {
+		xmin := func() string {
+			GinkgoHelper()
+			var v string
+			Expect(DefaultContext.DB().Raw("SELECT xmin::text FROM scope_members WHERE scope_id = ? AND resource_id = ?", byName, web.ID).Scan(&v).Error).To(Succeed())
+			return v
+		}
+
+		before := xmin()
+		Expect(DefaultContext.DB().Model(&models.ConfigScraper{}).Where("id = ?", web.ID).Update("spec", `{"changed": true}`).Error).To(Succeed())
+		Expect(xmin()).To(Equal(before))
+	})
+
+	It("removes a hard-deleted scraper's membership with the delete", func() {
+		gone := scraper("mst-gone", "mst-a", uuid.Nil)
+		Expect(DefaultContext.DB().Create(&gone).Error).To(Succeed())
+		Expect(members(byNamespace)).To(ContainElement(gone.ID))
+
+		Expect(DefaultContext.DB().Exec("DELETE FROM config_scrapers WHERE id = ?", gone.ID).Error).To(Succeed())
+		Expect(members(byNamespace)).ToNot(ContainElement(gone.ID))
+		Expect(members(byPrefix)).ToNot(ContainElement(gone.ID))
 	})
 })

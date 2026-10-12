@@ -50,6 +50,7 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		fingerprints := []string{
 			(&Payload{Config: grants}).Fingerprint(),
 			(&Payload{Component: grants}).Fingerprint(),
+			(&Payload{Scraper: grants}).Fingerprint(),
 			(&Payload{Config: AllRows()}).Fingerprint(),
 			(&Payload{Config: NoRows()}).Fingerprint(),
 			(&Payload{}).Fingerprint(),
@@ -92,12 +93,13 @@ func TestGrants(t *testing.T) {
 		grants.Add(Grant{Scope: s1, Constraint: s2})
 		grants.Add(Grant{Scope: s1, Constraint: s2})
 
-		raw, err := json.Marshal(Payload{Config: AllRows(), Component: grants, Check: NoRows()})
+		raw, err := json.Marshal(Payload{Config: AllRows(), Component: grants, Check: NoRows(), Scraper: grants})
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(string(raw)).To(gomega.MatchJSON(`{
 			"config": "all",
 			"component": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}],
-			"check": []
+			"check": [],
+			"scraper": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}]
 		}`))
 
 		var decoded Payload
@@ -105,7 +107,11 @@ func TestGrants(t *testing.T) {
 		g.Expect(decoded.Config.All).To(gomega.BeTrue())
 		g.Expect(decoded.Component.Any).To(gomega.Equal([]Grant{{Scope: s1, Constraint: s2}, {Scope: s3}}))
 		g.Expect(decoded.Check.IsEmpty()).To(gomega.BeTrue())
+		g.Expect(decoded.Scraper.Any).To(gomega.Equal(decoded.Component.Any))
 		g.Expect(decoded.Playbook).To(gomega.BeNil())
+
+		claims := (Payload{Scraper: AllRows()}).JWTClaims()
+		g.Expect(claims).To(gomega.HaveKeyWithValue("scraper", AllRows()))
 	})
 
 	t.Run("normalizes a grant, and ignores one that isn't made of Scope ids", func(t *testing.T) {

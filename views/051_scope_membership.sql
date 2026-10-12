@@ -112,7 +112,8 @@ BEGIN
       ('check', 'checks', 'id, name, namespace, type, agent_id, labels'),
       ('canary', 'canaries', 'id, name, namespace, agent_id, labels'),
       ('playbook', 'playbooks', 'id, name, namespace'),
-      ('connection', 'connections', 'id, name, namespace, type')
+      ('connection', 'connections', 'id, name, namespace, type'),
+      ('scraper', 'config_scrapers', 'id, name, namespace, agent_id')
     ) AS d(kind, tbl, watched)
   LOOP
     -- the targets of the type a resource row "r" matches: those sharing one of its keys, found through the GIN index,

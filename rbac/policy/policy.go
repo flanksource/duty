@@ -265,6 +265,7 @@ const (
 	ResourcePlaybook   = "playbook"
 	ResourceView       = "view"
 	ResourceConnection = "connection"
+	ResourceScraper    = "scraper"
 )
 
 // Actions
