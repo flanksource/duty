@@ -460,7 +460,37 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload {
 					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraint: unbuiltScope})}
 				}, func() int64 { return 0 }},
+				{"any grant", func() rls.Payload {
+					return rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope}, rls.Grant{Scope: defaultScrapersScope})}
+				}, func() int64 {
+					return countAll("config_scrapers", "name = ? OR namespace = 'default'", dummy.HomelabKubeScraper.Name)
+				}},
 			}
+		})
+
+		It("admits no scraper through a grant that isn't well formed", func() {
+			tx := DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			defer tx.Rollback()
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
+
+			count := func(claim string) int64 {
+				GinkgoHelper()
+				Expect(tx.Exec("SELECT set_config('request.jwt.claims', ?, TRUE)", claim).Error).To(Succeed())
+				var n int64
+				Expect(tx.Table("config_scrapers").Count(&n).Error).To(Succeed(), claim)
+				return n
+			}
+
+			for _, claim := range []string{
+				`{"scraper": [{"scope": "not-a-uuid"}]}`,
+				`{"scraper": [{"constraint": "` + defaultScrapersScope + `"}]}`,
+				`{"scraper": {"scope": "` + defaultScrapersScope + `"}}`,
+				`{"scraper": "some"}`,
+			} {
+				Expect(count(claim)).To(BeZero(), claim)
+			}
+
+			Expect(count(`{"scraper": [{"scope": "not-a-uuid"}, {"scope": "`+homelabScraperScope+`"}]}`)).To(Equal(int64(1)), "the well formed grant still applies")
 		})
 
 		It("lists config_scrapers_with_status and integrations through the scraper grants", func() {
@@ -716,6 +746,20 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			_, err := write(homelab, "UPDATE config_scrapers SET agent_id = ? WHERE id = ?", uuid.Nil, dummy.HomelabKubeScraper.ID)
 			Expect(err).To(refused)
 			Expect(write(homelab, "UPDATE config_scrapers SET spec = '{}' WHERE id = ?", dummy.KubeScrapeConfig.ID)).To(BeZero(), "a scraper outside the Scope isn't visible to update")
+		})
+
+		It("allows writing an artifact of a scraper the subject's Scope matches, and refuses moving it out", func() {
+			homelab := rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})}
+			id := uuid.New()
+			Expect(write(homelab, "INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'write.txt', 0, 'rls')",
+				id, dummy.HomelabKubeScraper.ID)).To(Equal(int64(1)))
+			Expect(write(homelab, "UPDATE artifacts SET filename = 'renamed.txt' WHERE id = ?", id)).To(Equal(int64(1)))
+
+			_, err := write(homelab, "UPDATE artifacts SET scraper_id = ? WHERE id = ?", dummy.KubeScrapeConfig.ID, id)
+			Expect(err).To(refused)
+			_, err = write(homelab, "INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'other.txt', 0, 'rls')",
+				uuid.New(), dummy.KubeScrapeConfig.ID)
+			Expect(err).To(refused)
 		})
 
 		It("allows UPDATE of a check through its own Scope or its canary's", func() {
