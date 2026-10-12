@@ -9,7 +9,6 @@ import (
 	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
 
@@ -21,51 +20,45 @@ import (
 )
 
 const (
-	StatusAgentError = "agent-error"
-	StatusError      = "error"
-	StatusOK         = "ok"
-	StatusLabel      = "status"
-	AgentLabel       = "agent"
+	StatusAgentError           = "agent-error"
+	StatusAgentUnauthenticated = "agent-unauthenticated"
+	StatusAgentMismatch        = "agent-mismatch"
+	StatusError                = "error"
+	StatusOK                   = "ok"
+	StatusLabel                = "status"
+	AgentLabel                 = "agent"
 
 	ForeignKeyError = "foreign key error"
 )
 
-func AgentAuthMiddleware(agentCache *cache.Cache) func(echo.HandlerFunc) echo.HandlerFunc {
+// AgentAuthMiddleware only lets through requests authenticated as an agent.
+//
+// The request acts as the agent its token belongs to (ctx.Agent()).
+// An agent named in the agent_name query param must be that same agent.
+func AgentAuthMiddleware() func(echo.HandlerFunc) echo.HandlerFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			ctx := c.Request().Context().(context.Context)
-
-			// If agent is already set (basic auth) then just proceed
-			if ctx.Agent() != nil {
-				return next(c)
-			}
-
+			start := time.Now()
 			histogram := ctx.Histogram("agent_auth_middleware", context.ShortLatencyBuckets, StatusLabel, "")
+			defer func() {
+				histogram.Since(start)
+			}()
 
-			agentName := c.QueryParam(AgentNameQueryParam)
-			if agentName == "" {
-				histogram.Label(StatusLabel, StatusAgentError)
-				return c.JSON(http.StatusBadRequest, api.HTTPError{Err: "agent name is required"})
+			agent := ctx.Agent()
+			if agent == nil {
+				histogram.Label(StatusLabel, StatusAgentUnauthenticated)
+				return c.JSON(http.StatusForbidden, api.HTTPError{Err: "request isn't authenticated as an agent"})
 			}
 
-			var agent *models.Agent
-			var err error
-			if val, ok := agentCache.Get(agentName); ok {
-				agent = val.(*models.Agent)
-			} else {
-				agent, err = GetOrCreateAgent(ctx, agentName)
-				if err != nil {
-					histogram.Label(StatusLabel, StatusAgentError)
-					return c.JSON(http.StatusBadRequest, api.HTTPError{
-						Err: fmt.Errorf("failed to create/fetch agent: %w", err).Error(),
-					})
-				}
-
-				agentCache.SetDefault(agentName, agent)
+			if agentName := c.QueryParam(AgentNameQueryParam); agentName != "" && agentName != agent.Name && agentName != agent.ID.String() {
+				histogram.Label(StatusLabel, StatusAgentMismatch)
+				return c.JSON(http.StatusForbidden, api.HTTPError{
+					Err: fmt.Sprintf("request is authenticated as agent %q but names agent %q", agent.Name, agentName),
+				})
 			}
 
-			ctx = ctx.WithAgent(*agent)
-			c.SetRequest(c.Request().WithContext(ctx))
+			histogram.Label(StatusLabel, StatusOK)
 			return next(c)
 		}
 	}
