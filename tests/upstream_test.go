@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/flanksource/commons/utils"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/patrickmn/go-cache"
 	"github.com/samber/lo"
 	"github.com/samber/lo/mutable"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,12 +55,12 @@ var _ = ginkgo.Describe("Reconcile Test", ginkgo.Ordered, ginkgo.Label("slow"), 
 		e := echo.New()
 		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
-				c.SetRequest(c.Request().WithContext(upstreamCtx.Wrap(c.Request().Context())))
+				c.SetRequest(c.Request().WithContext(upstreamCtx.Wrap(c.Request().Context()).WithAgent(agent)))
 				return next(c)
 			}
 		})
 
-		e.Use(upstream.AgentAuthMiddleware(cache.New(time.Hour, time.Hour)))
+		e.Use(upstream.AgentAuthMiddleware())
 		e.POST("/upstream/push", upstream.NewPushHandler(nil))
 		e.POST("/upstream/list-views", upstream.ListViewsHandler)
 
