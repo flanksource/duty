@@ -20,12 +20,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: rls
-            title: RLS
-            bench_args: "-bench=BenchmarkRLS"
+          - label: scoped-reads
+            title: Scoped reads
+            bench_args: "-bench=BenchmarkScopedReads"
           - label: other
             title: Other
-            bench_args: "-bench=. -skip=BenchmarkRLS"
+            bench_args: "-bench=. -skip=BenchmarkScopedReads"
     env:
       BENCH_SIZES: 15000
     steps:
