@@ -162,10 +162,9 @@ func membershipOf(m *models.ABACMembership, kind string) *[]any {
 
 // RuleCondition returns the Casbin condition of a Role rule, over the request's Membership.
 //
-// An allow rule's condition holds when the request fits the action, its primary resource is in every one of
-// resourceScopes, and its target is in every one of targetScopes, or there's no target when targetScopes is empty.
-// A deny rule's holds when the request doesn't fit, or when the same membership test holds.
-func RuleCondition(resourceScopes, targetScopes []string, deny bool) (string, error) {
+// It holds when the request fits the action, its primary resource is in every one of resourceScopes,
+// and its target is in every one of targetScopes, or there's no target when targetScopes is empty.
+func RuleCondition(resourceScopes, targetScopes []string) (string, error) {
 	if len(resourceScopes) == 0 {
 		return "", fmt.Errorf("a rule needs at least one resource scope")
 	}
@@ -191,9 +190,6 @@ func RuleCondition(resourceScopes, targetScopes []string, deny bool) (string, er
 		}
 	}
 
-	if deny {
-		return "!r.obj.Membership.Fits || (" + strings.Join(test, " && ") + ")", nil
-	}
 	return "r.obj.Membership.Fits && " + strings.Join(test, " && "), nil
 }
 

@@ -58,11 +58,6 @@ table "permissions" {
     comment = "list of resource selectors to select the viable object"
   }
 
-  column "deny" {
-    type    = boolean
-    default = false
-  }
-
   column "component_id" {
     null    = true
     type    = uuid
@@ -356,7 +351,7 @@ table "roles" {
     null    = false
     type    = jsonb
     default = "[]"
-    comment = "rules as declared on the role: each allows or denies an action on the resources selected by a scope, optionally on the targets selected by another scope. They are compiled into casbin policies filed under binding:<namespace>/<name> for each binding of the role"
+    comment = "rules as declared on the role: each allows an action on the resources selected by a scope, optionally on the targets selected by another scope. They are compiled into casbin policies filed under binding:<namespace>/<name> for each binding of the role"
   }
 
   column "error" {

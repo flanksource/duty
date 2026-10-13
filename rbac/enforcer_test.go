@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac/policy"
 )
 
 func NewEnforcer(policy string) (*casbin.Enforcer, error) {
@@ -32,6 +33,7 @@ p, johndoe, *, playbook:run, allow, r.obj.Playbook.Name == 'scale-deployment' , 
 p, johndoe, *, playbook:run, deny, r.obj.Playbook.Name == 'delete-deployment' , na
 p, johndoe, *, playbook:run, allow, r.obj.Playbook.Name == 'restart-deployment' && r.obj.Config.Tags.namespace == 'default' , na
 p, alice, *, playbook:run, deny, r.obj.Playbook.Name == 'restart-deployment' && r.obj.Config.Tags.namespace == 'default', na
+p, alice, *, playbook:run, allow, r.obj.Playbook.Name == 'restart-deployment', na
 p, johndoe, *, read, allow, r.obj.Playbook.Name == 'echo', na
 p, bob, catalog, read, allow, , na
 `
@@ -58,7 +60,7 @@ p, bob, catalog, read, allow, , na
 			allowed:     true,
 		},
 		{
-			description: "simple | explicit deny",
+			description: "simple | a deny row grants nothing",
 			user:        "johndoe",
 			obj:         &models.ABACAttribute{Playbook: models.Playbook{Name: "delete-deployment"}},
 			act:         "playbook:run",
@@ -87,7 +89,7 @@ p, bob, catalog, read, allow, , na
 			allowed: true,
 		},
 		{
-			description: "multi | explicit deny",
+			description: "multi | a deny row takes nothing away",
 			user:        "alice",
 			obj: &models.ABACAttribute{
 				Playbook: models.Playbook{
@@ -99,7 +101,7 @@ p, bob, catalog, read, allow, , na
 				},
 			},
 			act:     "playbook:run",
-			allowed: false,
+			allowed: true,
 		},
 		{
 			description: "simple read test",
@@ -153,6 +155,34 @@ p, bob, catalog, read, allow, , na
 				t.Errorf("expected %t but got %t. user=%s, obj=%v, act=%s", td.allowed, allowed, user, obj, act)
 			}
 		})
+	}
+}
+
+func TestAllowOnlyEffect(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	enforcer, err := NewEnforcer(`
+p, admin, *, *, allow, , na
+p, admin, catalog, read, deny, , na
+p, admin, catalog, read, deny, , 01890000-0000-0000-0000-000000000000
+g, alice, admin
+p, bob, catalog, read, allow, , na
+p, bob, catalog, read, deny, , na
+p, carol, catalog, read, deny, , na
+`)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	for _, tc := range []struct {
+		subject string
+		allowed bool
+	}{
+		{"alice", true},
+		{"bob", true},
+		{"carol", false},
+	} {
+		allowed, err := enforcer.Enforce(tc.subject, "catalog", policy.ActionRead)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(allowed).To(gomega.Equal(tc.allowed), tc.subject)
 	}
 }
 

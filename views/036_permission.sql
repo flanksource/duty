@@ -34,14 +34,15 @@ CREATE OR REPLACE TRIGGER reset_permission_error_before_update_trigger
   EXECUTE FUNCTION reset_permission_error_before_update();
 
 -- permission_group_summary
+DROP VIEW IF EXISTS permissions_group_summary;
+
 CREATE OR REPLACE VIEW permissions_group_summary AS
 SELECT
   permissions.subject,
   permissions.subject_type,
   permissions.subject AS subject_label,
   permissions.action,
-  permissions.object,
-  permissions.deny
+  permissions.object
 FROM
   permissions
 WHERE
@@ -64,7 +65,6 @@ SELECT
     p.action,
     p.object,
     p.object_selector,
-    p.deny,
     p.subject,
     p.subject_type,
     p.created_at,

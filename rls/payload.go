@@ -17,7 +17,6 @@ type Scope struct {
 	Agents []string          `json:"agents,omitempty"`
 	Names  []string          `json:"names,omitempty"`
 	ID     string            `json:"id,omitempty"`
-	Deny   bool              `json:"deny,omitempty"`
 }
 
 func (s Scope) IsEmpty() bool {
@@ -31,7 +30,7 @@ func (s Scope) Fingerprint() string {
 	slices.Sort(agentsCopy)
 	slices.Sort(namesCopy)
 
-	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s | deny:%t", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID), s.Deny)
+	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID))
 	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
 }
 

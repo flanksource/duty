@@ -73,11 +73,7 @@ func (acl ACL) GetPolicyDefinition() [][]string {
 	var definitions [][]string
 	for _, object := range strings.Split(acl.Objects, ",") {
 		for _, action := range strings.Split(acl.Actions, ",") {
-			if strings.HasPrefix(action, "!") {
-				definitions = append(definitions, []string{acl.Principal, object, action[1:], "deny", "", "na"})
-			} else {
-				definitions = append(definitions, []string{acl.Principal, object, action, "allow", "", "na"})
-			}
+			definitions = append(definitions, []string{acl.Principal, object, action, "allow", "", "na"})
 		}
 	}
 	return definitions
@@ -116,7 +112,6 @@ type Permission struct {
 	Subject   string `json:"subject,omitempty"`
 	Object    string `json:"object,omitempty"`
 	Action    string `json:"action,omitempty"`
-	Deny      bool   `json:"deny,omitempty"`
 	Condition string `json:"condition,omitempty"`
 }
 
@@ -125,7 +120,7 @@ func (p Permission) ToArgs() []string {
 		p.Subject,
 		p.Object,
 		p.Action,
-		lo.Ternary(p.Deny, "deny", ""),
+		"allow",
 		p.Condition,
 		p.ID,
 	}
@@ -135,28 +130,26 @@ func (p Permission) ToArgsWithoutSubject() []string {
 	return []string{
 		p.Object,
 		p.Action,
-		lo.Ternary(p.Deny, "deny", ""),
+		"allow",
 		lo.Ternary(p.Condition != "", p.Condition, ""),
 		lo.Ternary(p.ID != "", p.ID, "na"),
 	}
 }
 
 func (p Permission) Hash() string {
-	return fmt.Sprintf("sub=%s,obj=%s,act=%s,d=%v,con=%s,id=%s",
+	return fmt.Sprintf("sub=%s,obj=%s,act=%s,con=%s,id=%s",
 		p.Subject,
 		p.Object,
 		p.Action,
-		p.Deny,
 		p.Condition,
 		p.ID,
 	)
 }
 
 func (p Permission) HashWithoutSubject() string {
-	return fmt.Sprintf("obj=%s,act=%s,d=%v,con=%s,id=%s",
+	return fmt.Sprintf("obj=%s,act=%s,con=%s,id=%s",
 		p.Object,
 		p.Action,
-		p.Deny,
 		p.Condition,
 		p.ID,
 	)
@@ -176,9 +169,6 @@ func NewPermission(perm []string) (p Permission) {
 	}
 	if size > 2 {
 		p.Action = perm[2]
-	}
-	if size > 3 {
-		p.Deny = perm[3] == "deny"
 	}
 	if size > 4 {
 		p.Condition = perm[4]

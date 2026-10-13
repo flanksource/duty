@@ -51,13 +51,13 @@ func TestRoleRuleConditions(t *testing.T) {
 	})
 	ctx := membership.WithSnapshot(context.New(), snapshot)
 
-	condition := func(resource, target []string, deny bool) string {
-		c, err := RuleCondition(resource, target, deny)
+	condition := func(resource, target []string) string {
+		c, err := RuleCondition(resource, target)
 		g.Expect(err).ToNot(HaveOccurred())
 		return c
 	}
 
-	readNarrowed := condition([]string{staging, tenantA}, nil, false)
+	readNarrowed := condition([]string{staging, tenantA}, nil)
 	g.Expect(readNarrowed).To(Equal(fmt.Sprintf(
 		"r.obj.Membership.Fits && !r.obj.Membership.HasTarget && '%s' in r.obj.Membership.Resource && '%s' in r.obj.Membership.Resource",
 		ScopeRef(min(staging, tenantA)), ScopeRef(max(staging, tenantA)))))
@@ -66,13 +66,11 @@ func TestRoleRuleConditions(t *testing.T) {
 p, alice, *, read, allow, %s, binding:alice
 p, bob, *, playbook:run, allow, %s, binding:bob
 p, carol, *, playbook:run, allow, %s, binding:carol
-p, carol, *, playbook:run, deny, %s, binding:carol-deny
 p, dave, *, read, allow, %s, permission:dave
 `,
 		readNarrowed,
-		condition([]string{restartPlaybooks}, []string{staging}, false),
-		condition([]string{restartPlaybooks}, nil, false),
-		condition([]string{restartPlaybooks}, []string{tenantA}, true),
+		condition([]string{restartPlaybooks}, []string{staging}),
+		condition([]string{restartPlaybooks}, nil),
 		lo.Must(ScopeCondition(policy.ResourceConfig, tenantA)),
 	)
 
@@ -99,8 +97,7 @@ p, dave, *, read, allow, %s, permission:dave
 		{"a target's Scopes don't count for the primary resource", "bob", &models.ABACAttribute{Playbook: scalePod, Component: component}, policy.ActionPlaybookRun, false},
 
 		{"a run without a target, by a rule without one", "carol", &models.ABACAttribute{Playbook: restartPod}, policy.ActionPlaybookRun, true},
-		{"a deny rule matches the target", "carol", &models.ABACAttribute{Playbook: restartPod, Config: cfgY}, policy.ActionPlaybookRun, false},
-		{"a request that doesn't fit matches every deny rule", "carol", &models.ABACAttribute{Playbook: restartPod, Config: cfgX, Component: component}, policy.ActionPlaybookRun, false},
+		{"a run with a target, by a rule without one", "carol", &models.ABACAttribute{Playbook: restartPod, Config: cfgY}, policy.ActionPlaybookRun, false},
 
 		{"a Permission naming a Scope, by the resource's type", "dave", &models.ABACAttribute{Config: cfgY}, policy.ActionRead, true},
 		{"a Permission naming a Scope, with no resource of its type", "dave", &models.ABACAttribute{Component: component}, policy.ActionRead, false},
@@ -146,8 +143,8 @@ func TestWithMembership(t *testing.T) {
 	g.Expect(withMembership(ctx, attr, "no-contract").Membership.Fits).To(BeFalse())
 	g.Expect(withMembership(ctx, attr, policy.ActionRead).Membership.Fits).To(BeFalse())
 
-	_, err := RuleCondition(nil, nil, false)
+	_, err := RuleCondition(nil, nil)
 	g.Expect(err).To(HaveOccurred())
-	_, err = RuleCondition([]string{"' || true || '"}, nil, false)
+	_, err = RuleCondition([]string{"' || true || '"}, nil)
 	g.Expect(err).To(HaveOccurred())
 }
