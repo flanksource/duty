@@ -30,7 +30,7 @@ func (p PermissionGroup) GetNamespace() string {
 	return p.Namespace
 }
 
-// Role is a named set of rules, each allowing or denying an action on the resources selected by a scope,
+// Role is a named set of rules, each allowing an action on the resources selected by a scope,
 // optionally on the targets selected by another scope.
 // It grants nothing on its own: a RoleBinding grants it to subjects.
 //
@@ -167,7 +167,6 @@ type Permission struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name        string     `json:"name"`
 	Namespace   string     `json:"namespace,omitempty" gorm:"default:NULL"`
-	Deny        bool       `json:"deny"`
 	Description string     `json:"description"`
 	Source      string     `json:"source"`
 	Until       *time.Time `json:"until"`
@@ -266,12 +265,4 @@ func (t *Permission) Condition() string {
 
 func (t *Permission) GetObject() string {
 	return lo.CoalesceOrEmpty(t.Object, "*")
-}
-
-func (t *Permission) Effect() string {
-	if t.Deny {
-		return "deny"
-	}
-
-	return "allow"
 }

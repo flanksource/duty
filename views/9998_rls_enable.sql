@@ -2,7 +2,7 @@
 -- Runs on every migration so that RLS is enabled even on databases that last migrated with RLS disabled.
 
 -- Generic function to match a row against an array of scopes
--- Returns TRUE if the row matches ANY allow scope and no matching deny scope.
+-- Returns TRUE if the row matches ANY scope.
 -- Within a scope, ALL non-empty fields must match (AND logic within scope).
 CREATE OR REPLACE FUNCTION match_scope(
     scopes jsonb,           -- Array of scope objects from JWT claims
@@ -17,12 +17,10 @@ DECLARE
     scope_agents jsonb;
     scope_names jsonb;
     scope_id text;
-    scope_deny boolean;
     tags_match boolean;
     agents_match boolean;
     names_match boolean;
     id_match boolean;
-    allow_match boolean := FALSE;
 BEGIN
     -- If scopes is NULL or not an array or empty, deny access
     IF scopes IS NULL
@@ -31,7 +29,7 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    -- Iterate through each scope (OR logic between allow scopes; any matching deny wins)
+    -- Iterate through each scope (OR logic between scopes)
     FOR scope IN SELECT * FROM jsonb_array_elements(scopes)
     LOOP
         -- Extract fields from scope
@@ -39,7 +37,6 @@ BEGIN
         scope_agents := scope->'agents';
         scope_names := scope->'names';
         scope_id := NULLIF(btrim(scope->>'id'), '');
-        scope_deny := lower(coalesce(scope->>'deny', 'false')) = 'true';
 
         -- Check if scope has any fields applicable to this resource type
         -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
@@ -93,16 +90,13 @@ BEGIN
             id_match := lower(scope_id) = row_id::text;
         END IF;
 
-        -- If ALL conditions match (AND logic within scope), apply effect
+        -- If ALL conditions match (AND logic within scope), allow
         IF tags_match AND agents_match AND names_match AND id_match THEN
-            IF scope_deny THEN
-                RETURN FALSE;
-            END IF;
-            allow_match := TRUE;
+            RETURN TRUE;
         END IF;
     END LOOP;
 
-    RETURN allow_match;
+    RETURN FALSE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

@@ -165,6 +165,9 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 	}
 	var s []policy.Permission
 	for _, perm := range append(perms, implicit...) {
+		if len(perm) > 3 && perm[3] != "allow" {
+			continue
+		}
 		s = append(s, policy.NewPermission(perm))
 	}
 
