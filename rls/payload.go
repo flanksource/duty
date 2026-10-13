@@ -47,6 +47,7 @@ type Payload struct {
 	Playbook  *Grants `json:"playbook,omitempty"`
 	Canary    *Grants `json:"canary,omitempty"`
 	Check     *Grants `json:"check,omitempty"`
+	Scraper   *Grants `json:"scraper,omitempty"`
 
 	// View filters views by their own fields. Views aren't covered by stored Scope membership.
 	View []Scope `json:"view,omitempty"`
@@ -71,6 +72,8 @@ func (t *Payload) GrantsFor(resourceType string) *Grants {
 		return t.Canary
 	case "check":
 		return t.Check
+	case "scraper":
+		return t.Scraper
 	}
 	return nil
 }
@@ -88,12 +91,14 @@ func (t *Payload) SetGrants(resourceType string, grants *Grants) {
 		t.Canary = grants
 	case "check":
 		t.Check = grants
+	case "scraper":
+		t.Scraper = grants
 	}
 	t.fingerprint = ""
 }
 
 // GrantTypes are the resource types whose rows are filtered by grants.
-var GrantTypes = []string{"config", "component", "playbook", "canary", "check"}
+var GrantTypes = []string{"config", "component", "playbook", "canary", "check", "scraper"}
 
 // Get the JWT claims that'll be passed on to PostgREST
 func (t Payload) JWTClaims() map[string]any {

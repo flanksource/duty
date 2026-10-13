@@ -256,6 +256,7 @@ var fields = map[string]struct{ agent, types, tags, labels bool }{
 	policy.ResourceCanary:     {agent: true, labels: true},
 	policy.ResourcePlaybook:   {},
 	policy.ResourceConnection: {types: true},
+	policy.ResourceScraper:    {agent: true},
 }
 
 // Types are the resource types whose membership is stored.

@@ -157,6 +157,14 @@ BEGIN
         EXECUTE 'ALTER TABLE checks ENABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'config_scrapers') THEN
+        EXECUTE 'ALTER TABLE config_scrapers ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'artifacts') THEN
+        EXECUTE 'ALTER TABLE artifacts ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
     -- Another relation called "views" exists in the information_schema schema.
     IF NOT (SELECT c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE c.relname = 'views' AND n.nspname = 'public') THEN
         EXECUTE 'ALTER TABLE views ENABLE ROW LEVEL SECURITY;';
@@ -419,6 +427,43 @@ CREATE POLICY checks_auth ON checks
       END
     );
 
+-- Policy config_scrapers
+DROP POLICY IF EXISTS config_scrapers_auth ON config_scrapers;
+
+CREATE POLICY config_scrapers_auth ON config_scrapers
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        EXISTS (SELECT 1 FROM rls_matching_grants('scraper', config_scrapers.id))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (config_scrapers.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('scraper', config_scrapers.id, config_scrapers.name, config_scrapers.namespace, config_scrapers.agent_id, NULL, NULL, NULL))
+      END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('scraper', config_scrapers.id, config_scrapers.name, config_scrapers.namespace, config_scrapers.agent_id, NULL, NULL, NULL)
+      END
+    );
+
+-- Policy artifacts: an artifact a scraper produced is visible with its scraper.
+DROP POLICY IF EXISTS artifacts_auth ON artifacts;
+
+CREATE POLICY artifacts_auth ON artifacts
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        artifacts.scraper_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM config_scrapers
+          WHERE config_scrapers.id = artifacts.scraper_id
+        )
+      END
+    );
+
 -- Policy views
 DROP POLICY IF EXISTS views_auth ON views;
 
@@ -453,12 +498,14 @@ CREATE POLICY view_panels_auth ON view_panels
     );
 
 ALTER VIEW analysis_by_config SET (security_invoker = true);
+ALTER VIEW artifact_summary SET (security_invoker = true);
 ALTER VIEW catalog_changes SET (security_invoker = true);
 ALTER VIEW check_summary SET (security_invoker = true);
 ALTER VIEW check_summary_by_config SET (security_invoker = true);
 ALTER VIEW check_summary_for_config SET (security_invoker = true);
 ALTER VIEW checks_by_config SET (security_invoker = true);
 ALTER VIEW checks_labels_keys SET (security_invoker = true);
+ALTER VIEW checks_status_artifacts SET (security_invoker = true);
 ALTER VIEW component_labels_keys SET (security_invoker = true);
 ALTER VIEW config_analysis_analyzers SET (security_invoker = true);
 ALTER VIEW config_analysis_by_severity SET (security_invoker = true);
@@ -479,5 +526,6 @@ ALTER VIEW configs SET (security_invoker = true);
 ALTER VIEW external_group_summary SET (security_invoker = true);
 ALTER VIEW topology SET (security_invoker = true);
 ALTER VIEW incidents_by_config SET (security_invoker = true);
+ALTER VIEW integrations_with_status SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
