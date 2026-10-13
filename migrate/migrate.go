@@ -265,7 +265,8 @@ func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
 	return revokeInternalAccess(pool, config)
 }
 
-// revokeInternalAccess revokes PostgREST roles' access to tables and functions only the app may use, e.g. the
+// revokeInternalAccess revokes PostgREST roles' access to tables and functions only the app may use, e.g. connections,
+// whose credentials are read through the masked connection_details view, the
 // notification health tables and scope_rebuild_members. It also runs after blanket grants on repeat migrations.
 func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 	for _, role := range []string{"PUBLIC", config.Postgrest.DBRole, config.Postgrest.AnonDBRole} {
@@ -276,7 +277,7 @@ func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 		if role == "PUBLIC" {
 			grantee = "PUBLIC"
 		}
-		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries"} {
+		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries", "connections"} {
 			var exists bool
 			if err := pool.QueryRow("SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&exists); err != nil {
 				return fmt.Errorf("failed to check table public.%s for grantee %s: %w", table, grantee, err)

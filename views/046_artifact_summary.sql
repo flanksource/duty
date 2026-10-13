@@ -1,3 +1,4 @@
+-- dependsOn: views/027_connections.sql
 CREATE OR REPLACE VIEW artifact_summary AS
 SELECT
   content_type,
@@ -8,7 +9,7 @@ SELECT
   COUNT(*) AS total_count,
   COALESCE(SUM(a.size), 0) AS total_size
 FROM artifacts a
-LEFT JOIN connections c ON a.connection_id = c.id
+LEFT JOIN connections_list c ON a.connection_id = c.id
 WHERE a.deleted_at IS NULL
 GROUP BY
   content_type,
