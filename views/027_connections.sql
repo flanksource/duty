@@ -1,5 +1,5 @@
 -- A basic connection view free from any sensitive data.
-DROP VIEW IF EXISTS connections_list;
+DROP VIEW IF EXISTS connections_list CASCADE;
 CREATE OR REPLACE VIEW connections_list AS
   SELECT
     id,
