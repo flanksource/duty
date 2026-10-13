@@ -36,11 +36,14 @@ END;
 $$ LANGUAGE plpgsql;
 -- 
 
--- A connection view that masks sensitive fields.
+-- Properties can contain arbitrary credentials or serialized auth settings, so mask every value.
+-- This must happen before PostgREST projections, filters and embeddings, not in its response.
 DROP VIEW IF EXISTS connection_details;
 CREATE OR REPLACE VIEW connection_details AS
   SELECT
-    id, name, namespace, type, source, properties, insecure_tls, created_by, created_at, updated_at,
+    id, name, namespace, type, source,
+    (SELECT jsonb_object_agg(key, mask_sensitive(value)) FROM jsonb_each_text(properties)) AS properties,
+    insecure_tls, created_by, created_at, updated_at,
     CASE
       WHEN (string_to_array(url, '://'))[1] IN ('bark', 'discord', 'smtp', 'gotify', 'googlechat', 'ifttt', 'join', 'mattermost', 'matrix', 'ntfy', 'opsgenie', 'pushbullet', 'pushover', 'rocketchat', 'slack', 'teams', 'telegram', 'zulip') THEN 'notification'
       ELSE ''

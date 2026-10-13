@@ -9,10 +9,13 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/connection"
+	"github.com/flanksource/duty/migrate"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/tests/setup"
+	"github.com/flanksource/duty/types"
 )
 
 var _ = Describe("Exec Connection", Ordered, func() {
@@ -64,6 +67,60 @@ var _ = Describe("Exec Connection", Ordered, func() {
 			})
 			Expect(txError).To(BeNil())
 		})
+	})
+})
+
+var _ = Describe("Connection credential views", func() {
+	It("masks arbitrary properties before projection, filtering or embedding by API roles", func() {
+		conn := models.Connection{
+			Name: "view-credential-regression", Namespace: "default", Type: models.ConnectionTypeHTTP, Source: models.SourceUI,
+			Username: "view-user", Password: "view-password", Certificate: "view-certificate",
+			URL: "https://host/webhook-secret?token=query-secret", InsecureTLS: true,
+			Properties: types.JSONStringMap{
+				"bearer": "view-bearer", "custom": "view-custom-secret", "region": "eu-west-1",
+				"oauth": `{"clientSecret":{"value":"view-oauth-secret"}}`,
+				"tls":   `{"key":{"value":"view-key"}}`, "reference": "secret://creds/token",
+			},
+		}
+		Expect(DefaultContext.DB().Create(&conn).Error).To(Succeed())
+		defer DefaultContext.DB().Delete(&conn)
+		pool, err := DefaultContext.DB().DB()
+		Expect(err).ToNot(HaveOccurred())
+		cfg := api.Config{ConnectionString: DefaultContext.Value("db_url").(string), Postgrest: api.PostgrestConfig{DBRole: "postgrest_api", AnonDBRole: "postgrest_anon"}}
+		Expect(migrate.RunMigrations(pool, cfg)).To(Succeed())
+		for _, role := range []string{"postgrest_api", "postgrest_anon"} {
+			tx := DefaultContext.DB().Begin()
+			Expect(tx.Exec("SET LOCAL ROLE " + role).Error).To(Succeed())
+			var visible models.Connection
+			Expect(tx.Table("connection_details").Where("id = ?", conn.ID).Take(&visible).Error).To(Succeed())
+			Expect(visible.Name).To(Equal(conn.Name))
+			Expect(visible.Type).To(Equal(conn.Type))
+			Expect(visible.InsecureTLS).To(BeTrue())
+			Expect(visible.Username).To(Equal("***"))
+			Expect(visible.Password).To(Equal("***"))
+			Expect(visible.Certificate).To(Equal("***"))
+			Expect(visible.URL).To(BeEmpty())
+			for _, key := range []string{"bearer", "custom", "region", "oauth", "tls"} {
+				Expect(visible.Properties).To(HaveKeyWithValue(key, "***"))
+			}
+			Expect(visible.Properties).To(HaveKeyWithValue("reference", "secret://creds/token"))
+			var projected string
+			Expect(tx.Raw("SELECT properties->>'bearer' FROM connection_details WHERE id = ?", conn.ID).Scan(&projected).Error).To(Succeed())
+			Expect(projected).To(Equal("***"))
+			var count int64
+			Expect(tx.Table("connection_details").Where("id = ? AND properties->>'bearer' = ?", conn.ID, "view-bearer").Count(&count).Error).To(Succeed())
+			Expect(count).To(BeZero())
+			var embedded string
+			Expect(tx.Raw("SELECT row_to_json(c)::text FROM connection_details c WHERE id = ?", conn.ID).Scan(&embedded).Error).To(Succeed())
+			Expect(embedded).ToNot(ContainSubstring("view-bearer"))
+			Expect(tx.Table("connections_list").Where("id = ?", conn.ID).Take(&visible).Error).To(Succeed())
+			Expect(tx.Raw("SELECT * FROM connections WHERE id = ?", conn.ID).Scan(&visible).Error).To(HaveOccurred())
+			Expect(tx.Rollback().Error).To(Succeed())
+		}
+		var stored models.Connection
+		Expect(DefaultContext.DB().First(&stored, "id = ?", conn.ID).Error).To(Succeed())
+		Expect(stored.Properties).To(Equal(conn.Properties))
+		Expect(stored.Password).To(Equal(conn.Password))
 	})
 })
 
