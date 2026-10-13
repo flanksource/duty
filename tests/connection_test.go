@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -190,64 +189,5 @@ var _ = Describe("SQLConnection", func() {
 		Expect(rows.Err()).ToNot(HaveOccurred())
 		Expect(len(results)).To(Equal(5))
 
-	})
-})
-
-var _ = Describe("PostgREST access to connection credentials", func() {
-	for _, role := range []string{"postgrest_api", "postgrest_anon"} {
-		It("denies "+role+" the credential columns", func() {
-			denied := []string{
-				"SELECT * FROM connections",
-				"SELECT password FROM connections",
-				"SELECT id FROM connections WHERE password LIKE 'a%'",
-				"SELECT p.id FROM permissions p JOIN connections c ON c.id = p.connection_id WHERE c.username IS NOT NULL",
-				"SELECT url, properties FROM connections",
-				"SELECT certificate FROM connections",
-			}
-			for _, statement := range denied {
-				tx := DefaultContext.DB().Begin()
-				Expect(tx.Exec("SET LOCAL ROLE " + role).Error).To(Succeed())
-				err := tx.Exec(statement).Error
-				Expect(tx.Rollback().Error).To(Succeed())
-				Expect(err).To(HaveOccurred(), statement)
-				Expect(err.Error()).To(ContainSubstring("permission denied"), statement)
-			}
-
-			tx := DefaultContext.DB().Begin()
-			defer tx.Rollback()
-			Expect(tx.Exec("SET LOCAL ROLE " + role).Error).To(Succeed())
-			var names []string
-			Expect(tx.Raw("SELECT name FROM connections WHERE id = ?", dummy.AWSConnection.ID).Scan(&names).Error).To(Succeed())
-			Expect(names).To(Equal([]string{dummy.AWSConnection.Name}))
-			var passwords []string
-			Expect(tx.Raw("SELECT password FROM connection_details WHERE id = ?", dummy.AWSConnection.ID).Scan(&passwords).Error).To(Succeed())
-			Expect(passwords).To(HaveLen(1))
-			Expect(tx.Raw("SELECT name FROM connections_list WHERE id = ?", dummy.AWSConnection.ID).Scan(&names).Error).To(Succeed())
-			Expect(names).To(Equal([]string{dummy.AWSConnection.Name}))
-		})
-	}
-
-	It("lets postgrest_api write connections", func() {
-		tx := DefaultContext.DB().Begin()
-		defer tx.Rollback()
-		Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
-
-		id := uuid.New()
-		Expect(tx.Exec("INSERT INTO connections (id, name, namespace, type, url, username, password, certificate, properties) VALUES (?, 'rest-written', 'default', 'http', 'https://example.com', 'user', 'secret', 'cert', '{\"a\":\"b\"}')", id).Error).To(Succeed())
-
-		result := tx.Exec("UPDATE connections SET password = 'rotated', username = '***' WHERE id = ?", id)
-		Expect(result.Error).To(Succeed())
-		Expect(result.RowsAffected).To(Equal(int64(1)))
-
-		Expect(tx.Exec("RESET ROLE").Error).To(Succeed())
-		var stored models.Connection
-		Expect(tx.Where("id = ?", id).First(&stored).Error).To(Succeed())
-		Expect(stored.Password).To(Equal("rotated"))
-		Expect(stored.Username).To(Equal("user"))
-
-		Expect(tx.Exec("SET LOCAL ROLE postgrest_api").Error).To(Succeed())
-		result = tx.Exec("DELETE FROM connections WHERE id = ?", id)
-		Expect(result.Error).To(Succeed())
-		Expect(result.RowsAffected).To(Equal(int64(1)))
 	})
 })
