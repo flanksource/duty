@@ -437,6 +437,120 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
+	var _ = Describe("playbook run records", Ordered, func() {
+		var (
+			tx                                                  *gorm.DB
+			nodeAction, ec2Action, nodeApproval, ec2Approval    = uuid.New(), uuid.New(), uuid.New(), uuid.New()
+			nodeActionArtifact, ec2ActionArtifact               = uuid.New(), uuid.New()
+			apiCheckArtifact, dbCheckArtifact                   = uuid.New(), uuid.New()
+			eksChangeArtifact, nodeChangeArtifact               = uuid.New(), uuid.New()
+			actions, approvals, actionArtifacts, checkArtifacts []uuid.UUID
+			changeArtifacts                                     []uuid.UUID
+		)
+
+		BeforeAll(func() {
+			actions = []uuid.UUID{nodeAction, ec2Action}
+			approvals = []uuid.UUID{nodeApproval, ec2Approval}
+			actionArtifacts = []uuid.UUID{nodeActionArtifact, ec2ActionArtifact}
+			checkArtifacts = []uuid.UUID{apiCheckArtifact, dbCheckArtifact}
+			changeArtifacts = []uuid.UUID{eksChangeArtifact, nodeChangeArtifact}
+
+			db := DefaultContext.DB()
+			for _, r := range []struct{ action, approval, run uuid.UUID }{
+				{nodeAction, nodeApproval, dummy.EchoConfigRun1.ID},
+				{ec2Action, ec2Approval, dummy.EchoConfigRun2.ID},
+			} {
+				Expect(db.Exec("INSERT INTO playbook_run_actions (id, name, playbook_run_id, status) VALUES (?, 'rls', ?, 'completed')", r.action, r.run).Error).To(Succeed())
+				Expect(db.Exec("INSERT INTO playbook_approvals (id, run_id) VALUES (?, ?)", r.approval, r.run).Error).To(Succeed())
+				Expect(db.Exec("INSERT INTO playbook_action_agent_data (action_id, playbook_id, run_id, spec) VALUES (?, ?, ?, '{}')", r.action, dummy.EchoConfig.ID, r.run).Error).To(Succeed())
+			}
+
+			for _, a := range []struct {
+				id             uuid.UUID
+				column, source string
+			}{
+				{nodeActionArtifact, "playbook_run_action_id", nodeAction.String()},
+				{ec2ActionArtifact, "playbook_run_action_id", ec2Action.String()},
+				{apiCheckArtifact, "check_id", dummy.LogisticsAPIHealthHTTPCheck.ID.String()},
+				{dbCheckArtifact, "check_id", dummy.LogisticsDBCheck.ID.String()},
+				{eksChangeArtifact, "config_change_id", dummy.EKSClusterCreateChange.ID},
+				{nodeChangeArtifact, "config_change_id", dummy.KubernetesNodeAChange.ID},
+			} {
+				Expect(db.Exec("INSERT INTO artifacts (id, "+a.column+", path, filename, size, checksum) VALUES (?, ?, '/rls/records', 'record.txt', 0, 'rls')", a.id, a.source).Error).To(Succeed())
+			}
+
+			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
+		})
+
+		AfterAll(func() {
+			Expect(tx.Commit().Error).To(Succeed())
+			db := DefaultContext.DB()
+			Expect(db.Exec("DELETE FROM artifacts WHERE id IN ?", append(append(actionArtifacts, checkArtifacts...), changeArtifacts...)).Error).To(Succeed())
+			Expect(db.Exec("DELETE FROM playbook_action_agent_data WHERE action_id IN ?", actions).Error).To(Succeed())
+			Expect(db.Exec("DELETE FROM event_queue WHERE event_id IN ?", approvals).Error).To(Succeed())
+			Expect(db.Exec("DELETE FROM playbook_approvals WHERE id IN ?", approvals).Error).To(Succeed())
+			Expect(db.Exec("DELETE FROM playbook_run_actions WHERE id IN ?", actions).Error).To(Succeed())
+		})
+
+		// visible lists which of the given rows the claim lets the caller read.
+		visible := func(payload rls.Payload, table, column string, among []uuid.UUID) []uuid.UUID {
+			GinkgoHelper()
+			Expect(payload.SetPostgresSessionRLS(tx)).To(Succeed())
+			var out []uuid.UUID
+			Expect(tx.Table(table).Where(column+" IN ?", among).Pluck(column, &out).Error).To(Succeed())
+			return out
+		}
+
+		It("lists the steps, approvals, agent data and artifacts of a readable run", func() {
+			awsEcho := rls.Payload{Playbook: grants(rls.Grant{Scope: echoPlaybookScope}), Config: grants(rls.Grant{Scope: awsScope})}
+			Expect(visible(awsEcho, "playbook_runs", "id", []uuid.UUID{dummy.EchoConfigRun1.ID, dummy.EchoConfigRun2.ID})).To(Equal([]uuid.UUID{dummy.EchoConfigRun1.ID}))
+			Expect(visible(awsEcho, "playbook_run_actions", "id", actions)).To(Equal([]uuid.UUID{nodeAction}))
+			Expect(visible(awsEcho, "playbook_approvals", "id", approvals)).To(Equal([]uuid.UUID{nodeApproval}))
+			Expect(visible(awsEcho, "playbook_action_agent_data", "action_id", actions)).To(Equal([]uuid.UUID{nodeAction}))
+			Expect(visible(awsEcho, "artifacts", "id", actionArtifacts)).To(Equal([]uuid.UUID{nodeActionArtifact}))
+
+			everything := rls.Payload{Playbook: rls.AllRows(), Config: rls.AllRows()}
+			Expect(visible(everything, "playbook_run_actions", "id", actions)).To(ConsistOf(actions))
+			Expect(visible(everything, "artifacts", "id", actionArtifacts)).To(ConsistOf(actionArtifacts))
+		})
+
+		It("lists none of them to a caller who can read the playbook but not the run's config", func() {
+			for _, payload := range []rls.Payload{
+				{Playbook: grants(rls.Grant{Scope: echoPlaybookScope}), Config: grants(rls.Grant{Scope: eksScope}), Canary: rls.AllRows()},
+				{Playbook: rls.AllRows()},
+			} {
+				Expect(visible(payload, "playbook_runs", "id", []uuid.UUID{dummy.EchoConfigRun1.ID, dummy.EchoConfigRun2.ID})).To(BeEmpty())
+				Expect(visible(payload, "playbook_run_actions", "id", actions)).To(BeEmpty())
+				Expect(visible(payload, "playbook_approvals", "id", approvals)).To(BeEmpty())
+				Expect(visible(payload, "playbook_action_agent_data", "action_id", actions)).To(BeEmpty())
+				Expect(visible(payload, "artifacts", "id", actionArtifacts)).To(BeEmpty())
+			}
+		})
+
+		It("lists the artifacts of readable checks", func() {
+			Expect(visible(rls.Payload{}, "artifacts", "id", checkArtifacts)).To(BeEmpty())
+			Expect(visible(rls.Payload{Config: rls.AllRows(), Playbook: rls.AllRows()}, "artifacts", "id", checkArtifacts)).To(BeEmpty())
+			Expect(visible(rls.Payload{Canary: grants(rls.Grant{Scope: logisticsAPICanaryScope})}, "artifacts", "id", checkArtifacts)).To(Equal([]uuid.UUID{apiCheckArtifact}))
+			Expect(visible(rls.Payload{Check: grants(rls.Grant{Scope: apiHealthCheckScope})}, "artifacts", "id", checkArtifacts)).To(Equal([]uuid.UUID{apiCheckArtifact}))
+			Expect(visible(rls.Payload{Canary: rls.AllRows()}, "artifacts", "id", checkArtifacts)).To(ConsistOf(checkArtifacts))
+		})
+
+		It("lists the artifacts of readable config changes", func() {
+			Expect(visible(rls.Payload{}, "artifacts", "id", changeArtifacts)).To(BeEmpty())
+			Expect(visible(rls.Payload{Canary: rls.AllRows(), Scraper: rls.AllRows()}, "artifacts", "id", changeArtifacts)).To(BeEmpty())
+			Expect(visible(rls.Payload{Config: grants(rls.Grant{Scope: eksScope})}, "artifacts", "id", changeArtifacts)).To(Equal([]uuid.UUID{eksChangeArtifact}))
+			Expect(visible(rls.Payload{Config: grants(rls.Grant{Scope: awsScope})}, "artifacts", "id", changeArtifacts)).To(ConsistOf(changeArtifacts))
+		})
+
+		It("lists every record when RLS is disabled", func() {
+			for _, table := range []string{"playbook_run_actions", "playbook_approvals", "playbook_action_agent_data", "artifacts"} {
+				Expect(countRows(tx, table, rls.Payload{Disable: true})).To(Equal(countAll(table, "")), table)
+			}
+			Expect(visible(rls.Payload{Disable: true}, "artifacts", "id", append(append(actionArtifacts, checkArtifacts...), changeArtifacts...))).To(HaveLen(6))
+		})
+	})
+
 	var _ = Describe("config_scrapers query", func() {
 		runCases("config_scrapers", func() []grantCase {
 			return []grantCase{
@@ -515,7 +629,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		var (
 			tx                            *gorm.DB
 			homelabArtifact, kubeArtifact models.Artifact
-			withoutScraper                int64
+			withoutProducer               int64
 			checkStatus                   struct {
 				CheckID uuid.UUID
 				Time    time.Time
@@ -529,7 +643,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			kubeArtifact = models.Artifact{ID: uuid.New(), ScraperID: &dummy.KubeScrapeConfig.ID, Path: "/rls/kube", Filename: "kube.txt", Checksum: "rls", ContentType: "rls/scraper",
 				CheckID: &checkStatus.CheckID, CheckTime: &checkStatus.Time}
 			Expect(DefaultContext.DB().Omit("connection_id").Create(&[]models.Artifact{homelabArtifact, kubeArtifact}).Error).To(Succeed())
-			withoutScraper = countAll("artifacts", "scraper_id IS NULL")
+			withoutProducer = countAll("artifacts", "scraper_id IS NULL AND check_id IS NULL AND playbook_run_action_id IS NULL AND config_change_id IS NULL")
 
 			tx = DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
 			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
@@ -554,7 +668,12 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 		It("lists the artifacts of readable scrapers", func() {
 			Expect(ids(rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})})).To(Equal([]uuid.UUID{homelabArtifact.ID}))
-			Expect(ids(rls.Payload{Scraper: rls.AllRows()})).To(ContainElements(homelabArtifact.ID, kubeArtifact.ID))
+			Expect(ids(rls.Payload{Scraper: rls.AllRows(), Canary: rls.AllRows()})).To(ContainElements(homelabArtifact.ID, kubeArtifact.ID))
+		})
+
+		It("lists an artifact only when every producer it has is readable", func() {
+			Expect(ids(rls.Payload{Scraper: rls.AllRows()})).ToNot(ContainElement(kubeArtifact.ID))
+			Expect(ids(rls.Payload{Canary: rls.AllRows()})).ToNot(ContainElement(kubeArtifact.ID))
 		})
 
 		It("lists no scraper's artifacts without scraper grants", func() {
@@ -562,8 +681,9 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(ids(rls.Payload{Config: rls.AllRows()})).To(BeEmpty())
 		})
 
-		It("leaves artifacts no scraper produced to their own access", func() {
-			Expect(countRows(tx, "artifacts", rls.Payload{})).To(Equal(withoutScraper))
+		It("leaves artifacts without a producer to their own access", func() {
+			Expect(withoutProducer).To(BeNumerically(">", 0))
+			Expect(countRows(tx, "artifacts", rls.Payload{})).To(Equal(withoutProducer))
 		})
 
 		It("summarizes only the artifacts of readable scrapers in artifact_summary", func() {
@@ -577,7 +697,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 			Expect(summarized(rls.Payload{})).To(BeZero())
 			Expect(summarized(rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})})).To(Equal(int64(1)))
-			Expect(summarized(rls.Payload{Scraper: rls.AllRows()})).To(Equal(int64(2)))
+			Expect(summarized(rls.Payload{Scraper: rls.AllRows(), Canary: rls.AllRows()})).To(Equal(int64(2)))
 		})
 
 		It("lists only the artifacts of readable scrapers in checks_status_artifacts", func() {
@@ -591,7 +711,8 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			}
 
 			Expect(listed(rls.Payload{})).ToNot(ContainSubstring(kubeArtifact.ID.String()))
-			Expect(listed(rls.Payload{Scraper: rls.AllRows()})).To(ContainSubstring(kubeArtifact.ID.String()))
+			Expect(listed(rls.Payload{Scraper: rls.AllRows()})).ToNot(ContainSubstring(kubeArtifact.ID.String()))
+			Expect(listed(rls.Payload{Scraper: rls.AllRows(), Canary: rls.AllRows()})).To(ContainSubstring(kubeArtifact.ID.String()))
 		})
 	})
 

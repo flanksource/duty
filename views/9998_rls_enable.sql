@@ -147,6 +147,18 @@ BEGIN
         EXECUTE 'ALTER TABLE playbook_runs ENABLE ROW LEVEL SECURITY;';
     END IF;
 
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_run_actions') THEN
+        EXECUTE 'ALTER TABLE playbook_run_actions ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_approvals') THEN
+        EXECUTE 'ALTER TABLE playbook_approvals ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
+    IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'playbook_action_agent_data') THEN
+        EXECUTE 'ALTER TABLE playbook_action_agent_data ENABLE ROW LEVEL SECURITY;';
+    END IF;
+
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE relname = 'checks') THEN
         EXECUTE 'ALTER TABLE checks ENABLE ROW LEVEL SECURITY;';
     END IF;
@@ -393,6 +405,51 @@ CREATE POLICY playbook_runs_auth ON playbook_runs
       END
     );
 
+-- Policy playbook_run_actions (inherits from parent playbook_runs table)
+DROP POLICY IF EXISTS playbook_run_actions_auth ON playbook_run_actions;
+
+CREATE POLICY playbook_run_actions_auth ON playbook_run_actions
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        EXISTS (
+          SELECT 1 FROM playbook_runs
+          WHERE playbook_runs.id = playbook_run_actions.playbook_run_id
+        )
+      END
+    );
+
+-- Policy playbook_approvals (inherits from parent playbook_runs table)
+DROP POLICY IF EXISTS playbook_approvals_auth ON playbook_approvals;
+
+CREATE POLICY playbook_approvals_auth ON playbook_approvals
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        EXISTS (
+          SELECT 1 FROM playbook_runs
+          WHERE playbook_runs.id = playbook_approvals.run_id
+        )
+      END
+    );
+
+-- Policy playbook_action_agent_data (inherits from parent playbook_runs table)
+DROP POLICY IF EXISTS playbook_action_agent_data_auth ON playbook_action_agent_data;
+
+CREATE POLICY playbook_action_agent_data_auth ON playbook_action_agent_data
+  FOR ALL TO postgrest_api, postgrest_anon
+    USING (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        EXISTS (
+          SELECT 1 FROM playbook_runs
+          WHERE playbook_runs.id = playbook_action_agent_data.run_id
+        )
+      END
+    );
+
 -- Policy checks
 DROP POLICY IF EXISTS checks_auth ON checks;
 
@@ -442,19 +499,38 @@ CREATE POLICY config_scrapers_auth ON config_scrapers
       END
     );
 
--- Policy artifacts: an artifact a scraper produced is visible with its scraper.
+-- Policy artifacts: an artifact is visible with every producer it has: its playbook run's step, check, config change and scraper.
 DROP POLICY IF EXISTS artifacts_auth ON artifacts;
 
 CREATE POLICY artifacts_auth ON artifacts
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE
-        artifacts.scraper_id IS NULL OR EXISTS (
+      ELSE (
+        (artifacts.playbook_run_action_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM playbook_run_actions
+          WHERE playbook_run_actions.id = artifacts.playbook_run_action_id
+        ))
+        AND
+        (artifacts.check_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM checks
+          WHERE checks.id = artifacts.check_id
+        ))
+        AND
+        (artifacts.config_change_id IS NULL OR EXISTS (
+          SELECT 1
+          FROM config_changes
+          WHERE config_changes.id = artifacts.config_change_id
+        ))
+        AND
+        (artifacts.scraper_id IS NULL OR EXISTS (
           SELECT 1
           FROM config_scrapers
           WHERE config_scrapers.id = artifacts.scraper_id
-        )
+        ))
+      )
       END
     );
 
