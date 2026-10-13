@@ -13,6 +13,7 @@ import (
 
 	"github.com/flanksource/commons/logger"
 	"github.com/flanksource/commons/properties"
+	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"github.com/samber/oops"
 
@@ -302,6 +303,57 @@ func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 				}
 			}
 		}
+		if role != "PUBLIC" {
+			if err := revokeConnectionCredentials(pool, grantee); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// connectionCredentialColumns are the columns of connections that PostgREST roles must not read.
+// Masked values are available through the connection_details view.
+var connectionCredentialColumns = []string{"url", "username", "password", "certificate", "properties"}
+
+// revokeConnectionCredentials limits the grantee's SELECT on connections to the non-credential columns.
+// Revoking the table-level SELECT also revokes any column-level SELECT, so this is idempotent.
+// INSERT, UPDATE and DELETE are left untouched.
+func revokeConnectionCredentials(pool *sql.DB, grantee string) error {
+	var exists bool
+	if err := pool.QueryRow("SELECT to_regclass('public.connections') IS NOT NULL").Scan(&exists); err != nil {
+		return fmt.Errorf("failed to check table public.connections for grantee %s: %w", grantee, err)
+	} else if !exists {
+		return nil
+	}
+
+	var columns []string
+	rows, err := pool.Query(`SELECT quote_ident(attname) FROM pg_attribute
+		WHERE attrelid = 'public.connections'::regclass AND attnum > 0 AND NOT attisdropped AND attname <> ALL($1)
+		ORDER BY attnum`, pq.Array(connectionCredentialColumns))
+	if err != nil {
+		return fmt.Errorf("failed to list columns of public.connections: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			return fmt.Errorf("failed to list columns of public.connections: %w", err)
+		}
+		columns = append(columns, column)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to list columns of public.connections: %w", err)
+	}
+
+	if _, err := pool.Exec("REVOKE SELECT ON TABLE public.connections FROM " + grantee); err != nil {
+		return fmt.Errorf("failed to revoke select on table public.connections from grantee %s: %w", grantee, err)
+	}
+	if len(columns) == 0 {
+		return nil
+	}
+	if _, err := pool.Exec(fmt.Sprintf("GRANT SELECT (%s) ON TABLE public.connections TO %s", strings.Join(columns, ", "), grantee)); err != nil {
+		return fmt.Errorf("failed to grant select on public.connections columns to grantee %s: %w", grantee, err)
 	}
 	return nil
 }
