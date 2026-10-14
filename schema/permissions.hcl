@@ -414,6 +414,10 @@ table "roles" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+
+  check "roles_namespace_not_empty" {
+    expr = "namespace <> ''"
+  }
 }
 
 table "role_bindings" {
@@ -443,13 +447,13 @@ table "role_bindings" {
   column "role" {
     null    = false
     type    = text
-    comment = "name of the bound role, in the same namespace as the binding"
+    comment = "the bound role: name in the binding's namespace, or namespace/name"
   }
 
   column "constraint" {
     null    = true
     type    = jsonb
-    comment = "narrows every allow rule of the role: the scopes, in the same namespace as the binding, the resource and target of every operation must also belong to. NULL when the binding has no constraint"
+    comment = "narrows every allow rule of the role: the scopes the resource and target of every operation must also belong to. Each scope is a name in the binding's namespace, or namespace/name. NULL when the binding has no constraint"
   }
 
   column "subjects" {
@@ -518,5 +522,9 @@ table "role_bindings" {
     ref_columns = [table.people.column.id]
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
+  }
+
+  check "role_bindings_namespace_not_empty" {
+    expr = "namespace <> ''"
   }
 }
