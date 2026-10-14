@@ -11,6 +11,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
 	duty "github.com/flanksource/duty"
@@ -18,6 +19,7 @@ import (
 	"github.com/flanksource/duty/job"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/query"
+	"github.com/flanksource/duty/rls"
 	"github.com/flanksource/duty/tests/fixtures/dummy"
 	"github.com/flanksource/duty/types"
 )
@@ -524,6 +526,30 @@ var _ = ginkgo.Describe("SearchResourceSelectors", func() {
 			Expect(err).To(BeNil())
 			Expect(string(analysisPayload)).To(ContainSubstring("created_at"))
 			Expect(string(analysisPayload)).To(ContainSubstring("updated_at"))
+		})
+
+		// Mission Control serves /resources/search under row-level security, as postgrest_api, which can't read the
+		// connections table (#2114).
+		ginkgo.It("searches as postgrest_api", func() {
+			err := DefaultContext.Transaction(func(ctx context.Context, _ trace.Span) error {
+				payload := rls.Payload{Config: rls.AllRows()}
+				Expect(payload.SetPostgresSessionRLS(ctx.DB())).To(Succeed())
+				ctx = ctx.WithRLSPayload(&payload)
+
+				items, err := query.SearchResources(ctx, query.SearchResourcesRequest{
+					Configs: []types.ResourceSelector{{ID: dummy.EKSCluster.ID.String()}},
+				})
+				Expect(err).To(BeNil())
+				Expect(items.GetIDs()).To(ConsistOf(dummy.EKSCluster.ID.String()))
+
+				items, err = query.SearchResources(ctx, query.SearchResourcesRequest{
+					Connections: []types.ResourceSelector{{Name: dummy.PostgresConnection.Name}},
+				})
+				Expect(err).To(BeNil())
+				Expect(items.GetIDs()).To(ConsistOf(dummy.PostgresConnection.ID.String()))
+				return nil
+			})
+			Expect(err).To(BeNil())
 		})
 
 		ginkgo.It("omits timestamps by default", func() {

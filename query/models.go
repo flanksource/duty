@@ -412,10 +412,10 @@ var PlaybookQueryModel = QueryModel{
 	},
 }
 
+// ConnectionQueryModel queries connection_details, which lists only connections that aren't deleted.
 var ConnectionQueryModel = QueryModel{
-	Table:        models.Connection{}.TableName(),
-	Columns:      []string{"id", "name", "namespace", "type"},
-	HasDeletedAt: true,
+	Table:   connectionDetailsView,
+	Columns: []string{"id", "name", "namespace", "type"},
 }
 
 var ConfigChangeQueryModel = QueryModel{
@@ -517,7 +517,7 @@ func GetModelFromTable(table string) (QueryModel, error) {
 		return CanaryQueryModel, nil
 	case models.Playbook{}.TableName():
 		return PlaybookQueryModel, nil
-	case models.Connection{}.TableName():
+	case models.Connection{}.TableName(), connectionDetailsView:
 		return ConnectionQueryModel, nil
 	case models.CatalogChange{}.TableName():
 		return ConfigChangeQueryModel, nil
