@@ -12,7 +12,7 @@ import (
 type Scope struct {
 	ID          uuid.UUID  `json:"id" gorm:"default:generate_ulid()"`
 	Name        string     `json:"name"`
-	Namespace   string     `json:"namespace,omitempty"`
+	Namespace   string     `json:"namespace"`
 	Description string     `json:"description,omitempty"`
 	Source      string     `json:"source"`
 	CreatedBy   *uuid.UUID `json:"created_by,omitempty"`

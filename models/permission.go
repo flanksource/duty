@@ -39,7 +39,7 @@ func (p PermissionGroup) GetNamespace() string {
 type Role struct {
 	ID          uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
 	Name        string    `json:"name"`
-	Namespace   string    `json:"namespace,omitempty"`
+	Namespace   string    `json:"namespace"`
 	Description string    `json:"description,omitempty" gorm:"default:NULL"`
 	Source      string    `json:"source"`
 
@@ -66,16 +66,16 @@ func (r Role) GetNamespace() string {
 	return r.Namespace
 }
 
-// RoleBinding grants a role (in the same namespace) to many subjects,
+// RoleBinding grants a role to many subjects,
 // optionally narrowing the role's allow rules with a constraint.
 type RoleBinding struct {
 	ID          uuid.UUID `json:"id" gorm:"default:generate_ulid()"`
 	Name        string    `json:"name"`
-	Namespace   string    `json:"namespace,omitempty"`
+	Namespace   string    `json:"namespace"`
 	Description string    `json:"description,omitempty" gorm:"default:NULL"`
 	Source      string    `json:"source"`
 
-	// Role is the name of the bound role, in the binding's namespace
+	// Role is the bound role: `name` in the binding's namespace, or `namespace/name`
 	Role string `json:"role"`
 
 	// Constraint is the JSON constraint that narrows every allow rule of the role. Nil when there's none.

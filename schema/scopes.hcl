@@ -92,4 +92,8 @@ table "scopes" {
     on_update   = NO_ACTION
     on_delete   = NO_ACTION
   }
+
+  check "scopes_namespace_not_empty" {
+    expr = "namespace <> ''"
+  }
 }
