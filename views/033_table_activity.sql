@@ -49,6 +49,18 @@ BEGIN
 END
 $$;
 
+-- A created or deleted person changes who RoleBindings select, so Mission Control reloads its policy.
+-- Logins and other updates don't notify.
+CREATE OR REPLACE TRIGGER people_notify_inserts_deletes
+  AFTER INSERT OR DELETE ON people
+  FOR EACH ROW EXECUTE PROCEDURE notify_table_updates_and_deletes();
+
+CREATE OR REPLACE TRIGGER people_notify_soft_deletes
+  AFTER UPDATE OF deleted_at ON people
+  FOR EACH ROW
+  WHEN (OLD.deleted_at IS DISTINCT FROM NEW.deleted_at)
+  EXECUTE PROCEDURE notify_table_updates_and_deletes();
+
 ---
 CREATE OR REPLACE FUNCTION notify_completed_playbook_actions ()
   RETURNS TRIGGER
