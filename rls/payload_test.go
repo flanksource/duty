@@ -136,30 +136,6 @@ func TestGrants(t *testing.T) {
 		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
 	})
 
-	t.Run("reads the legacy constraint and impersonated keys as constraints", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-
-		var grants Grants
-		g.Expect(json.Unmarshal([]byte(`[
-			{"scope": "`+s1+`", "constraint": "`+s2+`"},
-			{"scope": "`+s2+`", "impersonated": ["`+y+`", "`+x+`"]},
-			{"scope": "`+s3+`", "constraint": "`+y+`", "impersonated": ["`+x+`", "`+y+`"], "constraints": ["`+s1+`"]},
-			{"constraint": "`+s1+`"},
-			{"scope": "`+s1+`", "impersonated": ["staging"]}
-		]`), &grants)).To(gomega.Succeed())
-
-		g.Expect(grants.Any).To(gomega.Equal([]Grant{
-			{Scope: s1, Constraints: []string{s2}},
-			{Scope: s2, Constraints: []string{x, y}},
-			{Scope: s3, Constraints: []string{s1, x, y}},
-		}))
-
-		raw, err := json.Marshal(grants)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		g.Expect(string(raw)).ToNot(gomega.ContainSubstring(`"constraint"`))
-		g.Expect(string(raw)).ToNot(gomega.ContainSubstring(`"impersonated"`))
-	})
-
 	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 

@@ -25,15 +25,6 @@ type Grant struct {
 	Constraints []string `json:"constraints,omitempty"`
 }
 
-// legacyGrant is a Grant as claims issued before Constraints wrote it.
-//
-// TODO: remove once those claims have expired.
-type legacyGrant struct {
-	Grant
-	Constraint   string   `json:"constraint,omitempty"`
-	Impersonated []string `json:"impersonated,omitempty"`
-}
-
 // canonicalScopeID returns the id in canonical form, and false when it isn't a UUID.
 func canonicalScopeID(id string) (string, bool) {
 	parsed, err := uuid.Parse(strings.TrimSpace(id))
@@ -166,18 +157,13 @@ func (g *Grants) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	var grants []legacyGrant
+	var grants []Grant
 	if err := json.Unmarshal(data, &grants); err != nil {
 		return err
 	}
 
 	*g = Grants{}
-	for _, legacy := range grants {
-		grant := legacy.Grant
-		if legacy.Constraint != "" {
-			grant.Constraints = append(grant.Constraints, legacy.Constraint)
-		}
-		grant.Constraints = append(grant.Constraints, legacy.Impersonated...)
+	for _, grant := range grants {
 		g.Add(grant)
 	}
 	return nil
