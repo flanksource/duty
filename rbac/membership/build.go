@@ -4,6 +4,9 @@
 // decides whether a resource matches a target. A resource is matched by trigger in the transaction that writes it,
 // and a Scope is rebuilt in the transaction that saves it. Checks and listings only read the stored result
 // (scope_members), e.g. through ForOperation.
+//
+// A Scope's exclusions are stored as scope_targets rows with excluded set, matched by the same predicate: a resource is
+// a member when it matches a target and no exclusion of its Scope.
 package membership
 
 import (
@@ -22,6 +25,7 @@ import (
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/db"
+	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/rbac/policy"
 	"github.com/flanksource/duty/types"
 )
@@ -46,42 +50,53 @@ var ErrLockTimeout = db.ErrAdvisoryLockTimeout
 // version was saved meanwhile, or the Scope was deleted. Nothing is written; the newer version's own save rebuilds it.
 var ErrStaleScope = errors.New("the scope changed since its targets were resolved")
 
-// Rebuild rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't save
-// the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
-// it commits and the new one after. targets are the Scope's targets as stored on its row, and resolved are those
-// targets validated, with their agents resolved to ids.
-// Targets of types whose membership isn't stored, e.g. applications, are ignored, and a whole-type target is stored as one
-// member with no resource. Nothing is written when the targets haven't changed, and a rebuild writes only the members
-// that change. It reports whether anything was rebuilt.
-//
-// The Scope row is locked for the rebuild and checked against targets, so a caller holding a version of the Scope
-// that a concurrent save has since replaced gets ErrStaleScope instead of rewriting the newer membership with the
-// older targets. The row is locked before the membership lock, in the same order a save takes them.
+// Rebuild is RebuildScope for a Scope without exclusions: targets are the Scope's targets as stored on its row.
 func Rebuild(ctx context.Context, scopeID uuid.UUID, targets types.JSON, resolved []Target) (bool, error) {
+	return RebuildScope(ctx, models.Scope{ID: scopeID, Targets: targets}, resolved)
+}
+
+// RebuildScope rewrites the Scope's stored targets and rebuilds its members, in the context's transaction. It doesn't
+// save the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
+// it commits and the new one after. scope is the Scope as saved on its row, and resolved are its targets and
+// exclusions validated, with their agents resolved to ids.
+// Targets of types whose membership isn't stored, e.g. applications, are ignored. A whole-type target is stored as one member
+// with no resource, unless the Scope excludes resources of the type (see WholeTypes). Nothing is written when the
+// targets haven't changed, and a rebuild writes only the members that change. It reports whether anything was rebuilt.
+//
+// The Scope row is locked for the rebuild and checked against scope's targets and exclusions, so a caller holding a
+// version of the Scope that a concurrent save has since replaced gets ErrStaleScope instead of rewriting the newer
+// membership with the older targets. The row is locked before the membership lock, in the same order a save takes them.
+func RebuildScope(ctx context.Context, scope models.Scope, resolved []Target) (bool, error) {
+	scopeID := scope.ID
+	whole := WholeTypes(resolved)
+
 	var rows []targetRow
-	var whole []string
 	for _, t := range resolved {
 		if !Supported(t.Type) {
 			continue
+		} else if t.Exclude && t.WholeType() {
+			return false, fmt.Errorf("scope %s: excluding every %s leaves nothing; remove the targets instead", scopeID, t.Type)
 		} else if t.WholeType() {
-			whole = append(whole, t.Type)
+			if !slices.Contains(whole, t.Type) {
+				// A whole-type target of a type with exclusions: a row with no conditions, matching every resource
+				rows = append(rows, targetRow{ScopeID: scopeID, ResourceType: t.Type})
+			}
 			continue
 		}
 		row, err := t.row(scopeID)
 		if err != nil {
 			return false, fmt.Errorf("scope %s: %s target: %w", scopeID, t.Type, err)
 		}
+		row.Excluded = t.Exclude
 		rows = append(rows, row)
 	}
-	slices.Sort(whole)
-	whole = slices.Compact(whole)
 
 	// Targets of a type the Scope selects entirely add nothing
 	rows = slices.DeleteFunc(rows, func(r targetRow) bool { return slices.Contains(whole, r.ResourceType) })
 
 	rebuilt := false
 	err := ctx.DB().Transaction(func(tx *gorm.DB) error {
-		if err := lockScope(tx, scopeID, targets); err != nil {
+		if err := lockScope(tx, scope); err != nil {
 			return err
 		}
 
@@ -128,16 +143,41 @@ func Rebuild(ctx context.Context, scopeID uuid.UUID, targets types.JSON, resolve
 	return rebuilt, nil
 }
 
-// lockScope locks the Scope row for the transaction and checks that it still holds the given targets.
+// WholeTypes returns, sorted, the stored types the targets select entirely: those with a whole-type target and no
+// exclusion. Only these are stored as one member with no resource; every other type has a row per member.
+func WholeTypes(targets []Target) []string {
+	var whole []string
+	for _, t := range targets {
+		if Supported(t.Type) && !t.Exclude && t.WholeType() && !excludes(targets, t.Type) {
+			whole = append(whole, t.Type)
+		}
+	}
+	slices.Sort(whole)
+	return slices.Compact(whole)
+}
+
+// excludes reports whether any of the targets is an exclusion of the type.
+func excludes(targets []Target, kind string) bool {
+	return slices.ContainsFunc(targets, func(t Target) bool { return t.Exclude && t.Type == kind })
+}
+
+// lockScope locks the Scope row for the transaction and checks that it still holds the given targets and exclusions.
 // A save of the Scope holds the row until it commits, so this waits for one in flight and then sees its targets.
-func lockScope(tx *gorm.DB, scopeID uuid.UUID, targets types.JSON) error {
+// No exclusions compare equal however they're stored: SQL NULL, JSON null or an empty array.
+func lockScope(tx *gorm.DB, scope models.Scope) error {
+	exclude := string(scope.Exclude)
+	if exclude == "" || exclude == "null" {
+		exclude = "[]"
+	}
+
 	var current []bool
-	if err := tx.Raw("SELECT targets = ?::jsonb FROM scopes WHERE id = ? AND deleted_at IS NULL FOR SHARE",
-		string(targets), scopeID).Scan(&current).Error; err != nil {
+	if err := tx.Raw(`SELECT targets = ?::jsonb AND COALESCE(NULLIF(exclude, 'null'::jsonb), '[]'::jsonb) = ?::jsonb
+		FROM scopes WHERE id = ? AND deleted_at IS NULL FOR SHARE`,
+		string(scope.Targets), exclude, scope.ID).Scan(&current).Error; err != nil {
 		return err
 	}
 	if len(current) == 0 || !current[0] {
-		return fmt.Errorf("scope %s: %w", scopeID, ErrStaleScope)
+		return fmt.Errorf("scope %s: %w", scope.ID, ErrStaleScope)
 	}
 	return nil
 }
@@ -172,7 +212,7 @@ func IsBuilt(ctx context.Context, scopeID uuid.UUID) (bool, error) {
 // stored reports whether the Scope's stored targets and whole types are exactly the given ones.
 func stored(tx *gorm.DB, scopeID uuid.UUID, rows []targetRow, whole []string) (bool, error) {
 	var current []targetRow
-	if err := tx.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text
+	if err := tx.Raw(`SELECT scope_id, resource_type, resource_id::text, name, name_prefix, namespace, agent_id::text, types::text, tags::text, labels::text, excluded
 		FROM scope_targets WHERE scope_id = ?`, scopeID).Scan(&current).Error; err != nil {
 		return false, err
 	}
@@ -238,9 +278,11 @@ func membershipLock() db.AdvisoryLock {
 }
 
 // Target is one target of a Scope: a selector over the resources of one type, with its agent resolved to an id.
+// An exclusion is a Target with Exclude set: a resource it matches isn't in the Scope, whatever targets it matches.
 type Target struct {
 	Type     string                 `json:"type"`
 	Selector types.ResourceSelector `json:"selector"`
+	Exclude  bool                   `json:"exclude,omitempty"`
 }
 
 // WholeType reports whether the target selects every resource of its type: name "*" and nothing else.
@@ -288,11 +330,12 @@ type targetRow struct {
 	Types        *string   `gorm:"column:types"`
 	Tags         *string   `gorm:"column:tags"`
 	Labels       *string   `gorm:"column:labels"`
+	Excluded     bool      `gorm:"column:excluded"`
 }
 
 // key identifies the row's conditions, for comparing a Scope's stored targets with new ones.
 func (r targetRow) key() string {
-	raw, _ := json.Marshal([]any{r.ResourceType, r.ResourceID, r.Name, r.NamePrefix, r.Namespace, r.AgentID, r.Types, r.Tags, r.Labels})
+	raw, _ := json.Marshal([]any{r.ResourceType, r.ResourceID, r.Name, r.NamePrefix, r.Namespace, r.AgentID, r.Types, r.Tags, r.Labels, r.Excluded})
 	return string(raw)
 }
 
@@ -393,10 +436,12 @@ func (t Target) row(scopeID uuid.UUID) (targetRow, error) {
 	return row, nil
 }
 
-// Validate checks that the target can be stored.
+// Validate checks that the target can be stored. An exclusion can't select a whole type.
 func Validate(t Target) error {
 	if !Supported(t.Type) {
 		return fmt.Errorf("membership of %s isn't stored", t.Type)
+	} else if t.Exclude && t.WholeType() {
+		return fmt.Errorf("excluding every %s leaves nothing", t.Type)
 	} else if t.WholeType() {
 		return nil
 	}
