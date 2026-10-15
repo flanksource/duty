@@ -175,27 +175,6 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- TODO: remove the legacy "constraint" and "impersonated" keys once PostgREST JWTs issued before "constraints"
-  -- have expired.
-  IF item ? 'constraint' THEN
-    IF jsonb_typeof(item->'constraint') <> 'string' OR NOT item ? 'scope' THEN
-      RETURN NULL;
-    END IF;
-    ids := ids || (item->>'constraint');
-  END IF;
-
-  IF item ? 'impersonated' THEN
-    IF jsonb_typeof(item->'impersonated') <> 'array' THEN
-      RETURN NULL;
-    END IF;
-    FOR value IN SELECT jsonb_array_elements(item->'impersonated') LOOP
-      IF jsonb_typeof(value) <> 'string' THEN
-        RETURN NULL;
-      END IF;
-      ids := ids || (value #>> '{}');
-    END LOOP;
-  END IF;
-
   IF cardinality(ids) = 0
     OR EXISTS (SELECT 1 FROM unnest(ids) AS v WHERE v !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') THEN
     RETURN NULL;

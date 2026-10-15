@@ -255,11 +255,6 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": "` + awsScope + `"}]}`,
 			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": ["staging"]}]}`,
 			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": [1]}]}`,
-			`{"config": [{"constraint": "` + awsScope + `"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "staging"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": [], "constraint": "staging"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": "` + awsScope + `"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": ["staging"]}]}`,
 			`{"config": [["` + awsScope + `"]]}`,
 			`{"config": {"scope": "` + awsScope + `"}}`,
 			`{"config": "some"}`,
@@ -275,27 +270,6 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		var count int64
 		Expect(tx.Table("config_items").Count(&count).Error).To(Succeed())
 		Expect(count).To(Equal(countAll("config_items", "tags->>'cluster' = 'aws'")), "the well formed grant still applies")
-	})
-
-	It("still reads the legacy constraint and impersonated keys", func() {
-		tx := DefaultContext.DB().Session(&gorm.Session{NewDB: true}).Begin(&sql.TxOptions{ReadOnly: true})
-		defer tx.Rollback()
-		Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
-
-		aws := countAll("config_items", "tags->>'cluster' = 'aws'")
-		eks := countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
-		for claim, expected := range map[string]int64{
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "` + awsScope + `"}]}`:                                          aws,
-			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": ["` + awsScope + `"]}]}`:                                      aws,
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "` + awsScope + `", "impersonated": ["` + eksScope + `"]}]}`:    eks,
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": ["` + awsScope + `"], "impersonated": ["` + eksScope + `"]}]}`: eks,
-		} {
-			Expect(tx.Exec("SELECT set_config('request.jwt.claims', ?, TRUE)", claim).Error).To(Succeed())
-			var count int64
-			Expect(tx.Table("config_items").Count(&count).Error).To(Succeed(), claim)
-			Expect(count).To(Equal(expected), claim)
-		}
-		Expect(eks).To(BeNumerically("<", aws))
 	})
 
 	var _ = Describe("config child tables", Ordered, func() {
@@ -592,7 +566,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 			for _, claim := range []string{
 				`{"scraper": [{"scope": "not-a-uuid"}]}`,
-				`{"scraper": [{"constraint": "` + defaultScrapersScope + `"}]}`,
+				`{"scraper": [{"constraints": ["` + defaultScrapersScope + `"]}]}`,
 				`{"scraper": {"scope": "` + defaultScrapersScope + `"}}`,
 				`{"scraper": "some"}`,
 			} {
