@@ -25,6 +25,10 @@ type Scope struct {
 	// with a selector containing: agent, name, tagSelector fields
 	Targets types.JSON `json:"targets" gorm:"type:jsonb"`
 
+	// Exclude is an array of scope exclusions stored as JSONB, each shaped like a target.
+	// A resource that matches an exclusion isn't in the Scope, whatever targets it matches.
+	Exclude types.JSON `json:"exclude,omitempty" gorm:"type:jsonb"`
+
 	// Error says why the scope isn't in effect. Nil when it's valid.
 	Error *string `json:"error,omitempty" gorm:"default:NULL"`
 
