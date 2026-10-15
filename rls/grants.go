@@ -12,20 +12,20 @@ import (
 // Grant admits the rows of a resource type that are in all of its Scopes: Scope, Constraint when it's set, and every
 // Impersonated Scope. Each is a Scope id.
 //
-// For example, a Role rule reading configs in Scope payments, bound with a constraint on Scope eu, for a request
-// limited to Scope prod:
+// For example, a Role rule reading configs in Scope payments, bound with a constraint on Scope eu, for a request made
+// with an access token whose Role reads Scope prod:
 //
 //	Grant{Scope: "<payments>", Constraint: "<eu>", Impersonated: []string{"<prod>"}}  // configs in payments, eu and prod
 type Grant struct {
 	// Scope grants the rows: the resource Scope of a Role rule, or a Scope a Permission names.
-	// Empty only for a subject granted every row whose request is limited to Scopes (see Grants.Limit).
+	// Empty only when the Impersonated Scopes alone admit the rows.
 	Scope string `json:"scope,omitempty"`
 
 	// Constraint is the resource Scope of the RoleBinding's constraint, which narrows Scope. Empty without one.
 	Constraint string `json:"constraint,omitempty"`
 
-	// Impersonated are Scopes the request is limited to (Grants.Limit), which narrow the grant further: a row must
-	// be in every one of them. Empty when the request isn't limited.
+	// Impersonated are Scopes that narrow the grant further, e.g. those of an access token's Roles: a row must be in
+	// every one of them. Empty when the grant isn't narrowed.
 	Impersonated []string `json:"impersonated,omitempty"`
 }
 
@@ -117,41 +117,6 @@ func (g *Grants) Add(grant Grant) {
 	}
 	g.Any = append(g.Any, grant)
 	slices.SortFunc(g.Any, func(a, b Grant) int { return strings.Compare(a.key(), b.key()) })
-}
-
-// Limit keeps only the rows in at least one of the Scopes, e.g. those named by the X-Flanksource-Scope header.
-// Each grant is split into one grant per Scope, which a row must also be in, and a subject granted every row gets
-// one grant per Scope. Limiting again narrows further: a row must then be in one Scope of each limit.
-// A limit naming no Scope, or anything but Scope ids, admits nothing. Nil grants stay nil: they admit nothing.
-//
-//	[{scope: A}].Limit(X, Y) => [{scope: A, impersonated: [X]}, {scope: A, impersonated: [Y]}]
-//	"all".Limit(X, Y)        => [{impersonated: [X]}, {impersonated: [Y]}]
-func (g *Grants) Limit(scopeIDs ...string) {
-	if g == nil {
-		return
-	}
-
-	current := *g
-	*g = Grants{}
-	if len(scopeIDs) == 0 {
-		return
-	}
-	for _, id := range scopeIDs {
-		if _, ok := canonicalScopeID(id); !ok {
-			return
-		}
-	}
-
-	if current.All {
-		current.Any = []Grant{{}}
-	}
-	for _, grant := range current.Any {
-		for _, id := range scopeIDs {
-			limited := grant
-			limited.Impersonated = append(slices.Clone(grant.Impersonated), id)
-			g.Add(limited)
-		}
-	}
 }
 
 // IsEmpty reports whether no row is granted.
