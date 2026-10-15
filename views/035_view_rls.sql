@@ -27,20 +27,25 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql VOLATILE;
--- view_table_view_id returns the id of the one live view whose generated table is table_name, or NULL when no
--- view or more than one does. View names map to tables lossily: 'team-a/pods' and 'team/a-pods' are both
--- view_team_a_pods, and Postgres truncates names to 63 bytes. A table two views share holds rows of both, so neither
--- view's grant can admit its rows. It reads views as its owner, so the answer doesn't depend on which views the
--- caller sees. The table name is the view's GeneratedTableName.
+-- view_table_view_id returns the id of the live view whose generated table is table_name, or NULL when no live view
+-- owns it or more than one view ever mapped to it. View names map to tables lossily: 'team-a/pods' and 'team/a-pods'
+-- are both view_team_a_pods, and Postgres truncates names to 63 bytes. A table two views share holds rows of both, so
+-- neither view's grant can admit its rows. Deleted views count too, since deleting a view doesn't always drop its
+-- table's rows; they're counted by namespace and name, so a view re-applied over its deleted row still counts once.
+-- Names are compared as the name type, which truncates them the way Postgres truncates identifiers. It reads views
+-- as its owner, so the answer doesn't depend on which views the caller sees. The table name is the view's
+-- GeneratedTableName.
 --
 --   SELECT view_table_view_id('view_mc_pods');  => the id of view mc/pods
 CREATE
 OR REPLACE FUNCTION view_table_view_id(table_name text) RETURNS uuid AS $$
-  SELECT CASE WHEN count(*) = 1 THEN (array_agg(v.id))[1] END
+  SELECT CASE
+    WHEN count(DISTINCT (COALESCE(v.namespace, ''), v.name)) = 1 AND count(*) FILTER (WHERE v.deleted_at IS NULL) = 1
+    THEN (array_agg(v.id) FILTER (WHERE v.deleted_at IS NULL))[1]
+  END
   FROM public.views v
-  WHERE v.deleted_at IS NULL
-    AND left('view_' || replace(COALESCE(v.namespace, ''), '-', '_') || '_' || replace(v.name, '-', '_'), 63)
-      = left(table_name, 63)
+  WHERE ('view_' || replace(COALESCE(v.namespace, ''), '-', '_') || '_' || replace(v.name, '-', '_'))::name
+    = table_name::name
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- view_table_readable reports whether the caller may read the view whose generated table is table_name: it reads
@@ -64,9 +69,9 @@ CREATE
 OR REPLACE FUNCTION ensure_view_table_policy(table_name text) RETURNS void AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relname = left(table_name, 63) AND c.relkind = 'r' AND c.relrowsecurity)
+      WHERE n.nspname = 'public' AND c.relname = table_name::name AND c.relkind = 'r' AND c.relrowsecurity)
     AND EXISTS (SELECT 1 FROM pg_policies p
-      WHERE p.schemaname = 'public' AND p.tablename = left(table_name, 63) AND p.policyname = 'view_grants_policy'
+      WHERE p.schemaname = 'public' AND p.tablename = table_name::name AND p.policyname = 'view_grants_policy'
         AND p.cmd = 'SELECT' AND p.qual LIKE '%view_table_readable%') THEN
     RETURN;
   END IF;
