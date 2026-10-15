@@ -106,9 +106,27 @@ END;
 $$
 LANGUAGE plpgsql IMMUTABLE;
 
+-- _scope_excludes reports whether one of the Scope's exclusions of the type matches a resource with the given values.
+-- A resource it reports is never a member of the Scope, whatever targets it matches.
+--
+--   a Scope that excludes playbook name 'delete-production':
+--   SELECT _scope_excludes($scope, 'playbook', $id, 'delete-production', 'default', NULL, NULL, NULL, NULL);  => true
+CREATE OR REPLACE FUNCTION _scope_excludes(
+  scope uuid, kind text, r_id uuid, r_name text, r_namespace text, r_agent_id uuid, r_type text, r_tags jsonb, r_labels jsonb)
+  RETURNS boolean
+  AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM scope_targets x
+    WHERE x.scope_id = scope AND x.resource_type = kind AND x.excluded
+      AND _scope_target_matches(x.resource_id, x.name, x.name_prefix, x.namespace, x.agent_id, x.types, x.tags, x.labels,
+        r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+  )
+$$
+LANGUAGE sql STABLE;
+
 -- _scope_matches reports whether a resource with the given values belongs to the Scope by its targets: the Scope
--- selects the resource's whole type, or one of its targets matches the values. It decides what the resource's
--- membership will be once the triggers match it.
+-- selects the resource's whole type, or one of its targets and none of its exclusions matches the values. It decides
+-- what the resource's membership will be once the triggers match it.
 --
 --   a Scope whose only target is config tags env=prod:
 --   SELECT _scope_matches($scope, 'config', $id, 'web', NULL, NULL, NULL, '{"env":"prod"}', NULL);  => true
@@ -120,11 +138,14 @@ CREATE OR REPLACE FUNCTION _scope_matches(
       SELECT 1 FROM scope_members m
       WHERE m.scope_id = scope AND m.resource_type = kind AND m.resource_id IS NULL
     )
-    OR EXISTS (
-      SELECT 1 FROM scope_targets t
-      WHERE t.scope_id = scope AND t.resource_type = kind
-        AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels,
-          r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+    OR (
+      EXISTS (
+        SELECT 1 FROM scope_targets t
+        WHERE t.scope_id = scope AND t.resource_type = kind AND NOT t.excluded
+          AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels,
+            r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+      )
+      AND NOT _scope_excludes(scope, kind, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
     )
 $$
 LANGUAGE sql STABLE;
