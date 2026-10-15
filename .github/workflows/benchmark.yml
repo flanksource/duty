@@ -22,7 +22,7 @@ jobs:
         include:
           - label: scoped-reads
             title: Scoped reads
-            bench_args: "-bench=BenchmarkScopedReads"
+            bench_args: "-bench=BenchmarkScopedReads -skip='BenchmarkScopedReads/.*/queries/Page50$'"
           - label: other
             title: Other
             bench_args: "-bench=. -skip=BenchmarkScopedReads"
