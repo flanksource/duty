@@ -27,7 +27,6 @@
     "applications.disable": { "$ref": "#/$defs/bool", "default": false, "description": "UI feature flag: set value to the string true to hide or disable application UI surfaces." },
     "artifacts.connection": { "type": "string", "description": "Connection URL for external artifact/blob storage. Empty uses inline DB-backed storage." },
     "artifacts.max_read_size": { "$ref": "#/$defs/int", "default": 52428800, "description": "Maximum artifact bytes read for incident-commander artifact responses. Set <= 0 to disable the guard." },
-    "auth.impersonation": { "$ref": "#/$defs/bool", "default": false, "description": "Set to false/off to disable scope impersonation." },
     "azuredevops.concurrency": { "$ref": "#/$defs/int", "default": 5, "description": "Azure DevOps scraper concurrency." },
     "azuredevops.pipeline.max_age": { "$ref": "#/$defs/duration", "default": "168h", "description": "Maximum Azure DevOps pipeline run age to scrape." },
     "azuredevops.terminal_cache.ttl": { "$ref": "#/$defs/duration", "default": "1h", "description": "Azure DevOps terminal status cache TTL." },
