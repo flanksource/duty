@@ -241,6 +241,7 @@ type ABACMembership struct {
 	Canary     []any
 	Playbook   []any
 	Connection []any
+	View       []any
 }
 
 type TaggableModel interface {
