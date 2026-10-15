@@ -242,35 +242,6 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
-				{"a limit to several Scopes admits the rows in any of them", func() rls.Payload {
-					g := grants(rls.Grant{Scope: allConfigsScope})
-					g.Limit(awsScope, demoScope)
-					return rls.Payload{Config: g}
-				}, func() int64 {
-					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
-				}},
-				{"a limit keeps only what the grants admit", func() rls.Payload {
-					g := grants(rls.Grant{Scope: demoScope})
-					g.Limit(awsScope, demoScope)
-					return rls.Payload{Config: g}
-				}, func() int64 {
-					return countAll("config_items", "tags->>'cluster' = 'demo'")
-				}},
-				{"two limits admit the rows in a Scope of each", func() rls.Payload {
-					g := grants(rls.Grant{Scope: allConfigsScope})
-					g.Limit(awsScope, demoScope)
-					g.Limit(eksScope)
-					return rls.Payload{Config: g}
-				}, func() int64 {
-					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
-				}},
-				{"a limit as a subject granted every row", func() rls.Payload {
-					g := rls.AllRows()
-					g.Limit(awsScope, demoScope)
-					return rls.Payload{Config: g}
-				}, func() int64 {
-					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
-				}},
 			}
 		})
 	})

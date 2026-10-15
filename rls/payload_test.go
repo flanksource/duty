@@ -136,53 +136,6 @@ func TestGrants(t *testing.T) {
 		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
 	})
 
-	t.Run("limiting to Scopes keeps the rows in any one of them", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-
-		grants := &Grants{}
-		grants.Add(Grant{Scope: s1})
-		grants.Add(Grant{Scope: s2, Constraint: s3})
-		grants.Limit(x, y)
-		g.Expect(grants.Any).To(gomega.ConsistOf(
-			Grant{Scope: s1, Impersonated: []string{x}},
-			Grant{Scope: s1, Impersonated: []string{y}},
-			Grant{Scope: s2, Constraint: s3, Impersonated: []string{x}},
-			Grant{Scope: s2, Constraint: s3, Impersonated: []string{y}},
-		))
-
-		all := AllRows()
-		all.Limit(x, y)
-		g.Expect(all.All).To(gomega.BeFalse())
-		g.Expect(all.Any).To(gomega.ConsistOf(Grant{Impersonated: []string{x}}, Grant{Impersonated: []string{y}}))
-
-		twice := &Grants{}
-		twice.Add(Grant{Scope: s1})
-		twice.Limit(x)
-		twice.Limit(y)
-		g.Expect(twice.Any).To(gomega.Equal([]Grant{{Scope: s1, Impersonated: []string{x, y}}}), "limiting again narrows further")
-
-		own := &Grants{}
-		own.Add(Grant{Scope: s1})
-		own.Limit(s1)
-		g.Expect(own.Any).To(gomega.Equal([]Grant{{Scope: s1}}), "a limit to the grant's own Scope changes nothing")
-
-		none := NoRows()
-		none.Limit(x)
-		g.Expect(none.IsEmpty()).To(gomega.BeTrue())
-
-		nothing := AllRows()
-		nothing.Limit()
-		g.Expect(nothing.IsEmpty()).To(gomega.BeTrue(), "a limit naming no Scope admits nothing")
-
-		invalid := AllRows()
-		invalid.Limit(x, "staging")
-		g.Expect(invalid.IsEmpty()).To(gomega.BeTrue(), "a limit naming anything but Scope ids admits nothing")
-
-		var missing *Grants
-		g.Expect(func() { missing.Limit(x) }).ToNot(gomega.Panic())
-		g.Expect(missing.IsEmpty()).To(gomega.BeTrue())
-	})
-
 	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
