@@ -1,9 +1,6 @@
 -- runs: always
 -- Runs on every migration so that RLS is enabled even on databases that last migrated with RLS disabled.
 
--- Views are filtered by their grants, like every resource table, so nothing matches rows against selectors.
-DROP FUNCTION IF EXISTS match_scope(jsonb, jsonb, uuid, text, uuid);
-
 -- Enable RLS for tables
 DO $$
 BEGIN
@@ -458,6 +455,10 @@ CREATE POLICY views_auth ON views
         rls_grants_admit_row('view', views.id, views.name, views.namespace, NULL, NULL, NULL, NULL)
       END
     );
+
+-- views_auth no longer matches rows against selectors, so nothing uses match_scope. It's dropped after views_auth is
+-- replaced, since an older views_auth depends on it.
+DROP FUNCTION IF EXISTS match_scope(jsonb, jsonb, uuid, text, uuid);
 
 -- Policy view_panels (inherits from parent views table)
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;
