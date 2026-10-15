@@ -211,7 +211,7 @@ CREATE OR REPLACE TRIGGER agents_scope_validity_update
 -- An empty array admits every row; no arrays admit none. A Scope with no membership stays required and fails closed.
 -- The uncorrelated function scan caches these small arrays for the statement, never the Scopes' resource IDs.
 --
---   claim {"config": [{"scope": "<all-configs>", "constraint": "<payments>"}]} => {<payments>}
+--   claim {"config": [{"scope": "<all-configs>", "constraints": ["<payments>"]}]} => {<payments>}
 CREATE OR REPLACE FUNCTION rls_required_scopes(kind text)
   RETURNS SETOF uuid[]
   AS $$
@@ -243,7 +243,7 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 
 -- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
 -- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
 --
---   claim {"config": [{"scope": "<payments>", "constraint": "<eu>"}]}:
+--   claim {"config": [{"scope": "<payments>", "constraints": ["<eu>"]}]}:
 --   SELECT EXISTS (SELECT 1 FROM rls_matching_grants('config', $id)); => true if $id is in payments and eu
 CREATE OR REPLACE FUNCTION rls_matching_grants(kind text, row_id uuid)
   RETURNS SETOF boolean

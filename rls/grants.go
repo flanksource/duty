@@ -9,22 +9,28 @@ import (
 	"github.com/google/uuid"
 )
 
-// Grant admits the rows of a resource type that are in all of its Scopes: Scope, Constraint when it's set, and every
-// Impersonated Scope. Each is a Scope id.
+// Grant admits the rows of a resource type that are in all of its Scopes: Scope and every one of its Constraints.
+// Each is a Scope id.
 //
 // For example, a Role rule reading configs in Scope payments, bound with a constraint on Scope eu, for a request made
 // with an access token whose Role reads Scope prod:
 //
-//	Grant{Scope: "<payments>", Constraint: "<eu>", Impersonated: []string{"<prod>"}}  // configs in payments, eu and prod
+//	Grant{Scope: "<payments>", Constraints: []string{"<eu>", "<prod>"}}  // configs in payments, eu and prod
 type Grant struct {
 	// Scope grants the rows: the resource Scope of a Role rule, or a Scope a Permission names.
 	Scope string `json:"scope,omitempty"`
 
-	// Constraint is the resource Scope of the RoleBinding's constraint, which narrows Scope. Empty without one.
-	Constraint string `json:"constraint,omitempty"`
+	// Constraints narrow Scope: a row must be in every one of them, e.g. the resource Scope of a RoleBinding's
+	// constraint, or those of an access token's Roles. Empty when the grant isn't narrowed.
+	Constraints []string `json:"constraints,omitempty"`
+}
 
-	// Impersonated are Scopes that narrow the grant further, e.g. those of an access token's Roles: a row must be in
-	// every one of them. Empty when the grant isn't narrowed.
+// legacyGrant is a Grant as claims issued before Constraints wrote it.
+//
+// TODO: remove once those claims have expired.
+type legacyGrant struct {
+	Grant
+	Constraint   string   `json:"constraint,omitempty"`
 	Impersonated []string `json:"impersonated,omitempty"`
 }
 
@@ -37,40 +43,31 @@ func canonicalScopeID(id string) (string, bool) {
 	return parsed.String(), true
 }
 
-// normalize puts the grant's Scope ids in canonical form and drops a Scope repeated within it. It reports false when
-// an id isn't a UUID, or when the grant has no Scope.
+// normalize puts the grant's Scope ids in canonical form, sorts its Constraints and drops a Scope repeated within it.
+// It reports false when an id isn't a UUID, or when the grant has no Scope.
 func (g Grant) normalize() (Grant, bool) {
 	var ok bool
 	if g.Scope, ok = canonicalScopeID(g.Scope); !ok {
 		return Grant{}, false
 	}
-	if g.Constraint != "" {
-		if g.Constraint, ok = canonicalScopeID(g.Constraint); !ok {
-			return Grant{}, false
-		}
-	}
 
-	var impersonated []string
-	for _, id := range g.Impersonated {
+	var constraints []string
+	for _, id := range g.Constraints {
 		canonical, ok := canonicalScopeID(id)
 		if !ok {
 			return Grant{}, false
 		}
-		if canonical != g.Scope && canonical != g.Constraint {
-			impersonated = append(impersonated, canonical)
+		if canonical != g.Scope {
+			constraints = append(constraints, canonical)
 		}
 	}
-	slices.Sort(impersonated)
-	g.Impersonated = slices.Compact(impersonated)
-
-	if g.Constraint == g.Scope {
-		g.Constraint = ""
-	}
+	slices.Sort(constraints)
+	g.Constraints = slices.Compact(constraints)
 	return g, true
 }
 
 func (g Grant) key() string {
-	return g.Scope + "|" + g.Constraint + "|" + strings.Join(g.Impersonated, ",")
+	return g.Scope + "|" + strings.Join(g.Constraints, ",")
 }
 
 // Grants are a subject's grants on one resource type: every row (All), or the rows at least one grant admits (Any).
@@ -79,7 +76,7 @@ func (g Grant) key() string {
 // They're marshalled into the claim as "all", or as the list of grants:
 //
 //	"all"
-//	[{"scope": "<prod>"}, {"scope": "<payments>", "constraint": "<eu>"}]  // rows in prod, or in both payments and eu
+//	[{"scope": "<prod>"}, {"scope": "<payments>", "constraints": ["<eu>"]}]  // rows in prod, or in both payments and eu
 type Grants struct {
 	// All admits every row of the type.
 	All bool
@@ -125,11 +122,8 @@ func (g *Grants) ScopeIDs() []string {
 	}
 	var ids []string
 	for _, grant := range g.Any {
-		for _, id := range append([]string{grant.Scope, grant.Constraint}, grant.Impersonated...) {
-			if id != "" {
-				ids = append(ids, id)
-			}
-		}
+		ids = append(ids, grant.Scope)
+		ids = append(ids, grant.Constraints...)
 	}
 	slices.Sort(ids)
 	return slices.Compact(ids)
@@ -172,13 +166,18 @@ func (g *Grants) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	var grants []Grant
+	var grants []legacyGrant
 	if err := json.Unmarshal(data, &grants); err != nil {
 		return err
 	}
 
 	*g = Grants{}
-	for _, grant := range grants {
+	for _, legacy := range grants {
+		grant := legacy.Grant
+		if legacy.Constraint != "" {
+			grant.Constraints = append(grant.Constraints, legacy.Constraint)
+		}
+		grant.Constraints = append(grant.Constraints, legacy.Impersonated...)
 		g.Add(grant)
 	}
 	return nil

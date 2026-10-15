@@ -139,12 +139,12 @@ CREATE OR REPLACE FUNCTION _rls_claim(kind text)
 $$
 LANGUAGE sql STABLE;
 
--- _rls_grant_scopes returns the Scopes a grant of the claim requires a row to be in: its scope, its constraint, and
--- each of its impersonated Scopes. It returns NULL for a grant that isn't well formed, i.e. not an object, naming no
--- Scope, with a constraint but no scope, or with a value that isn't a UUID, so the grant admits nothing.
+-- _rls_grant_scopes returns the Scopes a grant of the claim requires a row to be in: its scope and each of its
+-- constraints. It returns NULL for a grant that isn't well formed, i.e. not an object, naming no Scope, with
+-- constraints but no scope, or with a value that isn't a UUID, so the grant admits nothing.
 --
---   SELECT _rls_grant_scopes('{"scope": "<a>", "constraint": "<b>", "impersonated": ["<c>"]}');  => {<a>,<b>,<c>}
---   SELECT _rls_grant_scopes('{"constraint": "<b>"}');                                          => NULL
+--   SELECT _rls_grant_scopes('{"scope": "<a>", "constraints": ["<b>", "<c>"]}');  => {<a>,<b>,<c>}
+--   SELECT _rls_grant_scopes('{"constraints": ["<b>"]}');                         => NULL
 CREATE OR REPLACE FUNCTION _rls_grant_scopes(item jsonb)
   RETURNS uuid[]
   AS $$
@@ -163,6 +163,20 @@ BEGIN
     ids := ids || (item->>'scope');
   END IF;
 
+  IF item ? 'constraints' THEN
+    IF jsonb_typeof(item->'constraints') <> 'array' OR NOT item ? 'scope' THEN
+      RETURN NULL;
+    END IF;
+    FOR value IN SELECT jsonb_array_elements(item->'constraints') LOOP
+      IF jsonb_typeof(value) <> 'string' THEN
+        RETURN NULL;
+      END IF;
+      ids := ids || (value #>> '{}');
+    END LOOP;
+  END IF;
+
+  -- TODO: remove the legacy "constraint" and "impersonated" keys once PostgREST JWTs issued before "constraints"
+  -- have expired.
   IF item ? 'constraint' THEN
     IF jsonb_typeof(item->'constraint') <> 'string' OR NOT item ? 'scope' THEN
       RETURN NULL;

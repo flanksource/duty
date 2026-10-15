@@ -32,11 +32,11 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		a := &Grants{}
-		a.Add(Grant{Scope: s1, Constraint: s2})
+		a.Add(Grant{Scope: s1, Constraints: []string{s2}})
 		a.Add(Grant{Scope: s3})
 		b := &Grants{}
 		b.Add(Grant{Scope: s3})
-		b.Add(Grant{Scope: s1, Constraint: s2})
+		b.Add(Grant{Scope: s1, Constraints: []string{s2}})
 
 		g.Expect((&Payload{Config: a}).Fingerprint()).To(gomega.Equal((&Payload{Config: b}).Fingerprint()))
 	})
@@ -64,15 +64,16 @@ func TestPayload_EvalFingerprint(t *testing.T) {
 		}
 	})
 
-	t.Run("should tell a constraint from an impersonated Scope", func(t *testing.T) {
+	t.Run("should tell a constraint from a separate grant", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		constrained := &Grants{}
-		constrained.Add(Grant{Scope: s1, Constraint: s2})
-		impersonated := &Grants{}
-		impersonated.Add(Grant{Scope: s1, Impersonated: []string{s2}})
+		constrained.Add(Grant{Scope: s1, Constraints: []string{s2}})
+		separate := &Grants{}
+		separate.Add(Grant{Scope: s1})
+		separate.Add(Grant{Scope: s2})
 
-		g.Expect((&Payload{Config: constrained}).Fingerprint()).NotTo(gomega.Equal((&Payload{Config: impersonated}).Fingerprint()))
+		g.Expect((&Payload{Config: constrained}).Fingerprint()).NotTo(gomega.Equal((&Payload{Config: separate}).Fingerprint()))
 	})
 }
 
@@ -90,22 +91,22 @@ func TestGrants(t *testing.T) {
 
 		grants := &Grants{}
 		grants.Add(Grant{Scope: s3})
-		grants.Add(Grant{Scope: s1, Constraint: s2})
-		grants.Add(Grant{Scope: s1, Constraint: s2})
+		grants.Add(Grant{Scope: s1, Constraints: []string{s2}})
+		grants.Add(Grant{Scope: s1, Constraints: []string{s2}})
 
 		raw, err := json.Marshal(Payload{Config: AllRows(), Component: grants, Check: NoRows(), Scraper: grants})
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(string(raw)).To(gomega.MatchJSON(`{
 			"config": "all",
-			"component": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}],
+			"component": [{"scope": "` + s1 + `", "constraints": ["` + s2 + `"]}, {"scope": "` + s3 + `"}],
 			"check": [],
-			"scraper": [{"scope": "` + s1 + `", "constraint": "` + s2 + `"}, {"scope": "` + s3 + `"}]
+			"scraper": [{"scope": "` + s1 + `", "constraints": ["` + s2 + `"]}, {"scope": "` + s3 + `"}]
 		}`))
 
 		var decoded Payload
 		g.Expect(json.Unmarshal(raw, &decoded)).To(gomega.Succeed())
 		g.Expect(decoded.Config.All).To(gomega.BeTrue())
-		g.Expect(decoded.Component.Any).To(gomega.Equal([]Grant{{Scope: s1, Constraint: s2}, {Scope: s3}}))
+		g.Expect(decoded.Component.Any).To(gomega.Equal([]Grant{{Scope: s1, Constraints: []string{s2}}, {Scope: s3}}))
 		g.Expect(decoded.Check.IsEmpty()).To(gomega.BeTrue())
 		g.Expect(decoded.Scraper.Any).To(gomega.Equal(decoded.Component.Any))
 		g.Expect(decoded.Playbook).To(gomega.BeNil())
@@ -118,22 +119,45 @@ func TestGrants(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		grants := &Grants{}
-		grants.Add(Grant{Scope: " 00000000-0000-0000-0000-0000000000A1 ", Constraint: s1})
-		grants.Add(Grant{Scope: s2, Constraint: s3, Impersonated: []string{s3, x, x}})
+		grants.Add(Grant{Scope: " 00000000-0000-0000-0000-0000000000A1 ", Constraints: []string{s1}})
+		grants.Add(Grant{Scope: s2, Constraints: []string{x, s3, s2, "00000000-0000-0000-0000-0000000000B1", s3}})
 		grants.Add(Grant{Scope: "{00000000-0000-0000-0000-0000000000a3}"})
 		grants.Add(Grant{Scope: "000000000000000000000000000000a3"})
-		grants.Add(Grant{Constraint: s1})
+		grants.Add(Grant{Constraints: []string{s1}})
 		grants.Add(Grant{Scope: "staging"})
-		grants.Add(Grant{Scope: s1, Constraint: "staging"})
-		grants.Add(Grant{Scope: s1, Impersonated: []string{"staging"}})
+		grants.Add(Grant{Scope: s1, Constraints: []string{s2, "staging"}})
 		grants.Add(Grant{})
 
 		g.Expect(grants.Any).To(gomega.Equal([]Grant{
 			{Scope: s1},
-			{Scope: s2, Constraint: s3, Impersonated: []string{x}},
+			{Scope: s2, Constraints: []string{s3, x}},
 			{Scope: s3},
 		}))
 		g.Expect(grants.ScopeIDs()).To(gomega.Equal([]string{s1, s2, s3, x}))
+	})
+
+	t.Run("reads the legacy constraint and impersonated keys as constraints", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		var grants Grants
+		g.Expect(json.Unmarshal([]byte(`[
+			{"scope": "`+s1+`", "constraint": "`+s2+`"},
+			{"scope": "`+s2+`", "impersonated": ["`+y+`", "`+x+`"]},
+			{"scope": "`+s3+`", "constraint": "`+y+`", "impersonated": ["`+x+`", "`+y+`"], "constraints": ["`+s1+`"]},
+			{"constraint": "`+s1+`"},
+			{"scope": "`+s1+`", "impersonated": ["staging"]}
+		]`), &grants)).To(gomega.Succeed())
+
+		g.Expect(grants.Any).To(gomega.Equal([]Grant{
+			{Scope: s1, Constraints: []string{s2}},
+			{Scope: s2, Constraints: []string{x, y}},
+			{Scope: s3, Constraints: []string{s1, x, y}},
+		}))
+
+		raw, err := json.Marshal(grants)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(string(raw)).ToNot(gomega.ContainSubstring(`"constraint"`))
+		g.Expect(string(raw)).ToNot(gomega.ContainSubstring(`"impersonated"`))
 	})
 
 	t.Run("rejects anything but all or a list of grants", func(t *testing.T) {
