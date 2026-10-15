@@ -18,7 +18,6 @@ import (
 //	Grant{Scope: "<payments>", Constraint: "<eu>", Impersonated: []string{"<prod>"}}  // configs in payments, eu and prod
 type Grant struct {
 	// Scope grants the rows: the resource Scope of a Role rule, or a Scope a Permission names.
-	// Empty only when the Impersonated Scopes alone admit the rows.
 	Scope string `json:"scope,omitempty"`
 
 	// Constraint is the resource Scope of the RoleBinding's constraint, which narrows Scope. Empty without one.
@@ -39,16 +38,14 @@ func canonicalScopeID(id string) (string, bool) {
 }
 
 // normalize puts the grant's Scope ids in canonical form and drops a Scope repeated within it. It reports false when
-// an id isn't a UUID, when the grant names no Scope, or when it has a Constraint without a Scope.
+// an id isn't a UUID, or when the grant has no Scope.
 func (g Grant) normalize() (Grant, bool) {
 	var ok bool
-	if g.Scope != "" {
-		if g.Scope, ok = canonicalScopeID(g.Scope); !ok {
-			return Grant{}, false
-		}
+	if g.Scope, ok = canonicalScopeID(g.Scope); !ok {
+		return Grant{}, false
 	}
 	if g.Constraint != "" {
-		if g.Constraint, ok = canonicalScopeID(g.Constraint); !ok || g.Scope == "" {
+		if g.Constraint, ok = canonicalScopeID(g.Constraint); !ok {
 			return Grant{}, false
 		}
 	}
@@ -68,9 +65,6 @@ func (g Grant) normalize() (Grant, bool) {
 
 	if g.Constraint == g.Scope {
 		g.Constraint = ""
-	}
-	if g.Scope == "" && len(g.Impersonated) == 0 {
-		return Grant{}, false
 	}
 	return g, true
 }
