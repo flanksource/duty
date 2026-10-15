@@ -1,9 +1,9 @@
 -- dependsOn: views/050_scope_membership_helpers.sql
 
 -- scope_rebuild_members recomputes a Scope's member rows from its scope_targets after the targets change, writing only
--- the rows that change. Members of types it has neither targets nor a whole-type row for are deleted. Each target's
--- values are constants in the query, so the tables' indexes apply. The caller holds the membership lock exclusively
--- (membership.Rebuild).
+-- the rows that change: the resources matching a target, less those matching an exclusion. Members of types it has
+-- neither targets nor a whole-type row for are deleted. Each target's values are constants in the query, so the tables'
+-- indexes apply. The caller holds the membership lock exclusively (membership.Rebuild).
 --
 --   a Scope whose only target is config name 'web-1', changed to config tags env=prod:
 --   SELECT scope_rebuild_members($1);  => removes web-1's row unless it's tagged env=prod, adds every env=prod config
@@ -14,23 +14,38 @@ DECLARE
   kind text;
   cols record;
   tgt record;
+  included text;
+  excluded text;
   desired text;
 BEGIN
   DELETE FROM scope_members m
   WHERE m.scope_id = scope AND m.resource_id IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM scope_targets st WHERE st.scope_id = scope AND st.resource_type = m.resource_type);
+    AND NOT EXISTS (
+      SELECT 1 FROM scope_targets st WHERE st.scope_id = scope AND st.resource_type = m.resource_type AND NOT st.excluded
+    );
 
-  FOR kind IN SELECT DISTINCT st.resource_type FROM scope_targets st WHERE st.scope_id = scope
+  FOR kind IN SELECT DISTINCT st.resource_type FROM scope_targets st WHERE st.scope_id = scope AND NOT st.excluded
   LOOP
     SELECT * INTO cols FROM _scope_resource_columns(kind, 'r');
-    desired := NULL;
+    included := NULL;
+    excluded := NULL;
     FOR tgt IN SELECT * FROM scope_targets st WHERE st.scope_id = scope AND st.resource_type = kind
     LOOP
-      desired := concat_ws(' UNION ', desired, format(
+      desired := format(
         'SELECT r.id FROM %s r WHERE _scope_target_matches(%L::uuid, %L::text, %L::text, %L::text, %L::uuid, %L::text[], %L::jsonb, %L::jsonb, %s, %s, %s, %s, %s, %s, %s)',
         cols.tbl, tgt.resource_id, tgt.name, tgt.name_prefix, tgt.namespace, tgt.agent_id, tgt.types, tgt.tags, tgt.labels,
-        cols.id, cols.name, cols.namespace, cols.agent_id, cols.type, cols.tags, cols.labels));
+        cols.id, cols.name, cols.namespace, cols.agent_id, cols.type, cols.tags, cols.labels);
+      IF tgt.excluded THEN
+        excluded := concat_ws(' UNION ', excluded, desired);
+      ELSE
+        included := concat_ws(' UNION ', included, desired);
+      END IF;
     END LOOP;
+
+    desired := included;
+    IF excluded IS NOT NULL THEN
+      desired := format('SELECT id FROM (%s) i EXCEPT SELECT id FROM (%s) x', included, excluded);
+    END IF;
 
     EXECUTE format(
       'WITH desired AS (%s),
@@ -118,16 +133,18 @@ BEGIN
     ) AS d(kind, tbl, watched)
   LOOP
     -- the targets of the type a resource row "r" matches: those sharing one of its keys, found through the GIN index,
-    -- and those with no keys
+    -- and those with no keys. Exclusions aren't targets, and a Scope with an exclusion the row matches is left out.
     SELECT * INTO c FROM _scope_resource_columns(def.kind, 'r');
     match_targets := format(
       'SELECT t.scope_id, r.id AS resource_id FROM %%s r JOIN scope_targets t
-         ON t.resource_type = %1$L AND t.lookup_keys && _scope_lookup_keys(%2$s, %3$s, %4$s)
+         ON t.resource_type = %1$L AND NOT t.excluded AND t.lookup_keys && _scope_lookup_keys(%2$s, %3$s, %4$s)
         AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
+        AND NOT _scope_excludes(t.scope_id, %1$L, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
        UNION
        SELECT t.scope_id, r.id FROM %%s r JOIN scope_targets t
-         ON t.resource_type = %1$L AND t.lookup_keys = ''{}''::text[]
-        AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)',
+         ON t.resource_type = %1$L AND NOT t.excluded AND t.lookup_keys = ''{}''::text[]
+        AND _scope_target_matches(t.resource_id, t.name, t.name_prefix, t.namespace, t.agent_id, t.types, t.tags, t.labels, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)
+        AND NOT _scope_excludes(t.scope_id, %1$L, %5$s, %6$s, %4$s, %7$s, %8$s, %2$s, %3$s)',
       def.kind, c.tags, c.labels, c.namespace, c.id, c.name, c.agent_id, c.type);
 
     EXECUTE format($f$
