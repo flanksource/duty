@@ -28,6 +28,12 @@ table "scopes" {
     comment = "Array of scope targets - each target contains one resource type (config/component/playbook/canary/*) with selector"
   }
 
+  column "exclude" {
+    null    = true
+    type    = jsonb
+    comment = "Array of scope exclusions, each shaped like a target. A resource matching one isn't in the Scope. NULL when there are none"
+  }
+
   column "error" {
     null    = true
     type    = text
