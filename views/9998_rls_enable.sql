@@ -1,105 +1,6 @@
 -- runs: always
 -- Runs on every migration so that RLS is enabled even on databases that last migrated with RLS disabled.
 
--- Generic function to match a row against an array of scopes
--- Returns TRUE if the row matches ANY scope.
--- Within a scope, ALL non-empty fields must match (AND logic within scope).
-CREATE OR REPLACE FUNCTION match_scope(
-    scopes jsonb,           -- Array of scope objects from JWT claims
-    row_tags jsonb,         -- The row's tags (can be NULL)
-    row_agent uuid,         -- The row's agent_id (can be NULL)
-    row_name text,          -- The row's name (can be NULL)
-    row_id uuid             -- The row's ID (can be NULL)
-) RETURNS BOOLEAN AS $$
-DECLARE
-    scope jsonb;
-    scope_tags jsonb;
-    scope_agents jsonb;
-    scope_names jsonb;
-    scope_id text;
-    tags_match boolean;
-    agents_match boolean;
-    names_match boolean;
-    id_match boolean;
-BEGIN
-    -- If scopes is NULL or not an array or empty, deny access
-    IF scopes IS NULL
-       OR jsonb_typeof(scopes) != 'array'
-       OR jsonb_array_length(scopes) = 0 THEN
-        RETURN FALSE;
-    END IF;
-
-    -- Iterate through each scope (OR logic between scopes)
-    FOR scope IN SELECT * FROM jsonb_array_elements(scopes)
-    LOOP
-        -- Extract fields from scope
-        scope_tags := scope->'tags';
-        scope_agents := scope->'agents';
-        scope_names := scope->'names';
-        scope_id := NULLIF(btrim(scope->>'id'), '');
-
-        -- Check if scope has any fields applicable to this resource type
-        -- A field is applicable if: scope defines it AND resource supports it (row param not NULL)
-        -- If no applicable fields, scope is effectively empty for this resource type
-        IF ((scope_tags IS NULL OR scope_tags = '{}'::jsonb) OR row_tags IS NULL)
-           AND (COALESCE(jsonb_array_length(scope_agents), 0) = 0 OR row_agent IS NULL)
-           AND (COALESCE(jsonb_array_length(scope_names), 0) = 0 OR row_name IS NULL)
-           AND (scope_id IS NULL OR row_id IS NULL) THEN
-            CONTINUE;
-        END IF;
-
-        -- Check tags match (row must contain all scope tags)
-        IF scope_tags IS NULL OR jsonb_typeof(scope_tags) = 'null' OR scope_tags = '{}'::jsonb THEN
-            tags_match := TRUE;
-        ELSIF row_tags IS NULL THEN
-            tags_match := TRUE; -- Resource doesn't have tags, ignore this check
-        ELSE
-            tags_match := row_tags @> scope_tags;
-        END IF;
-
-        -- Check agents match (row agent must be in list or wildcard)
-        IF scope_agents IS NULL OR jsonb_typeof(scope_agents) = 'null' OR jsonb_array_length(scope_agents) = 0 THEN
-            agents_match := TRUE;
-        ELSIF row_agent IS NULL THEN
-            agents_match := TRUE; -- Resource doesn't have agents, ignore this check
-        ELSIF scope_agents = '["*"]'::jsonb THEN
-            agents_match := row_agent IS NOT NULL;
-        ELSE
-            agents_match := scope_agents @> to_jsonb(row_agent::text);
-        END IF;
-
-        -- Check names match (row name must be in list or wildcard)
-        IF scope_names IS NULL OR jsonb_typeof(scope_names) = 'null' OR jsonb_array_length(scope_names) = 0 THEN
-            names_match := TRUE;
-        ELSIF scope_names = '["*"]'::jsonb THEN
-            names_match := row_name IS NOT NULL;
-        ELSIF row_name IS NULL THEN
-            names_match := FALSE;
-        ELSE
-            names_match := scope_names @> to_jsonb(row_name);
-        END IF;
-
-        -- Check ID match (row ID must match if provided)
-        IF scope_id IS NULL THEN
-            id_match := TRUE;
-        ELSIF row_id IS NULL THEN
-            id_match := FALSE;
-        ELSIF scope_id = '*' THEN
-            id_match := row_id IS NOT NULL;
-        ELSE
-            id_match := lower(scope_id) = row_id::text;
-        END IF;
-
-        -- If ALL conditions match (AND logic within scope), allow
-        IF tags_match AND agents_match AND names_match AND id_match THEN
-            RETURN TRUE;
-        END IF;
-    END LOOP;
-
-    RETURN FALSE;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Enable RLS for tables
 DO $$
 BEGIN
@@ -542,15 +443,22 @@ CREATE POLICY views_auth ON views
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'view',
-          NULL,
-          NULL,
-          views.name,
-          views.id
-        )
+        EXISTS (SELECT 1 FROM rls_matching_grants('view', views.id))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (views.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('view', views.id, views.name, views.namespace, NULL, NULL, NULL, NULL))
+      END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('view', views.id, views.name, views.namespace, NULL, NULL, NULL, NULL)
       END
     );
+
+-- views_auth no longer matches rows against selectors, so nothing uses match_scope. It's dropped after views_auth is
+-- replaced, since an older views_auth depends on it.
+DROP FUNCTION IF EXISTS match_scope(jsonb, jsonb, uuid, text, uuid);
 
 -- Policy view_panels (inherits from parent views table)
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;

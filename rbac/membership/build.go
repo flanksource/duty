@@ -50,7 +50,7 @@ var ErrStaleScope = errors.New("the scope changed since its targets were resolve
 // the Scope itself: the caller saves the Scope row in the same transaction, and readers see the old membership until
 // it commits and the new one after. targets are the Scope's targets as stored on its row, and resolved are those
 // targets validated, with their agents resolved to ids.
-// Targets of types whose membership isn't stored, e.g. views, are ignored, and a whole-type target is stored as one
+// Targets of types whose membership isn't stored, e.g. applications, are ignored, and a whole-type target is stored as one
 // member with no resource. Nothing is written when the targets haven't changed, and a rebuild writes only the members
 // that change. It reports whether anything was rebuilt.
 //
@@ -257,6 +257,7 @@ var fields = map[string]struct{ agent, types, tags, labels bool }{
 	policy.ResourcePlaybook:   {},
 	policy.ResourceConnection: {types: true},
 	policy.ResourceScraper:    {agent: true},
+	policy.ResourceView:       {},
 }
 
 // Types are the resource types whose membership is stored.

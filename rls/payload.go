@@ -6,33 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/flanksource/commons/collections"
 	"github.com/flanksource/commons/hash"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
-
-type Scope struct {
-	Tags   map[string]string `json:"tags,omitempty"`
-	Agents []string          `json:"agents,omitempty"`
-	Names  []string          `json:"names,omitempty"`
-	ID     string            `json:"id,omitempty"`
-}
-
-func (s Scope) IsEmpty() bool {
-	return len(s.Tags) == 0 && len(s.Agents) == 0 && len(s.Names) == 0 && strings.TrimSpace(s.ID) == ""
-}
-
-func (s Scope) Fingerprint() string {
-	tagSelectors := collections.SortedMap(s.Tags)
-	agentsCopy := slices.Clone(s.Agents)
-	namesCopy := slices.Clone(s.Names)
-	slices.Sort(agentsCopy)
-	slices.Sort(namesCopy)
-
-	data := fmt.Sprintf("agents:%s | tags:%s | names:%s | id:%s", strings.Join(agentsCopy, "--"), tagSelectors, strings.Join(namesCopy, "--"), strings.TrimSpace(s.ID))
-	return fmt.Sprintf("scope::%s", hash.Sha256Hex(data))
-}
 
 // RLS Payload that's injected postgresl parameter `request.jwt.claims`
 //
@@ -47,12 +24,10 @@ type Payload struct {
 	Canary    *Grants `json:"canary,omitempty"`
 	Check     *Grants `json:"check,omitempty"`
 	Scraper   *Grants `json:"scraper,omitempty"`
+	View      *Grants `json:"view,omitempty"`
 
-	// View filters views by their own fields. Views aren't covered by stored Scope membership.
-	View []Scope `json:"view,omitempty"`
-
-	// Scopes contains the list of scope UUIDs the user has access to.
-	// This is used for generated view tables only (for now).
+	// Scopes are the Scopes whose stamped rows of generated view tables the subject may read, through their
+	// __grants column. Permissions grant them; Role rules grant whole views through View instead.
 	Scopes []string `json:"scopes,omitempty"`
 
 	Disable bool `json:"disable_rls,omitempty"`
@@ -73,6 +48,8 @@ func (t *Payload) GrantsFor(resourceType string) *Grants {
 		return t.Check
 	case "scraper":
 		return t.Scraper
+	case "view":
+		return t.View
 	}
 	return nil
 }
@@ -92,12 +69,14 @@ func (t *Payload) SetGrants(resourceType string, grants *Grants) {
 		t.Check = grants
 	case "scraper":
 		t.Scraper = grants
+	case "view":
+		t.View = grants
 	}
 	t.fingerprint = ""
 }
 
 // GrantTypes are the resource types whose rows are filtered by grants.
-var GrantTypes = []string{"config", "component", "playbook", "canary", "check", "scraper"}
+var GrantTypes = []string{"config", "component", "playbook", "canary", "check", "scraper", "view"}
 
 // Get the JWT claims that'll be passed on to PostgREST
 func (t Payload) JWTClaims() map[string]any {
@@ -111,10 +90,6 @@ func (t Payload) JWTClaims() map[string]any {
 		if grants := t.GrantsFor(kind); grants != nil {
 			claims[kind] = grants
 		}
-	}
-
-	if len(t.View) > 0 {
-		claims["view"] = t.View
 	}
 
 	if len(t.Scopes) > 0 {
@@ -134,12 +109,6 @@ func (t *Payload) EvalFingerprint() {
 	for _, kind := range GrantTypes {
 		if grants := t.GrantsFor(kind); grants != nil {
 			parts = append(parts, kind+":"+grants.Fingerprint())
-		}
-	}
-
-	for _, scope := range t.View {
-		if !scope.IsEmpty() {
-			parts = append(parts, "view:"+scope.Fingerprint())
 		}
 	}
 
