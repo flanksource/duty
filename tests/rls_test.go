@@ -216,12 +216,12 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 					return countAll("config_items", "agent_id = ?", uuid.Nil)
 				}},
 				{"a Scope narrowed by a constraint", func() rls.Payload {
-					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: eksScope})}
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraints: []string{eksScope}})}
 				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
 				{"a whole-type Scope narrowed", func() rls.Payload {
-					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope})}
+					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraints: []string{awsScope}})}
 				}, func() int64 { return aws }},
 				{"any grant", func() rls.Payload {
 					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope}, rls.Grant{Scope: demoScope})}
@@ -229,14 +229,14 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 					return countAll("config_items", "tags->>'cluster' IN ('aws', 'demo')")
 				}},
 				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload {
-					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: unbuiltScope})}
+					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraints: []string{unbuiltScope}})}
 				}, func() int64 { return 0 }},
 				{"other grants still apply", func() rls.Payload {
 					return rls.Payload{Config: grants(rls.Grant{Scope: awsScope}, rls.Grant{Scope: unbuiltScope})}
 				}, func() int64 { return aws }},
 				{"a Scope of another type", func() rls.Payload { return rls.Payload{Config: grants(rls.Grant{Scope: logisticsComponentScope})} }, func() int64 { return 0 }},
-				{"a constraint and an impersonated Scope", func() rls.Payload {
-					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraint: awsScope, Impersonated: []string{eksScope}})}
+				{"a Scope narrowed by two constraints", func() rls.Payload {
+					return rls.Payload{Config: grants(rls.Grant{Scope: allConfigsScope, Constraints: []string{awsScope, eksScope}})}
 				}, func() int64 {
 					return countAll("config_items", "tags->>'cluster' = 'aws' AND name = ?", *dummy.EKSCluster.Name)
 				}},
@@ -251,10 +251,10 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 		for _, claim := range []string{
 			`{"config": [{"scope": "not-a-uuid"}]}`,
-			`{"config": [{"constraint": "` + awsScope + `"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "constraint": "staging"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": "` + awsScope + `"}]}`,
-			`{"config": [{"scope": "` + allConfigsScope + `", "impersonated": ["staging"]}]}`,
+			`{"config": [{"constraints": ["` + awsScope + `"]}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": "` + awsScope + `"}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": ["staging"]}]}`,
+			`{"config": [{"scope": "` + allConfigsScope + `", "constraints": [1]}]}`,
 			`{"config": [["` + awsScope + `"]]}`,
 			`{"config": {"scope": "` + awsScope + `"}}`,
 			`{"config": "some"}`,
@@ -536,12 +536,12 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 					return countAll("config_scrapers", "namespace = 'default'")
 				}},
 				{"a Scope narrowed by a constraint", func() rls.Payload {
-					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraint: homelabAgentScraperScope})}
+					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraints: []string{homelabAgentScraperScope}})}
 				}, func() int64 {
 					return countAll("config_scrapers", "namespace = 'default' AND agent_id = ?", dummy.HomelabAgent.ID)
 				}},
 				{"a grant naming an unbuilt Scope fails whole", func() rls.Payload {
-					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraint: unbuiltScope})}
+					return rls.Payload{Scraper: grants(rls.Grant{Scope: defaultScrapersScope, Constraints: []string{unbuiltScope}})}
 				}, func() int64 { return 0 }},
 				{"any grant", func() rls.Payload {
 					return rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope}, rls.Grant{Scope: defaultScrapersScope})}
@@ -566,7 +566,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 
 			for _, claim := range []string{
 				`{"scraper": [{"scope": "not-a-uuid"}]}`,
-				`{"scraper": [{"constraint": "` + defaultScrapersScope + `"}]}`,
+				`{"scraper": [{"constraints": ["` + defaultScrapersScope + `"]}]}`,
 				`{"scraper": {"scope": "` + defaultScrapersScope + `"}}`,
 				`{"scraper": "some"}`,
 			} {
@@ -741,7 +741,7 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 		})
 
 		It("denies INSERT of a row that matches only some Scopes of a grant", func() {
-			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraint: eksScope})}, newConfig("test-config-insert-partial", "aws"))).To(refused)
+			Expect(insertConfig(rls.Payload{Config: grants(rls.Grant{Scope: awsScope, Constraints: []string{eksScope}})}, newConfig("test-config-insert-partial", "aws"))).To(refused)
 		})
 
 		It("allows INSERT through a whole-type Scope", func() {
