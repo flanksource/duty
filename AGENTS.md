@@ -59,7 +59,7 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 ### PostgREST JWT Claims Injection
 
-- Go builds the `rls.Payload` for the request's subject (grants per resource type; selectors for views).
+- Go builds the `rls.Payload` for the request's subject (grants per resource type).
 - `SetPostgresSessionRLS()` serializes it and runs `SET request.jwt.claims TO <json>`.
 - The policies read it with `current_setting('request.jwt.claims')`.
 

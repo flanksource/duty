@@ -27,18 +27,20 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql VOLATILE;
--- view_table_view_id returns the id of the one live view whose generated table is table_name, or NULL when no view
--- or more than one does. View names map to tables lossily ('a-b/c' and 'a/b-c' are both view_a_b_c), and a table
--- two views share holds rows of both, so neither view's grant can admit its rows. It reads views as its owner, so
--- the answer doesn't depend on which views the caller sees. The table name is the view's GeneratedTableName.
+-- view_table_view_id returns the id of the one live view whose generated table is table_name, or NULL when no
+-- view or more than one does. View names map to tables lossily: 'team-a/pods' and 'team/a-pods' are both
+-- view_team_a_pods, and Postgres truncates names to 63 bytes. A table two views share holds rows of both, so neither
+-- view's grant can admit its rows. It reads views as its owner, so the answer doesn't depend on which views the
+-- caller sees. The table name is the view's GeneratedTableName.
 --
 --   SELECT view_table_view_id('view_mc_pods');  => the id of view mc/pods
 CREATE
 OR REPLACE FUNCTION view_table_view_id(table_name text) RETURNS uuid AS $$
-  SELECT CASE WHEN count(*) = 1 THEN (array_agg(id))[1] END
-  FROM views
-  WHERE deleted_at IS NULL
-    AND 'view_' || replace(COALESCE(namespace, ''), '-', '_') || '_' || replace(name, '-', '_') = table_name
+  SELECT CASE WHEN count(*) = 1 THEN (array_agg(v.id))[1] END
+  FROM public.views v
+  WHERE v.deleted_at IS NULL
+    AND left('view_' || replace(COALESCE(v.namespace, ''), '-', '_') || '_' || replace(v.name, '-', '_'), 63)
+      = left(table_name, 63)
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- view_table_readable reports whether the caller may read the view whose generated table is table_name: it reads
@@ -49,7 +51,7 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 --   SELECT view_table_readable('view_mc_pods');  => true
 CREATE
 OR REPLACE FUNCTION view_table_readable(table_name text) RETURNS BOOLEAN AS $$
-  SELECT EXISTS (SELECT 1 FROM views WHERE id = (SELECT view_table_view_id(table_name)))
+  SELECT EXISTS (SELECT 1 FROM public.views v WHERE v.id = (SELECT public.view_table_view_id(table_name)))
 $$ LANGUAGE sql STABLE SECURITY INVOKER;
 
 -- ensure_view_table_policy enables row-level security on a generated view table and writes its read policy, unless
@@ -62,9 +64,9 @@ CREATE
 OR REPLACE FUNCTION ensure_view_table_policy(table_name text) RETURNS void AS $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relname = table_name AND c.relkind = 'r' AND c.relrowsecurity)
+      WHERE n.nspname = 'public' AND c.relname = left(table_name, 63) AND c.relkind = 'r' AND c.relrowsecurity)
     AND EXISTS (SELECT 1 FROM pg_policies p
-      WHERE p.schemaname = 'public' AND p.tablename = table_name AND p.policyname = 'view_grants_policy'
+      WHERE p.schemaname = 'public' AND p.tablename = left(table_name, 63) AND p.policyname = 'view_grants_policy'
         AND p.cmd = 'SELECT' AND p.qual LIKE '%view_table_readable%') THEN
     RETURN;
   END IF;
