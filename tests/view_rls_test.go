@@ -96,29 +96,19 @@ var _ = Describe("Generated view table policy", Ordered, Serial, func() {
 		tables   []string
 	)
 
-	// storeView stores a view without creating its generated table.
-	storeView := func(namespace, name string) models.View {
+	// newView stores a view, creates its generated table and fills it with rows.
+	newView := func(namespace, name string, rows int) models.View {
 		GinkgoHelper()
 		v := models.View{ID: uuid.New(), Namespace: namespace, Name: name, Spec: types.JSON(`{}`)}
 		Expect(DefaultContext.DB().Create(&v).Error).To(Succeed())
 		viewIDs = append(viewIDs, v.ID)
-		tables = append(tables, v.GeneratedTableName())
-		return v
-	}
 
-	insertRows := func(table string, rows int) {
-		GinkgoHelper()
+		table := v.GeneratedTableName()
+		tables = append(tables, table)
+		Expect(view.CreateViewTable(DefaultContext, table, columns)).To(Succeed())
 		for range rows {
 			Expect(DefaultContext.DB().Exec(fmt.Sprintf("INSERT INTO %s (id) VALUES (?)", pq.QuoteIdentifier(table)), uuid.NewString()).Error).To(Succeed())
 		}
-	}
-
-	// newView stores a view, creates its generated table and fills it with rows.
-	newView := func(namespace, name string, rows int) models.View {
-		GinkgoHelper()
-		v := storeView(namespace, name)
-		Expect(view.CreateViewTable(DefaultContext, v.GeneratedTableName(), columns)).To(Succeed())
-		insertRows(v.GeneratedTableName(), rows)
 		return v
 	}
 
@@ -201,8 +191,7 @@ var _ = Describe("Generated view table policy", Ordered, Serial, func() {
 		// Both names truncate to the same 61 bytes: the 3-byte character crosses the 63-byte limit.
 		long := strings.Repeat("é", 26) + "日"
 		first := newView("rls", long+"-first", 1)
-		second := storeView("rls", long+"-second")
-		insertRows(second.GeneratedTableName(), 1)
+		second := newView("rls", long+"-second", 1)
 		Expect(len(first.GeneratedTableName())).To(BeNumerically(">", 63))
 
 		table := first.GeneratedTableName()
