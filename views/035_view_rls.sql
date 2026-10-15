@@ -27,3 +27,17 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql VOLATILE;
+-- view_table_readable reports whether the caller may read the view whose generated table is table_name. It reads
+-- views as the caller, so the views table's policy decides. A readable view's rows are all readable: a view is
+-- granted whole. The table name is the view's GeneratedTableName.
+--
+--   claim {"view": [{"scope": "<Scope selecting view mc/pods>"}]}:
+--   SELECT view_table_readable('view_mc_pods');  => true
+CREATE
+OR REPLACE FUNCTION view_table_readable(table_name text) RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM views
+    WHERE deleted_at IS NULL
+      AND 'view_' || replace(COALESCE(namespace, ''), '-', '_') || '_' || replace(name, '-', '_') = table_name
+  )
+$$ LANGUAGE sql STABLE SECURITY INVOKER;

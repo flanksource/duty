@@ -542,13 +542,16 @@ CREATE POLICY views_auth ON views
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        match_scope(
-          current_setting('request.jwt.claims', TRUE)::jsonb -> 'view',
-          NULL,
-          NULL,
-          views.name,
-          views.id
-        )
+        EXISTS (SELECT 1 FROM rls_matching_grants('view', views.id))
+        -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
+        -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
+        OR (views.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('view', views.id, views.name, views.namespace, NULL, NULL, NULL, NULL))
+      END
+    )
+    WITH CHECK (
+      CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
+      ELSE
+        rls_grants_admit_row('view', views.id, views.name, views.namespace, NULL, NULL, NULL, NULL)
       END
     );
 

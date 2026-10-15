@@ -156,6 +156,8 @@ func membershipOf(m *models.ABACMembership, kind string) *[]any {
 		return &m.Playbook
 	case policy.ResourceConnection:
 		return &m.Connection
+	case policy.ResourceView:
+		return &m.View
 	}
 	return nil
 }
@@ -207,6 +209,7 @@ func ScopeCondition(resourceType, scopeID string) (string, error) {
 		policy.ResourceCanary:     "Canary",
 		policy.ResourcePlaybook:   "Playbook",
 		policy.ResourceConnection: "Connection",
+		policy.ResourceView:       "View",
 	}[resourceType]
 	if field == "" {
 		return "", fmt.Errorf("membership of %s isn't stored", resourceType)

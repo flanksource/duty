@@ -96,6 +96,9 @@ BEGIN
   WHEN 'scraper' THEN
     RETURN QUERY SELECT 'config_scrapers', alias || '.id', alias || '.name', alias || '.namespace',
       alias || '.agent_id', 'NULL::text', 'NULL::jsonb', 'NULL::jsonb';
+  WHEN 'view' THEN
+    RETURN QUERY SELECT 'views', alias || '.id', alias || '.name', alias || '.namespace',
+      'NULL::uuid', 'NULL::text', 'NULL::jsonb', 'NULL::jsonb';
   ELSE
     RAISE EXCEPTION 'membership of % isn''t stored', kind;
   END CASE;

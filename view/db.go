@@ -132,6 +132,8 @@ func applyViewTableSchema(ctx context.Context, tableName string, columns ViewCol
 }
 
 // ensureViewRLSPolicy enables RLS and the grants policy on a dynamically generated view table.
+// A row is readable when its view is, since a view is granted whole, or when its __grants name a Scope the
+// caller's Permissions grant.
 //
 // RLS for these tables is managed here in application code rather than in the SQL
 // migration script (9998_rls_enable.sql) because the set of
@@ -155,11 +157,13 @@ func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 		return fmt.Errorf("failed to check RLS state: %w", err)
 	}
 
+	// A policy written before views were granted whole doesn't call view_table_readable, and is replaced
 	var hasPolicy bool
 	if err := ctx.DB().Raw(`
 		SELECT EXISTS (
 			SELECT 1 FROM pg_policies
 			WHERE schemaname = 'public' AND tablename = ? AND policyname = 'view_grants_policy'
+				AND qual LIKE '%view_table_readable%'
 		)
 	`, tableName).Scan(&hasPolicy).Error; err != nil {
 		return fmt.Errorf("failed to check RLS policy: %w", err)
@@ -185,10 +189,10 @@ func ensureViewRLSPolicy(ctx context.Context, tableName string) error {
 			FOR ALL TO postgrest_api, postgrest_anon
 			USING (
 				CASE WHEN is_rls_disabled() THEN TRUE
-				ELSE check_view_grants(__grants)
+				ELSE (SELECT view_table_readable(%s)) OR check_view_grants(__grants)
 				END
 			)
-	`, quotedTable)
+	`, quotedTable, pq.QuoteLiteral(tableName))
 
 	if err := ctx.DB().Exec(policy).Error; err != nil {
 		return fmt.Errorf("failed to create RLS policy: %w", err)
