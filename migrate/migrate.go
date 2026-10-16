@@ -277,7 +277,7 @@ func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 		if role == "PUBLIC" {
 			grantee = "PUBLIC"
 		}
-		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries", "connections"} {
+		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries", "connections", "properties"} {
 			var exists bool
 			if err := pool.QueryRow("SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&exists); err != nil {
 				return fmt.Errorf("failed to check table public.%s for grantee %s: %w", table, grantee, err)
@@ -286,6 +286,15 @@ func revokeInternalAccess(pool *sql.DB, config api.Config) error {
 				if _, err := pool.Exec("REVOKE ALL ON TABLE public." + table + " FROM " + grantee); err != nil {
 					return fmt.Errorf("failed to revoke privileges on table public.%s from grantee %s: %w", table, grantee, err)
 				}
+			}
+		}
+		var featureFlagsExist bool
+		if err := pool.QueryRow("SELECT to_regclass('public.feature_flags') IS NOT NULL").Scan(&featureFlagsExist); err != nil {
+			return fmt.Errorf("failed to check feature_flags view: %w", err)
+		}
+		if featureFlagsExist {
+			if _, err := pool.Exec("REVOKE INSERT, UPDATE, DELETE ON public.feature_flags FROM " + grantee); err != nil {
+				return fmt.Errorf("failed to revoke writes on feature_flags from %s: %w", grantee, err)
 			}
 		}
 		for _, function := range []string{
