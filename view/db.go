@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlclient"
@@ -57,7 +58,21 @@ func GetAllViews(ctx context.Context) ([]models.View, error) {
 }
 
 func CreateViewTable(ctx context.Context, table string, columns ViewColumnDefList) error {
-	return applyViewTableSchema(ctx, table, columns)
+	return applyViewTableSchema(ctx, postgresIdentifier(table), columns)
+}
+
+// postgresIdentifier truncates name the way Postgres truncates identifiers: to 63 bytes, without splitting a
+// multibyte character. Atlas inspects tables by their exact name, so it must be given the name Postgres stores.
+func postgresIdentifier(name string) string {
+	const maxIdentifierBytes = 63
+	if len(name) <= maxIdentifierBytes {
+		return name
+	}
+	end := maxIdentifierBytes
+	for end > 0 && !utf8.RuneStart(name[end]) {
+		end--
+	}
+	return name[:end]
 }
 
 func applyViewTableSchema(ctx context.Context, tableName string, columns ViewColumnDefList) error {
