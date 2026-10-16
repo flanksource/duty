@@ -8,6 +8,14 @@ table "properties" {
     null = false
     type = text
   }
+  column "type" {
+    null = false
+    type = text
+    as {
+      expr = "property_type(name)"
+      type = STORED
+    }
+  }
   column "created_by" {
     null = true
     type = uuid
