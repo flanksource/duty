@@ -1,6 +1,6 @@
 table "scope_targets" {
   schema  = schema.public
-  comment = "The selectors of every valid Scope, flattened to plain columns so SQL can match resources against them. Each row is one target of a Scope (one ResourceSelector); a resource matches the row when every non-NULL column holds for it, and a NULL column matches anything. Resource triggers and scope_rebuild_members read these rows to keep scope_members up to date. Whole-type targets (name \"*\") aren't stored here, see scope_members."
+  comment = "The selectors of every valid Scope, flattened to plain columns so SQL can match resources against them. Each row is one target of a Scope (one ResourceSelector); a resource matches the row when every non-NULL column holds for it, and a NULL column matches anything. Resource triggers and scope_rebuild_members read these rows to keep scope_members up to date. Whole-type targets (name \"*\") aren't stored here, see scope_members, unless the Scope excludes resources of the type: then the target is a row with no conditions. Rows with excluded set are the Scope's exclusions: a resource matching one isn't a member, whatever targets it matches."
 
   column "scope_id" {
     null = false
@@ -57,6 +57,13 @@ table "scope_targets" {
     null    = true
     type    = jsonb
     comment = "key=value pairs the resource's labels must contain"
+  }
+
+  column "excluded" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "the row is an exclusion: resources it matches aren't members of the Scope"
   }
 
   # lookup_keys lets us find the Scopes a new resource belongs to with an index lookup,
