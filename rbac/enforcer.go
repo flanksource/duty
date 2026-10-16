@@ -4,12 +4,14 @@ import (
 	_ "embed"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
+	"github.com/flanksource/commons/logger"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -110,15 +112,38 @@ func Init(ctx context.Context, superUserIDs []string, adapters ...Adapter) error
 		}
 	}
 
-	enforcer.StartAutoLoadPolicy(ctx.Properties().Duration("casbin.cache.reload.interval", 5*time.Minute))
+	startAutoReload(ctx.Properties().Duration("casbin.cache.reload.interval", 5*time.Minute))
 
 	return nil
 }
 
+// stopAutoReload stops the periodic reload started by startAutoReload.
+var stopAutoReload = func() {}
+
+// startAutoReload reloads the policy on an interval through ReloadPolicy, so the periodic reload is serialized
+// with every other reload. Casbin's own auto load would call LoadPolicy without the lock.
+func startAutoReload(interval time.Duration) {
+	stopAutoReload()
+	done := make(chan struct{})
+	stopAutoReload = sync.OnceFunc(func() { close(done) })
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if err := ReloadPolicy(); err != nil {
+					logger.Errorf("failed to reload the rbac policy: %v", err)
+				}
+			}
+		}
+	}()
+}
+
 func Stop() {
-	if enforcer != nil {
-		enforcer.StopAutoLoadPolicy()
-	}
+	stopAutoReload()
 }
 
 func DeleteRole(role string) (bool, error) {
@@ -177,11 +202,13 @@ func PermsForUser(user string) ([]policy.Permission, error) {
 // HasImplicitGrants reports whether the subject is granted the "everyone" role and,
 // in CheckContext, the viewer role on top of what it was explicitly granted.
 //
-// Role bindings and federated identities have no implicit grants. A binding must not join "everyone",
-// or every member of the binding would inherit "everyone" through it.
+// Role bindings, federated identities and access tokens have no implicit grants. A binding must not join "everyone",
+// or every member of the binding would inherit "everyone" through it, and an access token must not, or its limit
+// would reach beyond the bindings that select it.
 func HasImplicitGrants(subject string) bool {
 	return !strings.HasPrefix(subject, models.BindingPrincipalPrefix) &&
-		!strings.HasPrefix(subject, models.FederatedPrincipalPrefix)
+		!strings.HasPrefix(subject, models.FederatedPrincipalPrefix) &&
+		!strings.HasPrefix(subject, models.AccessTokenPrincipalPrefix)
 }
 
 func Check(ctx context.Context, subject, object, action string) bool {
@@ -259,10 +286,17 @@ func HasPermission(ctx context.Context, subject string, attr *models.ABACAttribu
 	return allowed
 }
 
+// reloadLock serializes policy reloads. Casbin reads the policy under a read lock and swaps it in under the write
+// lock, so two reloads can read at once, and the one that read first can swap last, dropping a change the other saw.
+var reloadLock sync.Mutex
+
+// ReloadPolicy loads the policy from the database. Reloads run one at a time, from reading to swapping.
 func ReloadPolicy() error {
 	if enforcer == nil {
 		return nil
 	}
+	reloadLock.Lock()
+	defer reloadLock.Unlock()
 	return enforcer.LoadPolicy()
 }
 

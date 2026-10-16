@@ -122,7 +122,16 @@ func FederatedPrincipal(personID string) string {
 const (
 	BindingPrincipalPrefix   = "binding:"
 	FederatedPrincipalPrefix = "federated:"
+
+	// AccessTokenPrincipalPrefix prefixes the subject of an access token, which the RoleBindings that select it are
+	// grouped under. It's never the subject of a request: it's only checked alongside the token's owner, to limit them.
+	AccessTokenPrincipalPrefix = "token:"
 )
+
+// AccessTokenPrincipal returns the subject of an access token.
+func AccessTokenPrincipal(id uuid.UUID) string {
+	return AccessTokenPrincipalPrefix + id.String()
+}
 
 type PermissionSubjectType string
 
