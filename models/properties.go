@@ -15,7 +15,6 @@ import (
 type AppProperty struct {
 	Name      string     `json:"name,omitempty"`
 	Value     string     `json:"value,omitempty"`
-	Type      string     `json:"type,omitempty" gorm:"->"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	CreatedAt time.Time  `json:"created_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`
 	UpdatedAt time.Time  `json:"updated_at,omitempty" time_format:"postgres_timestamp" gorm:"default:CURRENT_TIMESTAMP()"`

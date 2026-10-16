@@ -237,7 +237,7 @@ as process-global in the later table, they are resolved through
 | `<event>.batchSize` | int | handler value | Batch size for a named async event consumer, for example `notification.send.batchSize`. |
 | `<event>.debug` | bool/off switch | `false` | Enables debug logging for a named async event consumer when set to `off`/`false` by current code. |
 | `<event>.trace` | bool/off switch | `false` | Enables trace logging for a named async event consumer when set to `off`/`false` by current code. |
-| `incidents.disable` | bool | `false` | Disable incident notification behavior. |
+| `public.incidents.disable` | bool | `false` | Disable incident notification behavior. |
 | `job.history.agentItemsToRetain` | int | `3` | Agent job-history entries to retain per status grouping. |
 | `job.history.maxAge` | duration | `720h` | Maximum job history age before cleanup. |
 | `job.history.running.maxAge` | duration | `4h` | Maximum running job age before marking stale. |
@@ -339,7 +339,24 @@ These are additional properties used by `../canary-checker`.
 
 ## Flanksource UI Property Usage
 
-`../flanksource-ui` reads `/properties` as feature flags. These are database
+Properties with names starting with `public.` are readable by every signed-in
+user. All other properties are private. Reading private properties and writing
+any property require `property:manage`. This applies to both database and local
+properties; never put secrets in a `public.*` property. Names retain the prefix
+in API responses and consumer lookups. No registration or type column is needed.
+
+PostgREST exposes only the read-only `feature_flags` view of public properties,
+not the underlying `properties` table. Mission Control manages stored properties
+through `/property`; `/properties` combines stored and local values, with local
+values taking precedence, and filters private values for non-managers.
+
+On upgrade, known UI keys stored in the database are renamed with the `public.`
+prefix. If both names exist, the public value wins and the old row is preserved.
+Add the prefix to UI keys configured through files, Helm, or CLI options as well;
+these sources cannot be renamed by the database migration. Deploy the matching
+Mission Control and UI changes together with Duty.
+
+`../flanksource-ui` reads `/properties` as feature flags. These are runtime
 properties served by the API; they are not object annotations. The Settings >
 Feature Flags page can create and update DB-backed rows, but rows with
 `source=local` are displayed read-only.
@@ -352,47 +369,47 @@ runtime properties and are not listed in the schema.
 
 ### UI Feature Flags
 
-Feature flags use the property name `<feature>.disable`. A feature is disabled
+Feature flags use the property name `public.<feature>.disable`. A feature is disabled
 only when the property value is exactly the string `true`; missing rows and any
 other value leave the feature enabled.
 
 | Property | Effect |
 | --- | --- |
-| `topology.disable` | Hide or disable topology UI surfaces. |
-| `health.disable` | Hide or disable health UI surfaces. |
-| `incidents.disable` | Hide or disable incident UI surfaces. Also disables incident notification behavior in incident-commander when read by the backend. |
-| `config.disable` | Hide or disable config UI surfaces. |
-| `logs.disable` | Hide or disable log UI surfaces. |
-| `playbooks.disable` | Hide or disable playbook UI surfaces. |
-| `applications.disable` | Hide or disable application UI surfaces. |
-| `views.disable` | Hide or disable custom view UI surfaces. |
-| `ai.disable` | Hide or disable AI actions and prompts in UI surfaces that check this flag. |
-| `agents.disable` | Hide or disable agent UI surfaces. |
-| `settings.connections.disable` | Hide or disable connection settings. |
-| `settings.users.disable` | Hide or disable user settings. |
-| `settings.teams.disable` | Hide or disable team settings. |
-| `settings.rules.disable` | Hide or disable rules settings. |
-| `settings.config_scraper.disable` | Hide or disable config scraper settings. Also disabled when `config.disable=true`. |
-| `settings.topology.disable` | Hide or disable topology settings. Also disabled when `topology.disable=true`. |
-| `settings.health.disable` | Hide or disable health settings. Also disabled when `health.disable=true`. |
-| `settings.job_history.disable` | Hide or disable job history settings. Also disabled when `health.disable=true`. |
-| `settings.feature_flags.disable` | Hide or disable the feature flags settings page. |
-| `settings.logging_backends.disable` | Hide or disable logging backend settings. |
-| `settings.event_queue_status.disable` | Hide or disable event queue status settings. |
-| `settings.organization_profile.disable` | Hide or disable organization profile settings. |
-| `settings.notifications.disable` | Hide or disable notification settings. |
-| `settings.playbooks.disable` | Hide or disable playbook settings. |
-| `settings.integrations.disable` | Hide or disable integration settings. |
-| `settings.permissions.disable` | Hide or disable permission settings. |
-| `settings.artifacts.disable` | Hide or disable artifact settings. |
+| `public.topology.disable` | Hide or disable topology UI surfaces. |
+| `public.health.disable` | Hide or disable health UI surfaces. |
+| `public.incidents.disable` | Hide or disable incident UI surfaces. Also disables incident notification behavior in incident-commander when read by the backend. |
+| `public.config.disable` | Hide or disable config UI surfaces. |
+| `public.logs.disable` | Hide or disable log UI surfaces. |
+| `public.playbooks.disable` | Hide or disable playbook UI surfaces. |
+| `public.applications.disable` | Hide or disable application UI surfaces. |
+| `public.views.disable` | Hide or disable custom view UI surfaces. |
+| `public.ai.disable` | Hide or disable AI actions and prompts in UI surfaces that check this flag. |
+| `public.agents.disable` | Hide or disable agent UI surfaces. |
+| `public.settings.connections.disable` | Hide or disable connection settings. |
+| `public.settings.users.disable` | Hide or disable user settings. |
+| `public.settings.teams.disable` | Hide or disable team settings. |
+| `public.settings.rules.disable` | Hide or disable rules settings. |
+| `public.settings.config_scraper.disable` | Hide or disable config scraper settings. Also disabled when `public.config.disable=true`. |
+| `public.settings.topology.disable` | Hide or disable topology settings. Also disabled when `public.topology.disable=true`. |
+| `public.settings.health.disable` | Hide or disable health settings. Also disabled when `public.health.disable=true`. |
+| `public.settings.job_history.disable` | Hide or disable job history settings. Also disabled when `public.health.disable=true`. |
+| `public.settings.feature_flags.disable` | Hide or disable the feature flags settings page. |
+| `public.settings.logging_backends.disable` | Hide or disable logging backend settings. |
+| `public.settings.event_queue_status.disable` | Hide or disable event queue status settings. |
+| `public.settings.organization_profile.disable` | Hide or disable organization profile settings. |
+| `public.settings.notifications.disable` | Hide or disable notification settings. |
+| `public.settings.playbooks.disable` | Hide or disable playbook settings. |
+| `public.settings.integrations.disable` | Hide or disable integration settings. |
+| `public.settings.permissions.disable` | Hide or disable permission settings. |
+| `public.settings.artifacts.disable` | Hide or disable artifact settings. |
 
 ### UI Snippets
 
 | Property | Type | Source | Effect |
 | --- | --- | --- | --- |
-| `flanksource.ui.snippets` | JavaScript function expression string | `local` only | Executed once after the authenticated user is available. The function receives `{ user, organization }`. |
+| `public.flanksource.ui.snippets` | JavaScript function expression string | `local` only | Executed once after the authenticated user is available. The function receives `{ user, organization }`. |
 
-Only a `flanksource.ui.snippets` row whose `source` is `local` is executed by
+Only a `public.flanksource.ui.snippets` row whose `source` is `local` is executed by
 the UI. DB-backed rows with the same name are fetched and visible in the
 feature-flag list, but the snippet hook ignores them.
 
@@ -411,14 +428,14 @@ Example value:
 
 | Property | Type | Effect |
 | --- | --- | --- |
-| `defaults.dashboard_view` | string | Used by the UI sidebar to decide which custom view should be shown as the dashboard navigation item. It accepts a view UUID, `namespace/name`, or name. |
+| `public.defaults.dashboard_view` | string | Used by the UI sidebar to decide which custom view should be shown as the dashboard navigation item. It accepts a view UUID, `namespace/name`, or name. |
 | `dashboard.default.view` | string | Used by the backend `/api/dashboard` endpoint to resolve the actual homepage dashboard view. It accepts `namespace/name` or name and defaults to `mission-control-dashboard`. |
 
 ### UI Proxy Selection
 
 | Property | Type | Effect |
 | --- | --- | --- |
-| `proxy.disable` | bool | In Clerk auth mode, overrides the organization's `direct` metadata. When true, the UI bypasses the proxy and points API clients at the organization's `backend_url`. |
+| `public.proxy.disable` | bool | In Clerk auth mode, overrides the organization's `direct` metadata. When true, the UI bypasses the proxy and points API clients at the organization's `backend_url`. |
 
 ### Job Properties
 
