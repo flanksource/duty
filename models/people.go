@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"gorm.io/gorm/schema"
 )
 
 type Person struct {
@@ -93,10 +92,6 @@ type AccessToken struct {
 	CreatedAt time.Time  `json:"created_at" gorm:"<-:create"`
 	CreatedBy *uuid.UUID `json:"created_by,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-
-	// Roles limits the token to what a rule of one of these Roles also matches.
-	// Null or empty means no limit.
-	Roles AccessTokenRoles `json:"roles,omitempty" gorm:"default:null"`
 }
 
 func (AccessToken) TableName() string {
@@ -105,37 +100,4 @@ func (AccessToken) TableName() string {
 
 func (a AccessToken) PK() string {
 	return a.ID.String()
-}
-
-// AccessTokenRole names a Role by namespace and name.
-type AccessTokenRole struct {
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
-}
-
-// AccessTokenRoles is the list of Roles that limit an access token.
-type AccessTokenRoles []AccessTokenRole
-
-func (r AccessTokenRoles) Value() (driver.Value, error) {
-	if len(r) == 0 {
-		return nil, nil
-	}
-	return types.GenericStructValue(r, true)
-}
-
-func (r *AccessTokenRoles) Scan(val any) error {
-	if val == nil {
-		*r = nil
-		return nil
-	}
-	return types.GenericStructScan(r, val)
-}
-
-// GormDataType gorm common data type
-func (AccessTokenRoles) GormDataType() string {
-	return "accessTokenRoles"
-}
-
-func (AccessTokenRoles) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	return types.JSONGormDBDataType(db.Dialector.Name())
 }

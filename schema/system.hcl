@@ -34,10 +34,6 @@ table "access_tokens" {
     null = true # We can have never expiring tokens
     type = timestamptz
   }
-  column "roles" {
-    null = true
-    type = jsonb
-  }
   primary_key {
     columns = [column.id]
   }
