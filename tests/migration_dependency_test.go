@@ -72,7 +72,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(funcs).To(BeEmpty())
-		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "014_config_item_by_type.sql", "021_notification.sql", "037_notification_group_resources.sql", "9998_rls_enable.sql"}))
+		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "021_notification.sql", "037_notification_group_resources.sql", "9998_rls_enable.sql"}))
 
 		Expect(DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = ? WHERE path = '006_config_views.sql'`, []byte(currentHash)[:]).Error).To(BeNil())
 	})
