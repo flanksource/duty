@@ -1,6 +1,7 @@
 -- dependsOn: functions/drop.sql, functions/cost_overlap.sql
 
 -- Add cascade drops first to make sure all functions and views are always recreated
+-- Keep views that depend on configs in this file so these drops also rebuild them.
 DROP VIEW IF EXISTS configs CASCADE;
 
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
@@ -322,6 +323,17 @@ CREATE or REPLACE VIEW configs AS
     GROUP BY config_id
   ) config_costs ON config_costs.config_id = ci.id;
 
+CREATE OR REPLACE VIEW
+  config_items_aws AS
+SELECT
+  *,
+  labels ->> 'zone' AS zone,
+  labels ->> 'region' AS region,
+  labels ->> 'account' AS account
+FROM
+  configs
+WHERE
+  type LIKE 'AWS::%';
 
 DROP VIEW IF EXISTS config_names;
 CREATE or REPLACE VIEW config_names AS
