@@ -160,6 +160,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/get_playbook_run_actions":              policy.ObjectPlaybooks,
 	"playbooks":                                 policy.ObjectPlaybooks,
 	"properties":                                policy.ObjectDatabaseSystem,
+	"feature_flags":                             policy.ObjectDatabasePublic,
 	"push_queue_summary":                        policy.ObjectMonitor,
 	"responders":                                policy.ObjectIncident,
 	"rpc/lookup_component_config_id_related_components": policy.ObjectTopology,

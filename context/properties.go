@@ -240,7 +240,28 @@ func (k Context) globalProperties() Properties {
 	}
 
 	var props = make(map[string]string)
-	if k.DB() != nil {
+	if pool := k.Pool(); pool != nil {
+		// The request transaction may use a role that cannot read private properties.
+		// Read committed settings through the backend pool without changing that role.
+		// Bound the wait for a spare connection, since the request may already hold one.
+		ctx, cancel := k.WithTimeout(5 * time.Second)
+		defer cancel()
+		rows, err := pool.Query(ctx, "SELECT name, value FROM properties")
+		if err != nil {
+			return props
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name, value string
+			if err := rows.Scan(&name, &value); err != nil {
+				return make(map[string]string)
+			}
+			props[name] = value
+		}
+		if rows.Err() != nil {
+			return make(map[string]string)
+		}
+	} else if k.DB() != nil {
 		var rows []models.AppProperty
 		if err := k.DB().Find(&rows).Error; err != nil {
 			return props
