@@ -55,7 +55,9 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	}
 
 	l.V(3).Infof("Running %d scripts (functions)", len(allFunctions))
-	if err := runScripts(pool, allFunctions); err != nil {
+	// Do not mark these scripts complete until their dependent views exist again.
+	// If schema or view migration fails, the next run must repeat the drops and rebuilds.
+	if err := runScripts(pool, allFunctions, nil); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
@@ -71,7 +73,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	}
 
 	l.V(3).Infof("Running %d scripts (views)", len(allViews))
-	if err := runScripts(pool, allViews); err != nil {
+	if err := runScripts(pool, allViews, lo.Assign(allFunctions, allViews)); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
@@ -328,8 +330,15 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 	return true, nil
 }
 
-func runScripts(pool *sql.DB, scripts map[string]string) error {
+func runScripts(pool *sql.DB, scripts, completedScripts map[string]string) error {
 	l := logger.GetLogger("migrate")
+
+	// Keep script changes and their migration logs together so a failed batch can retry.
+	tx, err := pool.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
 	var filenames []string
 	for name := range scripts {
@@ -343,18 +352,25 @@ func runScripts(pool *sql.DB, scripts map[string]string) error {
 			continue
 		}
 
-		hash := sha1.Sum([]byte(content))
+		// Commit the removal of old hashes with the scripts, so a later failure cannot
+		// make a retry skip a script that dropped objects needed by another batch.
+		if _, err := tx.Exec("DELETE FROM migration_logs WHERE path = $1", file); err != nil {
+			return fmt.Errorf("failed to clear migration log %s: %w", file, err)
+		}
 		l.Tracef("running script %s", file)
-		if _, err := pool.Exec(scripts[file]); err != nil {
+		if _, err := tx.Exec(content); err != nil {
 			return fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
 		}
+	}
 
-		if _, err := pool.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
+	for file, content := range completedScripts {
+		hash := sha1.Sum([]byte(content))
+		if _, err := tx.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
 			return fmt.Errorf("failed to save migration log %s: %w", file, err)
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func createMigrationLogTable(pool *sql.DB) error {
