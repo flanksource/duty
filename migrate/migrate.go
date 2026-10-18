@@ -338,7 +338,7 @@ func runScripts(pool *sql.DB, scripts, completedScripts map[string]string) error
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var filenames []string
 	for name := range scripts {
