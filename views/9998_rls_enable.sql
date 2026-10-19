@@ -363,7 +363,7 @@ CREATE POLICY checks_auth ON checks
         SELECT 1
         FROM canaries
         WHERE canaries.id = checks.canary_id
-      ) AND NOT rls_row_denied('check', checks.id)) OR EXISTS (SELECT 1 FROM rls_matching_grants('check', checks.id))
+      ) AND NOT EXISTS (SELECT 1 FROM rls_row_denials('check', checks.id))) OR EXISTS (SELECT 1 FROM rls_matching_grants('check', checks.id))
         -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
         -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
         OR (checks.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('check', checks.id, checks.name, checks.namespace, checks.agent_id, checks.type, NULL, checks.labels))

@@ -278,24 +278,19 @@ END;
 $$
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
 
--- rls_row_denied reports whether a deny grant of the claim matches the row by its stored membership.
--- Keep this SQL function inlinable, like rls_matching_grants.
+-- rls_row_denials yields a row for each deny grant of the claim that matches the row by its stored membership, for
+-- a NOT EXISTS check. Keep this SQL function inlinable, like rls_matching_grants: a scalar function with a sub-SELECT
+-- is never inlined, and would run rls_denying_scopes again for every row.
 --
 --   claim {"deny": {"config": [{"scope": "<secrets>"}]}}:
---   SELECT rls_row_denied('config', $id); => true if $id is in secrets
-CREATE OR REPLACE FUNCTION rls_row_denied(kind text, row_id uuid)
-  RETURNS boolean
+--   SELECT NOT EXISTS (SELECT 1 FROM rls_row_denials('config', $id)); => false if $id is in secrets
+CREATE OR REPLACE FUNCTION rls_row_denials(kind text, row_id uuid)
+  RETURNS SETOF boolean
   AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.rls_denying_scopes(kind) AS d(scopes)
-    WHERE NOT EXISTS (
-      SELECT 1 FROM pg_catalog.unnest(d.scopes) AS required(scope_id)
-      WHERE NOT EXISTS (
-        SELECT 1 FROM public.scope_members m
-        WHERE m.resource_type = kind AND m.resource_id = row_id AND m.scope_id = required.scope_id
-      )
-    )
+  SELECT TRUE
+  FROM public.rls_denying_scopes(kind) AS d(scopes)
+  WHERE d.scopes OPERATOR(pg_catalog.<@) ARRAY(
+    SELECT m.scope_id FROM public.scope_members m WHERE m.resource_type = kind AND m.resource_id = row_id
   )
 $$
 LANGUAGE sql STABLE;
@@ -318,7 +313,12 @@ CREATE OR REPLACE FUNCTION rls_matching_grants(kind text, row_id uuid)
       WHERE m.resource_type = kind AND m.resource_id = row_id AND m.scope_id = required.scope_id
     )
   )
-  AND NOT public.rls_row_denied(kind, row_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM public.rls_denying_scopes(kind) AS d(scopes)
+    WHERE d.scopes OPERATOR(pg_catalog.<@) ARRAY(
+      SELECT m.scope_id FROM public.scope_members m WHERE m.resource_type = kind AND m.resource_id = row_id
+    )
+  )
 $$
 LANGUAGE sql STABLE;
 

@@ -247,7 +247,7 @@ var dbResourceObjMap = map[string]string{
 	"rpc/rls_required_scopes":     policy.ObjectAuthConfidential,
 	"rpc/rls_matching_grants":     policy.ObjectAuthConfidential,
 	"rpc/rls_denying_scopes":      policy.ObjectAuthConfidential,
-	"rpc/rls_row_denied":          policy.ObjectAuthConfidential,
+	"rpc/rls_row_denials":         policy.ObjectAuthConfidential,
 
 	// Access logs
 	"config_access_logs":   policy.ObjectCatalog,

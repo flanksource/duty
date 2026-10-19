@@ -67,7 +67,7 @@ func MembershipRefs(attrs ...*models.ABACAttribute) []membership.Ref {
 //
 // Memberships come from the context's snapshot when it covers the request (membership.ForOperation),
 // so every check of an operation sees one moment. Otherwise they're read for this check alone.
-// If they can't be read, the request fits nothing: it matches no allow rule and every deny rule.
+// If they can't be read, the request fits nothing: it matches no rule, allow or deny.
 func withMembership(ctx context.Context, attr *models.ABACAttribute, action string) *models.ABACAttribute {
 	if attr == nil {
 		return nil
