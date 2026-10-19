@@ -30,6 +30,10 @@ type Payload struct {
 	// __grants column. Permissions grant them; Role rules grant whole views through View instead.
 	Scopes []string `json:"scopes,omitempty"`
 
+	// Deny holds, by resource type, the grants of the rows the subject is denied: a row any of them admits isn't
+	// listed, whatever the type's grants admit. Deny RoleBindings produce them.
+	Deny map[string][]Grant `json:"deny,omitempty"`
+
 	Disable bool `json:"disable_rls,omitempty"`
 }
 
@@ -75,6 +79,38 @@ func (t *Payload) SetGrants(resourceType string, grants *Grants) {
 	t.fingerprint = ""
 }
 
+// AddDeny denies the rows of the type that the grant admits. A grant naming anything but Scope ids, or no Scope,
+// is ignored. A type that isn't filtered by grants is ignored too.
+func (t *Payload) AddDeny(resourceType string, grant Grant) {
+	if !slices.Contains(GrantTypes, resourceType) {
+		return
+	}
+
+	grant, ok := grant.normalize()
+	if !ok {
+		return
+	}
+
+	denies := t.Deny[resourceType]
+	key := grant.key()
+	if slices.ContainsFunc(denies, func(existing Grant) bool { return existing.key() == key }) {
+		return
+	}
+
+	if t.Deny == nil {
+		t.Deny = map[string][]Grant{}
+	}
+	denies = append(denies, grant)
+	slices.SortFunc(denies, func(a, b Grant) int { return strings.Compare(a.key(), b.key()) })
+	t.Deny[resourceType] = denies
+	t.fingerprint = ""
+}
+
+// DeniesFor returns the deny grants of a resource type, e.g. "config".
+func (t *Payload) DeniesFor(resourceType string) []Grant {
+	return t.Deny[resourceType]
+}
+
 // GrantTypes are the resource types whose rows are filtered by grants.
 var GrantTypes = []string{"config", "component", "playbook", "canary", "check", "scraper", "view"}
 
@@ -94,6 +130,10 @@ func (t Payload) JWTClaims() map[string]any {
 
 	if len(t.Scopes) > 0 {
 		claims["scopes"] = t.Scopes
+	}
+
+	if len(t.Deny) > 0 {
+		claims["deny"] = t.Deny
 	}
 
 	return claims
@@ -117,6 +157,15 @@ func (t *Payload) EvalFingerprint() {
 		scopesCopy := slices.Clone(t.Scopes)
 		slices.Sort(scopesCopy)
 		parts = append(parts, strings.Join(scopesCopy, ","))
+	}
+
+	for kind, denies := range t.Deny {
+		keys := make([]string, 0, len(denies))
+		for _, grant := range denies {
+			keys = append(keys, grant.key())
+		}
+		slices.Sort(keys)
+		parts = append(parts, "deny:"+kind+":["+strings.Join(keys, ",")+"]")
 	}
 
 	if len(parts) == 0 {

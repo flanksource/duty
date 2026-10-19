@@ -89,7 +89,7 @@ p, bob, catalog, read, allow, , na
 			allowed: true,
 		},
 		{
-			description: "multi | a deny row takes nothing away",
+			description: "multi | a deny row wins over an allow",
 			user:        "alice",
 			obj: &models.ABACAttribute{
 				Playbook: models.Playbook{
@@ -101,7 +101,7 @@ p, bob, catalog, read, allow, , na
 				},
 			},
 			act:     "playbook:run",
-			allowed: true,
+			allowed: false,
 		},
 		{
 			description: "simple read test",
@@ -158,7 +158,7 @@ p, bob, catalog, read, allow, , na
 	}
 }
 
-func TestAllowOnlyEffect(t *testing.T) {
+func TestDenyEffect(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	enforcer, err := NewEnforcer(`
@@ -176,8 +176,8 @@ p, carol, catalog, read, deny, , na
 		subject string
 		allowed bool
 	}{
-		{"alice", true},
-		{"bob", true},
+		{"alice", false},
+		{"bob", false},
 		{"carol", false},
 	} {
 		allowed, err := enforcer.Enforce(tc.subject, "catalog", policy.ActionRead)

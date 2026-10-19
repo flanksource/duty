@@ -463,6 +463,13 @@ table "role_bindings" {
     comment = "selectors for the people, teams, roles, OIDC identities and resources the role is bound to"
   }
 
+  column "deny" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "the binding denies its subjects what the role's rules, narrowed by the constraint, match, instead of granting it"
+  }
+
   column "error" {
     null    = true
     type    = text
