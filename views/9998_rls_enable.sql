@@ -507,3 +507,25 @@ ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW integrations_with_status SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
+
+-- Deny policies: a row a deny grant of the claim matches is hidden whatever the permissive policies admit, including
+-- a check through its canary. They're restrictive, so Postgres ANDs them with the permissive ones. The deny set names
+-- no row, so it's computed once per statement: a check correlated with the row would keep Postgres from hashing
+-- the subqueries that tables such as config_changes read config_items through. A claim without denies for the type
+-- skips the deny set.
+DO $$
+DECLARE
+  def record;
+BEGIN
+  FOR def IN SELECT * FROM (VALUES
+    ('config_items', 'config'), ('components', 'component'), ('canaries', 'canary'), ('checks', 'check'),
+    ('playbooks', 'playbook'), ('config_scrapers', 'scraper'), ('views', 'view')
+  ) AS t(tbl, kind) LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %1$s_deny ON %1$s', def.tbl);
+    EXECUTE format('CREATE POLICY %1$s_deny ON %1$s AS RESTRICTIVE FOR ALL TO postgrest_api, postgrest_anon
+      USING ((SELECT is_rls_disabled())
+        OR (SELECT current_setting(''request.jwt.claims'', TRUE)::jsonb -> ''deny'' -> %2$L) IS NULL
+        OR %1$s.id NOT IN (SELECT rls_denied_resources(%2$L)))', def.tbl, def.kind);
+  END LOOP;
+END
+$$;

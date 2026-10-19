@@ -84,6 +84,10 @@ type RoleBinding struct {
 	// Subjects is a JSON object of subject selectors
 	Subjects types.JSON `json:"subjects"`
 
+	// Deny makes the binding refuse its subjects what the role's rules, narrowed by the constraint, match,
+	// whatever else grants it.
+	Deny bool `json:"deny,omitempty"`
+
 	// Error says why the role binding isn't in effect. Nil when it's valid.
 	Error *string `json:"error,omitempty" gorm:"default:NULL"`
 

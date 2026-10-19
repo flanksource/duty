@@ -240,6 +240,77 @@ END;
 $$
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
 
+-- rls_denying_scopes returns the Scope requirements of each deny grant of the claim's "deny" object, omitting
+-- whole-type Scopes, like rls_required_scopes. A row that meets one is denied: an empty array denies every row.
+-- A deny grant that isn't well formed denies every row, so a broken deny fails closed.
+--
+--   claim {"deny": {"config": [{"scope": "<secrets>"}]}} => {<secrets>}
+CREATE OR REPLACE FUNCTION rls_denying_scopes(kind text)
+  RETURNS SETOF uuid[]
+  AS $$
+DECLARE
+  claim jsonb := current_setting('request.jwt.claims', TRUE)::jsonb -> 'deny' -> kind;
+  item jsonb;
+  scopes uuid[];
+BEGIN
+  IF claim IS NULL OR claim = 'null'::jsonb THEN
+    RETURN;
+  ELSIF jsonb_typeof(claim) <> 'array' THEN
+    RETURN NEXT '{}'::uuid[];
+    RETURN;
+  END IF;
+
+  FOR item IN SELECT jsonb_array_elements(claim) LOOP
+    scopes := _rls_grant_scopes(item);
+    IF scopes IS NULL THEN
+      RETURN NEXT '{}'::uuid[];
+    ELSE
+      RETURN NEXT ARRAY(
+        SELECT DISTINCT u.scope_id FROM unnest(scopes) AS u(scope_id)
+        WHERE NOT EXISTS (
+          SELECT 1 FROM scope_members m
+          WHERE m.scope_id = u.scope_id AND m.resource_type = kind AND m.resource_id IS NULL
+        )
+      );
+    END IF;
+  END LOOP;
+END;
+$$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
+
+-- rls_denied_resources returns the resources of a type the claim's deny grants match: those in every Scope of a
+-- deny grant. The deny policies (9998_rls_enable.sql) check `id NOT IN` it. It names no row, so Postgres runs it once
+-- per statement. A deny grant over the whole type returns a NULL, so `id NOT IN (...)` holds for no row.
+--
+--   claim {"deny": {"config": [{"scope": "<secrets>"}]}}:
+--   SELECT $id NOT IN (SELECT rls_denied_resources('config')); => false if $id is in secrets
+CREATE OR REPLACE FUNCTION rls_denied_resources(kind text)
+  RETURNS SETOF uuid
+  AS $$
+DECLARE
+  scopes uuid[];
+BEGIN
+  FOR scopes IN SELECT * FROM rls_denying_scopes(kind) LOOP
+    IF cardinality(scopes) = 0 THEN
+      RETURN NEXT NULL;
+      RETURN;
+    END IF;
+
+    RETURN QUERY
+      SELECT m.resource_id FROM scope_members m
+      WHERE m.scope_id = scopes[1] AND m.resource_type = kind AND m.resource_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM unnest(scopes[2:]) AS other(scope_id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM scope_members o
+            WHERE o.scope_id = other.scope_id AND o.resource_type = kind AND o.resource_id = m.resource_id
+          )
+        );
+  END LOOP;
+END;
+$$
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 100;
+
 -- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
 -- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
 --
@@ -261,6 +332,7 @@ $$
 LANGUAGE sql STABLE;
 
 -- rls_grants_admit_row matches a row's new values against each Scope's targets instead of reading stored membership.
+-- A row a deny grant matches by its values isn't admitted.
 -- It runs before membership triggers, when stored membership is still the old row's, or none, and would let a writer
 -- move a row into a Scope they can't access.
 --
@@ -284,6 +356,13 @@ CREATE OR REPLACE FUNCTION rls_grants_admit_row(
     )
     ELSE FALSE
   END
+  AND NOT EXISTS (
+    SELECT 1 FROM rls_denying_scopes(kind) AS d(scopes)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM unnest(d.scopes) AS u(scope_id)
+      WHERE NOT _scope_matches(u.scope_id, kind, r_id, r_name, r_namespace, r_agent_id, r_type, r_tags, r_labels)
+    )
+  )
   FROM (SELECT _rls_claim(kind) AS c) AS claim
 $$
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
