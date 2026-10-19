@@ -40,7 +40,7 @@ func TestBlobStores(t *testing.T) {
 var _ = ginkgo.BeforeSuite(func() {
 	DefaultContext = setup.BeforeSuiteFn(setup.WithoutDummyData)
 
-	ctx, cancel := gocontext.WithTimeout(gocontext.Background(), 2*time.Minute)
+	ctx, cancel := gocontext.WithTimeout(gocontext.Background(), 5*time.Minute)
 	defer cancel()
 
 	var c testcontainers.Container

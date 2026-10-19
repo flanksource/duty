@@ -57,7 +57,7 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	l.V(3).Infof("Running %d scripts (functions)", len(allFunctions))
 	// Do not mark these scripts complete until their dependent views exist again.
 	// If schema or view migration fails, the next run must repeat the drops and rebuilds.
-	if err := runScripts(pool, allFunctions, nil); err != nil {
+	if err := runScripts(pool, allFunctions, nil, config); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
@@ -73,11 +73,11 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 	}
 
 	l.V(3).Infof("Running %d scripts (views)", len(allViews))
-	if err := runScripts(pool, allViews, lo.Assign(allFunctions, allViews)); err != nil {
+	if err := runScripts(pool, allViews, lo.Assign(allFunctions, allViews), config); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
-	return revokeInternalAccess(pool, config)
+	return nil
 }
 
 // GetExecutableScripts returns functions & views that must be applied.
@@ -211,7 +211,7 @@ func readMigrationLogs(pool *sql.DB) (map[string]string, error) {
 	return migrationHashes, nil
 }
 
-func createRole(db *sql.DB, roleName string, config api.Config, grants ...string) error {
+func createRole(db *sql.DB, roleName string, config api.Config) error {
 	if roleName == "" {
 		return nil
 	}
@@ -241,72 +241,16 @@ func createRole(db *sql.DB, roleName string, config api.Config, grants ...string
 		}
 	}
 
-	for _, grant := range grants {
-		if _, err := db.Exec(fmt.Sprintf(grant, roleName)); err != nil {
-			log.Errorf("Failed to apply grant[%s] for %s: %+v", grant, roleName, err)
-		}
-	}
-
 	return nil
 }
 
 func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
-	if err := createRole(pool, config.Postgrest.DBRole, config,
-		"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %s",
-		"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %s",
-		"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %s",
-		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %s"); err != nil {
+	// Roles must exist before we create policies that refer to them.
+	// Table and function access is granted later, in 9999_postgrest_permissions.sql.
+	if err := createRole(pool, config.Postgrest.DBRole, config); err != nil {
 		return err
 	}
-	if err := createRole(pool, config.Postgrest.AnonDBRole, config,
-		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s",
-		"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %s"); err != nil {
-		return err
-	}
-
-	return revokeInternalAccess(pool, config)
-}
-
-// revokeInternalAccess revokes PostgREST roles' access to tables and functions only the app may use, e.g. connections,
-// whose credentials are read through the masked connection_details view, the
-// notification health tables and scope_rebuild_members. It also runs after blanket grants on repeat migrations.
-func revokeInternalAccess(pool *sql.DB, config api.Config) error {
-	for _, role := range []string{"PUBLIC", config.Postgrest.DBRole, config.Postgrest.AnonDBRole} {
-		if role == "" {
-			continue
-		}
-		grantee := `"` + strings.ReplaceAll(role, `"`, `""`) + `"`
-		if role == "PUBLIC" {
-			grantee = "PUBLIC"
-		}
-		for _, table := range []string{"notification_health_states", "notification_health_episodes", "notification_deliveries", "connections"} {
-			var exists bool
-			if err := pool.QueryRow("SELECT to_regclass($1) IS NOT NULL", "public."+table).Scan(&exists); err != nil {
-				return fmt.Errorf("failed to check table public.%s for grantee %s: %w", table, grantee, err)
-			}
-			if exists {
-				if _, err := pool.Exec("REVOKE ALL ON TABLE public." + table + " FROM " + grantee); err != nil {
-					return fmt.Errorf("failed to revoke privileges on table public.%s from grantee %s: %w", table, grantee, err)
-				}
-			}
-		}
-		for _, function := range []string{
-			"record_notification_health(text,uuid,text)", "refresh_notification_health(text,uuid)", "notification_health_source_trigger()",
-			"insert_check_updates_in_event_queue()", "insert_config_health_updates_in_event_queue()", "insert_component_health_updates_in_event_queue()",
-			"scope_rebuild_members(uuid)",
-		} {
-			var exists bool
-			if err := pool.QueryRow("SELECT to_regprocedure($1) IS NOT NULL", "public."+function).Scan(&exists); err != nil {
-				return fmt.Errorf("failed to check function public.%s for grantee %s: %w", function, grantee, err)
-			}
-			if exists {
-				if _, err := pool.Exec("REVOKE ALL ON FUNCTION public." + function + " FROM " + grantee); err != nil {
-					return fmt.Errorf("failed to revoke privileges on function public.%s from grantee %s: %w", function, grantee, err)
-				}
-			}
-		}
-	}
-	return nil
+	return createRole(pool, config.Postgrest.AnonDBRole, config)
 }
 
 func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
@@ -330,15 +274,21 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 	return true, nil
 }
 
-func runScripts(pool *sql.DB, scripts, completedScripts map[string]string) error {
+func runScripts(pool *sql.DB, scripts, completedScripts map[string]string, config api.Config) error {
 	l := logger.GetLogger("migrate")
 
-	// Keep script changes and their migration logs together so a failed batch can retry.
+	// Keep new views and their permissions in the same transaction. If a revoke
+	// fails, roll back the grants too, rather than leaving private data exposed.
 	tx, err := pool.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	// SQL uses the configured role names, not just the default PostgREST roles.
+	if _, err := tx.Exec("SELECT set_config('duty.postgrest_api_role', $1, true), set_config('duty.postgrest_anon_role', $2, true)", config.Postgrest.DBRole, config.Postgrest.AnonDBRole); err != nil {
+		return fmt.Errorf("failed to set PostgREST roles for migrations: %w", err)
+	}
 
 	var filenames []string
 	for name := range scripts {
