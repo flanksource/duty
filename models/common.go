@@ -228,10 +228,6 @@ type ABACMembership struct {
 	// HasTarget is set when the request has a target.
 	HasTarget bool
 
-	// Unknown is set when the Scopes of the request's resources couldn't be read. Such a request fits nothing, and
-	// matches every deny condition (see rbac.DenyCondition).
-	Unknown bool
-
 	// Resource are the Scopes the primary resource is in.
 	Resource []any
 

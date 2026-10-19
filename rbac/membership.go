@@ -67,8 +67,7 @@ func MembershipRefs(attrs ...*models.ABACAttribute) []membership.Ref {
 //
 // Memberships come from the context's snapshot when it covers the request (membership.ForOperation),
 // so every check of an operation sees one moment. Otherwise they're read for this check alone.
-// If they can't be read, the request fits nothing and its Membership is Unknown: it matches no allow rule and every
-// deny rule.
+// If they can't be read, the request fits nothing: it matches no allow rule and every deny rule.
 func withMembership(ctx context.Context, attr *models.ABACAttribute, action string) *models.ABACAttribute {
 	if attr == nil {
 		return nil
@@ -83,14 +82,12 @@ func withMembership(ctx context.Context, attr *models.ABACAttribute, action stri
 	snapshot := membership.SnapshotFrom(ctx)
 	if len(refs) > 0 && !snapshot.Covers(refs...) {
 		if ctx.DB() == nil {
-			out.Membership.Unknown = true
 			return &out
 		}
 
 		var err error
 		if snapshot, err = membership.Read(ctx, refs...); err != nil {
 			ctx.Errorf("failed to read scope membership for %s: %v", action, err)
-			out.Membership.Unknown = true
 			return &out
 		}
 	}
@@ -196,12 +193,6 @@ func RuleCondition(resourceScopes, targetScopes []string) (string, error) {
 	}
 
 	return "r.obj.Membership.Fits && " + strings.Join(test, " && "), nil
-}
-
-// DenyCondition returns the Casbin condition of a deny rule from its RuleCondition: it also holds when the request's
-// membership couldn't be read, so a deny fails closed.
-func DenyCondition(condition string) string {
-	return "r.obj.Membership.Unknown || (" + condition + ")"
 }
 
 // ScopeCondition returns the Casbin condition of a Permission that names a Scope, for the Scope's resources
