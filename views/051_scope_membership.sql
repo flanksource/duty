@@ -278,25 +278,28 @@ END;
 $$
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 10;
 
--- rls_row_denials yields a row for each deny grant of the claim that matches the row by its stored membership, for
--- a NOT EXISTS check. Keep this SQL function inlinable, like rls_matching_grants: a scalar function with a sub-SELECT
--- is never inlined, and would run rls_denying_scopes again for every row.
+-- rls_denied_resources returns the resources of a type the claim's deny grants match: those in every Scope of a
+-- deny grant. The deny policies (9998_rls_enable.sql) check `id NOT IN` it. It names no row, so Postgres runs it once
+-- per statement. A deny grant over the whole type returns a NULL, so `id NOT IN (...)` holds for no row.
 --
 --   claim {"deny": {"config": [{"scope": "<secrets>"}]}}:
---   SELECT NOT EXISTS (SELECT 1 FROM rls_row_denials('config', $id)); => false if $id is in secrets
-CREATE OR REPLACE FUNCTION rls_row_denials(kind text, row_id uuid)
-  RETURNS SETOF boolean
+--   SELECT $id NOT IN (SELECT rls_denied_resources('config')); => false if $id is in secrets
+CREATE OR REPLACE FUNCTION rls_denied_resources(kind text)
+  RETURNS SETOF uuid
   AS $$
-  SELECT TRUE
+  SELECT CASE WHEN cardinality(d.scopes) = 0 THEN NULL ELSE m.resource_id END
   FROM public.rls_denying_scopes(kind) AS d(scopes)
-  WHERE d.scopes OPERATOR(pg_catalog.<@) ARRAY(
-    SELECT m.scope_id FROM public.scope_members m WHERE m.resource_type = kind AND m.resource_id = row_id
-  )
+  LEFT JOIN LATERAL (
+    SELECT m.resource_id FROM public.scope_members m
+    WHERE m.resource_type = kind AND m.resource_id IS NOT NULL AND m.scope_id = ANY (d.scopes)
+    GROUP BY m.resource_id
+    HAVING count(DISTINCT m.scope_id) = cardinality(d.scopes)
+  ) AS m ON TRUE
+  WHERE cardinality(d.scopes) = 0 OR m.resource_id IS NOT NULL
 $$
 LANGUAGE sql STABLE;
 
 -- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
--- It yields none for a row a deny grant matches.
 -- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
 --
 --   claim {"config": [{"scope": "<payments>", "constraints": ["<eu>"]}]}:
@@ -311,12 +314,6 @@ CREATE OR REPLACE FUNCTION rls_matching_grants(kind text, row_id uuid)
     WHERE NOT EXISTS (
       SELECT 1 FROM public.scope_members m
       WHERE m.resource_type = kind AND m.resource_id = row_id AND m.scope_id = required.scope_id
-    )
-  )
-  AND NOT EXISTS (
-    SELECT 1 FROM public.rls_denying_scopes(kind) AS d(scopes)
-    WHERE d.scopes OPERATOR(pg_catalog.<@) ARRAY(
-      SELECT m.scope_id FROM public.scope_members m WHERE m.resource_type = kind AND m.resource_id = row_id
     )
   )
 $$

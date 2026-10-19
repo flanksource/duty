@@ -358,12 +358,12 @@ CREATE POLICY checks_auth ON checks
   FOR ALL TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
-      ELSE (EXISTS (
-        -- a check is visible with its canary, unless it's denied
+      ELSE EXISTS (
+        -- a check is visible with its canary
         SELECT 1
         FROM canaries
         WHERE canaries.id = checks.canary_id
-      ) AND NOT EXISTS (SELECT 1 FROM rls_row_denials('check', checks.id))) OR EXISTS (SELECT 1 FROM rls_matching_grants('check', checks.id))
+      ) OR EXISTS (SELECT 1 FROM rls_matching_grants('check', checks.id))
         -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
         -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
         OR (checks.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('check', checks.id, checks.name, checks.namespace, checks.agent_id, checks.type, NULL, checks.labels))
@@ -507,3 +507,25 @@ ALTER VIEW incidents_by_config SET (security_invoker = true);
 ALTER VIEW integrations_with_status SET (security_invoker = true);
 ALTER VIEW playbook_names SET (security_invoker = true);
 ALTER VIEW views_summary SET (security_invoker = true);
+
+-- Deny policies: a row a deny grant of the claim matches is hidden whatever the permissive policies admit, including
+-- a check through its canary. They're restrictive, so Postgres ANDs them with the permissive ones. The deny set names
+-- no row, so it's computed once per statement: a check correlated with the row would keep Postgres from hashing
+-- the subqueries that tables such as config_changes read config_items through. A claim without denies for the type
+-- skips the deny set.
+DO $$
+DECLARE
+  def record;
+BEGIN
+  FOR def IN SELECT * FROM (VALUES
+    ('config_items', 'config'), ('components', 'component'), ('canaries', 'canary'), ('checks', 'check'),
+    ('playbooks', 'playbook'), ('config_scrapers', 'scraper'), ('views', 'view')
+  ) AS t(tbl, kind) LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %1$s_deny ON %1$s', def.tbl);
+    EXECUTE format('CREATE POLICY %1$s_deny ON %1$s AS RESTRICTIVE FOR ALL TO postgrest_api, postgrest_anon
+      USING ((SELECT is_rls_disabled())
+        OR (SELECT current_setting(''request.jwt.claims'', TRUE)::jsonb -> ''deny'' -> %2$L) IS NULL
+        OR %1$s.id NOT IN (SELECT rls_denied_resources(%2$L)))', def.tbl, def.kind);
+  END LOOP;
+END
+$$;
