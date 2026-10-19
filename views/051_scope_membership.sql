@@ -287,17 +287,29 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 
 CREATE OR REPLACE FUNCTION rls_denied_resources(kind text)
   RETURNS SETOF uuid
   AS $$
-  SELECT CASE WHEN cardinality(d.scopes) = 0 THEN NULL ELSE m.resource_id END
-  FROM public.rls_denying_scopes(kind) AS d(scopes)
-  LEFT JOIN LATERAL (
-    SELECT m.resource_id FROM public.scope_members m
-    WHERE m.resource_type = kind AND m.resource_id IS NOT NULL AND m.scope_id = ANY (d.scopes)
-    GROUP BY m.resource_id
-    HAVING count(DISTINCT m.scope_id) = cardinality(d.scopes)
-  ) AS m ON TRUE
-  WHERE cardinality(d.scopes) = 0 OR m.resource_id IS NOT NULL
+DECLARE
+  scopes uuid[];
+BEGIN
+  FOR scopes IN SELECT * FROM rls_denying_scopes(kind) LOOP
+    IF cardinality(scopes) = 0 THEN
+      RETURN NEXT NULL;
+      RETURN;
+    END IF;
+
+    RETURN QUERY
+      SELECT m.resource_id FROM scope_members m
+      WHERE m.scope_id = scopes[1] AND m.resource_type = kind AND m.resource_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM unnest(scopes[2:]) AS other(scope_id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM scope_members o
+            WHERE o.scope_id = other.scope_id AND o.resource_type = kind AND o.resource_id = m.resource_id
+          )
+        );
+  END LOOP;
+END;
 $$
-LANGUAGE sql STABLE;
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp ROWS 100;
 
 -- rls_matching_grants yields a row for each grant with no missing membership, for the policies' EXISTS check.
 -- Keep this SQL function inlinable: a scalar wrapper, SECURITY DEFINER or SET would hide the indexed row lookup.
