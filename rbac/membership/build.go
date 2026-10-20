@@ -248,16 +248,16 @@ func (t Target) WholeType() bool {
 	return t.Selector.Wildcard() && t.Selector.Functions.ComponentConfigTraversal == nil
 }
 
-// fields are the selector fields each resource type has, besides id, name and namespace.
-var fields = map[string]struct{ agent, types, tags, labels bool }{
+// fields are the selector fields each resource type has, besides id and name.
+var fields = map[string]struct{ namespace, agent, types, tags, labels bool }{
 	policy.ResourceConfig:     {agent: true, types: true, tags: true, labels: true},
-	policy.ResourceComponent:  {agent: true, types: true, labels: true},
-	policy.ResourceCheck:      {agent: true, types: true, labels: true},
-	policy.ResourceCanary:     {agent: true, labels: true},
-	policy.ResourcePlaybook:   {},
-	policy.ResourceConnection: {types: true},
-	policy.ResourceScraper:    {agent: true},
-	policy.ResourceView:       {},
+	policy.ResourceComponent:  {namespace: true, agent: true, types: true, labels: true},
+	policy.ResourceCheck:      {namespace: true, agent: true, types: true, labels: true},
+	policy.ResourceCanary:     {namespace: true, agent: true, labels: true},
+	policy.ResourcePlaybook:   {namespace: true},
+	policy.ResourceConnection: {namespace: true, types: true},
+	policy.ResourceScraper:    {namespace: true, agent: true},
+	policy.ResourceView:       {namespace: true},
 }
 
 // Types are the resource types whose membership is stored.
@@ -339,7 +339,9 @@ func (t Target) row(scopeID uuid.UUID) (targetRow, error) {
 		row.Name = optional(s.Name)
 	}
 
-	if strings.Contains(s.Namespace, "*") {
+	if s.Namespace != "" && !f.namespace {
+		return targetRow{}, fmt.Errorf("%s has no namespace", t.Type)
+	} else if strings.Contains(s.Namespace, "*") {
 		return targetRow{}, fmt.Errorf("namespace %q must be exact", s.Namespace)
 	}
 	row.Namespace = optional(s.Namespace)

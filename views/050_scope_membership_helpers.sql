@@ -76,7 +76,7 @@ CREATE OR REPLACE FUNCTION _scope_resource_columns(kind text, alias text)
 BEGIN
   CASE kind
   WHEN 'config' THEN
-    RETURN QUERY SELECT 'config_items', alias || '.id', alias || '.name', '(' || alias || '.tags->>''namespace'')',
+    RETURN QUERY SELECT 'config_items', alias || '.id', alias || '.name', 'NULL::text',
       alias || '.agent_id', alias || '.type', alias || '.tags', alias || '.labels';
   WHEN 'component' THEN
     RETURN QUERY SELECT 'components', alias || '.id', alias || '.name', alias || '.namespace',

@@ -106,13 +106,13 @@ CREATE POLICY config_items_auth ON config_items
         EXISTS (SELECT 1 FROM rls_matching_grants('config', config_items.id))
         -- The row an INSERT is adding, e.g. for its RETURNING, has no membership yet, so it's checked by its values. It's
         -- told from a stored row by its tuple id, which isn't set (no block, offset 0) until the row is stored.
-        OR (config_items.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('config', config_items.id, config_items.name, config_items.tags->>'namespace', config_items.agent_id, config_items.type, config_items.tags, config_items.labels))
+        OR (config_items.ctid = '(4294967295,0)'::tid AND rls_grants_admit_row('config', config_items.id, config_items.name, NULL, config_items.agent_id, config_items.type, config_items.tags, config_items.labels))
       END
     )
     WITH CHECK (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
-        rls_grants_admit_row('config', config_items.id, config_items.name, config_items.tags->>'namespace', config_items.agent_id, config_items.type, config_items.tags, config_items.labels)
+        rls_grants_admit_row('config', config_items.id, config_items.name, NULL, config_items.agent_id, config_items.type, config_items.tags, config_items.labels)
       END
     );
 
