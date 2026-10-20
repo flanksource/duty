@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -98,7 +99,8 @@ func (s *PolicySnapshot) Principals() []string {
 }
 
 // Explain decides a check of the action by the subject on the object, as HasPermission and Check decide it, and returns
-// every rule that could decide it. A subject that Check gives implicit grants to holds "everyone".
+// every rule that could decide it. Like Check, a check on an RBAC object gives a subject with implicit grants
+// "everyone"; like HasPermission, a check on resources doesn't.
 //
 // object is an RBAC object, e.g. "catalog", or a *models.ABACAttribute, whose Scope membership is read for the
 // action as HasPermission reads it.
@@ -111,22 +113,36 @@ func (s *PolicySnapshot) Explain(ctx context.Context, subject string, object any
 		return Explanation{}, fmt.Errorf("unsupported object %T", object)
 	}
 
+	_, implicit := object.(string)
+	principals, paths := s.rolePaths(subject, implicit && HasImplicitGrants(subject))
+
 	var explanation Explanation
-	principals, paths := s.rolePaths(subject)
 	for _, principal := range principals {
 		for _, rule := range s.policies[principal] {
-			candidate, ok := candidateRule(principal, paths[principal], rule, object, action)
-			if !ok {
-				continue
+			if candidate, ok := candidateRule(principal, paths[principal], rule, object, action); ok {
+				explanation.Rules = append(explanation.Rules, candidate)
 			}
-
-			matches, err := s.matches(candidate, object, action)
-			if err != nil {
-				return Explanation{}, fmt.Errorf("failed to match rule %s of %s: %w", candidate.ID, principal, err)
-			}
-			candidate.Matches = matches
-			explanation.Rules = append(explanation.Rules, candidate)
 		}
+	}
+
+	// Each candidate is filed as an allow under a subject of its own, so a check as that subject is allowed exactly when
+	// that rule matches, whatever its effect
+	isolated, err := casbin.NewEnforcer(s.model.Copy())
+	if err != nil {
+		return Explanation{}, err
+	}
+	AddCustomFunctions(isolated)
+	for i, rule := range explanation.Rules {
+		if _, err := isolated.AddPolicy(strconv.Itoa(i), rule.Object, rule.Action, "allow", rule.Condition, rule.ID); err != nil {
+			return Explanation{}, err
+		}
+	}
+	for i := range explanation.Rules {
+		matches, err := isolated.Enforce(strconv.Itoa(i), object, action)
+		if err != nil {
+			return Explanation{}, fmt.Errorf("failed to match rule %s of %s: %w", explanation.Rules[i].ID, explanation.Rules[i].Principal, err)
+		}
+		explanation.Rules[i].Matches = matches
 	}
 
 	matching := func(effect string) bool {
@@ -134,21 +150,6 @@ func (s *PolicySnapshot) Explain(ctx context.Context, subject string, object any
 	}
 	explanation.Allowed = matching("allow") && !matching("deny")
 	return explanation, nil
-}
-
-// matches reports whether the rule alone matches the check, with the model and functions the enforcer uses.
-func (s *PolicySnapshot) matches(rule ExplainedRule, object any, action string) (bool, error) {
-	isolated, err := casbin.NewEnforcer(s.model.Copy())
-	if err != nil {
-		return false, err
-	}
-	AddCustomFunctions(isolated)
-
-	// Filed as an allow, so the check is allowed exactly when the rule matches, whatever its effect
-	if _, err := isolated.AddPolicy("rule", rule.Object, rule.Action, "allow", rule.Condition, rule.ID); err != nil {
-		return false, err
-	}
-	return isolated.Enforce("rule", object, action)
 }
 
 // candidateRule returns a stored rule as a candidate for a check, or false when its object or action can't match.
@@ -172,11 +173,11 @@ func candidateRule(principal string, paths [][]string, rule []string, object any
 }
 
 // rolePaths returns the subject and every role it holds within maxRoleDepth, nearest first, with the shortest chain of
-// roles to each role through each principal that holds it directly.
-func (s *PolicySnapshot) rolePaths(subject string) ([]string, map[string][][]string) {
+// roles to each role through each principal that holds it directly. With everyone set, the subject also holds everyone.
+func (s *PolicySnapshot) rolePaths(subject string, everyone bool) ([]string, map[string][][]string) {
 	rolesOf := func(name string) []string {
 		roles := slices.Clone(s.roles[name])
-		if name == subject && HasImplicitGrants(subject) && !slices.Contains(roles, policy.RoleEveryone) {
+		if name == subject && everyone && !slices.Contains(roles, policy.RoleEveryone) {
 			roles = append(roles, policy.RoleEveryone)
 		}
 		slices.Sort(roles)
