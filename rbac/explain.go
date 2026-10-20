@@ -1,5 +1,22 @@
 package rbac
 
+// Explaining a check
+//
+// casbin answers a check with yes or no, and EnforceEx names at most the one rule that decided it. To say why a
+// subject may or may not do something, Explain lists every rule the subject holds for the check and whether each
+// matches:
+//
+//  1. SnapshotPolicy copies the policy's rules and roles once, under the enforcer's lock, so everything explained
+//     from it sees the same moment of the policy.
+//  2. Explain follows the subject's roles, e.g. person → team → binding, and records the path to each.
+//  3. It collects the rules filed under the subject and those roles whose object and action fit the check.
+//  4. It matches each rule on its own, in a separate enforcer holding only that rule, with the same model and
+//     functions as the real enforcer, so a rule matches exactly when it would in a real check.
+//  5. The answer is worked out from those rules as the model does: allowed when some matching rule allows and none
+//     denies. So the answer always agrees with the rules listed.
+//
+// The live enforcer is only read, never changed.
+
 import (
 	"errors"
 	"fmt"
@@ -14,7 +31,9 @@ import (
 	"github.com/flanksource/duty/rbac/policy"
 )
 
-// maxRoleDepth is how many grouping edges a subject's roles may be away, as for casbin's default role manager.
+// maxRoleDepth is how many steps from the subject Explain follows its roles, e.g. person → team → binding is two.
+// casbin stops looking after 10 steps, so a rule held through more grants nothing, and Explain stops there too so it
+// doesn't list rules casbin never applies.
 const maxRoleDepth = 10
 
 // ExplainedRule is a rule of the policy that a check could match.
