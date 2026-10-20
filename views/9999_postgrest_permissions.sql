@@ -11,7 +11,14 @@ DECLARE
         'notification_health_episodes',
         'notification_deliveries',
         'connections',
-        'properties'
+        'properties',
+        -- Credentials and authorization state. PostgREST can still reach a table it doesn't serve by embedding it.
+        'access_tokens',
+        'casbin_rule',
+        'invites',
+        'oidc_auth_requests',
+        'oidc_public_keys',
+        'oidc_refresh_tokens'
     ];
     internal_functions text[] := ARRAY[
         'record_notification_health(text,uuid,text)',
