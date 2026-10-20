@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -125,22 +124,21 @@ func (s *PolicySnapshot) Explain(ctx context.Context, subject string, object any
 		}
 	}
 
-	// Each candidate is filed as an allow under a subject of its own, so a check as that subject is allowed exactly when
-	// that rule matches, whatever its effect
+	// Each candidate is matched alone, filed as an allow, so the check is allowed exactly when that rule matches,
+	// whatever its effect. The enforcer holds one rule at a time: casbin evaluates every rule it holds on each check.
 	isolated, err := casbin.NewEnforcer(s.model.Copy())
 	if err != nil {
 		return Explanation{}, err
 	}
 	AddCustomFunctions(isolated)
 	for i, rule := range explanation.Rules {
-		if _, err := isolated.AddPolicy(strconv.Itoa(i), rule.Object, rule.Action, "allow", rule.Condition, rule.ID); err != nil {
+		isolated.ClearPolicy()
+		if _, err := isolated.AddPolicy("rule", rule.Object, rule.Action, "allow", rule.Condition, rule.ID); err != nil {
 			return Explanation{}, err
 		}
-	}
-	for i := range explanation.Rules {
-		matches, err := isolated.Enforce(strconv.Itoa(i), object, action)
+		matches, err := isolated.Enforce("rule", object, action)
 		if err != nil {
-			return Explanation{}, fmt.Errorf("failed to match rule %s of %s: %w", explanation.Rules[i].ID, explanation.Rules[i].Principal, err)
+			return Explanation{}, fmt.Errorf("failed to match rule %s of %s: %w", rule.ID, rule.Principal, err)
 		}
 		explanation.Rules[i].Matches = matches
 	}
