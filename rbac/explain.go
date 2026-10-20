@@ -1,24 +1,29 @@
 package rbac
 
 import (
+	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
+	"github.com/samber/lo"
 
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
+	"github.com/flanksource/duty/rbac/policy"
 )
+
+// maxRoleDepth is how many grouping edges a subject's roles may be away, as for casbin's default role manager.
+const maxRoleDepth = 10
 
 // ExplainedRule is a rule of the policy that a check could match.
 type ExplainedRule struct {
 	// Principal is who the rule is filed under: the subject itself, or a role the subject holds.
 	Principal string `json:"principal"`
 
-	// Paths are the chains of roles through which the subject holds Principal, each with Principal last.
-	// It's empty when the rule is filed under the subject itself.
+	// Paths are the shortest chains of roles from the subject to Principal, one through each principal that holds
+	// Principal directly, each with Principal last. It's empty when the rule is filed under the subject itself.
 	Paths [][]string `json:"paths,omitempty"`
 
 	Object    string `json:"object"`
@@ -34,83 +39,120 @@ type ExplainedRule struct {
 	Matches bool `json:"matches"`
 }
 
-// maxRolePaths bounds the chains of roles ExplainCheck lists for a subject: beyond it, each role keeps the shortest.
-const maxRolePaths = 1000
+// Explanation is how the policy decides a check.
+type Explanation struct {
+	// Allowed is the answer: some matching rule allows the check, and none denies it.
+	Allowed bool
 
-// ExplainCheck returns the rules that could decide a check of the action by the subject on the object: every rule the
-// subject holds, directly or through its roles, for the action and object. Each says whether it matches.
-// The check is allowed when some matching rule allows it and none denies it.
+	// Rules are every rule the subject holds, directly or through its roles, for the action and object.
+	Rules []ExplainedRule
+}
+
+// PolicySnapshot is the policy of the enforcer at one moment, so the checks explained with it agree with each other.
+type PolicySnapshot struct {
+	model    model.Model
+	roles    map[string][]string
+	policies map[string][][]string
+}
+
+// SnapshotPolicy copies the enforcer's policy and roles.
+func SnapshotPolicy() (*PolicySnapshot, error) {
+	if enforcer == nil {
+		return nil, errors.New("rbac isn't initialized")
+	}
+
+	m, err := model.NewModelFromString(DefaultModel)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &PolicySnapshot{model: m, roles: map[string][]string{}, policies: map[string][][]string{}}
+
+	// Read under the enforcer's lock, which a reload takes to swap the policy in
+	lock := enforcer.GetLock()
+	lock.RLock()
+	defer lock.RUnlock()
+
+	current := enforcer.GetModel()
+	if grouping, ok := current["g"]["g"]; ok {
+		for _, rule := range grouping.Policy {
+			if len(rule) >= 2 {
+				snapshot.roles[rule[0]] = append(snapshot.roles[rule[0]], rule[1])
+			}
+		}
+	}
+	if policies, ok := current["p"]["p"]; ok {
+		for _, rule := range policies.Policy {
+			if len(rule) >= 4 {
+				snapshot.policies[rule[0]] = append(snapshot.policies[rule[0]], slices.Clone(rule))
+			}
+		}
+	}
+	return snapshot, nil
+}
+
+// Principals returns every principal the policy holds a rule or a role for, sorted.
+func (s *PolicySnapshot) Principals() []string {
+	principals := append(lo.Keys(s.roles), lo.Keys(s.policies)...)
+	slices.Sort(principals)
+	return slices.Compact(principals)
+}
+
+// Explain decides a check of the action by the subject on the object, as HasPermission and Check decide it, and returns
+// every rule that could decide it. A subject that Check gives implicit grants to holds "everyone".
 //
 // object is an RBAC object, e.g. "catalog", or a *models.ABACAttribute, whose Scope membership is read for the
 // action as HasPermission reads it.
-func ExplainCheck(ctx context.Context, subject string, object any, action string) ([]ExplainedRule, error) {
-	if enforcer == nil {
-		return nil, nil
-	}
-
+func (s *PolicySnapshot) Explain(ctx context.Context, subject string, object any, action string) (Explanation, error) {
 	switch o := object.(type) {
 	case string:
 	case *models.ABACAttribute:
 		object = withMembership(ctx, o, action)
 	default:
-		return nil, fmt.Errorf("unsupported object %T", object)
+		return Explanation{}, fmt.Errorf("unsupported object %T", object)
 	}
 
-	principals, paths, err := rolePaths(subject)
-	if err != nil {
-		return nil, err
-	}
-
-	// Each candidate is filed under a subject of its own in a separate enforcer, so a check as that subject can only
-	// match that rule.
-	m, err := model.NewModelFromString(DefaultModel)
-	if err != nil {
-		return nil, err
-	}
-	isolated, err := casbin.NewEnforcer(m)
-	if err != nil {
-		return nil, err
-	}
-	AddCustomFunctions(isolated)
-
-	var candidates []ExplainedRule
+	var explanation Explanation
+	principals, paths := s.rolePaths(subject)
 	for _, principal := range principals {
-		rules, err := enforcer.GetFilteredPolicy(0, principal)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, rule := range rules {
+		for _, rule := range s.policies[principal] {
 			candidate, ok := candidateRule(principal, paths[principal], rule, object, action)
 			if !ok {
 				continue
 			}
 
-			key := strconv.Itoa(len(candidates))
-			if _, err := isolated.AddPolicy(key, candidate.Object, candidate.Action, candidate.Effect, candidate.Condition, candidate.ID); err != nil {
-				return nil, err
+			matches, err := s.matches(candidate, object, action)
+			if err != nil {
+				return Explanation{}, fmt.Errorf("failed to match rule %s of %s: %w", candidate.ID, principal, err)
 			}
-			candidates = append(candidates, candidate)
+			candidate.Matches = matches
+			explanation.Rules = append(explanation.Rules, candidate)
 		}
 	}
 
-	for i := range candidates {
-		_, explain, err := isolated.EnforceEx(strconv.Itoa(i), object, action)
-		if err != nil {
-			return nil, fmt.Errorf("failed to match rule %s of %s: %w", candidates[i].ID, candidates[i].Principal, err)
-		}
-		candidates[i].Matches = len(explain) > 0
+	matching := func(effect string) bool {
+		return lo.SomeBy(explanation.Rules, func(r ExplainedRule) bool { return r.Matches && r.Effect == effect })
 	}
+	explanation.Allowed = matching("allow") && !matching("deny")
+	return explanation, nil
+}
 
-	return candidates, nil
+// matches reports whether the rule alone matches the check, with the model and functions the enforcer uses.
+func (s *PolicySnapshot) matches(rule ExplainedRule, object any, action string) (bool, error) {
+	isolated, err := casbin.NewEnforcer(s.model.Copy())
+	if err != nil {
+		return false, err
+	}
+	AddCustomFunctions(isolated)
+
+	// Filed as an allow, so the check is allowed exactly when the rule matches, whatever its effect
+	if _, err := isolated.AddPolicy("rule", rule.Object, rule.Action, "allow", rule.Condition, rule.ID); err != nil {
+		return false, err
+	}
+	return isolated.Enforce("rule", object, action)
 }
 
 // candidateRule returns a stored rule as a candidate for a check, or false when its object or action can't match.
 func candidateRule(principal string, paths [][]string, rule []string, object any, action string) (ExplainedRule, bool) {
-	if len(rule) < 4 {
-		return ExplainedRule{}, false
-	}
-
 	candidate := ExplainedRule{Principal: principal, Paths: paths, Object: rule[1], Action: rule[2], Effect: rule[3]}
 	if len(rule) > 4 {
 		candidate.Condition = rule[4]
@@ -129,70 +171,50 @@ func candidateRule(principal string, paths [][]string, rule []string, object any
 	return candidate, true
 }
 
-// rolePaths returns the subject and every role it holds, directly or through other roles, nearest first, with the chains
-// of roles through which it holds each. Every role has its shortest chain; others are added up to maxRolePaths.
-func rolePaths(subject string) ([]string, map[string][][]string, error) {
-	rolesOf := map[string][]string{}
-	roles := func(name string) ([]string, error) {
-		if r, ok := rolesOf[name]; ok {
-			return r, nil
+// rolePaths returns the subject and every role it holds within maxRoleDepth, nearest first, with the shortest chain of
+// roles to each role through each principal that holds it directly.
+func (s *PolicySnapshot) rolePaths(subject string) ([]string, map[string][][]string) {
+	rolesOf := func(name string) []string {
+		roles := slices.Clone(s.roles[name])
+		if name == subject && HasImplicitGrants(subject) && !slices.Contains(roles, policy.RoleEveryone) {
+			roles = append(roles, policy.RoleEveryone)
 		}
-		r, err := enforcer.GetRolesForUser(name)
-		if err != nil {
-			return nil, err
-		}
-		slices.Sort(r)
-		rolesOf[name] = r
-		return r, nil
+		slices.Sort(roles)
+		return slices.Compact(roles)
 	}
 
 	principals := []string{subject}
-	paths := map[string][][]string{}
 	shortest := map[string][]string{subject: nil}
-	for i := 0; i < len(principals); i++ {
-		current := principals[i]
-		next, err := roles(current)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, role := range next {
-			if _, seen := shortest[role]; seen {
-				continue
+	holders := map[string][]string{}
+	for depth, level := 0, []string{subject}; depth < maxRoleDepth && len(level) > 0; depth++ {
+		var next []string
+		for _, current := range level {
+			for _, role := range rolesOf(current) {
+				if role == subject {
+					continue
+				}
+				if _, seen := shortest[role]; !seen {
+					shortest[role] = append(slices.Clone(shortest[current]), role)
+					principals = append(principals, role)
+					next = append(next, role)
+				}
+				holders[role] = append(holders[role], current)
 			}
-			shortest[role] = append(slices.Clone(shortest[current]), role)
-			paths[role] = [][]string{shortest[role]}
-			principals = append(principals, role)
 		}
+		level = next
 	}
 
-	count := len(principals) - 1
-	var walk func(current string, path []string) error
-	walk = func(current string, path []string) error {
-		next, err := roles(current)
-		if err != nil {
-			return err
-		}
-		for _, role := range next {
-			if count >= maxRolePaths {
-				return nil
-			}
-			if role == subject || slices.Contains(path, role) {
+	paths := map[string][][]string{}
+	for role, through := range holders {
+		for _, holder := range through {
+			if slices.Contains(shortest[holder], role) {
 				continue
 			}
-			chain := append(slices.Clone(path), role)
-			if !slices.ContainsFunc(paths[role], func(p []string) bool { return slices.Equal(p, chain) }) {
-				paths[role] = append(paths[role], chain)
-				count++
-			}
-			if err := walk(role, chain); err != nil {
-				return err
+			path := append(slices.Clone(shortest[holder]), role)
+			if !slices.ContainsFunc(paths[role], func(p []string) bool { return slices.Equal(p, path) }) {
+				paths[role] = append(paths[role], path)
 			}
 		}
-		return nil
 	}
-
-	if err := walk(subject, nil); err != nil {
-		return nil, nil, err
-	}
-	return principals, paths, nil
+	return principals, paths
 }
