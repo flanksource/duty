@@ -104,7 +104,7 @@ func (t *UpstreamClient) push(ctx context.Context, method string, msg *PushData)
 		histogram.Label(StatusLabel, StatusError).Since(start)
 		msgSize, msgSizeErr := msg.Size()
 		if msgSizeErr != nil {
-			logger.Errorf("failed to get msgsize: %w", msgSizeErr)
+			logger.Errorf("failed to get msgsize: %v", msgSizeErr)
 		}
 
 		return fmt.Errorf("error pushing to upstream (msg_size: %d bytes): %w", msgSize, err)

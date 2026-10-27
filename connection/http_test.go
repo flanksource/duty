@@ -14,11 +14,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/flanksource/commons/http/middlewares/awssigv4"
 	dutyContext "github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	"github.com/flanksource/duty/types"
 	"github.com/onsi/gomega"
 )
+
+func TestAWSCredentialsProvider(t *testing.T) {
+	g := gomega.NewWithT(t)
+	expires := time.Now().Add(time.Hour)
+	provider := aws.CredentialsProviderFunc(func(gocontext.Context) (aws.Credentials, error) {
+		return aws.Credentials{AccessKeyID: "access", SecretAccessKey: "secret", SessionToken: "session", CanExpire: true, Expires: expires}, nil
+	})
+	got, err := awsCredentialsProvider(provider).Retrieve(gocontext.Background())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(got).To(gomega.Equal(awssigv4.Credentials{AccessKeyID: "access", SecretAccessKey: "secret", SessionToken: "session", Expires: expires}))
+}
 
 func TestTLSConfigIsEmpty(t *testing.T) {
 	tests := []struct {

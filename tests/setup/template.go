@@ -114,7 +114,7 @@ func SetupTemplate(opts SetupOpts) []byte {
 	if opts.DummyData {
 		dummyData = dummy.GetStaticDummyData(ctx.DB())
 		if err := dummyData.Delete(ctx.DB()); err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 		}
 		if err := dummyData.Populate(ctx); err != nil {
 			panic(fmt.Sprintf("failed to populate dummy data: %v", err))

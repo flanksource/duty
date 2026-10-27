@@ -126,13 +126,13 @@ func DeleteOnUpstream(ctx context.Context, req *PushData) error {
 
 	if len(req.Components) > 0 {
 		if err := db.Delete(req.Components).Error; err != nil {
-			logger.Errorf("error deleting components: %w", err)
+			logger.Errorf("error deleting components: %v", err)
 		}
 	}
 
 	if len(req.ConfigItems) > 0 {
 		if err := db.Delete(req.ConfigItems).Error; err != nil {
-			logger.Errorf("error deleting config items: %w", err)
+			logger.Errorf("error deleting config items: %v", err)
 		}
 	}
 

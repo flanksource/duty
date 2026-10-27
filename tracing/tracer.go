@@ -90,7 +90,7 @@ func (tracer Tracer) Init() func() {
 		defer cancel()
 		err := exporter.Shutdown(ctx)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 		}
 		defer cancel()
 	}
