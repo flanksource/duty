@@ -33,20 +33,47 @@ DECLARE
     grantee text;
     table_name text;
     function_name text;
+    grant_sql text;
 BEGIN
     -- Grant normal access first, then remove access to the sensitive objects below.
+    -- Grant object by object and skip the ones we may not grant on, such as extension objects a superuser
+    -- installed in public (e.g. pg_stat_statements). GRANT ... ON ALL ... would fail as a whole on those.
     FOREACH role_name IN ARRAY api_roles LOOP
         IF role_name IS NULL OR role_name = '' THEN CONTINUE; END IF;
-        EXECUTE format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %I', role_name);
-        EXECUTE format('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO %I', role_name);
-        EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO %I', role_name);
+        FOR grant_sql IN
+            SELECT format('GRANT ALL PRIVILEGES ON TABLE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'v', 'm', 'f', 'p')
+            UNION ALL
+            SELECT format('GRANT USAGE, SELECT ON SEQUENCE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'S'
+            UNION ALL
+            SELECT format('GRANT EXECUTE ON FUNCTION %s TO %I', p.oid::regprocedure, role_name)
+            FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.prokind <> 'p'
+        LOOP
+            BEGIN
+                EXECUTE grant_sql;
+            EXCEPTION WHEN insufficient_privilege THEN
+                RAISE NOTICE 'Skipped PostgREST grant "%": % (migrating as %). The object is likely owned by another role, e.g. an extension a superuser installed in public.',
+                    grant_sql, SQLERRM, current_user;
+            END;
+        END LOOP;
         -- Tables created later, such as generated view tables, need access too.
         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %I', role_name);
     END LOOP;
 
     FOREACH role_name IN ARRAY anon_roles LOOP
         IF role_name IS NULL OR role_name = '' THEN CONTINUE; END IF;
-        EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %I', role_name);
+        FOR grant_sql IN
+            SELECT format('GRANT SELECT ON TABLE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'v', 'm', 'f', 'p')
+        LOOP
+            BEGIN
+                EXECUTE grant_sql;
+            EXCEPTION WHEN insufficient_privilege THEN
+                RAISE NOTICE 'Skipped PostgREST grant "%": % (migrating as %). The object is likely owned by another role, e.g. an extension a superuser installed in public.',
+                    grant_sql, SQLERRM, current_user;
+            END;
+        END LOOP;
         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %I', role_name);
     END LOOP;
 
