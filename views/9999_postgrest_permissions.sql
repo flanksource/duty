@@ -53,7 +53,8 @@ BEGIN
             BEGIN
                 EXECUTE grant_sql;
             EXCEPTION WHEN insufficient_privilege THEN
-                RAISE NOTICE 'skipped, not permitted: %', grant_sql;
+                RAISE NOTICE 'Skipped PostgREST grant "%": % (migrating as %). The object is likely owned by another role, e.g. an extension a superuser installed in public.',
+                    grant_sql, SQLERRM, current_user;
             END;
         END LOOP;
         -- Tables created later, such as generated view tables, need access too.
@@ -69,7 +70,8 @@ BEGIN
             BEGIN
                 EXECUTE grant_sql;
             EXCEPTION WHEN insufficient_privilege THEN
-                RAISE NOTICE 'skipped, not permitted: %', grant_sql;
+                RAISE NOTICE 'Skipped PostgREST grant "%": % (migrating as %). The object is likely owned by another role, e.g. an extension a superuser installed in public.',
+                    grant_sql, SQLERRM, current_user;
             END;
         END LOOP;
         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %I', role_name);
