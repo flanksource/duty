@@ -33,55 +33,45 @@ DECLARE
     grantee text;
     table_name text;
     function_name text;
-    owned_tables text;
-    owned_sequences text;
-    owned_functions text;
+    grant_sql text;
 BEGIN
-    -- Grant only on objects the migrating user owns, not on ones owned by other roles or by extensions,
-    -- e.g. pg_stat_statements installed in public by a superuser. GRANT ... ON ALL ... fails on those.
-    SELECT string_agg(c.oid::regclass::text, ', ') FILTER (WHERE c.relkind IN ('r', 'v', 'm', 'f', 'p')),
-           string_agg(c.oid::regclass::text, ', ') FILTER (WHERE c.relkind = 'S')
-    INTO owned_tables, owned_sequences
-    FROM pg_class c
-    WHERE c.relnamespace = 'public'::regnamespace
-        AND pg_has_role(c.relowner, 'USAGE')
-        AND NOT EXISTS (
-            SELECT 1 FROM pg_depend d
-            WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e'
-        );
-
-    SELECT string_agg(p.oid::regprocedure::text, ', ')
-    INTO owned_functions
-    FROM pg_proc p
-    WHERE p.pronamespace = 'public'::regnamespace
-        AND p.prokind <> 'p'
-        AND pg_has_role(p.proowner, 'USAGE')
-        AND NOT EXISTS (
-            SELECT 1 FROM pg_depend d
-            WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e'
-        );
-
     -- Grant normal access first, then remove access to the sensitive objects below.
+    -- Grant object by object and skip the ones we may not grant on, such as extension objects a superuser
+    -- installed in public (e.g. pg_stat_statements). GRANT ... ON ALL ... would fail as a whole on those.
     FOREACH role_name IN ARRAY api_roles LOOP
         IF role_name IS NULL OR role_name = '' THEN CONTINUE; END IF;
-        IF owned_tables IS NOT NULL THEN
-            EXECUTE format('GRANT ALL PRIVILEGES ON TABLE %s TO %I', owned_tables, role_name);
-        END IF;
-        IF owned_sequences IS NOT NULL THEN
-            EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE %s TO %I', owned_sequences, role_name);
-        END IF;
-        IF owned_functions IS NOT NULL THEN
-            EXECUTE format('GRANT EXECUTE ON ROUTINE %s TO %I', owned_functions, role_name);
-        END IF;
+        FOR grant_sql IN
+            SELECT format('GRANT ALL PRIVILEGES ON TABLE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'v', 'm', 'f', 'p')
+            UNION ALL
+            SELECT format('GRANT USAGE, SELECT ON SEQUENCE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'S'
+            UNION ALL
+            SELECT format('GRANT EXECUTE ON FUNCTION %s TO %I', p.oid::regprocedure, role_name)
+            FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.prokind <> 'p'
+        LOOP
+            BEGIN
+                EXECUTE grant_sql;
+            EXCEPTION WHEN insufficient_privilege THEN
+                RAISE NOTICE 'skipped, not permitted: %', grant_sql;
+            END;
+        END LOOP;
         -- Tables created later, such as generated view tables, need access too.
         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO %I', role_name);
     END LOOP;
 
     FOREACH role_name IN ARRAY anon_roles LOOP
         IF role_name IS NULL OR role_name = '' THEN CONTINUE; END IF;
-        IF owned_tables IS NOT NULL THEN
-            EXECUTE format('GRANT SELECT ON TABLE %s TO %I', owned_tables, role_name);
-        END IF;
+        FOR grant_sql IN
+            SELECT format('GRANT SELECT ON TABLE %s TO %I', c.oid::regclass, role_name)
+            FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'v', 'm', 'f', 'p')
+        LOOP
+            BEGIN
+                EXECUTE grant_sql;
+            EXCEPTION WHEN insufficient_privilege THEN
+                RAISE NOTICE 'skipped, not permitted: %', grant_sql;
+            END;
+        END LOOP;
         EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %I', role_name);
     END LOOP;
 
