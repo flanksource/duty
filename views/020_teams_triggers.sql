@@ -43,3 +43,26 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER person_analytics_insert
 BEFORE INSERT ON person_analytics
 FOR EACH ROW EXECUTE PROCEDURE handle_person_analytics_insert();
+
+-- Agents can't be in a team: a membership would give an agent the team's grants.
+CREATE OR REPLACE FUNCTION team_members_refuse_agents()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM people WHERE id = NEW.person_id AND type = 'agent') THEN
+    RAISE EXCEPTION 'person % is an agent, and agents cannot be team members', NEW.person_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER team_members_refuse_agents
+BEFORE INSERT OR UPDATE ON team_members
+FOR EACH ROW EXECUTE PROCEDURE team_members_refuse_agents();
+
+DELETE FROM casbin_rule
+WHERE ptype = 'g' AND (v0, v1) IN (
+  SELECT tm.person_id::TEXT, tm.team_id::TEXT FROM team_members tm JOIN people p ON p.id = tm.person_id WHERE p.type = 'agent'
+);
+
+DELETE FROM team_members tm USING people p WHERE p.id = tm.person_id AND p.type = 'agent';
