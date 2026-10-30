@@ -1,0 +1,7 @@
+node_modules
+*.log
+*.tsbuildinfo
+test/
+tsconfig.json
+.gitignore
+.npmignore
