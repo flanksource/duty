@@ -37,7 +37,7 @@ func init() {
 	// SIGINT/SIGTERM handler that calls os.Exit, which races and pre-empts the
 	// shutdown hooks. The "gops agent closure" hook below handles cleanup.
 	if err := agent.Listen(agent.Options{}); err != nil {
-		logger.Errorf(err.Error())
+		logger.Errorf("%s", err.Error())
 	}
 
 	shutdown.AddHookWithPriority("gops agent closure", shutdown.PriorityJobs-1, func() {

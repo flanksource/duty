@@ -46,7 +46,7 @@ func NewKubernetesClient(ctx Context, conn KubernetesConnection) (*KubernetesCli
 	}
 
 	if client.logger.IsLevelEnabled(logger.Trace4) {
-		client.logger.V(logger.Trace1).Infof(logger.Stacktrace())
+		client.logger.V(logger.Trace1).Infof("%s", logger.Stacktrace())
 	}
 
 	client.SetExpiry(defaultExpiry)

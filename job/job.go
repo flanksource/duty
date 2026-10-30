@@ -299,7 +299,7 @@ func (j *JobRuntime) end() {
 
 func (j *JobRuntime) Failf(message string, args ...interface{}) {
 	err := fmt.Sprintf(message, args...)
-	j.Logger.WithSkipReportLevel(1).Debugf(err)
+	j.Logger.WithSkipReportLevel(1).Debugf("%s", err)
 	j.Span.SetStatus(codes.Error, err)
 	if j.History != nil {
 		j.History.AddErrorWithSkipReportLevel(err, 1)
@@ -434,7 +434,7 @@ func (j *Job) Run() {
 
 		defer func(s *semaphore.Weighted, msg string) {
 			s.Release(1)
-			ctx.Logger.V(6).Infof(msg)
+			ctx.Logger.V(6).Infof("%s", msg)
 		}(lock, fmt.Sprintf("[%s] released sempahore [%d/%d]", j.ID(), i+1, len(j.Semaphores)))
 	}
 
