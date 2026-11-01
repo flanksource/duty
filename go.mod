@@ -1,6 +1,6 @@
 module github.com/flanksource/duty
 
-go 1.26.1
+go 1.26.10
 
 require (
 	ariga.io/atlas v0.38.0
@@ -35,7 +35,7 @@ require (
 	github.com/flanksource/clicky v1.21.55
 	github.com/flanksource/commons v1.56.0
 	github.com/flanksource/deps v1.0.40
-	github.com/flanksource/gomplate/v3 v3.24.90
+	github.com/flanksource/gomplate/v3 v3.24.91
 	github.com/flanksource/is-healthy v1.0.90
 	github.com/flanksource/sandbox-runtime v1.0.2
 	github.com/glebarez/sqlite v1.11.0
@@ -92,10 +92,10 @@ require (
 	gocloud.dev v0.46.0
 	gocloud.dev/pubsub/kafkapubsub v0.46.0
 	gocloud.dev/pubsub/natspubsub v0.46.0
-	golang.org/x/crypto v0.53.0
+	golang.org/x/crypto v0.58.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sync v0.21.0
+	golang.org/x/sync v0.24.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.283.0
 	google.golang.org/grpc v1.81.1
@@ -405,14 +405,14 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/image v0.43.0 // indirect
-	golang.org/x/mod v0.36.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260508192327-42602be52be6 // indirect
-	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
+	golang.org/x/term v0.47.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
