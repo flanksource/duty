@@ -838,18 +838,53 @@ var _ = Describe("RLS test", Ordered, ContinueOnFailure, func() {
 			Expect(write(homelab, "UPDATE config_scrapers SET spec = '{}' WHERE id = ?", dummy.KubeScrapeConfig.ID)).To(BeZero(), "a scraper outside the Scope isn't visible to update")
 		})
 
-		It("allows writing an artifact of a scraper the subject's Scope matches, and refuses moving it out", func() {
-			homelab := rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})}
+		It("refuses writing an artifact to a subject who can read it", func() {
 			id := uuid.New()
-			Expect(write(homelab, "INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'write.txt', 0, 'rls')",
-				id, dummy.HomelabKubeScraper.ID)).To(Equal(int64(1)))
-			Expect(write(homelab, "UPDATE artifacts SET filename = 'renamed.txt' WHERE id = ?", id)).To(Equal(int64(1)))
+			Expect(tx.Exec("RESET ROLE").Error).To(Succeed())
+			Expect(tx.Exec("INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'write.txt', 0, 'rls')",
+				id, dummy.HomelabKubeScraper.ID).Error).To(Succeed())
+			Expect(tx.Exec("SET LOCAL ROLE 'postgrest_api'").Error).To(Succeed())
 
-			_, err := write(homelab, "UPDATE artifacts SET scraper_id = ? WHERE id = ?", dummy.KubeScrapeConfig.ID, id)
+			homelab := rls.Payload{Scraper: grants(rls.Grant{Scope: homelabScraperScope})}
+			Expect(write(homelab, "UPDATE artifacts SET filename = 'renamed.txt' WHERE id = ?", id)).To(BeZero())
+			Expect(write(homelab, "DELETE FROM artifacts WHERE id = ?", id)).To(BeZero())
+			_, err := write(homelab, "INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'other.txt', 0, 'rls')",
+				uuid.New(), dummy.HomelabKubeScraper.ID)
 			Expect(err).To(refused)
-			_, err = write(homelab, "INSERT INTO artifacts (id, scraper_id, path, filename, size, checksum) VALUES (?, ?, '/rls/write', 'other.txt', 0, 'rls')",
-				uuid.New(), dummy.KubeScrapeConfig.ID)
+
+			var filenames []string
+			Expect(tx.Table("artifacts").Where("id = ?", id).Pluck("filename", &filenames).Error).To(Succeed())
+			Expect(filenames).To(Equal([]string{"write.txt"}))
+		})
+
+		It("refuses writing a view's panels to a subject who can read the view", func() {
+			pod := rls.Payload{View: grants(rls.Grant{Scope: podViewScope})}
+			panels := countAll("view_panels", "view_id = ?", dummy.PodView.ID)
+			Expect(panels).To(BeNumerically(">", 0))
+
+			Expect(write(pod, `UPDATE view_panels SET results = '{"rls":"rewritten"}' WHERE view_id = ?`, dummy.PodView.ID)).To(BeZero())
+			Expect(write(pod, "DELETE FROM view_panels WHERE view_id = ?", dummy.PodView.ID)).To(BeZero())
+			_, err := write(pod, "INSERT INTO view_panels (view_id, request_fingerprint, results) VALUES (?, 'rls-write', '{}')", dummy.PodView.ID)
 			Expect(err).To(refused)
+
+			var rewritten int64
+			Expect(tx.Table("view_panels").Where("view_id = ? AND results->>'rls' IS NOT NULL", dummy.PodView.ID).Count(&rewritten).Error).To(Succeed())
+			Expect(rewritten).To(BeZero())
+			Expect(countRows(tx, "view_panels", pod)).To(Equal(panels))
+		})
+
+		It("refuses writing views through views_summary, but not through views", func() {
+			pod := rls.Payload{View: grants(rls.Grant{Scope: podViewScope})}
+			permissionDenied := MatchError(ContainSubstring("permission denied for view views_summary"))
+
+			_, err := write(pod, "DELETE FROM views_summary WHERE id = ?", dummy.PodView.ID)
+			Expect(err).To(permissionDenied)
+			_, err = write(pod, "UPDATE views_summary SET name = 'rls-renamed' WHERE id = ?", dummy.PodView.ID)
+			Expect(err).To(permissionDenied)
+			Expect(countRows(tx, "views_summary", pod)).To(Equal(countAll("views_summary", "name = ?", dummy.PodView.Name)))
+
+			// The UI writes views through PostgREST, which Mission Control authorizes before the query reaches the policy.
+			Expect(write(pod, "UPDATE views SET labels = labels WHERE id = ?", dummy.PodView.ID)).To(Equal(int64(1)))
 		})
 
 		It("allows UPDATE of a check through its own Scope or its canary's", func() {
