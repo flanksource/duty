@@ -93,9 +93,11 @@ BEGIN
         END LOOP;
 
         -- A simple view can write to its source table. Allow reads here, but no writes.
-        EXECUTE format('REVOKE ALL ON public.feature_flags FROM %s', grantee);
-        IF role_name <> 'PUBLIC' THEN
-            EXECUTE format('GRANT SELECT ON public.feature_flags TO %I', role_name);
-        END IF;
+        FOREACH table_name IN ARRAY ARRAY['feature_flags', 'views_summary'] LOOP
+            EXECUTE format('REVOKE ALL ON public.%I FROM %s', table_name, grantee);
+            IF role_name <> 'PUBLIC' THEN
+                EXECUTE format('GRANT SELECT ON public.%I TO %I', table_name, role_name);
+            END IF;
+        END LOOP;
     END LOOP;
 END $$;

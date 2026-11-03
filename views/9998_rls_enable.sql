@@ -401,10 +401,11 @@ CREATE POLICY config_scrapers_auth ON config_scrapers
     );
 
 -- Policy artifacts: an artifact is visible with every producer it has: its playbook run's step, check, config change and scraper.
+-- Artifacts are only read through the API; their producers write them as the owner, so the policy grants no writes.
 DROP POLICY IF EXISTS artifacts_auth ON artifacts;
 
 CREATE POLICY artifacts_auth ON artifacts
-  FOR ALL TO postgrest_api, postgrest_anon
+  FOR SELECT TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE (
@@ -460,11 +461,12 @@ CREATE POLICY views_auth ON views
 -- replaced, since an older views_auth depends on it.
 DROP FUNCTION IF EXISTS match_scope(jsonb, jsonb, uuid, text, uuid);
 
--- Policy view_panels (inherits from parent views table)
+-- Policy view_panels (inherits from parent views table). Panels are only read through the API; the view runner writes
+-- them as the owner, so the policy grants no writes.
 DROP POLICY IF EXISTS view_panels_auth ON view_panels;
 
 CREATE POLICY view_panels_auth ON view_panels
-  FOR ALL TO postgrest_api, postgrest_anon
+  FOR SELECT TO postgrest_api, postgrest_anon
     USING (
       CASE WHEN (SELECT is_rls_disabled()) THEN TRUE
       ELSE
