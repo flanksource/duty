@@ -35,7 +35,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Install deps
-        uses: flanksource/deps@1e2d3aa46edc0971b3b3a15e3fb35ed252304aeb # v1.0.35
+        uses: flanksource/deps@0299da546f0d3bd652fac4c5746e9b78ab672938 # v1.0.50
         with:
           tools: |
             bun
