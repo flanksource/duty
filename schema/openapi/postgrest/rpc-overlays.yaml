@@ -1,0 +1,15 @@
+# Hand-curated response shapes for PostgREST RPC functions whose
+# `RETURNS TABLE(...)` declarations PostgREST cannot type precisely.
+# Add an entry per RPC as the need arises in flanksource-ui or downstream
+# consumers; the rest fall back to PostgREST's default `object` response.
+#
+# Example:
+#
+# rpcs:
+#   lookup_components_by_check:
+#     response:
+#       type: array
+#       items:
+#         $ref: '#/components/schemas/components'
+
+rpcs: {}
