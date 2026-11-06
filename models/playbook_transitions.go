@@ -103,7 +103,7 @@ func sourcesOf[S ~string](transitions map[S][]S, to S) []S {
 // when the row's current status may move to `to`. So the check and the write can't be interleaved
 // with another writer.
 func transition[S ~string](db *gorm.DB, model any, entity string, id uuid.UUID, transitions map[S][]S, to S, columns map[string]any) error {
-	updates := make(map[string]any, len(columns)+1)
+	updates := map[string]any{}
 	for k, v := range columns {
 		updates[k] = v
 	}
