@@ -910,16 +910,20 @@ func (p PlaybookRunAction) SaveAgentResult(db *gorm.DB, reported PlaybookRunActi
 		return fmt.Errorf("playbook run action %s: agent reported non-final status %q", p.ID, reported.Status)
 	}
 
-	if err := p.Transition(db, reported.Status, map[string]any{
-		"result":     reported.Result,
-		"start_time": reported.StartTime,
-		"end_time":   reported.EndTime,
-		"error":      reported.Error,
-	}); err != nil {
-		return err
-	}
+	// One transaction, so a failure after the action ends can't leave its run waiting:
+	// the agent's retry would be refused as a duplicate and never reschedule the run.
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := p.Transition(tx, reported.Status, map[string]any{
+			"result":     reported.Result,
+			"start_time": reported.StartTime,
+			"end_time":   reported.EndTime,
+			"error":      reported.Error,
+		}); err != nil {
+			return err
+		}
 
-	return p.ScheduleRun(db)
+		return p.ScheduleRun(tx)
+	})
 }
 
 // Update writes columns other than status. Use the transition methods to change the status.
