@@ -93,7 +93,7 @@ func NewPushHandler(ringManager StatusRingManager) echo.HandlerFunc {
 			v.Infof("inserting push data %s", req.String())
 		}
 
-		if err := InsertUpstreamMsg(ctx, &req); err != nil {
+		if err := InsertUpstreamMsg(ctx, agentID, &req); err != nil {
 			histogram.Label(StatusLabel, StatusError)
 			return api.WriteError(c, err)
 		}
@@ -141,7 +141,7 @@ func DeleteHandler(c echo.Context) error {
 	req.PopulateAgentID(agentID)
 
 	ctx.Logger.V(3).Infof("Deleting push data %s", req.String())
-	if err := DeleteOnUpstream(ctx, &req); err != nil {
+	if err := DeleteOnUpstream(ctx, agentID, &req); err != nil {
 		histogram.Label(StatusLabel, "error").Since(start)
 		return c.JSON(http.StatusInternalServerError, api.HTTPError{Err: err.Error(), Message: "failed to delete items"})
 	}

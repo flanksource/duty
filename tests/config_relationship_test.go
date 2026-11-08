@@ -520,7 +520,7 @@ var _ = ginkgo.Describe("config relationship deletion test", func() {
 	})
 
 	ginkgo.It("should delete", func() {
-		err := upstream.DeleteOnUpstream(DefaultContext, &upstream.PushData{
+		err := upstream.DeleteOnUpstream(DefaultContext, uuid.Nil, &upstream.PushData{
 			ConfigRelationships: tempRelationships,
 		})
 		Expect(err).To(BeNil())
