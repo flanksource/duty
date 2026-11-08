@@ -1,7 +1,6 @@
 package upstream
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
@@ -60,48 +59,69 @@ func GetOrCreateAgent(ctx context.Context, name string) (*models.Agent, error) {
 	return a, nil
 }
 
-// agentOwnedRow holds, for each table agents push, the condition under which a row belongs to the agent given as ?.
-// A row with an agent_id belongs to that agent; any other row belongs to the agent of its parent.
-var agentOwnedRow = map[string]string{
-	"topologies":           "topologies.agent_id = ?",
-	"canaries":             "canaries.agent_id = ?",
-	"checks":               "checks.agent_id = ?",
-	"components":           "components.agent_id = ?",
-	"config_scrapers":      "config_scrapers.agent_id = ?",
-	"config_items":         "config_items.agent_id = ?",
-	"job_history":          "job_history.agent_id = ?",
-	"view_panels":          "view_panels.agent_id = ?",
-	"playbook_run_actions": "playbook_run_actions.agent_id = ?",
+// parentRef is a column that references the row another row belongs to.
+type parentRef struct {
+	Column string
+	Table  string
+}
 
-	"component_relationships":        "EXISTS (SELECT 1 FROM components WHERE components.id = component_relationships.component_id AND components.agent_id = ?)",
-	"config_relationships":           "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_relationships.config_id AND config_items.agent_id = ?)",
-	"config_component_relationships": "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_component_relationships.config_id AND config_items.agent_id = ?)",
-	"check_config_relationships":     "EXISTS (SELECT 1 FROM checks WHERE checks.id = check_config_relationships.check_id AND checks.agent_id = ?)",
-	"config_items_last_scraped_time": "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_items_last_scraped_time.config_id AND config_items.agent_id = ?)",
-	"checks_unlogged":                "EXISTS (SELECT 1 FROM checks WHERE checks.id = checks_unlogged.check_id AND checks.agent_id = ?)",
-	"config_changes":                 "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_changes.config_id AND config_items.agent_id = ?)",
-	"config_analysis":                "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_analysis.config_id AND config_items.agent_id = ?)",
-	"check_statuses":                 "EXISTS (SELECT 1 FROM checks WHERE checks.id = check_statuses.check_id AND checks.agent_id = ?)",
-	"artifacts": `EXISTS (SELECT 1 FROM checks WHERE checks.id = artifacts.check_id AND checks.agent_id = @agent)
-		OR EXISTS (SELECT 1 FROM playbook_run_actions WHERE playbook_run_actions.id = artifacts.playbook_run_action_id AND playbook_run_actions.agent_id = @agent)
-		OR EXISTS (SELECT 1 FROM config_changes JOIN config_items ON config_items.id = config_changes.config_id WHERE config_changes.id = artifacts.config_change_id AND config_items.agent_id = @agent)
-		OR EXISTS (SELECT 1 FROM config_scrapers WHERE config_scrapers.id = artifacts.scraper_id AND config_scrapers.agent_id = @agent)
-		OR EXISTS (SELECT 1 FROM job_history WHERE job_history.id = artifacts.job_history_id AND job_history.agent_id = @agent)`,
+// agentOwnership says, for each table agents push, which agent a row belongs to.
+// A table without parents has its own agent_id column. A row of any other table belongs to an agent when it
+// references at least one parent and every parent it references belongs to that agent.
+var agentOwnership = map[string][]parentRef{
+	"topologies":           nil,
+	"canaries":             nil,
+	"checks":               nil,
+	"components":           nil,
+	"config_scrapers":      nil,
+	"config_items":         nil,
+	"job_history":          nil,
+	"view_panels":          nil,
+	"playbook_run_actions": nil,
+
+	"component_relationships":        {{Column: "component_id", Table: "components"}},
+	"config_relationships":           {{Column: "config_id", Table: "config_items"}},
+	"config_component_relationships": {{Column: "config_id", Table: "config_items"}},
+	"check_config_relationships":     {{Column: "check_id", Table: "checks"}},
+	"config_items_last_scraped_time": {{Column: "config_id", Table: "config_items"}},
+	"checks_unlogged":                {{Column: "check_id", Table: "checks"}},
+	"config_changes":                 {{Column: "config_id", Table: "config_items"}},
+	"config_analysis":                {{Column: "config_id", Table: "config_items"}},
+	"check_statuses":                 {{Column: "check_id", Table: "checks"}},
+	"artifacts": {
+		{Column: "check_id", Table: "checks"},
+		{Column: "playbook_run_action_id", Table: "playbook_run_actions"},
+		{Column: "config_change_id", Table: "config_changes"},
+		{Column: "scraper_id", Table: "config_scrapers"},
+		{Column: "job_history_id", Table: "job_history"},
+	},
 }
 
 // ownedBy returns the condition under which a row of the table belongs to the agent.
-// No row of a table without a condition belongs to the agent.
 func ownedBy(table string, agentID uuid.UUID) clause.Expression {
-	condition, ok := agentOwnedRow[table]
+	parents, ok := agentOwnership[table]
 	if !ok {
-		// Fail closed instead of panicking: a push into a table missing from agentOwnedRow
+		// Fail closed instead of panicking: a push into a table missing from agentOwnership
 		// inserts new rows but never updates or deletes existing ones.
 		return clause.Expr{SQL: "FALSE"}
 	}
-	if strings.Contains(condition, "@agent") {
-		return clause.NamedExpr{SQL: condition, Vars: []any{sql.Named("agent", agentID)}}
+	if len(parents) == 0 {
+		return clause.Expr{SQL: "? = ?", Vars: []any{clause.Column{Table: table, Name: "agent_id"}, agentID}}
 	}
-	return clause.Expr{SQL: condition, Vars: []any{agentID}}
+
+	var ownsEach, referencesOne []string
+	var ownsVars, referencesVars []any
+	for _, parent := range parents {
+		column := clause.Column{Table: table, Name: parent.Column}
+		ownsEach = append(ownsEach, "(? IS NULL OR EXISTS (SELECT 1 FROM ? WHERE ? = ? AND ?))")
+		ownsVars = append(ownsVars, column, clause.Table{Name: parent.Table}, clause.Column{Table: parent.Table, Name: "id"}, column, ownedBy(parent.Table, agentID))
+		referencesOne = append(referencesOne, "? IS NOT NULL")
+		referencesVars = append(referencesVars, column)
+	}
+	return clause.Expr{
+		SQL:  "(" + strings.Join(ownsEach, " AND ") + " AND (" + strings.Join(referencesOne, " OR ") + "))",
+		Vars: append(ownsVars, referencesVars...),
+	}
 }
 
 // upsertOwnedBy upserts rows of the table, but only updates an existing row that belongs to the agent,
@@ -114,92 +134,112 @@ func upsertOwnedBy(table string, agentID uuid.UUID, columns ...clause.Column) cl
 	}
 }
 
-// dropForeign drops the rows that reference a row of the parent table belonging to another agent, so an agent
-// can't attach rows to the resources of the host or of another agent.
-// A reference to a row that doesn't exist yet is kept: the push then fails with a foreign key error and is retried.
-func dropForeign[T any](ctx context.Context, agentID uuid.UUID, rows []T, parent string, ref func(T) string) ([]T, error) {
-	var ids []uuid.UUID
-	for _, row := range rows {
-		if id, err := uuid.Parse(ref(row)); err == nil {
-			ids = append(ids, id)
-		}
-	}
+// foreignRows returns the ids of the rows of the table that exist and belong to another agent.
+func foreignRows(ctx context.Context, table string, agentID uuid.UUID, ids []uuid.UUID) ([]uuid.UUID, error) {
+	ids = lo.Without(lo.Uniq(ids), uuid.Nil)
 	if len(ids) == 0 {
-		return rows, nil
+		return nil, nil
 	}
 
 	var foreign []uuid.UUID
-	if err := ctx.DB().Table(parent).Where("id IN ?", lo.Uniq(ids)).Not(ownedBy(parent, agentID)).Pluck("id", &foreign).Error; err != nil {
-		return nil, fmt.Errorf("error looking up the owners of %s: %w", parent, err)
+	if err := ctx.DB().Table(table).Where("id IN ?", ids).Not(ownedBy(table, agentID)).Pluck("id", &foreign).Error; err != nil {
+		return nil, fmt.Errorf("error looking up the owners of %s: %w", table, err)
 	}
-	if len(foreign) == 0 {
+	return foreign, nil
+}
+
+// dropForeign drops the rows that reference a parent of another agent, so an agent can't attach rows to the
+// resources of the host or of another agent.
+// A reference to a row that doesn't exist yet is kept: the push then fails with a foreign key error and is retried.
+func dropForeign[T models.DBTable](ctx context.Context, agentID uuid.UUID, rows []T) ([]T, error) {
+	if len(rows) == 0 {
 		return rows, nil
 	}
 
-	ctx.Warnf("agent %s pushed rows referencing %d %s of another agent", agentID, len(foreign), parent)
-	return lo.Filter(rows, func(row T, _ int) bool {
-		id, err := uuid.Parse(ref(row))
-		return err != nil || !lo.Contains(foreign, id)
-	}), nil
+	var zero T
+	stmt := &gorm.Statement{DB: ctx.DB()}
+	if err := stmt.Parse(&zero); err != nil {
+		return nil, err
+	}
+
+	for _, parent := range agentOwnership[zero.TableName()] {
+		field := stmt.Schema.LookUpField(parent.Column)
+		if field == nil {
+			return nil, fmt.Errorf("%s has no column %s", zero.TableName(), parent.Column)
+		}
+
+		refs := lo.Map(rows, func(row T, _ int) uuid.UUID { return referencedID(ctx, field, row) })
+		foreign, err := foreignRows(ctx, parent.Table, agentID, refs)
+		if err != nil {
+			return nil, err
+		}
+		if len(foreign) > 0 {
+			ctx.Warnf("agent %s pushed %s referencing %d %s of another agent", agentID, zero.TableName(), len(foreign), parent.Table)
+			rows = lo.Filter(rows, func(_ T, i int) bool { return !lo.Contains(foreign, refs[i]) })
+		}
+	}
+	return rows, nil
+}
+
+// referencedID returns the id the field of the row holds, or uuid.Nil when it holds none.
+func referencedID(ctx context.Context, field *schema.Field, row any) uuid.UUID {
+	value, isZero := field.ValueOf(ctx, reflect.ValueOf(row))
+	if isZero {
+		return uuid.Nil
+	}
+	switch v := value.(type) {
+	case uuid.UUID:
+		return v
+	case *uuid.UUID:
+		return *v
+	case string:
+		id, _ := uuid.Parse(v)
+		return id
+	}
+	return uuid.Nil
 }
 
 // dropForeignRows drops the pushed rows that reference the resources of the host or of another agent.
 func dropForeignRows(ctx context.Context, agentID uuid.UUID, req *PushData) error {
-	str := func(id *uuid.UUID) string {
-		if id == nil {
-			return ""
-		}
-		return id.String()
-	}
-
 	var err error
-	if req.ComponentRelationships, err = dropForeign(ctx, agentID, req.ComponentRelationships, "components", func(r models.ComponentRelationship) string { return r.ComponentID.String() }); err != nil {
+	if req.ComponentRelationships, err = dropForeign(ctx, agentID, req.ComponentRelationships); err != nil {
 		return err
 	}
-	if req.ConfigRelationships, err = dropForeign(ctx, agentID, req.ConfigRelationships, "config_items", func(r models.ConfigRelationship) string { return r.ConfigID }); err != nil {
+	if req.ConfigRelationships, err = dropForeign(ctx, agentID, req.ConfigRelationships); err != nil {
 		return err
 	}
-	if req.ConfigComponentRelationships, err = dropForeign(ctx, agentID, req.ConfigComponentRelationships, "config_items", func(r models.ConfigComponentRelationship) string { return r.ConfigID.String() }); err != nil {
+	if req.ConfigComponentRelationships, err = dropForeign(ctx, agentID, req.ConfigComponentRelationships); err != nil {
 		return err
 	}
-	if req.CheckConfigRelationships, err = dropForeign(ctx, agentID, req.CheckConfigRelationships, "checks", func(r models.CheckConfigRelationship) string { return r.CheckID.String() }); err != nil {
+	if req.CheckConfigRelationships, err = dropForeign(ctx, agentID, req.CheckConfigRelationships); err != nil {
 		return err
 	}
-	if req.ConfigItemsLastScrapedTime, err = dropForeign(ctx, agentID, req.ConfigItemsLastScrapedTime, "config_items", func(r models.ConfigItemLastScrapedTime) string { return r.ConfigID.String() }); err != nil {
+	if req.ConfigItemsLastScrapedTime, err = dropForeign(ctx, agentID, req.ConfigItemsLastScrapedTime); err != nil {
 		return err
 	}
-	if req.ChecksUnlogged, err = dropForeign(ctx, agentID, req.ChecksUnlogged, "checks", func(r models.ChecksUnlogged) string { return r.CheckID.String() }); err != nil {
+	if req.ChecksUnlogged, err = dropForeign(ctx, agentID, req.ChecksUnlogged); err != nil {
 		return err
 	}
-	if req.ConfigChanges, err = dropForeign(ctx, agentID, req.ConfigChanges, "config_items", func(r models.ConfigChange) string { return r.ConfigID }); err != nil {
+	if req.ConfigChanges, err = dropForeign(ctx, agentID, req.ConfigChanges); err != nil {
 		return err
 	}
-	if req.ConfigAnalysis, err = dropForeign(ctx, agentID, req.ConfigAnalysis, "config_items", func(r models.ConfigAnalysis) string { return r.ConfigID.String() }); err != nil {
+	if req.ConfigAnalysis, err = dropForeign(ctx, agentID, req.ConfigAnalysis); err != nil {
 		return err
 	}
-	if req.CheckStatuses, err = dropForeign(ctx, agentID, req.CheckStatuses, "checks", func(r models.CheckStatus) string { return r.CheckID.String() }); err != nil {
+	if req.CheckStatuses, err = dropForeign(ctx, agentID, req.CheckStatuses); err != nil {
+		return err
+	}
+	if req.Artifacts, err = dropForeign(ctx, agentID, req.Artifacts); err != nil {
 		return err
 	}
 
 	// A job history of another agent is dropped, not only left unchanged by the upsert: the push handler adds the
 	// pushed histories to the agent's status ring, which deletes the ones it evicts.
-	if req.JobHistory, err = dropForeign(ctx, agentID, req.JobHistory, "job_history", func(r models.JobHistory) string { return r.ID.String() }); err != nil {
+	foreign, err := foreignRows(ctx, "job_history", agentID, lo.Map(req.JobHistory, func(h models.JobHistory, _ int) uuid.UUID { return h.ID }))
+	if err != nil {
 		return err
 	}
-
-	// An artifact must not reference any resource of another agent, even when another of its references is the agent's.
-	artifactParents := map[string]func(models.Artifact) string{
-		"checks":               func(a models.Artifact) string { return str(a.CheckID) },
-		"playbook_run_actions": func(a models.Artifact) string { return str(a.PlaybookRunActionID) },
-		"config_changes":       func(a models.Artifact) string { return str(a.ConfigChangeID) },
-		"config_scrapers":      func(a models.Artifact) string { return str(a.ScraperID) },
-		"job_history":          func(a models.Artifact) string { return str(a.JobHistoryID) },
-	}
-	for parent, ref := range artifactParents {
-		if req.Artifacts, err = dropForeign(ctx, agentID, req.Artifacts, parent, ref); err != nil {
-			return err
-		}
-	}
+	req.JobHistory = lo.Filter(req.JobHistory, func(h models.JobHistory, _ int) bool { return !lo.Contains(foreign, h.ID) })
 
 	return nil
 }
