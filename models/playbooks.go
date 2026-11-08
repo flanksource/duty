@@ -450,57 +450,61 @@ func (p PlaybookRun) endWithDeterminedStatus(db *gorm.DB) error {
 
 // endWithStatus ends the playbook run with the specified status
 func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error {
-	if err := p.Transition(db, status, map[string]any{
-		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-	}); err != nil {
-		return err
-	}
-
-	if p.NotificationSendID != nil {
-		updates := map[string]any{}
-		runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
-		if runFailed {
-			updates["status"] = NotificationStatusError
-			switch status {
-			case PlaybookRunStatusTimedOut:
-				updates["error"] = "playbook timed out"
-			case PlaybookRunStatusCancelled:
-				updates["error"] = "playbook was cancelled"
-			default:
-				updates["error"] = "playbook failed with an error. For more details, see playbook run"
-			}
-		} else {
-			updates["status"] = NotificationStatusSent
-		}
-
-		if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+	// One transaction, so a failed notification or parent update leaves the run unended and retryable,
+	// instead of ended with the rest refused on retry.
+	return db.Transaction(func(db *gorm.DB) error {
+		if err := p.Transition(db, status, map[string]any{
+			"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
+		}); err != nil {
 			return err
 		}
 
-		var notif Notification
-		var sendHistory NotificationSendHistory
-		if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
-			return fmt.Errorf("failed to get notification send history: %w", err)
-		}
-		if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
-			return fmt.Errorf("failed to get notification: %w", err)
-		}
+		if p.NotificationSendID != nil {
+			updates := map[string]any{}
+			runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
+			if runFailed {
+				updates["status"] = NotificationStatusError
+				switch status {
+				case PlaybookRunStatusTimedOut:
+					updates["error"] = "playbook timed out"
+				case PlaybookRunStatusCancelled:
+					updates["error"] = "playbook was cancelled"
+				default:
+					updates["error"] = "playbook failed with an error. For more details, see playbook run"
+				}
+			} else {
+				updates["status"] = NotificationStatusSent
+			}
 
-		if runFailed && notif.HasFallbackSet() {
-			if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
-				return fmt.Errorf("failed to generate fallback attempt: %w", err)
+			if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+				return err
+			}
+
+			var notif Notification
+			var sendHistory NotificationSendHistory
+			if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
+				return fmt.Errorf("failed to get notification send history: %w", err)
+			}
+			if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
+				return fmt.Errorf("failed to get notification: %w", err)
+			}
+
+			if runFailed && notif.HasFallbackSet() {
+				if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
+					return fmt.Errorf("failed to generate fallback attempt: %w", err)
+				}
 			}
 		}
-	}
 
-	if p.ParentID != nil {
-		parentRun := PlaybookRun{ID: *p.ParentID}
-		if err := parentRun.ResumeChildrenWaitingAction(db); err != nil {
-			return fmt.Errorf("failed to resume action awaiting children: %w", err)
+		if p.ParentID != nil {
+			parentRun := PlaybookRun{ID: *p.ParentID}
+			if err := parentRun.ResumeChildrenWaitingAction(db); err != nil {
+				return fmt.Errorf("failed to resume action awaiting children: %w", err)
+			}
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 // ResumeChildrenWaitingAction resumes the action that's awaiting children

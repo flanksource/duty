@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/samber/oops"
@@ -130,8 +131,11 @@ func transition[S ~string](db *gorm.DB, model any, entity string, id uuid.UUID, 
 }
 
 func rejectStatusColumn(columns map[string]any) error {
-	if _, ok := columns["status"]; ok {
-		return fmt.Errorf("status can only be changed through a playbook transition method")
+	// GORM resolves a key by column name or by Go field name, so "Status" also writes the column.
+	for k := range columns {
+		if strings.EqualFold(k, "status") {
+			return fmt.Errorf("status can only be changed through a playbook transition method")
+		}
 	}
 	return nil
 }
