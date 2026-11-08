@@ -147,12 +147,25 @@ func seedResourceSelectorConfigItems(ctx context.Context, size int) error {
 		}, nil
 	})
 
+	// An autovacuum that lands during the COPY records the table as empty, and one that lands while the
+	// benchmark runs switches its plan midway. Keep it off for the COPY and gather the statistics up front.
+	if err := ctx.DB().Exec("ALTER TABLE config_items SET (autovacuum_enabled = false)").Error; err != nil {
+		return err
+	}
+
 	inserted, err := pool.CopyFrom(stdcontext.Background(), pgx.Identifier{"config_items"}, []string{"agent_id", "config_class", "type", "name", "tags"}, source)
 	if err != nil {
 		return err
 	}
 
 	logf("copy inserted %d rows in %s", inserted, time.Since(start).Round(time.Millisecond))
+
+	if err := ctx.DB().Exec("VACUUM ANALYZE config_items").Error; err != nil {
+		return err
+	}
+	if err := ctx.DB().Exec("ALTER TABLE config_items RESET (autovacuum_enabled)").Error; err != nil {
+		return err
+	}
 
 	var finalCount int64
 	if err := ctx.DB().Table("config_items").Count(&finalCount).Error; err != nil {

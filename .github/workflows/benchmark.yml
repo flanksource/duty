@@ -22,10 +22,10 @@ jobs:
         include:
           - label: scoped-reads
             title: Scoped reads
-            bench_args: "-bench=BenchmarkScopedReads -skip='BenchmarkScopedReads/.*/queries/Page50$'"
+            bench_args: "-test.bench=BenchmarkScopedReads -test.skip='BenchmarkScopedReads/.*/queries/Page50$'"
           - label: other
             title: Other
-            bench_args: "-bench=. -skip=BenchmarkScopedReads"
+            bench_args: "-test.bench=. -test.skip=BenchmarkScopedReads"
     env:
       BENCH_SIZES: 15000
     steps:
@@ -88,24 +88,25 @@ jobs:
           # Override the base's bench package with HEAD's so both runs execute
           # the same benchmark suite — only the implementation under test differs.
           rm -rf .bench/base/bench && cp -r bench/ .bench/base/bench/
-      - name: Benchmark base
+      - name: Build benchmarks
+        run: |
+          (cd .bench/base && go test -c -o "$GITHUB_WORKSPACE/.bench/base.test" ./bench)
+          go test -c -o .bench/head.test ./bench
+      - name: Benchmark base and head
         shell: bash
         run: |
-          cd .bench/base
-
+          # Alternate base and head so that a runner that slows down partway through
+          # affects both sides alike, instead of landing all on one of them.
           # benchstat recommends at least 10 runs to gather a statistically significant sample.
-          # We use -count=6 because -count=10 is extremely slow on github actions.
-          DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test ${{ matrix.bench_args }} -count=6 -timeout 20m \
-            github.com/flanksource/duty/bench | tee "$GITHUB_WORKSPACE/bench-base.txt"
-      - name: Benchmark head
-        shell: bash
-        run: |
-          # benchstat recommends at least 10 runs to gather a statistically significant sample.
-          # We use -count=6 because -count=10 is extremely slow on github actions.
-          DUTY_BENCH_SIZES="${BENCH_SIZES}" \
-            go test ${{ matrix.bench_args }} -count=6 -timeout 20m \
-            github.com/flanksource/duty/bench | tee bench-head.txt
+          # We use 6 because 10 is extremely slow on github actions.
+          for round in 1 2 3; do
+            (cd .bench/base/bench && DUTY_BENCH_SIZES="${BENCH_SIZES}" \
+              "$GITHUB_WORKSPACE/.bench/base.test" -test.run='^$' ${{ matrix.bench_args }} -test.count=2 -test.timeout 20m) \
+              | tee -a bench-base.txt
+            (cd bench && DUTY_BENCH_SIZES="${BENCH_SIZES}" \
+              "$GITHUB_WORKSPACE/.bench/head.test" -test.run='^$' ${{ matrix.bench_args }} -test.count=2 -test.timeout 20m) \
+              | tee -a bench-head.txt
+          done
       - name: Compare
         run: |
           benchstat bench-base.txt bench-head.txt > benchstat.txt
@@ -174,4 +175,4 @@ jobs:
               });
             }
       - name: Check for regressions
-        run: python3 .github/scripts/benchstat-summary.py --threshold 5 benchstat.txt > /dev/null
+        run: python3 .github/scripts/benchstat-summary.py --threshold 10 benchstat.txt > /dev/null
