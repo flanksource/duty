@@ -87,10 +87,13 @@ var agentOwnedRow = map[string]string{
 }
 
 // ownedBy returns the condition under which a row of the table belongs to the agent.
+// No row of a table without a condition belongs to the agent.
 func ownedBy(table string, agentID uuid.UUID) clause.Expression {
 	condition, ok := agentOwnedRow[table]
 	if !ok {
-		panic(fmt.Sprintf("table %s has no agent ownership condition", table))
+		// Fail closed instead of panicking: a push into a table missing from agentOwnedRow
+		// inserts new rows but never updates or deletes existing ones.
+		return clause.Expr{SQL: "FALSE"}
 	}
 	if strings.Contains(condition, "@agent") {
 		return clause.NamedExpr{SQL: condition, Vars: []any{sql.Named("agent", agentID)}}
