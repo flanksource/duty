@@ -2,7 +2,9 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -373,43 +375,48 @@ func (p PlaybookRun) AsMap(removeFields ...string) map[string]any {
 	return asMap(p, removeFields...)
 }
 
+// Update writes columns other than status. Use the transition methods to change the status.
 func (p PlaybookRun) Update(db *gorm.DB, columns map[string]any) error {
+	if err := rejectStatusColumn(columns); err != nil {
+		return err
+	}
 	return oops.Tags("db").Wrap(db.Model(PlaybookRun{}).Where("id = ?", p.ID).UpdateColumns(columns).Error)
 }
 
+// Transition moves the run to the given status and writes the extra columns,
+// but only if its current status allows it. Otherwise it returns a *PlaybookTransitionError.
+func (p PlaybookRun) Transition(db *gorm.DB, to PlaybookRunStatus, columns map[string]any) error {
+	return transition(db, PlaybookRun{}, "playbook run", p.ID, playbookRunTransitions, to, columns)
+}
+
 func (p PlaybookRun) Schedule(db *gorm.DB) error {
-	return p.Update(db, map[string]any{
-		"status":         PlaybookRunStatusScheduled,
+	return p.Transition(db, PlaybookRunStatusScheduled, map[string]any{
 		"scheduled_time": gorm.Expr("CLOCK_TIMESTAMP()"),
 	})
 }
 
 func (p PlaybookRun) Retry(db *gorm.DB, delay time.Duration) error {
-	return p.Update(db, map[string]any{
-		"status":         PlaybookRunStatusRetrying,
+	return p.Transition(db, PlaybookRunStatusRetrying, map[string]any{
 		"start_time":     gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 		"scheduled_time": gorm.Expr(fmt.Sprintf("CLOCK_TIMESTAMP() + INTERVAL '%d SECONDS'", int(delay.Seconds()))),
 	})
 }
 
 func (p PlaybookRun) Delay(db *gorm.DB, delay time.Duration) error {
-	return p.Update(db, map[string]any{
-		"status":         PlaybookRunStatusSleeping,
+	return p.Transition(db, PlaybookRunStatusSleeping, map[string]any{
 		"start_time":     gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 		"scheduled_time": gorm.Expr(fmt.Sprintf("CLOCK_TIMESTAMP() + INTERVAL '%d SECONDS'", int(delay.Seconds()))),
 	})
 }
 
 func (p PlaybookRun) Waiting(db *gorm.DB) error {
-	return p.Update(db, map[string]any{
-		"status":     PlaybookRunStatusWaiting,
+	return p.Transition(db, PlaybookRunStatusWaiting, map[string]any{
 		"start_time": gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 	})
 }
 
 func (p PlaybookRun) Running(db *gorm.DB) error {
-	return p.Update(db, map[string]any{
-		"status":     PlaybookRunStatusRunning,
+	return p.Transition(db, PlaybookRunStatusRunning, map[string]any{
 		"start_time": gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 	})
 }
@@ -443,58 +450,61 @@ func (p PlaybookRun) endWithDeterminedStatus(db *gorm.DB) error {
 
 // endWithStatus ends the playbook run with the specified status
 func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error {
-	if err := p.Update(db, map[string]any{
-		"status":   status,
-		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-	}); err != nil {
-		return err
-	}
-
-	if p.NotificationSendID != nil {
-		updates := map[string]any{}
-		runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
-		if runFailed {
-			updates["status"] = NotificationStatusError
-			switch status {
-			case PlaybookRunStatusTimedOut:
-				updates["error"] = "playbook timed out"
-			case PlaybookRunStatusCancelled:
-				updates["error"] = "playbook was cancelled"
-			default:
-				updates["error"] = "playbook failed with an error. For more details, see playbook run"
-			}
-		} else {
-			updates["status"] = NotificationStatusSent
-		}
-
-		if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+	// One transaction, so a failed notification or parent update leaves the run unended and retryable,
+	// instead of ended with the rest refused on retry.
+	return db.Transaction(func(db *gorm.DB) error {
+		if err := p.Transition(db, status, map[string]any{
+			"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
+		}); err != nil {
 			return err
 		}
 
-		var notif Notification
-		var sendHistory NotificationSendHistory
-		if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
-			return fmt.Errorf("failed to get notification send history: %w", err)
-		}
-		if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
-			return fmt.Errorf("failed to get notification: %w", err)
-		}
+		if p.NotificationSendID != nil {
+			updates := map[string]any{}
+			runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
+			if runFailed {
+				updates["status"] = NotificationStatusError
+				switch status {
+				case PlaybookRunStatusTimedOut:
+					updates["error"] = "playbook timed out"
+				case PlaybookRunStatusCancelled:
+					updates["error"] = "playbook was cancelled"
+				default:
+					updates["error"] = "playbook failed with an error. For more details, see playbook run"
+				}
+			} else {
+				updates["status"] = NotificationStatusSent
+			}
 
-		if runFailed && notif.HasFallbackSet() {
-			if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
-				return fmt.Errorf("failed to generate fallback attempt: %w", err)
+			if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+				return err
+			}
+
+			var notif Notification
+			var sendHistory NotificationSendHistory
+			if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
+				return fmt.Errorf("failed to get notification send history: %w", err)
+			}
+			if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
+				return fmt.Errorf("failed to get notification: %w", err)
+			}
+
+			if runFailed && notif.HasFallbackSet() {
+				if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
+					return fmt.Errorf("failed to generate fallback attempt: %w", err)
+				}
 			}
 		}
-	}
 
-	if p.ParentID != nil {
-		parentRun := PlaybookRun{ID: *p.ParentID}
-		if err := parentRun.ResumeChildrenWaitingAction(db); err != nil {
-			return fmt.Errorf("failed to resume action awaiting children: %w", err)
+		if p.ParentID != nil {
+			parentRun := PlaybookRun{ID: *p.ParentID}
+			if err := parentRun.ResumeChildrenWaitingAction(db); err != nil {
+				return fmt.Errorf("failed to resume action awaiting children: %w", err)
+			}
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 // ResumeChildrenWaitingAction resumes the action that's awaiting children
@@ -574,10 +584,9 @@ func (p PlaybookRun) StartAction(db *gorm.DB, action string) (*PlaybookRunAction
 }
 
 func (p PlaybookRun) Fail(db *gorm.DB, err error) error {
-	return p.Update(db, map[string]any{
+	return p.Transition(db, PlaybookRunStatusFailed, map[string]any{
 		"error":    err.Error(),
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-		"status":   PlaybookRunStatusFailed,
 	})
 }
 
@@ -801,9 +810,8 @@ func (p PlaybookRunAction) GetRun(db *gorm.DB) (*PlaybookRun, error) {
 }
 
 func (p PlaybookRunAction) Start(db *gorm.DB) error {
-	return p.Update(db, map[string]any{
+	return p.Transition(db, PlaybookActionStatusRunning, map[string]any{
 		"start_time": gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
-		"status":     PlaybookActionStatusRunning,
 	})
 }
 
@@ -812,7 +820,6 @@ func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
 		"result":     marshallResult(result),
 		"start_time": gorm.Expr("CASE WHEN start_time IS NULL THEN CLOCK_TIMESTAMP() ELSE start_time END"),
 		"end_time":   gorm.Expr("CLOCK_TIMESTAMP()"),
-		"status":     PlaybookActionStatusFailed,
 	}
 
 	if err != nil {
@@ -840,7 +847,7 @@ func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
 		}
 	}
 
-	if err := p.Update(db, updates); err != nil {
+	if err := p.Transition(db, PlaybookActionStatusFailed, updates); err != nil {
 		return err
 	}
 
@@ -848,11 +855,10 @@ func (p PlaybookRunAction) Fail(db *gorm.DB, result any, err error) error {
 }
 
 func (p PlaybookRunAction) Skip(db *gorm.DB) error {
-	if err := p.Update(db, map[string]any{
+	if err := p.Transition(db, PlaybookActionStatusSkipped, map[string]any{
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-		"status":   PlaybookActionStatusSkipped,
 	}); err != nil {
-		return nil
+		return err
 	}
 
 	return p.ScheduleRun(db)
@@ -887,16 +893,13 @@ func marshallResult(result any) string {
 }
 
 func (p PlaybookRunAction) WaitForChildren(db *gorm.DB) error {
-	return p.Update(db, map[string]any{
-		"status": PlaybookActionStatusWaitingChildren,
-	})
+	return p.Transition(db, PlaybookActionStatusWaitingChildren, nil)
 }
 
 func (p PlaybookRunAction) Complete(db *gorm.DB, result any) error {
-	if err := p.Update(db, map[string]any{
+	if err := p.Transition(db, PlaybookActionStatusCompleted, map[string]any{
 		"result":   marshallResult(result),
 		"end_time": gorm.Expr("CLOCK_TIMESTAMP()"),
-		"status":   PlaybookActionStatusCompleted,
 	}); err != nil {
 		return err
 	}
@@ -904,16 +907,58 @@ func (p PlaybookRunAction) Complete(db *gorm.DB, result any) error {
 	return p.ScheduleRun(db)
 }
 
+// SaveAgentResult records the final status and result an agent reported for this action,
+// then hands the run back to the scheduler.
+func (p PlaybookRunAction) SaveAgentResult(db *gorm.DB, reported PlaybookRunAction) error {
+	if !slices.Contains(PlaybookActionFinalStates, reported.Status) {
+		return fmt.Errorf("playbook run action %s: agent reported non-final status %q", p.ID, reported.Status)
+	}
+
+	// One transaction, so a failure after the action ends can't leave its run waiting:
+	// the agent's retry would be refused as a duplicate and never reschedule the run.
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := p.Transition(tx, reported.Status, map[string]any{
+			"result":     reported.Result,
+			"start_time": reported.StartTime,
+			"end_time":   reported.EndTime,
+			"error":      reported.Error,
+		}); err != nil {
+			return err
+		}
+
+		return p.ScheduleRun(tx)
+	})
+}
+
+// Update writes columns other than status. Use the transition methods to change the status.
 func (p PlaybookRunAction) Update(db *gorm.DB, columns map[string]any) error {
+	if err := rejectStatusColumn(columns); err != nil {
+		return err
+	}
 	return oops.Tags("db").Wrap(db.Model(PlaybookRunAction{}).Where("id = ?", p.ID).UpdateColumns(columns).Error)
+}
+
+// Transition moves the action to the given status and writes the extra columns,
+// but only if its current status allows it. Otherwise it returns a *PlaybookTransitionError.
+func (p PlaybookRunAction) Transition(db *gorm.DB, to PlaybookActionStatus, columns map[string]any) error {
+	return transition(db, PlaybookRunAction{}, "playbook run action", p.ID, playbookActionTransitions, to, columns)
 }
 
 func (p PlaybookRunAction) UpdateRun(db *gorm.DB, columns map[string]any) error {
 	return PlaybookRun{ID: p.PlaybookRunID}.Update(db, columns)
 }
 
+// ScheduleRun hands the run back to the scheduler once this action has ended.
+// A run that already ended (cancelled, timed out, ...) while the action ran stays ended,
+// and an agent, which keeps no run rows, has no run to schedule.
 func (p PlaybookRunAction) ScheduleRun(db *gorm.DB) error {
-	return PlaybookRun{ID: p.PlaybookRunID}.Schedule(db)
+	err := PlaybookRun{ID: p.PlaybookRunID}.Schedule(db)
+
+	var terr *PlaybookTransitionError
+	if errors.As(err, &terr) && (terr.From == "" || PlaybookRunStatus(terr.From).IsFinal()) {
+		return nil
+	}
+	return err
 }
 
 func (p PlaybookRunAction) TableName() string {

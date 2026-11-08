@@ -299,20 +299,21 @@ func InsertUpstreamMsg(ctx context.Context, req *PushData) error {
 		}
 	}
 
-	for i := range req.PlaybookActions {
-		updates := map[string]any{
-			"result":     req.PlaybookActions[i].Result,
-			"start_time": req.PlaybookActions[i].StartTime,
-			"end_time":   req.PlaybookActions[i].EndTime,
-			"status":     req.PlaybookActions[i].Status,
-			"error":      req.PlaybookActions[i].Error,
-		}
-		if err := db.Model(&models.PlaybookRunAction{}).Where("id = ?", req.PlaybookActions[i].ID).Updates(updates).Error; err != nil {
-			return fmt.Errorf("error updating playbook action [%s]: %w", req.PlaybookActions[i].ID, err)
+	for _, reported := range req.PlaybookActions {
+		var action models.PlaybookRunAction
+		if err := db.Select("id", "playbook_run_id").Where("id = ?", reported.ID).Limit(1).Find(&action).Error; err != nil {
+			return fmt.Errorf("error fetching playbook action [%s]: %w", reported.ID, err)
+		} else if action.ID == uuid.Nil {
+			continue
 		}
 
-		if err := db.Exec("UPDATE playbook_runs SET status = ? WHERE id = (SELECT playbook_run_id FROM playbook_run_actions WHERE id = ?)", models.PlaybookRunStatusScheduled, req.PlaybookActions[i].ID).Error; err != nil {
-			return fmt.Errorf("error updating playbook run [%s]  status to %s : %w", req.PlaybookActions[i].PlaybookRunID, models.PlaybookRunStatusScheduled, err)
+		if err := action.SaveAgentResult(db, reported); err != nil {
+			if errors.Is(err, models.ErrPlaybookTransition) {
+				// Usually a result the agent pushed again. The action already ended, so there's nothing to apply.
+				ctx.Warnf("ignoring pushed playbook action: %v", err)
+				continue
+			}
+			return fmt.Errorf("error saving pushed playbook action [%s]: %w", reported.ID, err)
 		}
 	}
 
