@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/flanksource/commons/logger"
@@ -11,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
 
 	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
@@ -61,14 +63,15 @@ func GetOrCreateAgent(ctx context.Context, name string) (*models.Agent, error) {
 // agentOwnedRow holds, for each table agents push, the condition under which a row belongs to the agent given as ?.
 // A row with an agent_id belongs to that agent; any other row belongs to the agent of its parent.
 var agentOwnedRow = map[string]string{
-	"topologies":      "topologies.agent_id = ?",
-	"canaries":        "canaries.agent_id = ?",
-	"checks":          "checks.agent_id = ?",
-	"components":      "components.agent_id = ?",
-	"config_scrapers": "config_scrapers.agent_id = ?",
-	"config_items":    "config_items.agent_id = ?",
-	"job_history":     "job_history.agent_id = ?",
-	"view_panels":     "view_panels.agent_id = ?",
+	"topologies":           "topologies.agent_id = ?",
+	"canaries":             "canaries.agent_id = ?",
+	"checks":               "checks.agent_id = ?",
+	"components":           "components.agent_id = ?",
+	"config_scrapers":      "config_scrapers.agent_id = ?",
+	"config_items":         "config_items.agent_id = ?",
+	"job_history":          "job_history.agent_id = ?",
+	"view_panels":          "view_panels.agent_id = ?",
+	"playbook_run_actions": "playbook_run_actions.agent_id = ?",
 
 	"component_relationships":        "EXISTS (SELECT 1 FROM components WHERE components.id = component_relationships.component_id AND components.agent_id = ?)",
 	"config_relationships":           "EXISTS (SELECT 1 FROM config_items WHERE config_items.id = config_relationships.config_id AND config_items.agent_id = ?)",
@@ -111,14 +114,117 @@ func upsertOwnedBy(table string, agentID uuid.UUID, columns ...clause.Column) cl
 	}
 }
 
+// dropForeign drops the rows that reference a row of the parent table belonging to another agent, so an agent
+// can't attach rows to the resources of the host or of another agent.
+// A reference to a row that doesn't exist yet is kept: the push then fails with a foreign key error and is retried.
+func dropForeign[T any](ctx context.Context, agentID uuid.UUID, rows []T, parent string, ref func(T) string) ([]T, error) {
+	var ids []uuid.UUID
+	for _, row := range rows {
+		if id, err := uuid.Parse(ref(row)); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return rows, nil
+	}
+
+	var foreign []uuid.UUID
+	if err := ctx.DB().Table(parent).Where("id IN ?", lo.Uniq(ids)).Not(ownedBy(parent, agentID)).Pluck("id", &foreign).Error; err != nil {
+		return nil, fmt.Errorf("error looking up the owners of %s: %w", parent, err)
+	}
+	if len(foreign) == 0 {
+		return rows, nil
+	}
+
+	ctx.Warnf("agent %s pushed rows referencing %d %s of another agent", agentID, len(foreign), parent)
+	return lo.Filter(rows, func(row T, _ int) bool {
+		id, err := uuid.Parse(ref(row))
+		return err != nil || !lo.Contains(foreign, id)
+	}), nil
+}
+
+// dropForeignRows drops the pushed rows that reference the resources of the host or of another agent.
+func dropForeignRows(ctx context.Context, agentID uuid.UUID, req *PushData) error {
+	str := func(id *uuid.UUID) string {
+		if id == nil {
+			return ""
+		}
+		return id.String()
+	}
+
+	var err error
+	if req.ComponentRelationships, err = dropForeign(ctx, agentID, req.ComponentRelationships, "components", func(r models.ComponentRelationship) string { return r.ComponentID.String() }); err != nil {
+		return err
+	}
+	if req.ConfigRelationships, err = dropForeign(ctx, agentID, req.ConfigRelationships, "config_items", func(r models.ConfigRelationship) string { return r.ConfigID }); err != nil {
+		return err
+	}
+	if req.ConfigComponentRelationships, err = dropForeign(ctx, agentID, req.ConfigComponentRelationships, "config_items", func(r models.ConfigComponentRelationship) string { return r.ConfigID.String() }); err != nil {
+		return err
+	}
+	if req.CheckConfigRelationships, err = dropForeign(ctx, agentID, req.CheckConfigRelationships, "checks", func(r models.CheckConfigRelationship) string { return r.CheckID.String() }); err != nil {
+		return err
+	}
+	if req.ConfigItemsLastScrapedTime, err = dropForeign(ctx, agentID, req.ConfigItemsLastScrapedTime, "config_items", func(r models.ConfigItemLastScrapedTime) string { return r.ConfigID.String() }); err != nil {
+		return err
+	}
+	if req.ChecksUnlogged, err = dropForeign(ctx, agentID, req.ChecksUnlogged, "checks", func(r models.ChecksUnlogged) string { return r.CheckID.String() }); err != nil {
+		return err
+	}
+	if req.ConfigChanges, err = dropForeign(ctx, agentID, req.ConfigChanges, "config_items", func(r models.ConfigChange) string { return r.ConfigID }); err != nil {
+		return err
+	}
+	if req.ConfigAnalysis, err = dropForeign(ctx, agentID, req.ConfigAnalysis, "config_items", func(r models.ConfigAnalysis) string { return r.ConfigID.String() }); err != nil {
+		return err
+	}
+	if req.CheckStatuses, err = dropForeign(ctx, agentID, req.CheckStatuses, "checks", func(r models.CheckStatus) string { return r.CheckID.String() }); err != nil {
+		return err
+	}
+
+	// A job history of another agent is dropped, not only left unchanged by the upsert: the push handler adds the
+	// pushed histories to the agent's status ring, which deletes the ones it evicts.
+	if req.JobHistory, err = dropForeign(ctx, agentID, req.JobHistory, "job_history", func(r models.JobHistory) string { return r.ID.String() }); err != nil {
+		return err
+	}
+
+	// An artifact must not reference any resource of another agent, even when another of its references is the agent's.
+	artifactParents := map[string]func(models.Artifact) string{
+		"checks":               func(a models.Artifact) string { return str(a.CheckID) },
+		"playbook_run_actions": func(a models.Artifact) string { return str(a.PlaybookRunActionID) },
+		"config_changes":       func(a models.Artifact) string { return str(a.ConfigChangeID) },
+		"config_scrapers":      func(a models.Artifact) string { return str(a.ScraperID) },
+		"job_history":          func(a models.Artifact) string { return str(a.JobHistoryID) },
+	}
+	for parent, ref := range artifactParents {
+		if req.Artifacts, err = dropForeign(ctx, agentID, req.Artifacts, parent, ref); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // DeleteOnUpstream deletes the given resources of the agent on the upstream.
 // Resources that don't belong to the agent are left alone.
 func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) error {
 	db := ctx.DB()
 	owned := func(table string) *gorm.DB { return db.Where(ownedBy(table, agentID)) }
 
+	// deleteOwned deletes the rows by their primary key. Rows without one are skipped: GORM leaves them out of
+	// the WHERE clause, so the ownership condition alone would delete every row the agent owns.
+	deleteOwned := func(table string, rows any) error {
+		stmt := &gorm.Statement{DB: db}
+		if err := stmt.Parse(rows); err != nil {
+			return err
+		}
+		if _, keys := schema.GetIdentityFieldValuesMap(ctx, reflect.ValueOf(rows), stmt.Schema.PrimaryFields); len(keys) == 0 {
+			return nil
+		}
+		return owned(table).Delete(rows).Error
+	}
+
 	if len(req.ComponentRelationships) > 0 {
-		if err := owned("component_relationships").Delete(req.ComponentRelationships).Error; err != nil {
+		if err := deleteOwned("component_relationships", req.ComponentRelationships); err != nil {
 			return fmt.Errorf("error deleting component_relationships: %w", err)
 		}
 	}
@@ -140,91 +246,91 @@ func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) err
 	}
 
 	if len(req.ConfigComponentRelationships) > 0 {
-		if err := owned("config_component_relationships").Delete(req.ConfigComponentRelationships).Error; err != nil {
+		if err := deleteOwned("config_component_relationships", req.ConfigComponentRelationships); err != nil {
 			return fmt.Errorf("error deleting config_component_relationships: %w: %+v", err, req.ConfigComponentRelationships)
 		}
 	}
 
 	if len(req.CheckConfigRelationships) > 0 {
-		if err := owned("check_config_relationships").Delete(req.CheckConfigRelationships).Error; err != nil {
+		if err := deleteOwned("check_config_relationships", req.CheckConfigRelationships); err != nil {
 			return fmt.Errorf("error deleting check_config_relationships: %w", err)
 		}
 	}
 
 	if len(req.ConfigItemsLastScrapedTime) > 0 {
-		if err := owned("config_items_last_scraped_time").Delete(req.ConfigItemsLastScrapedTime).Error; err != nil {
+		if err := deleteOwned("config_items_last_scraped_time", req.ConfigItemsLastScrapedTime); err != nil {
 			return fmt.Errorf("error deleting config_items_last_scraped_time: %w", err)
 		}
 	}
 
 	if len(req.ChecksUnlogged) > 0 {
-		if err := owned("checks_unlogged").Delete(req.ChecksUnlogged).Error; err != nil {
+		if err := deleteOwned("checks_unlogged", req.ChecksUnlogged); err != nil {
 			return fmt.Errorf("error deleting checks_unlogged: %w", err)
 		}
 	}
 
 	if len(req.ConfigChanges) > 0 {
-		if err := owned("config_changes").Delete(req.ConfigChanges).Error; err != nil {
+		if err := deleteOwned("config_changes", req.ConfigChanges); err != nil {
 			return fmt.Errorf("error deleting config changes: %w", err)
 		}
 	}
 
 	if len(req.ConfigAnalysis) > 0 {
-		if err := owned("config_analysis").Delete(req.ConfigAnalysis).Error; err != nil {
+		if err := deleteOwned("config_analysis", req.ConfigAnalysis); err != nil {
 			return fmt.Errorf("error deleting config analysis: %w", err)
 		}
 	}
 
 	if len(req.CheckStatuses) > 0 {
-		if err := owned("check_statuses").Delete(req.CheckStatuses).Error; err != nil {
+		if err := deleteOwned("check_statuses", req.CheckStatuses); err != nil {
 			return fmt.Errorf("error deleting check_statuses: %w", err)
 		}
 	}
 
 	if len(req.Components) > 0 {
-		if err := owned("components").Delete(req.Components).Error; err != nil {
+		if err := deleteOwned("components", req.Components); err != nil {
 			logger.Errorf("error deleting components: %w", err)
 		}
 	}
 
 	if len(req.ConfigItems) > 0 {
-		if err := owned("config_items").Delete(req.ConfigItems).Error; err != nil {
+		if err := deleteOwned("config_items", req.ConfigItems); err != nil {
 			logger.Errorf("error deleting config items: %w", err)
 		}
 	}
 
 	if len(req.Checks) > 0 {
-		if err := owned("checks").Delete(req.Checks).Error; err != nil {
+		if err := deleteOwned("checks", req.Checks); err != nil {
 			return fmt.Errorf("error deleting checks: %w", err)
 		}
 	}
 
 	if len(req.ConfigScrapers) > 0 {
-		if err := owned("config_scrapers").Delete(req.ConfigScrapers).Error; err != nil {
+		if err := deleteOwned("config_scrapers", req.ConfigScrapers); err != nil {
 			return fmt.Errorf("error deleting config scrapers: %w", err)
 		}
 	}
 
 	if len(req.Canaries) > 0 {
-		if err := owned("canaries").Delete(req.Canaries).Error; err != nil {
+		if err := deleteOwned("canaries", req.Canaries); err != nil {
 			return fmt.Errorf("error deleting canaries: %w", err)
 		}
 	}
 
 	if len(req.Topologies) > 0 {
-		if err := owned("topologies").Delete(req.Topologies).Error; err != nil {
+		if err := deleteOwned("topologies", req.Topologies); err != nil {
 			return fmt.Errorf("error deleting topologies: %w", err)
 		}
 	}
 
 	if len(req.JobHistory) > 0 {
-		if err := owned("job_history").Delete(req.JobHistory).Error; err != nil {
+		if err := deleteOwned("job_history", req.JobHistory); err != nil {
 			return fmt.Errorf("error deleting job_history: %w", err)
 		}
 	}
 
 	if len(req.ViewPanels) > 0 {
-		if err := owned("view_panels").Delete(req.ViewPanels).Error; err != nil {
+		if err := deleteOwned("view_panels", req.ViewPanels); err != nil {
 			return fmt.Errorf("error deleting view_panels: %w", err)
 		}
 	}
@@ -241,8 +347,12 @@ func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) err
 }
 
 // InsertUpstreamMsg saves the resources the agent pushed on the upstream.
-// Resources that already exist and don't belong to the agent aren't updated.
+// Resources that already exist and don't belong to the agent aren't updated, and rows referencing them are dropped.
 func InsertUpstreamMsg(ctx context.Context, agentID uuid.UUID, req *PushData) error {
+	if err := dropForeignRows(ctx, agentID, req); err != nil {
+		return err
+	}
+
 	batchSize := 100
 	db := ctx.DB()
 	for _, c := range req.Topologies {

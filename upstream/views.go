@@ -33,7 +33,7 @@ func checkGeneratedViewTable(ctx context.Context, table string) error {
 	var exists bool
 	if err := ctx.DB().Raw(`SELECT EXISTS (
 		SELECT 1 FROM views
-		WHERE deleted_at IS NULL AND 'view_' || replace(namespace, '-', '_') || '_' || replace(name, '-', '_') = ?
+		WHERE deleted_at IS NULL AND 'view_' || replace(COALESCE(namespace, ''), '-', '_') || '_' || replace(name, '-', '_') = ?
 	)`, table).Scan(&exists).Error; err != nil {
 		return fmt.Errorf("error looking up the view of table %s: %w", table, err)
 	}
@@ -64,7 +64,7 @@ func deleteViewData(ctx context.Context, agentID uuid.UUID, records []models.Gen
 		}
 
 		deleteBuilder = deleteBuilder.Where(squirrel.Eq{
-			record.PrimaryKey[0]: record.Row[record.PrimaryKey[0]],
+			pq.QuoteIdentifier(record.PrimaryKey[0]): record.Row[record.PrimaryKey[0]],
 		})
 	}
 
