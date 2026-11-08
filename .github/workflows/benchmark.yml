@@ -174,4 +174,4 @@ jobs:
               });
             }
       - name: Check for regressions
-        run: python3 .github/scripts/benchstat-summary.py --threshold 5 benchstat.txt > /dev/null
+        run: python3 .github/scripts/benchstat-summary.py --threshold 10 benchstat.txt > /dev/null

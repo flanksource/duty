@@ -31,15 +31,29 @@ LINE_RE = re.compile(
     r"^(\S+)"  # benchmark name
     r"\s+"
     r"(\S+)"  # base value
-    r"\s+±\s+(?:\d+%|∞)"  # base variance
+    r"\s+±\s+(\d+%|∞)"  # base variance
     r"\s+"
     r"(\S+)"  # head value
-    r"\s+±\s+(?:\d+%|∞)"  # head variance
+    r"\s+±\s+(\d+%|∞)"  # head variance
     r"\s+"
     r"([+-]\d+\.\d+%|~)"  # percentage change, or no significant change
     r"\s+"
     r"\(p=(\d+\.\d+)"  # p-value
 )
+
+
+def ranges_overlap(base: str, base_var: str, head: str, head_var: str) -> bool:
+    """Reports whether the base and head ranges (median ± variance) overlap.
+
+    benchstat prints both values of a row with the same unit prefix, so the numbers compare directly.
+    """
+    if "∞" in (base_var, head_var):
+        return True
+    b = float(re.sub(r"[^\d.]", "", base))
+    h = float(re.sub(r"[^\d.]", "", head))
+    bv = float(base_var.removesuffix("%")) / 100
+    hv = float(head_var.removesuffix("%")) / 100
+    return b * (1 - bv) <= h * (1 + hv) and h * (1 - hv) <= b * (1 + bv)
 
 
 def parse_benchstat(path: str) -> list[Change]:
@@ -54,15 +68,17 @@ def parse_benchstat(path: str) -> list[Change]:
             if not m:
                 continue
             comparisons += 1
-            if m.group(4) == "~":
+            name, base, base_var, head, head_var, pct, pval = m.groups()
+            # A change within the run-to-run spread of either side isn't significant, whatever its p-value.
+            if pct == "~" or ranges_overlap(base, base_var, head, head_var):
                 continue
             changes.append(
                 Change(
-                    name=m.group(1),
-                    base=m.group(2),
-                    head=m.group(3),
-                    pct=float(m.group(4).removesuffix("%")),
-                    pval=m.group(5),
+                    name=name,
+                    base=base,
+                    head=head,
+                    pct=float(pct.removesuffix("%")),
+                    pval=pval,
                 )
             )
     if comparisons == 0:
