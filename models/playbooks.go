@@ -384,7 +384,7 @@ func (p PlaybookRun) Update(db *gorm.DB, columns map[string]any) error {
 }
 
 // Transition moves the run to the given status and writes the extra columns,
-// but only if its current status allows it. Otherwise it returns a *PlaybookTransitionError.
+// but only if its current status allows it. Otherwise it returns a *TransitionError.
 func (p PlaybookRun) Transition(db *gorm.DB, to PlaybookRunStatus, columns map[string]any) error {
 	return transition(db, PlaybookRun{}, "playbook run", p.ID, playbookRunTransitions, to, columns)
 }
@@ -460,39 +460,8 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 		}
 
 		if p.NotificationSendID != nil {
-			updates := map[string]any{}
-			runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
-			if runFailed {
-				updates["status"] = NotificationStatusError
-				switch status {
-				case PlaybookRunStatusTimedOut:
-					updates["error"] = "playbook timed out"
-				case PlaybookRunStatusCancelled:
-					updates["error"] = "playbook was cancelled"
-				default:
-					updates["error"] = "playbook failed with an error. For more details, see playbook run"
-				}
-			} else {
-				updates["status"] = NotificationStatusSent
-			}
-
-			if err := db.Model(&NotificationSendHistory{}).Where("id = ?", *p.NotificationSendID).Updates(updates).Error; err != nil {
+			if err := p.endNotificationSend(db, status); err != nil {
 				return err
-			}
-
-			var notif Notification
-			var sendHistory NotificationSendHistory
-			if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
-				return fmt.Errorf("failed to get notification send history: %w", err)
-			}
-			if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
-				return fmt.Errorf("failed to get notification: %w", err)
-			}
-
-			if runFailed && notif.HasFallbackSet() {
-				if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
-					return fmt.Errorf("failed to generate fallback attempt: %w", err)
-				}
 			}
 		}
 
@@ -505,6 +474,48 @@ func (p PlaybookRun) endWithStatus(db *gorm.DB, status PlaybookRunStatus) error 
 
 		return nil
 	})
+}
+
+// endNotificationSend ends the notification send history that triggered this run,
+// and creates its fallback attempt when the run didn't succeed.
+// A send history that already ended keeps its status and gets no fallback.
+func (p PlaybookRun) endNotificationSend(db *gorm.DB, status PlaybookRunStatus) error {
+	sendStatus := NotificationStatusSent
+	updates := map[string]any{}
+	runFailed := lo.Contains(UnsuccessfulPlaybookRunFinalStates, status)
+	if runFailed {
+		sendStatus = NotificationStatusError
+		switch status {
+		case PlaybookRunStatusTimedOut:
+			updates["error"] = "playbook timed out"
+		case PlaybookRunStatusCancelled:
+			updates["error"] = "playbook was cancelled"
+		default:
+			updates["error"] = "playbook failed with an error. For more details, see playbook run"
+		}
+	}
+
+	if err := (NotificationSendHistory{ID: *p.NotificationSendID}).Transition(db, sendStatus, updates); errors.Is(err, ErrTransition) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	var notif Notification
+	var sendHistory NotificationSendHistory
+	if err := db.Where("id = ?", *p.NotificationSendID).First(&sendHistory).Error; err != nil {
+		return fmt.Errorf("failed to get notification send history: %w", err)
+	}
+	if err := db.Where("id = ?", sendHistory.NotificationID).First(&notif).Error; err != nil {
+		return fmt.Errorf("failed to get notification: %w", err)
+	}
+
+	if runFailed && notif.HasFallbackSet() {
+		if err := GenerateFallbackAttempt(db, notif, sendHistory); err != nil {
+			return fmt.Errorf("failed to generate fallback attempt: %w", err)
+		}
+	}
+	return nil
 }
 
 // ResumeChildrenWaitingAction resumes the action that's awaiting children
@@ -939,7 +950,7 @@ func (p PlaybookRunAction) Update(db *gorm.DB, columns map[string]any) error {
 }
 
 // Transition moves the action to the given status and writes the extra columns,
-// but only if its current status allows it. Otherwise it returns a *PlaybookTransitionError.
+// but only if its current status allows it. Otherwise it returns a *TransitionError.
 func (p PlaybookRunAction) Transition(db *gorm.DB, to PlaybookActionStatus, columns map[string]any) error {
 	return transition(db, PlaybookRunAction{}, "playbook run action", p.ID, playbookActionTransitions, to, columns)
 }
@@ -954,7 +965,7 @@ func (p PlaybookRunAction) UpdateRun(db *gorm.DB, columns map[string]any) error 
 func (p PlaybookRunAction) ScheduleRun(db *gorm.DB) error {
 	err := PlaybookRun{ID: p.PlaybookRunID}.Schedule(db)
 
-	var terr *PlaybookTransitionError
+	var terr *TransitionError
 	if errors.As(err, &terr) && (terr.From == "" || PlaybookRunStatus(terr.From).IsFinal()) {
 		return nil
 	}
