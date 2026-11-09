@@ -2,12 +2,13 @@ package upstream
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Masterminds/squirrel"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/samber/lo"
 
+	"github.com/flanksource/duty/api"
 	"github.com/flanksource/duty/context"
 	"github.com/flanksource/duty/models"
 	pkgView "github.com/flanksource/duty/view"
@@ -26,17 +27,34 @@ type ViewWithColumns struct {
 	Columns   []pkgView.ColumnDef `json:"columns"`
 }
 
-func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) error {
+// checkGeneratedViewTable returns an error unless the table is the generated table of a view on the upstream.
+// Without it, an agent could push rows into any table, e.g. view_panels, which also starts with view_.
+func checkGeneratedViewTable(ctx context.Context, table string) error {
+	var exists bool
+	if err := ctx.DB().Raw(`SELECT EXISTS (
+		SELECT 1 FROM views
+		WHERE deleted_at IS NULL AND 'view_' || replace(COALESCE(namespace, ''), '-', '_') || '_' || replace(name, '-', '_') = ?
+	)`, table).Scan(&exists).Error; err != nil {
+		return fmt.Errorf("error looking up the view of table %s: %w", table, err)
+	}
+	if !exists {
+		return api.Errorf(api.EINVALID, "table %s is not a view generated table", table)
+	}
+	return nil
+}
+
+func deleteViewData(ctx context.Context, agentID uuid.UUID, records []models.GeneratedViewTable) error {
 	if len(records) == 0 {
 		return nil
 	}
 
 	table := records[0].ViewTableName
-	if !strings.HasPrefix(table, "view_") {
-		return fmt.Errorf("table %s is not a view generated table", table)
+	if err := checkGeneratedViewTable(ctx, table); err != nil {
+		return err
 	}
 
-	deleteBuilder := squirrel.Delete(table).PlaceholderFormat(squirrel.Dollar)
+	deleteBuilder := squirrel.Delete(pq.QuoteIdentifier(table)).PlaceholderFormat(squirrel.Dollar).
+		Where(squirrel.Eq{"agent_id": agentID})
 
 	for _, record := range records {
 		if len(record.PrimaryKey) == 0 {
@@ -46,7 +64,7 @@ func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) er
 		}
 
 		deleteBuilder = deleteBuilder.Where(squirrel.Eq{
-			record.PrimaryKey[0]: record.Row[record.PrimaryKey[0]],
+			pq.QuoteIdentifier(record.PrimaryKey[0]): record.Row[record.PrimaryKey[0]],
 		})
 	}
 
@@ -66,6 +84,10 @@ func deleteViewData(ctx context.Context, records []models.GeneratedViewTable) er
 func upsertViewData(ctx context.Context, viewData []models.GeneratedViewTable) error {
 	if len(viewData) == 0 {
 		return nil
+	}
+
+	if err := checkGeneratedViewTable(ctx, viewData[0].ViewTableName); err != nil {
+		return err
 	}
 
 	table := pq.QuoteIdentifier(viewData[0].ViewTableName)
