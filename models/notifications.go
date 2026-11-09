@@ -88,6 +88,10 @@ func (n Notification) GetNamespace() string {
 }
 
 const (
+	// a notification.send event is being dispatched. The row exists before dispatch so that what dispatch
+	// creates (playbook runs, delivery receipts) can refer to it.
+	NotificationStatusSending = "sending"
+
 	NotificationStatusError          = "error"
 	NotificationStatusSent           = "sent"
 	NotificationStatusPending        = "pending" // delayed due to waitFor evaluation

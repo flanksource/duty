@@ -108,10 +108,11 @@ DECLARE
   v_existing_skipped uuid;
   v_existing_send_history record;
 BEGIN
-  -- Get the existing send history
+  -- Get the existing send history, locked so that its status can't change between this check and the update below.
   SELECT * INTO v_existing_send_history
   FROM notification_send_history
-  WHERE id = p_send_history_id;
+  WHERE id = p_send_history_id
+  FOR UPDATE;
 
   IF v_existing_send_history.status NOT IN ('pending', 'evaluating-waitfor') THEN
     RAISE EXCEPTION 'status must be pending or evaluating-waitfor';

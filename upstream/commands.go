@@ -517,7 +517,7 @@ func InsertUpstreamMsg(ctx context.Context, agentID uuid.UUID, req *PushData) er
 		}
 
 		if err := action.SaveAgentResult(db, reported); err != nil {
-			if errors.Is(err, models.ErrPlaybookTransition) {
+			if errors.Is(err, models.ErrTransition) {
 				// Usually a result the agent pushed again. The action already ended, so there's nothing to apply.
 				ctx.Warnf("ignoring pushed playbook action: %v", err)
 				continue
