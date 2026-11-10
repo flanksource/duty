@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -143,8 +142,13 @@ func startAzurite(ctx gocontext.Context) (*azblob.Client, testcontainers.Contain
 }
 
 func startSFTP(ctx gocontext.Context) (string, testcontainers.Container, error) {
-	_, filename, _, _ := runtime.Caller(0)
-	configPath := filepath.Join(filepath.Dir(filename), "sftp-configuration.json")
+	// go test runs with the package directory as the working directory, so the
+	// fixture resolves relatively. runtime.Caller is unusable here: under
+	// -trimpath it yields the import path, not a filesystem location.
+	configPath, err := filepath.Abs("sftp-configuration.json")
+	if err != nil {
+		return "", nil, fmt.Errorf("resolve sftp fixture: %w", err)
+	}
 
 	req := testcontainers.ContainerRequest{
 		Image:        "emberstack/sftp",
