@@ -6,13 +6,13 @@ package schema
 
 import (
 	"context"
+	"database/sql"
 	"embed"
-	"errors"
 	"fmt"
 	"io"
 
 	"ariga.io/atlas/sql/migrate"
-	_ "ariga.io/atlas/sql/postgres"
+	"ariga.io/atlas/sql/postgres"
 	"ariga.io/atlas/sql/schema"
 	"ariga.io/atlas/sql/sqlclient"
 	"github.com/flanksource/commons/logger"
@@ -43,7 +43,8 @@ func skipDropTables(changes []schema.Change) []schema.Change {
 	return filtered
 }
 
-func Apply(ctx context.Context, connection string) error {
+// Apply migrates the schema within tx, so a failed change leaves the database untouched once tx rolls back.
+func Apply(ctx context.Context, tx *sql.Tx, connection string) error {
 	log := logger.GetLogger("migrate")
 
 	// https://atlasgo.io/versioned/diff#exclude-objects
@@ -61,18 +62,22 @@ func Apply(ctx context.Context, connection string) error {
 		"notification_group_resources.unique_notification_group_resources_unresolved_component",
 	}
 
-	from, err := dbReader(ctx, connection, exclude)
+	u, err := sqlclient.ParseURL(connection)
 	if err != nil {
-		return fmt.Errorf("failed to open connection: %w", err)
-	}
-	defer from.Close()
-
-	client, ok := from.Closer.(*sqlclient.Client)
-	if !ok {
-		return errors.New("--url must be a database connection")
+		return fmt.Errorf("failed to parse connection string: %w", err)
 	}
 
-	to, err := hclStateReader(ctx, client, schemas)
+	client, err := postgres.Open(tx)
+	if err != nil {
+		return fmt.Errorf("failed to open atlas driver: %w", err)
+	}
+
+	from := &stateReadCloser{
+		StateReader: migrate.SchemaConn(client, u.Query().Get("search_path"), &schema.InspectOptions{Exclude: exclude}),
+		schema:      u.Query().Get("search_path"),
+	}
+
+	to, err := hclStateReader(schemas)
 	if err != nil {
 		return fmt.Errorf("failed to initiate HCL state reader: %w", err)
 	}
@@ -100,14 +105,14 @@ func Apply(ctx context.Context, connection string) error {
 	}
 
 	if err = client.ApplyChanges(ctx, changes); err != nil {
-		return fmt.Errorf("applied %d changes and then failed: %w", len(changes), err)
+		return fmt.Errorf("failed to apply %d changes: %w", len(changes), err)
 	}
 
 	log.V(1).Infof("Applied %d changes", len(changes))
 	return nil
 }
 
-func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateReadCloser) ([]schema.Change, error) {
+func computeDiff(ctx context.Context, differ migrate.Driver, from, to *stateReadCloser) ([]schema.Change, error) {
 	current, err := from.ReadState(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read state: %w", err)
@@ -139,7 +144,7 @@ func computeDiff(ctx context.Context, differ *sqlclient.Client, from, to *stateR
 }
 
 // hclStateReadr returns a StateReader that reads the state from the given HCL paths urls.
-func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) (*stateReadCloser, error) {
+func hclStateReader(fs embed.FS) (*stateReadCloser, error) {
 	scripts, err := schemas.ReadDir(".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read scripts: %w", err)
@@ -160,26 +165,12 @@ func hclStateReader(ctx context.Context, client *sqlclient.Client, fs embed.FS) 
 	}
 
 	realm := &schema.Realm{}
-	if err := client.Eval(p, realm, make(map[string]cty.Value)); err != nil {
+	if err := postgres.EvalHCL.Eval(p, realm, make(map[string]cty.Value)); err != nil {
 		return nil, fmt.Errorf("failed to evaluate HCL: %w", err)
 	}
 
 	t := &stateReadCloser{StateReader: migrate.Realm(realm), hcl: true}
 	return t, nil
-}
-
-func dbReader(ctx context.Context, connection string, exclude []string) (*stateReadCloser, error) {
-	c, err := sqlclient.Open(ctx, connection)
-	if err != nil {
-		return nil, err
-	}
-	sr := migrate.SchemaConn(c.Driver, c.URL.Schema, &schema.InspectOptions{Exclude: exclude})
-
-	return &stateReadCloser{
-		StateReader: sr,
-		Closer:      c,
-		schema:      c.URL.Schema,
-	}, nil
 }
 
 // Close redirects calls to Close to the enclosed io.Closer.

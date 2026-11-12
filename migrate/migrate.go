@@ -54,30 +54,47 @@ func RunMigrations(pool *sql.DB, config api.Config) error {
 		return fmt.Errorf("failed to get executable scripts: %w", err)
 	}
 
+	// Run every step in one transaction, so a failure anywhere leaves the database as it was.
+	tx, err := pool.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// SQL uses the configured role names, not just the default PostgREST roles.
+	if _, err := tx.Exec("SELECT set_config('duty.postgrest_api_role', $1, true), set_config('duty.postgrest_anon_role', $2, true)", config.Postgrest.DBRole, config.Postgrest.AnonDBRole); err != nil {
+		return fmt.Errorf("failed to set PostgREST roles for migrations: %w", err)
+	}
+
 	l.V(3).Infof("Running %d scripts (functions)", len(allFunctions))
-	// Do not mark these scripts complete until their dependent views exist again.
-	// If schema or view migration fails, the next run must repeat the drops and rebuilds.
-	if err := runScripts(pool, allFunctions, nil, config); err != nil {
+	if err := runScripts(tx, allFunctions); err != nil {
 		return fmt.Errorf("failed to run scripts: %w", err)
 	}
 
 	l.V(3).Infof("Granting roles to current user")
 	// Grant postgrest roles in ./functions/postgrest.sql to the current user
-	if err := grantPostgrestRolesToCurrentUser(pool, config); err != nil {
+	if err := grantPostgrestRolesToCurrentUser(tx, config); err != nil {
 		return oops.Wrapf(err, "failed to grant postgrest roles")
 	}
 
 	l.V(3).Infof("Applying schema migrations")
-	if err := schema.Apply(context.TODO(), config.ConnectionString); err != nil {
+	if err := schema.Apply(context.TODO(), tx, config.ConnectionString); err != nil {
 		return fmt.Errorf("failed to apply schema migrations: %w", err)
 	}
 
 	l.V(3).Infof("Running %d scripts (views)", len(allViews))
-	if err := runScripts(pool, allViews, lo.Assign(allFunctions, allViews), config); err != nil {
+	if err := runScripts(tx, allViews); err != nil {
 		return fmt.Errorf("failed to run scripts for views: %w", err)
 	}
 
-	return nil
+	for file, content := range lo.Assign(allFunctions, allViews) {
+		hash := sha1.Sum([]byte(content))
+		if _, err := tx.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
+			return fmt.Errorf("failed to save migration log %s: %w", file, err)
+		}
+	}
+
+	return tx.Commit()
 }
 
 // GetExecutableScripts returns functions & views that must be applied.
@@ -211,16 +228,16 @@ func readMigrationLogs(pool *sql.DB) (map[string]string, error) {
 	return migrationHashes, nil
 }
 
-func createRole(db *sql.DB, roleName string, config api.Config) error {
+func createRole(tx *sql.Tx, roleName string, config api.Config) error {
 	if roleName == "" {
 		return nil
 	}
 	log := logger.GetLogger("migrate")
 	count := 0
-	if err := db.QueryRow("SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = $1 LIMIT 1", roleName).Scan(&count); err != nil {
+	if err := tx.QueryRow("SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname = $1 LIMIT 1", roleName).Scan(&count); err != nil {
 		return err
 	} else if count == 0 {
-		if _, err := db.Exec(fmt.Sprintf("CREATE ROLE %s", roleName)); err != nil {
+		if _, err := tx.Exec(fmt.Sprintf("CREATE ROLE %s", roleName)); err != nil {
 			return err
 		} else {
 			log.Infof("Created role %s", roleName)
@@ -230,11 +247,18 @@ func createRole(db *sql.DB, roleName string, config api.Config) error {
 	if user == "" {
 		log.Errorf("Unable to find current user, %s may not be setup correctly", roleName)
 	} else {
-		if granted, err := checkIfRoleIsGranted(db, roleName, user); err != nil {
+		if granted, err := checkIfRoleIsGranted(tx, roleName, user); err != nil {
 			return err
 		} else if !granted {
-			if _, err := db.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, roleName, user)); err != nil {
+			// A failed statement aborts the transaction, so isolate the GRANT in a savepoint to keep it non-fatal.
+			if _, err := tx.Exec("SAVEPOINT grant_role"); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(fmt.Sprintf(`GRANT %s TO "%s"`, roleName, user)); err != nil {
 				log.Errorf("Failed to grant role %s to %s", roleName, user)
+				if _, err := tx.Exec("ROLLBACK TO SAVEPOINT grant_role"); err != nil {
+					return err
+				}
 			} else {
 				log.Infof("Granted %s to %s", roleName, user)
 			}
@@ -244,16 +268,16 @@ func createRole(db *sql.DB, roleName string, config api.Config) error {
 	return nil
 }
 
-func grantPostgrestRolesToCurrentUser(pool *sql.DB, config api.Config) error {
+func grantPostgrestRolesToCurrentUser(tx *sql.Tx, config api.Config) error {
 	// Roles must exist before we create policies that refer to them.
 	// Table and function access is granted later, in 9999_postgrest_permissions.sql.
-	if err := createRole(pool, config.Postgrest.DBRole, config); err != nil {
+	if err := createRole(tx, config.Postgrest.DBRole, config); err != nil {
 		return err
 	}
-	return createRole(pool, config.Postgrest.AnonDBRole, config)
+	return createRole(tx, config.Postgrest.AnonDBRole, config)
 }
 
-func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
+func checkIfRoleIsGranted(tx *sql.Tx, group, member string) (bool, error) {
 	query := `
         SELECT COUNT(*)
         FROM pg_auth_members a, pg_roles b, pg_roles c
@@ -262,7 +286,7 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
             a.member = c.oid AND b.rolname = $1 AND c.rolname = $2
     `
 
-	row := pool.QueryRow(query, group, member)
+	row := tx.QueryRow(query, group, member)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -274,53 +298,20 @@ func checkIfRoleIsGranted(pool *sql.DB, group, member string) (bool, error) {
 	return true, nil
 }
 
-func runScripts(pool *sql.DB, scripts, completedScripts map[string]string, config api.Config) error {
+func runScripts(tx *sql.Tx, scripts map[string]string) error {
 	l := logger.GetLogger("migrate")
 
-	// Keep new views and their permissions in the same transaction. If a revoke
-	// fails, roll back the grants too, rather than leaving private data exposed.
-	tx, err := pool.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// SQL uses the configured role names, not just the default PostgREST roles.
-	if _, err := tx.Exec("SELECT set_config('duty.postgrest_api_role', $1, true), set_config('duty.postgrest_anon_role', $2, true)", config.Postgrest.DBRole, config.Postgrest.AnonDBRole); err != nil {
-		return fmt.Errorf("failed to set PostgREST roles for migrations: %w", err)
-	}
-
-	var filenames []string
-	for name := range scripts {
-		filenames = append(filenames, name)
-	}
+	filenames := lo.Keys(scripts)
 	sort.Strings(filenames)
 
 	for _, file := range filenames {
-		content, ok := scripts[file]
-		if !ok {
-			continue
-		}
-
-		// Commit the removal of old hashes with the scripts, so a later failure cannot
-		// make a retry skip a script that dropped objects needed by another batch.
-		if _, err := tx.Exec("DELETE FROM migration_logs WHERE path = $1", file); err != nil {
-			return fmt.Errorf("failed to clear migration log %s: %w", file, err)
-		}
 		l.Tracef("running script %s", file)
-		if _, err := tx.Exec(content); err != nil {
+		if _, err := tx.Exec(scripts[file]); err != nil {
 			return fmt.Errorf("failed to run script %s: %w", file, db.ErrorDetails(err))
 		}
 	}
 
-	for file, content := range completedScripts {
-		hash := sha1.Sum([]byte(content))
-		if _, err := tx.Exec("INSERT INTO migration_logs(path, hash) VALUES($1, $2) ON CONFLICT (path) DO UPDATE SET hash = $2", file, hash[:]); err != nil {
-			return fmt.Errorf("failed to save migration log %s: %w", file, err)
-		}
-	}
-
-	return tx.Commit()
+	return nil
 }
 
 func createMigrationLogTable(pool *sql.DB) error {
