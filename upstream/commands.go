@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/flanksource/commons/logger"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -246,7 +245,9 @@ func dropForeignRows(ctx context.Context, agentID uuid.UUID, req *PushData) erro
 
 // DeleteOnUpstream deletes the given resources of the agent on the upstream.
 // Resources that don't belong to the agent are left alone.
-func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) error {
+func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) (result error) {
+	var componentErr, configErr error
+	defer func() { result = errors.Join(componentErr, configErr, result) }()
 	db := ctx.DB()
 	owned := func(table string) *gorm.DB { return db.Where(ownedBy(table, agentID)) }
 
@@ -329,13 +330,13 @@ func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) err
 
 	if len(req.Components) > 0 {
 		if err := deleteOwned("components", req.Components); err != nil {
-			logger.Errorf("error deleting components: %v", err)
+			componentErr = fmt.Errorf("error deleting components: %w", err)
 		}
 	}
 
 	if len(req.ConfigItems) > 0 {
 		if err := deleteOwned("config_items", req.ConfigItems); err != nil {
-			logger.Errorf("error deleting config items: %v", err)
+			configErr = fmt.Errorf("error deleting config items: %w", err)
 		}
 	}
 
