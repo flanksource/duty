@@ -119,7 +119,7 @@ func findFileInPath(filename string, depth int) string {
 	paths := strings.Split(path.Dir(filename), "/")
 	for i := len(paths); i >= len(paths)-depth; i-- {
 		file := "/" + path.Join(append(paths[:i], base)...)
-		logger.Infof(file)
+		logger.Infof("%s", file)
 		if _, err := os.Stat(file); err == nil {
 			return file
 		}
@@ -223,7 +223,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 	if importDummyData {
 		dummyData = dummy.GetStaticDummyData(ctx.DB())
 		if err := dummyData.Delete(ctx.DB()); err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 		}
 		err = dummyData.Populate(ctx)
 		if err != nil {

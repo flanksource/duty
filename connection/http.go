@@ -1,6 +1,7 @@
 package connection
 
 import (
+	gocontext "context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -16,6 +17,8 @@ import (
 	"github.com/flanksource/clicky/api"
 	"github.com/flanksource/commons/http"
 	"github.com/flanksource/commons/http/middlewares"
+	"github.com/flanksource/commons/http/middlewares/awssigv4"
+	"github.com/flanksource/commons/http/middlewares/oauth"
 	"github.com/flanksource/commons/logger"
 	"github.com/labstack/echo/v4"
 
@@ -96,6 +99,28 @@ func (in *cachedAWSConfig) DeepCopy() *cachedAWSConfig {
 	out := new(cachedAWSConfig)
 	*out = *in
 	return out
+}
+
+func (in *cachedAWSConfig) signingConfig() awssigv4.Config {
+	return awssigv4.Config{
+		Region: in.Region,
+		Credentials: awssigv4.CredentialsProviderFunc(func(ctx gocontext.Context) (awssigv4.Credentials, error) {
+			if in.Credentials == nil {
+				return awssigv4.Credentials{}, fmt.Errorf("AWS credentials provider is required")
+			}
+			credentials, err := in.Credentials.Retrieve(ctx)
+			if err != nil {
+				return awssigv4.Credentials{}, err
+			}
+			converted := awssigv4.Credentials{
+				AccessKeyID: credentials.AccessKeyID, SecretAccessKey: credentials.SecretAccessKey, SessionToken: credentials.SessionToken,
+			}
+			if credentials.CanExpire {
+				converted.Expires = credentials.Expires
+			}
+			return converted, nil
+		}),
+	}
 }
 
 // +kubebuilder:object:generate=true
@@ -390,6 +415,9 @@ func (h HTTPConnection) Transport(opts ...types.ClientOption) (netHTTP.RoundTrip
 }
 
 func (h HTTPConnection) TransportWithContext(ctx any, opts ...types.ClientOption) (netHTTP.RoundTripper, error) {
+	if h.NTLM || h.NTLMV2 {
+		return nil, fmt.Errorf("NTLM authentication is no longer supported")
+	}
 	o := types.NewClientOptions(opts...)
 	feature := o.Feature
 	if feature == "" {
@@ -444,7 +472,7 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 	} else if !conn.Bearer.IsEmpty() {
 		req.Header.Set(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
 	} else if !conn.OAuth.IsEmpty() {
-		oauthTransport := middlewares.NewOauthTransport(middlewares.OauthConfig{
+		oauthTransport := oauth.NewOauthTransport(oauth.OauthConfig{
 			ClientID:       conn.OAuth.ClientID.String(),
 			ClientSecret:   conn.OAuth.ClientSecret.String(),
 			TokenURL:       conn.OAuth.TokenURL,
@@ -462,10 +490,10 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 	}
 
 	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
-		base = middlewares.NewAWSSigv4Transport(middlewares.AWSSigv4Config{
+		base = awssigv4.NewAWSSigv4Transport(awssigv4.AWSSigv4Config{
 			Region:              conn.AwsConfig.Region,
 			Service:             conn.AWSSigV4.Service,
-			CredentialsProvider: conn.AwsConfig.Credentials,
+			CredentialsProvider: conn.AwsConfig.signingConfig().Credentials,
 		}, base)
 	}
 
@@ -474,6 +502,9 @@ func (rt *httpConnectionRoundTripper) RoundTrip(req *netHTTP.Request) (*netHTTP.
 
 // CreateHTTPClient requires a hydrated connection
 func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.ClientOption) (*http.Client, error) {
+	if conn.NTLM || conn.NTLMV2 {
+		return nil, fmt.Errorf("NTLM authentication is no longer supported")
+	}
 	o := types.NewClientOptions(opts...)
 	feature := o.Feature
 	if feature == "" {
@@ -484,12 +515,10 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.
 	if !conn.HTTPBasicAuth.IsEmpty() {
 		client.Auth(conn.GetUsername(), conn.GetPassword())
 		client.Digest(conn.Digest)
-		client.NTLM(conn.NTLM)
-		client.NTLMV2(conn.NTLMV2)
 	} else if !conn.Bearer.IsEmpty() {
 		client.Header(echo.HeaderAuthorization, "Bearer "+conn.Bearer.ValueStatic)
 	} else if !conn.OAuth.IsEmpty() {
-		client.OAuth(middlewares.OauthConfig{
+		client.OAuth(oauth.OauthConfig{
 			ClientID:       conn.OAuth.ClientID.ValueStatic,
 			ClientSecret:   conn.OAuth.ClientSecret.ValueStatic,
 			TokenURL:       conn.OAuth.TokenURL,
@@ -519,7 +548,7 @@ func CreateHTTPClient(ctx ConnectionContext, conn HTTPConnection, opts ...types.
 	}
 
 	if conn.AWSSigV4 != nil && conn.AwsConfig != nil {
-		client.AWSAuthSigV4(conn.AwsConfig.Config)
+		client.AWSAuthSigV4(conn.AwsConfig.signingConfig())
 		if conn.AWSSigV4.Service != "" {
 			client.AWSService(conn.AWSSigV4.Service)
 		}

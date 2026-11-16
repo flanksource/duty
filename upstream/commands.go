@@ -329,13 +329,13 @@ func DeleteOnUpstream(ctx context.Context, agentID uuid.UUID, req *PushData) err
 
 	if len(req.Components) > 0 {
 		if err := deleteOwned("components", req.Components); err != nil {
-			logger.Errorf("error deleting components: %w", err)
+			logger.Errorf("error deleting components: %v", err)
 		}
 	}
 
 	if len(req.ConfigItems) > 0 {
 		if err := deleteOwned("config_items", req.ConfigItems); err != nil {
-			logger.Errorf("error deleting config items: %w", err)
+			logger.Errorf("error deleting config items: %v", err)
 		}
 	}
 

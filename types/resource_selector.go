@@ -469,7 +469,7 @@ func (rs *ResourceSelector) matchGrammar(qf *grammar.QueryField, s ResourceSelec
 func (rs ResourceSelector) String() string {
 	s, err := rs.ToPeg(true)
 	if err != nil {
-		logger.Errorf("resourceSelector.String() failed to convert to peg: %w", err)
+		logger.Errorf("resourceSelector.String() failed to convert to peg: %v", err)
 	}
 
 	return strings.Trim(s, " ")

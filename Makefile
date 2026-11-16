@@ -86,7 +86,7 @@ gen-schemas:
 	cp go.mod hack/generate-schemas && \
 	cd hack/generate-schemas && \
 	go mod edit -module=github.com/flanksource/duty/hack/generate-schemas && \
-	go mod edit -replace=github.com/flanksource/duty=../../../duty && \
+	go mod edit -replace=github.com/flanksource/duty=../.. && \
 	go mod tidy && \
 	go run .
 
