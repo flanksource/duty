@@ -73,6 +73,11 @@ table "people" {
     columns = [column.email]
     where   = "deleted_at IS NULL"
   }
+  index "people_service_account_name_unique_idx" {
+    unique  = true
+    columns = [column.name]
+    where   = "((type = 'service_account'::text) AND (deleted_at IS NULL))"
+  }
   index "people_external_id_idx" {
     columns = [column.external_id]
   }
