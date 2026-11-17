@@ -26,6 +26,19 @@ WHERE p.deleted_at IS NULL
 UNION ALL
 
 SELECT
+  p.id::TEXT AS id,
+  p.name,
+  'service_account' AS type,
+  NULL AS "email",
+  NULL AS "owner",
+  NULL AS "icon"
+FROM people p
+WHERE p.deleted_at IS NULL
+  AND p.type = 'service_account'
+
+UNION ALL
+
+SELECT
   pb.id::TEXT AS id,
   COALESCE(NULLIF(pb.title, ''), pb.name) AS name,
   'playbook' AS type,
