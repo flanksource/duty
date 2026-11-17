@@ -160,6 +160,18 @@ var _ = ginkgo.Describe("agent ownership", ginkgo.Ordered, func() {
 		Expect(a.Filename).To(Equal("renamed.txt"))
 	})
 
+	ginkgo.It("doesn't let an agent overwrite another agent's artifact with the same ID", func() {
+		overwrite := models.Artifact{ID: homelabArtifact.ID, CheckID: &dummy.CartAPIHeathCheckAgent.ID, ConnectionID: uuid.New(), Filename: "changed.txt"}
+
+		Expect(push(gcp, upstream.PushData{Artifacts: []models.Artifact{overwrite}})).To(Succeed())
+
+		a := getArtifact(homelabArtifact.ID)
+		Expect(a.ScraperID).To(Equal(&dummy.HomelabKubeScraper.ID))
+		Expect(a.CheckID).To(BeNil())
+		Expect(a.Filename).To(Equal("renamed.txt"))
+		Expect(a.Path).To(Equal(homelabArtifact.Path))
+	})
+
 	ginkgo.It("reports whether an artifact belongs to an agent", func() {
 		owned, err := upstream.IsOwnedBy(DefaultContext, "artifacts", homelab, homelabArtifact.ID)
 		Expect(err).ToNot(HaveOccurred())
