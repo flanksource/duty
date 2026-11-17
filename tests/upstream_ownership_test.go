@@ -36,6 +36,14 @@ var _ = ginkgo.Describe("agent ownership", ginkgo.Ordered, func() {
 		Status:        models.PlaybookActionStatusRunning,
 		AgentID:       &homelab,
 	}
+	homelabArtifact := models.Artifact{
+		ID:           uuid.New(),
+		ScraperID:    &dummy.HomelabKubeScraper.ID,
+		ConnectionID: uuid.New(),
+		Path:         "playbooks/" + action.ID.String() + "/out.txt",
+		Filename:     "out.txt",
+	}
+	var pushedArtifacts []uuid.UUID
 
 	// push and remove do what the push handler does with a request from the agent.
 	push := func(agentID uuid.UUID, req upstream.PushData) error {
@@ -57,6 +65,11 @@ var _ = ginkgo.Describe("agent ownership", ginkgo.Ordered, func() {
 		Expect(DefaultContext.DB().Where("id = ?", action.ID).First(&a).Error).To(Succeed())
 		return a
 	}
+	getArtifact := func(id uuid.UUID) models.Artifact {
+		var a models.Artifact
+		Expect(DefaultContext.DB().Where("id = ?", id).First(&a).Error).To(Succeed())
+		return a
+	}
 	configUpdate := func() models.ConfigItem {
 		c := homelabConfig
 		c.Name = lo.ToPtr("renamed")
@@ -72,10 +85,12 @@ var _ = ginkgo.Describe("agent ownership", ginkgo.Ordered, func() {
 		Expect(db.Create(&homelabConfig).Error).To(Succeed())
 		Expect(db.Create(&run).Error).To(Succeed())
 		Expect(db.Create(&action).Error).To(Succeed())
+		Expect(db.Create(&homelabArtifact).Error).To(Succeed())
 	})
 
 	ginkgo.AfterAll(func() {
 		db := DefaultContext.DB()
+		Expect(db.Delete(&models.Artifact{}, "id IN ?", append(pushedArtifacts, homelabArtifact.ID)).Error).To(Succeed())
 		Expect(db.Delete(&models.PlaybookRunAction{}, "id = ?", action.ID).Error).To(Succeed())
 		Expect(db.Delete(&models.PlaybookRun{}, "id = ?", run.ID).Error).To(Succeed())
 		Expect(db.Delete(&models.ConfigItem{}, "id = ?", homelabConfig.ID).Error).To(Succeed())
@@ -121,4 +136,41 @@ var _ = ginkgo.Describe("agent ownership", ginkgo.Ordered, func() {
 		Expect(a.Error).To(Equal(lo.ToPtr("pushed failure")))
 	})
 
+	ginkgo.It("stores a pushed artifact under the agent's own path, ignoring the path it sent", func() {
+		colliding := models.Artifact{ID: uuid.New(), CheckID: &dummy.CartAPIHeathCheckAgent.ID, ConnectionID: uuid.New(), Path: homelabArtifact.Path, Filename: "out.txt"}
+		traversing := models.Artifact{ID: uuid.New(), CheckID: &dummy.CartAPIHeathCheckAgent.ID, ConnectionID: uuid.New(), Path: "../../etc/x", Filename: "x"}
+		pushedArtifacts = append(pushedArtifacts, colliding.ID, traversing.ID)
+
+		Expect(push(gcp, upstream.PushData{Artifacts: []models.Artifact{colliding, traversing}})).To(Succeed())
+
+		Expect(getArtifact(colliding.ID).Path).To(Equal("agents/" + gcp.String() + "/" + colliding.ID.String()))
+		Expect(getArtifact(traversing.ID).Path).To(Equal("agents/" + gcp.String() + "/" + traversing.ID.String()))
+		Expect(getArtifact(homelabArtifact.ID).Path).To(Equal(homelabArtifact.Path))
+	})
+
+	ginkgo.It("keeps the path of an existing artifact when its owner pushes it again", func() {
+		repushed := homelabArtifact
+		repushed.Path = "somewhere/else"
+		repushed.Filename = "renamed.txt"
+
+		Expect(push(homelab, upstream.PushData{Artifacts: []models.Artifact{repushed}})).To(Succeed())
+
+		a := getArtifact(homelabArtifact.ID)
+		Expect(a.Path).To(Equal(homelabArtifact.Path))
+		Expect(a.Filename).To(Equal("renamed.txt"))
+	})
+
+	ginkgo.It("reports whether an artifact belongs to an agent", func() {
+		owned, err := upstream.IsOwnedBy(DefaultContext, "artifacts", homelab, homelabArtifact.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(owned).To(BeTrue())
+
+		owned, err = upstream.IsOwnedBy(DefaultContext, "artifacts", gcp, homelabArtifact.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(owned).To(BeFalse())
+
+		owned, err = upstream.IsOwnedBy(DefaultContext, "artifacts", homelab, uuid.New())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(owned).To(BeFalse())
+	})
 })
