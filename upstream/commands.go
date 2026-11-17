@@ -134,6 +134,43 @@ func upsertOwnedBy(table string, agentID uuid.UUID, columns ...clause.Column) cl
 	}
 }
 
+// AgentArtifactPath returns where the upstream stores the content of an artifact the agent pushed.
+// The upstream chooses the path, so an agent can't write over another agent's files or outside the artifact store.
+func AgentArtifactPath(agentID, artifactID uuid.UUID) string {
+	return fmt.Sprintf("agents/%s/%s", agentID, artifactID)
+}
+
+// upsertArtifactsOwnedBy is upsertOwnedBy for artifacts, but it leaves the path of an existing artifact unchanged,
+// so content that was already uploaded to it stays reachable.
+func upsertArtifactsOwnedBy(db *gorm.DB, agentID uuid.UUID) (clause.OnConflict, error) {
+	stmt := &gorm.Statement{DB: db}
+	if err := stmt.Parse(&models.Artifact{}); err != nil {
+		return clause.OnConflict{}, err
+	}
+
+	var columns []string
+	for _, field := range stmt.Schema.Fields {
+		if field.DBName == "" || field.PrimaryKey || field.DBName == "path" || field.DBName == "created_at" {
+			continue
+		}
+		columns = append(columns, field.DBName)
+	}
+
+	upsert := upsertOwnedBy("artifacts", agentID, clause.Column{Name: "id"})
+	upsert.UpdateAll = false
+	upsert.DoUpdates = clause.AssignmentColumns(columns)
+	return upsert, nil
+}
+
+// IsOwnedBy reports whether the row of the table with the given id exists and belongs to the agent.
+func IsOwnedBy(ctx context.Context, table string, agentID, id uuid.UUID) (bool, error) {
+	var count int64
+	if err := ctx.DB().Table(table).Where(clause.Eq{Column: clause.Column{Table: table, Name: "id"}, Value: id}).Where(ownedBy(table, agentID)).Count(&count).Error; err != nil {
+		return false, fmt.Errorf("error looking up the owner of %s %s: %w", table, id, err)
+	}
+	return count > 0, nil
+}
+
 // foreignRows returns the ids of the rows of the table that exist and belong to another agent.
 func foreignRows(ctx context.Context, table string, agentID uuid.UUID, ids []uuid.UUID) ([]uuid.UUID, error) {
 	ids = lo.Without(lo.Uniq(ids), uuid.Nil)
@@ -479,7 +516,17 @@ func InsertUpstreamMsg(ctx context.Context, agentID uuid.UUID, req *PushData) er
 	}
 
 	if len(req.Artifacts) > 0 {
-		if err := db.Clauses(upsertOwnedBy("artifacts", agentID)).CreateInBatches(req.Artifacts, batchSize).Error; err != nil {
+		upsert, err := upsertArtifactsOwnedBy(db, agentID)
+		if err != nil {
+			return err
+		}
+		for i := range req.Artifacts {
+			if req.Artifacts[i].ID == uuid.Nil {
+				req.Artifacts[i].ID = uuid.New()
+			}
+			req.Artifacts[i].Path = AgentArtifactPath(agentID, req.Artifacts[i].ID)
+		}
+		if err := db.Clauses(upsert).CreateInBatches(req.Artifacts, batchSize).Error; err != nil {
 			return fmt.Errorf("error upserting artifacts: %w", err)
 		}
 	}
