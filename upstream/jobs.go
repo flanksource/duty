@@ -380,8 +380,10 @@ func reconcileTable(ctx context.Context, client *UpstreamClient, table pushableT
 	}
 }
 
+// ResetIsPushed marks the rows written in the last job.ResetIsPushed.interval_days as unpushed,
+// so that the next reconciliation pushes them again.
 func ResetIsPushed(ctx context.Context) error {
-	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 7)
+	intervalDays := ctx.Properties().Int("job.ResetIsPushed.interval_days", 1)
 
 	defQuery := fmt.Sprintf(`created_at >= NOW() - INTERVAL '%d days' OR updated_at >= NOW() - INTERVAL '%d days'`, intervalDays, intervalDays)
 	overrides := map[string]string{
@@ -402,13 +404,53 @@ func ResetIsPushed(ctx context.Context) error {
 	for _, pg := range reconcileTableGroups {
 		for _, table := range pg.Tables {
 			// None of the override tables have deleted_at field so it can be ignored
-			if err := ctx.DB().Table(table.TableName()).
-				Where(lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery)).
-				Update("is_pushed", false).Error; err != nil {
+			where := lo.CoalesceOrEmpty(overrides[table.TableName()], defQuery)
+			if err := resetTableIsPushed(ctx, table.TableName(), where); err != nil {
 				errs = append(errs, fmt.Errorf("error updating is_pushed for table[%s]: %w", table.TableName(), err))
 			}
 		}
 	}
 
 	return oops.Join(errs...)
+}
+
+// resetTableIsPushed marks the pushed rows of the table that match where as unpushed.
+//
+// It walks the table once, job.ResetIsPushed.batch_blocks pages per statement, so that each statement
+// locks few rows for a short time. Rows locked by another transaction, such as a reconciliation marking
+// them pushed or a scraper updating them, are skipped instead of waited on, so the reset can't deadlock
+// with them.
+func resetTableIsPushed(ctx context.Context, table, where string) error {
+	batchBlocks := int64(ctx.Properties().Int("job.ResetIsPushed.batch_blocks", 100))
+
+	var blocks int64
+	if err := ctx.DB().Raw("SELECT pg_relation_size(?::regclass) / current_setting('block_size')::bigint", table).
+		Scan(&blocks).Error; err != nil {
+		return fmt.Errorf("failed to get the size of %s: %w", table, err)
+	}
+
+	query := fmt.Sprintf(`UPDATE %[1]s SET is_pushed = false WHERE ctid = ANY(ARRAY(
+		SELECT ctid FROM %[1]s
+		WHERE ctid >= ?::tid AND ctid < ?::tid AND is_pushed AND (%[2]s)
+		FOR UPDATE SKIP LOCKED
+	))`, table, where)
+
+	for start := int64(0); start < blocks; start += batchBlocks {
+		from, to := fmt.Sprintf("(%d,0)", start), fmt.Sprintf("(%d,0)", start+batchBlocks)
+		backoff := retry.WithJitter(time.Second, retry.WithMaxRetries(3, retry.NewExponential(time.Second)))
+		err := retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
+			if err := ctx.DB().Exec(query, from, to).Error; err != nil {
+				if dutil.IsDeadlockError(err) {
+					return retry.RetryableError(err)
+				}
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

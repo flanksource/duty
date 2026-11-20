@@ -783,6 +783,12 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Marking a change pushed or unpushed isn't a change to announce.
+  IF TG_OP = 'UPDATE' AND NEW.is_pushed IS DISTINCT FROM OLD.is_pushed
+    AND hstore(NEW) - 'is_pushed'::text = hstore(OLD) - 'is_pushed'::text THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.change_type = 'diff' THEN
     event_name := 'config.updated';
   END IF;
