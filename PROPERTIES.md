@@ -188,7 +188,8 @@ file, DB, or annotations.
 | `har.captureContentTypes` | CSV string | empty | Restricts HAR content capture to matching content types. |
 | `har.maxBodySize` | int bytes | `65536` | Maximum HAR body capture size. |
 | `job.ResetIsPushed.ignore_deleted_at` | bool | `false` | When true, reset-is-pushed queries do not add `deleted_at IS NULL`. |
-| `job.ResetIsPushed.interval_days` | int | `7` | Lookback window for resetting `is_pushed`. |
+| `job.ResetIsPushed.batch_blocks` | int | `100` | Table pages reset per statement by the reset-is-pushed job. |
+| `job.ResetIsPushed.interval_days` | int | `1` | Lookback window for resetting `is_pushed`. |
 | `job.eviction.period` | duration | `1m` | Sleep period for job-history eviction when no eviction IDs are queued. |
 | `job.jitter.disable` | bool | `false` | Disables schedule jitter for periodic jobs. |
 | `leader.lease.duration` | duration | `30s` | Kubernetes leader election lease duration. |

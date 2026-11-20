@@ -3,6 +3,12 @@ RETURNS TRIGGER AS $$
 DECLARE
   count_increment INT;
 BEGIN
+  -- Marking a change pushed or unpushed changes nothing else, so it's applied as is.
+  IF NEW.is_pushed IS DISTINCT FROM OLD.is_pushed
+    AND hstore(NEW) - 'is_pushed'::text = hstore(OLD) - 'is_pushed'::text THEN
+    RETURN NEW;
+  END IF;
+
   count_increment := NEW.count - OLD.count;
 
   UPDATE
