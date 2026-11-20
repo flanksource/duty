@@ -1,10 +1,11 @@
 package smb
 
 import (
+	"context"
 	"net"
 
+	"github.com/cloudsoda/go-smb2"
 	"github.com/flanksource/duty/types"
-	"github.com/hirochachacha/go-smb2"
 )
 
 type SMBSession struct {
@@ -33,7 +34,7 @@ func SMBConnect(server string, port, share string, auth types.Authentication) (*
 		},
 	}
 
-	s, err := d.Dial(conn)
+	s, err := d.DialConn(context.Background(), conn, server)
 	if err != nil {
 		conn.Close()
 		return nil, err
