@@ -30,6 +30,44 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(BeZero())
 		Expect(len(views)).To(Equal(4), "RLS enable, PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
+		Expect(views).To(HaveKey("9998_rls_enable.sql"))
+		Expect(views).ToNot(HaveKey("9997_rls_policies.sql"), "unchanged RLS policies must not be recreated, DROP/CREATE POLICY lock the tables")
+	})
+
+	It("should not recreate unchanged RLS policies on migration", func() {
+		policyOIDs := func() map[string]uint32 {
+			var rows []struct {
+				Name string
+				OID  uint32 `gorm:"column:oid"`
+			}
+			Expect(DefaultContext.DB().Raw("SELECT polrelid::regclass::text || '.' || polname AS name, oid FROM pg_policy").Scan(&rows).Error).To(Succeed())
+			m := map[string]uint32{}
+			for _, r := range rows {
+				m[r.Name] = r.OID
+			}
+			return m
+		}
+
+		before := policyOIDs()
+		Expect(before).ToNot(BeEmpty())
+		for name, oid := range before {
+			Expect(oid).ToNot(BeZero(), name)
+		}
+
+		sqlDB, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+		Expect(migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString})).To(Succeed())
+
+		Expect(policyOIDs()).To(Equal(before), "a policy created again takes a lock on its table")
+	})
+
+	It("should run the RLS policies when a script they depend on changes", func() {
+		db, err := DefaultContext.DB().DB()
+		Expect(err).To(BeNil())
+
+		_, views, err := migrate.GetExecutableScripts(db, []string{"051_scope_membership.sql"}, nil)
+		Expect(err).To(BeNil())
+		Expect(views).To(HaveKey("9997_rls_policies.sql"))
 	})
 
 	It("should explicitly run script", func() {

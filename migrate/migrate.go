@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -162,7 +163,15 @@ func GetExecutableScripts(pool *sql.DB, mustRun, skip []string) (map[string]stri
 		} else if lo.Contains(skip, path) {
 			continue
 		} else if hasMatchingHash(path, content, currentMigrationHashes) {
-			continue
+			// An unchanged script still runs when a policy it creates is gone, e.g. on a database
+			// whose policies were dropped after the script was logged.
+			missing, err := hasMissingPolicies(pool, content)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !missing {
+				continue
+			}
 		}
 
 		allViews[path] = content
@@ -323,6 +332,24 @@ func createMigrationLogTable(pool *sql.DB) error {
 	)`
 	_, err := pool.Exec(query)
 	return err
+}
+
+var createPolicyRegex = regexp.MustCompile(`(?im)^\s*CREATE\s+POLICY\s+([a-z0-9_]+)\s+ON\s+(?:public\.)?([a-z0-9_]+)\b`)
+
+// hasMissingPolicies reports whether a policy that the script creates by name (with a literal
+// CREATE POLICY <name> ON <table>) does not exist in the database.
+func hasMissingPolicies(pool *sql.DB, content string) (bool, error) {
+	for _, m := range createPolicyRegex.FindAllStringSubmatch(content, -1) {
+		var exists bool
+		if err := pool.QueryRow("SELECT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = $1 AND policyname = $2)", m[2], m[1]).Scan(&exists); err != nil {
+			return false, fmt.Errorf("failed to check policy %s on %s: %w", m[1], m[2], err)
+		}
+		if !exists {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func hasMatchingHash(path, content string, currentHashes map[string]string) bool {
