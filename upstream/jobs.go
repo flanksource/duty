@@ -416,30 +416,47 @@ func ResetIsPushed(ctx context.Context) error {
 
 // resetTableIsPushed marks the pushed rows of the table that match where as unpushed.
 //
-// It walks the table once, job.ResetIsPushed.batch_blocks pages per statement, so that each statement
-// locks few rows for a short time. Rows locked by another transaction, such as a reconciliation marking
-// them pushed or a scraper updating them, are skipped instead of waited on, so the reset can't deadlock
-// with them.
+// This function unusually works at a much lower level (e.g. reads the Postgres page size, ctid, and
+// iterates over ctid).
+//
+// The obvious way to mark all is_pushed = true rows as is_pushed = false is to iterate at the row level,
+// a batch at a time, until no rows are left. However, the window columns don't have indexes, so every
+// batch scans the table from the start again. We could add indexes, but those columns have high churn,
+// so writes to those tables would get significantly slower. Example: we'd need an index on the
+// updated_at column of the config_items table, and that column gets updated very frequently.
+//
+// When we iterate at the Postgres page level, indexes don't matter: each batch reads only its own
+// pages, so the whole table is read once. This needs Postgres 14+; older versions scan the whole table
+// for every batch.
 func resetTableIsPushed(ctx context.Context, table, where string) error {
-	batchBlocks := int64(ctx.Properties().Int("job.ResetIsPushed.batch_blocks", 100))
+	pagesPerBatch := int64(ctx.Properties().Int("job.ResetIsPushed.batch_blocks", 100))
 
-	var blocks int64
+	var pages int64
 	if err := ctx.DB().Raw("SELECT pg_relation_size(?::regclass) / current_setting('block_size')::bigint", table).
-		Scan(&blocks).Error; err != nil {
+		Scan(&pages).Error; err != nil {
 		return fmt.Errorf("failed to get the size of %s: %w", table, err)
 	}
 
-	query := fmt.Sprintf(`UPDATE %[1]s SET is_pushed = false WHERE ctid = ANY(ARRAY(
-		SELECT ctid FROM %[1]s
-		WHERE ctid >= ?::tid AND ctid < ?::tid AND is_pushed AND (%[2]s)
-		FOR UPDATE SKIP LOCKED
-	))`, table, where)
+	query := fmt.Sprintf(`
+		WITH batch AS (
+			SELECT ctid FROM %s
+			WHERE ctid >= @first_page AND ctid < @end_page
+				AND is_pushed
+				AND (%s)
+			FOR UPDATE SKIP LOCKED
+		)
+		UPDATE %s SET is_pushed = false
+		FROM batch
+		WHERE %s.ctid = batch.ctid`, table, where, table, table)
 
-	for start := int64(0); start < blocks; start += batchBlocks {
-		from, to := fmt.Sprintf("(%d,0)", start), fmt.Sprintf("(%d,0)", start+batchBlocks)
+	for page := int64(0); page < pages; page += pagesPerBatch {
+		args := map[string]any{
+			"first_page": fmt.Sprintf("(%d,0)", page),
+			"end_page":   fmt.Sprintf("(%d,0)", page+pagesPerBatch),
+		}
 		backoff := retry.WithJitter(time.Second, retry.WithMaxRetries(3, retry.NewExponential(time.Second)))
 		err := retry.Do(ctx, backoff, func(_ctx gocontext.Context) error {
-			if err := ctx.DB().Exec(query, from, to).Error; err != nil {
+			if err := ctx.DB().Exec(query, args).Error; err != nil {
 				if dutil.IsDeadlockError(err) {
 					return retry.RetryableError(err)
 				}
