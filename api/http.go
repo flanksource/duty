@@ -59,7 +59,7 @@ func WriteError(c echo.Context, err error) error {
 	code, message, data := ErrorCode(err), ErrorMessage(err), ErrorData(err)
 
 	if debugInfo := ErrorDebugInfo(err); debugInfo != "" {
-		logger.WithValues("code", code, "error", message).Errorf(debugInfo)
+		logger.WithValues("code", code, "error", message).Errorf("%s", debugInfo)
 	}
 
 	return c.JSON(ErrorStatusCode(code), &HTTPError{Err: message, Data: data})

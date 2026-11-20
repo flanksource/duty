@@ -264,7 +264,7 @@ func embeddedDB(database, connectionString string, port uint32) (string, func(),
 	stop := func() {
 		logger.Infof("Stopping embedded db")
 		if err := embeddedPGServer.Stop(); err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 		}
 	}
 

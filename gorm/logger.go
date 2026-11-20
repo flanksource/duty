@@ -164,12 +164,12 @@ func (l *SqlLogger) Trace(ctx context.Context, begin time.Time, fc func() (strin
 	}
 
 	if l.IsLevelEnabled(level) {
-		l.V(level).Infof(msg)
+		l.V(level).Infof("%s", msg)
 	}
 
 	// Activated when gorm.DB.Debug() is used
 	if l.gormLogLevel > logger.Silent {
-		l.Infof(msg)
+		l.Infof("%s", msg)
 	}
 }
 
