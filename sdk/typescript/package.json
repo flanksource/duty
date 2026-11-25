@@ -1,0 +1,43 @@
+{
+  "name": "@flanksource/mission-control-sdk",
+  "version": "0.0.0",
+  "description": "Type-safe TypeScript client for the Mission Control PostgREST API.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./openapi.json": "./openapi.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "openapi.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "tsc -p ."
+  },
+  "peerDependencies": {
+    "openapi-fetch": "^0.13"
+  },
+  "devDependencies": {
+    "openapi-fetch": "^0.13",
+    "openapi-typescript": "^7",
+    "typescript": "^5.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flanksource/duty.git",
+    "directory": "sdk/typescript"
+  }
+}
