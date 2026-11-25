@@ -1,5 +1,6 @@
 ## Tool Binaries
 LOCALBIN ?= $(shell pwd)/.bin
+GINKGO ?= $(LOCALBIN)/ginkgo
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
@@ -8,8 +9,12 @@ CONTROLLER_TOOLS_VERSION ?= v0.19.0
 GOLANGCI_LINT_VERSION ?= v2.11.3
 
 .PHONY: ginkgo
-ginkgo:
-	go install github.com/onsi/ginkgo/v2/ginkgo
+ginkgo: | $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo
+
+.PHONY: build
+build:
+	go build ./...
 
 # .PHONY: gavel
 # gavel:
@@ -36,17 +41,17 @@ ginkgo:
 
 .PHONY: test test-concurrent
 test: ginkgo
-	ginkgo -r   --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
+	$(GINKGO) -r --succinct --skip-package=tests/e2e,tests/e2e-blobs,bench --label-filter "!e2e"
 
 test-concurrent: ginkgo
-	ginkgo -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
+	$(GINKGO) -r -v --nodes=4 --skip-package=bench --label-filter "!e2e"
 
 
 .PHONY: test-e2e
 test-e2e: ginkgo
 	cd tests/e2e && docker-compose up -d && \
 	timeout 60 bash -c 'until curl -s http://localhost:3100/ready >/dev/null 2>&1; do sleep 2; done' && \
-	(ginkgo -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
+	($(GINKGO) -v; TEST_EXIT_CODE=$$?; docker-compose down; exit $$TEST_EXIT_CODE)
 
 .PHONY: e2e-services
 e2e-services: ## Run e2e test services in foreground with automatic cleanup on exit
@@ -56,7 +61,7 @@ e2e-services: ## Run e2e test services in foreground with automatic cleanup on e
 
 .PHONY: test-e2e-blobs
 test-e2e-blobs: ginkgo
-	ginkgo -v --label-filter="e2e" ./tests/e2e-blobs/
+	$(GINKGO) -v --label-filter="e2e" ./tests/e2e-blobs/
 
 .PHONY: bench
 bench:
