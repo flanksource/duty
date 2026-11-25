@@ -1,8 +1,6 @@
 package tests
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -29,7 +27,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(BeZero())
-		Expect(len(views)).To(Equal(4), "RLS enable, PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
+		Expect(len(views)).To(Equal(3), "PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
 	})
 
 	It("should explicitly run script", func() {
@@ -39,7 +37,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, []string{"incident_ids.sql"}, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
-		Expect(len(views)).To(Equal(4), "RLS enable, PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
+		Expect(len(views)).To(Equal(3), "PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
 	})
 
 	It("should ignore changed hash run script", func() {
@@ -56,7 +54,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, nil, []string{"incident_ids.sql"})
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(BeZero())
-		Expect(len(views)).To(Equal(4), "RLS enable, PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
+		Expect(len(views)).To(Equal(3), "PostgREST permissions, notification_group_resources & updated_at trigger scripts are picked up here")
 
 		err = DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = ? WHERE path = 'incident_ids.sql'`, []byte(currentHash)[:]).Error
 		Expect(err).To(BeNil(), "failed to restore hash for incidents_ids.sql")
@@ -72,7 +70,7 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(funcs).To(BeEmpty())
-		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "021_notification.sql", "037_notification_group_resources.sql", "9998_rls_enable.sql", "9999_postgrest_permissions.sql"}))
+		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "021_notification.sql", "037_notification_group_resources.sql", "9999_postgrest_permissions.sql"}))
 
 		Expect(DefaultContext.DB().Exec(`UPDATE migration_logs SET hash = ? WHERE path = '006_config_views.sql'`, []byte(currentHash)[:]).Error).To(BeNil())
 	})
@@ -87,10 +85,10 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 		funcs, views, err := migrate.GetExecutableScripts(sqlDB, nil, nil)
 		Expect(err).To(BeNil())
 		Expect(len(funcs)).To(Equal(1))
-		Expect(len(views)).To(Equal(7), "always-run scripts & direct drop.sql dependents are picked up here")
+		Expect(len(views)).To(Equal(6), "always-run scripts & direct drop.sql dependents are picked up here")
 
 		Expect(collections.MapKeys(funcs)).To(Equal([]string{"drop.sql"}))
-		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "021_notification.sql", "037_notification_group_resources.sql", "038_config_access.sql", "9998_rls_enable.sql", "9999_postgrest_permissions.sql"}))
+		Expect(collections.MapKeys(views)).To(ConsistOf([]string{"006_config_views.sql", "013_updated_at_column_trigger.sql", "021_notification.sql", "037_notification_group_resources.sql", "038_config_access.sql", "9999_postgrest_permissions.sql"}))
 
 		{
 			// run the migrations again to ensure that the hashes are repopulated
@@ -104,29 +102,8 @@ var _ = Describe("migration dependency", Ordered, Serial, func() {
 			funcs, views, err := migrate.GetExecutableScripts(db, nil, nil)
 			Expect(err).To(BeNil())
 			Expect(len(funcs)).To(BeZero())
-			Expect(len(views)).To(Equal(4), "RLS enable, PostgREST permissions, notification_group_resources index creation & updated_at trigger scripts are picked up here")
+			Expect(len(views)).To(Equal(3), "PostgREST permissions, notification_group_resources index creation & updated_at trigger scripts are picked up here")
 		}
 	})
 
-	It("should enable RLS on a database that last migrated with RLS disabled", func() {
-		// What the removed 9999_rls_disable.sql left behind, while 9998_rls_enable.sql's hash is still logged
-		for _, table := range []string{"config_items", "components", "canaries", "checks", "playbooks"} {
-			Expect(DefaultContext.DB().Exec(fmt.Sprintf("DROP POLICY IF EXISTS %s_auth ON %s", table, table)).Error).To(Succeed())
-			Expect(DefaultContext.DB().Exec(fmt.Sprintf("ALTER TABLE %s DISABLE ROW LEVEL SECURITY", table)).Error).To(Succeed())
-		}
-
-		sqlDB, err := DefaultContext.DB().DB()
-		Expect(err).To(BeNil())
-		Expect(migrate.RunMigrations(sqlDB, api.Config{ConnectionString: connString})).To(Succeed())
-
-		for _, table := range []string{"config_items", "components", "canaries", "checks", "playbooks"} {
-			var rowSecurity bool
-			Expect(DefaultContext.DB().Raw("SELECT relrowsecurity FROM pg_class WHERE oid = ?::regclass", "public."+table).Scan(&rowSecurity).Error).To(Succeed())
-			Expect(rowSecurity).To(BeTrue(), table)
-
-			var policies int64
-			Expect(DefaultContext.DB().Raw("SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = ? AND policyname = ?", table, table+"_auth").Scan(&policies).Error).To(Succeed())
-			Expect(policies).To(Equal(int64(1)), table)
-		}
-	})
 })

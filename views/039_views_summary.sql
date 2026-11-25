@@ -1,6 +1,6 @@
 DROP VIEW IF EXISTS views_summary;
 
-CREATE OR REPLACE VIEW views_summary AS
+CREATE OR REPLACE VIEW views_summary WITH (security_invoker = true) AS
 SELECT 
     id,
     namespace,

@@ -47,7 +47,7 @@ FROM cte GROUP BY component_id;
 -- analysis_by_config
 DROP VIEW IF EXISTS analysis_by_config;
 CREATE OR REPLACE VIEW
-  analysis_by_config AS
+  analysis_by_config WITH (security_invoker = true) AS
 WITH
   type_summary AS (
     SELECT
@@ -198,7 +198,7 @@ CREATE OR REPLACE VIEW incident_summary_by_component AS
 
 -- Topology view
 CREATE OR REPLACE VIEW
-  topology AS
+  topology WITH (security_invoker = true) AS
 WITH
   children AS (
     SELECT

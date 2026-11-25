@@ -275,7 +275,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE or REPLACE VIEW configs AS
+CREATE or REPLACE VIEW configs WITH (security_invoker = true) AS
   SELECT
     ci.id,
     ci.scraper_id,
@@ -336,14 +336,14 @@ WHERE
   type LIKE 'AWS::%';
 
 DROP VIEW IF EXISTS config_names;
-CREATE or REPLACE VIEW config_names AS
+CREATE or REPLACE VIEW config_names WITH (security_invoker = true) AS
   SELECT id, type, external_id, name FROM config_items ORDER BY name;
 
 DROP VIEW IF EXISTS config_types;
-CREATE or REPLACE VIEW config_types AS
+CREATE or REPLACE VIEW config_types WITH (security_invoker = true) AS
   SELECT DISTINCT type FROM config_items ORDER BY type;
 
-CREATE or REPLACE VIEW config_classes AS
+CREATE or REPLACE VIEW config_classes WITH (security_invoker = true) AS
   SELECT DISTINCT config_class FROM config_items ORDER BY config_class;
 
 CREATE or REPLACE VIEW analyzer_types AS
@@ -459,28 +459,28 @@ ORDER BY
 
 -- config_tags
 DROP VIEW IF EXISTS config_tags;
-CREATE OR REPLACE VIEW config_tags AS
+CREATE OR REPLACE VIEW config_tags WITH (security_invoker = true) AS
   SELECT d.key, d.value
   FROM config_items w JOIN json_each_text(tags::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
 
 
 -- config_labels
 DROP VIEW IF EXISTS config_labels;
-CREATE OR REPLACE VIEW config_labels AS
+CREATE OR REPLACE VIEW config_labels WITH (security_invoker = true) AS
   SELECT d.key, d.value
   FROM config_items w JOIN json_each_text(labels::json) d ON true where deleted_at is null GROUP BY d.key, d.value ORDER BY key, value;
 
 
 -- config_tags_labels_keys
 DROP VIEW IF EXISTS config_tags_labels_keys;
-CREATE OR REPLACE VIEW config_tags_labels_keys AS
+CREATE OR REPLACE VIEW config_tags_labels_keys WITH (security_invoker = true) AS
   SELECT DISTINCT 'tag:' || jsonb_object_keys(tags) AS "key" FROM config_items
   UNION
   SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM config_items;
 
 -- config_type_summary
 DROP VIEW IF EXISTS config_summary;
-CREATE VIEW config_summary AS
+CREATE VIEW config_summary WITH (security_invoker = true) AS
   WITH changes_per_type AS (
     SELECT
       config_items.type,
@@ -573,7 +573,7 @@ CREATE VIEW config_summary AS
 
 -- config_class_summary
 DROP VIEW IF EXISTS config_class_summary;
-CREATE VIEW config_class_summary AS
+CREATE VIEW config_class_summary WITH (security_invoker = true) AS
   WITH changes_per_type AS (
     SELECT
       config_items.config_class,
@@ -641,7 +641,7 @@ CREATE VIEW config_class_summary AS
     config_class;
 
 DROP VIEW IF EXISTS config_analysis_analyzers;
-CREATE OR REPLACE VIEW config_analysis_analyzers AS
+CREATE OR REPLACE VIEW config_analysis_analyzers WITH (security_invoker = true) AS
   SELECT DISTINCT(analyzer) FROM config_analysis WHERE status = 'open';
 
 -- config_analysis_filter_options
@@ -716,7 +716,7 @@ SELECT jsonb_build_object(
 $$ LANGUAGE sql STABLE;
 
 DROP VIEW IF EXISTS config_changes_by_types;
-CREATE OR REPLACE VIEW config_changes_by_types AS
+CREATE OR REPLACE VIEW config_changes_by_types WITH (security_invoker = true) AS
   SELECT config_items.type, COUNT(config_changes.id) as change_count
   FROM config_changes
   INNER JOIN config_items ON config_changes.config_id = config_items.id
@@ -725,7 +725,7 @@ CREATE OR REPLACE VIEW config_changes_by_types AS
   ORDER BY change_count;
 
 DROP VIEW IF EXISTS config_analysis_by_severity;
-CREATE OR REPLACE VIEW config_analysis_by_severity AS
+CREATE OR REPLACE VIEW config_analysis_by_severity WITH (security_invoker = true) AS
   SELECT config_items.type, config_analysis.severity, COUNT(*) as analysis_count
   FROM config_analysis
   INNER JOIN config_items ON config_analysis.config_id = config_items.id
@@ -812,7 +812,7 @@ FOR EACH ROW
 DROP VIEW IF EXISTS config_analysis_items;
 
 -- Used by resource selector search for config analysis / insights.
-CREATE OR REPLACE VIEW config_analysis_items AS
+CREATE OR REPLACE VIEW config_analysis_items WITH (security_invoker = true) AS
   SELECT
     ca.*,
     ci.name,
@@ -1191,7 +1191,7 @@ $$ LANGUAGE plpgsql;
 
 DROP VIEW IF EXISTS catalog_changes;
 
-CREATE OR REPLACE VIEW catalog_changes AS
+CREATE OR REPLACE VIEW catalog_changes WITH (security_invoker = true) AS
   SELECT
     cc.id,
     cc.config_id,
@@ -1219,7 +1219,7 @@ CREATE OR REPLACE VIEW catalog_changes AS
 
 DROP VIEW IF EXISTS config_detail;
 
-CREATE OR REPLACE VIEW config_detail AS
+CREATE OR REPLACE VIEW config_detail WITH (security_invoker = true) AS
   SELECT
     ci.*,
     config_items_last_scraped_time.last_scraped_time,
@@ -1346,7 +1346,7 @@ FOR EACH ROW
 EXECUTE PROCEDURE insert_parent_to_config_relationship();
 
 DROP VIEW IF EXISTS config_statuses;
-CREATE or REPLACE VIEW config_statuses AS
+CREATE or REPLACE VIEW config_statuses WITH (security_invoker = true) AS
   SELECT DISTINCT status FROM config_items WHERE status IS NOT NULL ORDER BY status;
 
 DROP VIEW IF EXISTS check_summary_by_config;
@@ -1354,7 +1354,7 @@ DROP VIEW IF EXISTS checks_by_config;
 
 -- checks_by_config
 CREATE
-OR REPLACE VIEW checks_by_config AS
+OR REPLACE VIEW checks_by_config WITH (security_invoker = true) AS
 SELECT
   check_config_relationships.config_id,
   checks.id,
@@ -1373,7 +1373,7 @@ WHERE
 
 -- check_summary_by_config
 CREATE OR REPLACE VIEW
-  check_summary_by_config AS
+  check_summary_by_config WITH (security_invoker = true) AS
 WITH cte as (
     SELECT
         config_id, status, COUNT(*) AS count

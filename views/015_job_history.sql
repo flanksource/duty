@@ -152,7 +152,7 @@ WHERE
 DROP VIEW IF EXISTS config_scrapers_with_status CASCADE;
 
 CREATE OR REPLACE VIEW
-  config_scrapers_with_status AS
+  config_scrapers_with_status WITH (security_invoker = true) AS
 SELECT
   config_scrapers.*,
   job_history_latest_status.name job_name,
@@ -272,7 +272,7 @@ notification_send_summary.sent,
 notification_send_summary.most_common_error,
 notification_send_summary.last_failed_at;
 
-CREATE VIEW integrations_with_status AS
+CREATE VIEW integrations_with_status WITH (security_invoker = true) AS
 WITH combined AS (
 SELECT
   id,

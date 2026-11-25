@@ -49,9 +49,10 @@ The claim only names Scopes. Whether a row is in a Scope is stored in `scope_mem
 
 ### Adding RLS to a table
 
-1. Add RLS enable logic to `@views/9998_rls_enable.sql`. It runs on every migration, so keep it idempotent and don't take locks on tables that are already set up.
+1. Add RLS enable logic to `@views/9998_rls_enable.sql`. It runs when it or a script in its `-- dependsOn:` header changes, so keep it idempotent and add the script defining any function a policy calls to that header.
    - Enable RLS on the table
    - Create the policy: inherited with `EXISTS` for a child table. A new resource type with its own grants also needs Scope membership for the type (`_scope_resource_columns` and the triggers in `views/051_scope_membership.sql`, and `membership.Supported`) before it can use `rls_matching_grants`.
+   - A view over an RLS table is created `WITH (security_invoker = true)` in its own script, so it reads the table under the caller's policy.
 2. Add test cases to `@tests/rls_test.go`, with real Scopes built through `membership.Rebuild`
    - Rows granted: `"all"`, one Scope, a narrowed Scope, several grants, through a parent
    - Rows refused: no grants, a grant on another type, a Scope with no membership, a grant that isn't well formed

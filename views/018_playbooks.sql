@@ -94,7 +94,7 @@ CREATE OR REPLACE VIEW playbooks_for_agent AS
   GROUP BY agent_name, agents.person_id, agent_id;
 
 DROP VIEW IF EXISTS playbook_names;
-CREATE OR REPLACE VIEW playbook_names AS
+CREATE OR REPLACE VIEW playbook_names WITH (security_invoker = true) AS
   SELECT
     id,
     title,
