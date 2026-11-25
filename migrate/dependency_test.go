@@ -50,6 +50,8 @@ func TestDependencyMap(t *testing.T) {
 		"views/006_config_views.sql":             {"views/021_notification.sql"},
 		"views/027_connections.sql":              {"views/046_artifact_summary.sql"},
 		"views/050_scope_membership_helpers.sql": {"views/051_scope_membership.sql"},
+		"views/035_rls_utils.sql":                {"views/9998_rls_enable.sql"},
+		"views/051_scope_membership.sql":         {"views/9998_rls_enable.sql"},
 	}
 
 	g.Expect(graph).To(gomega.HaveLen(len(expected)))
