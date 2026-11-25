@@ -1,5 +1,5 @@
 -- dependsOn: views/027_connections.sql
-CREATE OR REPLACE VIEW artifact_summary AS
+CREATE OR REPLACE VIEW artifact_summary WITH (security_invoker = true) AS
 SELECT
   content_type,
   CASE WHEN a.content IS NOT NULL THEN 'inline' ELSE 'external' END AS storage,

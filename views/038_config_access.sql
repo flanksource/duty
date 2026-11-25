@@ -256,7 +256,7 @@ FROM config_access_summary
 GROUP BY config_access_summary.config_id, config_access_summary.config_name, config_access_summary.config_type;
 
 -- external_group_summary
-CREATE VIEW external_group_summary AS
+CREATE VIEW external_group_summary WITH (security_invoker = true) AS
 SELECT
   external_groups.id,
   external_groups.scraper_id,

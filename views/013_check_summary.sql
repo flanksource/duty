@@ -93,7 +93,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE VIEW check_summary AS
+CREATE OR REPLACE VIEW check_summary WITH (security_invoker = true) AS
   SELECT
     checks.id,
     checks.canary_id,
@@ -187,7 +187,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- check_summary_for_config
-CREATE OR REPLACE VIEW check_summary_for_config AS
+CREATE OR REPLACE VIEW check_summary_for_config WITH (security_invoker = true) AS
 SELECT
   check_config_relationships.config_id,
   check_summary.*

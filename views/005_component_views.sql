@@ -94,7 +94,7 @@ CREATE OR REPLACE VIEW component_labels AS
 
 -- component_labels_keys
 DROP VIEW IF EXISTS component_labels_keys;
-CREATE OR REPLACE VIEW component_labels_keys AS
+CREATE OR REPLACE VIEW component_labels_keys WITH (security_invoker = true) AS
   SELECT DISTINCT 'label:' || jsonb_object_keys(labels) AS "key" FROM components;
 
 DROP VIEW IF EXISTS components_with_logs;

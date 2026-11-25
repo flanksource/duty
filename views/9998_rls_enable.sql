@@ -1,5 +1,4 @@
--- runs: always
--- Runs on every migration so that RLS is enabled even on databases that last migrated with RLS disabled.
+-- dependsOn: views/035_rls_utils.sql, views/051_scope_membership.sql
 
 -- Enable RLS for tables
 DO $$
@@ -476,39 +475,6 @@ CREATE POLICY view_panels_auth ON view_panels
         )
       END
     );
-
-ALTER VIEW analysis_by_config SET (security_invoker = true);
-ALTER VIEW artifact_summary SET (security_invoker = true);
-ALTER VIEW catalog_changes SET (security_invoker = true);
-ALTER VIEW check_summary SET (security_invoker = true);
-ALTER VIEW check_summary_by_config SET (security_invoker = true);
-ALTER VIEW check_summary_for_config SET (security_invoker = true);
-ALTER VIEW checks_by_config SET (security_invoker = true);
-ALTER VIEW checks_labels_keys SET (security_invoker = true);
-ALTER VIEW checks_status_artifacts SET (security_invoker = true);
-ALTER VIEW component_labels_keys SET (security_invoker = true);
-ALTER VIEW config_analysis_analyzers SET (security_invoker = true);
-ALTER VIEW config_analysis_by_severity SET (security_invoker = true);
-ALTER VIEW config_analysis_items SET (security_invoker = true);
-ALTER VIEW config_changes_by_types SET (security_invoker = true);
-ALTER VIEW config_class_summary SET (security_invoker = true);
-ALTER VIEW config_classes SET (security_invoker = true);
-ALTER VIEW config_detail SET (security_invoker = true);
-ALTER VIEW config_labels SET (security_invoker = true);
-ALTER VIEW config_names SET (security_invoker = true);
-ALTER VIEW config_scrapers_with_status SET (security_invoker = true);
-ALTER VIEW config_statuses SET (security_invoker = true);
-ALTER VIEW config_summary SET (security_invoker = true);
-ALTER VIEW config_tags SET (security_invoker = true);
-ALTER VIEW config_tags_labels_keys SET (security_invoker = true);
-ALTER VIEW config_types SET (security_invoker = true);
-ALTER VIEW configs SET (security_invoker = true);
-ALTER VIEW external_group_summary SET (security_invoker = true);
-ALTER VIEW topology SET (security_invoker = true);
-ALTER VIEW incidents_by_config SET (security_invoker = true);
-ALTER VIEW integrations_with_status SET (security_invoker = true);
-ALTER VIEW playbook_names SET (security_invoker = true);
-ALTER VIEW views_summary SET (security_invoker = true);
 
 -- Deny policies: a row a deny grant of the claim matches is hidden whatever the permissive policies admit, including
 -- a check through its canary. They're restrictive, so Postgres ANDs them with the permissive ones. The deny set names

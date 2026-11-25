@@ -27,7 +27,7 @@ CREATE OR REPLACE VIEW incidents_by_component AS
 
 --incidents_by_config
 DROP VIEW IF EXISTS incidents_by_config;
-CREATE OR REPLACE VIEW incidents_by_config AS
+CREATE OR REPLACE VIEW incidents_by_config WITH (security_invoker = true) AS
   SELECT DISTINCT incidents.title, incidents.id, incidents.created_at, incidents."type", incidents.status,  incidents.severity, config_id FROM evidences
   INNER join hypotheses on evidences.hypothesis_id = hypotheses.id
   INNER JOIN incidents on hypotheses.incident_id = incidents.id

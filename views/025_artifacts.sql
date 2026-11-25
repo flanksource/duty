@@ -1,5 +1,5 @@
 CREATE OR REPLACE VIEW
-  checks_status_artifacts AS
+  checks_status_artifacts WITH (security_invoker = true) AS
 SELECT
   check_statuses.check_id,
   check_statuses.status AS check_status,
