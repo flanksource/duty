@@ -1,0 +1,8 @@
+test:
+  # Raised for gavel's sandbox, which has limited resources: 2 CPUs and no Go
+  # module or build cache, so each run first downloads ~460 MB of modules and
+  # compiles everything from scratch. The defaults (5m per linter, 20m for the
+  # whole run) expire before lint and the test suite finish there. timeout stays
+  # under the sandbox job's own 1h limit so gavel still reports its diagnostics.
+  timeout: 45m
+  lintTimeout: 15m
