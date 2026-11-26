@@ -4,6 +4,17 @@
 -- Keep views that depend on configs in this file so these drops also rebuild them.
 DROP VIEW IF EXISTS configs CASCADE;
 
+
+CREATE OR REPLACE FUNCTION config_item_full_path(path TEXT, id UUID)
+RETURNS TEXT AS $$
+BEGIN
+  RETURN CASE
+    WHEN path IS NOT NULL AND path <> '' THEN path || '.' || id::TEXT
+    ELSE id
+  END;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP FUNCTION IF EXISTS related_changes_recursive CASCADE;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
