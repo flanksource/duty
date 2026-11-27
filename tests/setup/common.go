@@ -143,7 +143,7 @@ func SetupDB(dbName string, args ...interface{}) (context.Context, error) {
 		logger.Errorf("Failed to load test properties: %v", err)
 	}
 
-	defer telemetry.InitTracer()
+	telemetry.InitTracer()
 
 	importDummyData := true
 	dbOptions := []duty.StartOption{duty.DisablePostgrest, duty.RunMigrations}

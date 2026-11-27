@@ -58,7 +58,7 @@ func SetupTemplate(opts SetupOpts) []byte {
 		logger.Errorf("Failed to load test properties: %v", err)
 	}
 
-	defer telemetry.InitTracer()
+	telemetry.InitTracer()
 
 	var port int
 	if val, ok := os.LookupEnv(TEST_DB_PORT); ok {
